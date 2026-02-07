@@ -1,0 +1,8 @@
+node_modules
+out
+output
+.vscode
+.idea
+*.log
+arkanalyzer/out
+arkanalyzer/output
