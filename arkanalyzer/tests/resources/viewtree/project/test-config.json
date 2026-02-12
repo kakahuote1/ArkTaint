@@ -1,0 +1,10 @@
+{
+    "targetProjectName": "projectTest",
+    "targetProjectDirectory": "./tests/resources/viewtree/project",
+
+    "logPath": "ArkAnalyzer.log",
+    "logLevel": "INFO",
+    
+    "sdks": [
+    ]
+}

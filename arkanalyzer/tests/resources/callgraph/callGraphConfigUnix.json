@@ -1,0 +1,15 @@
+{
+  "targetProjectName": "project",
+  "targetProjectDirectory": "/Users/yangyizhuo/Library/Containers/com.tencent.xinWeChat/Data/Library/Application Support/com.tencent.xinWeChat/2.0b4.0.9/2d90b04ffafe3e08d6837b3770c62097/Message/MessageTemp/501dbfda0231d40b5ad23736680b160c/File/DirectLeak",
+
+  "logPath": "./out/ArkAnalyzer.log",
+    "logLevel": "INFO",
+    
+    "sdks": [
+        {
+            "name": "etsSdk",
+            "path": "/Users/yangyizhuo/Library/OpenHarmony/Sdk/11/ets",
+            "moduleName": ""
+        }
+    ]
+}

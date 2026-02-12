@@ -4,13 +4,16 @@
         "module": "CommonJS",
         "outDir": "./out",
         "rootDir": "./src",
-        "strict": true,
+        "strict": false,
         "esModuleInterop": true,
         "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true,
         "sourceMap": true,
         "declaration": true,
-        "experimentalDecorators": true
+        "experimentalDecorators": true,
+        "resolveJsonModule": true,
+        "moduleResolution": "node",
+        "allowJs": true
     },
     "include": [
         "src/**/*"

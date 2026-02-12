@@ -1,0 +1,17 @@
+import { taint } from "./taint_mock";
+
+/**
+ * Introduction 非空断言操作�?
+ */
+export function not_null_002_F(taint_src : string) {
+  let _t = taint_src;
+  let a = new A("_");
+  taint.Sink(a!.data);
+}
+class A {
+  data: string;
+
+  constructor(t : string) {
+    this.data = t;
+  }
+}

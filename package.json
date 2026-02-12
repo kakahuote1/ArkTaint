@@ -6,6 +6,9 @@
     "scripts": {
         "build": "tsc",
         "test": "jest",
+        "test:context": "node out/tests/test_context.js",
+        "test:full": "node out/tests/test_full_dataset.js",
+        "verify": "npm run build && npm run test:context && npm run test:full",
         "clean": "rimraf out"
     },
     "author": "",

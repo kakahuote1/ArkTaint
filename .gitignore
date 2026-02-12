@@ -4,5 +4,9 @@ output
 .vscode
 .idea
 *.log
+*.txt
+tmp/
+task.md
+implementation_plan.md
 arkanalyzer/out
 arkanalyzer/output

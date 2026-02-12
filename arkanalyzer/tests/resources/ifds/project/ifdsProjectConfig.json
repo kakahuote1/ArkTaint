@@ -1,0 +1,28 @@
+{
+    "targetProjectName": "ifdsTest",    
+    "targetProjectDirectory": "tests\\resources\\ifds\\project",
+
+    "logPath": "out\\log.txt",
+    
+    "etsSdkPath": "codeLab\\interface_sdk-js-master",
+    "systemSdkPath": "",
+    
+    "otherSdks": [
+        {
+            "name": "",
+            "path": ""
+        },
+        {
+            "name": "sdk2",
+            "path": ""
+        },
+        {
+            "name": "",
+            "path": "/opt/yy"
+        },
+        {
+            "name": "",
+            "path": ""
+        }
+    ]
+}

@@ -1,0 +1,33 @@
+import { taint } from "./taint_mock"
+/**
+ * Introduction 函数重载-构造函�?super
+ * Level 2
+ */
+
+export function constructor_extends_001_T(taint_src : string) {
+
+  let derived = new DerivedClass(taint_src)
+  derived.process()
+}
+class BaseClass {
+  data : string
+  constructor(t : string) {
+    this.data = t
+  }
+
+  getData() {
+    return this.data
+  }
+
+  process() {}
+}
+
+class DerivedClass extends BaseClass {
+  constructor (t : string) {
+    super(t)
+  }
+
+  process () {
+    taint.Sink(this.getData())
+  }
+}

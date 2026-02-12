@@ -1,0 +1,4991 @@
+{
+  "signature": {
+    "projectName": "save",
+    "fileName": "sample.ts"
+  },
+  "namespaces": [],
+  "classes": [
+    {
+      "signature": {
+        "name": "%dflt",
+        "declaringFile": {
+          "projectName": "save",
+          "fileName": "sample.ts"
+        }
+      },
+      "modifiers": 0,
+      "decorators": [],
+      "category": 0,
+      "superClassName": "",
+      "implementedInterfaceNames": [],
+      "fields": [],
+      "methods": [
+        {
+          "signature": {
+            "declaringClass": {
+              "name": "%dflt",
+              "declaringFile": {
+                "projectName": "save",
+                "fileName": "sample.ts"
+              }
+            },
+            "name": "%dflt",
+            "parameters": [],
+            "returnType": {
+              "_": "VoidType"
+            }
+          },
+          "modifiers": 0,
+          "decorators": [],
+          "body": {
+            "locals": [
+              {
+                "name": "this",
+                "type": {
+                  "_": "ClassType",
+                  "signature": {
+                    "name": "%dflt",
+                    "declaringFile": {
+                      "projectName": "save",
+                      "fileName": "sample.ts"
+                    }
+                  }
+                }
+              },
+              {
+                "name": "sum",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "i",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "fileContent",
+                "type": {
+                  "_": "StringType"
+                }
+              }
+            ],
+            "cfg": {
+              "blocks": [
+                {
+                  "id": 0,
+                  "successors": [
+                    1
+                  ],
+                  "predecessors": [],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "this",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "%dflt",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      },
+                      "right": {
+                        "_": "ThisRef",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "%dflt",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "sum",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "Constant",
+                        "value": "0",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "i",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "Constant",
+                        "value": "1",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": 1,
+                  "successors": [
+                    2,
+                    3
+                  ],
+                  "predecessors": [
+                    0,
+                    2
+                  ],
+                  "stmts": [
+                    {
+                      "_": "IfStmt",
+                      "condition": {
+                        "_": "ConditionExpr",
+                        "op": "<=",
+                        "left": {
+                          "_": "Local",
+                          "name": "i",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "right": {
+                          "_": "Constant",
+                          "value": "10",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "type": {
+                          "_": "BooleanType"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": 2,
+                  "successors": [
+                    1
+                  ],
+                  "predecessors": [
+                    1
+                  ],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "sum",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "+",
+                        "left": {
+                          "_": "Local",
+                          "name": "sum",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "right": {
+                          "_": "Local",
+                          "name": "i",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "i",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "+",
+                        "left": {
+                          "_": "Local",
+                          "name": "i",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "right": {
+                          "_": "Constant",
+                          "value": "1",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": 3,
+                  "successors": [],
+                  "predecessors": [
+                    1
+                  ],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "fileContent",
+                        "type": {
+                          "_": "StringType"
+                        }
+                      },
+                      "right": {
+                        "_": "StaticCallExpr",
+                        "method": {
+                          "declaringClass": {
+                            "name": "",
+                            "declaringFile": {
+                              "projectName": "%unk",
+                              "fileName": "%unk"
+                            }
+                          },
+                          "name": "readFileSync",
+                          "parameters": [],
+                          "returnType": {
+                            "_": "UnknownType"
+                          }
+                        },
+                        "args": [
+                          {
+                            "_": "Constant",
+                            "value": "dummy.txt",
+                            "type": {
+                              "_": "StringType"
+                            }
+                          },
+                          {
+                            "_": "Constant",
+                            "value": "utf8",
+                            "type": {
+                              "_": "StringType"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "_": "ReturnVoidStmt"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "signature": {
+            "declaringClass": {
+              "name": "%dflt",
+              "declaringFile": {
+                "projectName": "save",
+                "fileName": "sample.ts"
+              }
+            },
+            "name": "simpleFunction",
+            "parameters": [
+              {
+                "name": "x",
+                "type": {
+                  "_": "NumberType"
+                },
+                "isOptional": false,
+                "isRest": false
+              },
+              {
+                "name": "y",
+                "type": {
+                  "_": "NumberType"
+                },
+                "isOptional": false,
+                "isRest": false
+              }
+            ],
+            "returnType": {
+              "_": "NumberType"
+            }
+          },
+          "modifiers": 0,
+          "decorators": [],
+          "body": {
+            "locals": [
+              {
+                "name": "this",
+                "type": {
+                  "_": "ClassType",
+                  "signature": {
+                    "name": "%dflt",
+                    "declaringFile": {
+                      "projectName": "save",
+                      "fileName": "sample.ts"
+                    }
+                  }
+                }
+              },
+              {
+                "name": "x",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "y",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "sum",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "difference",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "product",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "quotient",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "result",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "%0",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "%1",
+                "type": {
+                  "_": "NumberType"
+                }
+              }
+            ],
+            "cfg": {
+              "blocks": [
+                {
+                  "id": 0,
+                  "successors": [
+                    1,
+                    2
+                  ],
+                  "predecessors": [],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "x",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "ParameterRef",
+                        "index": 0,
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "y",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "ParameterRef",
+                        "index": 1,
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "this",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "%dflt",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      },
+                      "right": {
+                        "_": "ThisRef",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "%dflt",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "sum",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "+",
+                        "left": {
+                          "_": "Local",
+                          "name": "x",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "right": {
+                          "_": "Local",
+                          "name": "y",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "difference",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "-",
+                        "left": {
+                          "_": "Local",
+                          "name": "x",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "right": {
+                          "_": "Local",
+                          "name": "y",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "product",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "*",
+                        "left": {
+                          "_": "Local",
+                          "name": "x",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "right": {
+                          "_": "Local",
+                          "name": "y",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "quotient",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "/",
+                        "left": {
+                          "_": "Local",
+                          "name": "x",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "right": {
+                          "_": "Local",
+                          "name": "y",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "IfStmt",
+                      "condition": {
+                        "_": "ConditionExpr",
+                        "op": ">",
+                        "left": {
+                          "_": "Local",
+                          "name": "sum",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "right": {
+                          "_": "Constant",
+                          "value": "100",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "type": {
+                          "_": "BooleanType"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": 1,
+                  "successors": [
+                    2
+                  ],
+                  "predecessors": [
+                    0
+                  ],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "sum",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "Constant",
+                        "value": "100",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": 2,
+                  "successors": [
+                    3,
+                    4
+                  ],
+                  "predecessors": [
+                    0,
+                    1
+                  ],
+                  "stmts": [
+                    {
+                      "_": "IfStmt",
+                      "condition": {
+                        "_": "ConditionExpr",
+                        "op": "<",
+                        "left": {
+                          "_": "Local",
+                          "name": "difference",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "right": {
+                          "_": "Constant",
+                          "value": "0",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "type": {
+                          "_": "BooleanType"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": 3,
+                  "successors": [
+                    4
+                  ],
+                  "predecessors": [
+                    2
+                  ],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "difference",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "Constant",
+                        "value": "0",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": 4,
+                  "successors": [],
+                  "predecessors": [
+                    2,
+                    3
+                  ],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%0",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "+",
+                        "left": {
+                          "_": "Local",
+                          "name": "sum",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "right": {
+                          "_": "Local",
+                          "name": "difference",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%1",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "+",
+                        "left": {
+                          "_": "Local",
+                          "name": "%0",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "right": {
+                          "_": "Local",
+                          "name": "product",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "result",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "-",
+                        "left": {
+                          "_": "Local",
+                          "name": "%1",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "right": {
+                          "_": "Local",
+                          "name": "quotient",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "ReturnStmt",
+                      "arg": {
+                        "_": "Local",
+                        "name": "result",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "signature": {
+            "declaringClass": {
+              "name": "%dflt",
+              "declaringFile": {
+                "projectName": "save",
+                "fileName": "sample.ts"
+              }
+            },
+            "name": "complexFunction",
+            "parameters": [
+              {
+                "name": "a",
+                "type": {
+                  "_": "NumberType"
+                },
+                "isOptional": false,
+                "isRest": false
+              },
+              {
+                "name": "b",
+                "type": {
+                  "_": "NumberType"
+                },
+                "isOptional": false,
+                "isRest": false
+              },
+              {
+                "name": "flag",
+                "type": {
+                  "_": "BooleanType"
+                },
+                "isOptional": false,
+                "isRest": false
+              }
+            ],
+            "returnType": {
+              "_": "NumberType"
+            }
+          },
+          "modifiers": 0,
+          "decorators": [],
+          "body": {
+            "locals": [
+              {
+                "name": "this",
+                "type": {
+                  "_": "ClassType",
+                  "signature": {
+                    "name": "%dflt",
+                    "declaringFile": {
+                      "projectName": "save",
+                      "fileName": "sample.ts"
+                    }
+                  }
+                }
+              },
+              {
+                "name": "a",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "b",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "flag",
+                "type": {
+                  "_": "BooleanType"
+                }
+              },
+              {
+                "name": "result",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "%0",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "%1",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "%2",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "%3",
+                "type": {
+                  "_": "NumberType"
+                }
+              }
+            ],
+            "cfg": {
+              "blocks": [
+                {
+                  "id": 0,
+                  "successors": [
+                    1,
+                    2
+                  ],
+                  "predecessors": [],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "a",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "ParameterRef",
+                        "index": 0,
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "b",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "ParameterRef",
+                        "index": 1,
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "flag",
+                        "type": {
+                          "_": "BooleanType"
+                        }
+                      },
+                      "right": {
+                        "_": "ParameterRef",
+                        "index": 2,
+                        "type": {
+                          "_": "BooleanType"
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "this",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "%dflt",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      },
+                      "right": {
+                        "_": "ThisRef",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "%dflt",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "result",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "Constant",
+                        "value": "undefined",
+                        "type": {
+                          "_": "UndefinedType"
+                        }
+                      }
+                    },
+                    {
+                      "_": "IfStmt",
+                      "condition": {
+                        "_": "ConditionExpr",
+                        "op": "!=",
+                        "left": {
+                          "_": "Local",
+                          "name": "flag",
+                          "type": {
+                            "_": "BooleanType"
+                          }
+                        },
+                        "right": {
+                          "_": "Constant",
+                          "value": "false",
+                          "type": {
+                            "_": "BooleanType"
+                          }
+                        },
+                        "type": {
+                          "_": "BooleanType"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": 1,
+                  "successors": [
+                    3
+                  ],
+                  "predecessors": [
+                    0
+                  ],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%0",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "*",
+                        "left": {
+                          "_": "Local",
+                          "name": "a",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "right": {
+                          "_": "Local",
+                          "name": "b",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%1",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "-",
+                        "left": {
+                          "_": "Local",
+                          "name": "a",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "right": {
+                          "_": "Local",
+                          "name": "b",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "result",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "+",
+                        "left": {
+                          "_": "Local",
+                          "name": "%0",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "right": {
+                          "_": "Local",
+                          "name": "%1",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": 2,
+                  "successors": [
+                    3
+                  ],
+                  "predecessors": [
+                    0
+                  ],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%2",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "/",
+                        "left": {
+                          "_": "Local",
+                          "name": "a",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "right": {
+                          "_": "Local",
+                          "name": "b",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%3",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "+",
+                        "left": {
+                          "_": "Local",
+                          "name": "a",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "right": {
+                          "_": "Local",
+                          "name": "b",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "result",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "-",
+                        "left": {
+                          "_": "Local",
+                          "name": "%2",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "right": {
+                          "_": "Local",
+                          "name": "%3",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": 3,
+                  "successors": [
+                    4,
+                    5
+                  ],
+                  "predecessors": [
+                    1,
+                    2
+                  ],
+                  "stmts": [
+                    {
+                      "_": "IfStmt",
+                      "condition": {
+                        "_": "ConditionExpr",
+                        "op": ">",
+                        "left": {
+                          "_": "Local",
+                          "name": "result",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "right": {
+                          "_": "Constant",
+                          "value": "100",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "type": {
+                          "_": "BooleanType"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": 4,
+                  "successors": [
+                    7
+                  ],
+                  "predecessors": [
+                    3
+                  ],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "result",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "Constant",
+                        "value": "100",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": 5,
+                  "successors": [
+                    6,
+                    7
+                  ],
+                  "predecessors": [
+                    3
+                  ],
+                  "stmts": [
+                    {
+                      "_": "IfStmt",
+                      "condition": {
+                        "_": "ConditionExpr",
+                        "op": "<",
+                        "left": {
+                          "_": "Local",
+                          "name": "result",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "right": {
+                          "_": "Constant",
+                          "value": "0",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "type": {
+                          "_": "BooleanType"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": 6,
+                  "successors": [
+                    7
+                  ],
+                  "predecessors": [
+                    5
+                  ],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "result",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "Constant",
+                        "value": "0",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": 7,
+                  "successors": [],
+                  "predecessors": [
+                    4,
+                    5,
+                    6
+                  ],
+                  "stmts": [
+                    {
+                      "_": "ReturnStmt",
+                      "arg": {
+                        "_": "Local",
+                        "name": "result",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "signature": {
+            "declaringClass": {
+              "name": "%dflt",
+              "declaringFile": {
+                "projectName": "save",
+                "fileName": "sample.ts"
+              }
+            },
+            "name": "processInput",
+            "parameters": [
+              {
+                "name": "input",
+                "type": {
+                  "_": "UnionType",
+                  "types": [
+                    {
+                      "_": "StringType"
+                    },
+                    {
+                      "_": "NumberType"
+                    }
+                  ]
+                },
+                "isOptional": false,
+                "isRest": false
+              }
+            ],
+            "returnType": {
+              "_": "StringType"
+            }
+          },
+          "modifiers": 0,
+          "decorators": [],
+          "body": {
+            "locals": [
+              {
+                "name": "this",
+                "type": {
+                  "_": "ClassType",
+                  "signature": {
+                    "name": "%dflt",
+                    "declaringFile": {
+                      "projectName": "save",
+                      "fileName": "sample.ts"
+                    }
+                  }
+                }
+              },
+              {
+                "name": "input",
+                "type": {
+                  "_": "UnionType",
+                  "types": [
+                    {
+                      "_": "StringType"
+                    },
+                    {
+                      "_": "NumberType"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "%0",
+                "type": {
+                  "_": "StringType"
+                }
+              },
+              {
+                "name": "%1",
+                "type": {
+                  "_": "StringType"
+                }
+              },
+              {
+                "name": "%2",
+                "type": {
+                  "_": "StringType"
+                }
+              },
+              {
+                "name": "%3",
+                "type": {
+                  "_": "StringType"
+                }
+              }
+            ],
+            "cfg": {
+              "blocks": [
+                {
+                  "id": 0,
+                  "successors": [
+                    1,
+                    2
+                  ],
+                  "predecessors": [],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "input",
+                        "type": {
+                          "_": "UnionType",
+                          "types": [
+                            {
+                              "_": "StringType"
+                            },
+                            {
+                              "_": "NumberType"
+                            }
+                          ]
+                        }
+                      },
+                      "right": {
+                        "_": "ParameterRef",
+                        "index": 0,
+                        "type": {
+                          "_": "UnionType",
+                          "types": [
+                            {
+                              "_": "StringType"
+                            },
+                            {
+                              "_": "NumberType"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "this",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "%dflt",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      },
+                      "right": {
+                        "_": "ThisRef",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "%dflt",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "IfStmt",
+                      "condition": {
+                        "_": "ConditionExpr",
+                        "op": "===",
+                        "left": {
+                          "_": "TypeOfExpr",
+                          "arg": {
+                            "_": "Local",
+                            "name": "input",
+                            "type": {
+                              "_": "UnionType",
+                              "types": [
+                                {
+                                  "_": "StringType"
+                                },
+                                {
+                                  "_": "NumberType"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "right": {
+                          "_": "Constant",
+                          "value": "string",
+                          "type": {
+                            "_": "StringType"
+                          }
+                        },
+                        "type": {
+                          "_": "BooleanType"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": 1,
+                  "successors": [],
+                  "predecessors": [
+                    0
+                  ],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%0",
+                        "type": {
+                          "_": "StringType"
+                        }
+                      },
+                      "right": {
+                        "_": "InstanceCallExpr",
+                        "instance": {
+                          "_": "Local",
+                          "name": "input",
+                          "type": {
+                            "_": "UnionType",
+                            "types": [
+                              {
+                                "_": "StringType"
+                              },
+                              {
+                                "_": "NumberType"
+                              }
+                            ]
+                          }
+                        },
+                        "method": {
+                          "declaringClass": {
+                            "name": "String",
+                            "declaringFile": {
+                              "projectName": "built-in",
+                              "fileName": "lib.es5.d.ts"
+                            }
+                          },
+                          "name": "toString",
+                          "parameters": [],
+                          "returnType": {
+                            "_": "StringType"
+                          }
+                        },
+                        "args": []
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%1",
+                        "type": {
+                          "_": "StringType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "+",
+                        "left": {
+                          "_": "Constant",
+                          "value": "String input: ",
+                          "type": {
+                            "_": "StringType"
+                          }
+                        },
+                        "right": {
+                          "_": "Local",
+                          "name": "%0",
+                          "type": {
+                            "_": "StringType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "ReturnStmt",
+                      "arg": {
+                        "_": "Local",
+                        "name": "%1",
+                        "type": {
+                          "_": "StringType"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": 2,
+                  "successors": [
+                    3,
+                    4
+                  ],
+                  "predecessors": [
+                    0
+                  ],
+                  "stmts": [
+                    {
+                      "_": "IfStmt",
+                      "condition": {
+                        "_": "ConditionExpr",
+                        "op": "===",
+                        "left": {
+                          "_": "TypeOfExpr",
+                          "arg": {
+                            "_": "Local",
+                            "name": "input",
+                            "type": {
+                              "_": "UnionType",
+                              "types": [
+                                {
+                                  "_": "StringType"
+                                },
+                                {
+                                  "_": "NumberType"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "right": {
+                          "_": "Constant",
+                          "value": "number",
+                          "type": {
+                            "_": "StringType"
+                          }
+                        },
+                        "type": {
+                          "_": "BooleanType"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": 3,
+                  "successors": [],
+                  "predecessors": [
+                    2
+                  ],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%2",
+                        "type": {
+                          "_": "StringType"
+                        }
+                      },
+                      "right": {
+                        "_": "InstanceCallExpr",
+                        "instance": {
+                          "_": "Local",
+                          "name": "input",
+                          "type": {
+                            "_": "UnionType",
+                            "types": [
+                              {
+                                "_": "StringType"
+                              },
+                              {
+                                "_": "NumberType"
+                              }
+                            ]
+                          }
+                        },
+                        "method": {
+                          "declaringClass": {
+                            "name": "String",
+                            "declaringFile": {
+                              "projectName": "built-in",
+                              "fileName": "lib.es5.d.ts"
+                            }
+                          },
+                          "name": "toString",
+                          "parameters": [],
+                          "returnType": {
+                            "_": "StringType"
+                          }
+                        },
+                        "args": []
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%3",
+                        "type": {
+                          "_": "StringType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "+",
+                        "left": {
+                          "_": "Constant",
+                          "value": "Number input: ",
+                          "type": {
+                            "_": "StringType"
+                          }
+                        },
+                        "right": {
+                          "_": "Local",
+                          "name": "%2",
+                          "type": {
+                            "_": "StringType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "ReturnStmt",
+                      "arg": {
+                        "_": "Local",
+                        "name": "%3",
+                        "type": {
+                          "_": "StringType"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": 4,
+                  "successors": [],
+                  "predecessors": [
+                    2
+                  ],
+                  "stmts": [
+                    {
+                      "_": "ReturnStmt",
+                      "arg": {
+                        "_": "Constant",
+                        "value": "Unknown input",
+                        "type": {
+                          "_": "StringType"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "signature": {
+        "name": "Person",
+        "declaringFile": {
+          "projectName": "save",
+          "fileName": "sample.ts"
+        }
+      },
+      "modifiers": 0,
+      "decorators": [],
+      "category": 2,
+      "superClassName": "",
+      "implementedInterfaceNames": [],
+      "fields": [
+        {
+          "signature": {
+            "declaringClass": {
+              "name": "Person",
+              "declaringFile": {
+                "projectName": "save",
+                "fileName": "sample.ts"
+              }
+            },
+            "name": "name",
+            "type": {
+              "_": "StringType"
+            }
+          },
+          "modifiers": 0,
+          "decorators": [],
+          "questionToken": false,
+          "exclamationToken": false
+        },
+        {
+          "signature": {
+            "declaringClass": {
+              "name": "Person",
+              "declaringFile": {
+                "projectName": "save",
+                "fileName": "sample.ts"
+              }
+            },
+            "name": "age",
+            "type": {
+              "_": "NumberType"
+            }
+          },
+          "modifiers": 0,
+          "decorators": [],
+          "questionToken": false,
+          "exclamationToken": false
+        }
+      ],
+      "methods": [
+        {
+          "signature": {
+            "declaringClass": {
+              "name": "Person",
+              "declaringFile": {
+                "projectName": "save",
+                "fileName": "sample.ts"
+              }
+            },
+            "name": "greet",
+            "parameters": [],
+            "returnType": {
+              "_": "StringType"
+            }
+          },
+          "modifiers": 0,
+          "decorators": []
+        }
+      ]
+    },
+    {
+      "signature": {
+        "name": "Student",
+        "declaringFile": {
+          "projectName": "save",
+          "fileName": "sample.ts"
+        }
+      },
+      "modifiers": 0,
+      "decorators": [],
+      "category": 0,
+      "superClassName": "",
+      "implementedInterfaceNames": [
+        "Person"
+      ],
+      "fields": [
+        {
+          "signature": {
+            "declaringClass": {
+              "name": "Student",
+              "declaringFile": {
+                "projectName": "save",
+                "fileName": "sample.ts"
+              }
+            },
+            "name": "name",
+            "type": {
+              "_": "StringType"
+            }
+          },
+          "modifiers": 0,
+          "decorators": [],
+          "questionToken": false,
+          "exclamationToken": false
+        },
+        {
+          "signature": {
+            "declaringClass": {
+              "name": "Student",
+              "declaringFile": {
+                "projectName": "save",
+                "fileName": "sample.ts"
+              }
+            },
+            "name": "age",
+            "type": {
+              "_": "NumberType"
+            }
+          },
+          "modifiers": 0,
+          "decorators": [],
+          "questionToken": false,
+          "exclamationToken": false
+        },
+        {
+          "signature": {
+            "declaringClass": {
+              "name": "Student",
+              "declaringFile": {
+                "projectName": "save",
+                "fileName": "sample.ts"
+              }
+            },
+            "name": "grade",
+            "type": {
+              "_": "NumberType"
+            }
+          },
+          "modifiers": 0,
+          "decorators": [],
+          "questionToken": false,
+          "exclamationToken": false
+        }
+      ],
+      "methods": [
+        {
+          "signature": {
+            "declaringClass": {
+              "name": "Student",
+              "declaringFile": {
+                "projectName": "save",
+                "fileName": "sample.ts"
+              }
+            },
+            "name": "%instInit",
+            "parameters": [],
+            "returnType": {
+              "_": "VoidType"
+            }
+          },
+          "modifiers": 0,
+          "decorators": [],
+          "body": {
+            "locals": [
+              {
+                "name": "this",
+                "type": {
+                  "_": "ClassType",
+                  "signature": {
+                    "name": "Student",
+                    "declaringFile": {
+                      "projectName": "save",
+                      "fileName": "sample.ts"
+                    }
+                  }
+                }
+              }
+            ],
+            "cfg": {
+              "blocks": [
+                {
+                  "id": 0,
+                  "successors": [],
+                  "predecessors": [],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "this",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Student",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      },
+                      "right": {
+                        "_": "ThisRef",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Student",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "ReturnVoidStmt"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "signature": {
+            "declaringClass": {
+              "name": "Student",
+              "declaringFile": {
+                "projectName": "save",
+                "fileName": "sample.ts"
+              }
+            },
+            "name": "constructor",
+            "parameters": [
+              {
+                "name": "name",
+                "type": {
+                  "_": "StringType"
+                },
+                "isOptional": false,
+                "isRest": false
+              },
+              {
+                "name": "age",
+                "type": {
+                  "_": "NumberType"
+                },
+                "isOptional": false,
+                "isRest": false
+              },
+              {
+                "name": "grade",
+                "type": {
+                  "_": "NumberType"
+                },
+                "isOptional": true,
+                "isRest": false
+              }
+            ],
+            "returnType": {
+              "_": "ClassType",
+              "signature": {
+                "name": "Student",
+                "declaringFile": {
+                  "projectName": "save",
+                  "fileName": "sample.ts"
+                }
+              }
+            }
+          },
+          "modifiers": 0,
+          "decorators": [],
+          "body": {
+            "locals": [
+              {
+                "name": "this",
+                "type": {
+                  "_": "ClassType",
+                  "signature": {
+                    "name": "Student",
+                    "declaringFile": {
+                      "projectName": "save",
+                      "fileName": "sample.ts"
+                    }
+                  }
+                }
+              },
+              {
+                "name": "name",
+                "type": {
+                  "_": "StringType"
+                }
+              },
+              {
+                "name": "age",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "grade",
+                "type": {
+                  "_": "NumberType"
+                }
+              }
+            ],
+            "cfg": {
+              "blocks": [
+                {
+                  "id": 0,
+                  "successors": [
+                    1,
+                    2
+                  ],
+                  "predecessors": [],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "name",
+                        "type": {
+                          "_": "StringType"
+                        }
+                      },
+                      "right": {
+                        "_": "ParameterRef",
+                        "index": 0,
+                        "type": {
+                          "_": "StringType"
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "age",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "ParameterRef",
+                        "index": 1,
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "grade",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "ParameterRef",
+                        "index": 2,
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "this",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Student",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      },
+                      "right": {
+                        "_": "ThisRef",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Student",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "CallStmt",
+                      "expr": {
+                        "_": "InstanceCallExpr",
+                        "instance": {
+                          "_": "Local",
+                          "name": "this",
+                          "type": {
+                            "_": "ClassType",
+                            "signature": {
+                              "name": "Student",
+                              "declaringFile": {
+                                "projectName": "save",
+                                "fileName": "sample.ts"
+                              }
+                            }
+                          }
+                        },
+                        "method": {
+                          "declaringClass": {
+                            "name": "Student",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          },
+                          "name": "%instInit",
+                          "parameters": [],
+                          "returnType": {
+                            "_": "VoidType"
+                          }
+                        },
+                        "args": []
+                      }
+                    },
+                    {
+                      "_": "IfStmt",
+                      "condition": {
+                        "_": "ConditionExpr",
+                        "op": "==",
+                        "left": {
+                          "_": "Local",
+                          "name": "grade",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "right": {
+                          "_": "Constant",
+                          "value": "undefined",
+                          "type": {
+                            "_": "UndefinedType"
+                          }
+                        },
+                        "type": {
+                          "_": "BooleanType"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": 1,
+                  "successors": [
+                    2
+                  ],
+                  "predecessors": [
+                    0
+                  ],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "grade",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "Constant",
+                        "value": "1",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": 2,
+                  "successors": [],
+                  "predecessors": [
+                    1,
+                    0
+                  ],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "InstanceFieldRef",
+                        "instance": {
+                          "_": "Local",
+                          "name": "this",
+                          "type": {
+                            "_": "ClassType",
+                            "signature": {
+                              "name": "Student",
+                              "declaringFile": {
+                                "projectName": "save",
+                                "fileName": "sample.ts"
+                              }
+                            }
+                          }
+                        },
+                        "field": {
+                          "declaringClass": {
+                            "name": "Student",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          },
+                          "name": "name",
+                          "type": {
+                            "_": "StringType"
+                          }
+                        }
+                      },
+                      "right": {
+                        "_": "Local",
+                        "name": "name",
+                        "type": {
+                          "_": "StringType"
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "InstanceFieldRef",
+                        "instance": {
+                          "_": "Local",
+                          "name": "this",
+                          "type": {
+                            "_": "ClassType",
+                            "signature": {
+                              "name": "Student",
+                              "declaringFile": {
+                                "projectName": "save",
+                                "fileName": "sample.ts"
+                              }
+                            }
+                          }
+                        },
+                        "field": {
+                          "declaringClass": {
+                            "name": "Student",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          },
+                          "name": "age",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      },
+                      "right": {
+                        "_": "Local",
+                        "name": "age",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "InstanceFieldRef",
+                        "instance": {
+                          "_": "Local",
+                          "name": "this",
+                          "type": {
+                            "_": "ClassType",
+                            "signature": {
+                              "name": "Student",
+                              "declaringFile": {
+                                "projectName": "save",
+                                "fileName": "sample.ts"
+                              }
+                            }
+                          }
+                        },
+                        "field": {
+                          "declaringClass": {
+                            "name": "Student",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          },
+                          "name": "grade",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      },
+                      "right": {
+                        "_": "Local",
+                        "name": "grade",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      }
+                    },
+                    {
+                      "_": "ReturnStmt",
+                      "arg": {
+                        "_": "Local",
+                        "name": "this",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Student",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "signature": {
+            "declaringClass": {
+              "name": "Student",
+              "declaringFile": {
+                "projectName": "save",
+                "fileName": "sample.ts"
+              }
+            },
+            "name": "greet",
+            "parameters": [],
+            "returnType": {
+              "_": "StringType"
+            }
+          },
+          "modifiers": 0,
+          "decorators": [],
+          "body": {
+            "locals": [
+              {
+                "name": "this",
+                "type": {
+                  "_": "ClassType",
+                  "signature": {
+                    "name": "Student",
+                    "declaringFile": {
+                      "projectName": "save",
+                      "fileName": "sample.ts"
+                    }
+                  }
+                }
+              },
+              {
+                "name": "%0",
+                "type": {
+                  "_": "StringType"
+                }
+              },
+              {
+                "name": "%1",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "%2",
+                "type": {
+                  "_": "StringType"
+                }
+              },
+              {
+                "name": "%3",
+                "type": {
+                  "_": "StringType"
+                }
+              },
+              {
+                "name": "%4",
+                "type": {
+                  "_": "StringType"
+                }
+              },
+              {
+                "name": "%5",
+                "type": {
+                  "_": "StringType"
+                }
+              },
+              {
+                "name": "%6",
+                "type": {
+                  "_": "StringType"
+                }
+              },
+              {
+                "name": "%7",
+                "type": {
+                  "_": "StringType"
+                }
+              }
+            ],
+            "cfg": {
+              "blocks": [
+                {
+                  "id": 0,
+                  "successors": [],
+                  "predecessors": [],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "this",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Student",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      },
+                      "right": {
+                        "_": "ThisRef",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Student",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%0",
+                        "type": {
+                          "_": "StringType"
+                        }
+                      },
+                      "right": {
+                        "_": "InstanceFieldRef",
+                        "instance": {
+                          "_": "Local",
+                          "name": "this",
+                          "type": {
+                            "_": "ClassType",
+                            "signature": {
+                              "name": "Student",
+                              "declaringFile": {
+                                "projectName": "save",
+                                "fileName": "sample.ts"
+                              }
+                            }
+                          }
+                        },
+                        "field": {
+                          "declaringClass": {
+                            "name": "Student",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          },
+                          "name": "name",
+                          "type": {
+                            "_": "StringType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%1",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "InstanceFieldRef",
+                        "instance": {
+                          "_": "Local",
+                          "name": "this",
+                          "type": {
+                            "_": "ClassType",
+                            "signature": {
+                              "name": "Student",
+                              "declaringFile": {
+                                "projectName": "save",
+                                "fileName": "sample.ts"
+                              }
+                            }
+                          }
+                        },
+                        "field": {
+                          "declaringClass": {
+                            "name": "Student",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          },
+                          "name": "age",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%2",
+                        "type": {
+                          "_": "StringType"
+                        }
+                      },
+                      "right": {
+                        "_": "InstanceCallExpr",
+                        "instance": {
+                          "_": "Local",
+                          "name": "%0",
+                          "type": {
+                            "_": "StringType"
+                          }
+                        },
+                        "method": {
+                          "declaringClass": {
+                            "name": "String",
+                            "declaringFile": {
+                              "projectName": "built-in",
+                              "fileName": "lib.es5.d.ts"
+                            }
+                          },
+                          "name": "toString",
+                          "parameters": [],
+                          "returnType": {
+                            "_": "StringType"
+                          }
+                        },
+                        "args": []
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%3",
+                        "type": {
+                          "_": "StringType"
+                        }
+                      },
+                      "right": {
+                        "_": "InstanceCallExpr",
+                        "instance": {
+                          "_": "Local",
+                          "name": "%1",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "method": {
+                          "declaringClass": {
+                            "name": "Number",
+                            "declaringFile": {
+                              "projectName": "built-in",
+                              "fileName": "lib.es5.d.ts"
+                            }
+                          },
+                          "name": "toString",
+                          "parameters": [
+                            {
+                              "name": "radix",
+                              "type": {
+                                "_": "NumberType"
+                              },
+                              "isOptional": true,
+                              "isRest": false
+                            }
+                          ],
+                          "returnType": {
+                            "_": "StringType"
+                          }
+                        },
+                        "args": []
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%4",
+                        "type": {
+                          "_": "StringType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "+",
+                        "left": {
+                          "_": "Constant",
+                          "value": "Hello, my name is ",
+                          "type": {
+                            "_": "StringType"
+                          }
+                        },
+                        "right": {
+                          "_": "Local",
+                          "name": "%2",
+                          "type": {
+                            "_": "StringType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%5",
+                        "type": {
+                          "_": "StringType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "+",
+                        "left": {
+                          "_": "Local",
+                          "name": "%4",
+                          "type": {
+                            "_": "StringType"
+                          }
+                        },
+                        "right": {
+                          "_": "Constant",
+                          "value": " and I am ",
+                          "type": {
+                            "_": "StringType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%6",
+                        "type": {
+                          "_": "StringType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "+",
+                        "left": {
+                          "_": "Local",
+                          "name": "%5",
+                          "type": {
+                            "_": "StringType"
+                          }
+                        },
+                        "right": {
+                          "_": "Local",
+                          "name": "%3",
+                          "type": {
+                            "_": "StringType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%7",
+                        "type": {
+                          "_": "StringType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "+",
+                        "left": {
+                          "_": "Local",
+                          "name": "%6",
+                          "type": {
+                            "_": "StringType"
+                          }
+                        },
+                        "right": {
+                          "_": "Constant",
+                          "value": " years old.",
+                          "type": {
+                            "_": "StringType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "ReturnStmt",
+                      "arg": {
+                        "_": "Local",
+                        "name": "%7",
+                        "type": {
+                          "_": "StringType"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "signature": {
+            "declaringClass": {
+              "name": "Student",
+              "declaringFile": {
+                "projectName": "save",
+                "fileName": "sample.ts"
+              }
+            },
+            "name": "calculateGraduationYear",
+            "parameters": [
+              {
+                "name": "currentYear",
+                "type": {
+                  "_": "NumberType"
+                },
+                "isOptional": false,
+                "isRest": false
+              }
+            ],
+            "returnType": {
+              "_": "NumberType"
+            }
+          },
+          "modifiers": 0,
+          "decorators": [],
+          "body": {
+            "locals": [
+              {
+                "name": "this",
+                "type": {
+                  "_": "ClassType",
+                  "signature": {
+                    "name": "Student",
+                    "declaringFile": {
+                      "projectName": "save",
+                      "fileName": "sample.ts"
+                    }
+                  }
+                }
+              },
+              {
+                "name": "currentYear",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "yearsLeft",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "%0",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "%1",
+                "type": {
+                  "_": "NumberType"
+                }
+              }
+            ],
+            "cfg": {
+              "blocks": [
+                {
+                  "id": 0,
+                  "successors": [],
+                  "predecessors": [],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "currentYear",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "ParameterRef",
+                        "index": 0,
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "this",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Student",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      },
+                      "right": {
+                        "_": "ThisRef",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Student",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%0",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "InstanceFieldRef",
+                        "instance": {
+                          "_": "Local",
+                          "name": "this",
+                          "type": {
+                            "_": "ClassType",
+                            "signature": {
+                              "name": "Student",
+                              "declaringFile": {
+                                "projectName": "save",
+                                "fileName": "sample.ts"
+                              }
+                            }
+                          }
+                        },
+                        "field": {
+                          "declaringClass": {
+                            "name": "Student",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          },
+                          "name": "grade",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "yearsLeft",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "-",
+                        "left": {
+                          "_": "Constant",
+                          "value": "12",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "right": {
+                          "_": "Local",
+                          "name": "%0",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%1",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "+",
+                        "left": {
+                          "_": "Local",
+                          "name": "currentYear",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "right": {
+                          "_": "Local",
+                          "name": "yearsLeft",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "ReturnStmt",
+                      "arg": {
+                        "_": "Local",
+                        "name": "%1",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "signature": {
+            "declaringClass": {
+              "name": "Student",
+              "declaringFile": {
+                "projectName": "save",
+                "fileName": "sample.ts"
+              }
+            },
+            "name": "%statInit",
+            "parameters": [],
+            "returnType": {
+              "_": "VoidType"
+            }
+          },
+          "modifiers": 16,
+          "decorators": [],
+          "body": {
+            "locals": [
+              {
+                "name": "this",
+                "type": {
+                  "_": "ClassType",
+                  "signature": {
+                    "name": "Student",
+                    "declaringFile": {
+                      "projectName": "save",
+                      "fileName": "sample.ts"
+                    }
+                  }
+                }
+              }
+            ],
+            "cfg": {
+              "blocks": [
+                {
+                  "id": 0,
+                  "successors": [],
+                  "predecessors": [],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "this",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Student",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      },
+                      "right": {
+                        "_": "ThisRef",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Student",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "ReturnVoidStmt"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "signature": {
+        "name": "Shape",
+        "declaringFile": {
+          "projectName": "save",
+          "fileName": "sample.ts"
+        }
+      },
+      "modifiers": 32,
+      "decorators": [],
+      "category": 0,
+      "superClassName": "",
+      "implementedInterfaceNames": [],
+      "fields": [],
+      "methods": [
+        {
+          "signature": {
+            "declaringClass": {
+              "name": "Shape",
+              "declaringFile": {
+                "projectName": "save",
+                "fileName": "sample.ts"
+              }
+            },
+            "name": "%instInit",
+            "parameters": [],
+            "returnType": {
+              "_": "VoidType"
+            }
+          },
+          "modifiers": 0,
+          "decorators": [],
+          "body": {
+            "locals": [
+              {
+                "name": "this",
+                "type": {
+                  "_": "ClassType",
+                  "signature": {
+                    "name": "Shape",
+                    "declaringFile": {
+                      "projectName": "save",
+                      "fileName": "sample.ts"
+                    }
+                  }
+                }
+              }
+            ],
+            "cfg": {
+              "blocks": [
+                {
+                  "id": 0,
+                  "successors": [],
+                  "predecessors": [],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "this",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Shape",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      },
+                      "right": {
+                        "_": "ThisRef",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Shape",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "ReturnVoidStmt"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "signature": {
+            "declaringClass": {
+              "name": "Shape",
+              "declaringFile": {
+                "projectName": "save",
+                "fileName": "sample.ts"
+              }
+            },
+            "name": "area",
+            "parameters": [],
+            "returnType": {
+              "_": "NumberType"
+            }
+          },
+          "modifiers": 32,
+          "decorators": []
+        },
+        {
+          "signature": {
+            "declaringClass": {
+              "name": "Shape",
+              "declaringFile": {
+                "projectName": "save",
+                "fileName": "sample.ts"
+              }
+            },
+            "name": "perimeter",
+            "parameters": [],
+            "returnType": {
+              "_": "NumberType"
+            }
+          },
+          "modifiers": 32,
+          "decorators": []
+        },
+        {
+          "signature": {
+            "declaringClass": {
+              "name": "Shape",
+              "declaringFile": {
+                "projectName": "save",
+                "fileName": "sample.ts"
+              }
+            },
+            "name": "description",
+            "parameters": [],
+            "returnType": {
+              "_": "StringType"
+            }
+          },
+          "modifiers": 0,
+          "decorators": [],
+          "body": {
+            "locals": [
+              {
+                "name": "this",
+                "type": {
+                  "_": "ClassType",
+                  "signature": {
+                    "name": "Shape",
+                    "declaringFile": {
+                      "projectName": "save",
+                      "fileName": "sample.ts"
+                    }
+                  }
+                }
+              },
+              {
+                "name": "%0",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "%1",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "%2",
+                "type": {
+                  "_": "StringType"
+                }
+              },
+              {
+                "name": "%3",
+                "type": {
+                  "_": "StringType"
+                }
+              },
+              {
+                "name": "%4",
+                "type": {
+                  "_": "StringType"
+                }
+              },
+              {
+                "name": "%5",
+                "type": {
+                  "_": "StringType"
+                }
+              },
+              {
+                "name": "%6",
+                "type": {
+                  "_": "StringType"
+                }
+              }
+            ],
+            "cfg": {
+              "blocks": [
+                {
+                  "id": 0,
+                  "successors": [],
+                  "predecessors": [],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "this",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Shape",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      },
+                      "right": {
+                        "_": "ThisRef",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Shape",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%0",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "InstanceCallExpr",
+                        "instance": {
+                          "_": "Local",
+                          "name": "this",
+                          "type": {
+                            "_": "ClassType",
+                            "signature": {
+                              "name": "Shape",
+                              "declaringFile": {
+                                "projectName": "save",
+                                "fileName": "sample.ts"
+                              }
+                            }
+                          }
+                        },
+                        "method": {
+                          "declaringClass": {
+                            "name": "Shape",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          },
+                          "name": "area",
+                          "parameters": [],
+                          "returnType": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "args": []
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%1",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "InstanceCallExpr",
+                        "instance": {
+                          "_": "Local",
+                          "name": "this",
+                          "type": {
+                            "_": "ClassType",
+                            "signature": {
+                              "name": "Shape",
+                              "declaringFile": {
+                                "projectName": "save",
+                                "fileName": "sample.ts"
+                              }
+                            }
+                          }
+                        },
+                        "method": {
+                          "declaringClass": {
+                            "name": "Shape",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          },
+                          "name": "perimeter",
+                          "parameters": [],
+                          "returnType": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "args": []
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%2",
+                        "type": {
+                          "_": "StringType"
+                        }
+                      },
+                      "right": {
+                        "_": "InstanceCallExpr",
+                        "instance": {
+                          "_": "Local",
+                          "name": "%0",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "method": {
+                          "declaringClass": {
+                            "name": "Number",
+                            "declaringFile": {
+                              "projectName": "built-in",
+                              "fileName": "lib.es5.d.ts"
+                            }
+                          },
+                          "name": "toString",
+                          "parameters": [
+                            {
+                              "name": "radix",
+                              "type": {
+                                "_": "NumberType"
+                              },
+                              "isOptional": true,
+                              "isRest": false
+                            }
+                          ],
+                          "returnType": {
+                            "_": "StringType"
+                          }
+                        },
+                        "args": []
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%3",
+                        "type": {
+                          "_": "StringType"
+                        }
+                      },
+                      "right": {
+                        "_": "InstanceCallExpr",
+                        "instance": {
+                          "_": "Local",
+                          "name": "%1",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "method": {
+                          "declaringClass": {
+                            "name": "Number",
+                            "declaringFile": {
+                              "projectName": "built-in",
+                              "fileName": "lib.es5.d.ts"
+                            }
+                          },
+                          "name": "toString",
+                          "parameters": [
+                            {
+                              "name": "radix",
+                              "type": {
+                                "_": "NumberType"
+                              },
+                              "isOptional": true,
+                              "isRest": false
+                            }
+                          ],
+                          "returnType": {
+                            "_": "StringType"
+                          }
+                        },
+                        "args": []
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%4",
+                        "type": {
+                          "_": "StringType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "+",
+                        "left": {
+                          "_": "Constant",
+                          "value": "Area: ",
+                          "type": {
+                            "_": "StringType"
+                          }
+                        },
+                        "right": {
+                          "_": "Local",
+                          "name": "%2",
+                          "type": {
+                            "_": "StringType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%5",
+                        "type": {
+                          "_": "StringType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "+",
+                        "left": {
+                          "_": "Local",
+                          "name": "%4",
+                          "type": {
+                            "_": "StringType"
+                          }
+                        },
+                        "right": {
+                          "_": "Constant",
+                          "value": ", Perimeter: ",
+                          "type": {
+                            "_": "StringType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%6",
+                        "type": {
+                          "_": "StringType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "+",
+                        "left": {
+                          "_": "Local",
+                          "name": "%5",
+                          "type": {
+                            "_": "StringType"
+                          }
+                        },
+                        "right": {
+                          "_": "Local",
+                          "name": "%3",
+                          "type": {
+                            "_": "StringType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "ReturnStmt",
+                      "arg": {
+                        "_": "Local",
+                        "name": "%6",
+                        "type": {
+                          "_": "StringType"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "signature": {
+            "declaringClass": {
+              "name": "Shape",
+              "declaringFile": {
+                "projectName": "save",
+                "fileName": "sample.ts"
+              }
+            },
+            "name": "constructor",
+            "parameters": [],
+            "returnType": {
+              "_": "ClassType",
+              "signature": {
+                "name": "Shape",
+                "declaringFile": {
+                  "projectName": "save",
+                  "fileName": "sample.ts"
+                }
+              }
+            }
+          },
+          "modifiers": 0,
+          "decorators": [],
+          "body": {
+            "locals": [
+              {
+                "name": "this",
+                "type": {
+                  "_": "ClassType",
+                  "signature": {
+                    "name": "Shape",
+                    "declaringFile": {
+                      "projectName": "save",
+                      "fileName": "sample.ts"
+                    }
+                  }
+                }
+              }
+            ],
+            "cfg": {
+              "blocks": [
+                {
+                  "id": 0,
+                  "successors": [],
+                  "predecessors": [],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "this",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Shape",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      },
+                      "right": {
+                        "_": "ThisRef",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Shape",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "CallStmt",
+                      "expr": {
+                        "_": "InstanceCallExpr",
+                        "instance": {
+                          "_": "Local",
+                          "name": "this",
+                          "type": {
+                            "_": "ClassType",
+                            "signature": {
+                              "name": "Shape",
+                              "declaringFile": {
+                                "projectName": "save",
+                                "fileName": "sample.ts"
+                              }
+                            }
+                          }
+                        },
+                        "method": {
+                          "declaringClass": {
+                            "name": "Shape",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          },
+                          "name": "%instInit",
+                          "parameters": [],
+                          "returnType": {
+                            "_": "VoidType"
+                          }
+                        },
+                        "args": []
+                      }
+                    },
+                    {
+                      "_": "ReturnStmt",
+                      "arg": {
+                        "_": "Local",
+                        "name": "this",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Shape",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "signature": {
+            "declaringClass": {
+              "name": "Shape",
+              "declaringFile": {
+                "projectName": "save",
+                "fileName": "sample.ts"
+              }
+            },
+            "name": "%statInit",
+            "parameters": [],
+            "returnType": {
+              "_": "VoidType"
+            }
+          },
+          "modifiers": 16,
+          "decorators": [],
+          "body": {
+            "locals": [
+              {
+                "name": "this",
+                "type": {
+                  "_": "ClassType",
+                  "signature": {
+                    "name": "Shape",
+                    "declaringFile": {
+                      "projectName": "save",
+                      "fileName": "sample.ts"
+                    }
+                  }
+                }
+              }
+            ],
+            "cfg": {
+              "blocks": [
+                {
+                  "id": 0,
+                  "successors": [],
+                  "predecessors": [],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "this",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Shape",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      },
+                      "right": {
+                        "_": "ThisRef",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Shape",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "ReturnVoidStmt"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "signature": {
+        "name": "Circle",
+        "declaringFile": {
+          "projectName": "save",
+          "fileName": "sample.ts"
+        }
+      },
+      "modifiers": 0,
+      "decorators": [],
+      "category": 0,
+      "superClassName": "Shape",
+      "implementedInterfaceNames": [],
+      "fields": [
+        {
+          "signature": {
+            "declaringClass": {
+              "name": "Circle",
+              "declaringFile": {
+                "projectName": "save",
+                "fileName": "sample.ts"
+              }
+            },
+            "name": "radius",
+            "type": {
+              "_": "NumberType"
+            }
+          },
+          "modifiers": 0,
+          "decorators": [],
+          "questionToken": false,
+          "exclamationToken": false
+        }
+      ],
+      "methods": [
+        {
+          "signature": {
+            "declaringClass": {
+              "name": "Circle",
+              "declaringFile": {
+                "projectName": "save",
+                "fileName": "sample.ts"
+              }
+            },
+            "name": "%instInit",
+            "parameters": [],
+            "returnType": {
+              "_": "VoidType"
+            }
+          },
+          "modifiers": 0,
+          "decorators": [],
+          "body": {
+            "locals": [
+              {
+                "name": "this",
+                "type": {
+                  "_": "ClassType",
+                  "signature": {
+                    "name": "Circle",
+                    "declaringFile": {
+                      "projectName": "save",
+                      "fileName": "sample.ts"
+                    }
+                  }
+                }
+              }
+            ],
+            "cfg": {
+              "blocks": [
+                {
+                  "id": 0,
+                  "successors": [],
+                  "predecessors": [],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "this",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Circle",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      },
+                      "right": {
+                        "_": "ThisRef",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Circle",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "ReturnVoidStmt"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "signature": {
+            "declaringClass": {
+              "name": "Circle",
+              "declaringFile": {
+                "projectName": "save",
+                "fileName": "sample.ts"
+              }
+            },
+            "name": "constructor",
+            "parameters": [
+              {
+                "name": "radius",
+                "type": {
+                  "_": "NumberType"
+                },
+                "isOptional": false,
+                "isRest": false
+              }
+            ],
+            "returnType": {
+              "_": "ClassType",
+              "signature": {
+                "name": "Circle",
+                "declaringFile": {
+                  "projectName": "save",
+                  "fileName": "sample.ts"
+                }
+              }
+            }
+          },
+          "modifiers": 0,
+          "decorators": [],
+          "body": {
+            "locals": [
+              {
+                "name": "this",
+                "type": {
+                  "_": "ClassType",
+                  "signature": {
+                    "name": "Circle",
+                    "declaringFile": {
+                      "projectName": "save",
+                      "fileName": "sample.ts"
+                    }
+                  }
+                }
+              },
+              {
+                "name": "radius",
+                "type": {
+                  "_": "NumberType"
+                }
+              }
+            ],
+            "cfg": {
+              "blocks": [
+                {
+                  "id": 0,
+                  "successors": [],
+                  "predecessors": [],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "radius",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "ParameterRef",
+                        "index": 0,
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "this",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Circle",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      },
+                      "right": {
+                        "_": "ThisRef",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Circle",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "CallStmt",
+                      "expr": {
+                        "_": "InstanceCallExpr",
+                        "instance": {
+                          "_": "Local",
+                          "name": "this",
+                          "type": {
+                            "_": "ClassType",
+                            "signature": {
+                              "name": "Circle",
+                              "declaringFile": {
+                                "projectName": "save",
+                                "fileName": "sample.ts"
+                              }
+                            }
+                          }
+                        },
+                        "method": {
+                          "declaringClass": {
+                            "name": "Shape",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          },
+                          "name": "constructor",
+                          "parameters": [],
+                          "returnType": {
+                            "_": "ClassType",
+                            "signature": {
+                              "name": "Shape",
+                              "declaringFile": {
+                                "projectName": "save",
+                                "fileName": "sample.ts"
+                              }
+                            }
+                          }
+                        },
+                        "args": []
+                      }
+                    },
+                    {
+                      "_": "CallStmt",
+                      "expr": {
+                        "_": "InstanceCallExpr",
+                        "instance": {
+                          "_": "Local",
+                          "name": "this",
+                          "type": {
+                            "_": "ClassType",
+                            "signature": {
+                              "name": "Circle",
+                              "declaringFile": {
+                                "projectName": "save",
+                                "fileName": "sample.ts"
+                              }
+                            }
+                          }
+                        },
+                        "method": {
+                          "declaringClass": {
+                            "name": "Circle",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          },
+                          "name": "%instInit",
+                          "parameters": [],
+                          "returnType": {
+                            "_": "VoidType"
+                          }
+                        },
+                        "args": []
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "InstanceFieldRef",
+                        "instance": {
+                          "_": "Local",
+                          "name": "this",
+                          "type": {
+                            "_": "ClassType",
+                            "signature": {
+                              "name": "Circle",
+                              "declaringFile": {
+                                "projectName": "save",
+                                "fileName": "sample.ts"
+                              }
+                            }
+                          }
+                        },
+                        "field": {
+                          "declaringClass": {
+                            "name": "Circle",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          },
+                          "name": "radius",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      },
+                      "right": {
+                        "_": "Local",
+                        "name": "radius",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      }
+                    },
+                    {
+                      "_": "ReturnStmt",
+                      "arg": {
+                        "_": "Local",
+                        "name": "this",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Circle",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "signature": {
+            "declaringClass": {
+              "name": "Circle",
+              "declaringFile": {
+                "projectName": "save",
+                "fileName": "sample.ts"
+              }
+            },
+            "name": "area",
+            "parameters": [],
+            "returnType": {
+              "_": "NumberType"
+            }
+          },
+          "modifiers": 0,
+          "decorators": [],
+          "body": {
+            "locals": [
+              {
+                "name": "this",
+                "type": {
+                  "_": "ClassType",
+                  "signature": {
+                    "name": "Circle",
+                    "declaringFile": {
+                      "projectName": "save",
+                      "fileName": "sample.ts"
+                    }
+                  }
+                }
+              },
+              {
+                "name": "%0",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "%1",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "%2",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "%3",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "%4",
+                "type": {
+                  "_": "NumberType"
+                }
+              }
+            ],
+            "cfg": {
+              "blocks": [
+                {
+                  "id": 0,
+                  "successors": [],
+                  "predecessors": [],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "this",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Circle",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      },
+                      "right": {
+                        "_": "ThisRef",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Circle",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%0",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "InstanceFieldRef",
+                        "instance": {
+                          "_": "Local",
+                          "name": "Math",
+                          "type": {
+                            "_": "ClassType",
+                            "signature": {
+                              "name": "Math",
+                              "declaringFile": {
+                                "projectName": "built-in",
+                                "fileName": "lib.es5.d.ts"
+                              }
+                            }
+                          }
+                        },
+                        "field": {
+                          "declaringClass": {
+                            "name": "Math",
+                            "declaringFile": {
+                              "projectName": "built-in",
+                              "fileName": "lib.es5.d.ts"
+                            }
+                          },
+                          "name": "PI",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%1",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "InstanceFieldRef",
+                        "instance": {
+                          "_": "Local",
+                          "name": "this",
+                          "type": {
+                            "_": "ClassType",
+                            "signature": {
+                              "name": "Circle",
+                              "declaringFile": {
+                                "projectName": "save",
+                                "fileName": "sample.ts"
+                              }
+                            }
+                          }
+                        },
+                        "field": {
+                          "declaringClass": {
+                            "name": "Circle",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          },
+                          "name": "radius",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%2",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "*",
+                        "left": {
+                          "_": "Local",
+                          "name": "%0",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "right": {
+                          "_": "Local",
+                          "name": "%1",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%3",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "InstanceFieldRef",
+                        "instance": {
+                          "_": "Local",
+                          "name": "this",
+                          "type": {
+                            "_": "ClassType",
+                            "signature": {
+                              "name": "Circle",
+                              "declaringFile": {
+                                "projectName": "save",
+                                "fileName": "sample.ts"
+                              }
+                            }
+                          }
+                        },
+                        "field": {
+                          "declaringClass": {
+                            "name": "Circle",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          },
+                          "name": "radius",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%4",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "*",
+                        "left": {
+                          "_": "Local",
+                          "name": "%2",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "right": {
+                          "_": "Local",
+                          "name": "%3",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "ReturnStmt",
+                      "arg": {
+                        "_": "Local",
+                        "name": "%4",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "signature": {
+            "declaringClass": {
+              "name": "Circle",
+              "declaringFile": {
+                "projectName": "save",
+                "fileName": "sample.ts"
+              }
+            },
+            "name": "perimeter",
+            "parameters": [],
+            "returnType": {
+              "_": "NumberType"
+            }
+          },
+          "modifiers": 0,
+          "decorators": [],
+          "body": {
+            "locals": [
+              {
+                "name": "this",
+                "type": {
+                  "_": "ClassType",
+                  "signature": {
+                    "name": "Circle",
+                    "declaringFile": {
+                      "projectName": "save",
+                      "fileName": "sample.ts"
+                    }
+                  }
+                }
+              },
+              {
+                "name": "%0",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "%1",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "%2",
+                "type": {
+                  "_": "NumberType"
+                }
+              },
+              {
+                "name": "%3",
+                "type": {
+                  "_": "NumberType"
+                }
+              }
+            ],
+            "cfg": {
+              "blocks": [
+                {
+                  "id": 0,
+                  "successors": [],
+                  "predecessors": [],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "this",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Circle",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      },
+                      "right": {
+                        "_": "ThisRef",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Circle",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%0",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "InstanceFieldRef",
+                        "instance": {
+                          "_": "Local",
+                          "name": "Math",
+                          "type": {
+                            "_": "ClassType",
+                            "signature": {
+                              "name": "Math",
+                              "declaringFile": {
+                                "projectName": "built-in",
+                                "fileName": "lib.es5.d.ts"
+                              }
+                            }
+                          }
+                        },
+                        "field": {
+                          "declaringClass": {
+                            "name": "Math",
+                            "declaringFile": {
+                              "projectName": "built-in",
+                              "fileName": "lib.es5.d.ts"
+                            }
+                          },
+                          "name": "PI",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%1",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "*",
+                        "left": {
+                          "_": "Constant",
+                          "value": "2",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "right": {
+                          "_": "Local",
+                          "name": "%0",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%2",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "InstanceFieldRef",
+                        "instance": {
+                          "_": "Local",
+                          "name": "this",
+                          "type": {
+                            "_": "ClassType",
+                            "signature": {
+                              "name": "Circle",
+                              "declaringFile": {
+                                "projectName": "save",
+                                "fileName": "sample.ts"
+                              }
+                            }
+                          }
+                        },
+                        "field": {
+                          "declaringClass": {
+                            "name": "Circle",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          },
+                          "name": "radius",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "%3",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      },
+                      "right": {
+                        "_": "BinopExpr",
+                        "op": "*",
+                        "left": {
+                          "_": "Local",
+                          "name": "%1",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        },
+                        "right": {
+                          "_": "Local",
+                          "name": "%2",
+                          "type": {
+                            "_": "NumberType"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "ReturnStmt",
+                      "arg": {
+                        "_": "Local",
+                        "name": "%3",
+                        "type": {
+                          "_": "NumberType"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "signature": {
+            "declaringClass": {
+              "name": "Circle",
+              "declaringFile": {
+                "projectName": "save",
+                "fileName": "sample.ts"
+              }
+            },
+            "name": "%statInit",
+            "parameters": [],
+            "returnType": {
+              "_": "VoidType"
+            }
+          },
+          "modifiers": 16,
+          "decorators": [],
+          "body": {
+            "locals": [
+              {
+                "name": "this",
+                "type": {
+                  "_": "ClassType",
+                  "signature": {
+                    "name": "Circle",
+                    "declaringFile": {
+                      "projectName": "save",
+                      "fileName": "sample.ts"
+                    }
+                  }
+                }
+              }
+            ],
+            "cfg": {
+              "blocks": [
+                {
+                  "id": 0,
+                  "successors": [],
+                  "predecessors": [],
+                  "stmts": [
+                    {
+                      "_": "AssignStmt",
+                      "left": {
+                        "_": "Local",
+                        "name": "this",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Circle",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      },
+                      "right": {
+                        "_": "ThisRef",
+                        "type": {
+                          "_": "ClassType",
+                          "signature": {
+                            "name": "Circle",
+                            "declaringFile": {
+                              "projectName": "save",
+                              "fileName": "sample.ts"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "_": "ReturnVoidStmt"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "importInfos": [
+    {
+      "importName": "readFileSync",
+      "importType": "NamedImports",
+      "importFrom": "fs",
+      "modifiers": 0
+    }
+  ],
+  "exportInfos": [
+    {
+      "exportName": "Person",
+      "exportType": 1,
+      "modifiers": 0
+    },
+    {
+      "exportName": "Student",
+      "exportType": 1,
+      "modifiers": 0
+    },
+    {
+      "exportName": "Shape",
+      "exportType": 1,
+      "modifiers": 0
+    },
+    {
+      "exportName": "Circle",
+      "exportType": 1,
+      "modifiers": 0
+    },
+    {
+      "exportName": "simpleFunction",
+      "exportType": 2,
+      "modifiers": 0
+    },
+    {
+      "exportName": "complexFunction",
+      "exportType": 2,
+      "modifiers": 0
+    },
+    {
+      "exportName": "sum",
+      "exportType": 3,
+      "modifiers": 0
+    },
+    {
+      "exportName": "fileContent",
+      "exportType": 3,
+      "modifiers": 0
+    },
+    {
+      "exportName": "processInput",
+      "exportType": 2,
+      "modifiers": 0
+    }
+  ]
+}
