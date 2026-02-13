@@ -163,7 +163,7 @@ export class TaintContextManager {
         if (this.contextKSelector && callerMethodName && calleeMethodName) {
             const dynamicK = this.contextKSelector(callerMethodName, calleeMethodName, this.k);
             if (Number.isFinite(dynamicK)) {
-                selected = Math.max(1, Math.floor(dynamicK));
+                selected = Math.max(0, Math.floor(dynamicK));
             }
         }
         return selected;

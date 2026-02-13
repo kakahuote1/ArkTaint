@@ -1,6 +1,7 @@
 import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
 import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
+import { AdaptiveContextSelectorOptions } from "../core/context/AdaptiveContextSelector";
 import { ArkAssignStmt } from "../../arkanalyzer/out/src/core/base/Stmt";
 import { ArkParameterRef } from "../../arkanalyzer/out/src/core/base/Ref";
 import { Local } from "../../arkanalyzer/out/src/core/base/Local";
@@ -11,6 +12,7 @@ interface CategoryStats {
     total: number;
     passed: number;
     failed: number;
+    failedCases: string[];
 }
 
 function getFiles(dir: string, fileList: string[] = []): string[] {
@@ -51,7 +53,13 @@ function resolveEntryMethodName(scene: Scene, relativePath: string, testName: st
     return hasCompanion ? companion : testName;
 }
 
-async function runSuite(scene: Scene, allFiles: string[], targetDir: string, adaptive: boolean): Promise<Record<string, CategoryStats>> {
+async function runSuite(
+    scene: Scene,
+    allFiles: string[],
+    targetDir: string,
+    adaptive: boolean,
+    adaptiveOptions: AdaptiveContextSelectorOptions = {}
+): Promise<Record<string, CategoryStats>> {
     const stats: Record<string, CategoryStats> = {};
 
     for (const file of allFiles) {
@@ -59,7 +67,7 @@ async function runSuite(scene: Scene, allFiles: string[], targetDir: string, ada
 
         const relativePath = path.relative(targetDir, file);
         const category = path.dirname(relativePath).split(path.sep)[0];
-        if (!stats[category]) stats[category] = { total: 0, passed: 0, failed: 0 };
+        if (!stats[category]) stats[category] = { total: 0, passed: 0, failed: 0, failedCases: [] };
 
         const testName = path.basename(file, ".ets");
         const entryName = resolveEntryMethodName(scene, relativePath, testName);
@@ -67,7 +75,7 @@ async function runSuite(scene: Scene, allFiles: string[], targetDir: string, ada
 
         try {
             const engine = adaptive
-                ? new TaintPropagationEngine(scene, 1, { contextStrategy: "adaptive" })
+                ? new TaintPropagationEngine(scene, 1, { contextStrategy: "adaptive", adaptiveContext: adaptiveOptions })
                 : new TaintPropagationEngine(scene, 1);
             engine.verbose = false;
 
@@ -93,7 +101,10 @@ async function runSuite(scene: Scene, allFiles: string[], targetDir: string, ada
                 engine.propagateWithSeeds(seeds);
                 const detected = engine.detectSinks("Sink").length > 0;
                 if (detected === expected) stats[category].passed++;
-                else stats[category].failed++;
+                else {
+                    stats[category].failed++;
+                    stats[category].failedCases.push(testName);
+                }
             }
             stats[category].total++;
         } catch {
@@ -119,6 +130,14 @@ function printSummary(title: string, stats: Record<string, CategoryStats>): { pa
     return { passed, total };
 }
 
+function collectFailedCases(stats: Record<string, CategoryStats>): string[] {
+    const all: string[] = [];
+    for (const cat of Object.keys(stats)) {
+        all.push(...stats[cat].failedCases);
+    }
+    return all;
+}
+
 async function run(): Promise<void> {
     const targetDir = "d:/cursor/workplace/ArkTaint/tests/demo/senior_full";
     const config = new SceneConfig();
@@ -132,13 +151,24 @@ async function run(): Promise<void> {
     console.log(`Found ${allFiles.length} test files.`);
 
     const fixed = await runSuite(scene, allFiles, targetDir, false);
-    const adaptive = await runSuite(scene, allFiles, targetDir, true);
+    const adaptiveV1 = await runSuite(scene, allFiles, targetDir, true);
+    const hotMethods = collectFailedCases(adaptiveV1);
+    const adaptiveV2 = await runSuite(scene, allFiles, targetDir, true, {
+        allowSafeZeroK: true,
+        zeroKFanInThreshold: 1,
+        zeroKMaxCallSites: 1,
+        conflictHotMethods: hotMethods,
+        conflictMinK: 2,
+    });
 
     const fixedR = printSummary("Fixed k=1", fixed);
-    const adaptiveR = printSummary("Adaptive k(v1)", adaptive);
-    const delta = adaptiveR.passed - fixedR.passed;
-    const deltaStr = delta > 0 ? `+${delta}` : `${delta}`;
-    console.log(`\nDelta: ${deltaStr} cases`);
+    const adaptiveV1R = printSummary("Adaptive k(v1)", adaptiveV1);
+    const adaptiveV2R = printSummary("Adaptive k(v2)", adaptiveV2);
+    const deltaV1 = adaptiveV1R.passed - fixedR.passed;
+    const deltaV2 = adaptiveV2R.passed - fixedR.passed;
+    console.log(`\nDelta(v1-fixed): ${deltaV1 > 0 ? `+${deltaV1}` : `${deltaV1}`} cases`);
+    console.log(`Delta(v2-fixed): ${deltaV2 > 0 ? `+${deltaV2}` : `${deltaV2}`} cases`);
+    console.log(`Conflict hotspots from v1 failed cases: ${hotMethods.length}`);
 }
 
 run().catch(console.error);
