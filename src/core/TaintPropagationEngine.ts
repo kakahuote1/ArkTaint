@@ -9,6 +9,7 @@ import { TaintFact } from "./TaintFact";
 import { TaintFlow } from "./TaintFlow";
 import { TaintTracker } from "./TaintTracker";
 import { TaintContextManager, CallEdgeInfo } from "./context/TaintContext";
+import { AdaptiveContextSelector, AdaptiveContextSelectorOptions } from "./context/AdaptiveContextSelector";
 import { buildFieldToVarIndex } from "./engine/FieldIndexBuilder";
 import { buildCallEdgeMap, buildCaptureEdgeMap, CaptureEdgeInfo } from "./engine/CallEdgeMapBuilder";
 import {
@@ -19,6 +20,11 @@ import {
 } from "./engine/SyntheticInvokeEdgeBuilder";
 import { WorklistSolver } from "./engine/WorklistSolver";
 import { detectSinks as runSinkDetector } from "./engine/SinkDetector";
+
+export interface TaintEngineOptions {
+    contextStrategy?: "fixed" | "adaptive";
+    adaptiveContext?: AdaptiveContextSelectorOptions;
+}
 
 export class TaintPropagationEngine {
     private scene: Scene;
@@ -33,13 +39,16 @@ export class TaintPropagationEngine {
     private captureEdgeMap: Map<number, CaptureEdgeInfo[]> = new Map();
     private syntheticInvokeEdgeMap: Map<number, SyntheticInvokeEdgeInfo[]> = new Map();
     private syntheticConstructorStoreMap: Map<number, SyntheticConstructorStoreInfo[]> = new Map();
+    private adaptiveContextSelector?: AdaptiveContextSelector;
+    private options: TaintEngineOptions;
 
     public verbose: boolean = true;
 
-    constructor(scene: Scene, k: number = 1) {
+    constructor(scene: Scene, k: number = 1, options: TaintEngineOptions = {}) {
         this.scene = scene;
         this.tracker = new TaintTracker();
         this.ctxManager = new TaintContextManager(k);
+        this.options = options;
     }
 
     private log(msg: string): void {
@@ -89,6 +98,7 @@ export class TaintPropagationEngine {
         this.captureEdgeMap = buildCaptureEdgeMap(this.scene, this.cg, this.pag, this.log.bind(this));
         this.syntheticInvokeEdgeMap = buildSyntheticInvokeEdges(this.scene, this.cg, this.pag, this.log.bind(this));
         this.syntheticConstructorStoreMap = buildSyntheticConstructorStoreMap(this.scene, this.cg, this.pag, this.log.bind(this));
+        this.configureContextStrategy();
     }
 
     public propagate(sourceSignature: string): void {
@@ -190,5 +200,33 @@ export class TaintPropagationEngine {
             sinkSignature,
             this.log.bind(this)
         );
+    }
+
+    public getAdaptiveContextSelector(): AdaptiveContextSelector | undefined {
+        return this.adaptiveContextSelector;
+    }
+
+    private configureContextStrategy(): void {
+        if (this.options.contextStrategy !== "adaptive") {
+            this.adaptiveContextSelector = undefined;
+            this.ctxManager.setContextKSelector(undefined);
+            return;
+        }
+
+        this.adaptiveContextSelector = new AdaptiveContextSelector(
+            this.scene,
+            this.cg,
+            this.options.adaptiveContext ?? {}
+        );
+        this.ctxManager.setContextKSelector((callerMethodName, calleeMethodName, defaultK) => {
+            return this.adaptiveContextSelector!.selectK(callerMethodName, calleeMethodName, defaultK);
+        });
+
+        this.log(`[AdaptiveContext] enabled: ${this.adaptiveContextSelector.getSummary()}`);
+        const hotspots = this.adaptiveContextSelector.getTopHotspots(5);
+        if (hotspots.length > 0) {
+            const text = hotspots.map(h => `${h.methodName}(fanIn=${h.fanIn},k=${h.selectedK})`).join(", ");
+            this.log(`[AdaptiveContext] top hotspots: ${text}`);
+        }
     }
 }

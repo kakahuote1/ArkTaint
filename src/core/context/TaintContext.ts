@@ -8,6 +8,8 @@
 import { CallSiteContext, Context, ContextCache, ContextID, DUMMY_CID } from '../../../arkanalyzer/out/src/callgraph/pointerAnalysis/context/Context';
 import { ContextItemManager } from '../../../arkanalyzer/out/src/callgraph/pointerAnalysis/context/ContextItem';
 
+export type ContextKSelector = (callerMethodName: string, calleeMethodName: string, defaultK: number) => number;
+
 /**
  * 调用边信息：记录 PAG 中一条 Copy 边是参数传递（Call）还是返回值传递（Return）
  */
@@ -35,6 +37,7 @@ export class TaintContextManager {
     private contextCache: ContextCache;
     private ctxItemManager: ContextItemManager;
     private k: number;
+    private contextKSelector?: ContextKSelector;
 
     // 空上下文的 ID（缓存）
     private emptyCID: ContextID;
@@ -47,6 +50,10 @@ export class TaintContextManager {
         // 创建并缓存空上下文
         let emptyCtx = CallSiteContext.newEmpty();
         this.emptyCID = this.contextCache.getOrNewContextID(emptyCtx);
+    }
+
+    public setContextKSelector(selector?: ContextKSelector): void {
+        this.contextKSelector = selector;
     }
 
     /**
@@ -63,8 +70,18 @@ export class TaintContextManager {
      * @param callSiteId 调用点标识（使用 PAG 中 src 节点 ID 作为唯一标识）
      * @returns callee 的上下文 ID
      */
-    public createCalleeContext(callerCtxID: ContextID, callSiteId: number): ContextID {
-        if (this.k === 0) {
+    public createCalleeContext(
+        callerCtxID: ContextID,
+        callSiteId: number,
+        callerMethodName?: string,
+        calleeMethodName?: string
+    ): ContextID {
+        if (this.k === 0 && !this.contextKSelector) {
+            return this.emptyCID;
+        }
+
+        const effectiveK = this.resolveEffectiveK(callerMethodName, calleeMethodName);
+        if (effectiveK <= 0) {
             return this.emptyCID;
         }
 
@@ -76,7 +93,7 @@ export class TaintContextManager {
 
         if (callerCtx && callerCtx.length() > 0) {
             // 取前 k-1 个元素（k-limited 策略）
-            let oldLen = Math.min(callerCtx.length(), this.k - 1);
+            let oldLen = Math.min(callerCtx.length(), effectiveK - 1);
             for (let i = 0; i < oldLen; i++) {
                 newElems.push(callerCtx.get(i));
             }
@@ -139,5 +156,16 @@ export class TaintContextManager {
      */
     public getK(): number {
         return this.k;
+    }
+
+    private resolveEffectiveK(callerMethodName?: string, calleeMethodName?: string): number {
+        let selected = this.k;
+        if (this.contextKSelector && callerMethodName && calleeMethodName) {
+            const dynamicK = this.contextKSelector(callerMethodName, calleeMethodName, this.k);
+            if (Number.isFinite(dynamicK)) {
+                selected = Math.max(1, Math.floor(dynamicK));
+            }
+        }
+        return selected;
     }
 }

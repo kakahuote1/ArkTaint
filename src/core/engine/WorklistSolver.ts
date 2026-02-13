@@ -129,7 +129,12 @@ export class WorklistSolver {
             if (captureEdges && (!fact.field || fact.field.length === 0)) {
                 for (const captureEdge of captureEdges) {
                     const targetNode = pag.getNode(captureEdge.dstNodeId) as PagNode;
-                    const newCtx = ctxManager.createCalleeContext(currentCtx, captureEdge.callSiteId);
+                    const newCtx = ctxManager.createCalleeContext(
+                        currentCtx,
+                        captureEdge.callSiteId,
+                        captureEdge.callerMethodName,
+                        captureEdge.calleeMethodName
+                    );
                     const newFact = new TaintFact(targetNode, fact.source, newCtx);
                     if (!visited.has(newFact.id)) {
                         visited.add(newFact.id);
@@ -145,7 +150,12 @@ export class WorklistSolver {
                 for (const edge of syntheticEdges) {
                     let newCtx = currentCtx;
                     if (edge.type === CallEdgeType.CALL) {
-                        newCtx = ctxManager.createCalleeContext(currentCtx, edge.callSiteId);
+                        newCtx = ctxManager.createCalleeContext(
+                            currentCtx,
+                            edge.callSiteId,
+                            edge.callerMethodName,
+                            edge.calleeMethodName
+                        );
                     } else if (edge.type === CallEdgeType.RETURN) {
                         const topElem = ctxManager.getTopElement(currentCtx);
                         if (topElem !== -1 && topElem !== edge.callSiteId) {
@@ -242,7 +252,12 @@ export class WorklistSolver {
 
                     if (callEdgeInfo) {
                         if (callEdgeInfo.type === CallEdgeType.CALL) {
-                            newCtx = ctxManager.createCalleeContext(currentCtx, callEdgeInfo.callSiteId);
+                            newCtx = ctxManager.createCalleeContext(
+                                currentCtx,
+                                callEdgeInfo.callSiteId,
+                                callEdgeInfo.callerMethodName,
+                                callEdgeInfo.calleeMethodName
+                            );
                             log(`    [Call] ${callEdgeInfo.callerMethodName} -> ${callEdgeInfo.calleeMethodName}, ctx: ${currentCtx} -> ${newCtx}`);
                         } else if (callEdgeInfo.type === CallEdgeType.RETURN) {
                             const topElem = ctxManager.getTopElement(currentCtx);
@@ -459,7 +474,12 @@ export class WorklistSolver {
             if (!dstNodes || dstNodes.size === 0) continue;
 
             const callSiteId = stmt.getOriginPositionInfo().getLineNo() * 10000 + this.simpleHash(calleeSig);
-            const newCtx = ctxManager.createCalleeContext(currentCtx, callSiteId);
+            const newCtx = ctxManager.createCalleeContext(
+                currentCtx,
+                callSiteId,
+                "<rest_arg_dispatch>",
+                callee.getName()
+            );
 
             for (const dstNodeId of dstNodes.values()) {
                 const dstNode = pag.getNode(dstNodeId) as PagNode;
