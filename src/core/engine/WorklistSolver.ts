@@ -12,6 +12,8 @@ import { TaintContextManager, CallEdgeInfo, CallEdgeType } from "../context/Tain
 import { propagateExpressionTaint } from "../ExpressionPropagation";
 import { CaptureEdgeInfo } from "./CallEdgeMapBuilder";
 import { SyntheticInvokeEdgeInfo, SyntheticConstructorStoreInfo } from "./SyntheticInvokeEdgeBuilder";
+import { WorklistProfiler } from "./WorklistProfiler";
+import { PropagationTrace } from "./PropagationTrace";
 import {
     collectPreciseArrayLoadNodeIdsFromTaintedLocal,
     collectContainerSlotLoadNodeIds,
@@ -30,6 +32,8 @@ interface WorklistSolverDeps {
     syntheticInvokeEdgeMap: Map<number, SyntheticInvokeEdgeInfo[]>;
     syntheticConstructorStoreMap: Map<number, SyntheticConstructorStoreInfo[]>;
     fieldToVarIndex: Map<string, Set<number>>;
+    profiler?: WorklistProfiler;
+    propagationTrace?: PropagationTrace;
     log: (msg: string) => void;
 }
 
@@ -51,14 +55,36 @@ export class WorklistSolver {
             syntheticInvokeEdgeMap,
             syntheticConstructorStoreMap,
             fieldToVarIndex,
+            profiler,
+            propagationTrace,
             log
         } = this.deps;
         const arraySlotObjsByCtx: Map<number, Set<number>> = new Map();
+        profiler?.onQueueSize(worklist.length);
 
         while (worklist.length > 0) {
             const fact = worklist.shift()!;
+            profiler?.onDequeue(worklist.length);
+            propagationTrace?.recordFact(fact);
             const node = fact.node;
             const currentCtx = fact.contextID;
+
+            const tryEnqueue = (
+                reason: string,
+                newFact: TaintFact,
+                onAccepted: () => void
+            ): void => {
+                profiler?.onEnqueueAttempt(reason);
+                if (visited.has(newFact.id)) {
+                    profiler?.onDedupDrop(reason);
+                    return;
+                }
+                visited.add(newFact.id);
+                worklist.push(newFact);
+                profiler?.onEnqueueSuccess(reason, worklist.length);
+                propagationTrace?.recordEdge(fact, newFact, reason);
+                onAccepted();
+            };
 
             const exprTargetNodes = propagateExpressionTaint(
                 node.getID(),
@@ -70,12 +96,10 @@ export class WorklistSolver {
             for (const targetNodeId of exprTargetNodes) {
                 const targetNode = pag.getNode(targetNodeId) as PagNode;
                 const newFact = new TaintFact(targetNode, fact.source, currentCtx, fact.field);
-                if (!visited.has(newFact.id)) {
-                    visited.add(newFact.id);
+                tryEnqueue("Expr", newFact, () => {
                     tracker.markTainted(targetNodeId, currentCtx, fact.source);
-                    worklist.push(newFact);
                     log(`    [Expr] Tainted node ${targetNodeId} (ctx=${currentCtx})`);
-                }
+                });
             }
 
             if (!fact.field || fact.field.length === 0) {
@@ -85,12 +109,10 @@ export class WorklistSolver {
                     for (const dstId of preciseArrayLoads) {
                         const dstNode = pag.getNode(dstId) as PagNode;
                         const newFact = new TaintFact(dstNode, fact.source, currentCtx);
-                        if (!visited.has(newFact.id)) {
-                            visited.add(newFact.id);
-                            worklist.push(newFact);
+                        tryEnqueue("Array-Precise", newFact, () => {
                             tracker.markTainted(dstId, currentCtx, fact.source);
                             log(`    [Array-Precise] Tainted var ${dstId} by precise array path (ctx=${currentCtx})`);
-                        }
+                        });
                     }
 
                     const slotStores = collectContainerSlotStoresFromTaintedLocal(val, pag);
@@ -98,11 +120,9 @@ export class WorklistSolver {
                         const objNode = pag.getNode(info.objId) as PagNode;
                         const fieldKey = toContainerFieldKey(info.slot);
                         const newFact = new TaintFact(objNode, fact.source, currentCtx, [fieldKey]);
-                        if (!visited.has(newFact.id)) {
-                            visited.add(newFact.id);
-                            worklist.push(newFact);
+                        tryEnqueue("Container-Store", newFact, () => {
                             log(`    [Container-Store] Tainted slot '${info.slot}' of Obj ${info.objId} (ctx=${currentCtx})`);
-                        }
+                        });
 
                         if (info.slot.startsWith("arr:")) {
                             if (!arraySlotObjsByCtx.has(currentCtx)) {
@@ -117,11 +137,9 @@ export class WorklistSolver {
             if (!fact.field || fact.field.length === 0) {
                 const capturedFieldFacts = this.propagateCapturedFieldWrites(node, fact.source, currentCtx);
                 for (const newFact of capturedFieldFacts) {
-                    if (!visited.has(newFact.id)) {
-                        visited.add(newFact.id);
-                        worklist.push(newFact);
+                    tryEnqueue("Capture-Store", newFact, () => {
                         log(`    [Capture-Store] Tainted field '${newFact.field?.[0]}' of Obj ${newFact.node.getID()} (ctx=${currentCtx})`);
-                    }
+                    });
                 }
             }
 
@@ -136,12 +154,10 @@ export class WorklistSolver {
                         captureEdge.calleeMethodName
                     );
                     const newFact = new TaintFact(targetNode, fact.source, newCtx);
-                    if (!visited.has(newFact.id)) {
-                        visited.add(newFact.id);
-                        worklist.push(newFact);
+                    tryEnqueue("Capture", newFact, () => {
                         tracker.markTainted(captureEdge.dstNodeId, newCtx, fact.source);
                         log(`    [Capture] ${captureEdge.callerMethodName} -> ${captureEdge.calleeMethodName}, node ${node.getID()} -> ${captureEdge.dstNodeId}, ctx: ${currentCtx} -> ${newCtx}`);
-                    }
+                    });
                 }
             }
 
@@ -166,12 +182,11 @@ export class WorklistSolver {
 
                     const targetNode = pag.getNode(edge.dstNodeId) as PagNode;
                     const newFact = new TaintFact(targetNode, fact.source, newCtx);
-                    if (!visited.has(newFact.id)) {
-                        visited.add(newFact.id);
-                        worklist.push(newFact);
+                    const reason = edge.type === CallEdgeType.CALL ? "Synthetic-Call" : "Synthetic-Return";
+                    tryEnqueue(reason, newFact, () => {
                         tracker.markTainted(edge.dstNodeId, newCtx, fact.source);
                         log(`    [Synthetic-${edge.type === CallEdgeType.CALL ? "Call" : "Return"}] ${edge.callerMethodName} -> ${edge.calleeMethodName}, ${edge.srcNodeId} -> ${edge.dstNodeId}, ctx: ${currentCtx} -> ${newCtx}`);
-                    }
+                    });
                 }
             }
 
@@ -180,59 +195,49 @@ export class WorklistSolver {
                 for (const info of ctorStores) {
                     const objNode = pag.getNode(info.objId) as PagNode;
                     const newFact = new TaintFact(objNode, fact.source, currentCtx, [info.fieldName]);
-                    if (!visited.has(newFact.id)) {
-                        visited.add(newFact.id);
-                        worklist.push(newFact);
+                    tryEnqueue("Synthetic-CtorStore", newFact, () => {
                         log(`    [Synthetic-CtorStore] arg ${info.srcNodeId} -> Obj ${info.objId}.${info.fieldName} (ctx=${currentCtx})`);
-                    }
+                    });
                 }
             }
 
             if (!fact.field || fact.field.length === 0) {
                 const promiseCallbackFacts = this.propagatePromiseCallbackParams(scene, node, fact.source, currentCtx);
                 for (const newFact of promiseCallbackFacts) {
-                    if (!visited.has(newFact.id)) {
-                        visited.add(newFact.id);
-                        worklist.push(newFact);
+                    tryEnqueue("Promise-CB", newFact, () => {
                         tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source);
                         log(`    [Promise-CB] Tainted callback param node ${newFact.node.getID()} (ctx=${newFact.contextID})`);
-                    }
+                    });
                 }
             }
 
             if (!fact.field || fact.field.length === 0) {
                 const promiseArgFacts = this.propagatePromiseCallbacksFromTaintedArg(scene, node, fact.source, currentCtx);
                 for (const newFact of promiseArgFacts) {
-                    if (!visited.has(newFact.id)) {
-                        visited.add(newFact.id);
-                        worklist.push(newFact);
+                    tryEnqueue("Promise-Arg", newFact, () => {
                         tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source);
                         log(`    [Promise-Arg] Tainted callback param node ${newFact.node.getID()} (ctx=${newFact.contextID})`);
-                    }
+                    });
                 }
             }
 
             if (!fact.field || fact.field.length === 0) {
                 const restArgFacts = this.propagateRestArrayParam(scene, node, fact.source, currentCtx);
                 for (const newFact of restArgFacts) {
-                    if (!visited.has(newFact.id)) {
-                        visited.add(newFact.id);
-                        worklist.push(newFact);
+                    tryEnqueue("Rest-Arg", newFact, () => {
                         tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source);
                         log(`    [Rest-Arg] Tainted rest param node ${newFact.node.getID()} (ctx=${newFact.contextID})`);
-                    }
+                    });
                 }
             }
 
             if (!fact.field || fact.field.length === 0) {
                 const arrayLoadFacts = this.propagateArrayElementLoads(node, fact.source, currentCtx);
                 for (const newFact of arrayLoadFacts) {
-                    if (!visited.has(newFact.id)) {
-                        visited.add(newFact.id);
-                        worklist.push(newFact);
+                    tryEnqueue("Array-Load", newFact, () => {
                         tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source);
                         log(`    [Array-Load] Tainted array read node ${newFact.node.getID()} (ctx=${newFact.contextID})`);
-                    }
+                    });
                 }
             }
 
@@ -271,12 +276,10 @@ export class WorklistSolver {
                     }
 
                     const newFact = new TaintFact(targetNode, fact.source, newCtx);
-                    if (!visited.has(newFact.id)) {
-                        visited.add(newFact.id);
-                        worklist.push(newFact);
+                    tryEnqueue("Copy", newFact, () => {
                         tracker.markTainted(targetNodeId, newCtx, fact.source);
                         log(`    [Copy] Tainted node ${targetNodeId} (from ${node.getID()}, ctx=${newCtx})`);
-                    }
+                    });
                 }
             }
 
@@ -299,11 +302,9 @@ export class WorklistSolver {
                             for (const objId of pts) {
                                 const objNode = pag.getNode(objId) as PagNode;
                                 const newFact = new TaintFact(objNode, fact.source, currentCtx, [fieldName]);
-                                if (!visited.has(newFact.id)) {
-                                    visited.add(newFact.id);
-                                    worklist.push(newFact);
+                                tryEnqueue("Store", newFact, () => {
                                     log(`    [Store] Tainted field '${fieldName}' of Obj ${objId} (ctx=${currentCtx})`);
-                                }
+                                });
                             }
                         }
                     }
@@ -313,12 +314,10 @@ export class WorklistSolver {
             if (fact.field && fact.field.length > 0) {
                 const reflectFacts = this.propagateReflectGetFieldLoadsByObj(node.getID(), fact.field[0], fact.source, currentCtx);
                 for (const newFact of reflectFacts) {
-                    if (!visited.has(newFact.id)) {
-                        visited.add(newFact.id);
-                        worklist.push(newFact);
+                    tryEnqueue("Reflect-Load", newFact, () => {
                         tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source);
                         log(`    [Reflect-Load] Tainted var ${newFact.node.getID()} from Reflect.get field '${fact.field[0]}' (ctx=${currentCtx})`);
-                    }
+                    });
                 }
             }
 
@@ -332,12 +331,10 @@ export class WorklistSolver {
                     for (const loadNodeId of loadNodeIds) {
                         const dstNode = pag.getNode(loadNodeId) as PagNode;
                         const newFact = new TaintFact(dstNode, fact.source, currentCtx);
-                        if (!visited.has(newFact.id)) {
-                            visited.add(newFact.id);
-                            worklist.push(newFact);
+                        tryEnqueue("Container-Load", newFact, () => {
                             tracker.markTainted(loadNodeId, currentCtx, fact.source);
                             log(`    [Container-Load] Tainted var ${loadNodeId} from Obj ${objId}[${containerSlot}] (ctx=${currentCtx})`);
-                        }
+                        });
                     }
                 }
 
@@ -350,12 +347,10 @@ export class WorklistSolver {
                     if (!dstNode) continue;
 
                     const newFact = new TaintFact(dstNode, fact.source, currentCtx);
-                    if (!visited.has(newFact.id)) {
-                        visited.add(newFact.id);
-                        worklist.push(newFact);
+                    tryEnqueue("Load", newFact, () => {
                         tracker.markTainted(destVarId, currentCtx, fact.source);
                         log(`    [Load] Tainted var ${destVarId} from Obj ${objId}.${fieldName} (ctx=${currentCtx})`);
-                    }
+                    });
                 }
             }
         }

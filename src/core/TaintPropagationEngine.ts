@@ -20,10 +20,21 @@ import {
 } from "./engine/SyntheticInvokeEdgeBuilder";
 import { WorklistSolver } from "./engine/WorklistSolver";
 import { detectSinks as runSinkDetector } from "./engine/SinkDetector";
+import { WorklistProfiler, WorklistProfileSnapshot } from "./engine/WorklistProfiler";
+import { PropagationTrace } from "./engine/PropagationTrace";
+import * as fs from "fs";
+import * as path from "path";
+
+export interface DebugOptions {
+    enableWorklistProfile?: boolean;
+    enablePropagationTrace?: boolean;
+    propagationTraceMaxEdges?: number;
+}
 
 export interface TaintEngineOptions {
     contextStrategy?: "fixed" | "adaptive";
     adaptiveContext?: AdaptiveContextSelectorOptions;
+    debug?: DebugOptions;
 }
 
 export class TaintPropagationEngine {
@@ -40,6 +51,8 @@ export class TaintPropagationEngine {
     private syntheticInvokeEdgeMap: Map<number, SyntheticInvokeEdgeInfo[]> = new Map();
     private syntheticConstructorStoreMap: Map<number, SyntheticConstructorStoreInfo[]> = new Map();
     private adaptiveContextSelector?: AdaptiveContextSelector;
+    private worklistProfiler?: WorklistProfiler;
+    private propagationTrace?: PropagationTrace;
     private options: TaintEngineOptions;
 
     public verbose: boolean = true;
@@ -175,6 +188,7 @@ export class TaintPropagationEngine {
     }
 
     private runWorkList(worklist: TaintFact[], visited: Set<string>): void {
+        this.prepareDebugCollectors();
         const solver = new WorklistSolver({
             scene: this.scene,
             pag: this.pag,
@@ -185,6 +199,8 @@ export class TaintPropagationEngine {
             syntheticInvokeEdgeMap: this.syntheticInvokeEdgeMap,
             syntheticConstructorStoreMap: this.syntheticConstructorStoreMap,
             fieldToVarIndex: this.fieldToVarIndex,
+            profiler: this.worklistProfiler,
+            propagationTrace: this.propagationTrace,
             log: this.log.bind(this),
         });
         solver.solve(worklist, visited);
@@ -204,6 +220,37 @@ export class TaintPropagationEngine {
 
     public getAdaptiveContextSelector(): AdaptiveContextSelector | undefined {
         return this.adaptiveContextSelector;
+    }
+
+    public getWorklistProfile(): WorklistProfileSnapshot | undefined {
+        if (!this.worklistProfiler) return undefined;
+        return this.worklistProfiler.snapshot();
+    }
+
+    public getPropagationTraceDot(graphName: string = "arktaint_propagation"): string | undefined {
+        if (!this.propagationTrace) return undefined;
+        return this.propagationTrace.toDot(graphName);
+    }
+
+    public dumpDebugArtifacts(tag: string, outputDir: string = "tmp"): { profilePath?: string; dotPath?: string } {
+        const out: { profilePath?: string; dotPath?: string } = {};
+        const safeTag = tag.replace(/[^A-Za-z0-9_.-]/g, "_");
+        fs.mkdirSync(outputDir, { recursive: true });
+
+        const profile = this.getWorklistProfile();
+        if (profile) {
+            const profilePath = path.join(outputDir, `worklist_profile_${safeTag}.json`);
+            fs.writeFileSync(profilePath, JSON.stringify(profile, null, 2), "utf-8");
+            out.profilePath = profilePath;
+        }
+
+        const dot = this.getPropagationTraceDot(`propagation_${safeTag}`);
+        if (dot) {
+            const dotPath = path.join(outputDir, `taint_trace_${safeTag}.dot`);
+            fs.writeFileSync(dotPath, dot, "utf-8");
+            out.dotPath = dotPath;
+        }
+        return out;
     }
 
     private configureContextStrategy(): void {
@@ -228,5 +275,12 @@ export class TaintPropagationEngine {
             const text = hotspots.map(h => `${h.methodName}(fanIn=${h.fanIn},k=${h.selectedK})`).join(", ");
             this.log(`[AdaptiveContext] top hotspots: ${text}`);
         }
+    }
+
+    private prepareDebugCollectors(): void {
+        this.worklistProfiler = this.options.debug?.enableWorklistProfile ? new WorklistProfiler() : undefined;
+        this.propagationTrace = this.options.debug?.enablePropagationTrace
+            ? new PropagationTrace({ maxEdges: this.options.debug?.propagationTraceMaxEdges })
+            : undefined;
     }
 }
