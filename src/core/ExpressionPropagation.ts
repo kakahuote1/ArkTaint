@@ -1,6 +1,7 @@
 ﻿import { Local } from "../../arkanalyzer/out/src/core/base/Local";
 import { ArkAssignStmt, ArkInvokeStmt } from "../../arkanalyzer/out/src/core/base/Stmt";
 import { ArkNormalBinopExpr, ArkConditionExpr, ArkCastExpr, ArkStaticInvokeExpr, ArkInstanceInvokeExpr, ArkPtrInvokeExpr } from "../../arkanalyzer/out/src/core/base/Expr";
+import { ArkInstanceFieldRef } from "../../arkanalyzer/out/src/core/base/Ref";
 import { Value } from "../../arkanalyzer/out/src/core/base/Value";
 
 // 容器方法白名单：参数 -> 接收者传播
@@ -60,6 +61,13 @@ export function propagateExpressionTaint(
                 const sigStr = sig ? sig.toString() : "";
                 const args = rightOp.getArgs ? rightOp.getArgs() : [];
                 if (sigStr.includes("%unk") && args.includes(local)) {
+                    shouldPropagate = true;
+                }
+            }
+
+            if (rightOp instanceof ArkInstanceFieldRef) {
+                const fieldSig = rightOp.getFieldSignature().toString();
+                if (rightOp.getBase() === local && fieldSig.includes("@%unk/%unk")) {
                     shouldPropagate = true;
                 }
             }

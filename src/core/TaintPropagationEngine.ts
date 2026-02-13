@@ -68,17 +68,20 @@ export class TaintPropagationEngine {
         if (this.verbose) console.log(msg);
     }
 
-    public async buildPAG(entryMethodName: string = "main"): Promise<void> {
+    public async buildPAG(entryMethodName: string = "main", entryMethodPathHint?: string): Promise<void> {
         const cg = new CallGraph(this.scene);
         const cgBuilder = new CallGraphBuilder(cg, this.scene);
         cgBuilder.buildDirectCallGraphForScene();
 
         const pag = new Pag();
-        let mainMethod = null;
-        for (const method of this.scene.getMethods()) {
-            if (method.getName() === entryMethodName) {
-                mainMethod = method;
-                break;
+        const candidates = this.scene.getMethods().filter(method => method.getName() === entryMethodName);
+        let mainMethod = candidates.length > 0 ? candidates[0] : null;
+
+        if (entryMethodPathHint && candidates.length > 0) {
+            const normalizedHint = entryMethodPathHint.replace(/\\/g, "/");
+            const hintedMethod = candidates.find(method => method.getSignature().toString().includes(normalizedHint));
+            if (hintedMethod) {
+                mainMethod = hintedMethod;
             }
         }
 

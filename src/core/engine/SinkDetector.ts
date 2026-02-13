@@ -2,7 +2,8 @@ import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { CallGraph } from "../../../arkanalyzer/out/src/callgraph/model/CallGraph";
 import { Pag } from "../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { ArkAssignStmt, ArkIfStmt, ArkInvokeStmt, ArkReturnVoidStmt, ArkThrowStmt } from "../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkParameterRef } from "../../../arkanalyzer/out/src/core/base/Ref";
+import { ArkArrayRef, ArkParameterRef } from "../../../arkanalyzer/out/src/core/base/Ref";
+import { ArkInstanceInvokeExpr, ArkNormalBinopExpr } from "../../../arkanalyzer/out/src/core/base/Expr";
 import { Constant } from "../../../arkanalyzer/out/src/core/base/Constant";
 import { Local } from "../../../arkanalyzer/out/src/core/base/Local";
 import { TaintTracker } from "../TaintTracker";
@@ -46,10 +47,23 @@ export function detectSinks(
             }
 
             const args = invokeExpr.getArgs();
+            let sinkDetected = false;
             for (let i = 0; i < args.length; i++) {
                 const arg = args[i];
                 const pagNodes = pag.getNodesByValue(arg);
-                if (!pagNodes || pagNodes.size === 0) continue;
+                if (!pagNodes || pagNodes.size === 0) {
+                    if (
+                        arg instanceof Local &&
+                        isForEachCallbackParamLikelyTainted(scene, method, arg, pag, tracker, log)
+                    ) {
+                        const source = "entry_arg";
+                        log(`    *** TAINT FLOW DETECTED! Source: ${source} (forEach callback heuristic) ***`);
+                        flows.push(new TaintFlow(source, stmt));
+                        sinkDetected = true;
+                        break;
+                    }
+                    continue;
+                }
 
                 for (const nodeId of pagNodes.values()) {
                     const isTainted = tracker.isTaintedAnyContext(nodeId);
@@ -63,8 +77,10 @@ export function detectSinks(
                     const source = tracker.getSourceAnyContext(nodeId)!;
                     log(`    *** TAINT FLOW DETECTED! Source: ${source} ***`);
                     flows.push(new TaintFlow(source, stmt));
+                    sinkDetected = true;
                     break;
                 }
+                if (sinkDetected) break;
             }
         }
     }
@@ -199,6 +215,97 @@ function normalizeLiteral(text: string): string {
     return text.replace(/^['"`]/, "").replace(/['"`]$/, "");
 }
 
+function isForEachCallbackParamLikelyTainted(
+    scene: Scene,
+    callbackMethod: any,
+    argLocal: Local,
+    pag: Pag,
+    tracker: TaintTracker,
+    log: (msg: string) => void
+): boolean {
+    const callbackParams = getParameterLocalNames(callbackMethod);
+    if (!callbackParams.has(argLocal.getName())) return false;
+
+    const callbackName = callbackMethod.getName();
+    for (const method of scene.getMethods()) {
+        const cfg = method.getCfg();
+        if (!cfg) continue;
+        const paramLocals = getParameterLocalNames(method);
+
+        for (const stmt of cfg.getStmts()) {
+            if (!stmt.containsInvokeExpr || !stmt.containsInvokeExpr()) continue;
+            const invokeExpr = stmt.getInvokeExpr();
+            if (!(invokeExpr instanceof ArkInstanceInvokeExpr)) continue;
+            const sigText = invokeExpr.getMethodSignature()?.toString() || "";
+            let methodName = invokeExpr.getMethodSignature()?.getMethodSubSignature()?.getMethodName() || "";
+            if (!methodName) {
+                const m = sigText.match(/\.([A-Za-z0-9_]+)\(\)/);
+                methodName = m ? m[1] : "";
+            }
+            if (methodName !== "forEach") continue;
+
+            const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
+            if (args.length === 0) continue;
+            const callbackArgText = args[0]?.toString?.() || "";
+            if (callbackArgText !== callbackName) continue;
+
+            const base = invokeExpr.getBase();
+            if (!(base instanceof Local)) continue;
+            if (hasTaintLikeArrayStore(base, paramLocals, pag, tracker, new Set<Local>())) {
+                log(`    [Sink-ForEach] callback '${callbackName}' receives tainted array elements.`);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+function hasTaintLikeArrayStore(
+    base: Local,
+    paramLocalNames: Set<string>,
+    pag: Pag,
+    tracker: TaintTracker,
+    visiting: Set<Local>
+): boolean {
+    if (visiting.has(base)) return false;
+    visiting.add(base);
+
+    for (const stmt of base.getUsedStmts()) {
+        if (!(stmt instanceof ArkAssignStmt)) continue;
+        const left = stmt.getLeftOp();
+        const right = stmt.getRightOp();
+        if (!(left instanceof ArkArrayRef) || left.getBase() !== base) continue;
+        if (!(right instanceof Local)) continue;
+        if (isLikelyTaintingRHS(right, paramLocalNames) && isLocalAnyContextTainted(right, pag, tracker)) {
+            visiting.delete(base);
+            return true;
+        }
+    }
+
+    const decl = base.getDeclaringStmt();
+    if (decl instanceof ArkAssignStmt && decl.getLeftOp() === base) {
+        const right = decl.getRightOp();
+        if (right instanceof Local) {
+            if (hasTaintLikeArrayStore(right, paramLocalNames, pag, tracker, visiting)) {
+                visiting.delete(base);
+                return true;
+            }
+        }
+    }
+
+    visiting.delete(base);
+    return false;
+}
+
+function isLocalAnyContextTainted(local: Local, pag: Pag, tracker: TaintTracker): boolean {
+    const nodes = pag.getNodesByValue(local);
+    if (!nodes || nodes.size === 0) return false;
+    for (const nodeId of nodes.values()) {
+        if (tracker.isTaintedAnyContext(nodeId)) return true;
+    }
+    return false;
+}
+
 function getParameterLocalNames(method: any): Set<string> {
     const names = new Set<string>();
     const cfg = method.getCfg();
@@ -216,17 +323,24 @@ function shouldSkipLocalByUnreachableTaintDefs(method: any, sinkStmt: any, local
     const cfg = method.getCfg();
     if (!cfg) return false;
 
+    const allStmts = cfg.getStmts();
     const stmtToBlock = cfg.getStmtToBlock();
     const sinkBlock = stmtToBlock.get(sinkStmt);
     if (!sinkBlock) return false;
     const sinkIdx = sinkBlock.getStmts().indexOf(sinkStmt);
     if (sinkIdx < 0) return false;
 
+    const constIfSummaries = collectConstantIfBranchSummaries(cfg, stmtToBlock);
+    const stmtIndex = new Map<any, number>();
+    for (let i = 0; i < allStmts.length; i++) {
+        stmtIndex.set(allStmts[i], i);
+    }
+
     const paramLocalNames = getParameterLocalNames(method);
     let taintingDefCount = 0;
     let reachableTaintingDefCount = 0;
 
-    for (const s of cfg.getStmts()) {
+    for (const s of allStmts) {
         if (!(s instanceof ArkAssignStmt)) continue;
         const left = s.getLeftOp();
         if (!(left instanceof Local) || left.getName() !== localArg.getName()) continue;
@@ -249,6 +363,13 @@ function shouldSkipLocalByUnreachableTaintDefs(method: any, sinkStmt: any, local
         } else {
             reachable = blockCanReachStmt(defBlock, sinkStmt, stmtToBlock);
         }
+
+        if (reachable) {
+            const defOrder = stmtIndex.get(s) ?? -1;
+            if (isStaticallyUnreachableByConstantBranch(defBlock, defOrder, constIfSummaries)) {
+                reachable = false;
+            }
+        }
         if (reachable) reachableTaintingDefCount++;
     }
 
@@ -257,6 +378,172 @@ function shouldSkipLocalByUnreachableTaintDefs(method: any, sinkStmt: any, local
         return true;
     }
     return false;
+}
+
+interface ConstantIfBranchSummary {
+    ifIndex: number;
+    expectedBranch: "true" | "false";
+    trueSucc: any;
+    falseSucc: any;
+}
+
+function collectConstantIfBranchSummaries(cfg: any, stmtToBlock: Map<any, any>): ConstantIfBranchSummary[] {
+    const summaries: ConstantIfBranchSummary[] = [];
+    const constEnv = new Map<string, string>();
+    const stmts = cfg.getStmts();
+
+    for (let i = 0; i < stmts.length; i++) {
+        const s = stmts[i];
+        if (s instanceof ArkAssignStmt) {
+            updateConstEnvByAssign(s, constEnv);
+            continue;
+        }
+        if (!(s instanceof ArkIfStmt)) continue;
+
+        const cond = evaluateIfConditionWithEnv(s.toString(), constEnv);
+        if (cond === null) continue;
+
+        const branches = inferIfTrueFalseSuccessors(cfg, stmtToBlock, s, i);
+        if (!branches) continue;
+        summaries.push({
+            ifIndex: i,
+            expectedBranch: cond ? "true" : "false",
+            trueSucc: branches.trueSucc,
+            falseSucc: branches.falseSucc,
+        });
+    }
+
+    return summaries;
+}
+
+function isStaticallyUnreachableByConstantBranch(
+    defBlock: any,
+    defOrder: number,
+    summaries: ConstantIfBranchSummary[]
+): boolean {
+    if (defOrder < 0) return false;
+
+    for (const summary of summaries) {
+        if (summary.ifIndex >= defOrder) continue;
+        const fromTrue = blockCanReachBlock(summary.trueSucc, defBlock);
+        const fromFalse = blockCanReachBlock(summary.falseSucc, defBlock);
+        if (fromTrue === fromFalse) continue;
+
+        if (summary.expectedBranch === "true" && !fromTrue && fromFalse) {
+            return true;
+        }
+        if (summary.expectedBranch === "false" && fromTrue && !fromFalse) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function inferIfTrueFalseSuccessors(
+    cfg: any,
+    stmtToBlock: Map<any, any>,
+    ifStmt: any,
+    ifIndex: number
+): { trueSucc: any; falseSucc: any } | null {
+    const condBlock = stmtToBlock.get(ifStmt);
+    if (!condBlock) return null;
+    const succs = condBlock.getSuccessors ? condBlock.getSuccessors() : [];
+    if (!succs || succs.length !== 2) return null;
+
+    const stmts = cfg.getStmts();
+    const nextStmt = ifIndex + 1 < stmts.length ? stmts[ifIndex + 1] : null;
+    if (!nextStmt) return null;
+
+    const s0IsTrue = blockCanReachStmt(succs[0], nextStmt, stmtToBlock);
+    const s1IsTrue = blockCanReachStmt(succs[1], nextStmt, stmtToBlock);
+    if (s0IsTrue === s1IsTrue) return null;
+
+    if (s0IsTrue) {
+        return { trueSucc: succs[0], falseSucc: succs[1] };
+    }
+    return { trueSucc: succs[1], falseSucc: succs[0] };
+}
+
+function updateConstEnvByAssign(stmt: ArkAssignStmt, env: Map<string, string>): void {
+    const left = stmt.getLeftOp();
+    if (!(left instanceof Local)) return;
+
+    const right = stmt.getRightOp();
+    const value = resolveConstValue(right, env);
+    if (value === null) {
+        env.delete(left.getName());
+        return;
+    }
+    env.set(left.getName(), value);
+}
+
+function resolveConstValue(value: any, env: Map<string, string>): string | null {
+    if (value instanceof Constant) {
+        return normalizeLiteral(value.toString());
+    }
+    if (value instanceof Local) {
+        return env.get(value.getName()) ?? null;
+    }
+    if (value instanceof ArkNormalBinopExpr) {
+        const left = resolveConstValue(value.getOp1(), env);
+        const right = resolveConstValue(value.getOp2(), env);
+        if (left === null || right === null) return null;
+        const l = Number(left);
+        const r = Number(right);
+        if (!Number.isFinite(l) || !Number.isFinite(r)) return null;
+        const op = value.getOperator();
+        if (op === "+") return String(l + r);
+        if (op === "-") return String(l - r);
+        if (op === "*") return String(l * r);
+        if (op === "/" && r !== 0) return String(l / r);
+        return null;
+    }
+    return null;
+}
+
+function evaluateIfConditionWithEnv(text: string, env: Map<string, string>): boolean | null {
+    const trimmed = text.trim().replace(/^if\s+/, "");
+    const m = trimmed.match(/^(.+?)\s*(==|!=|<=|>=|<|>)\s*(.+)$/);
+    if (!m) return null;
+
+    const left = resolveOperandLiteral(m[1], env);
+    const right = resolveOperandLiteral(m[3], env);
+    if (left === null || right === null) return null;
+
+    const op = m[2];
+    const lNum = Number(left);
+    const rNum = Number(right);
+    const bothNumeric = Number.isFinite(lNum) && Number.isFinite(rNum);
+
+    if (bothNumeric) {
+        if (op === "==") return lNum === rNum;
+        if (op === "!=") return lNum !== rNum;
+        if (op === "<") return lNum < rNum;
+        if (op === "<=") return lNum <= rNum;
+        if (op === ">") return lNum > rNum;
+        if (op === ">=") return lNum >= rNum;
+        return null;
+    }
+
+    if (op === "==") return left === right;
+    if (op === "!=") return left !== right;
+    return null;
+}
+
+function resolveOperandLiteral(tokenRaw: string, env: Map<string, string>): string | null {
+    const token = tokenRaw.trim();
+    if (!token) return null;
+
+    if (/^[-+]?\d+(\.\d+)?$/.test(token)) return token;
+    if (token === "true" || token === "false") return token;
+    if ((token.startsWith("'") && token.endsWith("'")) ||
+        (token.startsWith("\"") && token.endsWith("\"")) ||
+        (token.startsWith("`") && token.endsWith("`"))) {
+        return normalizeLiteral(token);
+    }
+
+    return env.get(token) ?? null;
 }
 
 function canReachSinkViaLoopBackedge(loopBodyBlock: any, sinkIdx: number): boolean {

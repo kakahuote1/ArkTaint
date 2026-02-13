@@ -1,6 +1,7 @@
-import { ArkAssignStmt } from "../../../arkanalyzer/out/src/core/base/Stmt";
+import { Scene } from "../../../arkanalyzer/out/src/Scene";
+import { ArkAssignStmt, ArkInvokeStmt } from "../../../arkanalyzer/out/src/core/base/Stmt";
 import { ArkNormalBinopExpr, ArkInstanceInvokeExpr } from "../../../arkanalyzer/out/src/core/base/Expr";
-import { ArkArrayRef } from "../../../arkanalyzer/out/src/core/base/Ref";
+import { ArkArrayRef, ArkParameterRef } from "../../../arkanalyzer/out/src/core/base/Ref";
 import { Local } from "../../../arkanalyzer/out/src/core/base/Local";
 import { Constant } from "../../../arkanalyzer/out/src/core/base/Constant";
 import { Pag, PagNode } from "../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
@@ -87,7 +88,7 @@ export function collectContainerSlotStoresFromTaintedLocal(local: Local, pag: Pa
     return results;
 }
 
-export function collectContainerSlotLoadNodeIds(objId: number, slot: string, pag: Pag): number[] {
+export function collectContainerSlotLoadNodeIds(objId: number, slot: string, pag: Pag, scene: Scene): number[] {
     const results: number[] = [];
     const dedup = new Set<number>();
 
@@ -98,39 +99,79 @@ export function collectContainerSlotLoadNodeIds(objId: number, slot: string, pag
         if (!baseNode.getPointTo().contains(objId)) continue;
 
         for (const stmt of val.getUsedStmts()) {
-            if (!(stmt instanceof ArkAssignStmt)) continue;
-            const right = stmt.getRightOp();
-            const left = stmt.getLeftOp();
+            if (stmt instanceof ArkAssignStmt) {
+                const right = stmt.getRightOp();
+                const left = stmt.getLeftOp();
 
-            if (right instanceof ArkArrayRef && right.getBase() === val) {
-                // Array load remains handled by existing PAG/copy propagation for now.
-                // Keep ContainerModel array slots for future precise path matching.
-                continue;
-            }
-
-            if (right instanceof ArkInstanceInvokeExpr && right.getBase() === val) {
-                const methodName = resolveMethodName(right);
-                const sig = right.getMethodSignature()?.toString() || "";
-                const args = right.getArgs ? right.getArgs() : [];
-
-                let matched = false;
-                if (methodName === "get" && sig.includes("Map.")) {
-                    const key = args.length > 0 ? resolveValueKey(args[0]) : undefined;
-                    matched = key !== undefined && slot === `map:${key}`;
-                } else if (methodName === "get" && sig.includes("List.")) {
-                    const idxKey = args.length > 0 ? resolveValueKey(args[0]) : undefined;
-                    matched = idxKey !== undefined && slot === `list:${idxKey}`;
-                } else if (methodName === "getFirst" && sig.includes("Queue.")) {
-                    matched = slot === "queue:0";
+                if (right instanceof ArkArrayRef && right.getBase() === val) {
+                    // Array load remains handled by existing PAG/copy propagation for now.
+                    // Keep ContainerModel array slots for future precise path matching.
+                    continue;
                 }
 
-                if (!matched) continue;
-                const dst = pag.getNodesByValue(left);
-                if (!dst) continue;
-                for (const id of dst.values()) {
-                    if (dedup.has(id)) continue;
-                    dedup.add(id);
-                    results.push(id);
+                if (right instanceof ArkInstanceInvokeExpr && right.getBase() === val) {
+                    const methodName = resolveMethodName(right);
+                    const sig = right.getMethodSignature()?.toString() || "";
+                    const args = right.getArgs ? right.getArgs() : [];
+
+                    let matched = false;
+                    if (methodName === "get" && sig.includes("Map.")) {
+                        const key = args.length > 0 ? resolveValueKey(args[0]) : undefined;
+                        matched = key !== undefined && slot === `map:${key}`;
+                    } else if (methodName === "get" && sig.includes("List.")) {
+                        const idxKey = args.length > 0 ? resolveValueKey(args[0]) : undefined;
+                        matched = idxKey !== undefined && slot === `list:${idxKey}`;
+                    } else if (methodName === "getFirst" && sig.includes("Queue.")) {
+                        matched = slot === "queue:0";
+                    } else if (methodName === "toString" && slot.startsWith("arr:")) {
+                        matched = true;
+                    } else if (methodName === "shift" && slot === "arr:0") {
+                        matched = true;
+                    } else if (methodName === "pop" && slot.startsWith("arr:")) {
+                        matched = isLikelyArrayPopSourceSlot(slot, val);
+                    }
+
+                    if (matched) {
+                        const dst = pag.getNodesByValue(left);
+                        if (!dst) continue;
+                        for (const id of dst.values()) {
+                            if (dedup.has(id)) continue;
+                            dedup.add(id);
+                            results.push(id);
+                        }
+                    }
+                }
+
+                if (right instanceof ArkInstanceInvokeExpr) {
+                    const methodName = resolveMethodName(right);
+                    const args = right.getArgs ? right.getArgs() : [];
+                    if (methodName === "concat" && slot.startsWith("arr:") && args.includes(val)) {
+                        const dst = pag.getNodesByValue(left);
+                        if (!dst) continue;
+                        for (const id of dst.values()) {
+                            if (dedup.has(id)) continue;
+                            dedup.add(id);
+                            results.push(id);
+                        }
+                    }
+                }
+            }
+
+            if (stmt instanceof ArkInvokeStmt) {
+                const invokeExpr = stmt.getInvokeExpr();
+                if (!(invokeExpr instanceof ArkInstanceInvokeExpr)) continue;
+                if (invokeExpr.getBase() !== val) continue;
+                const methodName = resolveMethodName(invokeExpr);
+                if (methodName !== "forEach") continue;
+                if (!slot.startsWith("arr:")) continue;
+                const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
+                if (args.length === 0) continue;
+
+                const callbackParamNodeIds = collectCallbackParamNodeIds(scene, pag, args[0]);
+                for (const nodeId of callbackParamNodeIds) {
+                    if (dedup.has(nodeId)) continue;
+                    dedup.add(nodeId);
+                    results.push(nodeId);
                 }
             }
         }
@@ -272,6 +313,94 @@ function resolveMethodName(invokeExpr: ArkInstanceInvokeExpr): string {
     const sig = invokeExpr.getMethodSignature()?.toString() || "";
     const m = sig.match(/\.([A-Za-z0-9_]+)\(\)/);
     return m ? m[1] : "";
+}
+
+function collectCallbackParamNodeIds(scene: Scene, pag: Pag, callbackArg: any): number[] {
+    const results: number[] = [];
+    const dedup = new Set<number>();
+    const methodNames = resolveCallbackMethodNames(callbackArg);
+
+    for (const method of scene.getMethods()) {
+        if (!methodNames.has(method.getName())) continue;
+        const cfg = method.getCfg();
+        if (!cfg) continue;
+        for (const stmt of cfg.getStmts()) {
+            if (!(stmt instanceof ArkAssignStmt)) continue;
+            if (!(stmt.getRightOp() instanceof ArkParameterRef)) continue;
+            let dst = pag.getNodesByValue(stmt.getLeftOp());
+            if (!dst || dst.size === 0) {
+                dst = pag.getNodesByValue(stmt.getRightOp());
+            }
+            if (!dst || dst.size === 0) continue;
+            for (const nodeId of dst.values()) {
+                if (dedup.has(nodeId)) continue;
+                dedup.add(nodeId);
+                results.push(nodeId);
+            }
+        }
+    }
+
+    return results;
+}
+
+function resolveCallbackMethodNames(callbackArg: any): Set<string> {
+    const names = new Set<string>();
+    if (callbackArg instanceof Local) {
+        names.add(callbackArg.getName());
+    }
+    const text = callbackArg?.toString?.() || "";
+    if (text) names.add(text);
+    return names;
+}
+
+function isLikelyArrayPopSourceSlot(slot: string, base: Local): boolean {
+    const slotIndex = parseArraySlotIndex(slot);
+    if (slotIndex === undefined) return false;
+    const maxIndex = resolveArrayMaxStoredIndex(base, new Set<Local>());
+    if (maxIndex === undefined) {
+        return true;
+    }
+    return slotIndex === maxIndex;
+}
+
+function parseArraySlotIndex(slot: string): number | undefined {
+    const m = slot.match(/^arr:(-?\d+)$/);
+    if (!m) return undefined;
+    const n = Number(m[1]);
+    return Number.isFinite(n) ? n : undefined;
+}
+
+function resolveArrayMaxStoredIndex(local: Local, visiting: Set<Local>): number | undefined {
+    if (visiting.has(local)) return undefined;
+    visiting.add(local);
+
+    let maxIndex: number | undefined = undefined;
+
+    for (const stmt of local.getUsedStmts()) {
+        if (!(stmt instanceof ArkAssignStmt)) continue;
+        const left = stmt.getLeftOp();
+        if (!(left instanceof ArkArrayRef)) continue;
+        if (left.getBase() !== local) continue;
+        const idxKey = resolveValueKey(left.getIndex());
+        if (idxKey === undefined) continue;
+        const idxNum = Number(idxKey);
+        if (!Number.isFinite(idxNum)) continue;
+        maxIndex = maxIndex === undefined ? idxNum : Math.max(maxIndex, idxNum);
+    }
+
+    const decl = local.getDeclaringStmt();
+    if (decl instanceof ArkAssignStmt && decl.getLeftOp() === local) {
+        const right = decl.getRightOp();
+        if (right instanceof Local) {
+            const rhsMax = resolveArrayMaxStoredIndex(right, visiting);
+            if (rhsMax !== undefined) {
+                maxIndex = maxIndex === undefined ? rhsMax : Math.max(maxIndex, rhsMax);
+            }
+        }
+    }
+
+    visiting.delete(local);
+    return maxIndex;
 }
 
 function resolveAddOrdinal(base: Local, targetStmt: any): number {

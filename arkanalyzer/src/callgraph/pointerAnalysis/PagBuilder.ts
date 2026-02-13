@@ -606,10 +606,10 @@ export class PagBuilder {
             // function ptr invoke
             let tempCallee = this.scene.getMethod(ptNode.getMethod());
 
-            if (!callee) {
+            if (!tempCallee) {
                 return callee;
             }
-            callee.push(tempCallee!);
+            callee.push(tempCallee);
             return callee;
         }
         //else branch
@@ -620,14 +620,26 @@ export class PagBuilder {
         }
 
         // try to get callee by MethodSignature
-        const getClassSignature = (value: ArkNewExpr | ArkNewArrayExpr): ClassSignature => {
+        const getClassSignature = (value: ArkNewExpr | ArkNewArrayExpr): ClassSignature | undefined => {
             if (value instanceof ArkNewExpr) {
-                return (value.getType() as ClassType).getClassSignature() as ClassSignature;
+                const valueType = value.getType() as unknown as ClassType | undefined;
+                if (!valueType || typeof (valueType as any).getClassSignature !== "function") {
+                    return undefined;
+                }
+                return valueType.getClassSignature() as ClassSignature;
             }
-            return this.scene.getSdkGlobal('Array')!.getSignature() as ClassSignature;
+            const arrayClass = this.scene.getSdkGlobal('Array');
+            if (!arrayClass) {
+                logger.warn(`[PagBuilder] missing SDK global 'Array' when resolving dynamic callee: ${ivkExpr.toString()}`);
+                return undefined;
+            }
+            return arrayClass.getSignature() as ClassSignature;
         };
 
         const clsSig = getClassSignature(value);
+        if (!clsSig) {
+            return callee;
+        }
         let cls: ArkClass | null = this.scene.getClass(clsSig) as ArkClass;
         let tempCallee: ArkMethod | undefined;
 
@@ -648,7 +660,10 @@ export class PagBuilder {
                 // TODO: anonymous method param and return value pointer pass
                 let argType = arg.getType();
                 if (argType instanceof FunctionType) {
-                    callee.push(this.scene.getMethod(argType.getMethodSignature())!);
+                    const argMethod = this.scene.getMethod(argType.getMethodSignature());
+                    if (argMethod) {
+                        callee.push(argMethod);
+                    }
                 }
             }
         } else if (tempCallee) {

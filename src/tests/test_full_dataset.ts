@@ -29,6 +29,11 @@ interface CategoryStats {
     failedCases: string[];
 }
 
+interface ResolvedEntry {
+    name: string;
+    pathHint?: string;
+}
+
 function getParameterLocalNames(entryMethod: any): Set<string> {
     let names = new Set<string>();
     let cfg = entryMethod.getCfg();
@@ -45,14 +50,53 @@ function getParameterLocalNames(entryMethod: any): Set<string> {
     return names;
 }
 
-function resolveEntryMethodName(scene: Scene, relativePath: string, testName: string): string {
+function resolveEntryMethod(scene: Scene, relativePath: string, testName: string): ResolvedEntry {
     const normalized = relativePath.split(path.sep).join("/");
     const isCrossFileA = normalized.includes("completeness/cross_file/") && testName.endsWith("_a");
-    if (!isCrossFileA) return testName;
+    if (isCrossFileA) {
+        const companion = `${testName.slice(0, -2)}_b`;
+        const hasCompanion = scene.getMethods().some(m => m.getName() === companion);
+        if (hasCompanion) {
+            const companionHint = normalized.replace(/_a\.ets$/i, "_b.ets");
+            return { name: companion, pathHint: companionHint };
+        }
+    }
 
-    const companion = `${testName.slice(0, -2)}_b`;
-    const hasCompanion = scene.getMethods().some(m => m.getName() === companion);
-    return hasCompanion ? companion : testName;
+    const hasSameName = scene.getMethods().some(m => m.getName() === testName);
+    if (hasSameName) return { name: testName, pathHint: normalized };
+
+    const methodsInFile = scene
+        .getMethods()
+        .filter(m => m.getSignature().toString().includes(normalized) && m.getName() !== "%dflt");
+    const labeled = methodsInFile.filter(m => /_(T|F)(?:_[ab])?$/.test(m.getName()));
+
+    if (labeled.length === 1) {
+        return { name: labeled[0].getName(), pathHint: normalized };
+    }
+
+    const expectedLabel = testName.includes("_T") ? "_T" : testName.includes("_F") ? "_F" : "";
+    if (expectedLabel) {
+        const labelMatch = labeled.find(m => m.getName().includes(expectedLabel));
+        if (labelMatch) {
+            return { name: labelMatch.getName(), pathHint: normalized };
+        }
+    }
+
+    if (methodsInFile.length > 0) {
+        return { name: methodsInFile[0].getName(), pathHint: normalized };
+    }
+
+    return { name: testName, pathHint: normalized };
+}
+
+function findEntryMethod(scene: Scene, entry: ResolvedEntry): any | undefined {
+    const candidates = scene.getMethods().filter(m => m.getName() === entry.name);
+    if (entry.pathHint) {
+        const normalizedHint = entry.pathHint.replace(/\\/g, "/");
+        const hinted = candidates.find(m => m.getSignature().toString().includes(normalizedHint));
+        if (hinted) return hinted;
+    }
+    return candidates[0];
 }
 
 async function runWithK(scene: Scene, allFiles: string[], targetDir: string, k: number): Promise<Record<string, CategoryStats>> {
@@ -66,16 +110,16 @@ async function runWithK(scene: Scene, allFiles: string[], targetDir: string, k: 
         if (!stats[category]) stats[category] = { total: 0, passed: 0, failed: 0, failedCases: [] };
 
         let testName = path.basename(file, '.ets');
-        let entryName = resolveEntryMethodName(scene, relativePath, testName);
+        let entry = resolveEntryMethod(scene, relativePath, testName);
         let expected = testName.endsWith('_T') || testName.includes('_T_');
 
         try {
             let engine = new TaintPropagationEngine(scene, k);
             engine.verbose = false; // 抑制传播日志
 
-            await engine.buildPAG(entryName);
+            await engine.buildPAG(entry.name, entry.pathHint);
 
-            let entryMethod = scene.getMethods().find(m => m.getName() === entryName);
+            let entryMethod = findEntryMethod(scene, entry);
             if (!entryMethod) continue;
 
             let methodBody = entryMethod.getBody();

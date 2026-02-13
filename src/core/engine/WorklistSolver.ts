@@ -327,7 +327,7 @@ export class WorklistSolver {
 
                 const containerSlot = fromContainerFieldKey(fieldName);
                 if (containerSlot !== null) {
-                    const loadNodeIds = collectContainerSlotLoadNodeIds(objId, containerSlot, pag);
+                    const loadNodeIds = collectContainerSlotLoadNodeIds(objId, containerSlot, pag, scene);
                     for (const loadNodeId of loadNodeIds) {
                         const dstNode = pag.getNode(loadNodeId) as PagNode;
                         const newFact = new TaintFact(dstNode, fact.source, currentCtx);
