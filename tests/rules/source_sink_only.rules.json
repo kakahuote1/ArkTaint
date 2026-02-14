@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0",
+  "meta": {
+    "name": "source-sink-only-rule-pack",
+    "description": "Rule pack for source/sink core execution test",
+    "updatedAt": "2026-02-14"
+  },
+  "sources": [
+    {
+      "id": "source.test.entry_param.taint_src",
+      "profile": "entry_param",
+      "match": {
+        "kind": "local_name_regex",
+        "value": "^taint_src$"
+      }
+    }
+  ],
+  "sinks": [
+    {
+      "id": "sink.test.method_name.Sink",
+      "profile": "signature",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "Sink"
+      }
+    }
+  ],
+  "transfers": []
+}

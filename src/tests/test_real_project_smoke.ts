@@ -5,6 +5,7 @@ import { ArkAssignStmt } from "../../arkanalyzer/out/src/core/base/Stmt";
 import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../arkanalyzer/out/src/core/base/Expr";
 import { ArkArrayRef, ArkInstanceFieldRef, ArkParameterRef, ClosureFieldRef } from "../../arkanalyzer/out/src/core/base/Ref";
 import { Local } from "../../arkanalyzer/out/src/core/base/Local";
+import { buildSmokeRuleConfig, tryLoadRuleSet } from "../core/rules/RuleLoader";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -120,7 +121,10 @@ interface SmokeReport {
     fatalProjectCount: number;
 }
 
-const SOURCE_NAME_PATTERN = /(taint_src|input|url|uri|path|query|param|params|msg|message|text|content|payload|token|password|pwd|phone|email|name|id|data)/i;
+const LOADED_RULES = tryLoadRuleSet();
+const SMOKE_RULE_CONFIG = buildSmokeRuleConfig(LOADED_RULES);
+
+const SOURCE_NAME_PATTERN = SMOKE_RULE_CONFIG.sourceLocalNamePattern;
 const INIT_NAME_PATTERN = /(data|state|model|info|result|resp|response|record|entity|item|user|token|msg|payload|query|param|url|uri|path|text|content|name|id)/i;
 const INIT_CALLEE_PATTERN = /(get|fetch|load|query|request|read|find|resolve|parse|decode|open|from)/i;
 const CALLBACK_INVOKE_HINTS = new Set([
@@ -142,36 +146,9 @@ const CALLBACK_INVOKE_HINTS = new Set([
     "settimeout",
     "setinterval",
 ]);
-const SINK_KEYWORDS = [
-    "axios",
-    "fetch",
-    "request",
-    "router",
-    "pushUrl",
-    "relationalStore",
-    "rdb",
-    "preferences",
-    "console",
-];
+const SINK_KEYWORDS = SMOKE_RULE_CONFIG.sinkKeywords;
 
-const DEFAULT_SINK_SIGNATURE_PATTERNS = [
-    "router.pushUrl",
-    "router.back",
-    "router.getParams",
-    "fetch(",
-    "axios.get",
-    "axios.post",
-    "relationalStore",
-    "getRdbStore",
-    "execDML",
-    "execDQL",
-    "insertSync",
-    "querySqlSync",
-    "preferences.getPreferencesSync",
-    "dataPreferences.putSync",
-    "dataPreferences.getSync",
-    "dataPreferences.deleteSync",
-];
+const DEFAULT_SINK_SIGNATURE_PATTERNS = SMOKE_RULE_CONFIG.sinkSignatures;
 
 const ENTRY_METHOD_HINTS = new Set([
     "build",
@@ -1108,6 +1085,27 @@ function printConsoleSummary(report: SmokeReport): void {
 
 async function main(): Promise<void> {
     const options = parseArgs(process.argv.slice(2));
+    if (LOADED_RULES) {
+        console.log(`[rules] loaded: ${LOADED_RULES.defaultRulePath}`);
+        console.log(`[rules] applied_layers: ${LOADED_RULES.appliedLayerOrder.join(" -> ")}`);
+        if (LOADED_RULES.frameworkRulePath) {
+            console.log(`[rules] framework: ${LOADED_RULES.frameworkRulePath}`);
+        }
+        if (LOADED_RULES.projectRulePath) {
+            console.log(`[rules] project: ${LOADED_RULES.projectRulePath}`);
+        }
+        if (LOADED_RULES.llmCandidateRulePath) {
+            console.log(`[rules] llm_candidate: ${LOADED_RULES.llmCandidateRulePath}`);
+        }
+        if (LOADED_RULES.overrideRulePath) {
+            console.log(`[rules] override: ${LOADED_RULES.overrideRulePath}`);
+        }
+        for (const warning of LOADED_RULES.warnings) {
+            console.log(`[rules][warn] ${warning}`);
+        }
+    } else {
+        console.log("[rules] default rules unavailable, fallback to built-in smoke defaults.");
+    }
     const manifest = readManifest(options.manifestPath);
     let projects = manifest.projects.filter(p => p.enabled !== false);
     if (options.projectFilter) {

@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "1.0",
+  "meta": {
+    "name": "minimal-rule-pack",
+    "description": "Empty baseline pack for rule-driven tests",
+    "updatedAt": "2026-02-14"
+  },
+  "sources": [],
+  "sinks": [],
+  "transfers": []
+}

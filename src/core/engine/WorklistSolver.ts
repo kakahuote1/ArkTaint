@@ -14,6 +14,8 @@ import { CaptureEdgeInfo } from "./CallEdgeMapBuilder";
 import { SyntheticInvokeEdgeInfo, SyntheticConstructorStoreInfo } from "./SyntheticInvokeEdgeBuilder";
 import { WorklistProfiler } from "./WorklistProfiler";
 import { PropagationTrace } from "./PropagationTrace";
+import { TransferRule } from "../rules/RuleSchema";
+import { ConfigBasedTransferExecutor } from "./ConfigBasedTransferExecutor";
 import {
     collectPreciseArrayLoadNodeIdsFromTaintedLocal,
     collectContainerSlotLoadNodeIds,
@@ -32,6 +34,7 @@ interface WorklistSolverDeps {
     syntheticInvokeEdgeMap: Map<number, SyntheticInvokeEdgeInfo[]>;
     syntheticConstructorStoreMap: Map<number, SyntheticConstructorStoreInfo[]>;
     fieldToVarIndex: Map<string, Set<number>>;
+    transferRules?: TransferRule[];
     profiler?: WorklistProfiler;
     propagationTrace?: PropagationTrace;
     log: (msg: string) => void;
@@ -55,10 +58,12 @@ export class WorklistSolver {
             syntheticInvokeEdgeMap,
             syntheticConstructorStoreMap,
             fieldToVarIndex,
+            transferRules,
             profiler,
             propagationTrace,
             log
         } = this.deps;
+        const transferExecutor = new ConfigBasedTransferExecutor(transferRules || []);
         const arraySlotObjsByCtx: Map<number, Set<number>> = new Map();
         profiler?.onQueueSize(worklist.length);
 
@@ -130,6 +135,20 @@ export class WorklistSolver {
                             }
                             arraySlotObjsByCtx.get(currentCtx)!.add(info.objId);
                         }
+                    }
+
+                    const transferResults = transferExecutor.executeFromTaintedLocal(
+                        val,
+                        fact.source,
+                        currentCtx,
+                        pag
+                    );
+                    for (const transferResult of transferResults) {
+                        const newFact = transferResult.fact;
+                        tryEnqueue("Rule-Transfer", newFact, () => {
+                            tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source);
+                            log(`    [Rule-Transfer] ${transferResult.ruleId}: ${transferResult.callSignature} -> node ${newFact.node.getID()} (ctx=${newFact.contextID})`);
+                        });
                     }
                 }
             }

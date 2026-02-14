@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "1.0",
+  "meta": {
+    "name": "layer-default",
+    "updatedAt": "2026-02-14"
+  },
+  "sources": [
+    {
+      "id": "source.layer.same",
+      "profile": "seed_local_name",
+      "match": {
+        "kind": "local_name_regex",
+        "value": "default_src"
+      }
+    },
+    {
+      "id": "source.layer.default_only",
+      "profile": "seed_local_name",
+      "match": {
+        "kind": "local_name_regex",
+        "value": "default_only"
+      }
+    }
+  ],
+  "sinks": [
+    {
+      "id": "sink.layer.same",
+      "profile": "signature",
+      "match": {
+        "kind": "signature_contains",
+        "value": "default_sink"
+      }
+    },
+    {
+      "id": "sink.layer.default_only",
+      "profile": "signature",
+      "match": {
+        "kind": "signature_contains",
+        "value": "default_sink_only"
+      }
+    }
+  ],
+  "transfers": [
+    {
+      "id": "transfer.layer.same",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "transferSame"
+      },
+      "from": "arg0",
+      "to": "base"
+    },
+    {
+      "id": "transfer.layer.default_only",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "transferDefaultOnly"
+      },
+      "from": "arg0",
+      "to": "result"
+    }
+  ]
+}

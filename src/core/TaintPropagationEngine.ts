@@ -5,6 +5,9 @@ import { Pag, PagNode } from "../../arkanalyzer/out/src/callgraph/pointerAnalysi
 import { CallGraph } from "../../arkanalyzer/out/src/callgraph/model/CallGraph";
 import { CallGraphBuilder } from "../../arkanalyzer/out/src/callgraph/model/builder/CallGraphBuilder";
 import { ArkAssignStmt } from "../../arkanalyzer/out/src/core/base/Stmt";
+import { ArkParameterRef } from "../../arkanalyzer/out/src/core/base/Ref";
+import { Local } from "../../arkanalyzer/out/src/core/base/Local";
+import { ArkMethod } from "../../arkanalyzer/out/src/core/model/ArkMethod";
 import { TaintFact } from "./TaintFact";
 import { TaintFlow } from "./TaintFlow";
 import { TaintTracker } from "./TaintTracker";
@@ -22,6 +25,7 @@ import { WorklistSolver } from "./engine/WorklistSolver";
 import { detectSinks as runSinkDetector } from "./engine/SinkDetector";
 import { WorklistProfiler, WorklistProfileSnapshot } from "./engine/WorklistProfiler";
 import { PropagationTrace } from "./engine/PropagationTrace";
+import { SinkRule, SourceRule, TransferRule } from "./rules/RuleSchema";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -34,6 +38,7 @@ export interface DebugOptions {
 export interface TaintEngineOptions {
     contextStrategy?: "fixed" | "adaptive";
     adaptiveContext?: AdaptiveContextSelectorOptions;
+    transferRules?: TransferRule[];
     debug?: DebugOptions;
 }
 
@@ -190,6 +195,50 @@ export class TaintPropagationEngine {
         this.runWorkList(worklist, visited);
     }
 
+    public propagateWithSourceRules(
+        sourceRules: SourceRule[],
+        options: { entryMethodName?: string; entryMethodPathHint?: string } = {}
+    ): { seedCount: number; seededLocals: string[] } {
+        const seeds = this.collectSourceRuleSeeds(sourceRules || [], options);
+        if (seeds.nodes.length === 0) {
+            this.log("No source seeds matched by source rules.");
+            return {
+                seedCount: 0,
+                seededLocals: [],
+            };
+        }
+
+        this.log(`Initialized WorkList with ${seeds.nodes.length} source-rule seeds.`);
+        this.propagateWithSeeds(seeds.nodes);
+        return {
+            seedCount: seeds.nodes.length,
+            seededLocals: seeds.seededLocals,
+        };
+    }
+
+    public detectSinksByRules(sinkRules: SinkRule[]): TaintFlow[] {
+        if (!sinkRules || sinkRules.length === 0) return [];
+
+        const flowMap = new Map<string, TaintFlow>();
+        const addFlows = (flows: TaintFlow[]): void => {
+            for (const f of flows) {
+                const key = `${f.source} -> ${f.sink.toString()}`;
+                if (!flowMap.has(key)) {
+                    flowMap.set(key, f);
+                }
+            }
+        };
+
+        for (const rule of sinkRules) {
+            const signatures = this.resolveSinkRuleSignatures(rule);
+            for (const signature of signatures) {
+                addFlows(this.detectSinks(signature));
+            }
+        }
+
+        return Array.from(flowMap.values());
+    }
+
     private runWorkList(worklist: TaintFact[], visited: Set<string>): void {
         this.prepareDebugCollectors();
         const solver = new WorklistSolver({
@@ -202,11 +251,162 @@ export class TaintPropagationEngine {
             syntheticInvokeEdgeMap: this.syntheticInvokeEdgeMap,
             syntheticConstructorStoreMap: this.syntheticConstructorStoreMap,
             fieldToVarIndex: this.fieldToVarIndex,
+            transferRules: this.options.transferRules || [],
             profiler: this.worklistProfiler,
             propagationTrace: this.propagationTrace,
             log: this.log.bind(this),
         });
         solver.solve(worklist, visited);
+    }
+
+    private collectSourceRuleSeeds(
+        sourceRules: SourceRule[],
+        options: { entryMethodName?: string; entryMethodPathHint?: string }
+    ): { nodes: PagNode[]; seededLocals: string[] } {
+        const methods = this.resolveSourceScopeMethods(options.entryMethodName, options.entryMethodPathHint);
+        const nodes: PagNode[] = [];
+        const seededLocals = new Set<string>();
+        const seenNodeIds = new Set<number>();
+
+        for (const method of methods) {
+            const body = method.getBody();
+            if (!body) continue;
+
+            const methodSignature = method.getSignature().toString();
+            const methodName = method.getName();
+            const paramLocalNames = this.getParameterLocalNames(method);
+
+            for (const local of body.getLocals().values()) {
+                const localName = local.getName();
+                const matched = sourceRules.some(rule => this.matchesSourceRule(
+                    rule,
+                    methodSignature,
+                    methodName,
+                    localName,
+                    paramLocalNames
+                ));
+                if (!matched) continue;
+
+                const pagNodes = this.pag.getNodesByValue(local);
+                if (!pagNodes) continue;
+                for (const nodeId of pagNodes.values()) {
+                    if (seenNodeIds.has(nodeId)) continue;
+                    seenNodeIds.add(nodeId);
+                    nodes.push(this.pag.getNode(nodeId) as PagNode);
+                    seededLocals.add(`${methodName}:${localName}`);
+                }
+            }
+        }
+
+        return {
+            nodes,
+            seededLocals: [...seededLocals].sort(),
+        };
+    }
+
+    private resolveSourceScopeMethods(entryMethodName?: string, entryMethodPathHint?: string): ArkMethod[] {
+        const allMethods = this.scene.getMethods().filter(m => m.getName() !== "%dflt");
+        if (!entryMethodName) return allMethods;
+
+        const candidates = allMethods.filter(m => m.getName() === entryMethodName);
+        if (!entryMethodPathHint) return candidates;
+
+        const normalizedHint = entryMethodPathHint.replace(/\\/g, "/");
+        const hinted = candidates.filter(m => m.getSignature().toString().includes(normalizedHint));
+        return hinted.length > 0 ? hinted : candidates;
+    }
+
+    private getParameterLocalNames(method: ArkMethod): Set<string> {
+        const out = new Set<string>();
+        const cfg = method.getCfg();
+        if (!cfg) return out;
+
+        for (const stmt of cfg.getStmts()) {
+            if (!(stmt instanceof ArkAssignStmt)) continue;
+            if (!(stmt.getRightOp() instanceof ArkParameterRef)) continue;
+            const leftOp = stmt.getLeftOp();
+            if (leftOp instanceof Local) out.add(leftOp.getName());
+        }
+        return out;
+    }
+
+    private matchesSourceRule(
+        rule: SourceRule,
+        methodSignature: string,
+        methodName: string,
+        localName: string,
+        paramLocalNames: Set<string>
+    ): boolean {
+        if (rule.profile === "entry_param" && !paramLocalNames.has(localName)) {
+            return false;
+        }
+
+        const value = rule.match.value || "";
+        switch (rule.match.kind) {
+            case "local_name_regex":
+                try {
+                    return new RegExp(value).test(localName);
+                } catch {
+                    return false;
+                }
+            case "method_name_equals":
+                return methodName === value;
+            case "method_name_regex":
+                try {
+                    return new RegExp(value).test(methodName);
+                } catch {
+                    return false;
+                }
+            case "signature_contains":
+                return methodSignature.includes(value);
+            case "signature_regex":
+                try {
+                    return new RegExp(value).test(methodSignature);
+                } catch {
+                    return false;
+                }
+            default:
+                return false;
+        }
+    }
+
+    private resolveSinkRuleSignatures(rule: SinkRule): string[] {
+        const methods = this.scene.getMethods();
+        const value = rule.match.value || "";
+        switch (rule.match.kind) {
+            case "signature_contains":
+                return [value];
+            case "signature_regex": {
+                let re: RegExp;
+                try {
+                    re = new RegExp(value);
+                } catch {
+                    return [];
+                }
+                return methods
+                    .map(m => m.getSignature().toString())
+                    .filter(sig => re.test(sig));
+            }
+            case "method_name_equals":
+                return methods
+                    .filter(m => m.getName() === value)
+                    .map(m => m.getSignature().toString());
+            case "method_name_regex": {
+                let re: RegExp;
+                try {
+                    re = new RegExp(value);
+                } catch {
+                    return [];
+                }
+                return methods
+                    .filter(m => re.test(m.getName()))
+                    .map(m => m.getSignature().toString());
+            }
+            case "local_name_regex":
+                return [];
+            default:
+                return [];
+        }
     }
 
     public detectSinks(sinkSignature: string): TaintFlow[] {

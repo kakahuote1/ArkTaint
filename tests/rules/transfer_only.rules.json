@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "1.0",
+  "meta": {
+    "name": "transfer-only-rule-pack",
+    "description": "Rules used by transfer execution tests",
+    "updatedAt": "2026-02-14"
+  },
+  "sources": [],
+  "sinks": [],
+  "transfers": [
+    {
+      "id": "transfer.test.putData.arg0_to_base",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "putData"
+      },
+      "from": "arg0",
+      "to": "base"
+    },
+    {
+      "id": "transfer.test.get.base_to_result",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "get"
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.test.putPair.arg1_to_base",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "putPair"
+      },
+      "from": "arg1",
+      "to": "base"
+    },
+    {
+      "id": "transfer.test.bind.arg0_to_base",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "bind"
+      },
+      "from": "arg0",
+      "to": "base"
+    },
+    {
+      "id": "transfer.test.paint.base_to_arg0",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "paint"
+      },
+      "from": "base",
+      "to": "arg0"
+    },
+    {
+      "id": "transfer.test.blend.arg1_to_result",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "blend"
+      },
+      "from": "arg1",
+      "to": "result"
+    },
+    {
+      "id": "transfer.test.project.result_to_arg0",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "project"
+      },
+      "from": "result",
+      "to": "arg0"
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "1.0",
+  "meta": {
+    "name": "layer-framework",
+    "updatedAt": "2026-02-14"
+  },
+  "sources": [
+    {
+      "id": "source.layer.same",
+      "profile": "seed_local_name",
+      "match": {
+        "kind": "local_name_regex",
+        "value": "framework_src"
+      }
+    },
+    {
+      "id": "source.layer.framework_only",
+      "profile": "seed_local_name",
+      "match": {
+        "kind": "local_name_regex",
+        "value": "framework_only"
+      }
+    }
+  ],
+  "sinks": [
+    {
+      "id": "sink.layer.same",
+      "profile": "signature",
+      "match": {
+        "kind": "signature_contains",
+        "value": "framework_sink"
+      }
+    },
+    {
+      "id": "sink.layer.framework_only",
+      "profile": "signature",
+      "match": {
+        "kind": "signature_contains",
+        "value": "framework_sink_only"
+      }
+    }
+  ],
+  "transfers": [
+    {
+      "id": "transfer.layer.same",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "transferSame"
+      },
+      "from": "arg1",
+      "to": "base"
+    },
+    {
+      "id": "transfer.layer.framework_only",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "transferFrameworkOnly"
+      },
+      "from": "base",
+      "to": "arg0"
+    }
+  ]
+}

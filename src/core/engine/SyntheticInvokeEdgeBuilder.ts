@@ -6,6 +6,11 @@ import { ArkParameterRef, ArkInstanceFieldRef } from "../../../arkanalyzer/out/s
 import { Local } from "../../../arkanalyzer/out/src/core/base/Local";
 import { ArkInstanceInvokeExpr } from "../../../arkanalyzer/out/src/core/base/Expr";
 import { CallEdgeType } from "../context/TaintContext";
+import {
+    collectParameterAssignStmts,
+    mapInvokeArgsToParamAssigns,
+    resolveCalleeCandidates
+} from "./CalleeResolver";
 
 export interface SyntheticInvokeEdgeInfo {
     type: CallEdgeType;
@@ -31,6 +36,7 @@ export function buildSyntheticInvokeEdges(
     const edgeMap = new Map<number, SyntheticInvokeEdgeInfo[]>();
     let syntheticCallCount = 0;
     let syntheticReturnCount = 0;
+    let nameFallbackCalleeCount = 0;
 
     for (const caller of scene.getMethods()) {
         const cfg = caller.getCfg();
@@ -44,77 +50,79 @@ export function buildSyntheticInvokeEdges(
             const callSites = cg.getCallSiteByStmt(stmt) || [];
             if (callSites.length > 0) continue;
 
-            const calleeSig = invokeExpr.getMethodSignature().toString();
-            if (!calleeSig || calleeSig.includes("%unk")) continue;
+            const callees = resolveCalleeCandidates(scene, invokeExpr);
+            if (callees.length === 0) continue;
 
-            const callee = scene.getMethods().find(m => m.getSignature().toString() === calleeSig);
-            if (!callee || !callee.getCfg()) continue;
-
-            const callSiteId = stmt.getOriginPositionInfo().getLineNo() * 10000 + simpleHash(calleeSig);
-            const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
-            const paramStmts = callee.getCfg()!.getStmts()
-                .filter((s: any) => s instanceof ArkAssignStmt && s.getRightOp() instanceof ArkParameterRef);
-
-            const spreadToFirstParam = paramStmts.length === 1 && args.length > 1;
-            const limit = spreadToFirstParam ? args.length : Math.min(args.length, paramStmts.length);
-
-            for (let i = 0; i < limit; i++) {
-                const arg = args[i]!;
-                const paramStmtIdx = spreadToFirstParam ? 0 : i;
-                const paramStmt = paramStmts[paramStmtIdx] as ArkAssignStmt;
-                const srcNodes = pag.getNodesByValue(arg);
-
-                let dstNodes = pag.getNodesByValue(paramStmt.getLeftOp());
-                if (!dstNodes || dstNodes.size === 0) {
-                    dstNodes = pag.getNodesByValue(paramStmt.getRightOp());
+            for (const resolved of callees) {
+                const callee = resolved.method;
+                if (!callee || !callee.getCfg()) continue;
+                if (resolved.reason === "name_fallback") {
+                    nameFallbackCalleeCount++;
                 }
-                if (!srcNodes || !dstNodes) continue;
 
-                for (const srcNodeId of srcNodes.values()) {
-                    for (const dstNodeId of dstNodes.values()) {
-                        pushEdge(edgeMap, srcNodeId, {
-                            type: CallEdgeType.CALL,
-                            srcNodeId,
-                            dstNodeId,
-                            callSiteId,
-                            callerMethodName: caller.getName(),
-                            calleeMethodName: callee.getName(),
-                        });
-                        syntheticCallCount++;
+                const calleeSig = callee.getSignature().toString();
+                const callSiteId = stmt.getOriginPositionInfo().getLineNo() * 10000 + simpleHash(calleeSig);
+                const explicitArgs = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
+                const paramStmts = collectParameterAssignStmts(callee);
+                const pairs = mapInvokeArgsToParamAssigns(invokeExpr, explicitArgs, paramStmts);
+
+                for (const pair of pairs) {
+                    const arg = pair.arg;
+                    const paramStmt = pair.paramStmt;
+                    const srcNodes = pag.getNodesByValue(arg);
+
+                    let dstNodes = pag.getNodesByValue(paramStmt.getLeftOp());
+                    if (!dstNodes || dstNodes.size === 0) {
+                        dstNodes = pag.getNodesByValue(paramStmt.getRightOp());
+                    }
+                    if (!srcNodes || !dstNodes) continue;
+
+                    for (const srcNodeId of srcNodes.values()) {
+                        for (const dstNodeId of dstNodes.values()) {
+                            pushEdge(edgeMap, srcNodeId, {
+                                type: CallEdgeType.CALL,
+                                srcNodeId,
+                                dstNodeId,
+                                callSiteId,
+                                callerMethodName: caller.getName(),
+                                calleeMethodName: callee.getName(),
+                            });
+                            syntheticCallCount++;
+                        }
                     }
                 }
-            }
 
-            if (!(stmt instanceof ArkAssignStmt)) continue;
+                if (!(stmt instanceof ArkAssignStmt)) continue;
 
-            const retDst = stmt.getLeftOp();
-            const retStmts = callee.getReturnStmt();
-            for (const retStmt of retStmts) {
-                const retValue = (retStmt as ArkReturnStmt).getOp();
-                if (!(retValue instanceof Local)) continue;
+                const retDst = stmt.getLeftOp();
+                const retStmts = callee.getReturnStmt();
+                for (const retStmt of retStmts) {
+                    const retValue = (retStmt as ArkReturnStmt).getOp();
+                    if (!(retValue instanceof Local)) continue;
 
-                const srcNodes = pag.getNodesByValue(retValue);
-                const dstNodes = pag.getNodesByValue(retDst);
-                if (!srcNodes || !dstNodes) continue;
+                    const srcNodes = pag.getNodesByValue(retValue);
+                    const dstNodes = pag.getNodesByValue(retDst);
+                    if (!srcNodes || !dstNodes) continue;
 
-                for (const srcNodeId of srcNodes.values()) {
-                    for (const dstNodeId of dstNodes.values()) {
-                        pushEdge(edgeMap, srcNodeId, {
-                            type: CallEdgeType.RETURN,
-                            srcNodeId,
-                            dstNodeId,
-                            callSiteId,
-                            callerMethodName: caller.getName(),
-                            calleeMethodName: callee.getName(),
-                        });
-                        syntheticReturnCount++;
+                    for (const srcNodeId of srcNodes.values()) {
+                        for (const dstNodeId of dstNodes.values()) {
+                            pushEdge(edgeMap, srcNodeId, {
+                                type: CallEdgeType.RETURN,
+                                srcNodeId,
+                                dstNodeId,
+                                callSiteId,
+                                callerMethodName: caller.getName(),
+                                calleeMethodName: callee.getName(),
+                            });
+                            syntheticReturnCount++;
+                        }
                     }
                 }
             }
         }
     }
 
-    log(`Synthetic Invoke Edge Map Built: ${syntheticCallCount} call edges, ${syntheticReturnCount} return edges.`);
+    log(`Synthetic Invoke Edge Map Built: ${syntheticCallCount} call edges, ${syntheticReturnCount} return edges, ${nameFallbackCalleeCount} name-fallback callees.`);
     return edgeMap;
 }
 

@@ -2,9 +2,13 @@ import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { CallGraph } from "../../../arkanalyzer/out/src/callgraph/model/CallGraph";
 import { Pag, PagNode } from "../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { ArkAssignStmt, ArkReturnStmt } from "../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkParameterRef } from "../../../arkanalyzer/out/src/core/base/Ref";
 import { Local } from "../../../arkanalyzer/out/src/core/base/Local";
 import { CallEdgeInfo, CallEdgeType } from "../context/TaintContext";
+import {
+    collectParameterAssignStmts,
+    mapInvokeArgsToParamAssigns,
+    resolveCalleeCandidates
+} from "./CalleeResolver";
 
 export interface CaptureEdgeInfo {
     srcNodeId: number;
@@ -49,17 +53,13 @@ export function buildCallEdgeMap(
                 const callerName = method.getName();
                 const calleeName = calleeMethod.getName();
                 const stableCallSiteId = stmt.getOriginPositionInfo().getLineNo() * 10000 + calleeFuncID;
-                const args = cs.args || [];
-                const paramStmts = calleeMethod.getCfg()!.getStmts()
-                    .filter((s: any) => s instanceof ArkAssignStmt && s.getRightOp() instanceof ArkParameterRef);
+                const explicitArgs = cs.args || [];
+                const paramStmts = collectParameterAssignStmts(calleeMethod);
+                const pairs = mapInvokeArgsToParamAssigns(invokeExpr, explicitArgs, paramStmts);
 
-                const spreadToFirstParam = paramStmts.length === 1 && args.length > 1;
-                const limit = spreadToFirstParam ? args.length : Math.min(args.length, paramStmts.length);
-
-                for (let i = 0; i < limit; i++) {
-                    const arg = args[i]!;
-                    const paramStmtIdx = spreadToFirstParam ? 0 : i;
-                    const param = (paramStmts[paramStmtIdx] as ArkAssignStmt).getRightOp();
+                for (const pair of pairs) {
+                    const arg = pair.arg;
+                    const param = pair.paramStmt.getRightOp();
                     const srcNodes = pag.getNodesByValue(arg);
                     const dstNodes = pag.getNodesByValue(param);
                     if (!srcNodes || !dstNodes) continue;
@@ -159,18 +159,18 @@ export function buildCaptureEdgeMap(
                 const calleeMethod = cg.getArkMethodByFuncID(calleeFuncID);
                 if (!calleeMethod) continue;
 
-                const argCount = cs.args ? cs.args.length : 0;
+                const argCount = invokeExpr.getArgs ? invokeExpr.getArgs().length : (cs.args ? cs.args.length : 0);
                 const callSiteId = stmt.getOriginPositionInfo().getLineNo() * 10000 + calleeFuncID;
                 calleeMethods.push({ method: calleeMethod, callSiteId, argCount });
             }
 
             if (calleeMethods.length === 0) {
-                const targetSig = invokeExpr.getMethodSignature().toString();
-                const fallbackCallee = scene.getMethods().find(m => m.getSignature().toString() === targetSig);
-                if (fallbackCallee) {
-                    const argCount = invokeExpr.getArgs ? invokeExpr.getArgs().length : 0;
+                const fallbackCallees = resolveCalleeCandidates(scene, invokeExpr);
+                const argCount = invokeExpr.getArgs ? invokeExpr.getArgs().length : 0;
+                for (const resolved of fallbackCallees) {
+                    const targetSig = resolved.method.getSignature().toString();
                     const callSiteId = stmt.getOriginPositionInfo().getLineNo() * 10000 + thisSimpleHash(targetSig);
-                    calleeMethods.push({ method: fallbackCallee, callSiteId, argCount });
+                    calleeMethods.push({ method: resolved.method, callSiteId, argCount });
                 }
             }
 

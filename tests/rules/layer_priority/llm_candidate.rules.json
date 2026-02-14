@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "1.0",
+  "meta": {
+    "name": "layer-llm",
+    "updatedAt": "2026-02-14"
+  },
+  "sources": [
+    {
+      "id": "source.layer.same",
+      "profile": "seed_local_name",
+      "match": {
+        "kind": "local_name_regex",
+        "value": "llm_src"
+      }
+    },
+    {
+      "id": "source.layer.llm_only",
+      "profile": "seed_local_name",
+      "match": {
+        "kind": "local_name_regex",
+        "value": "llm_only"
+      }
+    }
+  ],
+  "sinks": [
+    {
+      "id": "sink.layer.same",
+      "profile": "signature",
+      "match": {
+        "kind": "signature_contains",
+        "value": "llm_sink"
+      }
+    },
+    {
+      "id": "sink.layer.llm_only",
+      "profile": "signature",
+      "match": {
+        "kind": "signature_contains",
+        "value": "llm_sink_only"
+      }
+    }
+  ],
+  "transfers": [
+    {
+      "id": "transfer.layer.same",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "transferSame"
+      },
+      "from": "result",
+      "to": "arg0"
+    },
+    {
+      "id": "transfer.layer.llm_only",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "transferLlmOnly"
+      },
+      "from": "arg1",
+      "to": "result"
+    }
+  ]
+}

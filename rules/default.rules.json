@@ -1,0 +1,334 @@
+{
+  "schemaVersion": "1.0",
+  "meta": {
+    "name": "arktaint-default-rules",
+    "description": "M0 default source/sink/transfer rules",
+    "updatedAt": "2026-02-14"
+  },
+  "sources": [
+    {
+      "id": "source.local_name.primary",
+      "enabled": true,
+      "description": "Source-like local names for entry seed heuristics.",
+      "profile": "seed_local_name",
+      "target": "arg0",
+      "tags": [
+        "smoke",
+        "seed"
+      ],
+      "match": {
+        "kind": "local_name_regex",
+        "value": "(taint_src|input|url|uri|path|query|param|params|msg|message|text|content|payload|token|password|pwd|phone|email|name|id|data)"
+      }
+    }
+  ],
+  "sinks": [
+    {
+      "id": "sink.keyword.axios",
+      "profile": "keyword",
+      "severity": "medium",
+      "match": {
+        "kind": "signature_contains",
+        "value": "axios"
+      }
+    },
+    {
+      "id": "sink.keyword.fetch",
+      "profile": "keyword",
+      "severity": "medium",
+      "match": {
+        "kind": "signature_contains",
+        "value": "fetch"
+      }
+    },
+    {
+      "id": "sink.keyword.request",
+      "profile": "keyword",
+      "severity": "medium",
+      "match": {
+        "kind": "signature_contains",
+        "value": "request"
+      }
+    },
+    {
+      "id": "sink.keyword.router",
+      "profile": "keyword",
+      "severity": "medium",
+      "match": {
+        "kind": "signature_contains",
+        "value": "router"
+      }
+    },
+    {
+      "id": "sink.keyword.pushUrl",
+      "profile": "keyword",
+      "severity": "medium",
+      "match": {
+        "kind": "signature_contains",
+        "value": "pushUrl"
+      }
+    },
+    {
+      "id": "sink.keyword.relationalStore",
+      "profile": "keyword",
+      "severity": "high",
+      "match": {
+        "kind": "signature_contains",
+        "value": "relationalStore"
+      }
+    },
+    {
+      "id": "sink.keyword.rdb",
+      "profile": "keyword",
+      "severity": "medium",
+      "match": {
+        "kind": "signature_contains",
+        "value": "rdb"
+      }
+    },
+    {
+      "id": "sink.keyword.preferences",
+      "profile": "keyword",
+      "severity": "low",
+      "match": {
+        "kind": "signature_contains",
+        "value": "preferences"
+      }
+    },
+    {
+      "id": "sink.keyword.console",
+      "profile": "keyword",
+      "severity": "low",
+      "match": {
+        "kind": "signature_contains",
+        "value": "console"
+      }
+    },
+    {
+      "id": "sink.sig.router.pushUrl",
+      "profile": "signature",
+      "severity": "medium",
+      "match": {
+        "kind": "signature_contains",
+        "value": "router.pushUrl"
+      }
+    },
+    {
+      "id": "sink.sig.router.back",
+      "profile": "signature",
+      "severity": "low",
+      "match": {
+        "kind": "signature_contains",
+        "value": "router.back"
+      }
+    },
+    {
+      "id": "sink.sig.router.getParams",
+      "profile": "signature",
+      "severity": "low",
+      "match": {
+        "kind": "signature_contains",
+        "value": "router.getParams"
+      }
+    },
+    {
+      "id": "sink.sig.fetch",
+      "profile": "signature",
+      "severity": "medium",
+      "match": {
+        "kind": "signature_contains",
+        "value": "fetch("
+      }
+    },
+    {
+      "id": "sink.sig.axios.get",
+      "profile": "signature",
+      "severity": "medium",
+      "match": {
+        "kind": "signature_contains",
+        "value": "axios.get"
+      }
+    },
+    {
+      "id": "sink.sig.axios.post",
+      "profile": "signature",
+      "severity": "medium",
+      "match": {
+        "kind": "signature_contains",
+        "value": "axios.post"
+      }
+    },
+    {
+      "id": "sink.sig.relationalStore",
+      "profile": "signature",
+      "severity": "high",
+      "match": {
+        "kind": "signature_contains",
+        "value": "relationalStore"
+      }
+    },
+    {
+      "id": "sink.sig.getRdbStore",
+      "profile": "signature",
+      "severity": "high",
+      "match": {
+        "kind": "signature_contains",
+        "value": "getRdbStore"
+      }
+    },
+    {
+      "id": "sink.sig.execDML",
+      "profile": "signature",
+      "severity": "high",
+      "match": {
+        "kind": "signature_contains",
+        "value": "execDML"
+      }
+    },
+    {
+      "id": "sink.sig.execDQL",
+      "profile": "signature",
+      "severity": "high",
+      "match": {
+        "kind": "signature_contains",
+        "value": "execDQL"
+      }
+    },
+    {
+      "id": "sink.sig.insertSync",
+      "profile": "signature",
+      "severity": "high",
+      "match": {
+        "kind": "signature_contains",
+        "value": "insertSync"
+      }
+    },
+    {
+      "id": "sink.sig.querySqlSync",
+      "profile": "signature",
+      "severity": "high",
+      "match": {
+        "kind": "signature_contains",
+        "value": "querySqlSync"
+      }
+    },
+    {
+      "id": "sink.sig.preferences.getPreferencesSync",
+      "profile": "signature",
+      "severity": "medium",
+      "match": {
+        "kind": "signature_contains",
+        "value": "preferences.getPreferencesSync"
+      }
+    },
+    {
+      "id": "sink.sig.dataPreferences.putSync",
+      "profile": "signature",
+      "severity": "medium",
+      "match": {
+        "kind": "signature_contains",
+        "value": "dataPreferences.putSync"
+      }
+    },
+    {
+      "id": "sink.sig.dataPreferences.getSync",
+      "profile": "signature",
+      "severity": "medium",
+      "match": {
+        "kind": "signature_contains",
+        "value": "dataPreferences.getSync"
+      }
+    },
+    {
+      "id": "sink.sig.dataPreferences.deleteSync",
+      "profile": "signature",
+      "severity": "medium",
+      "match": {
+        "kind": "signature_contains",
+        "value": "dataPreferences.deleteSync"
+      }
+    }
+  ],
+  "transfers": [
+    {
+      "id": "transfer.map.set.value_to_base",
+      "description": "map.set(key, value): value taints map base",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Map.set"
+      },
+      "from": "arg1",
+      "to": "base"
+    },
+    {
+      "id": "transfer.map.get.base_to_result",
+      "description": "map.get(key): map base taints result",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Map.get"
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.list.add.arg0_to_base",
+      "description": "list.add(value): value taints list base",
+      "match": {
+        "kind": "signature_contains",
+        "value": "List.add"
+      },
+      "from": "arg0",
+      "to": "base"
+    },
+    {
+      "id": "transfer.queue.add.arg0_to_base",
+      "description": "queue.add(value): value taints queue base",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Queue.add"
+      },
+      "from": "arg0",
+      "to": "base"
+    },
+    {
+      "id": "transfer.array.push.arg0_to_base",
+      "description": "array.push(value): value taints array base",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Array.push"
+      },
+      "from": "arg0",
+      "to": "base"
+    },
+    {
+      "id": "transfer.array.pop.base_to_result",
+      "description": "array.pop(): array base taints result",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Array.pop"
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.promise.then.base_to_arg0",
+      "description": "promise.then(callback): promise value flows to callback first arg",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Promise.then"
+      },
+      "from": "base",
+      "to": "arg0"
+    },
+    {
+      "id": "transfer.reflect.get.base_to_result",
+      "description": "Reflect.get(base,key): base field value flows to result",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Reflect.get"
+      },
+      "from": "base",
+      "to": "result"
+    }
+  ]
+}
