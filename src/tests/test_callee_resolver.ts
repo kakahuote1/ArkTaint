@@ -69,9 +69,47 @@ function testOwnerInferenceFromBaseType(): void {
     assert(selectedSig.includes("B.foo"), `owner inference selected unexpected method: ${selectedSig}`);
 }
 
+function testDirectCallableTypeFallback(): void {
+    const targetMethod = {
+        getName: () => "target",
+        getCfg: () => ({ getStmts: () => [] }),
+        getSignature: () => ({ toString: () => "<@X: Demo.target(string)>" }),
+    };
+    const scene: any = {
+        getMethods: () => [targetMethod],
+    };
+
+    const callableType = {
+        getMethodSignature: () => ({
+            toString: () => "<@X: Demo.target(string)>",
+        }),
+        toString: () => "Demo.target(string)",
+    };
+
+    const invokeExpr: any = {
+        getMethodSignature: () => ({
+            toString: () => "<@%unk/%unk: .%unk()>",
+            getMethodSubSignature: () => ({
+                getMethodName: () => "",
+            }),
+        }),
+        getArgs: () => [{ id: "arg0" }],
+        getBase: () => ({
+            getName: () => "fp",
+            getType: () => callableType,
+            toString: () => "fp",
+        }),
+    };
+
+    const candidates = resolveCalleeCandidates(scene, invokeExpr);
+    assert(candidates.length === 1, `type fallback expected 1 candidate, got ${candidates.length}`);
+    assert(candidates[0].reason === "type_fallback", `type fallback reason mismatch: ${candidates[0].reason}`);
+}
+
 function main(): void {
     testImplicitThisArgMapping();
     testOwnerInferenceFromBaseType();
+    testDirectCallableTypeFallback();
     console.log("callee_resolver_tests=PASS");
 }
 

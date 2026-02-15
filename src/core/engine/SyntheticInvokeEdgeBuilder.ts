@@ -8,6 +8,7 @@ import { ArkInstanceInvokeExpr } from "../../../arkanalyzer/out/src/core/base/Ex
 import { CallEdgeType } from "../context/TaintContext";
 import {
     collectParameterAssignStmts,
+    isReflectDispatchInvoke,
     mapInvokeArgsToParamAssigns,
     resolveCalleeCandidates
 } from "./CalleeResolver";
@@ -36,7 +37,7 @@ export function buildSyntheticInvokeEdges(
     const edgeMap = new Map<number, SyntheticInvokeEdgeInfo[]>();
     let syntheticCallCount = 0;
     let syntheticReturnCount = 0;
-    let nameFallbackCalleeCount = 0;
+    let fallbackCalleeCount = 0;
 
     for (const caller of scene.getMethods()) {
         const cfg = caller.getCfg();
@@ -48,7 +49,8 @@ export function buildSyntheticInvokeEdges(
             if (!invokeExpr) continue;
 
             const callSites = cg.getCallSiteByStmt(stmt) || [];
-            if (callSites.length > 0) continue;
+            const forceFallback = isReflectDispatchInvoke(invokeExpr);
+            if (callSites.length > 0 && !forceFallback) continue;
 
             const callees = resolveCalleeCandidates(scene, invokeExpr);
             if (callees.length === 0) continue;
@@ -56,8 +58,8 @@ export function buildSyntheticInvokeEdges(
             for (const resolved of callees) {
                 const callee = resolved.method;
                 if (!callee || !callee.getCfg()) continue;
-                if (resolved.reason === "name_fallback") {
-                    nameFallbackCalleeCount++;
+                if (resolved.reason !== "exact") {
+                    fallbackCalleeCount++;
                 }
 
                 const calleeSig = callee.getSignature().toString();
@@ -74,6 +76,10 @@ export function buildSyntheticInvokeEdges(
                     let dstNodes = pag.getNodesByValue(paramStmt.getLeftOp());
                     if (!dstNodes || dstNodes.size === 0) {
                         dstNodes = pag.getNodesByValue(paramStmt.getRightOp());
+                    }
+                    if (!dstNodes || dstNodes.size === 0) {
+                        pag.addPagNode(0, paramStmt.getLeftOp(), paramStmt);
+                        dstNodes = pag.getNodesByValue(paramStmt.getLeftOp());
                     }
                     if (!srcNodes || !dstNodes) continue;
 
@@ -122,7 +128,7 @@ export function buildSyntheticInvokeEdges(
         }
     }
 
-    log(`Synthetic Invoke Edge Map Built: ${syntheticCallCount} call edges, ${syntheticReturnCount} return edges, ${nameFallbackCalleeCount} name-fallback callees.`);
+    log(`Synthetic Invoke Edge Map Built: ${syntheticCallCount} call edges, ${syntheticReturnCount} return edges, ${fallbackCalleeCount} fallback callees.`);
     return edgeMap;
 }
 

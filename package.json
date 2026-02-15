@@ -19,6 +19,7 @@
         "test:rules": "node out/tests/test_rules_schema.js --default rules/default.rules.json",
         "test:rules:layers": "node out/tests/test_rule_layering.js",
         "test:callee-resolver": "node out/tests/test_callee_resolver.js",
+        "test:complex-calls": "node out/tests/test_complex_calls.js --sourceDir tests/demo/complex_calls --k 1",
         "test:source-sink-rules": "node out/tests/test_source_sink_rules.js --sourceDir tests/demo/context_sensitive --default tests/rules/minimal.rules.json --override tests/rules/source_sink_only.rules.json --k 1",
         "test:transfer-rules": "node out/tests/test_transfer_rules.js --sourceDir tests/demo/rule_transfer --override tests/rules/transfer_only.rules.json --k 1",
         "verify:generalization": "npm run build && node out/tests/test_verify_generalization.js",

@@ -6,6 +6,7 @@ import { Local } from "../../../arkanalyzer/out/src/core/base/Local";
 import { CallEdgeInfo, CallEdgeType } from "../context/TaintContext";
 import {
     collectParameterAssignStmts,
+    isReflectDispatchInvoke,
     mapInvokeArgsToParamAssigns,
     resolveCalleeCandidates
 } from "./CalleeResolver";
@@ -164,7 +165,7 @@ export function buildCaptureEdgeMap(
                 calleeMethods.push({ method: calleeMethod, callSiteId, argCount });
             }
 
-            if (calleeMethods.length === 0) {
+            if (calleeMethods.length === 0 || isReflectDispatchInvoke(invokeExpr)) {
                 const fallbackCallees = resolveCalleeCandidates(scene, invokeExpr);
                 const argCount = invokeExpr.getArgs ? invokeExpr.getArgs().length : 0;
                 for (const resolved of fallbackCallees) {
