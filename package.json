@@ -25,6 +25,8 @@
         "verify:generalization": "npm run build && node out/tests/test_verify_generalization.js",
         "test:adaptive": "node out/tests/test_adaptive_context.js",
         "debug:phase35": "node out/tests/test_phase35_debug.js",
+        "analyze": "node out/cli/analyze.js",
+        "analyze:demo": "node out/cli/analyze.js --repo tests/demo/complex_calls --sourceDir . --profile default --maxEntries 12 --outputDir tmp/analyze/demo_complex_calls",
         "verify": "npm run build && npm run test:context && npm run test:full",
         "clean": "rimraf out"
     },
