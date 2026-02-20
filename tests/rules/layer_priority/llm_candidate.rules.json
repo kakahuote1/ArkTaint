@@ -1,5 +1,5 @@
-{
-  "schemaVersion": "1.0",
+﻿{
+  "schemaVersion": "1.1",
   "meta": {
     "name": "layer-llm",
     "updatedAt": "2026-02-14"
@@ -61,3 +61,5 @@
     }
   ]
 }
+
+

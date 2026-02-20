@@ -6,18 +6,15 @@ interface CliOptions {
     frameworkRulePath?: string;
     projectRulePath?: string;
     llmCandidateRulePath?: string;
-    overrideRulePath?: string;
     autoDiscoverLayers?: boolean;
     allowMissingFramework?: boolean;
     allowMissingProject?: boolean;
     allowMissingLlmCandidate?: boolean;
-    allowMissingOverride: boolean;
 }
 
 function parseArgs(argv: string[]): CliOptions {
     const out: CliOptions = {
         autoDiscoverLayers: true,
-        allowMissingOverride: false,
     };
 
     for (let i = 0; i < argv.length; i++) {
@@ -28,14 +25,6 @@ function parseArgs(argv: string[]): CliOptions {
         }
         if (arg.startsWith("--default=")) {
             out.defaultRulePath = arg.slice("--default=".length);
-            continue;
-        }
-        if (arg === "--override" && i + 1 < argv.length) {
-            out.overrideRulePath = argv[++i];
-            continue;
-        }
-        if (arg.startsWith("--override=")) {
-            out.overrideRulePath = arg.slice("--override=".length);
             continue;
         }
         if (arg === "--framework" && i + 1 < argv.length) {
@@ -60,10 +49,6 @@ function parseArgs(argv: string[]): CliOptions {
         }
         if (arg.startsWith("--llm=")) {
             out.llmCandidateRulePath = arg.slice("--llm=".length);
-            continue;
-        }
-        if (arg === "--allowMissingOverride") {
-            out.allowMissingOverride = true;
             continue;
         }
         if (arg === "--allowMissingFramework") {
@@ -94,12 +79,10 @@ async function main(): Promise<void> {
         frameworkRulePath: options.frameworkRulePath,
         projectRulePath: options.projectRulePath,
         llmCandidateRulePath: options.llmCandidateRulePath,
-        overrideRulePath: options.overrideRulePath,
         autoDiscoverLayers: options.autoDiscoverLayers,
         allowMissingFramework: options.allowMissingFramework,
         allowMissingProject: options.allowMissingProject,
         allowMissingLlmCandidate: options.allowMissingLlmCandidate,
-        allowMissingOverride: options.allowMissingOverride,
     });
 
     const counts = summarizeRuleSet(loaded.ruleSet);
@@ -110,7 +93,6 @@ async function main(): Promise<void> {
     console.log(`framework=${loaded.frameworkRulePath || "N/A"}`);
     console.log(`project=${loaded.projectRulePath || "N/A"}`);
     console.log(`llm_candidate=${loaded.llmCandidateRulePath || "N/A"}`);
-    console.log(`override=${loaded.overrideRulePath || "N/A"}`);
     console.log(`applied_layers=${loaded.appliedLayerOrder.join(" -> ")}`);
     console.log(`schemaVersion=${loaded.ruleSet.schemaVersion}`);
     console.log(`sources=${counts.sources}`);

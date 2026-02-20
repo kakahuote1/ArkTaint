@@ -17,14 +17,14 @@ interface CaseResult {
 interface CliOptions {
     sourceDir: string;
     defaultRulePath: string;
-    overrideRulePath: string;
+    projectRulePath: string;
     k: number;
 }
 
 function parseArgs(argv: string[]): CliOptions {
     let sourceDir = "tests/demo/context_sensitive";
     let defaultRulePath = "tests/rules/minimal.rules.json";
-    let overrideRulePath = "tests/rules/source_sink_only.rules.json";
+    let projectRulePath = "tests/rules/source_sink_only.rules.json";
     let k = 1;
 
     for (let i = 0; i < argv.length; i++) {
@@ -45,12 +45,12 @@ function parseArgs(argv: string[]): CliOptions {
             defaultRulePath = arg.slice("--default=".length);
             continue;
         }
-        if (arg === "--override" && i + 1 < argv.length) {
-            overrideRulePath = argv[++i];
+        if (arg === "--project" && i + 1 < argv.length) {
+            projectRulePath = argv[++i];
             continue;
         }
-        if (arg.startsWith("--override=")) {
-            overrideRulePath = arg.slice("--override=".length);
+        if (arg.startsWith("--project=")) {
+            projectRulePath = arg.slice("--project=".length);
             continue;
         }
         if (arg === "--k" && i + 1 < argv.length) {
@@ -70,7 +70,7 @@ function parseArgs(argv: string[]): CliOptions {
     return {
         sourceDir: path.resolve(sourceDir),
         defaultRulePath: path.resolve(defaultRulePath),
-        overrideRulePath: path.resolve(overrideRulePath),
+        projectRulePath: path.resolve(projectRulePath),
         k,
     };
 }
@@ -90,14 +90,14 @@ async function main(): Promise<void> {
     if (!fs.existsSync(options.defaultRulePath)) {
         throw new Error(`defaultRulePath not found: ${options.defaultRulePath}`);
     }
-    if (!fs.existsSync(options.overrideRulePath)) {
-        throw new Error(`overrideRulePath not found: ${options.overrideRulePath}`);
+    if (!fs.existsSync(options.projectRulePath)) {
+        throw new Error(`projectRulePath not found: ${options.projectRulePath}`);
     }
 
     const loaded = loadRuleSet({
         defaultRulePath: options.defaultRulePath,
-        overrideRulePath: options.overrideRulePath,
-        allowMissingOverride: false,
+        projectRulePath: options.projectRulePath,
+        allowMissingProject: false,
         autoDiscoverLayers: false,
     });
     const sourceRules: SourceRule[] = loaded.ruleSet.sources || [];

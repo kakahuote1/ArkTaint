@@ -1,0 +1,113 @@
+{
+  "schemaVersion": "1.1",
+  "meta": {
+    "name": "sink-precision-rule-pack",
+    "description": "Rules used to validate sinkTarget precise endpoint detection",
+    "updatedAt": "2026-02-15"
+  },
+  "sources": [
+    {
+      "id": "source.test.entry_param.taint_src",
+      "profile": "entry_param",
+      "kind": "entry_param",
+      "target": "arg0",
+      "targetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "local_name_regex",
+        "value": "^taint_src$"
+      }
+    }
+  ],
+  "sinks": [
+    {
+      "id": "sink.precision.arg0",
+      "profile": "signature",
+      "severity": "medium",
+      "sinkTarget": "arg0",
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "SinkArg0"
+      }
+    },
+    {
+      "id": "sink.precision.arg1",
+      "profile": "signature",
+      "severity": "medium",
+      "sinkTarget": "arg1",
+      "sinkTargetRef": {
+        "endpoint": "arg1"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "SinkArg1"
+      }
+    },
+    {
+      "id": "sink.precision.field.secret",
+      "profile": "signature",
+      "severity": "high",
+      "category": "field_path",
+      "sinkTarget": "arg0",
+      "sinkTargetRef": {
+        "endpoint": "arg0",
+        "path": ["secret"]
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "SinkField"
+      }
+    },
+    {
+      "id": "sink.precision.invoke_kind.instance",
+      "profile": "signature",
+      "severity": "medium",
+      "category": "invoke_kind",
+      "sinkTarget": "arg0",
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      },
+      "invokeKind": "instance",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "SinkInvokeKind"
+      }
+    },
+    {
+      "id": "sink.precision.arg_count.two",
+      "profile": "signature",
+      "severity": "medium",
+      "category": "arg_count",
+      "sinkTarget": "arg0",
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      },
+      "argCount": 2,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "SinkArgCount"
+      }
+    },
+    {
+      "id": "sink.precision.type_hint.target",
+      "profile": "signature",
+      "severity": "medium",
+      "category": "type_hint",
+      "sinkTarget": "arg0",
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      },
+      "invokeKind": "instance",
+      "typeHint": "TypeHintHostTarget",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "SinkTypeHint"
+      }
+    }
+  ],
+  "transfers": []
+}

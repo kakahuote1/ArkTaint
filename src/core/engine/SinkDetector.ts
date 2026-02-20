@@ -1,13 +1,35 @@
 import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { CallGraph } from "../../../arkanalyzer/out/src/callgraph/model/CallGraph";
-import { Pag } from "../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
+import { Pag, PagInstanceFieldNode, PagNode } from "../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { ArkAssignStmt, ArkIfStmt, ArkInvokeStmt, ArkReturnVoidStmt, ArkThrowStmt } from "../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkArrayRef, ArkParameterRef } from "../../../arkanalyzer/out/src/core/base/Ref";
-import { ArkInstanceInvokeExpr, ArkNormalBinopExpr } from "../../../arkanalyzer/out/src/core/base/Expr";
+import { ArkArrayRef, ArkInstanceFieldRef, ArkParameterRef } from "../../../arkanalyzer/out/src/core/base/Ref";
+import { ArkInstanceInvokeExpr, ArkNormalBinopExpr, ArkPtrInvokeExpr } from "../../../arkanalyzer/out/src/core/base/Expr";
 import { Constant } from "../../../arkanalyzer/out/src/core/base/Constant";
 import { Local } from "../../../arkanalyzer/out/src/core/base/Local";
 import { TaintTracker } from "../TaintTracker";
 import { TaintFlow } from "../TaintFlow";
+import { RuleEndpoint, RuleInvokeKind } from "../rules/RuleSchema";
+
+export interface SinkDetectOptions {
+    targetEndpoint?: RuleEndpoint;
+    targetPath?: string[];
+    invokeKind?: RuleInvokeKind;
+    argCount?: number;
+    typeHint?: string;
+    fieldToVarIndex?: Map<string, Set<number>>;
+}
+
+interface SinkCandidate {
+    value: any;
+    kind: "arg" | "base" | "result";
+    endpoint: string;
+}
+
+interface FieldPathDetectResult {
+    source: string;
+    nodeId?: number;
+    fieldPath?: string[];
+}
 
 export function detectSinks(
     scene: Scene,
@@ -15,10 +37,14 @@ export function detectSinks(
     pag: Pag,
     tracker: TaintTracker,
     sinkSignature: string,
-    log: (msg: string) => void
+    log: (msg: string) => void,
+    options: SinkDetectOptions = {}
 ): TaintFlow[] {
     const flows: TaintFlow[] = [];
     if (!cg) return flows;
+    const fieldToVarIndex = options.targetPath && options.targetPath.length > 0
+        ? (options.fieldToVarIndex || buildFieldToVarIndexFromPag(pag))
+        : undefined;
 
     log(`\n=== Detecting sinks for: "${sinkSignature}" ===`);
     let sinksChecked = 0;
@@ -38,6 +64,10 @@ export function detectSinks(
             const calleeSignature = invokeExpr.getMethodSignature().toString();
             if (!calleeSignature.includes(sinkSignature)) continue;
 
+            if (!matchesInvokeConstraints(invokeExpr, calleeSignature, options)) {
+                continue;
+            }
+
             sinksChecked++;
             log(`  Found sink call: ${calleeSignature}`);
 
@@ -46,19 +76,39 @@ export function detectSinks(
                 continue;
             }
 
-            const args = invokeExpr.getArgs();
+            const candidates = resolveSinkCandidates(stmt, invokeExpr, options.targetEndpoint);
+            if (candidates.length === 0) {
+                continue;
+            }
             let sinkDetected = false;
-            for (let i = 0; i < args.length; i++) {
-                const arg = args[i];
-                const pagNodes = pag.getNodesByValue(arg);
+            for (const candidate of candidates) {
+                if (options.targetPath && options.targetPath.length > 0 && fieldToVarIndex) {
+                    const fieldPathResult = detectFieldPathSource(candidate.value, options.targetPath, pag, tracker, fieldToVarIndex);
+                    if (fieldPathResult) {
+                        log(`    *** TAINT FLOW DETECTED! Source: ${fieldPathResult.source} (field path: ${options.targetPath.join(".")}) ***`);
+                        flows.push(new TaintFlow(fieldPathResult.source, stmt, {
+                            sinkEndpoint: candidate.endpoint,
+                            sinkNodeId: fieldPathResult.nodeId,
+                            sinkFieldPath: fieldPathResult.fieldPath,
+                        }));
+                        sinkDetected = true;
+                        break;
+                    }
+                    continue;
+                }
+
+                const pagNodes = pag.getNodesByValue(candidate.value);
                 if (!pagNodes || pagNodes.size === 0) {
                     if (
-                        arg instanceof Local &&
-                        isForEachCallbackParamLikelyTainted(scene, method, arg, pag, tracker, log)
+                        candidate.kind === "arg" &&
+                        candidate.value instanceof Local &&
+                        isForEachCallbackParamLikelyTainted(scene, method, candidate.value, pag, tracker, log)
                     ) {
                         const source = "entry_arg";
                         log(`    *** TAINT FLOW DETECTED! Source: ${source} (forEach callback heuristic) ***`);
-                        flows.push(new TaintFlow(source, stmt));
+                        flows.push(new TaintFlow(source, stmt, {
+                            sinkEndpoint: candidate.endpoint,
+                        }));
                         sinkDetected = true;
                         break;
                     }
@@ -67,16 +117,19 @@ export function detectSinks(
 
                 for (const nodeId of pagNodes.values()) {
                     const isTainted = tracker.isTaintedAnyContext(nodeId);
-                    log(`    Checking arg ${i}, node ${nodeId}, tainted: ${isTainted}`);
+                    log(`    Checking ${candidate.endpoint}, node ${nodeId}, tainted: ${isTainted}`);
                     if (!isTainted) continue;
 
-                    if (arg instanceof Local && shouldSkipLocalByUnreachableTaintDefs(method, stmt, arg, log)) {
+                    if (candidate.value instanceof Local && shouldSkipLocalByUnreachableTaintDefs(method, stmt, candidate.value, log)) {
                         continue;
                     }
 
                     const source = tracker.getSourceAnyContext(nodeId)!;
                     log(`    *** TAINT FLOW DETECTED! Source: ${source} ***`);
-                    flows.push(new TaintFlow(source, stmt));
+                    flows.push(new TaintFlow(source, stmt, {
+                        sinkEndpoint: candidate.endpoint,
+                        sinkNodeId: nodeId,
+                    }));
                     sinkDetected = true;
                     break;
                 }
@@ -87,6 +140,202 @@ export function detectSinks(
 
     log(`Checked ${sinksChecked} sink call(s), found ${flows.length} flow(s)`);
     return flows;
+}
+
+function resolveSinkCandidates(
+    stmt: any,
+    invokeExpr: any,
+    targetEndpoint?: RuleEndpoint
+): SinkCandidate[] {
+    if (!targetEndpoint) {
+        const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
+        return args.map((arg: any, idx: number) => ({
+            value: arg,
+            kind: "arg" as const,
+            endpoint: `arg${idx}`,
+        }));
+    }
+
+    if (targetEndpoint === "base") {
+        if (invokeExpr instanceof ArkInstanceInvokeExpr) {
+            return [{
+                value: invokeExpr.getBase(),
+                kind: "base",
+                endpoint: "base",
+            }];
+        }
+        return [];
+    }
+
+    if (targetEndpoint === "result") {
+        if (stmt instanceof ArkAssignStmt) {
+            return [{
+                value: stmt.getLeftOp(),
+                kind: "result",
+                endpoint: "result",
+            }];
+        }
+        return [];
+    }
+
+    const m = /^arg(\d+)$/.exec(targetEndpoint);
+    if (!m) return [];
+    const argIndex = Number(m[1]);
+    const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
+    if (!Number.isFinite(argIndex) || argIndex < 0 || argIndex >= args.length) return [];
+
+    return [{
+        value: args[argIndex],
+        kind: "arg",
+        endpoint: `arg${argIndex}`,
+    }];
+}
+
+function matchesInvokeConstraints(
+    invokeExpr: any,
+    calleeSignature: string,
+    options: SinkDetectOptions
+): boolean {
+    if (options.invokeKind && options.invokeKind !== "any") {
+        const actualKind: RuleInvokeKind = invokeExpr instanceof ArkInstanceInvokeExpr ? "instance" : "static";
+        if (actualKind !== options.invokeKind) {
+            return false;
+        }
+    }
+
+    if (options.argCount !== undefined) {
+        const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
+        if (args.length !== options.argCount) {
+            return false;
+        }
+    }
+
+    if (options.typeHint && options.typeHint.trim().length > 0) {
+        const hint = options.typeHint.trim().toLowerCase();
+        const declaringClass = invokeExpr.getMethodSignature?.().getDeclaringClassSignature?.()?.toString?.() || "";
+        const baseText = invokeExpr instanceof ArkInstanceInvokeExpr ? (invokeExpr.getBase()?.toString?.() || "") : "";
+        const ptrText = invokeExpr instanceof ArkPtrInvokeExpr ? (invokeExpr.toString?.() || "") : "";
+        const haystack = `${calleeSignature} ${declaringClass} ${baseText} ${ptrText}`.toLowerCase();
+        if (!haystack.includes(hint)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function buildFieldToVarIndexFromPag(pag: Pag): Map<string, Set<number>> {
+    const index: Map<string, Set<number>> = new Map();
+
+    for (const node of pag.getNodesIter()) {
+        if (!(node instanceof PagInstanceFieldNode)) continue;
+
+        const fieldRef = node.getValue() as ArkInstanceFieldRef;
+        const fieldName = fieldRef.getFieldSignature().getFieldName();
+        const baseLocal = fieldRef.getBase();
+        const baseNodesMap = pag.getNodesByValue(baseLocal);
+        if (!baseNodesMap) continue;
+
+        for (const baseNodeId of baseNodesMap.values()) {
+            const baseNode = pag.getNode(baseNodeId) as PagNode;
+            for (const objId of baseNode.getPointTo()) {
+                const key = `${objId}-${fieldName}`;
+                const loadEdges = node.getOutgoingLoadEdges();
+                if (!loadEdges) continue;
+                if (!index.has(key)) {
+                    index.set(key, new Set<number>());
+                }
+                const bucket = index.get(key)!;
+                for (const edge of loadEdges) {
+                    bucket.add(edge.getDstID());
+                }
+            }
+        }
+    }
+
+    return index;
+}
+
+function detectFieldPathSource(
+    rootValue: any,
+    fieldPath: string[],
+    pag: Pag,
+    tracker: TaintTracker,
+    fieldToVarIndex: Map<string, Set<number>>
+) : FieldPathDetectResult | undefined {
+    if (fieldPath.length === 0) return undefined;
+
+    const rootNodes = pag.getNodesByValue(rootValue);
+    if (!rootNodes || rootNodes.size === 0) return undefined;
+
+    const rootObjIds = new Set<number>();
+    for (const rootNodeId of rootNodes.values()) {
+        const rootNode = pag.getNode(rootNodeId) as PagNode;
+        for (const objId of rootNode.getPointTo()) {
+            rootObjIds.add(objId);
+        }
+    }
+    if (rootObjIds.size === 0) return undefined;
+
+    let frontierObjIds = rootObjIds;
+    for (let i = 0; i < fieldPath.length; i++) {
+        const fieldName = fieldPath[i];
+        const isLast = i === fieldPath.length - 1;
+
+        if (isLast) {
+            for (const objId of frontierObjIds) {
+                const directPathSource = tracker.getSourceAnyContext(objId, fieldPath);
+                if (directPathSource) {
+                    return {
+                        source: directPathSource,
+                        nodeId: objId,
+                        fieldPath: [...fieldPath],
+                    };
+                }
+
+                const source = tracker.getSourceAnyContext(objId, [fieldName]);
+                if (source) {
+                    return {
+                        source,
+                        nodeId: objId,
+                        fieldPath: [fieldName],
+                    };
+                }
+
+                const loadTargets = fieldToVarIndex.get(`${objId}-${fieldName}`);
+                if (!loadTargets) continue;
+                for (const loadNodeId of loadTargets.values()) {
+                    const loadSource = tracker.getSourceAnyContext(loadNodeId);
+                    if (loadSource) {
+                        return {
+                            source: loadSource,
+                            nodeId: loadNodeId,
+                        };
+                    }
+                }
+            }
+            return undefined;
+        }
+
+        const nextFrontier = new Set<number>();
+        for (const objId of frontierObjIds) {
+            const loadTargets = fieldToVarIndex.get(`${objId}-${fieldName}`);
+            if (!loadTargets) continue;
+            for (const loadNodeId of loadTargets.values()) {
+                const loadNode = pag.getNode(loadNodeId) as PagNode;
+                for (const nextObjId of loadNode.getPointTo()) {
+                    nextFrontier.add(nextObjId);
+                }
+            }
+        }
+
+        if (nextFrontier.size === 0) {
+            return undefined;
+        }
+        frontierObjIds = nextFrontier;
+    }
+
+    return undefined;
 }
 
 function shouldSkipSinkByControlFlow(method: any, sinkStmt: any, scene: Scene, log: (msg: string) => void): boolean {

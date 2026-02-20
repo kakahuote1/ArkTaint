@@ -1,5 +1,5 @@
-{
-  "schemaVersion": "1.0",
+﻿{
+  "schemaVersion": "1.1",
   "meta": {
     "name": "minimal-rule-pack",
     "description": "Empty baseline pack for rule-driven tests",
@@ -9,3 +9,5 @@
   "sinks": [],
   "transfers": []
 }
+
+

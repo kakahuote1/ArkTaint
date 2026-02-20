@@ -1,12 +1,32 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
   "meta": {
     "name": "transfer-only-rule-pack",
     "description": "Rules used by transfer execution tests",
     "updatedAt": "2026-02-14"
   },
-  "sources": [],
-  "sinks": [],
+  "sources": [
+    {
+      "id": "source.test.entry_param.taint_src",
+      "profile": "entry_param",
+      "match": {
+        "kind": "local_name_regex",
+        "value": "^taint_src$"
+      },
+      "target": "arg0"
+    }
+  ],
+  "sinks": [
+    {
+      "id": "sink.test.method.Sink",
+      "profile": "signature",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "Sink"
+      },
+      "sinkTarget": "arg0"
+    }
+  ],
   "transfers": [
     {
       "id": "transfer.test.putData.arg0_to_base",
@@ -73,3 +93,5 @@
     }
   ]
 }
+
+

@@ -1,0 +1,136 @@
+{
+  "schemaVersion": "1.1",
+  "meta": {
+    "name": "transfer-precision-rule-pack",
+    "description": "Rules used to validate transfer precise execution",
+    "updatedAt": "2026-02-17"
+  },
+  "sources": [
+    {
+      "id": "source.transfer_precision.entry_param.taint_src",
+      "profile": "entry_param",
+      "kind": "entry_param",
+      "target": "arg0",
+      "targetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "local_name_regex",
+        "value": "^taint_src$"
+      }
+    }
+  ],
+  "sinks": [
+    {
+      "id": "sink.transfer_precision.arg0",
+      "profile": "signature",
+      "sinkTarget": "arg0",
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "Sink"
+      }
+    }
+  ],
+  "transfers": [
+    {
+      "id": "transfer.precision.field.put_secret.arg0_to_base_secret",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "PutSecret"
+      },
+      "from": "arg0",
+      "to": "base",
+      "toRef": {
+        "endpoint": "base",
+        "path": [
+          "secret"
+        ]
+      }
+    },
+    {
+      "id": "transfer.precision.field.read_secret.base_secret_to_result",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "ReadSecret"
+      },
+      "from": "base",
+      "to": "result",
+      "fromRef": {
+        "endpoint": "base",
+        "path": [
+          "secret"
+        ]
+      }
+    },
+    {
+      "id": "transfer.precision.invoke_kind.instance_arg0_to_result",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "BridgeInvokeKind"
+      },
+      "invokeKind": "instance",
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.precision.arg_count.two_arg1_to_result",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "BridgeArgCount"
+      },
+      "argCount": 2,
+      "from": "arg1",
+      "to": "result"
+    },
+    {
+      "id": "transfer.precision.type_hint.target_arg0_to_result",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "BridgeTypeHint"
+      },
+      "invokeKind": "instance",
+      "typeHint": "TransferTypeHostTarget",
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.precision.scope.allowed_class_arg0_to_result",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "BridgeScope"
+      },
+      "invokeKind": "instance",
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "ScopeHostAllowed"
+        }
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.precision.compose.pipe.arg0_to_base",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "Pipe"
+      },
+      "invokeKind": "instance",
+      "from": "arg0",
+      "to": "base"
+    },
+    {
+      "id": "transfer.precision.compose.pipe.base_to_result",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "Pipe"
+      },
+      "invokeKind": "instance",
+      "from": "base",
+      "to": "result"
+    }
+  ]
+}

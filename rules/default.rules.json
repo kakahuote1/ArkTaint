@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
   "meta": {
     "name": "arktaint-default-rules",
     "description": "M0 default source/sink/transfer rules",

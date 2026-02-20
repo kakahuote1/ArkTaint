@@ -29,6 +29,15 @@ export interface EntrySelectionResult {
     filteredTotal: number;
 }
 
+export interface FlowRuleTrace {
+    source: string;
+    sink: string;
+    sourceRuleId?: string;
+    sinkRuleId?: string;
+    sinkEndpoint?: string;
+    transferRuleIds: string[];
+}
+
 const RULE_CONFIG_FALLBACK = buildSmokeRuleConfig(undefined);
 const CALLBACK_INVOKE_HINTS = new Set([
     "onclick", "onchange", "onsubmit", "then", "catch", "finally",
@@ -356,17 +365,46 @@ export function collectSeedNodes(
 
 export function detectFlows(
     engine: TaintPropagationEngine,
-    loadedRules: LoadedRuleSet | undefined
-): { totalFlowCount: number; sinkSamples: string[]; byKeyword: Record<string, number>; bySignature: Record<string, number> } {
+    loadedRules: LoadedRuleSet | undefined,
+    options?: {
+        detailed?: boolean;
+    }
+): {
+    totalFlowCount: number;
+    sinkSamples: string[];
+    byKeyword: Record<string, number>;
+    bySignature: Record<string, number>;
+    flowRuleTraces: FlowRuleTrace[];
+} {
+    const detailed = options?.detailed !== false;
     const sinkSamples: string[] = [];
     const byKeyword: Record<string, number> = {};
     const bySignature: Record<string, number> = {};
     const uniqueFlowKeys = new Set<string>();
+    const flowTraceMap = new Map<string, FlowRuleTrace>();
 
     const sourcePattern = buildSmokeRuleConfig(loadedRules);
     const sinkKeywords = sourcePattern.sinkKeywords;
     const sinkSignatures = sourcePattern.sinkSignatures;
     const sinkRules = loadedRules?.ruleSet.sinks || [];
+
+    const parseSourceRuleId = (source: string): string | undefined => {
+        if (!source.startsWith("source_rule:")) return undefined;
+        const id = source.slice("source_rule:".length).trim();
+        return id.length > 0 ? id : undefined;
+    };
+
+    const pushFlowTrace = (key: string, flow: TaintFlow): void => {
+        if (flowTraceMap.has(key)) return;
+        flowTraceMap.set(key, {
+            source: flow.source,
+            sink: flow.sink.toString(),
+            sourceRuleId: flow.sourceRuleId || parseSourceRuleId(flow.source),
+            sinkRuleId: flow.sinkRuleId,
+            sinkEndpoint: flow.sinkEndpoint,
+            transferRuleIds: [...new Set(flow.transferRuleIds || [])].sort(),
+        });
+    };
 
     const collect = (label: string, token: string, flows: TaintFlow[]): number => {
         const bucket = new Set<string>();
@@ -378,6 +416,9 @@ export function detectFlows(
                 uniqueFlowKeys.add(key);
                 if (sinkSamples.length < 8) sinkSamples.push(`[${label}:${token}] ${sinkText}`);
             }
+            if (detailed) {
+                pushFlowTrace(key, flow);
+            }
         }
         return bucket.size;
     };
@@ -387,20 +428,32 @@ export function detectFlows(
         collect("rule", "all", flows);
     }
 
-    for (const keyword of sinkKeywords) {
-        byKeyword[keyword] = collect("kw", keyword, engine.detectSinks(keyword));
-    }
-    for (const signature of sinkSignatures) {
-        bySignature[signature] = collect("sig", signature, engine.detectSinks(signature));
+    if (detailed) {
+        for (const keyword of sinkKeywords) {
+            byKeyword[keyword] = collect("kw", keyword, engine.detectSinks(keyword));
+        }
+        for (const signature of sinkSignatures) {
+            bySignature[signature] = collect("sig", signature, engine.detectSinks(signature));
+        }
     }
 
     // Developer-friendly fallback for taint demo projects.
     if (uniqueFlowKeys.size === 0) {
-        bySignature["Sink"] = collect("sig", "Sink", engine.detectSinks("Sink"));
-        bySignature["taint.%dflt.Sink"] = collect("sig", "taint.%dflt.Sink", engine.detectSinks("taint.%dflt.Sink"));
+        const sinkByName = collect("sig", "Sink", engine.detectSinks("Sink"));
+        const sinkBySig = collect("sig", "taint.%dflt.Sink", engine.detectSinks("taint.%dflt.Sink"));
+        if (detailed) {
+            bySignature["Sink"] = sinkByName;
+            bySignature["taint.%dflt.Sink"] = sinkBySig;
+        }
     }
 
-    return { totalFlowCount: uniqueFlowKeys.size, sinkSamples, byKeyword, bySignature };
+    return {
+        totalFlowCount: uniqueFlowKeys.size,
+        sinkSamples,
+        byKeyword,
+        bySignature,
+        flowRuleTraces: detailed ? [...flowTraceMap.values()] : [],
+    };
 }
 
 export function getSourcePattern(loadedRules: LoadedRuleSet | undefined): RegExp {

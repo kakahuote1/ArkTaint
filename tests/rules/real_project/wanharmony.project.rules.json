@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "1.1",
+  "meta": {
+    "name": "wanharmony-project-rules",
+    "description": "Phase 5.3.7 real-project rule pack for unknown reduction validation",
+    "updatedAt": "2026-02-17"
+  },
+  "sources": [],
+  "sinks": [
+    {
+      "id": "sink.sig.stringify",
+      "profile": "signature",
+      "severity": "low",
+      "match": {
+        "kind": "signature_contains",
+        "value": "stringify()"
+      }
+    },
+    {
+      "id": "sink.sig.globalcontext.setObject",
+      "profile": "signature",
+      "severity": "low",
+      "match": {
+        "kind": "signature_contains",
+        "value": "GlobalContext.setObject"
+      },
+      "sinkTarget": "arg1"
+    }
+  ],
+  "transfers": []
+}

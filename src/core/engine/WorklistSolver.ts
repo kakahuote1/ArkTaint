@@ -15,7 +15,7 @@ import { SyntheticInvokeEdgeInfo, SyntheticConstructorStoreInfo } from "./Synthe
 import { WorklistProfiler } from "./WorklistProfiler";
 import { PropagationTrace } from "./PropagationTrace";
 import { TransferRule } from "../rules/RuleSchema";
-import { ConfigBasedTransferExecutor } from "./ConfigBasedTransferExecutor";
+import { ConfigBasedTransferExecutor, TransferExecutionResult } from "./ConfigBasedTransferExecutor";
 import {
     collectPreciseArrayLoadNodeIdsFromTaintedLocal,
     collectContainerSlotLoadNodeIds,
@@ -35,9 +35,17 @@ interface WorklistSolverDeps {
     syntheticConstructorStoreMap: Map<number, SyntheticConstructorStoreInfo[]>;
     fieldToVarIndex: Map<string, Set<number>>;
     transferRules?: TransferRule[];
+    onTransferRuleHit?: (event: TransferExecutionResult) => void;
+    getInitialRuleChainForFact?: (fact: TaintFact) => FactRuleChain;
+    onFactRuleChain?: (factId: string, chain: FactRuleChain) => void;
     profiler?: WorklistProfiler;
     propagationTrace?: PropagationTrace;
     log: (msg: string) => void;
+}
+
+export interface FactRuleChain {
+    sourceRuleId?: string;
+    transferRuleIds: string[];
 }
 
 export class WorklistSolver {
@@ -59,12 +67,39 @@ export class WorklistSolver {
             syntheticConstructorStoreMap,
             fieldToVarIndex,
             transferRules,
+            onTransferRuleHit,
+            getInitialRuleChainForFact,
+            onFactRuleChain,
             profiler,
             propagationTrace,
             log
         } = this.deps;
-        const transferExecutor = new ConfigBasedTransferExecutor(transferRules || []);
+        const transferExecutor = new ConfigBasedTransferExecutor(transferRules || [], scene);
         const arraySlotObjsByCtx: Map<number, Set<number>> = new Map();
+        const factRuleChains = new Map<string, FactRuleChain>();
+        const cloneChain = (chain?: FactRuleChain): FactRuleChain => ({
+            sourceRuleId: chain?.sourceRuleId,
+            transferRuleIds: [...(chain?.transferRuleIds || [])],
+        });
+        const parseSourceRuleId = (source: string): string | undefined => {
+            if (!source.startsWith("source_rule:")) return undefined;
+            const id = source.slice("source_rule:".length).trim();
+            return id.length > 0 ? id : undefined;
+        };
+        const initialChainForFact = (fact: TaintFact): FactRuleChain => {
+            if (getInitialRuleChainForFact) {
+                return cloneChain(getInitialRuleChainForFact(fact));
+            }
+            return {
+                sourceRuleId: parseSourceRuleId(fact.source),
+                transferRuleIds: [],
+            };
+        };
+        for (const seedFact of worklist) {
+            const chain = initialChainForFact(seedFact);
+            factRuleChains.set(seedFact.id, chain);
+            onFactRuleChain?.(seedFact.id, chain);
+        }
         profiler?.onQueueSize(worklist.length);
 
         while (worklist.length > 0) {
@@ -73,11 +108,15 @@ export class WorklistSolver {
             propagationTrace?.recordFact(fact);
             const node = fact.node;
             const currentCtx = fact.contextID;
+            const currentChain = factRuleChains.get(fact.id) || initialChainForFact(fact);
+            factRuleChains.set(fact.id, currentChain);
+            onFactRuleChain?.(fact.id, currentChain);
 
             const tryEnqueue = (
                 reason: string,
                 newFact: TaintFact,
-                onAccepted: () => void
+                onAccepted: () => void,
+                chainOverride?: FactRuleChain
             ): void => {
                 profiler?.onEnqueueAttempt(reason);
                 if (visited.has(newFact.id)) {
@@ -86,6 +125,9 @@ export class WorklistSolver {
                 }
                 visited.add(newFact.id);
                 worklist.push(newFact);
+                const newChain = cloneChain(chainOverride || currentChain);
+                factRuleChains.set(newFact.id, newChain);
+                onFactRuleChain?.(newFact.id, newChain);
                 profiler?.onEnqueueSuccess(reason, worklist.length);
                 propagationTrace?.recordEdge(fact, newFact, reason);
                 onAccepted();
@@ -102,9 +144,32 @@ export class WorklistSolver {
                 const targetNode = pag.getNode(targetNodeId) as PagNode;
                 const newFact = new TaintFact(targetNode, fact.source, currentCtx, fact.field);
                 tryEnqueue("Expr", newFact, () => {
-                    tracker.markTainted(targetNodeId, currentCtx, fact.source);
+                    tracker.markTainted(targetNodeId, currentCtx, fact.source, newFact.field, newFact.id);
                     log(`    [Expr] Tainted node ${targetNodeId} (ctx=${currentCtx})`);
                 });
+            }
+
+            const transferExec = transferExecutor.executeFromTaintedFactWithStats(
+                fact,
+                pag,
+                tracker
+            );
+            profiler?.onTransferStats(transferExec.stats);
+            const transferResults = transferExec.results;
+            for (const transferResult of transferResults) {
+                const newFact = transferResult.fact;
+                const chainWithTransfer: FactRuleChain = {
+                    sourceRuleId: currentChain.sourceRuleId,
+                    transferRuleIds: [...currentChain.transferRuleIds, transferResult.ruleId],
+                };
+                tryEnqueue("Rule-Transfer", newFact, () => {
+                    tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
+                    onTransferRuleHit?.(transferResult);
+                    const fieldSuffix = newFact.field && newFact.field.length > 0
+                        ? `.${newFact.field.join(".")}`
+                        : "";
+                    log(`    [Rule-Transfer] ${transferResult.ruleId}: ${transferResult.callSignature} -> node ${newFact.node.getID()}${fieldSuffix} (ctx=${newFact.contextID})`);
+                }, chainWithTransfer);
             }
 
             if (!fact.field || fact.field.length === 0) {
@@ -115,7 +180,7 @@ export class WorklistSolver {
                         const dstNode = pag.getNode(dstId) as PagNode;
                         const newFact = new TaintFact(dstNode, fact.source, currentCtx);
                         tryEnqueue("Array-Precise", newFact, () => {
-                            tracker.markTainted(dstId, currentCtx, fact.source);
+                            tracker.markTainted(dstId, currentCtx, fact.source, newFact.field, newFact.id);
                             log(`    [Array-Precise] Tainted var ${dstId} by precise array path (ctx=${currentCtx})`);
                         });
                     }
@@ -126,6 +191,7 @@ export class WorklistSolver {
                         const fieldKey = toContainerFieldKey(info.slot);
                         const newFact = new TaintFact(objNode, fact.source, currentCtx, [fieldKey]);
                         tryEnqueue("Container-Store", newFact, () => {
+                            tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
                             log(`    [Container-Store] Tainted slot '${info.slot}' of Obj ${info.objId} (ctx=${currentCtx})`);
                         });
 
@@ -137,19 +203,6 @@ export class WorklistSolver {
                         }
                     }
 
-                    const transferResults = transferExecutor.executeFromTaintedLocal(
-                        val,
-                        fact.source,
-                        currentCtx,
-                        pag
-                    );
-                    for (const transferResult of transferResults) {
-                        const newFact = transferResult.fact;
-                        tryEnqueue("Rule-Transfer", newFact, () => {
-                            tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source);
-                            log(`    [Rule-Transfer] ${transferResult.ruleId}: ${transferResult.callSignature} -> node ${newFact.node.getID()} (ctx=${newFact.contextID})`);
-                        });
-                    }
                 }
             }
 
@@ -157,6 +210,7 @@ export class WorklistSolver {
                 const capturedFieldFacts = this.propagateCapturedFieldWrites(node, fact.source, currentCtx);
                 for (const newFact of capturedFieldFacts) {
                     tryEnqueue("Capture-Store", newFact, () => {
+                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
                         log(`    [Capture-Store] Tainted field '${newFact.field?.[0]}' of Obj ${newFact.node.getID()} (ctx=${currentCtx})`);
                     });
                 }
@@ -174,7 +228,7 @@ export class WorklistSolver {
                     );
                     const newFact = new TaintFact(targetNode, fact.source, newCtx);
                     tryEnqueue("Capture", newFact, () => {
-                        tracker.markTainted(captureEdge.dstNodeId, newCtx, fact.source);
+                        tracker.markTainted(captureEdge.dstNodeId, newCtx, fact.source, newFact.field, newFact.id);
                         log(`    [Capture] ${captureEdge.callerMethodName} -> ${captureEdge.calleeMethodName}, node ${node.getID()} -> ${captureEdge.dstNodeId}, ctx: ${currentCtx} -> ${newCtx}`);
                     });
                 }
@@ -203,7 +257,7 @@ export class WorklistSolver {
                     const newFact = new TaintFact(targetNode, fact.source, newCtx);
                     const reason = edge.type === CallEdgeType.CALL ? "Synthetic-Call" : "Synthetic-Return";
                     tryEnqueue(reason, newFact, () => {
-                        tracker.markTainted(edge.dstNodeId, newCtx, fact.source);
+                        tracker.markTainted(edge.dstNodeId, newCtx, fact.source, newFact.field, newFact.id);
                         log(`    [Synthetic-${edge.type === CallEdgeType.CALL ? "Call" : "Return"}] ${edge.callerMethodName} -> ${edge.calleeMethodName}, ${edge.srcNodeId} -> ${edge.dstNodeId}, ctx: ${currentCtx} -> ${newCtx}`);
                     });
                 }
@@ -215,6 +269,7 @@ export class WorklistSolver {
                     const objNode = pag.getNode(info.objId) as PagNode;
                     const newFact = new TaintFact(objNode, fact.source, currentCtx, [info.fieldName]);
                     tryEnqueue("Synthetic-CtorStore", newFact, () => {
+                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
                         log(`    [Synthetic-CtorStore] arg ${info.srcNodeId} -> Obj ${info.objId}.${info.fieldName} (ctx=${currentCtx})`);
                     });
                 }
@@ -224,7 +279,7 @@ export class WorklistSolver {
                 const promiseCallbackFacts = this.propagatePromiseCallbackParams(scene, node, fact.source, currentCtx);
                 for (const newFact of promiseCallbackFacts) {
                     tryEnqueue("Promise-CB", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source);
+                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
                         log(`    [Promise-CB] Tainted callback param node ${newFact.node.getID()} (ctx=${newFact.contextID})`);
                     });
                 }
@@ -234,7 +289,7 @@ export class WorklistSolver {
                 const promiseArgFacts = this.propagatePromiseCallbacksFromTaintedArg(scene, node, fact.source, currentCtx);
                 for (const newFact of promiseArgFacts) {
                     tryEnqueue("Promise-Arg", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source);
+                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
                         log(`    [Promise-Arg] Tainted callback param node ${newFact.node.getID()} (ctx=${newFact.contextID})`);
                     });
                 }
@@ -244,7 +299,7 @@ export class WorklistSolver {
                 const restArgFacts = this.propagateRestArrayParam(scene, node, fact.source, currentCtx);
                 for (const newFact of restArgFacts) {
                     tryEnqueue("Rest-Arg", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source);
+                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
                         log(`    [Rest-Arg] Tainted rest param node ${newFact.node.getID()} (ctx=${newFact.contextID})`);
                     });
                 }
@@ -254,7 +309,7 @@ export class WorklistSolver {
                 const arrayLoadFacts = this.propagateArrayElementLoads(node, fact.source, currentCtx);
                 for (const newFact of arrayLoadFacts) {
                     tryEnqueue("Array-Load", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source);
+                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
                         log(`    [Array-Load] Tainted array read node ${newFact.node.getID()} (ctx=${newFact.contextID})`);
                     });
                 }
@@ -296,7 +351,7 @@ export class WorklistSolver {
 
                     const newFact = new TaintFact(targetNode, fact.source, newCtx);
                     tryEnqueue("Copy", newFact, () => {
-                        tracker.markTainted(targetNodeId, newCtx, fact.source);
+                        tracker.markTainted(targetNodeId, newCtx, fact.source, newFact.field, newFact.id);
                         log(`    [Copy] Tainted node ${targetNodeId} (from ${node.getID()}, ctx=${newCtx})`);
                     });
                 }
@@ -322,6 +377,7 @@ export class WorklistSolver {
                                 const objNode = pag.getNode(objId) as PagNode;
                                 const newFact = new TaintFact(objNode, fact.source, currentCtx, [fieldName]);
                                 tryEnqueue("Store", newFact, () => {
+                                    tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
                                     log(`    [Store] Tainted field '${fieldName}' of Obj ${objId} (ctx=${currentCtx})`);
                                 });
                             }
@@ -334,7 +390,7 @@ export class WorklistSolver {
                 const reflectFacts = this.propagateReflectGetFieldLoadsByObj(node.getID(), fact.field[0], fact.source, currentCtx);
                 for (const newFact of reflectFacts) {
                     tryEnqueue("Reflect-Load", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source);
+                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
                         log(`    [Reflect-Load] Tainted var ${newFact.node.getID()} from Reflect.get field '${fact.field[0]}' (ctx=${currentCtx})`);
                     });
                 }
@@ -351,7 +407,7 @@ export class WorklistSolver {
                         const dstNode = pag.getNode(loadNodeId) as PagNode;
                         const newFact = new TaintFact(dstNode, fact.source, currentCtx);
                         tryEnqueue("Container-Load", newFact, () => {
-                            tracker.markTainted(loadNodeId, currentCtx, fact.source);
+                            tracker.markTainted(loadNodeId, currentCtx, fact.source, newFact.field, newFact.id);
                             log(`    [Container-Load] Tainted var ${loadNodeId} from Obj ${objId}[${containerSlot}] (ctx=${currentCtx})`);
                         });
                     }
@@ -367,7 +423,7 @@ export class WorklistSolver {
 
                     const newFact = new TaintFact(dstNode, fact.source, currentCtx);
                     tryEnqueue("Load", newFact, () => {
-                        tracker.markTainted(destVarId, currentCtx, fact.source);
+                        tracker.markTainted(destVarId, currentCtx, fact.source, newFact.field, newFact.id);
                         log(`    [Load] Tainted var ${destVarId} from Obj ${objId}.${fieldName} (ctx=${currentCtx})`);
                     });
                 }

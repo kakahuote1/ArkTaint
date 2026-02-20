@@ -1,0 +1,79 @@
+{
+  "schemaVersion": "1.1",
+  "meta": {
+    "name": "arktaint-project-rule-template",
+    "description": "Project rule template. Keep disabled=false only after manual confirmation. Common mistakes: wrong endpoint(arg index), overly broad match, missing scope.",
+    "updatedAt": "2026-02-17"
+  },
+  "sources": [
+    {
+      "id": "source.template.entry_param.arg0",
+      "enabled": false,
+      "description": "[模板] 入口参数作为 source。确认方法名与参数位点后再启用。",
+      "tags": [
+        "template",
+        "source",
+        "entry_param"
+      ],
+      "profile": "entry_param",
+      "kind": "entry_param",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "onSubmit"
+      },
+      "target": "arg0",
+      "targetRef": {
+        "endpoint": "arg0"
+      }
+    }
+  ],
+  "sinks": [
+    {
+      "id": "sink.template.network.request.arg0",
+      "enabled": false,
+      "description": "[模板] 网络请求发送点。确认签名与 sinkTarget 后再启用。",
+      "tags": [
+        "template",
+        "sink"
+      ],
+      "profile": "signature",
+      "severity": "medium",
+      "category": "network",
+      "match": {
+        "kind": "signature_equals",
+        "value": "<@entry/src/main/ets/pages/Index.ets: Network.send(any)>"
+      },
+      "invokeKind": "static",
+      "argCount": 1,
+      "sinkTarget": "arg0",
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      }
+    }
+  ],
+  "transfers": [
+    {
+      "id": "transfer.template.wrapper.arg0_to_result",
+      "enabled": false,
+      "description": "[模板] 包装器透传规则。常见错误：from/to 端点写反、argCount 不匹配。",
+      "tags": [
+        "template",
+        "transfer"
+      ],
+      "match": {
+        "kind": "signature_equals",
+        "value": "<@entry/src/main/ets/pages/Index.ets: Wrapper.wrap(any)>"
+      },
+      "invokeKind": "static",
+      "argCount": 1,
+      "from": "arg0",
+      "to": "result",
+      "fromRef": {
+        "endpoint": "arg0"
+      },
+      "toRef": {
+        "endpoint": "result"
+      }
+    }
+  ]
+}

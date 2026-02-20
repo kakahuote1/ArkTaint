@@ -1,3 +1,18 @@
+import type { TransferExecutionStats } from "./ConfigBasedTransferExecutor";
+
+export interface TransferProfileSnapshot {
+    factCount: number;
+    invokeSiteCount: number;
+    ruleCheckCount: number;
+    ruleMatchCount: number;
+    endpointCheckCount: number;
+    endpointMatchCount: number;
+    dedupSkipCount: number;
+    resultCount: number;
+    elapsedMs: number;
+    elapsedShare: number;
+}
+
 export interface WorklistProfileSnapshot {
     elapsedMs: number;
     dequeueCount: number;
@@ -11,6 +26,7 @@ export interface WorklistProfileSnapshot {
         successes: number;
         dedupDrops: number;
     }>;
+    transfer: TransferProfileSnapshot;
 }
 
 interface ReasonCounter {
@@ -27,6 +43,15 @@ export class WorklistProfiler {
     private dedupDropCount = 0;
     private maxQueueSize = 0;
     private readonly reasonCounters: Map<string, ReasonCounter> = new Map();
+    private transferFactCount = 0;
+    private transferInvokeSiteCount = 0;
+    private transferRuleCheckCount = 0;
+    private transferRuleMatchCount = 0;
+    private transferEndpointCheckCount = 0;
+    private transferEndpointMatchCount = 0;
+    private transferDedupSkipCount = 0;
+    private transferResultCount = 0;
+    private transferElapsedMs = 0;
 
     public onQueueSize(queueSize: number): void {
         if (queueSize > this.maxQueueSize) {
@@ -58,6 +83,18 @@ export class WorklistProfiler {
         counter.dedupDrops++;
     }
 
+    public onTransferStats(stats: TransferExecutionStats): void {
+        this.transferFactCount += stats.factCount;
+        this.transferInvokeSiteCount += stats.invokeSiteCount;
+        this.transferRuleCheckCount += stats.ruleCheckCount;
+        this.transferRuleMatchCount += stats.ruleMatchCount;
+        this.transferEndpointCheckCount += stats.endpointCheckCount;
+        this.transferEndpointMatchCount += stats.endpointMatchCount;
+        this.transferDedupSkipCount += stats.dedupSkipCount;
+        this.transferResultCount += stats.resultCount;
+        this.transferElapsedMs += stats.elapsedMs;
+    }
+
     public snapshot(): WorklistProfileSnapshot {
         const byReason = Array.from(this.reasonCounters.entries())
             .map(([reason, counter]) => ({
@@ -71,14 +108,31 @@ export class WorklistProfiler {
                 return a.reason.localeCompare(b.reason);
             });
 
+        const elapsedMs = Date.now() - this.startAt;
+        const elapsedShare = elapsedMs > 0
+            ? Number((this.transferElapsedMs / elapsedMs).toFixed(6))
+            : 0;
+
         return {
-            elapsedMs: Date.now() - this.startAt,
+            elapsedMs,
             dequeueCount: this.dequeueCount,
             enqueueAttemptCount: this.enqueueAttemptCount,
             enqueueSuccessCount: this.enqueueSuccessCount,
             dedupDropCount: this.dedupDropCount,
             maxQueueSize: this.maxQueueSize,
             byReason,
+            transfer: {
+                factCount: this.transferFactCount,
+                invokeSiteCount: this.transferInvokeSiteCount,
+                ruleCheckCount: this.transferRuleCheckCount,
+                ruleMatchCount: this.transferRuleMatchCount,
+                endpointCheckCount: this.transferEndpointCheckCount,
+                endpointMatchCount: this.transferEndpointMatchCount,
+                dedupSkipCount: this.transferDedupSkipCount,
+                resultCount: this.transferResultCount,
+                elapsedMs: this.transferElapsedMs,
+                elapsedShare,
+            },
         };
     }
 

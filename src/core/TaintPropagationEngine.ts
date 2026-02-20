@@ -5,9 +5,6 @@ import { Pag, PagNode } from "../../arkanalyzer/out/src/callgraph/pointerAnalysi
 import { CallGraph } from "../../arkanalyzer/out/src/callgraph/model/CallGraph";
 import { CallGraphBuilder } from "../../arkanalyzer/out/src/callgraph/model/builder/CallGraphBuilder";
 import { ArkAssignStmt } from "../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkParameterRef } from "../../arkanalyzer/out/src/core/base/Ref";
-import { Local } from "../../arkanalyzer/out/src/core/base/Local";
-import { ArkMethod } from "../../arkanalyzer/out/src/core/model/ArkMethod";
 import { TaintFact } from "./TaintFact";
 import { TaintFlow } from "./TaintFlow";
 import { TaintTracker } from "./TaintTracker";
@@ -21,13 +18,20 @@ import {
     SyntheticInvokeEdgeInfo,
     SyntheticConstructorStoreInfo
 } from "./engine/SyntheticInvokeEdgeBuilder";
-import { WorklistSolver } from "./engine/WorklistSolver";
+import { FactRuleChain, WorklistSolver } from "./engine/WorklistSolver";
 import { detectSinks as runSinkDetector } from "./engine/SinkDetector";
+import { collectSourceRuleSeeds as collectSourceRuleSeedsFromRules } from "./engine/SourceRuleSeedCollector";
+import { resolveSinkRuleSignatures as resolveSinkRuleSignaturesByRule } from "./engine/SinkRuleSignatureResolver";
+import { createDebugCollectors, dumpDebugArtifactsToDir } from "./engine/DebugArtifactUtils";
 import { WorklistProfiler, WorklistProfileSnapshot } from "./engine/WorklistProfiler";
 import { PropagationTrace } from "./engine/PropagationTrace";
-import { SinkRule, SourceRule, TransferRule } from "./rules/RuleSchema";
-import * as fs from "fs";
-import * as path from "path";
+import {
+    RuleEndpoint,
+    RuleInvokeKind,
+    SinkRule,
+    SourceRule,
+    TransferRule
+} from "./rules/RuleSchema";
 
 export interface DebugOptions {
     enableWorklistProfile?: boolean;
@@ -42,7 +46,30 @@ export interface TaintEngineOptions {
     debug?: DebugOptions;
 }
 
+export interface RuleHitCounters {
+    source: Record<string, number>;
+    sink: Record<string, number>;
+    transfer: Record<string, number>;
+}
+
+export interface FlowRuleChain {
+    sourceRuleId?: string;
+    transferRuleIds: string[];
+}
+
 export class TaintPropagationEngine {
+    private static sceneIdSeed: number = 1;
+    private static sceneIds: WeakMap<Scene, number> = new WeakMap();
+    private static pagBuildCache: Map<string, {
+        pag: Pag;
+        cg: CallGraph;
+        fieldToVarIndex: Map<string, Set<number>>;
+        callEdgeMap: Map<string, CallEdgeInfo>;
+        captureEdgeMap: Map<number, CaptureEdgeInfo[]>;
+        syntheticInvokeEdgeMap: Map<number, SyntheticInvokeEdgeInfo[]>;
+        syntheticConstructorStoreMap: Map<number, SyntheticConstructorStoreInfo[]>;
+    }> = new Map();
+
     private scene: Scene;
     public pag!: Pag; // Public for test seeding.
     public cg!: CallGraph;
@@ -59,6 +86,16 @@ export class TaintPropagationEngine {
     private worklistProfiler?: WorklistProfiler;
     private propagationTrace?: PropagationTrace;
     private options: TaintEngineOptions;
+    private ruleHits: {
+        source: Map<string, number>;
+        sink: Map<string, number>;
+        transfer: Map<string, number>;
+    } = {
+        source: new Map<string, number>(),
+        sink: new Map<string, number>(),
+        transfer: new Map<string, number>(),
+    };
+    private factRuleChains: Map<string, FlowRuleChain> = new Map();
 
     public verbose: boolean = true;
 
@@ -73,12 +110,89 @@ export class TaintPropagationEngine {
         if (this.verbose) console.log(msg);
     }
 
-    public async buildPAG(entryMethodName: string = "main", entryMethodPathHint?: string): Promise<void> {
-        const cg = new CallGraph(this.scene);
-        const cgBuilder = new CallGraphBuilder(cg, this.scene);
-        cgBuilder.buildDirectCallGraphForScene();
+    private clearRuleHits(kind?: keyof RuleHitCounters): void {
+        if (!kind) {
+            this.ruleHits.source.clear();
+            this.ruleHits.sink.clear();
+            this.ruleHits.transfer.clear();
+            return;
+        }
+        this.ruleHits[kind].clear();
+    }
 
-        const pag = new Pag();
+    private markRuleHit(kind: keyof RuleHitCounters, ruleId: string, delta: number = 1): void {
+        if (!ruleId) return;
+        const map = this.ruleHits[kind];
+        map.set(ruleId, (map.get(ruleId) || 0) + delta);
+    }
+
+    private toRecord(map: Map<string, number>): Record<string, number> {
+        const out: Record<string, number> = {};
+        for (const [k, v] of [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+            out[k] = v;
+        }
+        return out;
+    }
+
+    public getRuleHitCounters(): RuleHitCounters {
+        return {
+            source: this.toRecord(this.ruleHits.source),
+            sink: this.toRecord(this.ruleHits.sink),
+            transfer: this.toRecord(this.ruleHits.transfer),
+        };
+    }
+
+    private parseSourceRuleId(source: string): string | undefined {
+        if (!source.startsWith("source_rule:")) return undefined;
+        const id = source.slice("source_rule:".length).trim();
+        return id.length > 0 ? id : undefined;
+    }
+
+    private cloneFlowRuleChain(chain?: FlowRuleChain): FlowRuleChain {
+        return {
+            sourceRuleId: chain?.sourceRuleId,
+            transferRuleIds: [...(chain?.transferRuleIds || [])],
+        };
+    }
+
+    private initialFlowRuleChainForFact(fact: TaintFact): FlowRuleChain {
+        return {
+            sourceRuleId: this.parseSourceRuleId(fact.source),
+            transferRuleIds: [],
+        };
+    }
+
+    private clearFactRuleChains(): void {
+        this.factRuleChains.clear();
+    }
+
+    private upsertFactRuleChain(factId: string, chain: FactRuleChain | FlowRuleChain): void {
+        this.factRuleChains.set(factId, this.cloneFlowRuleChain(chain));
+    }
+
+    public getRuleChainByFactId(factId: string): FlowRuleChain | undefined {
+        const chain = this.factRuleChains.get(factId);
+        return chain ? this.cloneFlowRuleChain(chain) : undefined;
+    }
+
+    public getRuleChainsForNodeAnyContext(nodeId: number, fieldPath?: string[]): FlowRuleChain[] {
+        const factIds = this.tracker.getTaintFactIdsAnyContext(nodeId, fieldPath);
+        const out: FlowRuleChain[] = [];
+        const seen = new Set<string>();
+        for (const factId of factIds) {
+            const chain = this.factRuleChains.get(factId);
+            if (!chain) continue;
+            const key = `${chain.sourceRuleId || ""}|${chain.transferRuleIds.join("->")}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            out.push(this.cloneFlowRuleChain(chain));
+        }
+        return out;
+    }
+
+    public async buildPAG(entryMethodName: string = "main", entryMethodPathHint?: string): Promise<void> {
+        this.clearRuleHits();
+        this.clearFactRuleChains();
         const candidates = this.scene.getMethods().filter(method => method.getName() === entryMethodName);
         let mainMethod = candidates.length > 0 ? candidates[0] : null;
 
@@ -94,20 +208,37 @@ export class TaintPropagationEngine {
             throw new Error(`No ${entryMethodName}() method found in scene`);
         }
 
+        let sceneId = TaintPropagationEngine.sceneIds.get(this.scene);
+        if (!sceneId) {
+            sceneId = TaintPropagationEngine.sceneIdSeed++;
+            TaintPropagationEngine.sceneIds.set(this.scene, sceneId);
+        }
+        const cacheKey = `${sceneId}|${mainMethod.getSignature().toString()}`;
+        const cached = TaintPropagationEngine.pagBuildCache.get(cacheKey);
+        if (cached) {
+            this.pag = cached.pag;
+            this.cg = cached.cg;
+            this.fieldToVarIndex = cached.fieldToVarIndex;
+            this.callEdgeMap = cached.callEdgeMap;
+            this.captureEdgeMap = cached.captureEdgeMap;
+            this.syntheticInvokeEdgeMap = cached.syntheticInvokeEdgeMap;
+            this.syntheticConstructorStoreMap = cached.syntheticConstructorStoreMap;
+            this.log(`PAG cache hit: ${entryMethodName}`);
+            this.log(`PAG nodes: ${this.pag.getNodeNum()}, edges: ${this.pag.getEdgeNum()}`);
+            this.log(`CG nodes: ${this.cg.getNodeNum()}, edges: ${this.cg.getEdgeNum()}`);
+            this.configureContextStrategy();
+            return;
+        }
+
+        const cg = new CallGraph(this.scene);
+        const cgBuilder = new CallGraphBuilder(cg, this.scene);
+        cgBuilder.buildDirectCallGraphForScene();
+        const pag = new Pag();
         const entryMethodID = cg.getCallGraphNodeByMethod(mainMethod.getSignature()).getID();
-
-        const config = PointerAnalysisConfig.create(
-            0,
-            "./out",
-            false,
-            false,
-            false
-        );
-
+        const config = PointerAnalysisConfig.create(0, "./out", false, false, false);
         this.pta = new PointerAnalysis(pag, cg, this.scene, config);
         this.pta.setEntries([entryMethodID]);
         this.pta.start();
-
         this.pag = this.pta.getPag();
         this.cg = cg;
 
@@ -119,6 +250,15 @@ export class TaintPropagationEngine {
         this.captureEdgeMap = buildCaptureEdgeMap(this.scene, this.cg, this.pag, this.log.bind(this));
         this.syntheticInvokeEdgeMap = buildSyntheticInvokeEdges(this.scene, this.cg, this.pag, this.log.bind(this));
         this.syntheticConstructorStoreMap = buildSyntheticConstructorStoreMap(this.scene, this.cg, this.pag, this.log.bind(this));
+        TaintPropagationEngine.pagBuildCache.set(cacheKey, {
+            pag: this.pag,
+            cg: this.cg,
+            fieldToVarIndex: this.fieldToVarIndex,
+            callEdgeMap: this.callEdgeMap,
+            captureEdgeMap: this.captureEdgeMap,
+            syntheticInvokeEdgeMap: this.syntheticInvokeEdgeMap,
+            syntheticConstructorStoreMap: this.syntheticConstructorStoreMap,
+        });
         this.configureContextStrategy();
     }
 
@@ -161,7 +301,8 @@ export class TaintPropagationEngine {
                 const node = this.pag.getNode(nodeId) as PagNode;
                 const fact = new TaintFact(node, sourceSignature, emptyCtx);
                 worklist.push(fact);
-                this.tracker.markTainted(nodeId, emptyCtx, sourceSignature);
+                this.tracker.markTainted(nodeId, emptyCtx, sourceSignature, undefined, fact.id);
+                this.upsertFactRuleChain(fact.id, this.initialFlowRuleChainForFact(fact));
                 this.log(`  Added taint fact for node ${nodeId}`);
             }
         }
@@ -178,17 +319,20 @@ export class TaintPropagationEngine {
     }
 
     public propagateWithSeeds(seeds: PagNode[]): void {
+        const emptyCtx = this.ctxManager.getEmptyContextID();
+        const seedFacts = seeds.map(seed => new TaintFact(seed, "entry_arg", emptyCtx));
+        this.propagateWithFacts(seedFacts);
+    }
+
+    private propagateWithFacts(seedFacts: TaintFact[]): void {
         const worklist: TaintFact[] = [];
         const visited: Set<string> = new Set();
-        const emptyCtx = this.ctxManager.getEmptyContextID();
-
-        for (const seed of seeds) {
-            const fact = new TaintFact(seed, "entry_arg", emptyCtx);
+        for (const fact of seedFacts) {
             if (visited.has(fact.id)) continue;
-
             visited.add(fact.id);
             worklist.push(fact);
-            this.tracker.markTainted(seed.getID(), emptyCtx, "entry_arg");
+            this.tracker.markTainted(fact.node.getID(), fact.contextID, fact.source, fact.field, fact.id);
+            this.upsertFactRuleChain(fact.id, this.initialFlowRuleChainForFact(fact));
         }
 
         this.log(`Initialized WorkList with ${worklist.length} seeds.`);
@@ -198,41 +342,77 @@ export class TaintPropagationEngine {
     public propagateWithSourceRules(
         sourceRules: SourceRule[],
         options: { entryMethodName?: string; entryMethodPathHint?: string } = {}
-    ): { seedCount: number; seededLocals: string[] } {
+    ): { seedCount: number; seededLocals: string[]; sourceRuleHits: Record<string, number> } {
+        this.clearRuleHits("source");
         const seeds = this.collectSourceRuleSeeds(sourceRules || [], options);
-        if (seeds.nodes.length === 0) {
+        for (const [ruleId, hitCount] of Object.entries(seeds.sourceRuleHits)) {
+            this.markRuleHit("source", ruleId, hitCount);
+        }
+        if (seeds.facts.length === 0) {
             this.log("No source seeds matched by source rules.");
             return {
                 seedCount: 0,
                 seededLocals: [],
+                sourceRuleHits: this.toRecord(this.ruleHits.source),
             };
         }
 
-        this.log(`Initialized WorkList with ${seeds.nodes.length} source-rule seeds.`);
-        this.propagateWithSeeds(seeds.nodes);
+        this.log(`Initialized WorkList with ${seeds.facts.length} source-rule seeds.`);
+        this.propagateWithFacts(seeds.facts);
         return {
-            seedCount: seeds.nodes.length,
+            seedCount: seeds.facts.length,
             seededLocals: seeds.seededLocals,
+            sourceRuleHits: this.toRecord(this.ruleHits.source),
         };
     }
 
     public detectSinksByRules(sinkRules: SinkRule[]): TaintFlow[] {
+        this.clearRuleHits("sink");
         if (!sinkRules || sinkRules.length === 0) return [];
 
         const flowMap = new Map<string, TaintFlow>();
-        const addFlows = (flows: TaintFlow[]): void => {
+        const addFlows = (ruleId: string, flows: TaintFlow[]): void => {
+            let added = 0;
             for (const f of flows) {
                 const key = `${f.source} -> ${f.sink.toString()}`;
                 if (!flowMap.has(key)) {
                     flowMap.set(key, f);
+                    added++;
                 }
             }
+            if (added > 0) this.markRuleHit("sink", ruleId, added);
         };
 
         for (const rule of sinkRules) {
-            const signatures = this.resolveSinkRuleSignatures(rule);
+            const signatures = resolveSinkRuleSignaturesByRule(this.scene, rule);
+            const target = this.resolveSinkRuleTarget(rule);
+            const sinkEndpoint = target.targetEndpoint || "any_arg";
+            const sinkPathSuffix = target.targetPath && target.targetPath.length > 0
+                ? `.${target.targetPath.join(".")}`
+                : "";
             for (const signature of signatures) {
-                addFlows(this.detectSinks(signature));
+                const flows = this.detectSinks(signature, target);
+                for (const flow of flows) {
+                    flow.sinkRuleId = rule.id;
+                    flow.sinkEndpoint = `${sinkEndpoint}${sinkPathSuffix}`;
+                    if (!flow.sourceRuleId) {
+                        flow.sourceRuleId = this.parseSourceRuleId(flow.source);
+                    }
+                    if (flow.sinkNodeId !== undefined) {
+                        const chains = this.getRuleChainsForNodeAnyContext(flow.sinkNodeId, flow.sinkFieldPath);
+                        const transferSet = new Set<string>(flow.transferRuleIds || []);
+                        for (const chain of chains) {
+                            if (!flow.sourceRuleId && chain.sourceRuleId) {
+                                flow.sourceRuleId = chain.sourceRuleId;
+                            }
+                            for (const rid of chain.transferRuleIds) {
+                                transferSet.add(rid);
+                            }
+                        }
+                        flow.transferRuleIds = [...transferSet].sort();
+                    }
+                }
+                addFlows(rule.id, flows);
             }
         }
 
@@ -252,6 +432,9 @@ export class TaintPropagationEngine {
             syntheticConstructorStoreMap: this.syntheticConstructorStoreMap,
             fieldToVarIndex: this.fieldToVarIndex,
             transferRules: this.options.transferRules || [],
+            onTransferRuleHit: (event) => this.markRuleHit("transfer", event.ruleId, 1),
+            getInitialRuleChainForFact: (fact) => this.initialFlowRuleChainForFact(fact),
+            onFactRuleChain: (factId, chain) => this.upsertFactRuleChain(factId, chain),
             profiler: this.worklistProfiler,
             propagationTrace: this.propagationTrace,
             log: this.log.bind(this),
@@ -262,154 +445,27 @@ export class TaintPropagationEngine {
     private collectSourceRuleSeeds(
         sourceRules: SourceRule[],
         options: { entryMethodName?: string; entryMethodPathHint?: string }
-    ): { nodes: PagNode[]; seededLocals: string[] } {
-        const methods = this.resolveSourceScopeMethods(options.entryMethodName, options.entryMethodPathHint);
-        const nodes: PagNode[] = [];
-        const seededLocals = new Set<string>();
-        const seenNodeIds = new Set<number>();
-
-        for (const method of methods) {
-            const body = method.getBody();
-            if (!body) continue;
-
-            const methodSignature = method.getSignature().toString();
-            const methodName = method.getName();
-            const paramLocalNames = this.getParameterLocalNames(method);
-
-            for (const local of body.getLocals().values()) {
-                const localName = local.getName();
-                const matched = sourceRules.some(rule => this.matchesSourceRule(
-                    rule,
-                    methodSignature,
-                    methodName,
-                    localName,
-                    paramLocalNames
-                ));
-                if (!matched) continue;
-
-                const pagNodes = this.pag.getNodesByValue(local);
-                if (!pagNodes) continue;
-                for (const nodeId of pagNodes.values()) {
-                    if (seenNodeIds.has(nodeId)) continue;
-                    seenNodeIds.add(nodeId);
-                    nodes.push(this.pag.getNode(nodeId) as PagNode);
-                    seededLocals.add(`${methodName}:${localName}`);
-                }
-            }
-        }
-
-        return {
-            nodes,
-            seededLocals: [...seededLocals].sort(),
-        };
+    ): { facts: TaintFact[]; seededLocals: string[]; sourceRuleHits: Record<string, number> } {
+        return collectSourceRuleSeedsFromRules({
+            scene: this.scene,
+            pag: this.pag,
+            sourceRules,
+            emptyContextId: this.ctxManager.getEmptyContextID(),
+            entryMethodName: options.entryMethodName,
+            entryMethodPathHint: options.entryMethodPathHint,
+        });
     }
 
-    private resolveSourceScopeMethods(entryMethodName?: string, entryMethodPathHint?: string): ArkMethod[] {
-        const allMethods = this.scene.getMethods().filter(m => m.getName() !== "%dflt");
-        if (!entryMethodName) return allMethods;
-
-        const candidates = allMethods.filter(m => m.getName() === entryMethodName);
-        if (!entryMethodPathHint) return candidates;
-
-        const normalizedHint = entryMethodPathHint.replace(/\\/g, "/");
-        const hinted = candidates.filter(m => m.getSignature().toString().includes(normalizedHint));
-        return hinted.length > 0 ? hinted : candidates;
-    }
-
-    private getParameterLocalNames(method: ArkMethod): Set<string> {
-        const out = new Set<string>();
-        const cfg = method.getCfg();
-        if (!cfg) return out;
-
-        for (const stmt of cfg.getStmts()) {
-            if (!(stmt instanceof ArkAssignStmt)) continue;
-            if (!(stmt.getRightOp() instanceof ArkParameterRef)) continue;
-            const leftOp = stmt.getLeftOp();
-            if (leftOp instanceof Local) out.add(leftOp.getName());
+    public detectSinks(
+        sinkSignature: string,
+        options?: {
+            targetEndpoint?: RuleEndpoint;
+            targetPath?: string[];
+            invokeKind?: RuleInvokeKind;
+            argCount?: number;
+            typeHint?: string;
         }
-        return out;
-    }
-
-    private matchesSourceRule(
-        rule: SourceRule,
-        methodSignature: string,
-        methodName: string,
-        localName: string,
-        paramLocalNames: Set<string>
-    ): boolean {
-        if (rule.profile === "entry_param" && !paramLocalNames.has(localName)) {
-            return false;
-        }
-
-        const value = rule.match.value || "";
-        switch (rule.match.kind) {
-            case "local_name_regex":
-                try {
-                    return new RegExp(value).test(localName);
-                } catch {
-                    return false;
-                }
-            case "method_name_equals":
-                return methodName === value;
-            case "method_name_regex":
-                try {
-                    return new RegExp(value).test(methodName);
-                } catch {
-                    return false;
-                }
-            case "signature_contains":
-                return methodSignature.includes(value);
-            case "signature_regex":
-                try {
-                    return new RegExp(value).test(methodSignature);
-                } catch {
-                    return false;
-                }
-            default:
-                return false;
-        }
-    }
-
-    private resolveSinkRuleSignatures(rule: SinkRule): string[] {
-        const methods = this.scene.getMethods();
-        const value = rule.match.value || "";
-        switch (rule.match.kind) {
-            case "signature_contains":
-                return [value];
-            case "signature_regex": {
-                let re: RegExp;
-                try {
-                    re = new RegExp(value);
-                } catch {
-                    return [];
-                }
-                return methods
-                    .map(m => m.getSignature().toString())
-                    .filter(sig => re.test(sig));
-            }
-            case "method_name_equals":
-                return methods
-                    .filter(m => m.getName() === value)
-                    .map(m => m.getSignature().toString());
-            case "method_name_regex": {
-                let re: RegExp;
-                try {
-                    re = new RegExp(value);
-                } catch {
-                    return [];
-                }
-                return methods
-                    .filter(m => re.test(m.getName()))
-                    .map(m => m.getSignature().toString());
-            }
-            case "local_name_regex":
-                return [];
-            default:
-                return [];
-        }
-    }
-
-    public detectSinks(sinkSignature: string): TaintFlow[] {
+    ): TaintFlow[] {
         if (!this.cg) return [];
         return runSinkDetector(
             this.scene,
@@ -417,8 +473,30 @@ export class TaintPropagationEngine {
             this.pag,
             this.tracker,
             sinkSignature,
-            this.log.bind(this)
+            this.log.bind(this),
+            {
+                ...options,
+                fieldToVarIndex: this.fieldToVarIndex,
+            }
         );
+    }
+
+    private resolveSinkRuleTarget(rule: SinkRule): {
+        targetEndpoint?: RuleEndpoint;
+        targetPath?: string[];
+        invokeKind?: RuleInvokeKind;
+        argCount?: number;
+        typeHint?: string;
+    } {
+        const endpoint = rule.sinkTargetRef?.endpoint || rule.sinkTarget;
+        const path = rule.sinkTargetRef?.path;
+        return {
+            targetEndpoint: endpoint,
+            targetPath: path,
+            invokeKind: rule.invokeKind,
+            argCount: rule.argCount,
+            typeHint: rule.typeHint,
+        };
     }
 
     public getAdaptiveContextSelector(): AdaptiveContextSelector | undefined {
@@ -436,24 +514,10 @@ export class TaintPropagationEngine {
     }
 
     public dumpDebugArtifacts(tag: string, outputDir: string = "tmp"): { profilePath?: string; dotPath?: string } {
-        const out: { profilePath?: string; dotPath?: string } = {};
         const safeTag = tag.replace(/[^A-Za-z0-9_.-]/g, "_");
-        fs.mkdirSync(outputDir, { recursive: true });
-
         const profile = this.getWorklistProfile();
-        if (profile) {
-            const profilePath = path.join(outputDir, `worklist_profile_${safeTag}.json`);
-            fs.writeFileSync(profilePath, JSON.stringify(profile, null, 2), "utf-8");
-            out.profilePath = profilePath;
-        }
-
         const dot = this.getPropagationTraceDot(`propagation_${safeTag}`);
-        if (dot) {
-            const dotPath = path.join(outputDir, `taint_trace_${safeTag}.dot`);
-            fs.writeFileSync(dotPath, dot, "utf-8");
-            out.dotPath = dotPath;
-        }
-        return out;
+        return dumpDebugArtifactsToDir({ tag: safeTag, outputDir, profile, dot });
     }
 
     private configureContextStrategy(): void {
@@ -481,9 +545,8 @@ export class TaintPropagationEngine {
     }
 
     private prepareDebugCollectors(): void {
-        this.worklistProfiler = this.options.debug?.enableWorklistProfile ? new WorklistProfiler() : undefined;
-        this.propagationTrace = this.options.debug?.enablePropagationTrace
-            ? new PropagationTrace({ maxEdges: this.options.debug?.propagationTraceMaxEdges })
-            : undefined;
+        const collectors = createDebugCollectors(this.options.debug);
+        this.worklistProfiler = collectors.worklistProfiler;
+        this.propagationTrace = collectors.propagationTrace;
     }
 }

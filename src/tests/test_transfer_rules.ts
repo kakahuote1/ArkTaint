@@ -20,13 +20,13 @@ interface CaseResult {
 
 interface CliOptions {
     sourceDir: string;
-    overrideRulePath: string;
+    projectRulePath: string;
     k: number;
 }
 
 function parseArgs(argv: string[]): CliOptions {
     let sourceDir = "tests/demo/rule_transfer";
-    let overrideRulePath = "tests/rules/transfer_only.rules.json";
+    let projectRulePath = "tests/rules/transfer_only.rules.json";
     let k = 1;
 
     for (let i = 0; i < argv.length; i++) {
@@ -39,12 +39,12 @@ function parseArgs(argv: string[]): CliOptions {
             sourceDir = arg.slice("--sourceDir=".length);
             continue;
         }
-        if (arg === "--override" && i + 1 < argv.length) {
-            overrideRulePath = argv[++i];
+        if (arg === "--project" && i + 1 < argv.length) {
+            projectRulePath = argv[++i];
             continue;
         }
-        if (arg.startsWith("--override=")) {
-            overrideRulePath = arg.slice("--override=".length);
+        if (arg.startsWith("--project=")) {
+            projectRulePath = arg.slice("--project=".length);
             continue;
         }
         if (arg === "--k" && i + 1 < argv.length) {
@@ -63,7 +63,7 @@ function parseArgs(argv: string[]): CliOptions {
 
     return {
         sourceDir: path.resolve(sourceDir),
-        overrideRulePath: path.resolve(overrideRulePath),
+        projectRulePath: path.resolve(projectRulePath),
         k,
     };
 }
@@ -142,13 +142,13 @@ async function main(): Promise<void> {
     if (!fs.existsSync(options.sourceDir)) {
         throw new Error(`Source directory not found: ${options.sourceDir}`);
     }
-    if (!fs.existsSync(options.overrideRulePath)) {
-        throw new Error(`Override rule file not found: ${options.overrideRulePath}`);
+    if (!fs.existsSync(options.projectRulePath)) {
+        throw new Error(`Project rule file not found: ${options.projectRulePath}`);
     }
 
     const loadedRules = loadRuleSet({
-        overrideRulePath: options.overrideRulePath,
-        allowMissingOverride: false,
+        projectRulePath: options.projectRulePath,
+        allowMissingProject: false,
     });
     const transferRules = loadedRules.ruleSet.transfers || [];
     console.log(`transfer_rules_loaded=${transferRules.length}`);

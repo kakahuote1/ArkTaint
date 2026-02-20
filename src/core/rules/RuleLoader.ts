@@ -11,12 +11,6 @@ export interface RuleLoaderOptions {
     projectRulePath?: string;
     llmCandidateRulePath?: string;
     autoDiscoverLayers?: boolean;
-
-    // Legacy alias for project layer path.
-    overrideRulePath?: string;
-
-    // Legacy alias for project layer missing policy.
-    allowMissingOverride?: boolean;
     allowMissingFramework?: boolean;
     allowMissingProject?: boolean;
     allowMissingLlmCandidate?: boolean;
@@ -38,9 +32,6 @@ export interface LoadedRuleSet {
     llmCandidateRulePath?: string;
     appliedLayerOrder: RuleLayerName[];
     layerStatus: RuleLayerStatus[];
-
-    // Legacy field, mapped to project layer explicit input.
-    overrideRulePath?: string;
     warnings: string[];
 }
 
@@ -162,6 +153,16 @@ function appendOptionalLayerSpec(
     });
 }
 
+function loadAndValidateLayer(layerName: RuleLayerName, absPath: string): TaintRuleSet {
+    const raw = readJsonFile(absPath);
+    assertValidRuleSet(raw, absPath);
+    const validation = validateRuleSet(raw);
+    if (!validation.valid) {
+        throw new Error(`Rule set invalid (${layerName}): ${validation.errors.join("; ")}`);
+    }
+    return raw as TaintRuleSet;
+}
+
 export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
     const warnings: string[] = [];
     const autoDiscover = options.autoDiscoverLayers !== false;
@@ -170,9 +171,8 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
         throw new Error(`Default rule file not found: ${defaultPath}`);
     }
 
-    const defaultRaw = readJsonFile(defaultPath);
-    assertValidRuleSet(defaultRaw, defaultPath);
-    let merged = normalizeRules(defaultRaw);
+    const defaultRules = loadAndValidateLayer("default", defaultPath);
+    let merged = normalizeRules(defaultRules);
     const appliedLayerOrder: RuleLayerName[] = ["default"];
     const layerStatus: RuleLayerStatus[] = [{
         name: "default",
@@ -182,10 +182,8 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
         applied: true,
     }];
 
-    const explicitProjectPath = options.projectRulePath || options.overrideRulePath;
-    const explicitProjectAllowMissing = options.projectRulePath
-        ? (options.allowMissingProject ?? false)
-        : (options.overrideRulePath ? (options.allowMissingOverride ?? false) : true);
+    const explicitProjectPath = options.projectRulePath;
+    const explicitProjectAllowMissing = options.allowMissingProject ?? false;
 
     const layerSpecs: OptionalLayerSpec[] = [];
     appendOptionalLayerSpec(
@@ -236,9 +234,8 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
             continue;
         }
 
-        const raw = readJsonFile(spec.path);
-        assertValidRuleSet(raw, spec.path);
-        merged = normalizeRules(mergeRuleSets(merged, raw));
+        const layerRules = loadAndValidateLayer(spec.name, spec.path);
+        merged = normalizeRules(mergeRuleSets(merged, layerRules));
         appliedLayerOrder.push(spec.name);
         layerStatus.push({
             name: spec.name,
@@ -267,7 +264,6 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
         llmCandidateRulePath: llmCandidatePath,
         appliedLayerOrder,
         layerStatus,
-        overrideRulePath: options.overrideRulePath ? path.resolve(options.overrideRulePath) : undefined,
         warnings,
     };
 }
