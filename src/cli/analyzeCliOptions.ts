@@ -19,6 +19,8 @@ export interface CliOptions {
     concurrency: number;
     incremental: boolean;
     incrementalCachePath?: string;
+    stopOnFirstFlow: boolean;
+    maxFlowsPerEntry?: number;
     ruleOptions: RuleLoaderOptions;
 }
 
@@ -41,6 +43,8 @@ export function parseArgs(argv: string[]): CliOptions {
     const excludePaths: string[] = [];
     let incremental = true;
     let incrementalCachePath: string | undefined;
+    let stopOnFirstFlow = false;
+    let maxFlowsPerEntryRaw: number | undefined;
     const ruleOptions: RuleLoaderOptions = {};
 
     for (let i = 0; i < argv.length; i++) {
@@ -165,6 +169,20 @@ export function parseArgs(argv: string[]): CliOptions {
             if (arg === "--incrementalCache") i++;
             continue;
         }
+        if (arg === "--stopOnFirstFlow") {
+            stopOnFirstFlow = true;
+            continue;
+        }
+        if (arg === "--no-stopOnFirstFlow") {
+            stopOnFirstFlow = false;
+            continue;
+        }
+        const maxFlowsPerEntryArg = readValue("--maxFlowsPerEntry");
+        if (maxFlowsPerEntryArg !== undefined) {
+            maxFlowsPerEntryRaw = Number(maxFlowsPerEntryArg);
+            if (arg === "--maxFlowsPerEntry") i++;
+            continue;
+        }
     }
 
     if (!repo) throw new Error("missing required --repo <path>");
@@ -189,6 +207,12 @@ export function parseArgs(argv: string[]): CliOptions {
     if (k !== 0 && k !== 1) throw new Error(`invalid --k: ${k}`);
     if (!Number.isFinite(maxEntries) || maxEntries <= 0) throw new Error(`invalid --maxEntries: ${maxEntries}`);
     if (!Number.isFinite(concurrency) || concurrency <= 0) throw new Error(`invalid --concurrency: ${concurrency}`);
+    const maxFlowsPerEntry = maxFlowsPerEntryRaw === undefined
+        ? undefined
+        : Math.floor(maxFlowsPerEntryRaw);
+    if (maxFlowsPerEntry !== undefined && (!Number.isFinite(maxFlowsPerEntry) || maxFlowsPerEntry <= 0)) {
+        throw new Error(`invalid --maxFlowsPerEntry: ${maxFlowsPerEntryRaw}`);
+    }
 
     if (!outputDir) {
         const repoName = path.basename(normalizedRepo);
@@ -218,6 +242,8 @@ export function parseArgs(argv: string[]): CliOptions {
         concurrency: Math.floor(concurrency),
         incremental,
         incrementalCachePath,
+        stopOnFirstFlow,
+        maxFlowsPerEntry,
         ruleOptions,
     };
 }

@@ -30,6 +30,19 @@ interface EntryAnalyzeResultLike {
         dedupSkipCount: number;
         elapsedMs: number;
     };
+    detectProfile: {
+        detectCallCount: number;
+        sinksChecked: number;
+        sanitizerGuardCheckCount: number;
+        sanitizerGuardHitCount: number;
+        signatureMatchMs: number;
+        candidateResolveMs: number;
+        cfgGuardMs: number;
+        taintEvalMs: number;
+        sanitizerGuardMs: number;
+        traversalMs: number;
+        totalMs: number;
+    };
     transferNoHitReasons: string[];
 }
 
@@ -53,6 +66,7 @@ interface AnalyzeReportLike {
         ruleHits: RuleHitCountersLike;
         ruleHitEndpoints: RuleHitCountersLike;
         transferProfile: any;
+        detectProfile: any;
         stageProfile: any;
         transferNoHitReasons: Record<string, number>;
     };
@@ -187,6 +201,7 @@ export function renderMarkdownReport(report: AnalyzeReportLike): string {
     lines.push(`- ruleHitsTotal: source=${sourceRuleHits}, sink=${sinkRuleHits}, transfer=${transferRuleHits}`);
     lines.push(`- ruleHitEndpoints: ${JSON.stringify(report.summary.ruleHitEndpoints)}`);
     lines.push(`- transferProfile: ${JSON.stringify(report.summary.transferProfile)}`);
+    lines.push(`- detectProfile: ${JSON.stringify(report.summary.detectProfile)}`);
     lines.push(`- stageProfile: ${JSON.stringify(report.summary.stageProfile)}`);
     lines.push(`- transferNoHitReasons: ${JSON.stringify(report.summary.transferNoHitReasons)}`);
     lines.push("");
@@ -204,6 +219,7 @@ export function renderMarkdownReport(report: AnalyzeReportLike): string {
             continue;
         }
         lines.push(`  - transferProfile: checks=${e.transferProfile.ruleCheckCount}, matches=${e.transferProfile.ruleMatchCount}, endpointMatches=${e.transferProfile.endpointMatchCount}, results=${e.transferProfile.resultCount}, dedupSkips=${e.transferProfile.dedupSkipCount}, elapsedMs=${e.transferProfile.elapsedMs}`);
+        lines.push(`  - detectProfile: calls=${e.detectProfile.detectCallCount}, sinksChecked=${e.detectProfile.sinksChecked}, sanitizerChecks=${e.detectProfile.sanitizerGuardCheckCount}, sanitizerHits=${e.detectProfile.sanitizerGuardHitCount}, signatureMs=${e.detectProfile.signatureMatchMs}, candidateMs=${e.detectProfile.candidateResolveMs}, cfgMs=${e.detectProfile.cfgGuardMs}, taintMs=${e.detectProfile.taintEvalMs}, sanitizerMs=${e.detectProfile.sanitizerGuardMs}, traversalMs=${e.detectProfile.traversalMs}, totalMs=${e.detectProfile.totalMs}`);
         if (e.transferNoHitReasons.length > 0) {
             lines.push(`  - transferNoHitReasons: ${e.transferNoHitReasons.join(",")}`);
         }

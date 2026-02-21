@@ -6,8 +6,7 @@ output
 *.log
 *.txt
 tmp/
-task.md
-verification_records.md
 implementation_plan.md
 arkanalyzer/out
 arkanalyzer/output
+internal_docs/

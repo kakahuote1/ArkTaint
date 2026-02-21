@@ -1,0 +1,64 @@
+{
+  "schemaVersion": "1.1",
+  "meta": {
+    "name": "sanitizer-guard-rule-pack",
+    "description": "Rules for sink-side sanitizer guard validation",
+    "updatedAt": "2026-02-21"
+  },
+  "sources": [
+    {
+      "id": "source.sanitizer.entry_param.taint_src",
+      "profile": "entry_param",
+      "kind": "entry_param",
+      "target": "arg0",
+      "targetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "local_name_regex",
+        "value": "^taint_src$"
+      }
+    }
+  ],
+  "sinks": [
+    {
+      "id": "sink.sanitizer.arg0",
+      "profile": "signature",
+      "severity": "medium",
+      "sinkTarget": "arg0",
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "Sink"
+      }
+    }
+  ],
+  "sanitizers": [
+    {
+      "id": "sanitizer.escape.result",
+      "sanitizeTarget": "result",
+      "sanitizeTargetRef": {
+        "endpoint": "result"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "Escape"
+      }
+    },
+    {
+      "id": "sanitizer.clean.inplace.arg0",
+      "sanitizeTarget": "arg0",
+      "sanitizeTargetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "CleanInPlace"
+      }
+    }
+  ],
+  "transfers": []
+}
+

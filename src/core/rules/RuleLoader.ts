@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import { SinkRule, SourceRule, TaintRuleSet, TransferRule } from "./RuleSchema";
+import { SanitizerRule, SinkRule, SourceRule, TaintRuleSet, TransferRule } from "./RuleSchema";
 import { assertValidRuleSet, validateRuleSet } from "./RuleValidator";
 
 export type RuleLayerName = "default" | "framework" | "project" | "llm_candidate";
@@ -89,6 +89,7 @@ function normalizeRules(rules: TaintRuleSet): TaintRuleSet {
         ...rules,
         sources: (rules.sources || []).filter(r => r.enabled !== false),
         sinks: (rules.sinks || []).filter(r => r.enabled !== false),
+        sanitizers: (rules.sanitizers || []).filter(r => r.enabled !== false),
         transfers: (rules.transfers || []).filter(r => r.enabled !== false),
     };
 }
@@ -99,6 +100,7 @@ function mergeRuleSets(base: TaintRuleSet, override: TaintRuleSet): TaintRuleSet
         meta: { ...(base.meta || {}), ...(override.meta || {}) },
         sources: mergeById(base.sources || [], override.sources || []),
         sinks: mergeById(base.sinks || [], override.sinks || []),
+        sanitizers: mergeById(base.sanitizers || [], override.sanitizers || []),
         transfers: mergeById(base.transfers || [], override.transfers || []),
     };
 }
@@ -315,10 +317,11 @@ export function buildSmokeRuleConfig(loaded?: LoadedRuleSet): SmokeRuleConfig {
     };
 }
 
-export function summarizeRuleSet(rules: TaintRuleSet): { sources: number; sinks: number; transfers: number } {
+export function summarizeRuleSet(rules: TaintRuleSet): { sources: number; sinks: number; sanitizers: number; transfers: number } {
     return {
         sources: (rules.sources || []).length,
         sinks: (rules.sinks || []).length,
+        sanitizers: (rules.sanitizers || []).length,
         transfers: (rules.transfers || []).length,
     };
 }
@@ -328,6 +331,15 @@ export function summarizeTransferEndpoints(transfers: TransferRule[]): Record<st
     for (const t of transfers) {
         const key = `${t.from}->${t.to}`;
         out[key] = (out[key] || 0) + 1;
+    }
+    return out;
+}
+
+export function summarizeSanitizerTargets(sanitizers: SanitizerRule[]): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const s of sanitizers) {
+        const endpoint = s.sanitizeTargetRef?.endpoint || s.sanitizeTarget || "result";
+        out[endpoint] = (out[endpoint] || 0) + 1;
     }
     return out;
 }

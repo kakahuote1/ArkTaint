@@ -9,6 +9,8 @@ async function main(): Promise<void> {
     console.log(`repo=${report.repo}`);
     console.log(`source_dirs=${report.sourceDirs.join(",")}`);
     console.log(`report_mode=${report.reportMode}`);
+    console.log(`stop_on_first_flow=${options.stopOnFirstFlow}`);
+    console.log(`max_flows_per_entry=${options.maxFlowsPerEntry ?? ""}`);
     console.log(`entries=${report.summary.totalEntries}`);
     console.log(`ok_entries=${report.summary.okEntries}`);
     console.log(`with_seeds=${report.summary.withSeeds}`);
@@ -18,6 +20,7 @@ async function main(): Promise<void> {
     console.log(`rule_hits=${JSON.stringify(report.summary.ruleHits)}`);
     console.log(`rule_hit_endpoints=${JSON.stringify(report.summary.ruleHitEndpoints)}`);
     console.log(`transfer_profile=${JSON.stringify(report.summary.transferProfile)}`);
+    console.log(`detect_profile=${JSON.stringify(report.summary.detectProfile)}`);
     console.log(`stage_profile=${JSON.stringify(report.summary.stageProfile)}`);
     console.log(`transfer_no_hit_reasons=${JSON.stringify(report.summary.transferNoHitReasons)}`);
     console.log(`rule_layers=${report.ruleLayers.join(" -> ")}`);

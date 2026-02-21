@@ -1,5 +1,5 @@
 import * as path from "path";
-import { loadRuleSet, summarizeRuleSet, summarizeTransferEndpoints } from "../core/rules/RuleLoader";
+import { loadRuleSet, summarizeRuleSet, summarizeSanitizerTargets, summarizeTransferEndpoints } from "../core/rules/RuleLoader";
 
 interface CliOptions {
     defaultRulePath?: string;
@@ -87,6 +87,7 @@ async function main(): Promise<void> {
 
     const counts = summarizeRuleSet(loaded.ruleSet);
     const transferStats = summarizeTransferEndpoints(loaded.ruleSet.transfers || []);
+    const sanitizerStats = summarizeSanitizerTargets(loaded.ruleSet.sanitizers || []);
 
     console.log("====== Rule Schema Validation ======");
     console.log(`default=${loaded.defaultRulePath}`);
@@ -97,6 +98,7 @@ async function main(): Promise<void> {
     console.log(`schemaVersion=${loaded.ruleSet.schemaVersion}`);
     console.log(`sources=${counts.sources}`);
     console.log(`sinks=${counts.sinks}`);
+    console.log(`sanitizers=${counts.sanitizers}`);
     console.log(`transfers=${counts.transfers}`);
     console.log(`warnings=${loaded.warnings.length}`);
     if (loaded.warnings.length > 0) {
@@ -108,6 +110,10 @@ async function main(): Promise<void> {
     console.log("transfer_endpoints=");
     for (const key of Object.keys(transferStats).sort()) {
         console.log(`  ${key}: ${transferStats[key]}`);
+    }
+    console.log("sanitizer_targets=");
+    for (const key of Object.keys(sanitizerStats).sort()) {
+        console.log(`  ${key}: ${sanitizerStats[key]}`);
     }
 
     const sourceProfiles = (loaded.ruleSet.sources || [])

@@ -68,6 +68,11 @@ export interface SinkRule extends BaseRule {
     sinkTargetRef?: RuleEndpointRef;
 }
 
+export interface SanitizerRule extends BaseRule {
+    sanitizeTarget?: RuleEndpoint;
+    sanitizeTargetRef?: RuleEndpointRef;
+}
+
 export interface TransferRule extends BaseRule {
     from: RuleEndpoint;
     to: RuleEndpoint;
@@ -80,6 +85,7 @@ export interface TaintRuleSet {
     meta?: RuleMeta;
     sources: SourceRule[];
     sinks: SinkRule[];
+    sanitizers?: SanitizerRule[];
     transfers: TransferRule[];
 }
 

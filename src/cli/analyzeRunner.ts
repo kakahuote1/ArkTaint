@@ -20,6 +20,7 @@ import {
     accumulateRuleHitCounters,
     AnalyzeReport,
     emptyAnalyzeStageProfile,
+    emptyDetectProfile,
     emptyEntryStageProfile,
     emptyRuleHitCounters,
     emptyTransferProfile,
@@ -169,7 +170,8 @@ async function analyzeEntry(
     sourceDir: string,
     candidate: EntryCandidate,
     options: CliOptions,
-    loadedRules: LoadedRuleSet
+    loadedRules: LoadedRuleSet,
+    sharedPagEntries?: EntryCandidate[]
 ): Promise<EntryAnalyzeResult> {
     const t0 = process.hrtime.bigint();
     const stageProfile = emptyEntryStageProfile();
@@ -182,7 +184,16 @@ async function analyzeEntry(
         });
         engine.verbose = false;
         const buildPagT0 = process.hrtime.bigint();
-        await engine.buildPAG(candidate.name, candidate.pathHint);
+        if (sharedPagEntries && sharedPagEntries.length > 0) {
+            await engine.buildPAGForEntries(
+                sharedPagEntries.map(entry => ({
+                    name: entry.name,
+                    pathHint: entry.pathHint,
+                }))
+            );
+        } else {
+            await engine.buildPAG(candidate.name, candidate.pathHint);
+        }
         stageProfile.buildPagMs = elapsedMsSince(buildPagT0);
 
         const entryMethod = findEntryMethod(scene, candidate);
@@ -203,11 +214,20 @@ async function analyzeEntry(
                 ruleHits: emptyRuleHitCounters(),
                 ruleHitEndpoints: emptyRuleHitCounters(),
                 transferProfile: emptyTransferProfile(),
+                detectProfile: emptyDetectProfile(),
                 stageProfile,
                 transferNoHitReasons: ["no_entry_method"],
                 elapsedMs: stageProfile.totalMs
             };
         }
+
+        try {
+            const reachableMethodSignatures = engine.computeReachableMethodSignatures(candidate.name, candidate.pathHint);
+            engine.setActiveReachableMethodSignatures(reachableMethodSignatures);
+        } catch {
+            engine.setActiveReachableMethodSignatures(undefined);
+        }
+
         if (!entryMethod.getBody()) {
             stageProfile.totalMs = elapsedMsSince(t0);
             return {
@@ -225,6 +245,7 @@ async function analyzeEntry(
                 ruleHits: emptyRuleHitCounters(),
                 ruleHitEndpoints: emptyRuleHitCounters(),
                 transferProfile: emptyTransferProfile(),
+                detectProfile: emptyDetectProfile(),
                 stageProfile,
                 transferNoHitReasons: ["entry_has_no_body"],
                 elapsedMs: stageProfile.totalMs
@@ -271,6 +292,7 @@ async function analyzeEntry(
                 ruleHits: emptyRuleHitCounters(),
                 ruleHitEndpoints: emptyRuleHitCounters(),
                 transferProfile: emptyTransferProfile(),
+                detectProfile: emptyDetectProfile(),
                 stageProfile,
                 transferNoHitReasons: ["no_source_seed"],
                 elapsedMs: stageProfile.totalMs
@@ -278,9 +300,22 @@ async function analyzeEntry(
         }
 
         const detectT0 = process.hrtime.bigint();
+        engine.resetDetectProfile();
+        const detectStopPolicy = options.profile === "fast"
+            ? {
+                stopOnFirstFlow: options.stopOnFirstFlow,
+                maxFlowsPerEntry: options.maxFlowsPerEntry,
+            }
+            : {
+                stopOnFirstFlow: false,
+                maxFlowsPerEntry: undefined,
+            };
         const detected = detectFlows(engine, loadedRules, {
             detailed: options.reportMode === "full",
+            stopOnFirstFlow: detectStopPolicy.stopOnFirstFlow,
+            maxFlowsPerEntry: detectStopPolicy.maxFlowsPerEntry,
         });
+        const detectProfile = engine.getDetectProfile();
         const ruleHits = engine.getRuleHitCounters();
         const ruleHitEndpoints = buildRuleEndpointHits(ruleHits, loadedRules);
         const transferProfile = engine.getWorklistProfile()?.transfer || emptyTransferProfile();
@@ -307,6 +342,7 @@ async function analyzeEntry(
             ruleHits,
             ruleHitEndpoints,
             transferProfile,
+            detectProfile,
             stageProfile,
             transferNoHitReasons,
             elapsedMs: stageProfile.totalMs,
@@ -328,6 +364,7 @@ async function analyzeEntry(
             ruleHits: emptyRuleHitCounters(),
             ruleHitEndpoints: emptyRuleHitCounters(),
             transferProfile: emptyTransferProfile(),
+            detectProfile: emptyDetectProfile(),
             stageProfile,
             transferNoHitReasons: ["analyze_exception"],
             elapsedMs: stageProfile.totalMs,
@@ -364,12 +401,19 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         : new Map<string, IncrementalCacheEntry<EntryAnalyzeResult>>();
     const perSourceMax = Math.max(1, Math.floor(options.maxEntries / Math.max(1, options.sourceDirs.length)));
     const sourceContextCache = new Map<string, { scene: Scene; selected: EntrySelectionResult }>();
+    const sourceSharedEntryMap = new Map<string, EntryCandidate[]>();
+    const sharedPagWarmPlans: Array<{
+        sourceDir: string;
+        scene: Scene;
+        entries: EntryCandidate[];
+    }> = [];
     const orderedEntries: Array<EntryAnalyzeResult | undefined> = [];
     const pendingTasks: Array<{
         order: number;
         sourceDir: string;
         scene: Scene;
         candidate: EntryCandidate;
+        sharedPagEntries: EntryCandidate[];
         entryCacheKey: string;
         entryStamp?: EntryFileStamp;
     }> = [];
@@ -419,6 +463,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
                 ruleHits: emptyRuleHitCounters(),
                 ruleHitEndpoints: emptyRuleHitCounters(),
                 transferProfile: emptyTransferProfile(),
+                detectProfile: emptyDetectProfile(),
                 stageProfile: emptyEntryStageProfile(),
                 transferNoHitReasons: ["no_selected_entry"],
                 elapsedMs: 0,
@@ -426,6 +471,8 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
             continue;
         }
 
+        sourceSharedEntryMap.set(sourceAbs, selected.selected);
+        let hasPendingForSource = false;
         for (const candidate of selected.selected) {
             const order = orderedEntries.length;
             orderedEntries.push(undefined);
@@ -448,18 +495,50 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
                 sourceDir,
                 scene,
                 candidate,
+                sharedPagEntries: sourceSharedEntryMap.get(sourceAbs) || selected.selected,
                 entryCacheKey,
                 entryStamp,
+            });
+            hasPendingForSource = true;
+        }
+
+        if (hasPendingForSource) {
+            sharedPagWarmPlans.push({
+                sourceDir,
+                scene,
+                entries: sourceSharedEntryMap.get(sourceAbs) || selected.selected,
             });
         }
     }
 
     stageProfile.entryParallelTaskCount = pendingTasks.length;
+    for (const warmPlan of sharedPagWarmPlans) {
+        const warmT0 = process.hrtime.bigint();
+        const warmEngine = new TaintPropagationEngine(warmPlan.scene, options.k, {
+            transferRules: loadedRules.ruleSet.transfers || [],
+        });
+        warmEngine.verbose = false;
+        await warmEngine.buildPAGForEntries(
+            warmPlan.entries.map(entry => ({
+                name: entry.name,
+                pathHint: entry.pathHint,
+            }))
+        );
+        stageProfile.entryAnalyzeMs += elapsedMsSince(warmT0);
+    }
+
     const pendingResults = await mapWithConcurrency(
         pendingTasks,
         options.concurrency,
         async (task): Promise<EntryAnalyzeResult> => {
-            return analyzeEntry(task.scene, task.sourceDir, task.candidate, options, loadedRules);
+            return analyzeEntry(
+                task.scene,
+                task.sourceDir,
+                task.candidate,
+                options,
+                loadedRules,
+                task.sharedPagEntries
+            );
         }
     );
 
@@ -502,6 +581,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         elapsedMs: 0,
         elapsedShareAvg: 0,
     };
+    const detectProfile = emptyDetectProfile();
     let transferShareCount = 0;
     const transferNoHitReasons: Record<string, number> = {};
     for (const e of entries) {
@@ -522,6 +602,30 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         transferProfile.resultCount += e.transferProfile.resultCount;
         transferProfile.elapsedMs += e.transferProfile.elapsedMs;
         transferProfile.elapsedShareAvg += e.transferProfile.elapsedShare;
+        detectProfile.detectCallCount += e.detectProfile.detectCallCount;
+        detectProfile.methodsVisited += e.detectProfile.methodsVisited;
+        detectProfile.reachableMethodsVisited += e.detectProfile.reachableMethodsVisited;
+        detectProfile.stmtsVisited += e.detectProfile.stmtsVisited;
+        detectProfile.invokeStmtsVisited += e.detectProfile.invokeStmtsVisited;
+        detectProfile.signatureMatchedInvokeCount += e.detectProfile.signatureMatchedInvokeCount;
+        detectProfile.constraintRejectedInvokeCount += e.detectProfile.constraintRejectedInvokeCount;
+        detectProfile.sinksChecked += e.detectProfile.sinksChecked;
+        detectProfile.candidateCount += e.detectProfile.candidateCount;
+        detectProfile.taintCheckCount += e.detectProfile.taintCheckCount;
+        detectProfile.cfgGuardCheckCount += e.detectProfile.cfgGuardCheckCount;
+        detectProfile.cfgGuardSkipCount += e.detectProfile.cfgGuardSkipCount;
+        detectProfile.defReachabilityCheckCount += e.detectProfile.defReachabilityCheckCount;
+        detectProfile.fieldPathCheckCount += e.detectProfile.fieldPathCheckCount;
+        detectProfile.fieldPathHitCount += e.detectProfile.fieldPathHitCount;
+        detectProfile.sanitizerGuardCheckCount += e.detectProfile.sanitizerGuardCheckCount;
+        detectProfile.sanitizerGuardHitCount += e.detectProfile.sanitizerGuardHitCount;
+        detectProfile.signatureMatchMs += e.detectProfile.signatureMatchMs;
+        detectProfile.candidateResolveMs += e.detectProfile.candidateResolveMs;
+        detectProfile.cfgGuardMs += e.detectProfile.cfgGuardMs;
+        detectProfile.taintEvalMs += e.detectProfile.taintEvalMs;
+        detectProfile.sanitizerGuardMs += e.detectProfile.sanitizerGuardMs;
+        detectProfile.traversalMs += e.detectProfile.traversalMs;
+        detectProfile.totalMs += e.detectProfile.totalMs;
         transferShareCount++;
         for (const reason of e.transferNoHitReasons) {
             transferNoHitReasons[reason] = (transferNoHitReasons[reason] || 0) + 1;
@@ -552,6 +656,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
             ruleHits,
             ruleHitEndpoints,
             transferProfile,
+            detectProfile,
                 stageProfile: {
                     ruleLoadMs: Number(stageProfile.ruleLoadMs.toFixed(3)),
                     sceneBuildMs: Number(stageProfile.sceneBuildMs.toFixed(3)),

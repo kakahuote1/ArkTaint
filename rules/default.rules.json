@@ -249,6 +249,7 @@
       }
     }
   ],
+  "sanitizers": [],
   "transfers": [
     {
       "id": "transfer.map.set.value_to_base",

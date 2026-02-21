@@ -40,6 +40,7 @@ interface WorklistSolverDeps {
     onFactRuleChain?: (factId: string, chain: FactRuleChain) => void;
     profiler?: WorklistProfiler;
     propagationTrace?: PropagationTrace;
+    allowedMethodSignatures?: Set<string>;
     log: (msg: string) => void;
 }
 
@@ -72,6 +73,7 @@ export class WorklistSolver {
             onFactRuleChain,
             profiler,
             propagationTrace,
+            allowedMethodSignatures,
             log
         } = this.deps;
         const transferExecutor = new ConfigBasedTransferExecutor(transferRules || [], scene);
@@ -111,6 +113,9 @@ export class WorklistSolver {
             const currentChain = factRuleChains.get(fact.id) || initialChainForFact(fact);
             factRuleChains.set(fact.id, currentChain);
             onFactRuleChain?.(fact.id, currentChain);
+            if (!this.isNodeAllowedByReachability(node, allowedMethodSignatures)) {
+                continue;
+            }
 
             const tryEnqueue = (
                 reason: string,
@@ -118,6 +123,9 @@ export class WorklistSolver {
                 onAccepted: () => void,
                 chainOverride?: FactRuleChain
             ): void => {
+                if (!this.isNodeAllowedByReachability(newFact.node, allowedMethodSignatures)) {
+                    return;
+                }
                 profiler?.onEnqueueAttempt(reason);
                 if (visited.has(newFact.id)) {
                     profiler?.onDedupDrop(reason);
@@ -768,5 +776,40 @@ export class WorklistSolver {
             for (const m of matched) methods.push(m);
         }
         return methods;
+    }
+
+    private isNodeAllowedByReachability(node: PagNode, allowedMethodSignatures?: Set<string>): boolean {
+        if (!allowedMethodSignatures || allowedMethodSignatures.size === 0) return true;
+        const methodSig = this.resolveMethodSignatureByNode(node);
+        if (!methodSig) return true;
+        return allowedMethodSignatures.has(methodSig);
+    }
+
+    private resolveMethodSignatureByNode(node: PagNode): string | undefined {
+        const stmt = node.getStmt?.();
+        const stmtSig = stmt?.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.();
+        if (stmtSig) return stmtSig;
+
+        const funcSig = (node as any).getMethod?.()?.toString?.();
+        if (funcSig) return funcSig;
+
+        const value = node.getValue?.();
+        return this.resolveMethodSignatureByValue(value);
+    }
+
+    private resolveMethodSignatureByValue(value: any): string | undefined {
+        if (!value) return undefined;
+        if (value instanceof Local) {
+            const declStmt = value.getDeclaringStmt?.();
+            const sig = declStmt?.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.();
+            if (sig) return sig;
+        }
+        if (value instanceof ArkInstanceFieldRef || value instanceof ArkArrayRef) {
+            const base = value.getBase?.();
+            return this.resolveMethodSignatureByValue(base);
+        }
+        const valueSig = value.getMethodSignature?.()?.toString?.();
+        if (valueSig) return valueSig;
+        return undefined;
     }
 }

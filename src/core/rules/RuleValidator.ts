@@ -8,6 +8,7 @@ import {
     RuleScopeConstraint,
     RuleStringConstraint,
     RuleValidationResult,
+    SanitizerRule,
     SinkRule,
     SourceRule,
     SourceRuleKind,
@@ -272,6 +273,29 @@ function validateTransferRule(rulePath: string, rule: unknown, out: RuleValidati
     return true;
 }
 
+function validateSanitizerRule(rulePath: string, rule: unknown, out: RuleValidationResult): rule is SanitizerRule {
+    if (!validateRuleCommon(rulePath, rule, out)) return false;
+    const obj: any = rule;
+
+    if (obj.sanitizeTarget !== undefined) {
+        if (typeof obj.sanitizeTarget !== "string" || !isRuleEndpoint(obj.sanitizeTarget)) {
+            out.errors.push(`${rulePath}.sanitizeTarget must be base/result/argN`);
+        }
+    }
+    if (obj.sanitizeTargetRef !== undefined) {
+        validateEndpointRef(rulePath, "sanitizeTargetRef", obj.sanitizeTargetRef, out);
+        if (
+            obj.sanitizeTarget !== undefined
+            && isObject(obj.sanitizeTargetRef)
+            && obj.sanitizeTargetRef.endpoint !== obj.sanitizeTarget
+        ) {
+            out.errors.push(`${rulePath}.sanitizeTarget and sanitizeTargetRef.endpoint must be the same when both are set`);
+        }
+    }
+
+    return true;
+}
+
 function checkDuplicateIds(categoryPath: string, rules: BaseRule[], out: RuleValidationResult): void {
     const seen = new Set<string>();
     for (const rule of rules) {
@@ -308,12 +332,16 @@ export function validateRuleSet(raw: unknown): RuleValidationResult {
     if (!Array.isArray(raw.sinks)) {
         out.errors.push("sinks must be an array");
     }
+    if (raw.sanitizers !== undefined && !Array.isArray(raw.sanitizers)) {
+        out.errors.push("sanitizers must be an array");
+    }
     if (!Array.isArray(raw.transfers)) {
         out.errors.push("transfers must be an array");
     }
 
     const sourceRules: SourceRule[] = [];
     const sinkRules: SinkRule[] = [];
+    const sanitizerRules: SanitizerRule[] = [];
     const transferRules: TransferRule[] = [];
 
     if (Array.isArray(raw.sources)) {
@@ -328,6 +356,12 @@ export function validateRuleSet(raw: unknown): RuleValidationResult {
             if (validateSinkRule(p, rule, out)) sinkRules.push(rule as SinkRule);
         });
     }
+    if (Array.isArray(raw.sanitizers)) {
+        raw.sanitizers.forEach((rule, idx) => {
+            const p = `sanitizers[${idx}]`;
+            if (validateSanitizerRule(p, rule, out)) sanitizerRules.push(rule as SanitizerRule);
+        });
+    }
     if (Array.isArray(raw.transfers)) {
         raw.transfers.forEach((rule, idx) => {
             const p = `transfers[${idx}]`;
@@ -337,6 +371,7 @@ export function validateRuleSet(raw: unknown): RuleValidationResult {
 
     checkDuplicateIds("sources", sourceRules, out);
     checkDuplicateIds("sinks", sinkRules, out);
+    checkDuplicateIds("sanitizers", sanitizerRules, out);
     checkDuplicateIds("transfers", transferRules, out);
 
     if (sourceRules.length === 0) out.warnings.push("sources is empty");

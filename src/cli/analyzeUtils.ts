@@ -5,7 +5,7 @@ import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "..
 import { Local } from "../../arkanalyzer/out/src/core/base/Local";
 import { TaintFlow } from "../core/TaintFlow";
 import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
-import { SinkRule, SourceRule } from "../core/rules/RuleSchema";
+import { SanitizerRule, SinkRule, SourceRule } from "../core/rules/RuleSchema";
 import { buildSmokeRuleConfig, LoadedRuleSet } from "../core/rules/RuleLoader";
 
 export interface EntryCandidate {
@@ -368,6 +368,8 @@ export function detectFlows(
     loadedRules: LoadedRuleSet | undefined,
     options?: {
         detailed?: boolean;
+        stopOnFirstFlow?: boolean;
+        maxFlowsPerEntry?: number;
     }
 ): {
     totalFlowCount: number;
@@ -377,6 +379,9 @@ export function detectFlows(
     flowRuleTraces: FlowRuleTrace[];
 } {
     const detailed = options?.detailed !== false;
+    const maxFlowLimit = options?.stopOnFirstFlow
+        ? 1
+        : options?.maxFlowsPerEntry;
     const sinkSamples: string[] = [];
     const byKeyword: Record<string, number> = {};
     const bySignature: Record<string, number> = {};
@@ -387,6 +392,7 @@ export function detectFlows(
     const sinkKeywords = sourcePattern.sinkKeywords;
     const sinkSignatures = sourcePattern.sinkSignatures;
     const sinkRules = loadedRules?.ruleSet.sinks || [];
+    const sanitizerRules: SanitizerRule[] = loadedRules?.ruleSet.sanitizers || [];
 
     const parseSourceRuleId = (source: string): string | undefined => {
         if (!source.startsWith("source_rule:")) return undefined;
@@ -409,6 +415,7 @@ export function detectFlows(
     const collect = (label: string, token: string, flows: TaintFlow[]): number => {
         const bucket = new Set<string>();
         for (const flow of flows) {
+            if (maxFlowLimit !== undefined && uniqueFlowKeys.size >= maxFlowLimit) break;
             const sinkText = flow.sink.toString();
             const key = `${flow.source} -> ${sinkText}`;
             bucket.add(key);
@@ -424,23 +431,39 @@ export function detectFlows(
     };
 
     if (sinkRules.length > 0) {
-        const flows = engine.detectSinksByRules(sinkRules as SinkRule[]);
+        const flows = engine.detectSinksByRules(sinkRules as SinkRule[], {
+            stopOnFirstFlow: options?.stopOnFirstFlow,
+            maxFlowsPerEntry: options?.maxFlowsPerEntry,
+            sanitizerRules,
+        });
         collect("rule", "all", flows);
+    }
+
+    if (maxFlowLimit !== undefined && uniqueFlowKeys.size >= maxFlowLimit) {
+        return {
+            totalFlowCount: uniqueFlowKeys.size,
+            sinkSamples,
+            byKeyword,
+            bySignature,
+            flowRuleTraces: detailed ? [...flowTraceMap.values()] : [],
+        };
     }
 
     if (detailed) {
         for (const keyword of sinkKeywords) {
-            byKeyword[keyword] = collect("kw", keyword, engine.detectSinks(keyword));
+            if (maxFlowLimit !== undefined && uniqueFlowKeys.size >= maxFlowLimit) break;
+            byKeyword[keyword] = collect("kw", keyword, engine.detectSinks(keyword, { sanitizerRules }));
         }
         for (const signature of sinkSignatures) {
-            bySignature[signature] = collect("sig", signature, engine.detectSinks(signature));
+            if (maxFlowLimit !== undefined && uniqueFlowKeys.size >= maxFlowLimit) break;
+            bySignature[signature] = collect("sig", signature, engine.detectSinks(signature, { sanitizerRules }));
         }
     }
 
     // Developer-friendly fallback for taint demo projects.
     if (uniqueFlowKeys.size === 0) {
-        const sinkByName = collect("sig", "Sink", engine.detectSinks("Sink"));
-        const sinkBySig = collect("sig", "taint.%dflt.Sink", engine.detectSinks("taint.%dflt.Sink"));
+        const sinkByName = collect("sig", "Sink", engine.detectSinks("Sink", { sanitizerRules }));
+        const sinkBySig = collect("sig", "taint.%dflt.Sink", engine.detectSinks("taint.%dflt.Sink", { sanitizerRules }));
         if (detailed) {
             bySignature["Sink"] = sinkByName;
             bySignature["taint.%dflt.Sink"] = sinkBySig;

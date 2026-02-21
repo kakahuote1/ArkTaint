@@ -1,4 +1,4 @@
-import { RuleHitCounters } from "../core/TaintPropagationEngine";
+import { DetectProfileSnapshot, RuleHitCounters } from "../core/TaintPropagationEngine";
 import { AnalyzeProfile, ReportMode } from "./analyzeCliOptions";
 import { FlowRuleTrace } from "./analyzeUtils";
 
@@ -56,6 +56,7 @@ export interface EntryAnalyzeResult {
         elapsedMs: number;
         elapsedShare: number;
     };
+    detectProfile: DetectProfileSnapshot;
     stageProfile: EntryStageProfile;
     transferNoHitReasons: string[];
     elapsedMs: number;
@@ -94,6 +95,7 @@ export interface AnalyzeReport {
             elapsedMs: number;
             elapsedShareAvg: number;
         };
+        detectProfile: DetectProfileSnapshot;
         stageProfile: AnalyzeStageProfile;
         transferNoHitReasons: Record<string, number>;
     };
@@ -131,6 +133,35 @@ export function emptyTransferProfile(): EntryAnalyzeResult["transferProfile"] {
         resultCount: 0,
         elapsedMs: 0,
         elapsedShare: 0,
+    };
+}
+
+export function emptyDetectProfile(): DetectProfileSnapshot {
+    return {
+        detectCallCount: 0,
+        methodsVisited: 0,
+        reachableMethodsVisited: 0,
+        stmtsVisited: 0,
+        invokeStmtsVisited: 0,
+        signatureMatchedInvokeCount: 0,
+        constraintRejectedInvokeCount: 0,
+        sinksChecked: 0,
+        candidateCount: 0,
+        taintCheckCount: 0,
+        cfgGuardCheckCount: 0,
+        cfgGuardSkipCount: 0,
+        defReachabilityCheckCount: 0,
+        fieldPathCheckCount: 0,
+        fieldPathHitCount: 0,
+        sanitizerGuardCheckCount: 0,
+        sanitizerGuardHitCount: 0,
+        signatureMatchMs: 0,
+        candidateResolveMs: 0,
+        cfgGuardMs: 0,
+        taintEvalMs: 0,
+        sanitizerGuardMs: 0,
+        traversalMs: 0,
+        totalMs: 0,
     };
 }
 
@@ -181,6 +212,7 @@ export function toReportEntry(entry: EntryAnalyzeResult, reportMode: ReportMode)
         ruleHits: emptyRuleHitCounters(),
         ruleHitEndpoints: emptyRuleHitCounters(),
         transferProfile: emptyTransferProfile(),
+        detectProfile: emptyDetectProfile(),
         stageProfile: emptyEntryStageProfile(),
         transferNoHitReasons: [],
     };

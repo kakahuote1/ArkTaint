@@ -18,8 +18,17 @@ import {
     SyntheticInvokeEdgeInfo,
     SyntheticConstructorStoreInfo
 } from "./engine/SyntheticInvokeEdgeBuilder";
+import {
+    computeReachableMethodSignatures as computeReachableMethodsFromEntry,
+    resolveEntryMethods
+} from "./engine/EntryReachability";
 import { FactRuleChain, WorklistSolver } from "./engine/WorklistSolver";
-import { detectSinks as runSinkDetector } from "./engine/SinkDetector";
+import {
+    createEmptySinkDetectProfile,
+    detectSinks as runSinkDetector,
+    mergeSinkDetectProfiles,
+    SinkDetectProfile,
+} from "./engine/SinkDetector";
 import { collectSourceRuleSeeds as collectSourceRuleSeedsFromRules } from "./engine/SourceRuleSeedCollector";
 import { resolveSinkRuleSignatures as resolveSinkRuleSignaturesByRule } from "./engine/SinkRuleSignatureResolver";
 import { createDebugCollectors, dumpDebugArtifactsToDir } from "./engine/DebugArtifactUtils";
@@ -28,6 +37,7 @@ import { PropagationTrace } from "./engine/PropagationTrace";
 import {
     RuleEndpoint,
     RuleInvokeKind,
+    SanitizerRule,
     SinkRule,
     SourceRule,
     TransferRule
@@ -55,6 +65,13 @@ export interface RuleHitCounters {
 export interface FlowRuleChain {
     sourceRuleId?: string;
     transferRuleIds: string[];
+}
+
+export type DetectProfileSnapshot = SinkDetectProfile;
+
+export interface PagEntrySpec {
+    name: string;
+    pathHint?: string;
 }
 
 export class TaintPropagationEngine {
@@ -96,6 +113,8 @@ export class TaintPropagationEngine {
         transfer: new Map<string, number>(),
     };
     private factRuleChains: Map<string, FlowRuleChain> = new Map();
+    private activeReachableMethodSignatures?: Set<string>;
+    private detectProfile: SinkDetectProfile = createEmptySinkDetectProfile();
 
     public verbose: boolean = true;
 
@@ -166,6 +185,18 @@ export class TaintPropagationEngine {
         this.factRuleChains.clear();
     }
 
+    public resetDetectProfile(): void {
+        this.detectProfile = createEmptySinkDetectProfile();
+    }
+
+    public getDetectProfile(): DetectProfileSnapshot {
+        return { ...this.detectProfile };
+    }
+
+    private mergeDetectProfile(profile: SinkDetectProfile): void {
+        this.detectProfile = mergeSinkDetectProfiles(this.detectProfile, profile);
+    }
+
     private upsertFactRuleChain(factId: string, chain: FactRuleChain | FlowRuleChain): void {
         this.factRuleChains.set(factId, this.cloneFlowRuleChain(chain));
     }
@@ -191,29 +222,23 @@ export class TaintPropagationEngine {
     }
 
     public async buildPAG(entryMethodName: string = "main", entryMethodPathHint?: string): Promise<void> {
+        return this.buildPAGForEntries([{ name: entryMethodName, pathHint: entryMethodPathHint }]);
+    }
+
+    public async buildPAGForEntries(entries: PagEntrySpec[]): Promise<void> {
         this.clearRuleHits();
         this.clearFactRuleChains();
-        const candidates = this.scene.getMethods().filter(method => method.getName() === entryMethodName);
-        let mainMethod = candidates.length > 0 ? candidates[0] : null;
-
-        if (entryMethodPathHint && candidates.length > 0) {
-            const normalizedHint = entryMethodPathHint.replace(/\\/g, "/");
-            const hintedMethod = candidates.find(method => method.getSignature().toString().includes(normalizedHint));
-            if (hintedMethod) {
-                mainMethod = hintedMethod;
-            }
+        const entrySpecs = entries && entries.length > 0 ? entries : [{ name: "main" }];
+        const resolvedMethods = resolveEntryMethods(this.scene, entrySpecs);
+        if (resolvedMethods.length === 0) {
+            throw new Error("No valid entry methods found in scene");
         }
 
-        if (!mainMethod) {
-            throw new Error(`No ${entryMethodName}() method found in scene`);
-        }
-
-        let sceneId = TaintPropagationEngine.sceneIds.get(this.scene);
-        if (!sceneId) {
-            sceneId = TaintPropagationEngine.sceneIdSeed++;
-            TaintPropagationEngine.sceneIds.set(this.scene, sceneId);
-        }
-        const cacheKey = `${sceneId}|${mainMethod.getSignature().toString()}`;
+        const sceneId = this.getOrCreateSceneId();
+        const signatureList = resolvedMethods
+            .map(method => method.getSignature().toString())
+            .sort();
+        const cacheKey = `${sceneId}|entries|${signatureList.join("||")}`;
         const cached = TaintPropagationEngine.pagBuildCache.get(cacheKey);
         if (cached) {
             this.pag = cached.pag;
@@ -223,7 +248,7 @@ export class TaintPropagationEngine {
             this.captureEdgeMap = cached.captureEdgeMap;
             this.syntheticInvokeEdgeMap = cached.syntheticInvokeEdgeMap;
             this.syntheticConstructorStoreMap = cached.syntheticConstructorStoreMap;
-            this.log(`PAG cache hit: ${entryMethodName}`);
+            this.log(`PAG cache hit: entries=${resolvedMethods.length}`);
             this.log(`PAG nodes: ${this.pag.getNodeNum()}, edges: ${this.pag.getEdgeNum()}`);
             this.log(`CG nodes: ${this.cg.getNodeNum()}, edges: ${this.cg.getEdgeNum()}`);
             this.configureContextStrategy();
@@ -234,10 +259,10 @@ export class TaintPropagationEngine {
         const cgBuilder = new CallGraphBuilder(cg, this.scene);
         cgBuilder.buildDirectCallGraphForScene();
         const pag = new Pag();
-        const entryMethodID = cg.getCallGraphNodeByMethod(mainMethod.getSignature()).getID();
+        const entryMethodIDs = resolvedMethods.map(method => cg.getCallGraphNodeByMethod(method.getSignature()).getID());
         const config = PointerAnalysisConfig.create(0, "./out", false, false, false);
         this.pta = new PointerAnalysis(pag, cg, this.scene, config);
-        this.pta.setEntries([entryMethodID]);
+        this.pta.setEntries(entryMethodIDs);
         this.pta.start();
         this.pag = this.pta.getPag();
         this.cg = cg;
@@ -260,6 +285,21 @@ export class TaintPropagationEngine {
             syntheticConstructorStoreMap: this.syntheticConstructorStoreMap,
         });
         this.configureContextStrategy();
+    }
+
+    public setActiveReachableMethodSignatures(methodSignatures?: Set<string>): void {
+        if (!methodSignatures || methodSignatures.size === 0) {
+            this.activeReachableMethodSignatures = undefined;
+            return;
+        }
+        this.activeReachableMethodSignatures = new Set(methodSignatures);
+    }
+
+    public computeReachableMethodSignatures(entryMethodName: string, entryMethodPathHint?: string): Set<string> {
+        if (!this.cg) {
+            throw new Error("PAG/CG not built. Call buildPAG() first.");
+        }
+        return computeReachableMethodsFromEntry(this.scene, this.cg, entryMethodName, entryMethodPathHint);
     }
 
     public propagate(sourceSignature: string): void {
@@ -366,14 +406,57 @@ export class TaintPropagationEngine {
         };
     }
 
-    public detectSinksByRules(sinkRules: SinkRule[]): TaintFlow[] {
+    public detectSinksByRules(
+        sinkRules: SinkRule[],
+        options?: {
+            stopOnFirstFlow?: boolean;
+            maxFlowsPerEntry?: number;
+            sanitizerRules?: SanitizerRule[];
+        }
+    ): TaintFlow[] {
         this.clearRuleHits("sink");
         if (!sinkRules || sinkRules.length === 0) return [];
+        const maxFlowLimit = options?.stopOnFirstFlow
+            ? 1
+            : options?.maxFlowsPerEntry;
 
         const flowMap = new Map<string, TaintFlow>();
+        const detectCache = new Map<string, TaintFlow[]>();
+        const cloneFlow = (flow: TaintFlow): TaintFlow => {
+            return new TaintFlow(flow.source, flow.sink, {
+                sourceRuleId: flow.sourceRuleId,
+                sinkRuleId: flow.sinkRuleId,
+                sinkEndpoint: flow.sinkEndpoint,
+                sinkNodeId: flow.sinkNodeId,
+                sinkFieldPath: flow.sinkFieldPath ? [...flow.sinkFieldPath] : undefined,
+                transferRuleIds: flow.transferRuleIds ? [...flow.transferRuleIds] : undefined,
+            });
+        };
+        const buildDetectCacheKey = (
+            signature: string,
+            target: {
+                targetEndpoint?: RuleEndpoint;
+                targetPath?: string[];
+                invokeKind?: RuleInvokeKind;
+                argCount?: number;
+                typeHint?: string;
+            }
+        ): string => {
+            const endpoint = target.targetEndpoint || "";
+            const path = target.targetPath && target.targetPath.length > 0
+                ? target.targetPath.join(".")
+                : "";
+            const invokeKind = target.invokeKind || "";
+            const argCount = target.argCount === undefined ? "" : String(target.argCount);
+            const typeHint = target.typeHint || "";
+            return `${signature}|${endpoint}|${path}|${invokeKind}|${argCount}|${typeHint}`;
+        };
         const addFlows = (ruleId: string, flows: TaintFlow[]): void => {
             let added = 0;
             for (const f of flows) {
+                if (maxFlowLimit !== undefined && flowMap.size >= maxFlowLimit) {
+                    break;
+                }
                 const key = `${f.source} -> ${f.sink.toString()}`;
                 if (!flowMap.has(key)) {
                     flowMap.set(key, f);
@@ -382,8 +465,12 @@ export class TaintPropagationEngine {
             }
             if (added > 0) this.markRuleHit("sink", ruleId, added);
         };
+        const reachedFlowLimit = (): boolean => {
+            return maxFlowLimit !== undefined && flowMap.size >= maxFlowLimit;
+        };
 
         for (const rule of sinkRules) {
+            if (reachedFlowLimit()) break;
             const signatures = resolveSinkRuleSignaturesByRule(this.scene, rule);
             const target = this.resolveSinkRuleTarget(rule);
             const sinkEndpoint = target.targetEndpoint || "any_arg";
@@ -391,7 +478,19 @@ export class TaintPropagationEngine {
                 ? `.${target.targetPath.join(".")}`
                 : "";
             for (const signature of signatures) {
-                const flows = this.detectSinks(signature, target);
+                const cacheKey = buildDetectCacheKey(signature, target);
+                let flows: TaintFlow[];
+                const cached = detectCache.get(cacheKey);
+                if (cached) {
+                    flows = cached.map(cloneFlow);
+                } else {
+                    const computed = this.detectSinks(signature, {
+                        ...target,
+                        sanitizerRules: options?.sanitizerRules || [],
+                    });
+                    detectCache.set(cacheKey, computed.map(cloneFlow));
+                    flows = computed.map(cloneFlow);
+                }
                 for (const flow of flows) {
                     flow.sinkRuleId = rule.id;
                     flow.sinkEndpoint = `${sinkEndpoint}${sinkPathSuffix}`;
@@ -413,6 +512,7 @@ export class TaintPropagationEngine {
                     }
                 }
                 addFlows(rule.id, flows);
+                if (reachedFlowLimit()) break;
             }
         }
 
@@ -437,6 +537,7 @@ export class TaintPropagationEngine {
             onFactRuleChain: (factId, chain) => this.upsertFactRuleChain(factId, chain),
             profiler: this.worklistProfiler,
             propagationTrace: this.propagationTrace,
+            allowedMethodSignatures: this.activeReachableMethodSignatures,
             log: this.log.bind(this),
         });
         solver.solve(worklist, visited);
@@ -464,6 +565,7 @@ export class TaintPropagationEngine {
             invokeKind?: RuleInvokeKind;
             argCount?: number;
             typeHint?: string;
+            sanitizerRules?: SanitizerRule[];
         }
     ): TaintFlow[] {
         if (!this.cg) return [];
@@ -477,6 +579,8 @@ export class TaintPropagationEngine {
             {
                 ...options,
                 fieldToVarIndex: this.fieldToVarIndex,
+                allowedMethodSignatures: this.activeReachableMethodSignatures,
+                onProfile: (profile) => this.mergeDetectProfile(profile),
             }
         );
     }
@@ -549,4 +653,14 @@ export class TaintPropagationEngine {
         this.worklistProfiler = collectors.worklistProfiler;
         this.propagationTrace = collectors.propagationTrace;
     }
+
+    private getOrCreateSceneId(): number {
+        let sceneId = TaintPropagationEngine.sceneIds.get(this.scene);
+        if (!sceneId) {
+            sceneId = TaintPropagationEngine.sceneIdSeed++;
+            TaintPropagationEngine.sceneIds.set(this.scene, sceneId);
+        }
+        return sceneId;
+    }
+
 }

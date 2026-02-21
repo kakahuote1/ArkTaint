@@ -9,8 +9,7 @@
 [![HarmonyOS](https://img.shields.io/badge/platform-HarmonyOS-black)](https://developer.huawei.com/consumer/cn/harmonyos)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-[核心特性](#-核心特性) • [架构设计](#-架构概览) • [快速开始](#-快速开始) • [测试与基准](#-测试与基准) • [扩展开发](#-二次开发与插件)
-
+[核心特性](#-核心特性) • [架构设计](#-架构概览) • [规则配置范例](#-规则配置范例-configuration-examples) • [快速开始](#-快速开始) • [测试与基准](#-测试与基准)
 </div>
 
 ---
@@ -21,7 +20,7 @@
 
 它构建在深度程序分析底座 [Arkanalyzer](https://gitcode.net/openharmony-sig/arkanalyzer) 生成的指针分配图（PAG）基础之上，旨在帮助安全研究人员和开发者自动发现隐私泄露、SQL 注入、命令注入等关键数据流安全问题。
 
-**ArkTaint 的终极设计目标**：让“不懂底层代码的使用者”也能对陌生的 ArkTS 项目轻易执行污点分析。通过**零代码接入**与**单命令执行**设计，使用者只需提供项目路径与自定义规则配置（可选），即可一键输出清晰的漏洞识别报告，**全程无需修改引擎核心源码**。
+**ArkTaint 的终极设计目标**：对 ArkTS 项目轻易执行污点分析。通过**零代码接入**与**单命令执行**设计，使用者只需提供项目路径与自定义规则配置（可选），即可一键输出清晰的漏洞识别报告，**全程无需修改引擎核心源码**。
 
 ## ✨ 核心特性
 
@@ -35,11 +34,7 @@
   - **深度语言特性建模**：完整支持字段敏感（Field-Sensitive，涵盖嵌套对象和解构）、容器高精建模（Map/Set/List/Array的增删改查流转），和复杂的异步与事件流。
   - **边缘特性精准桥接**：自动修复因匿名箭头函数 `this` 丢失、`Reflect.call/apply` 反射调用，以及变长参数展开 (`...args`) 引起的控制图断裂。
 
-- **🌟 独创鸿蒙专属引擎 (HarmonyOS Deep Modeling)**  *(开发中项)*
-  - 针对 HarmonyOS 原生特性深度开发：将全面覆盖 `UIAbility` 的生命周期隐式流转 (`onCreate` 传递至视图 `build`)、跨组件高频数据总线 `AppStorage` 的显隐式穿透、以及 `@State`/`@Prop` 等装饰器驱动的高级多级传播图谱还原。
 
-- **🤖 LLM 联合规则生成** *(规划中项)*
-  - 接入大语言模型，通过静态解析结合目标源码，自动建议目标项目级 Source / Sink 种子配置以大幅消除未知域扫描盲区。
 
 ## 🏗️ 架构概览
 
@@ -90,16 +85,82 @@ node out/cli/analyze.js --repo <repo-path>
 
 分析完成后，您可以在同目录或 `--outputDir` 指定位置查看结果文件 `summary.md` 和 `summary.json` 以获取最终的漏洞统计与追溯链路。
 
+## 💡 规则配置范例 (Configuration Examples)
+
+ArkTaint 的一大特色是**规则驱动的零代码接入**，所有分析行为都能通过编写 JSON 规则控制。不需要修改底层传播引擎，即可支持复杂的 Transfer 传播语义与 Sanitizer 误报净化守卫。
+
+### 1. 传播规则 (Transfer Rules)
+
+Transfer 规则用于精准控制污点在特定函数调用内的走向，支持从精确端点 (`from`) 传播到精确端点 (`to`)。
+
+```json
+{
+  "transfers": [
+    {
+      "id": "transfer.example.push_to_array",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "push"
+      },
+      "from": "arg0",
+      "to": "base"
+    },
+    {
+      "id": "transfer.example.read_property",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "getData"
+      },
+      "from": "base",
+      "to": "result"
+    }
+  ]
+}
+```
+
+### 2. 净化守卫规则 (Sanitizer Guard Rules)
+
+Sanitizer 规则用于消除已知安全过滤函数引起的误报。在 `sink` 判定前，引擎会检查同函数内、同目标路径上是否发生过 `SanitizerRule` 设定的调用，若命中则安全抑制该漏洞告警。
+
+```json
+{
+  "sanitizers": [
+    {
+      "id": "sanitizer.example.escape_html",
+      "sanitizeTarget": "result",
+      "sanitizeTargetRef": {
+        "endpoint": "result"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "EscapeHTML"
+      }
+    },
+    {
+      "id": "sanitizer.example.clean_inplace",
+      "sanitizeTarget": "arg0",
+      "sanitizeTargetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "CleanInPlace"
+      }
+    }
+  ]
+}
+```
+
 ## 📊 测试与基准 (Benchmark)
 
 ArkTaint 具有顶尖的引擎稳定性指标和基线保障机制（以 2026-02-18 数据度量）：
 
-| 验证维度               | 评估结果 (ArkTaint 对照情况) | 备注说明                                                        |
-| :--------------------- | :--------------------------- | :-------------------------------------------------------------- |
-| **全量数据集用例验证** | **100.0%** (230/230, k=1)    | 覆盖上下文敏感、字段敏感等绝大部分高级语言边界情况              |
-| **端到端分析性能**     | **耗时显著下降结构优越**     | 全新设计的合并传输规则分发策略，耗时降低超过原有方案一半        |
-| **准确率与对比表现**   | **FP=0, FN=0**               | 全量超越前期课题竞品（精度/性能/易用性/稳定性指标全面达标）     |
-| **测试门禁与反老化**   | **无缝支持泛化拦截**         | 引入 Metamorphic 变型等价防过拟合验证机制及真实开源用例连续打点 |
+| 验证维度               | 评估结果 (ArkTaint 对照情况) | 备注说明                                                                                             |
+| :--------------------- | :--------------------------- | :--------------------------------------------------------------------------------------------------- |
+| **全量数据集用例验证** | **100.0%** (230/230, k=1)    | 覆盖上下文敏感、字段敏感等绝大部分高级语言边界情况                                                   |
+| **端到端分析性能**     | **极速基准呈现**             | 经 Phase 6.5多入口复用与 Phase 6.6检测侧索引化（单项降幅达 88%~95%），实现大规模场景毫秒级端到端响应 |
+| **准确率与对比表现**   | **FP=0, FN=0**               | 全量超越前期课题竞品（精度/性能/易用性/稳定性指标全面达标）                                          |
+| **测试门禁与反老化**   | **无缝支持泛化拦截**         | 引入 Metamorphic 变型等价防过拟合验证机制及真实开源用例连续打点                                      |
 
 ### 自动化基线验证集测
 
@@ -109,12 +170,6 @@ ArkTaint 具有顶尖的引擎稳定性指标和基线保障机制（以 2026-02
 npm run verify
 ```
 
-## 🔌 插件扩展开发 (Seasoning System)
-
-针对想要将分析引擎拓展分析不同前端框架，或补充独门分析黑科技的安全研究人员，我们在 `src/core/plugin` 支持名为 **Seasoning** 调味品的规范插件系统（*开发设计中*）：
-
-- **只声明不操纵**：第三方开发者仅返回诊断贡献结果（如额外的 Source 种子、转移规则），引擎集中负责冲突判定与仲裁合并。
-- **纯粹只读门面**：插件环境始终只暴露安全只读的 API Sandbox 对象门面 (`ReadonlyPluginContext`)。极大收敛错误代码触发的核心调度崩溃率。
 
 ## 📜 许可证
 
