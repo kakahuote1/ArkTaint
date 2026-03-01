@@ -19,9 +19,16 @@ export function resolveSinkRuleSignatures(scene: Scene, rule: SinkRule): string[
                 .filter(sig => re.test(sig));
         }
         case "method_name_equals":
-            return methods
+            {
+                const matched = methods
                 .filter(m => m.getName() === value)
                 .map(m => m.getSignature().toString());
+                // Fallback for unresolved/framework calls represented as
+                // "@%unk/%unk: .methodName()" in ArkIR where no concrete
+                // method symbol exists in scene.
+                matched.push(`.${value}(`);
+                return [...new Set(matched)];
+            }
         case "method_name_regex": {
             let re: RegExp;
             try {

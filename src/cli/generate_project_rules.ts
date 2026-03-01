@@ -230,6 +230,7 @@ function pickSinkTarget(invokeKind: "instance" | "static", argCount: number): "b
 function collectCandidatesFromScene(
     scene: Scene,
     sourceDir: string,
+    sourceAbs: string,
     options: GenerateProjectRuleCliOptions,
     sourceRules: SourceRule[],
     sinkCandidates: Map<string, SinkCandidate>,
@@ -241,7 +242,7 @@ function collectCandidatesFromScene(
         includePaths: options.includePaths,
         excludePaths: options.excludePaths,
         maxEntries: perSourceEntryBudget,
-    }, SOURCE_PATTERN).selected;
+    }, SOURCE_PATTERN, sourceAbs).selected;
 
     for (const entry of entries) {
         const idPart = sanitizeIdPart(`${entry.name}_${entry.pathHint || sourceDir}`, "entry");
@@ -441,7 +442,7 @@ export function generateProjectRuleScaffold(options: GenerateProjectRuleCliOptio
         const scene = new Scene();
         scene.buildSceneFromProjectDir(config);
         scene.inferTypes();
-        collectCandidatesFromScene(scene, sourceDir, options, sourceRules, sinkCandidates, transferCandidates);
+        collectCandidatesFromScene(scene, sourceDir, sourceAbs, options, sourceRules, sinkCandidates, transferCandidates);
     }
 
     const sinkList = Array.from(sinkCandidates.values()).slice(0, options.maxSinks);

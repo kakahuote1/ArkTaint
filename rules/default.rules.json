@@ -25,6 +25,7 @@
   "sinks": [
     {
       "id": "sink.keyword.axios",
+      "enabled": false,
       "profile": "keyword",
       "severity": "medium",
       "match": {
@@ -34,6 +35,7 @@
     },
     {
       "id": "sink.keyword.fetch",
+      "enabled": false,
       "profile": "keyword",
       "severity": "medium",
       "match": {
@@ -43,6 +45,7 @@
     },
     {
       "id": "sink.keyword.request",
+      "enabled": false,
       "profile": "keyword",
       "severity": "medium",
       "match": {
@@ -52,6 +55,7 @@
     },
     {
       "id": "sink.keyword.router",
+      "enabled": false,
       "profile": "keyword",
       "severity": "medium",
       "match": {
@@ -61,6 +65,7 @@
     },
     {
       "id": "sink.keyword.pushUrl",
+      "enabled": false,
       "profile": "keyword",
       "severity": "medium",
       "match": {
@@ -70,6 +75,7 @@
     },
     {
       "id": "sink.keyword.relationalStore",
+      "enabled": false,
       "profile": "keyword",
       "severity": "high",
       "match": {
@@ -79,6 +85,7 @@
     },
     {
       "id": "sink.keyword.rdb",
+      "enabled": false,
       "profile": "keyword",
       "severity": "medium",
       "match": {
@@ -88,6 +95,7 @@
     },
     {
       "id": "sink.keyword.preferences",
+      "enabled": false,
       "profile": "keyword",
       "severity": "low",
       "match": {
@@ -97,6 +105,7 @@
     },
     {
       "id": "sink.keyword.console",
+      "enabled": false,
       "profile": "keyword",
       "severity": "low",
       "match": {

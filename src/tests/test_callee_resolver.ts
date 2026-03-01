@@ -1,6 +1,9 @@
 import { ArkParameterRef } from "../../arkanalyzer/out/src/core/base/Ref";
 import { UnknownType } from "../../arkanalyzer/out/src/core/base/Type";
-import { mapInvokeArgsToParamAssigns, resolveCalleeCandidates } from "../core/engine/CalleeResolver";
+import {
+    mapInvokeArgsToParamAssigns,
+    resolveCalleeCandidates,
+} from "../core/engine/CalleeResolver";
 
 function assert(condition: boolean, message: string): void {
     if (!condition) {
@@ -93,7 +96,7 @@ function testDirectCallableTypeFallback(): void {
                 getMethodName: () => "",
             }),
         }),
-        getArgs: () => [{ id: "arg0" }],
+        getArgs: () => [],
         getBase: () => ({
             getName: () => "fp",
             getType: () => callableType,

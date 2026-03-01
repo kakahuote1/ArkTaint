@@ -1,0 +1,142 @@
+{
+  "name": "HarmonyBench-C12C14-Gate",
+  "version": "1.0.0",
+  "description": "2T+2F hard-gate trial for C12/C13/C14 rule readiness",
+  "categories": [
+    {
+      "id": "C12_Preferences",
+      "name": "Preferences Persistence Gate",
+      "supported": true,
+      "sourceDir": "tests/demo/harmony_preferences",
+      "rules": {
+        "default": "tests/rules/minimal.rules.json",
+        "framework": "rules/framework.rules.json",
+        "project": "tests/rules/harmony_preferences.rules.json"
+      },
+      "cases": [
+        {
+          "case_id": "C12_GATE_001",
+          "file": "preferences_put_get_001_T.ets",
+          "entry": "preferences_put_get_001_T",
+          "expected_flow": true,
+          "expected_sink_pattern": "Sink(",
+          "scored": true
+        },
+        {
+          "case_id": "C12_GATE_002",
+          "file": "preferences_two_slots_005_T.ets",
+          "entry": "preferences_two_slots_005_T",
+          "expected_flow": true,
+          "expected_sink_pattern": "Sink(",
+          "scored": true
+        },
+        {
+          "case_id": "C12_GATE_003",
+          "file": "preferences_mismatch_key_003_F.ets",
+          "entry": "preferences_mismatch_key_003_F",
+          "expected_flow": false,
+          "expected_sink_pattern": "Sink(",
+          "scored": true
+        },
+        {
+          "case_id": "C12_GATE_004",
+          "file": "preferences_overwrite_safe_004_F.ets",
+          "entry": "preferences_overwrite_safe_004_F",
+          "expected_flow": false,
+          "expected_sink_pattern": "Sink(",
+          "scored": true
+        }
+      ]
+    },
+    {
+      "id": "C13_RelationalStore",
+      "name": "RelationalStore Gate",
+      "supported": true,
+      "sourceDir": "tests/demo/harmony_rdb",
+      "rules": {
+        "default": "tests/rules/minimal.rules.json",
+        "framework": "rules/framework.rules.json",
+        "project": "tests/rules/harmony_rdb.rules.json"
+      },
+      "cases": [
+        {
+          "case_id": "C13_GATE_001",
+          "file": "rdb_insert_query_001_T.ets",
+          "entry": "rdb_insert_query_001_T",
+          "expected_flow": true,
+          "expected_sink_pattern": "Sink(",
+          "scored": true
+        },
+        {
+          "case_id": "C13_GATE_002",
+          "file": "rdb_two_rows_005_T.ets",
+          "entry": "rdb_two_rows_005_T",
+          "expected_flow": true,
+          "expected_sink_pattern": "Sink(",
+          "scored": true
+        },
+        {
+          "case_id": "C13_GATE_003",
+          "file": "rdb_mismatch_table_003_F.ets",
+          "entry": "rdb_mismatch_table_003_F",
+          "expected_flow": false,
+          "expected_sink_pattern": "Sink(",
+          "scored": true
+        },
+        {
+          "case_id": "C13_GATE_004",
+          "file": "rdb_safe_literal_004_F.ets",
+          "entry": "rdb_safe_literal_004_F",
+          "expected_flow": false,
+          "expected_sink_pattern": "Sink(",
+          "scored": true
+        }
+      ]
+    },
+    {
+      "id": "C14_HTTP",
+      "name": "HTTP Gate",
+      "supported": true,
+      "sourceDir": "tests/demo/harmony_http",
+      "rules": {
+        "default": "tests/rules/minimal.rules.json",
+        "framework": "rules/framework.rules.json",
+        "project": "tests/rules/harmony_http.rules.json"
+      },
+      "cases": [
+        {
+          "case_id": "C14_GATE_001",
+          "file": "http_request_body_001_T.ets",
+          "entry": "http_request_body_001_T",
+          "expected_flow": true,
+          "expected_sink_pattern": "Sink(",
+          "scored": true
+        },
+        {
+          "case_id": "C14_GATE_002",
+          "file": "http_async_callback_003_T.ets",
+          "entry": "http_async_callback_003_T",
+          "expected_flow": true,
+          "expected_sink_pattern": "Sink(",
+          "scored": true
+        },
+        {
+          "case_id": "C14_GATE_003",
+          "file": "http_request_mismatch_005_F.ets",
+          "entry": "http_request_mismatch_005_F",
+          "expected_flow": false,
+          "expected_sink_pattern": "Sink(",
+          "scored": true
+        },
+        {
+          "case_id": "C14_GATE_004",
+          "file": "http_callback_safe_007_F.ets",
+          "entry": "http_callback_safe_007_F",
+          "expected_flow": false,
+          "expected_sink_pattern": "Sink(",
+          "scored": true
+        }
+      ]
+    }
+  ]
+}

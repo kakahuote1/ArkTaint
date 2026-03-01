@@ -11,11 +11,16 @@ import { TaintTracker } from "../TaintTracker";
 import { TaintContextManager, CallEdgeInfo, CallEdgeType } from "../context/TaintContext";
 import { propagateExpressionTaint } from "../ExpressionPropagation";
 import { CaptureEdgeInfo } from "./CallEdgeMapBuilder";
-import { SyntheticInvokeEdgeInfo, SyntheticConstructorStoreInfo } from "./SyntheticInvokeEdgeBuilder";
+import { SyntheticInvokeEdgeInfo, SyntheticConstructorStoreInfo, SyntheticFieldBridgeInfo } from "./SyntheticInvokeEdgeBuilder";
 import { WorklistProfiler } from "./WorklistProfiler";
 import { PropagationTrace } from "./PropagationTrace";
 import { TransferRule } from "../rules/RuleSchema";
 import { ConfigBasedTransferExecutor, TransferExecutionResult } from "./ConfigBasedTransferExecutor";
+import { buildAppStorageModel } from "../harmony/AppStorageModeling";
+import { buildRouterModel } from "../harmony/RouterModeling";
+import { buildStateManagementModel } from "../harmony/StateManagementModeling";
+import { buildWorkerTaskPoolModel } from "../harmony/WorkerTaskPoolModeling";
+import { buildEmitterModel } from "../harmony/EmitterModeling";
 import {
     collectPreciseArrayLoadNodeIdsFromTaintedLocal,
     collectContainerSlotLoadNodeIds,
@@ -23,6 +28,7 @@ import {
     fromContainerFieldKey,
     toContainerFieldKey
 } from "./ContainerModel";
+import { resolveMethodsFromCallable } from "./CalleeResolver";
 
 interface WorklistSolverDeps {
     scene: Scene;
@@ -33,6 +39,7 @@ interface WorklistSolverDeps {
     captureEdgeMap: Map<number, CaptureEdgeInfo[]>;
     syntheticInvokeEdgeMap: Map<number, SyntheticInvokeEdgeInfo[]>;
     syntheticConstructorStoreMap: Map<number, SyntheticConstructorStoreInfo[]>;
+    syntheticFieldBridgeMap: Map<string, SyntheticFieldBridgeInfo[]>;
     fieldToVarIndex: Map<string, Set<number>>;
     transferRules?: TransferRule[];
     onTransferRuleHit?: (event: TransferExecutionResult) => void;
@@ -41,6 +48,8 @@ interface WorklistSolverDeps {
     profiler?: WorklistProfiler;
     propagationTrace?: PropagationTrace;
     allowedMethodSignatures?: Set<string>;
+    enableHarmonyAppStorageModeling?: boolean;
+    enableHarmonyStateModeling?: boolean;
     log: (msg: string) => void;
 }
 
@@ -48,6 +57,9 @@ export interface FactRuleChain {
     sourceRuleId?: string;
     transferRuleIds: string[];
 }
+
+const ANY_CLASS_SIG = "__ANY_CLASS__";
+type ThisFieldFallbackLoadNodeIds = Map<string, Map<string, Map<string, Set<number>>>>;
 
 export class WorklistSolver {
     private deps: WorklistSolverDeps;
@@ -66,6 +78,7 @@ export class WorklistSolver {
             captureEdgeMap,
             syntheticInvokeEdgeMap,
             syntheticConstructorStoreMap,
+            syntheticFieldBridgeMap,
             fieldToVarIndex,
             transferRules,
             onTransferRuleHit,
@@ -74,10 +87,128 @@ export class WorklistSolver {
             profiler,
             propagationTrace,
             allowedMethodSignatures,
+            enableHarmonyAppStorageModeling,
+            enableHarmonyStateModeling,
             log
         } = this.deps;
         const transferExecutor = new ConfigBasedTransferExecutor(transferRules || [], scene);
         const arraySlotObjsByCtx: Map<number, Set<number>> = new Map();
+        const appStorageModel = enableHarmonyAppStorageModeling === false
+            ? undefined
+            : buildAppStorageModel({
+                scene,
+                pag,
+                allowedMethodSignatures,
+            });
+        const appStorageWriteKeysByNodeId = new Map<number, string[]>();
+        const appStorageWriteKeysByFieldEndpoint = new Map<string, string[]>();
+        if (appStorageModel) {
+            for (const [key, nodeIds] of appStorageModel.writeNodeIdsByKey.entries()) {
+                for (const nodeId of nodeIds) {
+                    if (!appStorageWriteKeysByNodeId.has(nodeId)) {
+                        appStorageWriteKeysByNodeId.set(nodeId, []);
+                    }
+                    appStorageWriteKeysByNodeId.get(nodeId)!.push(key);
+                }
+            }
+            for (const [key, nodeIds] of appStorageModel.writeFieldNodeIdsByKey.entries()) {
+                for (const nodeId of nodeIds) {
+                    if (!appStorageWriteKeysByNodeId.has(nodeId)) {
+                        appStorageWriteKeysByNodeId.set(nodeId, []);
+                    }
+                    appStorageWriteKeysByNodeId.get(nodeId)!.push(key);
+                }
+            }
+            for (const [key, endpoints] of appStorageModel.writeFieldEndpointsByKey.entries()) {
+                for (const endpoint of endpoints) {
+                    const endpointKey = `${endpoint.objectNodeId}#${endpoint.fieldName}`;
+                    if (!appStorageWriteKeysByFieldEndpoint.has(endpointKey)) {
+                        appStorageWriteKeysByFieldEndpoint.set(endpointKey, []);
+                    }
+                    appStorageWriteKeysByFieldEndpoint.get(endpointKey)!.push(key);
+                }
+            }
+            if (appStorageModel.dynamicKeyWarnings.length > 0) {
+                log(`[Harmony-AppStorage] dynamic key warnings=${appStorageModel.dynamicKeyWarnings.length} (V1 only supports constant keys).`);
+            }
+        }
+        const stateModel = enableHarmonyStateModeling === false
+            ? undefined
+            : buildStateManagementModel({
+                scene,
+                pag,
+                allowedMethodSignatures,
+            });
+        if (stateModel && stateModel.bridgeEdgeCount > 0) {
+            log(
+                `[Harmony-State] bridge_edges=${stateModel.bridgeEdgeCount}, `
+                + `constructor_calls=${stateModel.constructorCallCount}, `
+                + `state_capture_fields=${stateModel.stateCaptureAssignCount}`
+            );
+        }
+        const workerTaskPoolModel = buildWorkerTaskPoolModel({
+            scene,
+            pag,
+            allowedMethodSignatures,
+        });
+        if (workerTaskPoolModel.bridgeCount > 0) {
+            log(
+                `[Harmony-WorkerTaskPool] bridge_edges=${workerTaskPoolModel.bridgeCount}, `
+                + `worker_registrations=${workerTaskPoolModel.workerRegistrationCount}, `
+                + `worker_sends=${workerTaskPoolModel.workerSendCount}, `
+                + `taskpool_executes=${workerTaskPoolModel.taskpoolExecuteCount}`
+            );
+        }
+        const emitterModel = buildEmitterModel({
+            scene,
+            pag,
+            allowedMethodSignatures,
+        });
+        if (emitterModel.onRegistrationCount > 0 || emitterModel.emitCount > 0) {
+            log(
+                `[Harmony-Emitter] on_registrations=${emitterModel.onRegistrationCount}, `
+                + `emits=${emitterModel.emitCount}, `
+                + `bridge_edges=${emitterModel.bridgeCount}, `
+                + `dynamic_event_skips=${emitterModel.dynamicEventSkipCount}`
+            );
+        }
+        const routerModel = buildRouterModel({
+            scene,
+            pag,
+            allowedMethodSignatures,
+            log,
+        });
+        const routerBridgeCount = Array.from(routerModel.getResultNodeIdsByRouterKey.values())
+            .reduce((acc, ids) => acc + ids.size, 0);
+        if (routerModel.pushCallCount > 0 || routerModel.getCallCount > 0) {
+            log(
+                `[Harmony-Router] push_calls=${routerModel.pushCallCount}, `
+                + `get_calls=${routerModel.getCallCount}, `
+                + `bridged_nodes=${routerBridgeCount}, `
+                + `suspicious_calls=${routerModel.suspiciousCallCount}, `
+                + `ungrouped_push_nodes=${routerModel.ungroupedPushNodeIds.size}`
+            );
+        }
+        const loggedRouterConservativeSkips = new Set<string>();
+        const appStorageSlotTaintStates = new Set<string>();
+        const unresolvedThisFieldLoadNodeIdsByFieldAndFile = this.buildUnresolvedThisFieldLoadNodeIdsByFieldAndFile(
+            scene,
+            pag,
+            allowedMethodSignatures
+        );
+        const classBySignature = this.buildClassSignatureIndex(scene);
+        const classRelationCache = new Map<string, boolean>();
+        if (unresolvedThisFieldLoadNodeIdsByFieldAndFile.size > 0) {
+            let unresolvedLoadCount = 0;
+            for (const fileMap of unresolvedThisFieldLoadNodeIdsByFieldAndFile.values()) {
+                for (const classMap of fileMap.values()) {
+                    for (const ids of classMap.values()) {
+                        unresolvedLoadCount += ids.size;
+                    }
+                }
+            }
+            log(`[Field-LoadFallback] this-field fallback fields=${unresolvedThisFieldLoadNodeIdsByFieldAndFile.size}, loads=${unresolvedLoadCount}`);
+        }
         const factRuleChains = new Map<string, FactRuleChain>();
         const cloneChain = (chain?: FactRuleChain): FactRuleChain => ({
             sourceRuleId: chain?.sourceRuleId,
@@ -140,6 +271,231 @@ export class WorklistSolver {
                 propagationTrace?.recordEdge(fact, newFact, reason);
                 onAccepted();
             };
+
+            if (appStorageModel) {
+                const writeKeySet = new Set<string>(appStorageWriteKeysByNodeId.get(node.getID()) || []);
+                if (fact.field && fact.field.length > 0) {
+                    const endpointKey = `${node.getID()}#${fact.field[0]}`;
+                    const endpointKeys = appStorageWriteKeysByFieldEndpoint.get(endpointKey) || [];
+                    for (const key of endpointKeys) {
+                        writeKeySet.add(key);
+                    }
+                }
+                const writeKeys = [...writeKeySet];
+                for (const key of writeKeys) {
+                    const slotStateKey = `${key}|${fact.source}|${currentCtx}|${fact.field ? fact.field.join(".") : ""}`;
+                    if (appStorageSlotTaintStates.has(slotStateKey)) continue;
+                    appStorageSlotTaintStates.add(slotStateKey);
+
+                    const readNodeIds = appStorageModel.readNodeIdsByKey.get(key);
+                    if (readNodeIds) {
+                        for (const readNodeId of readNodeIds) {
+                            const readNode = pag.getNode(readNodeId) as PagNode;
+                            if (!readNode) continue;
+                            const newFact = new TaintFact(
+                                readNode,
+                                fact.source,
+                                currentCtx,
+                                fact.field ? [...fact.field] : undefined
+                            );
+                            tryEnqueue("AppStorage-Read", newFact, () => {
+                                tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
+                                log(`    [AppStorage-Read] key='${key}' -> node ${newFact.node.getID()} (ctx=${newFact.contextID})`);
+                            });
+                        }
+                    }
+
+                    const readFieldNodeIds = appStorageModel.readFieldNodeIdsByKey.get(key);
+                    if (readFieldNodeIds) {
+                        for (const fieldNodeId of readFieldNodeIds) {
+                            const fieldNode = pag.getNode(fieldNodeId) as PagNode;
+                            if (!fieldNode) continue;
+                            const newFact = new TaintFact(
+                                fieldNode,
+                                fact.source,
+                                currentCtx,
+                                fact.field ? [...fact.field] : undefined
+                            );
+                            tryEnqueue("AppStorage-DecorFieldNode", newFact, () => {
+                                tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
+                                log(`    [AppStorage-DecorFieldNode] key='${key}' -> fieldNode ${fieldNodeId} (ctx=${newFact.contextID})`);
+                            });
+                        }
+                    }
+
+                    const fieldEndpoints = appStorageModel.readFieldEndpointsByKey.get(key) || [];
+                    for (const endpoint of fieldEndpoints) {
+                        const objectNode = pag.getNode(endpoint.objectNodeId) as PagNode;
+                        if (!objectNode) continue;
+                        const isSelfEndpointEcho = fact.node.getID() === endpoint.objectNodeId
+                            && !!fact.field
+                            && fact.field.length > 0
+                            && fact.field[0] === endpoint.fieldName;
+                        if (isSelfEndpointEcho) continue;
+                        // AppStorage slot bridging should reset to the decorated field path.
+                        // Re-prepending existing field chains can create unbounded growth loops.
+                        const fieldPath = [endpoint.fieldName];
+                        const newFact = new TaintFact(
+                            objectNode,
+                            fact.source,
+                            currentCtx,
+                            fieldPath
+                        );
+                        tryEnqueue("AppStorage-Decor", newFact, () => {
+                            tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
+                            log(`    [AppStorage-Decor] key='${key}' -> Obj ${endpoint.objectNodeId}.${endpoint.fieldName} (ctx=${newFact.contextID})`);
+                        });
+                    }
+                }
+            }
+
+            const workerTargetNodeIds = workerTaskPoolModel.forwardTargetNodeIdsBySourceNodeId.get(node.getID());
+            if (workerTargetNodeIds && workerTargetNodeIds.size > 0) {
+                for (const targetNodeId of workerTargetNodeIds) {
+                    const targetNode = pag.getNode(targetNodeId) as PagNode;
+                    if (!targetNode) continue;
+                    const newFact = new TaintFact(
+                        targetNode,
+                        fact.source,
+                        currentCtx,
+                        fact.field ? [...fact.field] : undefined
+                    );
+                    tryEnqueue("Harmony-WorkerTaskPool", newFact, () => {
+                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
+                        log(
+                            `    [Harmony-WorkerTaskPool] node ${fact.node.getID()} `
+                            + `-> node ${targetNodeId} (ctx=${newFact.contextID})`
+                        );
+                    });
+                }
+            }
+
+            const emitterTargetNodeIds = emitterModel.forwardTargetNodeIdsBySourceNodeId.get(node.getID());
+            if (emitterTargetNodeIds && emitterTargetNodeIds.size > 0) {
+                for (const targetNodeId of emitterTargetNodeIds) {
+                    const targetNode = pag.getNode(targetNodeId) as PagNode;
+                    if (!targetNode) continue;
+                    const newFact = new TaintFact(
+                        targetNode,
+                        fact.source,
+                        currentCtx,
+                        fact.field ? [...fact.field] : undefined
+                    );
+                    tryEnqueue("Harmony-Emitter", newFact, () => {
+                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
+                        log(
+                            `    [Harmony-Emitter] node ${fact.node.getID()} `
+                            + `-> callback param node ${targetNodeId} (ctx=${newFact.contextID})`
+                        );
+                    });
+                }
+            }
+
+            const routerKeys = routerModel.pushArgNodeIdToRouterKeys.get(node.getID());
+            if (routerKeys && routerKeys.size > 0) {
+                for (const routerKey of routerKeys) {
+                    const targetNodeIds = routerModel.getResultNodeIdsByRouterKey.get(routerKey);
+                    if (!targetNodeIds || targetNodeIds.size === 0) continue;
+                    if (routerModel.ungroupedPushNodeIds.has(node.getID())) {
+                        const pushCount = routerModel.pushCallCountByRouterKey.get(routerKey) || 0;
+                        const routeCount = routerModel.distinctRouteKeyCountByRouterKey.get(routerKey) || 0;
+                        const hasAmbiguousTargets = targetNodeIds.size > 1;
+                        const hasAmbiguousRoutes = routeCount === 0 || routeCount > 1;
+                        if (pushCount > 1 && hasAmbiguousTargets && hasAmbiguousRoutes) {
+                            const skipKey = `${routerKey}:${node.getID()}`;
+                            if (!loggedRouterConservativeSkips.has(skipKey)) {
+                                loggedRouterConservativeSkips.add(skipKey);
+                                log(
+                                    `[Harmony-Router] conservative skip for ungrouped push node=${node.getID()} `
+                                    + `(router=${routerKey}, pushCount=${pushCount}, routeCount=${routeCount})`
+                                );
+                            }
+                            continue;
+                        }
+                    }
+                    for (const targetNodeId of targetNodeIds) {
+                        const targetNode = pag.getNode(targetNodeId) as PagNode;
+                        if (!targetNode) continue;
+                        const newFact = new TaintFact(
+                            targetNode,
+                            fact.source,
+                            currentCtx,
+                            fact.field ? [...fact.field] : undefined
+                        );
+                        tryEnqueue("Harmony-RouterBridge", newFact, () => {
+                            tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
+                            log(
+                                `    [Harmony-RouterBridge] node ${fact.node.getID()} `
+                                + `-> getParams node ${targetNodeId} (ctx=${newFact.contextID})`
+                            );
+                        });
+                    }
+                }
+            }
+
+            if (stateModel && fact.field && fact.field.length > 0) {
+                const sourceFieldName = fact.field[0];
+                const sourceKey = `${node.getID()}#${sourceFieldName}`;
+                const bridgeEdges = stateModel.edgesBySourceField.get(sourceKey) || [];
+                for (const edge of bridgeEdges) {
+                    const targetObjectNode = pag.getNode(edge.targetObjectNodeId) as PagNode;
+                    if (!targetObjectNode) continue;
+                    const targetFieldPath = fact.field.length > 1
+                        ? [edge.targetFieldName, ...fact.field.slice(1)]
+                        : [edge.targetFieldName];
+                    const newFact = new TaintFact(
+                        targetObjectNode,
+                        fact.source,
+                        currentCtx,
+                        targetFieldPath
+                    );
+                    tryEnqueue("Harmony-StateProp", newFact, () => {
+                        tracker.markTainted(
+                            newFact.node.getID(),
+                            newFact.contextID,
+                            fact.source,
+                            newFact.field,
+                            newFact.id
+                        );
+                        log(
+                            `    [Harmony-StateProp] Obj ${edge.sourceObjectNodeId}.${edge.sourceFieldName} `
+                            + `-> Obj ${edge.targetObjectNodeId}.${edge.targetFieldName} (ctx=${currentCtx})`
+                        );
+                    });
+                }
+            }
+
+            if (fact.field && fact.field.length > 0) {
+                const sourceFieldName = fact.field[0];
+                const sourceKey = `${node.getID()}#${sourceFieldName}`;
+                const bridgeInfos = syntheticFieldBridgeMap.get(sourceKey) || [];
+                for (const bridge of bridgeInfos) {
+                    const targetObjectNode = pag.getNode(bridge.targetObjectNodeId) as PagNode;
+                    if (!targetObjectNode) continue;
+                    const targetFieldPath = fact.field.length > 1
+                        ? [bridge.targetFieldName, ...fact.field.slice(1)]
+                        : [bridge.targetFieldName];
+                    const newFact = new TaintFact(
+                        targetObjectNode,
+                        fact.source,
+                        currentCtx,
+                        targetFieldPath
+                    );
+                    tryEnqueue("Synthetic-FieldBridge", newFact, () => {
+                        tracker.markTainted(
+                            newFact.node.getID(),
+                            newFact.contextID,
+                            fact.source,
+                            newFact.field,
+                            newFact.id
+                        );
+                        log(
+                            `    [Synthetic-FieldBridge] Obj ${bridge.sourceObjectNodeId}.${bridge.sourceFieldName} `
+                            + `-> Obj ${bridge.targetObjectNodeId}.${bridge.targetFieldName} (ctx=${currentCtx})`
+                        );
+                    });
+                }
+            }
 
             const exprTargetNodes = propagateExpressionTaint(
                 node.getID(),
@@ -423,17 +779,40 @@ export class WorklistSolver {
 
                 const key = `${objId}-${fieldName}`;
                 const destVarIds = fieldToVarIndex.get(key);
-                if (!destVarIds) continue;
+                if (destVarIds) {
+                    for (const destVarId of destVarIds) {
+                        const dstNode = pag.getNode(destVarId) as PagNode;
+                        if (!dstNode) continue;
 
-                for (const destVarId of destVarIds) {
-                    const dstNode = pag.getNode(destVarId) as PagNode;
-                    if (!dstNode) continue;
+                        const newFact = new TaintFact(dstNode, fact.source, currentCtx);
+                        tryEnqueue("Load", newFact, () => {
+                            tracker.markTainted(destVarId, currentCtx, fact.source, newFact.field, newFact.id);
+                            log(`    [Load] Tainted var ${destVarId} from Obj ${objId}.${fieldName} (ctx=${currentCtx})`);
+                        });
+                    }
+                }
 
-                    const newFact = new TaintFact(dstNode, fact.source, currentCtx);
-                    tryEnqueue("Load", newFact, () => {
-                        tracker.markTainted(destVarId, currentCtx, fact.source, newFact.field, newFact.id);
-                        log(`    [Load] Tainted var ${destVarId} from Obj ${objId}.${fieldName} (ctx=${currentCtx})`);
-                    });
+                const sourceMethodSig = this.resolveMethodSignatureByNode(node);
+                const sourceFilePath = this.extractFilePathFromMethodSignature(sourceMethodSig);
+                const unresolvedByFile = unresolvedThisFieldLoadNodeIdsByFieldAndFile.get(fieldName);
+                const unresolvedByClass = sourceFilePath.length > 0 ? unresolvedByFile?.get(sourceFilePath) : undefined;
+                const sourceClassSig = this.resolveObjectClassSignatureByNode(node);
+                const unresolvedLoadNodeIds = this.selectThisFieldFallbackLoads(
+                    unresolvedByClass,
+                    sourceClassSig,
+                    classBySignature,
+                    classRelationCache
+                );
+                if (unresolvedLoadNodeIds) {
+                    for (const destVarId of unresolvedLoadNodeIds.values()) {
+                        const dstNode = pag.getNode(destVarId) as PagNode;
+                        if (!dstNode) continue;
+                        const newFact = new TaintFact(dstNode, fact.source, currentCtx);
+                        tryEnqueue("Load-UnresolvedThisField", newFact, () => {
+                            tracker.markTainted(destVarId, currentCtx, fact.source, newFact.field, newFact.id);
+                            log(`    [Load-UnresolvedThisField] Tainted var ${destVarId} from unresolved this.${fieldName} (ctx=${currentCtx})`);
+                        });
+                    }
                 }
             }
         }
@@ -763,6 +1142,22 @@ export class WorklistSolver {
 
     private resolveCallbackMethods(scene: Scene, callbackArg: any): ArkMethod[] {
         const methods: ArkMethod[] = [];
+        const seen = new Set<string>();
+
+        const addMethod = (method: ArkMethod): void => {
+            const sig = method?.getSignature?.().toString?.();
+            if (!sig || seen.has(sig)) return;
+            seen.add(sig);
+            methods.push(method);
+        };
+
+        const callableMethods = resolveMethodsFromCallable(scene, callbackArg, { maxCandidates: 8 });
+        for (const method of callableMethods) {
+            addMethod(method as ArkMethod);
+        }
+
+        if (methods.length > 0) return methods;
+
         const candidateNames = new Set<string>();
 
         if (callbackArg instanceof Local) {
@@ -773,7 +1168,7 @@ export class WorklistSolver {
 
         for (const name of candidateNames) {
             const matched = scene.getMethods().filter(m => m.getName() === name);
-            for (const m of matched) methods.push(m);
+            for (const m of matched) addMethod(m);
         }
         return methods;
     }
@@ -811,5 +1206,138 @@ export class WorklistSolver {
         const valueSig = value.getMethodSignature?.()?.toString?.();
         if (valueSig) return valueSig;
         return undefined;
+    }
+
+    private extractFilePathFromMethodSignature(methodSig?: string): string {
+        if (!methodSig) return "";
+        const m = methodSig.match(/@([^:>]+):/);
+        return m ? m[1].replace(/\\/g, "/") : "";
+    }
+
+    private buildClassSignatureIndex(scene: Scene): Map<string, any> {
+        const out = new Map<string, any>();
+        for (const cls of scene.getClasses()) {
+            const sig = cls.getSignature?.().toString?.() || "";
+            if (!sig) continue;
+            out.set(sig, cls);
+        }
+        return out;
+    }
+
+    private resolveObjectClassSignatureByNode(node: PagNode): string | undefined {
+        const value: any = node?.getValue?.();
+        const fromType = value?.getType?.()?.getClassSignature?.()?.toString?.();
+        if (fromType) return fromType;
+        const direct = value?.getClassSignature?.()?.toString?.();
+        if (direct) return direct;
+        return undefined;
+    }
+
+    private isSameOrSubtypeClassSignature(
+        sourceClassSig: string,
+        targetClassSig: string,
+        classBySignature: Map<string, any>,
+        relationCache: Map<string, boolean>
+    ): boolean {
+        if (!sourceClassSig || !targetClassSig) return false;
+        if (sourceClassSig === targetClassSig) return true;
+        const cacheKey = `${sourceClassSig}=>${targetClassSig}`;
+        const cached = relationCache.get(cacheKey);
+        if (cached !== undefined) return cached;
+
+        let matched = false;
+        let current = classBySignature.get(sourceClassSig);
+        const visited = new Set<string>();
+        while (current) {
+            const currentSig = current.getSignature?.().toString?.() || "";
+            if (!currentSig || visited.has(currentSig)) break;
+            if (currentSig === targetClassSig) {
+                matched = true;
+                break;
+            }
+            visited.add(currentSig);
+            current = current.getSuperClass?.();
+        }
+        relationCache.set(cacheKey, matched);
+        return matched;
+    }
+
+    private selectThisFieldFallbackLoads(
+        classMap: Map<string, Set<number>> | undefined,
+        sourceClassSig: string | undefined,
+        classBySignature: Map<string, any>,
+        relationCache: Map<string, boolean>
+    ): Set<number> | undefined {
+        if (!classMap || classMap.size === 0) return undefined;
+
+        const out = new Set<number>();
+        if (sourceClassSig) {
+            for (const [targetClassSig, nodeIds] of classMap.entries()) {
+                if (targetClassSig === ANY_CLASS_SIG) continue;
+                if (!this.isSameOrSubtypeClassSignature(sourceClassSig, targetClassSig, classBySignature, relationCache)) {
+                    continue;
+                }
+                for (const nodeId of nodeIds) out.add(nodeId);
+            }
+        }
+
+        const anyClassNodes = classMap.get(ANY_CLASS_SIG);
+        if (anyClassNodes) {
+            for (const nodeId of anyClassNodes) out.add(nodeId);
+        }
+
+        return out.size > 0 ? out : undefined;
+    }
+
+    private buildUnresolvedThisFieldLoadNodeIdsByFieldAndFile(
+        scene: Scene,
+        pag: Pag,
+        allowedMethodSignatures?: Set<string>
+    ): ThisFieldFallbackLoadNodeIds {
+        const out: ThisFieldFallbackLoadNodeIds = new Map();
+        const methods = scene.getMethods().filter(m => m.getName() !== "%dflt");
+        for (const method of methods) {
+            const methodSig = method.getSignature().toString();
+            if (allowedMethodSignatures && allowedMethodSignatures.size > 0 && !allowedMethodSignatures.has(methodSig)) {
+                continue;
+            }
+            const cfg = method.getCfg();
+            if (!cfg) continue;
+
+            for (const stmt of cfg.getStmts()) {
+                if (!(stmt instanceof ArkAssignStmt)) continue;
+                const left = stmt.getLeftOp();
+                const right = stmt.getRightOp();
+                if (!(left instanceof Local) || !(right instanceof ArkInstanceFieldRef)) continue;
+
+                const base = right.getBase();
+                if (!(base instanceof Local) || base.getName() !== "this") continue;
+
+                let leftNodes = pag.getNodesByValue(left);
+                if (!leftNodes || leftNodes.size === 0) {
+                    pag.addPagNode(0, left, stmt);
+                    leftNodes = pag.getNodesByValue(left);
+                }
+                if (!leftNodes || leftNodes.size === 0) continue;
+
+                const fieldName = right.getFieldSignature().getFieldName();
+                const sourceFilePath = this.extractFilePathFromMethodSignature(methodSig);
+                if (sourceFilePath.length === 0) continue;
+                const sourceClassSig = right.getFieldSignature?.().getDeclaringSignature?.()?.toString?.()
+                    || method.getDeclaringArkClass?.().getSignature?.().toString?.()
+                    || ANY_CLASS_SIG;
+
+                if (!out.has(fieldName)) out.set(fieldName, new Map<string, Map<string, Set<number>>>());
+                const fileMap = out.get(fieldName)!;
+                if (!fileMap.has(sourceFilePath)) fileMap.set(sourceFilePath, new Map<string, Set<number>>());
+                const classMap = fileMap.get(sourceFilePath)!;
+                if (!classMap.has(sourceClassSig)) classMap.set(sourceClassSig, new Set<number>());
+                const outSet = classMap.get(sourceClassSig)!;
+                for (const nodeId of leftNodes.values()) {
+                    outSet.add(nodeId);
+                }
+            }
+        }
+        return out;
     }
 }

@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.1",
+  "meta": {
+    "name": "harmony-provide-consume-rules",
+    "description": "C7 @Provide/@Consume benchmark rules (known limitation baseline)",
+    "updatedAt": "2026-02-22"
+  },
+  "sources": [
+    {
+      "id": "source.harmony.provide_consume.entry_param",
+      "profile": "entry_param",
+      "match": {
+        "kind": "local_name_regex",
+        "value": "^taint_src$"
+      }
+    }
+  ],
+  "sinks": [
+    {
+      "id": "sink.harmony.provide_consume.mock_sink",
+      "profile": "signature",
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "Sink"
+      }
+    }
+  ],
+  "sanitizers": [],
+  "transfers": []
+}

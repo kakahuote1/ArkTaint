@@ -233,7 +233,7 @@ async function runProject(project: SmokeProjectConfig, options: CliOptions): Pro
             includePaths: project.includePaths || [],
             excludePaths: project.excludePaths || [],
             entryHints: project.entryHints || [],
-        }, ENTRY_SELECTOR_CONFIG);
+        }, ENTRY_SELECTOR_CONFIG, sourceAbs);
         const sourceResults: EntrySmokeResult[] = [];
         for (const candidate of selection.selected) {
             const r = await analyzeEntry(scene, candidate, options.k, sinkSignatures, ENTRY_ANALYZER_CONFIG);

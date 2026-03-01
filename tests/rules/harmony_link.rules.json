@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.1",
+  "meta": {
+    "name": "harmony-link-rules",
+    "description": "C6 @Link benchmark rules (known limitation baseline)",
+    "updatedAt": "2026-02-22"
+  },
+  "sources": [
+    {
+      "id": "source.harmony.link.entry_param",
+      "profile": "entry_param",
+      "match": {
+        "kind": "local_name_regex",
+        "value": "^taint_src$"
+      }
+    }
+  ],
+  "sinks": [
+    {
+      "id": "sink.harmony.link.mock_sink",
+      "profile": "signature",
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "Sink"
+      }
+    }
+  ],
+  "sanitizers": [],
+  "transfers": []
+}

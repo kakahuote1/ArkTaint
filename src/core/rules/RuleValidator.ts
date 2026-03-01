@@ -28,11 +28,13 @@ const MATCH_KINDS: RuleMatchKind[] = [
 ];
 
 const SOURCE_PROFILES = new Set(["seed_local_name", "entry_param"]);
-const SOURCE_KINDS = new Set<SourceRuleKind>(["seed_local_name", "entry_param", "call_return", "call_arg", "field_read"]);
+const SOURCE_KINDS = new Set<SourceRuleKind>(["seed_local_name", "entry_param", "call_return", "call_arg", "field_read", "callback_param"]);
 const SINK_PROFILES = new Set(["keyword", "signature"]);
 const SINK_SEVERITIES = new Set(["low", "medium", "high"]);
 const INVOKE_KINDS = new Set<RuleInvokeKind>(["any", "instance", "static"]);
 const CONSTRAINT_MODES = new Set<RuleConstraintMode>(["equals", "contains", "regex"]);
+const RULE_TIERS = new Set(["A", "B", "C"]);
+const HIGH_RISK_METHOD_NAMES = new Set(["get", "set", "update", "request", "on"]);
 
 const SOURCE_PROFILE_TO_KIND: Record<string, SourceRuleKind> = {
     seed_local_name: "seed_local_name",
@@ -160,6 +162,16 @@ function validateRuleCommon(rulePath: string, rule: unknown, out: RuleValidation
     if (rule.tags !== undefined && (!Array.isArray(rule.tags) || rule.tags.some(x => typeof x !== "string"))) {
         out.errors.push(`${rulePath}.tags must be string[]`);
     }
+    if (rule.family !== undefined && !isNonEmptyString(rule.family)) {
+        out.errors.push(`${rulePath}.family must be a non-empty string`);
+    }
+    if (rule.tier !== undefined) {
+        if (typeof rule.tier !== "string" || !RULE_TIERS.has(rule.tier)) {
+            out.errors.push(`${rulePath}.tier must be A/B/C`);
+        } else if (!isNonEmptyString(rule.family)) {
+            out.warnings.push(`${rulePath}.tier is set but family is missing; tier preference cannot be applied`);
+        }
+    }
 
     if (rule.scope !== undefined) {
         validateScopeConstraint(rulePath, rule.scope, out);
@@ -179,6 +191,26 @@ function validateRuleCommon(rulePath: string, rule: unknown, out: RuleValidation
     }
 
     validateMatch(rulePath, rule.match, out);
+    const normalizedRule = rule as unknown as BaseRule;
+
+    // High-risk gate: generic method names must carry stronger constraints.
+    if (isObject(normalizedRule.match) && normalizedRule.match.kind === "method_name_equals" && typeof normalizedRule.match.value === "string") {
+        const methodName = normalizedRule.match.value.trim();
+        if (HIGH_RISK_METHOD_NAMES.has(methodName)) {
+            const scope = normalizedRule.scope;
+            const hasScopeConstraint = !!(scope && (scope.file || scope.module || scope.className || scope.methodName));
+            const hasShapeConstraint = normalizedRule.invokeKind !== undefined
+                || normalizedRule.argCount !== undefined
+                || isNonEmptyString(normalizedRule.typeHint);
+            if (!hasScopeConstraint && !hasShapeConstraint) {
+                out.warnings.push(
+                    `${rulePath} uses high-risk method_name_equals('${methodName}') without scope/invoke constraints; `
+                    + `consider className/module + invokeKind/argCount/typeHint to reduce over-match`
+                );
+            }
+        }
+    }
+
     return true;
 }
 
@@ -211,6 +243,27 @@ function validateSourceRule(rulePath: string, rule: unknown, out: RuleValidation
         validateEndpointRef(rulePath, "targetRef", obj.targetRef, out);
         if (obj.target !== undefined && isObject(obj.targetRef) && obj.targetRef.endpoint !== obj.target) {
             out.errors.push(`${rulePath}.target and targetRef.endpoint must be the same when both are set`);
+        }
+    }
+    if (obj.callbackArgIndex !== undefined) {
+        if (typeof obj.callbackArgIndex !== "number" || !Number.isInteger(obj.callbackArgIndex) || obj.callbackArgIndex < 0) {
+            out.errors.push(`${rulePath}.callbackArgIndex must be a non-negative integer`);
+        }
+    }
+    if (obj.callbackArgIndexes !== undefined) {
+        if (!Array.isArray(obj.callbackArgIndexes) || obj.callbackArgIndexes.length === 0) {
+            out.errors.push(`${rulePath}.callbackArgIndexes must be a non-empty array`);
+        } else if (obj.callbackArgIndexes.some((x: unknown) => typeof x !== "number" || !Number.isInteger(x) || x < 0)) {
+            out.errors.push(`${rulePath}.callbackArgIndexes must contain non-negative integers only`);
+        }
+    }
+    if (obj.callbackArgIndex !== undefined && obj.callbackArgIndexes !== undefined) {
+        out.warnings.push(`${rulePath} provides both callbackArgIndex and callbackArgIndexes; callbackArgIndexes takes precedence`);
+    }
+    if (obj.kind === "callback_param") {
+        const endpoint = obj.targetRef?.endpoint || obj.target || "arg0";
+        if (typeof endpoint !== "string" || !/^arg\d+$/.test(endpoint)) {
+            out.errors.push(`${rulePath}.callback_param requires target/targetRef.endpoint in form argN`);
         }
     }
     return true;

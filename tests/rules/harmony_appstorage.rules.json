@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.1",
+  "meta": {
+    "name": "harmony-appstorage-v1-rules",
+    "description": "Source/Sink rules for Phase 7.2 AppStorage modeling tests",
+    "updatedAt": "2026-02-22"
+  },
+  "sources": [
+    {
+      "id": "source.harmony.appstorage.mock_source",
+      "profile": "entry_param",
+      "match": {
+        "kind": "local_name_regex",
+        "value": "^taint_src$"
+      }
+    }
+  ],
+  "sinks": [
+    {
+      "id": "sink.harmony.appstorage.mock_sink",
+      "profile": "signature",
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "Sink"
+      }
+    }
+  ],
+  "sanitizers": [],
+  "transfers": []
+}

@@ -7,6 +7,8 @@ import { TaintFlow } from "../core/TaintFlow";
 import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
 import { SanitizerRule, SinkRule, SourceRule } from "../core/rules/RuleSchema";
 import { buildSmokeRuleConfig, LoadedRuleSet } from "../core/rules/RuleLoader";
+import * as fs from "fs";
+import * as path from "path";
 
 export interface EntryCandidate {
     name: string;
@@ -49,6 +51,10 @@ const ENTRY_METHOD_HINTS = new Set([
 ]);
 const INIT_NAME_PATTERN = /(data|state|model|info|result|resp|response|record|entity|item|user|token|msg|payload|query|param|url|uri|path|text|content|name|id)/i;
 const INIT_CALLEE_PATTERN = /(get|fetch|load|query|request|read|find|resolve|parse|decode|open|from)/i;
+const LIBRARY_ENTRY_INDEX_HINTS = ["index.ets", "api.ets"];
+const EXPORT_FUNCTION_PATTERN = /\bexport\s+function\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/g;
+const EXPORT_CONST_FUNC_PATTERN = /\bexport\s+(?:const|let)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(?:async\s*)?(?:\(|[A-Za-z_$])/g;
+const exportFunctionNameCache = new Map<string, Set<string>>();
 
 function normalizeLowerList(values: string[] | undefined): string[] {
     if (!values) return [];
@@ -59,6 +65,87 @@ function matchesAny(text: string, patterns: string[]): boolean {
     if (patterns.length === 0) return false;
     const lower = text.toLowerCase();
     return patterns.some(p => lower.includes(p));
+}
+
+function collectExportedFunctionNames(sourceDirAbs?: string): Set<string> {
+    if (!sourceDirAbs) return new Set<string>();
+    const normalizedRoot = path.resolve(sourceDirAbs).replace(/\\/g, "/").toLowerCase();
+    const cached = exportFunctionNameCache.get(normalizedRoot);
+    if (cached) return cached;
+
+    const exportedNames = new Set<string>();
+    if (!fs.existsSync(sourceDirAbs)) {
+        exportFunctionNameCache.set(normalizedRoot, exportedNames);
+        return exportedNames;
+    }
+
+    const stack = [sourceDirAbs];
+    while (stack.length > 0) {
+        const current = stack.pop()!;
+        let entries: fs.Dirent[] = [];
+        try {
+            entries = fs.readdirSync(current, { withFileTypes: true });
+        } catch {
+            continue;
+        }
+
+        for (const entry of entries) {
+            const fullPath = path.join(current, entry.name);
+            if (entry.isDirectory()) {
+                stack.push(fullPath);
+                continue;
+            }
+            if (!entry.isFile() || !entry.name.endsWith(".ets")) continue;
+
+            let text = "";
+            try {
+                text = fs.readFileSync(fullPath, "utf-8");
+            } catch {
+                continue;
+            }
+
+            for (const m of text.matchAll(EXPORT_FUNCTION_PATTERN)) {
+                const name = String(m[1] || "").trim();
+                if (name) exportedNames.add(name);
+            }
+            for (const m of text.matchAll(EXPORT_CONST_FUNC_PATTERN)) {
+                const name = String(m[1] || "").trim();
+                if (name) exportedNames.add(name);
+            }
+        }
+    }
+
+    exportFunctionNameCache.set(normalizedRoot, exportedNames);
+    return exportedNames;
+}
+
+function detectLibraryMode(candidates: EntryCandidate[]): boolean {
+    if (candidates.length === 0) return false;
+    return !candidates.some(candidate => {
+        const sigLower = candidate.signature.toLowerCase();
+        const nameLower = candidate.name.toLowerCase();
+        return sigLower.includes("/entryability/")
+            || sigLower.includes("/pages/")
+            || sigLower.includes("/view/")
+            || sigLower.includes("/viewmodel/")
+            || nameLower === "build"
+            || nameLower === "onwindowstagecreate"
+            || nameLower === "oncreate"
+            || nameLower === "onnewwant"
+            || nameLower === "abouttoappear";
+    });
+}
+
+function computeLibraryEntryBoost(candidate: EntryCandidate, exportedNames: Set<string>): number {
+    let boost = 0;
+    if (exportedNames.has(candidate.name)) {
+        boost += 80;
+    }
+    const pathLower = String(candidate.pathHint || "").toLowerCase();
+    if (LIBRARY_ENTRY_INDEX_HINTS.some(hint => pathLower.endsWith(hint) || pathLower.includes(`/${hint}`))) {
+        boost += 20;
+    }
+    return boost;
 }
 
 export function extractArkFileFromSignature(signature: string): string | undefined {
@@ -118,7 +205,8 @@ function scoreEntry(method: any, signature: string, hints: string[], sourcePatte
 export function selectEntryCandidates(
     scene: Scene,
     selector: EntrySelectorOptions,
-    sourcePattern: RegExp
+    sourcePattern: RegExp,
+    sourceDirAbs?: string
 ): EntrySelectionResult {
     const candidates: EntryCandidate[] = [];
     const dedup = new Set<string>();
@@ -145,6 +233,15 @@ export function selectEntryCandidates(
             score: scoreEntry(method, signature, entryHints, sourcePattern),
             sourceFile: pathHint.toLowerCase(),
         });
+    }
+
+    if (detectLibraryMode(candidates)) {
+        const exportedNames = collectExportedFunctionNames(sourceDirAbs);
+        if (exportedNames.size > 0) {
+            for (const candidate of candidates) {
+                candidate.score += computeLibraryEntryBoost(candidate, exportedNames);
+            }
+        }
     }
 
     const filtered = candidates.filter(candidate => {
@@ -318,8 +415,14 @@ export function collectSeedNodes(
     scene: Scene,
     engine: TaintPropagationEngine,
     entryMethod: any,
-    sourcePattern: RegExp
+    sourcePattern: RegExp,
+    options?: {
+        enableSourceLikeNameSeed?: boolean;
+        enableCrossFunctionFallback?: boolean;
+    }
 ): { nodes: any[]; localNames: string[]; strategies: string[] } {
+    const enableSourceLikeNameSeed = options?.enableSourceLikeNameSeed !== false;
+    const enableCrossFunctionFallback = options?.enableCrossFunctionFallback === true;
     const body = entryMethod.getBody();
     if (!body) return { nodes: [], localNames: [], strategies: [] };
     const paramLocalNames = getParameterLocalNames(entryMethod);
@@ -347,14 +450,14 @@ export function collectSeedNodes(
     for (const local of body.getLocals().values()) {
         const localName = local.getName();
         if (paramLocalNames.has(localName)) addLocalSeed(local, "direct:param");
-        else if (sourcePattern.test(localName)) addLocalSeed(local, "direct:source_like_name");
+        else if (enableSourceLikeNameSeed && sourcePattern.test(localName)) addLocalSeed(local, "direct:source_like_name");
     }
 
     for (const callbackMethod of collectLikelyCallbackMethods(scene, entryMethod)) {
         for (const paramLocal of collectMethodParameterLocals(callbackMethod)) addLocalSeed(paramLocal, "callback:param");
     }
 
-    if (nodes.length === 0) {
+    if (enableCrossFunctionFallback && nodes.length === 0) {
         for (const local of collectInitializationFallbackLocals(entryMethod, sourcePattern)) {
             addLocalSeed(local, "init:cross_function_fallback");
         }
@@ -370,6 +473,7 @@ export function detectFlows(
         detailed?: boolean;
         stopOnFirstFlow?: boolean;
         maxFlowsPerEntry?: number;
+        enableSecondarySinkSweep?: boolean;
     }
 ): {
     totalFlowCount: number;
@@ -379,6 +483,7 @@ export function detectFlows(
     flowRuleTraces: FlowRuleTrace[];
 } {
     const detailed = options?.detailed !== false;
+    const enableSecondarySinkSweep = options?.enableSecondarySinkSweep === true;
     const maxFlowLimit = options?.stopOnFirstFlow
         ? 1
         : options?.maxFlowsPerEntry;
@@ -449,7 +554,7 @@ export function detectFlows(
         };
     }
 
-    if (detailed) {
+    if (detailed && enableSecondarySinkSweep) {
         for (const keyword of sinkKeywords) {
             if (maxFlowLimit !== undefined && uniqueFlowKeys.size >= maxFlowLimit) break;
             byKeyword[keyword] = collect("kw", keyword, engine.detectSinks(keyword, { sanitizerRules }));
@@ -461,7 +566,7 @@ export function detectFlows(
     }
 
     // Developer-friendly fallback for taint demo projects.
-    if (uniqueFlowKeys.size === 0) {
+    if (enableSecondarySinkSweep && uniqueFlowKeys.size === 0) {
         const sinkByName = collect("sig", "Sink", engine.detectSinks("Sink", { sanitizerRules }));
         const sinkBySig = collect("sig", "taint.%dflt.Sink", engine.detectSinks("taint.%dflt.Sink", { sanitizerRules }));
         if (detailed) {

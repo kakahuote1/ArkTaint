@@ -11,7 +11,7 @@ export type RuleMatchKind =
 export type RuleEndpoint = "base" | "result" | `arg${number}`;
 export type RuleInvokeKind = "any" | "instance" | "static";
 export type RuleConstraintMode = "equals" | "contains" | "regex";
-export type SourceRuleKind = "seed_local_name" | "entry_param" | "call_return" | "call_arg" | "field_read";
+export type SourceRuleKind = "seed_local_name" | "entry_param" | "call_return" | "call_arg" | "field_read" | "callback_param";
 
 export interface RuleMatch {
     kind: RuleMatchKind;
@@ -46,6 +46,8 @@ export interface BaseRule {
     enabled?: boolean;
     description?: string;
     tags?: string[];
+    family?: string;
+    tier?: "A" | "B" | "C";
     match: RuleMatch;
     scope?: RuleScopeConstraint;
     invokeKind?: RuleInvokeKind;
@@ -58,6 +60,8 @@ export interface SourceRule extends BaseRule {
     kind?: SourceRuleKind;
     target?: RuleEndpoint;
     targetRef?: RuleEndpointRef;
+    callbackArgIndex?: number;
+    callbackArgIndexes?: number[];
 }
 
 export interface SinkRule extends BaseRule {

@@ -13,6 +13,13 @@ export interface CalleeResolveOptions {
     maxNameMatchCandidates?: number;
 }
 
+export interface CallableResolveOptions {
+    maxCandidates?: number;
+    enableLocalBacktrace?: boolean;
+    maxBacktraceSteps?: number;
+    maxVisitedDefs?: number;
+}
+
 export interface InvokeArgParamPair {
     arg: any;
     paramStmt: ArkAssignStmt;
@@ -21,6 +28,8 @@ export interface InvokeArgParamPair {
 }
 
 const DEFAULT_MAX_NAME_MATCH_CANDIDATES = 4;
+const DEFAULT_MAX_BACKTRACE_STEPS = 5;
+const DEFAULT_MAX_VISITED_DEFS = 16;
 
 export function resolveInvokeMethodName(invokeExpr: any): string {
     if (!invokeExpr) return "";
@@ -124,6 +133,19 @@ export function mapInvokeArgsToParamAssigns(
         pairs.push({ arg, paramStmt: paramStmts[paramIndex], argIndex: i, paramIndex });
     }
     return pairs;
+}
+
+export function resolveMethodsFromCallable(
+    scene: Scene,
+    callableValue: any,
+    options: CallableResolveOptions = {}
+): any[] {
+    const maxCandidates = options.maxCandidates ?? DEFAULT_MAX_NAME_MATCH_CANDIDATES;
+    const methods = resolveMethodsFromCallableValue(scene, callableValue, options);
+    if (methods.length === 0 || methods.length > maxCandidates) {
+        return [];
+    }
+    return methods;
 }
 
 function getFormalParamCount(method: any): number {
@@ -241,13 +263,18 @@ function resolveReflectDispatchTargets(
     const callableValue = kind.startsWith("reflect_")
         ? (args.length > 0 ? args[0] : undefined)
         : invokeExpr?.getBase?.();
-    const methods = resolveMethodsFromCallableValue(scene, callableValue);
+    const methods = resolveMethodsFromCallableValue(scene, callableValue, { maxCandidates });
     if (methods.length === 0 || methods.length > maxCandidates) return [];
     return methods;
 }
 
-function resolveMethodsFromCallableValue(scene: Scene, callableValue: any): any[] {
+function resolveMethodsFromCallableValue(
+    scene: Scene,
+    callableValue: any,
+    options: CallableResolveOptions = {}
+): any[] {
     if (!callableValue) return [];
+    const resolvedCallable = resolveCallableValueByLocalBacktrace(callableValue, options);
     const candidates: any[] = [];
     const seen = new Set<string>();
     const addMethod = (m: any): void => {
@@ -258,7 +285,7 @@ function resolveMethodsFromCallableValue(scene: Scene, callableValue: any): any[
         candidates.push(m);
     };
 
-    const type = callableValue?.getType?.();
+    const type = resolvedCallable?.getType?.();
     const methodSig = type?.getMethodSignature?.();
     const methodSigText = methodSig?.toString?.();
     if (methodSigText) {
@@ -269,18 +296,18 @@ function resolveMethodsFromCallableValue(scene: Scene, callableValue: any): any[
         }
     }
 
-    if (!isCallableValue(callableValue)) {
+    if (!isCallableValue(resolvedCallable)) {
         return candidates;
     }
 
-    const localName = callableValue?.getName?.();
+    const localName = resolvedCallable?.getName?.();
     if (localName) {
         for (const m of scene.getMethods().filter(mm => normalizeMethodName(mm.getName()) === normalizeMethodName(localName))) {
             addMethod(m);
         }
     }
 
-    const rawText = callableValue?.toString?.();
+    const rawText = resolvedCallable?.toString?.();
     if (rawText && rawText !== localName) {
         for (const m of scene.getMethods().filter(mm => normalizeMethodName(mm.getName()) === normalizeMethodName(rawText))) {
             addMethod(m);
@@ -318,8 +345,16 @@ function isReflectBase(value: any): boolean {
     return String(name).trim() === "Reflect";
 }
 
-function isCallableValue(value: any): boolean {
+export function isCallableValue(value: any): boolean {
     if (!value) return false;
+    const localName = String(value?.getName?.() || "");
+    if (localName.startsWith("%AM")) {
+        return true;
+    }
+    const rawText = String(value?.toString?.() || "");
+    if (rawText.startsWith("%AM")) {
+        return true;
+    }
     const type = value?.getType?.();
     if (!type) return false;
     if (typeof type.getMethodSignature === "function" && type.getMethodSignature()) {
@@ -327,7 +362,7 @@ function isCallableValue(value: any): boolean {
     }
     const text = type?.toString?.() || "";
     if (!text) return false;
-    return text.includes("=>") || text.includes("Function");
+    return text.includes("=>") || text.includes("Function") || text.includes("%AM");
 }
 
 function resolveApplyArgs(argsArrayValue: any): any[] {
@@ -377,8 +412,70 @@ function resolveDirectCallableTargets(
 
     const args = invokeExpr?.getArgs ? invokeExpr.getArgs() : [];
     const argCount = args.length;
-    const targets = resolveMethodsFromCallableValue(scene, base)
+    const targets = resolveMethodsFromCallableValue(scene, base, { maxCandidates })
         .filter(m => isArgCountCompatible(getFormalParamCount(m), argCount));
     if (targets.length === 0 || targets.length > maxCandidates) return [];
     return targets;
+}
+
+function resolveCallableValueByLocalBacktrace(
+    callableValue: any,
+    options: CallableResolveOptions
+): any {
+    if (!(callableValue instanceof Local)) return callableValue;
+    if (options.enableLocalBacktrace === false) return callableValue;
+
+    const maxBacktraceSteps = options.maxBacktraceSteps ?? DEFAULT_MAX_BACKTRACE_STEPS;
+    const maxVisitedDefs = options.maxVisitedDefs ?? DEFAULT_MAX_VISITED_DEFS;
+    if (maxBacktraceSteps <= 0 || maxVisitedDefs <= 0) return callableValue;
+
+    const rootMethodSig = getDeclaringMethodSignatureFromLocal(callableValue);
+    if (!rootMethodSig) return callableValue;
+
+    let current: any = callableValue;
+    let steps = 0;
+    const visitedDefs = new Set<string>();
+    while (steps < maxBacktraceSteps && current instanceof Local && !isCallableValue(current)) {
+        const key = `${current.getName?.() || ""}#${getDeclaringStmtIdentity(current.getDeclaringStmt?.())}`;
+        if (visitedDefs.has(key)) break;
+        visitedDefs.add(key);
+        if (visitedDefs.size > maxVisitedDefs) break;
+
+        const declStmt = current.getDeclaringStmt?.();
+        if (!(declStmt instanceof ArkAssignStmt)) break;
+        if (declStmt.getLeftOp() !== current) break;
+        const declMethodSig = declStmt.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.() || "";
+        if (!declMethodSig || declMethodSig !== rootMethodSig) break;
+
+        const rightOp = declStmt.getRightOp();
+        steps++;
+
+        if (rightOp instanceof Local) {
+            const rightMethodSig = getDeclaringMethodSignatureFromLocal(rightOp);
+            if (!rightMethodSig || rightMethodSig !== rootMethodSig) break;
+            current = rightOp;
+            continue;
+        }
+
+        if (isCallableValue(rightOp)) {
+            return rightOp;
+        }
+
+        // Only accept simple alias chains: Local <- Local / Local <- callable(%AM/FunctionType).
+        break;
+    }
+
+    return current;
+}
+
+function getDeclaringMethodSignatureFromLocal(local: Local): string | undefined {
+    const declStmt = local.getDeclaringStmt?.();
+    return declStmt?.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.();
+}
+
+function getDeclaringStmtIdentity(stmt: any): string {
+    if (!stmt) return "null";
+    const line = stmt.getOriginPositionInfo?.()?.getLineNo?.() ?? -1;
+    const text = stmt.toString?.() || "";
+    return `${line}:${text}`;
 }

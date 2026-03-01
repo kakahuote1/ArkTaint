@@ -32,7 +32,7 @@ function parseArgs(argv: string[]): CliOptions {
     let outputDir = "tmp/phase54d/project_rules_only_workflow";
     let k = 1;
     let maxEntries = 12;
-    let threshold = 0.2;
+    let threshold = 0.05;
 
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
@@ -241,4 +241,3 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
-

@@ -440,7 +440,7 @@ export class ConfigBasedTransferExecutor {
     private resolveCandidateRulesForSite(site: InvokeSite): RuntimeRule[] {
         if (this.perfMode === "baseline") {
             const allMatched = this.runtimeRules.filter(runtimeRule => this.matchesRuleStatic(runtimeRule, site));
-            return this.applyRuleMatchPriority(allMatched);
+            return this.applyFamilyTierPriority(this.applyRuleMatchPriority(allMatched));
         }
 
         const stmt = site.stmt;
@@ -450,7 +450,7 @@ export class ConfigBasedTransferExecutor {
 
         const roughCandidates = this.collectBucketCandidatesForSite(site);
         const staticMatched = roughCandidates.filter(runtimeRule => this.matchesRuleStatic(runtimeRule, site));
-        const candidates = this.applyRuleMatchPriority(staticMatched);
+        const candidates = this.applyFamilyTierPriority(this.applyRuleMatchPriority(staticMatched));
 
         if (stmt) {
             this.siteRuleCandidateIndex.set(stmt, candidates);
@@ -551,6 +551,41 @@ export class ConfigBasedTransferExecutor {
             }
         }
         return false;
+    }
+
+    private resolveRuleFamily(rule: TransferRule): string | undefined {
+        const family = typeof rule.family === "string" ? rule.family.trim() : "";
+        return family.length > 0 ? family : undefined;
+    }
+
+    private resolveRuleTierWeight(rule: TransferRule): number {
+        if (rule.tier === "A") return 3;
+        if (rule.tier === "B") return 2;
+        if (rule.tier === "C") return 1;
+        return 0;
+    }
+
+    private applyFamilyTierPriority(staticMatched: RuntimeRule[]): RuntimeRule[] {
+        if (staticMatched.length <= 1) return staticMatched;
+
+        const bestTierByFamily = new Map<string, number>();
+        for (const runtimeRule of staticMatched) {
+            const family = this.resolveRuleFamily(runtimeRule.rule);
+            if (!family) continue;
+            const tier = this.resolveRuleTierWeight(runtimeRule.rule);
+            const best = bestTierByFamily.get(family) || 0;
+            if (tier > best) bestTierByFamily.set(family, tier);
+        }
+
+        if (bestTierByFamily.size === 0) return staticMatched;
+
+        return staticMatched.filter(runtimeRule => {
+            const family = this.resolveRuleFamily(runtimeRule.rule);
+            if (!family) return true;
+            const best = bestTierByFamily.get(family);
+            if (best === undefined) return true;
+            return this.resolveRuleTierWeight(runtimeRule.rule) >= best;
+        });
     }
 
     private matchesRuleStatic(runtimeRule: RuntimeRule, site: InvokeSite): boolean {

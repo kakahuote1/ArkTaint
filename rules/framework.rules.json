@@ -1,0 +1,1768 @@
+{
+  "schemaVersion": "1.1",
+  "meta": {
+    "name": "arktaint-harmony-framework-rules",
+    "description": "Framework-level source/sink/transfer rules for HarmonyOS threat-oriented coverage (T1-T7).",
+    "updatedAt": "2026-03-01"
+  },
+  "sources": [
+    {
+      "id": "source.harmony.router.getParams.exact",
+      "enabled": true,
+      "family": "source.harmony.router.getParams",
+      "tier": "A",
+      "kind": "call_return",
+      "description": "Exact probe signature for router.getParams() (Tier A).",
+      "match": {
+        "kind": "callee_signature_equals",
+        "value": "@sdk_signature_probe/taint_mock.ts: Router.getParams()"
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "harmony",
+        "phase7",
+        "router",
+        "probe_exact"
+      ]
+    },
+    {
+      "id": "source.harmony.router.getParams",
+      "enabled": true,
+      "family": "source.harmony.router.getParams",
+      "tier": "B",
+      "kind": "call_return",
+      "description": "Treat router.getParams() return value as untrusted page input.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Router.getParams"
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "harmony",
+        "phase7",
+        "router"
+      ]
+    },
+    {
+      "id": "source.harmony.router.getParams.fallback",
+      "enabled": true,
+      "family": "source.harmony.router.getParams",
+      "tier": "C",
+      "kind": "call_return",
+      "description": "Fallback: method-level getParams source with router class scope.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "getParams"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(Router|router|NavPathStack)"
+        }
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "harmony",
+        "phase7",
+        "router",
+        "fallback"
+      ]
+    },
+    {
+      "id": "source.harmony.lifecycle.onCreate.want.arg0",
+      "enabled": true,
+      "kind": "entry_param",
+      "description": "Treat onCreate(want, ...) first argument as external input for Ability/Stage/Extension entry.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "onCreate"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(Ability|AbilityStage|ExtensionAbility)$"
+        }
+      },
+      "targetRef": {
+        "endpoint": "arg0"
+      },
+      "tags": [
+        "harmony",
+        "t2",
+        "t5"
+      ]
+    },
+    {
+      "id": "source.harmony.lifecycle.onNewWant.want.arg0",
+      "enabled": true,
+      "kind": "entry_param",
+      "description": "Treat onNewWant(want) argument as external input.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "onNewWant"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(Ability|ExtensionAbility)$"
+        }
+      },
+      "targetRef": {
+        "endpoint": "arg0"
+      },
+      "tags": [
+        "harmony",
+        "t2",
+        "t5"
+      ]
+    },
+    {
+      "id": "source.harmony.lifecycle.onRestore.arg0",
+      "enabled": true,
+      "kind": "entry_param",
+      "description": "Treat backup restore payload as untrusted lifecycle input.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "onRestore"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "BackupAbility$"
+        }
+      },
+      "targetRef": {
+        "endpoint": "arg0"
+      },
+      "tags": [
+        "harmony",
+        "t2",
+        "lifecycle"
+      ]
+    },
+    {
+      "id": "source.harmony.input.onChange.arg0",
+      "enabled": true,
+      "kind": "callback_param",
+      "description": "Text input callback parameter for onChange.",
+      "callbackArgIndex": 0,
+      "targetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "onChange"
+      },
+      "tags": [
+        "harmony",
+        "t3",
+        "t4",
+        "t6",
+        "t7"
+      ]
+    },
+    {
+      "id": "source.harmony.input.onInput.arg0",
+      "enabled": true,
+      "kind": "callback_param",
+      "description": "Text input callback parameter for onInput.",
+      "callbackArgIndex": 0,
+      "targetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "onInput"
+      },
+      "tags": [
+        "harmony",
+        "t3",
+        "t4",
+        "t6",
+        "t7"
+      ]
+    },
+    {
+      "id": "source.harmony.input.onSubmit.arg0",
+      "enabled": true,
+      "kind": "callback_param",
+      "description": "Text input callback parameter for onSubmit.",
+      "callbackArgIndex": 0,
+      "targetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "onSubmit"
+      },
+      "tags": [
+        "harmony",
+        "t3",
+        "t4",
+        "t6",
+        "t7"
+      ]
+    },
+    {
+      "id": "source.harmony.network.http.requestAsync.callback.arg0",
+      "enabled": true,
+      "kind": "callback_param",
+      "description": "requestAsync callback first parameter as response source.",
+      "callbackArgIndex": 1,
+      "targetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "requestAsync"
+      },
+      "tags": [
+        "harmony",
+        "t1",
+        "t3",
+        "t5"
+      ]
+    },
+    {
+      "id": "source.harmony.network.http.request.result",
+      "enabled": true,
+      "kind": "call_return",
+      "description": "Http.request() promise result as network response source.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "request"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "Http"
+        }
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "harmony",
+        "t1",
+        "t2",
+        "t3",
+        "t5"
+      ]
+    },
+    {
+      "id": "source.harmony.window.loadContent.callback.arg0",
+      "enabled": true,
+      "kind": "callback_param",
+      "description": "windowStage.loadContent(page, callback) callback first parameter (err) as framework callback source.",
+      "callbackArgIndex": 1,
+      "targetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "loadContent"
+      },
+      "tags": [
+        "harmony",
+        "t2",
+        "callback"
+      ]
+    },
+    {
+      "id": "source.harmony.window.loadContent.callback.arg1",
+      "enabled": true,
+      "kind": "callback_param",
+      "description": "windowStage.loadContent(page, callback) callback second parameter (data) as framework callback source.",
+      "callbackArgIndex": 1,
+      "targetRef": {
+        "endpoint": "arg1"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "loadContent"
+      },
+      "tags": [
+        "harmony",
+        "t2",
+        "callback"
+      ]
+    },
+    {
+      "id": "source.harmony.webview.onMessage.callback.arg0",
+      "enabled": true,
+      "kind": "callback_param",
+      "description": "WebView onMessage callback payload as untrusted source.",
+      "callbackArgIndex": 0,
+      "targetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "onMessage"
+      },
+      "tags": [
+        "harmony",
+        "t1",
+        "t2"
+      ]
+    },
+    {
+      "id": "source.harmony.preferences.getSync.result",
+      "enabled": true,
+      "kind": "call_return",
+      "description": "Preference read value as source in leak/persistence scenarios.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "getSync"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(Preferences|DataPreferences)"
+        }
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "harmony",
+        "t2"
+      ]
+    },
+    {
+      "id": "source.harmony.preferences.get.result",
+      "enabled": true,
+      "kind": "call_return",
+      "description": "Preference get() return value as source in leak/persistence scenarios.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "get"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(Preferences|DataPreferences)"
+        }
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "harmony",
+        "t2"
+      ]
+    },
+    {
+      "id": "source.harmony.rdb.querySql.result",
+      "enabled": true,
+      "kind": "call_return",
+      "description": "querySql() return value as source.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "querySql"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(RdbStore|RelationalStore)"
+        }
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "harmony",
+        "t2",
+        "t4"
+      ]
+    },
+    {
+      "id": "source.harmony.rdb.query.result",
+      "enabled": true,
+      "kind": "call_return",
+      "description": "query() return value as source.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "query"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(RdbStore|RelationalStore)"
+        }
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "harmony",
+        "t2",
+        "t4"
+      ]
+    },
+    {
+      "id": "source.harmony.globalcontext.getObject.result",
+      "enabled": true,
+      "kind": "call_return",
+      "description": "GlobalContext.getObject() return value as source when globally persisted data is read back.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "GlobalContext.getObject"
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "harmony",
+        "t2",
+        "t5"
+      ]
+    },
+    {
+      "id": "source.harmony.fs.read.result",
+      "enabled": true,
+      "kind": "call_return",
+      "description": "File read result as untrusted source.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "read"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
+        }
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "harmony",
+        "t2",
+        "t5"
+      ]
+    },
+    {
+      "id": "source.harmony.fs.readSync.result",
+      "enabled": true,
+      "kind": "call_return",
+      "description": "File readSync result as untrusted source.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "readSync"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
+        }
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "harmony",
+        "t2",
+        "t5"
+      ]
+    },
+    {
+      "id": "source.harmony.request.download.result",
+      "enabled": true,
+      "kind": "call_return",
+      "description": "@ohos.request download result as untrusted source.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "download"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(request|Request|Download|DownloadTask|RequestAgent)"
+        }
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "harmony",
+        "t2",
+        "t5"
+      ]
+    },
+    {
+      "id": "source.harmony.request.upload.result",
+      "enabled": true,
+      "kind": "call_return",
+      "description": "@ohos.request upload result as untrusted source.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "upload"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(request|Request|Upload|UploadTask|RequestAgent)"
+        }
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "harmony",
+        "t2",
+        "t5"
+      ]
+    },
+    {
+      "id": "source.harmony.distributedkv.get.result",
+      "enabled": true,
+      "kind": "call_return",
+      "description": "Distributed KV get() return value as source.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "get"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(DistributedKVStore|distributedKVStore|KVStore|SingleKVStore)"
+        }
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "harmony",
+        "t2",
+        "t5"
+      ]
+    },
+    {
+      "id": "source.harmony.abilitystage.context_call",
+      "enabled": true,
+      "kind": "call_return",
+      "description": "V1 stage seeding: mark external context reads inside AbilityStage.onCreate as source.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "SystemEnv.getContext"
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "AbilityStage"
+        },
+        "methodName": {
+          "mode": "equals",
+          "value": "onCreate"
+        }
+      },
+      "tags": [
+        "harmony",
+        "phase7",
+        "abilitystage"
+      ]
+    },
+    {
+      "id": "source.harmony.privacy.pasteboard.getSystemPasteboard.result",
+      "enabled": false,
+      "kind": "call_return",
+      "description": "Optional privacy source: system pasteboard read result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "getSystemPasteboard"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(pasteboard|Pasteboard)"
+        }
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "harmony",
+        "t2",
+        "privacy_optional"
+      ]
+    },
+    {
+      "id": "source.harmony.privacy.pasteboard.getData.result",
+      "enabled": false,
+      "kind": "call_return",
+      "description": "Optional privacy source: pasteboard getData() result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "getData"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(pasteboard|Pasteboard)"
+        }
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "harmony",
+        "t2",
+        "privacy_optional"
+      ]
+    },
+    {
+      "id": "source.harmony.privacy.contacts.queryContacts.result",
+      "enabled": false,
+      "kind": "call_return",
+      "description": "Optional privacy source: contacts query result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "queryContacts"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(Contacts|ContactDataHelper|ContactsHelper)"
+        }
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "harmony",
+        "t2",
+        "privacy_optional"
+      ]
+    },
+    {
+      "id": "source.harmony.commonevent.subscribe.callback.arg0",
+      "enabled": false,
+      "kind": "callback_param",
+      "description": "Observation-only: commonEvent subscribe callback payload (cross-process boundary, disabled by default).",
+      "callbackArgIndex": 1,
+      "targetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "subscribe"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(commonEventManager|CommonEventManager)"
+        }
+      },
+      "tags": [
+        "harmony",
+        "boundary",
+        "commonevent"
+      ]
+    }
+  ],
+  "sinks": [
+    {
+      "id": "sink.harmony.web.create.arg0",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "high",
+      "category": "webview_injection",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Web.create"
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.webcontroller.loadUrl.arg0",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "high",
+      "category": "webview_injection",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "loadUrl"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "WebController"
+        }
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.webcontroller.runJavaScript.arg0",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "high",
+      "category": "webview_injection",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "runJavaScript"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "WebController"
+        }
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.hilog.info.arg3.exact",
+      "enabled": true,
+      "family": "sink.harmony.hilog.info",
+      "tier": "A",
+      "profile": "signature",
+      "severity": "medium",
+      "category": "information_leak",
+      "match": {
+        "kind": "callee_signature_equals",
+        "value": "@sdk_signature_probe/taint_mock.ts: HiLog.info(number, string, string, any)"
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg3"
+      }
+    },
+    {
+      "id": "sink.harmony.hilog.error.arg3.exact",
+      "enabled": true,
+      "family": "sink.harmony.hilog.error",
+      "tier": "A",
+      "profile": "signature",
+      "severity": "medium",
+      "category": "information_leak",
+      "match": {
+        "kind": "callee_signature_equals",
+        "value": "@sdk_signature_probe/taint_mock.ts: HiLog.error(number, string, string, any)"
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg3"
+      }
+    },
+    {
+      "id": "sink.harmony.hilog.info.arg3",
+      "enabled": true,
+      "family": "sink.harmony.hilog.info",
+      "tier": "B",
+      "profile": "signature",
+      "severity": "medium",
+      "category": "information_leak",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "info"
+      },
+      "invokeKind": "instance",
+      "typeHint": "hilog",
+      "sinkTargetRef": {
+        "endpoint": "arg3"
+      }
+    },
+    {
+      "id": "sink.harmony.hilog.error.arg3",
+      "enabled": true,
+      "family": "sink.harmony.hilog.error",
+      "tier": "B",
+      "profile": "signature",
+      "severity": "medium",
+      "category": "information_leak",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "error"
+      },
+      "invokeKind": "instance",
+      "typeHint": "hilog",
+      "sinkTargetRef": {
+        "endpoint": "arg3"
+      }
+    },
+    {
+      "id": "sink.harmony.hilog.info.arg3.sig",
+      "enabled": true,
+      "family": "sink.harmony.hilog.info",
+      "tier": "C",
+      "profile": "signature",
+      "severity": "medium",
+      "category": "information_leak",
+      "match": {
+        "kind": "signature_contains",
+        "value": "hilog.info"
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg3"
+      }
+    },
+    {
+      "id": "sink.harmony.hilog.error.arg3.sig",
+      "enabled": true,
+      "family": "sink.harmony.hilog.error",
+      "tier": "C",
+      "profile": "signature",
+      "severity": "medium",
+      "category": "information_leak",
+      "match": {
+        "kind": "signature_contains",
+        "value": "hilog.error"
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg3"
+      }
+    },
+    {
+      "id": "sink.harmony.console.log.arg0",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "low",
+      "category": "information_leak",
+      "match": {
+        "kind": "signature_contains",
+        "value": "console.log"
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.http.request.url.arg0",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "high",
+      "category": "ssrf_or_url_injection",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "request"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "Http"
+        }
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.http.request.body.arg1",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "medium",
+      "category": "information_leak",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "request"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "Http"
+        }
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.axios.get.url.arg0",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "high",
+      "category": "ssrf_or_url_injection",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "get"
+      },
+      "invokeKind": "instance",
+      "argCount": 1,
+      "typeHint": "axios",
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.axios.post.url.arg0",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "high",
+      "category": "ssrf_or_url_injection",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "post"
+      },
+      "invokeKind": "instance",
+      "argCount": 2,
+      "typeHint": "axios",
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.axios.post.body.arg1",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "medium",
+      "category": "information_leak",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "post"
+      },
+      "invokeKind": "instance",
+      "argCount": 2,
+      "typeHint": "axios",
+      "sinkTargetRef": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.rdb.executeSql.arg0",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "high",
+      "category": "sql_injection",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "executeSql"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(RdbStore|RelationalStore)"
+        }
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.rdb.querySql.arg0",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "high",
+      "category": "sql_injection",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "querySql"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(RdbStore|RelationalStore)"
+        }
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.rdb.update.arg1",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "high",
+      "category": "sql_injection",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "update"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(RdbStore|RelationalStore)"
+        }
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.rdb.update.arg2",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "high",
+      "category": "sql_injection",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "update"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(RdbStore|RelationalStore)"
+        }
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg2"
+      }
+    },
+    {
+      "id": "sink.harmony.rdb.execDML.arg0",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "high",
+      "category": "sql_injection",
+      "match": {
+        "kind": "signature_contains",
+        "value": "execDML"
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.rdb.execDQL.arg0",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "high",
+      "category": "sql_injection",
+      "match": {
+        "kind": "signature_contains",
+        "value": "execDQL"
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.rdb.insertSync.arg1",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "medium",
+      "category": "persistent_sink",
+      "match": {
+        "kind": "signature_contains",
+        "value": "insertSync"
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.router.pushUrl.arg0.exact",
+      "enabled": true,
+      "family": "sink.harmony.router.pushUrl",
+      "tier": "A",
+      "profile": "signature",
+      "severity": "high",
+      "category": "router_dispatch",
+      "match": {
+        "kind": "callee_signature_equals",
+        "value": "@sdk_signature_probe/taint_mock.ts: Router.pushUrl(@sdk_signature_probe/taint_mock.ts: %AC0)"
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.router.pushUrl.arg0",
+      "enabled": true,
+      "family": "sink.harmony.router.pushUrl",
+      "tier": "C",
+      "profile": "signature",
+      "severity": "high",
+      "category": "router_dispatch",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "pushUrl"
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.router.pushUrl.arg0.sig",
+      "enabled": true,
+      "family": "sink.harmony.router.pushUrl",
+      "tier": "B",
+      "profile": "signature",
+      "severity": "high",
+      "category": "router_dispatch",
+      "match": {
+        "kind": "signature_contains",
+        "value": "pushUrl"
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.preferences.putSync.arg1",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "medium",
+      "category": "sensitive_persistence",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "putSync"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(Preferences|DataPreferences)"
+        }
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.preferences.put.arg1",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "medium",
+      "category": "sensitive_persistence",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "put"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(Preferences|DataPreferences)"
+        }
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.globalcontext.setObject.arg1",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "medium",
+      "category": "sensitive_persistence",
+      "match": {
+        "kind": "signature_contains",
+        "value": "GlobalContext.setObject"
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.fs.write.arg1",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "high",
+      "category": "file_operation_injection",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "write"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(fs|File|FileIo|FileOutput|FileAccess|FileOperator)"
+        }
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.fs.open.arg0",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "high",
+      "category": "file_operation_injection",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "open"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
+        }
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.fs.rename.arg0",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "high",
+      "category": "file_operation_injection",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "rename"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
+        }
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.fs.rename.arg1",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "high",
+      "category": "file_operation_injection",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "rename"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
+        }
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.fs.unlink.arg0",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "high",
+      "category": "file_operation_injection",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "unlink"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
+        }
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.ability.startAbility.arg0",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "high",
+      "category": "intent_injection",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "startAbility"
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.ability.startAbilityForResult.arg0",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "high",
+      "category": "intent_injection",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "startAbilityForResult"
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.socket.connect.arg0",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "high",
+      "category": "network_socket_injection",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "connect"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(socket|Socket|TCPSocket|UDPSocket)"
+        }
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.socket.send.arg0",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "high",
+      "category": "network_socket_injection",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "send"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(socket|Socket|TCPSocket|UDPSocket)"
+        }
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.request.download.arg0",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "high",
+      "category": "network_request_sink",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "download"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(request|Request|Download|DownloadTask|RequestAgent)"
+        }
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.request.upload.arg1",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "high",
+      "category": "network_request_sink",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "upload"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(request|Request|Upload|UploadTask|RequestAgent)"
+        }
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.distributedkv.put.arg1",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "medium",
+      "category": "sensitive_persistence",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "put"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(DistributedKVStore|distributedKVStore|KVStore|SingleKVStore)"
+        }
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.js.eval.arg0",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "high",
+      "category": "code_injection",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "eval"
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.js.function_ctor.arg0",
+      "enabled": true,
+      "profile": "signature",
+      "severity": "high",
+      "category": "code_injection",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Function.constructor"
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.commonevent.publish.arg1",
+      "enabled": false,
+      "profile": "signature",
+      "severity": "low",
+      "category": "cross_process_observation",
+      "description": "Observation-only: commonEvent publish payload sink (cross-process boundary, disabled by default).",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "publish"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(commonEventManager|CommonEventManager)"
+        }
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg1"
+      }
+    }
+  ],
+  "sanitizers": [],
+  "transfers": [
+    {
+      "id": "transfer.harmony.globalcontext.setObject.arg1_to_base",
+      "description": "GlobalContext.setObject(key, value): value taints context base object.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "GlobalContext.setObject"
+      },
+      "from": "arg1",
+      "to": "base"
+    },
+    {
+      "id": "transfer.harmony.globalcontext.getObject.base_to_result",
+      "description": "GlobalContext.getObject(key): context base taints read result.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "GlobalContext.getObject"
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.json.stringify.arg0_to_result.exact",
+      "family": "transfer.harmony.json.stringify",
+      "tier": "A",
+      "description": "Exact probe signature for stringify (Tier A).",
+      "match": {
+        "kind": "callee_signature_equals",
+        "value": "@sdk_signature_probe/taint_mock.ts: JsonCodec.stringify(any)"
+      },
+      "invokeKind": "instance",
+      "argCount": 1,
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.json.parse.arg0_to_result.exact",
+      "family": "transfer.harmony.json.parse",
+      "tier": "A",
+      "description": "Exact probe signature for parse (Tier A).",
+      "match": {
+        "kind": "callee_signature_equals",
+        "value": "@sdk_signature_probe/taint_mock.ts: JsonCodec.parse(string)"
+      },
+      "invokeKind": "instance",
+      "argCount": 1,
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.json.stringify.arg0_to_result",
+      "family": "transfer.harmony.json.stringify",
+      "tier": "B",
+      "description": "JSON.stringify(x): x taints serialized string.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "stringify"
+      },
+      "invokeKind": "instance",
+      "argCount": 1,
+      "typeHint": "json",
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.json.parse.arg0_to_result",
+      "family": "transfer.harmony.json.parse",
+      "tier": "B",
+      "description": "JSON.parse(str): input string taints parsed value.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "parse"
+      },
+      "invokeKind": "instance",
+      "argCount": 1,
+      "typeHint": "json",
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.json.stringify.arg0_to_result.sig",
+      "family": "transfer.harmony.json.stringify",
+      "tier": "C",
+      "description": "Fallback: JSON.stringify(x) via signature match.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "JsonCodec.stringify"
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.json.parse.arg0_to_result.sig",
+      "family": "transfer.harmony.json.parse",
+      "tier": "C",
+      "description": "Fallback: JSON.parse(str) via signature match.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "JsonCodec.parse"
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.string.concat.arg0_to_result",
+      "description": "String.concat(arg): argument taints concatenation result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "concat"
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.http.request.arg1_to_result",
+      "description": "Http.request(url, data): request payload may influence response result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "request"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "Http"
+        }
+      },
+      "from": "arg1",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.axios.get.arg0_to_result",
+      "description": "axios.get(url): url taints response result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "get"
+      },
+      "invokeKind": "instance",
+      "argCount": 1,
+      "typeHint": "axios",
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.axios.post.arg1_to_result",
+      "description": "axios.post(url, data): body taints response result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "post"
+      },
+      "invokeKind": "instance",
+      "argCount": 2,
+      "typeHint": "axios",
+      "from": "arg1",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.preferences.put.arg1_to_base",
+      "description": "Preferences.put(key, value): value taints preferences base.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "put"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(Preferences|DataPreferences)"
+        }
+      },
+      "from": "arg1",
+      "to": "base"
+    },
+    {
+      "id": "transfer.harmony.preferences.putSync.arg1_to_base",
+      "description": "Preferences.putSync(key, value): value taints preferences base.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "putSync"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(Preferences|DataPreferences)"
+        }
+      },
+      "from": "arg1",
+      "to": "base"
+    },
+    {
+      "id": "transfer.harmony.preferences.get.base_to_result",
+      "description": "Preferences.get(key): preferences base taints read result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "get"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(Preferences|DataPreferences)"
+        }
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.preferences.getSync.base_to_result",
+      "description": "Preferences.getSync(key): preferences base taints read result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "getSync"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(Preferences|DataPreferences)"
+        }
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.rdb.insert.arg1_to_base",
+      "description": "RdbStore.insert(table, row): row taints store base.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "insert"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(RdbStore|RelationalStore)"
+        }
+      },
+      "from": "arg1",
+      "to": "base"
+    },
+    {
+      "id": "transfer.harmony.rdb.query.base_to_result",
+      "description": "RdbStore.query(sql): store base taints query result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "query"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(RdbStore|RelationalStore)"
+        }
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.rdb.querySql.arg0_to_result",
+      "description": "querySql(sql): sql string taints query result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "querySql"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(RdbStore|RelationalStore)"
+        }
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.distributedkv.put.arg1_to_base",
+      "description": "DistributedKVStore.put(key, value): value taints kv-store base.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "put"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(DistributedKVStore|distributedKVStore|KVStore|SingleKVStore)"
+        }
+      },
+      "from": "arg1",
+      "to": "base"
+    },
+    {
+      "id": "transfer.harmony.distributedkv.get.base_to_result",
+      "description": "DistributedKVStore.get(key): kv-store base taints read result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "get"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(DistributedKVStore|distributedKVStore|KVStore|SingleKVStore)"
+        }
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.request.download.arg0_to_result",
+      "description": "@ohos.request download(url): url taints download result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "download"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(request|Request|Download|DownloadTask|RequestAgent)"
+        }
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.request.upload.arg1_to_result",
+      "description": "@ohos.request upload(url, body): body taints upload result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "upload"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(request|Request|Upload|UploadTask|RequestAgent)"
+        }
+      },
+      "from": "arg1",
+      "to": "result"
+    }
+  ]
+}

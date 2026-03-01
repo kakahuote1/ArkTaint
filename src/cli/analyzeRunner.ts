@@ -1,9 +1,10 @@
-﻿import { Scene } from "../../arkanalyzer/out/src/Scene";
+import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
+import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../arkanalyzer/out/src/core/base/Expr";
 import { RuleHitCounters, TaintPropagationEngine } from "../core/TaintPropagationEngine";
 import { ConfigBasedTransferExecutor } from "../core/engine/ConfigBasedTransferExecutor";
 import { loadRuleSet, LoadedRuleSet } from "../core/rules/RuleLoader";
-import { SinkRule, SourceRule, SourceRuleKind, TransferRule } from "../core/rules/RuleSchema";
+import { RuleInvokeKind, RuleMatch, RuleScopeConstraint, RuleStringConstraint, SinkRule, SourceRule, SourceRuleKind, TransferRule } from "../core/rules/RuleSchema";
 import {
     collectSeedNodes,
     detectFlows,
@@ -165,12 +166,288 @@ function buildRuleEndpointHits(
     return endpointHits;
 }
 
+function hasEnabledSourcesInRuleFile(ruleFilePath?: string): boolean {
+    if (!ruleFilePath) return false;
+    if (!fs.existsSync(ruleFilePath)) return false;
+    try {
+        const raw = JSON.parse(fs.readFileSync(ruleFilePath, "utf-8")) as { sources?: Array<{ enabled?: boolean }> };
+        const sources = raw.sources || [];
+        return sources.some(rule => rule && rule.enabled !== false);
+    } catch {
+        return false;
+    }
+}
+
+function getAnalyzeSourceRules(loadedRules: LoadedRuleSet, allowLocalNamePrimary: boolean): SourceRule[] {
+    const rules = getSourceRules(loadedRules);
+    if (allowLocalNamePrimary) return rules;
+    return rules.filter(rule => rule.id !== "source.local_name.primary");
+}
+
+interface AnalyzeSeedingPolicy {
+    allowLocalNamePrimaryRule: boolean;
+    enableSourceLikeNameHeuristic: boolean;
+    enableCrossFunctionFallback: boolean;
+    enableSecondarySinkSweep: boolean;
+}
+
+interface InvokeSiteStat {
+    signature: string;
+    methodName: string;
+    invokeKind: RuleInvokeKind;
+    argCount: number;
+    calleeFilePath: string;
+    calleeClassText: string;
+    callerFilePath: string;
+    callerClassText: string;
+    callerMethodName: string;
+    sourceDir: string;
+    count: number;
+}
+
+function extractFilePathFromSignature(signature: string): string {
+    const m = signature.match(/@([^:>]+):/);
+    return m ? m[1].replace(/\\/g, "/") : signature;
+}
+
+function resolveInvokeMethodName(invokeExpr: any, signature: string): string {
+    const fromSig = invokeExpr.getMethodSignature?.().getMethodSubSignature?.().getMethodName?.() || "";
+    if (fromSig) return String(fromSig);
+    const m = signature.match(/\.([A-Za-z0-9_$]+)\(/);
+    return m ? m[1] : "";
+}
+
+function matchStringConstraint(constraint: RuleStringConstraint | undefined, text: string): boolean {
+    if (!constraint) return true;
+    if (constraint.mode === "equals") return text === constraint.value;
+    if (constraint.mode === "contains") return text.includes(constraint.value);
+    try {
+        return new RegExp(constraint.value).test(text);
+    } catch {
+        return false;
+    }
+}
+
+function matchScopeForCallee(scope: RuleScopeConstraint | undefined, site: InvokeSiteStat): boolean {
+    if (!scope) return true;
+    if (!matchStringConstraint(scope.file, site.calleeFilePath)) return false;
+    if (!matchStringConstraint(scope.module, site.signature || site.calleeFilePath)) return false;
+    if (!matchStringConstraint(scope.className, site.calleeClassText)) return false;
+    if (!matchStringConstraint(scope.methodName, site.methodName)) return false;
+    return true;
+}
+
+function matchScopeForCaller(scope: RuleScopeConstraint | undefined, site: InvokeSiteStat): boolean {
+    if (!scope) return true;
+    if (!matchStringConstraint(scope.file, site.callerFilePath)) return false;
+    if (!matchStringConstraint(scope.module, site.callerFilePath || site.callerClassText)) return false;
+    if (!matchStringConstraint(scope.className, site.callerClassText)) return false;
+    if (!matchStringConstraint(scope.methodName, site.callerMethodName)) return false;
+    return true;
+}
+
+function matchInvokeShape(
+    invokeKind: RuleInvokeKind | undefined,
+    argCount: number | undefined,
+    typeHint: string | undefined,
+    site: InvokeSiteStat
+): boolean {
+    if (invokeKind && invokeKind !== "any" && invokeKind !== site.invokeKind) return false;
+    if (argCount !== undefined && argCount !== site.argCount) return false;
+    if (typeHint && typeHint.trim().length > 0) {
+        const hint = typeHint.trim().toLowerCase();
+        const haystack = `${site.signature} ${site.calleeClassText}`.toLowerCase();
+        if (!haystack.includes(hint)) return false;
+    }
+    return true;
+}
+
+function matchRuleMatch(match: RuleMatch, site: InvokeSiteStat): boolean {
+    const value = match.value || "";
+    switch (match.kind) {
+        case "method_name_equals":
+            return site.methodName === value;
+        case "method_name_regex":
+            try {
+                return new RegExp(value).test(site.methodName);
+            } catch {
+                return false;
+            }
+        case "signature_contains":
+            return site.signature.includes(value);
+        case "signature_equals":
+        case "callee_signature_equals":
+            return site.signature === value;
+        case "signature_regex":
+            try {
+                return new RegExp(value).test(site.signature);
+            } catch {
+                return false;
+            }
+        case "declaring_class_equals":
+            return site.calleeClassText === value;
+        default:
+            return false;
+    }
+}
+
+function resolveSourceRuleKind(rule: SourceRule): SourceRuleKind {
+    if (rule.kind) return rule.kind;
+    if (rule.profile === "entry_param") return "entry_param";
+    return "seed_local_name";
+}
+
+function isSourceCallLikeRule(rule: SourceRule): boolean {
+    const kind = resolveSourceRuleKind(rule);
+    return kind === "call_return" || kind === "call_arg" || kind === "callback_param";
+}
+
+function ruleMatchesInvokeForSourceCoverage(rule: SourceRule, site: InvokeSiteStat): boolean {
+    if (!matchInvokeShape(rule.invokeKind, rule.argCount, rule.typeHint, site)) return false;
+    if (!matchRuleMatch(rule.match, site)) return false;
+    return matchScopeForCaller(rule.scope, site);
+}
+
+function ruleMatchesInvokeForSinkCoverage(rule: SinkRule, site: InvokeSiteStat): boolean {
+    if (!matchInvokeShape(rule.invokeKind, rule.argCount, rule.typeHint, site)) return false;
+    if (!matchRuleMatch(rule.match, site)) return false;
+    return matchScopeForCallee(rule.scope, site);
+}
+
+function ruleMatchesInvokeForTransferCoverage(rule: TransferRule, site: InvokeSiteStat): boolean {
+    if (!matchInvokeShape(rule.invokeKind, rule.argCount, rule.typeHint, site)) return false;
+    if (!matchRuleMatch(rule.match, site)) return false;
+    return matchScopeForCallee(rule.scope, site);
+}
+
+function collectInvokeSiteStatsForSourceDir(scene: Scene, sourceDir: string): Map<string, InvokeSiteStat> {
+    const stats = new Map<string, InvokeSiteStat>();
+    for (const method of scene.getMethods()) {
+        const cfg = method.getCfg();
+        if (!cfg) continue;
+        const callerSignature = method.getSignature().toString();
+        const callerFilePath = extractFilePathFromSignature(callerSignature);
+        const callerClassText = method.getDeclaringArkClass?.()?.getName?.() || callerSignature;
+        const callerMethodName = method.getName();
+        for (const stmt of cfg.getStmts()) {
+            if (!stmt.containsInvokeExpr || !stmt.containsInvokeExpr()) continue;
+            const invokeExpr = stmt.getInvokeExpr?.();
+            if (!invokeExpr) continue;
+            const signature = invokeExpr.getMethodSignature?.().toString?.() || "";
+            if (!signature) continue;
+            const methodName = resolveInvokeMethodName(invokeExpr, signature);
+            if (!methodName || methodName.startsWith("%") || methodName === "constructor") continue;
+            if (signature.includes("/taint_mock.ts")) continue;
+            let invokeKind: RuleInvokeKind = "static";
+            if (invokeExpr instanceof ArkInstanceInvokeExpr || invokeExpr instanceof ArkPtrInvokeExpr) {
+                invokeKind = "instance";
+            } else if (invokeExpr instanceof ArkStaticInvokeExpr) {
+                invokeKind = "static";
+            }
+            const argCount = invokeExpr.getArgs ? invokeExpr.getArgs().length : 0;
+            const calleeFilePath = extractFilePathFromSignature(signature);
+            const calleeClassText = invokeExpr.getMethodSignature?.().getDeclaringClassSignature?.()?.toString?.() || signature;
+            const key = `${signature}|${callerSignature}`;
+            const existing = stats.get(key);
+            if (existing) {
+                existing.count += 1;
+            } else {
+                stats.set(key, {
+                    signature,
+                    methodName,
+                    invokeKind,
+                    argCount,
+                    calleeFilePath,
+                    calleeClassText,
+                    callerFilePath,
+                    callerClassText,
+                    callerMethodName,
+                    sourceDir,
+                    count: 1,
+                });
+            }
+        }
+    }
+    return stats;
+}
+
+function buildRuleFeedback(
+    repoRoot: string,
+    loadedRules: LoadedRuleSet,
+    ruleHits: RuleHitCounters,
+    sourceContextCache: Map<string, { scene: Scene; selected: EntrySelectionResult }>
+): AnalyzeReport["summary"]["ruleFeedback"] {
+    const enabledSources = (loadedRules.ruleSet.sources || []).filter(r => r.enabled !== false);
+    const enabledSinks = (loadedRules.ruleSet.sinks || []).filter(r => r.enabled !== false);
+    const enabledTransfers = (loadedRules.ruleSet.transfers || []).filter(r => r.enabled !== false);
+
+    const zeroHitRules = emptyRuleHitCounters();
+    for (const rule of enabledSources) {
+        if (!(ruleHits.source[rule.id] > 0)) zeroHitRules.source[rule.id] = 0;
+    }
+    for (const rule of enabledSinks) {
+        if (!(ruleHits.sink[rule.id] > 0)) zeroHitRules.sink[rule.id] = 0;
+    }
+    for (const rule of enabledTransfers) {
+        if (!(ruleHits.transfer[rule.id] > 0)) zeroHitRules.transfer[rule.id] = 0;
+    }
+
+    const rank = (record: Record<string, number>) => Object.entries(record)
+        .filter(([, v]) => Number.isFinite(v) && v > 0)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, 20)
+        .map(([key, count]) => ({ key, count }));
+
+    const invokeStats = new Map<string, InvokeSiteStat>();
+    for (const [sourceAbs, ctx] of sourceContextCache.entries()) {
+        const rel = path.relative(repoRoot, sourceAbs).replace(/\\/g, "/");
+        const bySource = collectInvokeSiteStatsForSourceDir(ctx.scene, rel);
+        for (const [key, stat] of bySource.entries()) {
+            const cur = invokeStats.get(key);
+            if (cur) {
+                cur.count += stat.count;
+            } else {
+                invokeStats.set(key, { ...stat });
+            }
+        }
+    }
+
+    const uncovered = [...invokeStats.values()]
+        .filter(site => {
+            const sourceCovered = enabledSources.some(rule => isSourceCallLikeRule(rule) && ruleMatchesInvokeForSourceCoverage(rule, site));
+            const sinkCovered = enabledSinks.some(rule => ruleMatchesInvokeForSinkCoverage(rule, site));
+            const transferCovered = enabledTransfers.some(rule => ruleMatchesInvokeForTransferCoverage(rule, site));
+            return !(sourceCovered || sinkCovered || transferCovered);
+        })
+        .sort((a, b) => b.count - a.count || a.signature.localeCompare(b.signature))
+        .slice(0, 30)
+        .map(site => ({
+            signature: site.signature,
+            methodName: site.methodName,
+            count: site.count,
+            sourceDir: site.sourceDir,
+            invokeKind: site.invokeKind,
+            argCount: site.argCount,
+        }));
+
+    return {
+        zeroHitRules,
+        ruleHitRanking: {
+            source: rank(ruleHits.source),
+            sink: rank(ruleHits.sink),
+            transfer: rank(ruleHits.transfer),
+        },
+        uncoveredHighFrequencyInvokes: uncovered,
+    };
+}
+
 async function analyzeEntry(
     scene: Scene,
     sourceDir: string,
     candidate: EntryCandidate,
     options: CliOptions,
     loadedRules: LoadedRuleSet,
+    seedingPolicy: AnalyzeSeedingPolicy,
     sharedPagEntries?: EntryCandidate[]
 ): Promise<EntryAnalyzeResult> {
     const t0 = process.hrtime.bigint();
@@ -256,17 +533,23 @@ async function analyzeEntry(
         const seedLocalNames = new Set<string>();
         const seedStrategies = new Set<string>();
         const sourceSeedT0 = process.hrtime.bigint();
-        const sourceRuleResult = engine.propagateWithSourceRules(getSourceRules(loadedRules), {
-            entryMethodName: candidate.name,
-            entryMethodPathHint: candidate.pathHint,
-        });
+        const sourceRuleResult = engine.propagateWithSourceRules(
+            getAnalyzeSourceRules(loadedRules, seedingPolicy.allowLocalNamePrimaryRule),
+            {
+                entryMethodName: candidate.name,
+                entryMethodPathHint: candidate.pathHint,
+            }
+        );
         stageProfile.propagateRuleSeedMs = elapsedMsSince(sourceSeedT0);
         seedCount += sourceRuleResult.seedCount;
         for (const x of sourceRuleResult.seededLocals) seedLocalNames.add(x);
         if (sourceRuleResult.seedCount > 0) seedStrategies.add("rule:source");
 
         const heuristicSeedT0 = process.hrtime.bigint();
-        const heuristic = collectSeedNodes(scene, engine, entryMethod, getSourcePattern(loadedRules));
+        const heuristic = collectSeedNodes(scene, engine, entryMethod, getSourcePattern(loadedRules), {
+            enableSourceLikeNameSeed: seedingPolicy.enableSourceLikeNameHeuristic,
+            enableCrossFunctionFallback: seedingPolicy.enableCrossFunctionFallback,
+        });
         if (heuristic.nodes.length > 0) {
             engine.propagateWithSeeds(heuristic.nodes);
             seedCount += heuristic.nodes.length;
@@ -314,6 +597,7 @@ async function analyzeEntry(
             detailed: options.reportMode === "full",
             stopOnFirstFlow: detectStopPolicy.stopOnFirstFlow,
             maxFlowsPerEntry: detectStopPolicy.maxFlowsPerEntry,
+            enableSecondarySinkSweep: seedingPolicy.enableSecondarySinkSweep,
         });
         const detectProfile = engine.getDetectProfile();
         const ruleHits = engine.getRuleHitCounters();
@@ -386,6 +670,14 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     const ruleLoadT0 = process.hrtime.bigint();
     const loadedRules = loadRuleSet(options.ruleOptions);
     stageProfile.ruleLoadMs = elapsedMsSince(ruleLoadT0);
+    const hasProjectSourceRules = hasEnabledSourcesInRuleFile(loadedRules.projectRulePath);
+    const useBroadHeuristics = options.profile === "fast";
+    const seedingPolicy: AnalyzeSeedingPolicy = {
+        allowLocalNamePrimaryRule: useBroadHeuristics,
+        enableSourceLikeNameHeuristic: useBroadHeuristics || !hasProjectSourceRules,
+        enableCrossFunctionFallback: options.enableCrossFunctionFallback,
+        enableSecondarySinkSweep: options.enableSecondarySinkSweep,
+    };
     const ruleFingerprint = buildRuleFingerprint(loadedRules);
     const incrementalCacheScope: IncrementalCacheScope = {
         repo: options.repo,
@@ -441,7 +733,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
                 entryHints: options.entryHints,
                 includePaths: options.includePaths,
                 excludePaths: options.excludePaths,
-            }, getSourcePattern(loadedRules));
+            }, getSourcePattern(loadedRules), sourceAbs);
             stageProfile.entrySelectMs += elapsedMsSince(entrySelectT0);
             sourceContextCache.set(sourceAbs, { scene, selected });
         } else {
@@ -537,6 +829,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
                 task.candidate,
                 options,
                 loadedRules,
+                seedingPolicy,
                 task.sharedPagEntries
             );
         }
@@ -635,6 +928,12 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         ? Number((transferProfile.elapsedShareAvg / transferShareCount).toFixed(6))
         : 0;
     const reportEntries = entries.map(e => toReportEntry(e, options.reportMode));
+    const ruleFeedback = buildRuleFeedback(
+        options.repo,
+        loadedRules,
+        ruleHits,
+        sourceContextCache
+    );
 
     const report: AnalyzeReport = {
         generatedAt: new Date().toISOString(),
@@ -676,6 +975,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
                     totalMs: 0,
                 },
                 transferNoHitReasons,
+                ruleFeedback,
         },
         entries: reportEntries,
     };
@@ -704,3 +1004,4 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         mdPath,
     };
 }
+

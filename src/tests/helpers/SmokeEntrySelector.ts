@@ -8,12 +8,19 @@ import {
     EntryCandidate,
     ResolvedEntry,
 } from "./SmokeTypes";
+import * as fs from "fs";
+import * as path from "path";
 
 export interface SmokeEntrySelectionConfig {
     sourceNamePattern: RegExp;
     sinkKeywords: string[];
     entryMethodHints: ReadonlySet<string>;
 }
+
+const LIBRARY_ENTRY_INDEX_HINTS = ["index.ets", "api.ets"];
+const EXPORT_FUNCTION_PATTERN = /\bexport\s+function\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/g;
+const EXPORT_CONST_FUNC_PATTERN = /\bexport\s+(?:const|let)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(?:async\s*)?(?:\(|[A-Za-z_$])/g;
+const exportFunctionNameCache = new Map<string, Set<string>>();
 
 export function extractArkFileFromSignature(signature: string): string | undefined {
     const m = signature.match(/<@([^:>]+\.ets):/);
@@ -61,6 +68,86 @@ function matchesAny(text: string, patterns: string[]): boolean {
     if (patterns.length === 0) return false;
     const lower = text.toLowerCase();
     return patterns.some(p => lower.includes(p));
+}
+
+function collectExportedFunctionNames(sourceDirAbs?: string): Set<string> {
+    if (!sourceDirAbs) return new Set<string>();
+    const normalizedRoot = path.resolve(sourceDirAbs).replace(/\\/g, "/").toLowerCase();
+    const cached = exportFunctionNameCache.get(normalizedRoot);
+    if (cached) return cached;
+
+    const exportedNames = new Set<string>();
+    if (!fs.existsSync(sourceDirAbs)) {
+        exportFunctionNameCache.set(normalizedRoot, exportedNames);
+        return exportedNames;
+    }
+
+    const stack = [sourceDirAbs];
+    while (stack.length > 0) {
+        const current = stack.pop()!;
+        let entries: fs.Dirent[] = [];
+        try {
+            entries = fs.readdirSync(current, { withFileTypes: true });
+        } catch {
+            continue;
+        }
+
+        for (const entry of entries) {
+            const fullPath = path.join(current, entry.name);
+            if (entry.isDirectory()) {
+                stack.push(fullPath);
+                continue;
+            }
+            if (!entry.isFile() || !entry.name.endsWith(".ets")) continue;
+
+            let text = "";
+            try {
+                text = fs.readFileSync(fullPath, "utf-8");
+            } catch {
+                continue;
+            }
+            for (const m of text.matchAll(EXPORT_FUNCTION_PATTERN)) {
+                const name = String(m[1] || "").trim();
+                if (name) exportedNames.add(name);
+            }
+            for (const m of text.matchAll(EXPORT_CONST_FUNC_PATTERN)) {
+                const name = String(m[1] || "").trim();
+                if (name) exportedNames.add(name);
+            }
+        }
+    }
+
+    exportFunctionNameCache.set(normalizedRoot, exportedNames);
+    return exportedNames;
+}
+
+function detectLibraryMode(candidates: EntryCandidate[]): boolean {
+    if (candidates.length === 0) return false;
+    return !candidates.some(candidate => {
+        const sigLower = candidate.signature.toLowerCase();
+        const nameLower = candidate.name.toLowerCase();
+        return sigLower.includes("/entryability/")
+            || sigLower.includes("/pages/")
+            || sigLower.includes("/view/")
+            || sigLower.includes("/viewmodel/")
+            || nameLower === "build"
+            || nameLower === "onwindowstagecreate"
+            || nameLower === "oncreate"
+            || nameLower === "onnewwant"
+            || nameLower === "abouttoappear";
+    });
+}
+
+function computeLibraryEntryBoost(candidate: EntryCandidate, exportedNames: Set<string>): number {
+    let boost = 0;
+    if (exportedNames.has(candidate.name)) {
+        boost += 80;
+    }
+    const pathLower = String(candidate.pathHint || "").toLowerCase();
+    if (LIBRARY_ENTRY_INDEX_HINTS.some(hint => pathLower.endsWith(hint) || pathLower.includes(`/${hint}`))) {
+        boost += 20;
+    }
+    return boost;
 }
 
 function scoreEntry(
@@ -113,7 +200,8 @@ export function selectEntryCandidates(
     sourceDirRel: string,
     maxEntries: number,
     selector: CandidateSelectorOptions,
-    config: SmokeEntrySelectionConfig
+    config: SmokeEntrySelectionConfig,
+    sourceDirAbs?: string
 ): CandidateSelectionResult {
     const candidates: EntryCandidate[] = [];
     const dedup = new Set<string>();
@@ -141,6 +229,15 @@ export function selectEntryCandidates(
             sourceDir: sourceDirRel,
             sourceFile: pathHint.toLowerCase(),
         });
+    }
+
+    if (detectLibraryMode(candidates)) {
+        const exportedNames = collectExportedFunctionNames(sourceDirAbs);
+        if (exportedNames.size > 0) {
+            for (const candidate of candidates) {
+                candidate.score += computeLibraryEntryBoost(candidate, exportedNames);
+            }
+        }
     }
 
     const poolTotal = candidates.length;

@@ -1,4 +1,5 @@
 import { DetectProfileSnapshot, RuleHitCounters } from "../core/TaintPropagationEngine";
+import { RuleInvokeKind } from "../core/rules/RuleSchema";
 import { AnalyzeProfile, ReportMode } from "./analyzeCliOptions";
 import { FlowRuleTrace } from "./analyzeUtils";
 
@@ -98,6 +99,22 @@ export interface AnalyzeReport {
         detectProfile: DetectProfileSnapshot;
         stageProfile: AnalyzeStageProfile;
         transferNoHitReasons: Record<string, number>;
+        ruleFeedback: {
+            zeroHitRules: RuleHitCounters;
+            ruleHitRanking: {
+                source: Array<{ key: string; count: number }>;
+                sink: Array<{ key: string; count: number }>;
+                transfer: Array<{ key: string; count: number }>;
+            };
+            uncoveredHighFrequencyInvokes: Array<{
+                signature: string;
+                methodName: string;
+                count: number;
+                sourceDir: string;
+                invokeKind: RuleInvokeKind;
+                argCount: number;
+            }>;
+        };
     };
     entries: EntryAnalyzeResult[];
 }

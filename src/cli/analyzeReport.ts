@@ -69,6 +69,22 @@ interface AnalyzeReportLike {
         detectProfile: any;
         stageProfile: any;
         transferNoHitReasons: Record<string, number>;
+        ruleFeedback?: {
+            zeroHitRules?: RuleHitCountersLike;
+            ruleHitRanking?: {
+                source?: RankedCounter[];
+                sink?: RankedCounter[];
+                transfer?: RankedCounter[];
+            };
+            uncoveredHighFrequencyInvokes?: Array<{
+                signature: string;
+                methodName: string;
+                count: number;
+                sourceDir: string;
+                invokeKind: string;
+                argCount: number;
+            }>;
+        };
     };
     entries: EntryAnalyzeResultLike[];
 }
@@ -204,8 +220,32 @@ export function renderMarkdownReport(report: AnalyzeReportLike): string {
     lines.push(`- detectProfile: ${JSON.stringify(report.summary.detectProfile)}`);
     lines.push(`- stageProfile: ${JSON.stringify(report.summary.stageProfile)}`);
     lines.push(`- transferNoHitReasons: ${JSON.stringify(report.summary.transferNoHitReasons)}`);
+    if (report.summary.ruleFeedback) {
+        lines.push(`- ruleFeedback.zeroHitRules: ${JSON.stringify(report.summary.ruleFeedback.zeroHitRules || {})}`);
+    }
     lines.push("");
     lines.push(...renderGuidance(report));
+    if (report.summary.ruleFeedback) {
+        lines.push("");
+        lines.push("## Rule Feedback");
+        lines.push("");
+        const rf = report.summary.ruleFeedback;
+        const ranking = rf.ruleHitRanking || {};
+        lines.push(`- ruleHitRanking.source: ${JSON.stringify(ranking.source || [])}`);
+        lines.push(`- ruleHitRanking.sink: ${JSON.stringify(ranking.sink || [])}`);
+        lines.push(`- ruleHitRanking.transfer: ${JSON.stringify(ranking.transfer || [])}`);
+        const uncovered = rf.uncoveredHighFrequencyInvokes || [];
+        if (uncovered.length > 0) {
+            lines.push("");
+            lines.push("### uncovered high-frequency invokes");
+            for (const item of uncovered.slice(0, 20)) {
+                lines.push(`- ${item.signature} | method=${item.methodName} | count=${item.count} | sourceDir=${item.sourceDir} | invokeKind=${item.invokeKind} | argCount=${item.argCount}`);
+            }
+        } else {
+            lines.push("");
+            lines.push("- uncovered high-frequency invokes: []");
+        }
+    }
     lines.push("");
     lines.push("## Top Entries");
     lines.push("");

@@ -164,6 +164,7 @@ export function detectSinks(
     const fieldToVarIndex = options.targetPath && options.targetPath.length > 0
         ? (options.fieldToVarIndex || buildFieldToVarIndexFromPag(pag))
         : undefined;
+    let fallbackFieldToVarIndex: Map<string, Set<number>> | undefined;
 
     log(`\n=== Detecting sinks for: "${sinkSignature}" ===`);
     let sinksChecked = 0;
@@ -264,6 +265,90 @@ export function detectSinks(
                     sinkDetected = true;
                     break;
                 }
+                if (candidate.value instanceof Local) {
+                    const declStmt = candidate.value.getDeclaringStmt?.();
+                    if (declStmt instanceof ArkAssignStmt && declStmt.getLeftOp() === candidate.value) {
+                        const rightOp = declStmt.getRightOp();
+                        if (rightOp instanceof ArkInstanceFieldRef) {
+                            const fieldName = rightOp.getFieldSignature().getFieldName();
+                            if (!fallbackFieldToVarIndex) {
+                                fallbackFieldToVarIndex = buildFieldToVarIndexFromPag(pag);
+                            }
+                            const fieldPathT0 = process.hrtime.bigint();
+                            const fieldPathResult = detectFieldPathSource(
+                                rightOp,
+                                [fieldName],
+                                pag,
+                                tracker,
+                                fallbackFieldToVarIndex
+                            );
+                            profile.taintEvalMs += elapsedMsSince(fieldPathT0);
+                            if (fieldPathResult) {
+                                profile.sanitizerGuardCheckCount++;
+                                const sanitizerT0 = process.hrtime.bigint();
+                                const sanitizerResult = isSinkCandidateSanitizedByRules(
+                                    method,
+                                    stmt,
+                                    candidate,
+                                    options.sanitizerRules || [],
+                                    log
+                                );
+                                profile.sanitizerGuardMs += elapsedMsSince(sanitizerT0);
+                                if (sanitizerResult.sanitized) {
+                                    profile.sanitizerGuardHitCount++;
+                                    continue;
+                                }
+                                log(`    *** TAINT FLOW DETECTED! Source: ${fieldPathResult.source} (local-from-field fallback: ${fieldName}) ***`);
+                                flows.push(new TaintFlow(fieldPathResult.source, stmt, {
+                                    sinkEndpoint: candidate.endpoint,
+                                    sinkNodeId: fieldPathResult.nodeId,
+                                    sinkFieldPath: fieldPathResult.fieldPath,
+                                }));
+                                sinkDetected = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (candidate.value instanceof ArkInstanceFieldRef) {
+                    const fieldName = candidate.value.getFieldSignature().getFieldName();
+                    if (!fallbackFieldToVarIndex) {
+                        fallbackFieldToVarIndex = buildFieldToVarIndexFromPag(pag);
+                    }
+                    const fieldPathT0 = process.hrtime.bigint();
+                    const fieldPathResult = detectFieldPathSource(
+                        candidate.value,
+                        [fieldName],
+                        pag,
+                        tracker,
+                        fallbackFieldToVarIndex
+                    );
+                    profile.taintEvalMs += elapsedMsSince(fieldPathT0);
+                    if (fieldPathResult) {
+                        profile.sanitizerGuardCheckCount++;
+                        const sanitizerT0 = process.hrtime.bigint();
+                        const sanitizerResult = isSinkCandidateSanitizedByRules(
+                            method,
+                            stmt,
+                            candidate,
+                            options.sanitizerRules || [],
+                            log
+                        );
+                        profile.sanitizerGuardMs += elapsedMsSince(sanitizerT0);
+                        if (sanitizerResult.sanitized) {
+                            profile.sanitizerGuardHitCount++;
+                            continue;
+                        }
+                        log(`    *** TAINT FLOW DETECTED! Source: ${fieldPathResult.source} (field fallback: ${fieldName}) ***`);
+                        flows.push(new TaintFlow(fieldPathResult.source, stmt, {
+                            sinkEndpoint: candidate.endpoint,
+                            sinkNodeId: fieldPathResult.nodeId,
+                            sinkFieldPath: fieldPathResult.fieldPath,
+                        }));
+                        sinkDetected = true;
+                        break;
+                    }
+                }
                 continue;
             }
 
@@ -307,6 +392,44 @@ export function detectSinks(
                 }));
                 sinkDetected = true;
                 break;
+            }
+            if (!sinkDetected && candidate.value instanceof ArkInstanceFieldRef) {
+                const fieldName = candidate.value.getFieldSignature().getFieldName();
+                if (!fallbackFieldToVarIndex) {
+                    fallbackFieldToVarIndex = buildFieldToVarIndexFromPag(pag);
+                }
+                const fieldPathT0 = process.hrtime.bigint();
+                const fieldPathResult = detectFieldPathSource(
+                    candidate.value,
+                    [fieldName],
+                    pag,
+                    tracker,
+                    fallbackFieldToVarIndex
+                );
+                profile.taintEvalMs += elapsedMsSince(fieldPathT0);
+                if (fieldPathResult) {
+                    profile.sanitizerGuardCheckCount++;
+                    const sanitizerT0 = process.hrtime.bigint();
+                    const sanitizerResult = isSinkCandidateSanitizedByRules(
+                        method,
+                        stmt,
+                        candidate,
+                        options.sanitizerRules || [],
+                        log
+                    );
+                    profile.sanitizerGuardMs += elapsedMsSince(sanitizerT0);
+                    if (sanitizerResult.sanitized) {
+                        profile.sanitizerGuardHitCount++;
+                        continue;
+                    }
+                    log(`    *** TAINT FLOW DETECTED! Source: ${fieldPathResult.source} (field fallback: ${fieldName}) ***`);
+                    flows.push(new TaintFlow(fieldPathResult.source, stmt, {
+                        sinkEndpoint: candidate.endpoint,
+                        sinkNodeId: fieldPathResult.nodeId,
+                        sinkFieldPath: fieldPathResult.fieldPath,
+                    }));
+                    sinkDetected = true;
+                }
             }
             if (sinkDetected) break;
         }

@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { readAnalyzeSummary, runAnalyzeCli } from "./helpers/AnalyzeCliRunner";
+import { readAnalyzeSummary, runAnalyzeCli } from "../helpers/AnalyzeCliRunner";
 
 interface CliOptions {
     rounds: number;
@@ -315,4 +315,3 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
-

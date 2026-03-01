@@ -1,31 +1,259 @@
 {
   "schemaVersion": "1.1",
   "meta": {
-    "name": "wanharmony-project-rules",
-    "description": "Phase 5.3.7 real-project rule pack for unknown reduction validation",
-    "updatedAt": "2026-02-17"
+    "name": "wanharmony-project-rules-step-b",
+    "description": "Phase 7.7.2 Step B: wanharmony anchor-driven project rules (V1/V2/V3).",
+    "updatedAt": "2026-02-23"
   },
-  "sources": [],
-  "sinks": [
+  "sources": [
     {
-      "id": "sink.sig.stringify",
-      "profile": "signature",
-      "severity": "low",
+      "id": "source.wanharmony.entry.onCreate.want",
+      "enabled": true,
+      "kind": "entry_param",
+      "description": "Treat EntryAbility.onCreate(want, ...) first argument as untrusted external input.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "onCreate"
+      },
+      "scope": {
+        "className": {
+          "mode": "equals",
+          "value": "EntryAbility"
+        },
+        "methodName": {
+          "mode": "equals",
+          "value": "onCreate"
+        }
+      },
+      "targetRef": {
+        "endpoint": "arg0"
+      },
+      "tags": [
+        "wanharmony",
+        "stepB",
+        "v2"
+      ]
+    },
+    {
+      "id": "source.wanharmony.router.getParams.result",
+      "enabled": true,
+      "kind": "call_return",
+      "description": "Treat router.getParams() return as untrusted route input in anchor pages.",
       "match": {
         "kind": "signature_contains",
-        "value": "stringify()"
+        "value": ".getParams()"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "WebPage|KnowledgeDetail"
+        }
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "wanharmony",
+        "stepB",
+        "v1",
+        "v3"
+      ]
+    },
+    {
+      "id": "source.wanharmony.article.link.field_read",
+      "enabled": true,
+      "kind": "field_read",
+      "description": "Treat article link field as remote-controlled input from backend payload.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "ArticleBean.link"
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "wanharmony",
+        "stepB",
+        "v1"
+      ]
+    },
+    {
+      "id": "source.wanharmony.knowledge.courseId.field_read",
+      "enabled": true,
+      "kind": "field_read",
+      "description": "Treat KnowledgeDetail.courseId field read as route-derived untrusted input.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "KnowledgeDetail.courseId"
+      },
+      "scope": {
+        "className": {
+          "mode": "equals",
+          "value": "KnowledgeDetail"
+        }
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "wanharmony",
+        "stepB",
+        "v3"
+      ]
+    },
+    {
+      "id": "source.wanharmony.web.url.field_read",
+      "enabled": true,
+      "kind": "field_read",
+      "description": "Treat WebPage.url field read as untrusted route payload in render path.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "WebPage.url"
+      },
+      "scope": {
+        "className": {
+          "mode": "equals",
+          "value": "WebPage"
+        }
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "wanharmony",
+        "stepB",
+        "v1"
+      ]
+    }
+  ],
+  "sinks": [
+    {
+      "id": "sink.wanharmony.web.create.arg0",
+      "profile": "signature",
+      "severity": "high",
+      "category": "webview_url_injection",
+      "description": "Route-derived URL reaches Web.create() argument.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Web.create()"
+      },
+      "scope": {
+        "className": {
+          "mode": "equals",
+          "value": "WebPage"
+        },
+        "methodName": {
+          "mode": "equals",
+          "value": "build"
+        }
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
       }
     },
     {
-      "id": "sink.sig.globalcontext.setObject",
+      "id": "sink.wanharmony.globalcontext.setObject.arg1",
       "profile": "signature",
-      "severity": "low",
+      "severity": "medium",
+      "category": "sensitive_persistence",
+      "description": "External want argument stored into global context.",
       "match": {
         "kind": "signature_contains",
         "value": "GlobalContext.setObject"
       },
-      "sinkTarget": "arg1"
+      "scope": {
+        "className": {
+          "mode": "equals",
+          "value": "EntryAbility"
+        },
+        "methodName": {
+          "mode": "equals",
+          "value": "onCreate"
+        }
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.wanharmony.knowledge.getKnowledgeDetail.arg0",
+      "profile": "signature",
+      "severity": "medium",
+      "category": "route_param_to_api",
+      "description": "Route-derived courseId reaches getKnowledgeDetail() input.",
+      "match": {
+        "kind": "signature_contains",
+        "value": ".getKnowledgeDetail()"
+      },
+      "scope": {
+        "className": {
+          "mode": "equals",
+          "value": "KnowledgeDetail"
+        },
+        "methodName": {
+          "mode": "equals",
+          "value": "aboutToAppear"
+        }
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.wanharmony.router.pushUrl.arg0",
+      "profile": "signature",
+      "severity": "high",
+      "category": "route_dispatch",
+      "description": "Potentially tainted route payload dispatched by router.pushUrl().",
+      "match": {
+        "kind": "signature_contains",
+        "value": ".pushUrl()"
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      }
     }
   ],
-  "transfers": []
+  "transfers": [
+    {
+      "id": "transfer.wanharmony.globalcontext.setObject.arg1_to_base",
+      "description": "GlobalContext.setObject(key, value): value taints GlobalContext base object.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "GlobalContext.setObject"
+      },
+      "from": "arg1",
+      "to": "base"
+    },
+    {
+      "id": "transfer.wanharmony.globalcontext.getObject.base_to_result",
+      "description": "GlobalContext.getObject(key): context base taints read result.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "GlobalContext.getObject"
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.wanharmony.knowledge.getKnowledgeDetail.arg0_to_result",
+      "description": "Model getKnowledgeDetail(courseId) result depending on courseId input.",
+      "match": {
+        "kind": "signature_contains",
+        "value": ".getKnowledgeDetail()"
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.wanharmony.fetch.arg0_to_result",
+      "description": "Model fetch(params) response depending on request params object.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "%dflt.fetch("
+      },
+      "from": "arg0",
+      "to": "result"
+    }
+  ]
 }

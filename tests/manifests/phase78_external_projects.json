@@ -1,0 +1,90 @@
+{
+  "projects": [
+    {
+      "id": "harmony_study_external",
+      "repoUrl": "local://D:/cursor/workplace/project/HarmonyStudy",
+      "license": "unknown",
+      "sourceMode": "single",
+      "priority": "main",
+      "repoPath": "D:/cursor/workplace/project/HarmonyStudy",
+      "sourceDirs": [
+        "entry/src/main/ets"
+      ],
+      "entryHints": [
+        "onCreate",
+        "onWindowStageCreate",
+        "aboutToAppear",
+        "build"
+      ],
+      "includePaths": [
+        "/entryability/",
+        "/pages/",
+        "/viewmodel/"
+      ],
+      "excludePaths": [
+        "/ohostest/",
+        "/test/",
+        "/mock/"
+      ],
+      "sinkSignatures": [
+        "router.pushUrl",
+        "router.getParams",
+        "fetch(",
+        "axios.get",
+        "axios.post",
+        "hilog.info",
+        "hilog.error"
+      ],
+      "tags": [
+        "external",
+        "harmony",
+        "study"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "wanandroid_harmoney_external",
+      "repoUrl": "local://D:/cursor/workplace/project/WanAndroidHarmoney",
+      "license": "unknown",
+      "sourceMode": "single",
+      "priority": "main",
+      "repoPath": "D:/cursor/workplace/project/WanAndroidHarmoney",
+      "sourceDirs": [
+        "entry/src/main/ets"
+      ],
+      "entryHints": [
+        "onCreate",
+        "onWindowStageCreate",
+        "aboutToAppear",
+        "build",
+        "onClick"
+      ],
+      "includePaths": [
+        "/entryability/",
+        "/pages/",
+        "/viewmodel/"
+      ],
+      "excludePaths": [
+        "/ohostest/",
+        "/test/",
+        "/mock/"
+      ],
+      "sinkSignatures": [
+        "router.pushUrl",
+        "router.getParams",
+        "fetch(",
+        "axios.get",
+        "axios.post",
+        "relationalStore",
+        "execDML",
+        "execDQL"
+      ],
+      "tags": [
+        "external",
+        "wanandroid",
+        "network"
+      ],
+      "enabled": true
+    }
+  ]
+}

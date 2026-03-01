@@ -22,27 +22,65 @@ export interface SourceRuleSeedCollectionArgs {
     emptyContextId: number;
     entryMethodName?: string;
     entryMethodPathHint?: string;
+    allowedMethodSignatures?: Set<string>;
 }
 
 export interface SourceRuleSeedCollectionResult {
     facts: TaintFact[];
     seededLocals: string[];
     sourceRuleHits: Record<string, number>;
+    activatedMethodSignatures: string[];
 }
 
 export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): SourceRuleSeedCollectionResult {
-    const methods = resolveSourceScopeMethods(args.scene, args.entryMethodName, args.entryMethodPathHint);
+    const methods = resolveSourceScopeMethods(
+        args.scene,
+        args.entryMethodName,
+        args.entryMethodPathHint,
+        args.allowedMethodSignatures
+    );
     const facts: TaintFact[] = [];
     const seededLocals = new Set<string>();
     const seenFactIds = new Set<string>();
     const sourceRuleHits = new Map<string, number>();
+    const activatedMethodSignatures = new Set<string>();
+    const bestTierBySiteFamily = new Map<string, number>();
 
-    const pushFact = (fact: TaintFact, label: string, ruleId: string): void => {
-        if (seenFactIds.has(fact.id)) return;
+    const pushFact = (fact: TaintFact, label: string, ruleId: string): boolean => {
+        if (seenFactIds.has(fact.id)) return false;
         seenFactIds.add(fact.id);
         facts.push(fact);
         seededLocals.add(label);
         sourceRuleHits.set(ruleId, (sourceRuleHits.get(ruleId) || 0) + 1);
+        return true;
+    };
+
+    const resolveRuleFamily = (rule: SourceRule): string | undefined => {
+        const family = typeof rule.family === "string" ? rule.family.trim() : "";
+        return family.length > 0 ? family : undefined;
+    };
+    const resolveRuleTier = (rule: SourceRule): number => {
+        if (rule.tier === "A") return 3;
+        if (rule.tier === "B") return 2;
+        if (rule.tier === "C") return 1;
+        return 0;
+    };
+    const canApplyRuleAtSite = (rule: SourceRule, siteKey: string): boolean => {
+        const family = resolveRuleFamily(rule);
+        if (!family) return true;
+        const key = `${siteKey}|${family}`;
+        const best = bestTierBySiteFamily.get(key);
+        return best === undefined || resolveRuleTier(rule) >= best;
+    };
+    const markRuleAppliedAtSite = (rule: SourceRule, siteKey: string): void => {
+        const family = resolveRuleFamily(rule);
+        if (!family) return;
+        const key = `${siteKey}|${family}`;
+        const tier = resolveRuleTier(rule);
+        const best = bestTierBySiteFamily.get(key) || 0;
+        if (tier > best) {
+            bestTierBySiteFamily.set(key, tier);
+        }
     };
 
     for (const rule of args.sourceRules) {
@@ -67,8 +105,16 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
                     if (!matchesSourceLocalRule(rule, kind, method, localName, paramIndex)) continue;
 
                     const localFacts = seedFactsFromValue(args.pag, local, sourceTag, args.emptyContextId, target.path);
+                    let applied = false;
+                    const siteKey = `${method.getSignature().toString()}|local:${localName}`;
+                    if (!canApplyRuleAtSite(rule, siteKey)) continue;
                     for (const fact of localFacts) {
-                        pushFact(fact, `${method.getName()}:${localName}`, rule.id);
+                        if (pushFact(fact, `${method.getName()}:${localName}`, rule.id)) {
+                            applied = true;
+                        }
+                    }
+                    if (applied) {
+                        markRuleAppliedAtSite(rule, siteKey);
                     }
                 }
                 continue;
@@ -91,9 +137,119 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
                     if (!targetValue) continue;
 
                     const callFacts = seedFactsFromValue(args.pag, targetValue, sourceTag, args.emptyContextId, target.path);
+                    let applied = false;
+                    const line = stmt.getOriginPositionInfo?.().getLineNo?.() ?? -1;
+                    const siteKey = `${method.getSignature().toString()}|call:${calleeSignature}|line:${line}`;
+                    if (!canApplyRuleAtSite(rule, siteKey)) continue;
                     for (const fact of callFacts) {
+                        if (pushFact(fact, `${method.getName()}:line${line}`, rule.id)) {
+                            applied = true;
+                        }
+                    }
+                    if (applied) {
+                        markRuleAppliedAtSite(rule, siteKey);
+                    }
+                }
+                continue;
+            }
+
+            if (kind === "callback_param") {
+                for (const stmt of cfg.getStmts()) {
+                    if (!stmt.containsInvokeExpr || !stmt.containsInvokeExpr()) continue;
+                    const invokeExpr = stmt.getInvokeExpr();
+                    if (!invokeExpr) continue;
+
+                    const calleeSignature = invokeExpr.getMethodSignature?.().toString?.() || "";
+                    const calleeName = resolveInvokeMethodName(invokeExpr, calleeSignature);
+                    if (!matchesSourceCallRule(rule, calleeSignature, calleeName, invokeExpr)) continue;
+
+                    const callArgs = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
+                    const callbackArgIndexes = resolveCallbackArgIndexes(
+                        rule,
+                        callArgs,
+                        args.scene,
+                        method
+                    );
+                    if (callbackArgIndexes.length === 0) {
+                        continue;
+                    }
+                    const targetParamIndex = resolveCallbackTargetParamIndex(rule);
+                    if (targetParamIndex === undefined) continue;
+
+                    for (const callbackArgIndex of callbackArgIndexes) {
+                        if (callbackArgIndex < 0 || callbackArgIndex >= callArgs.length) continue;
+                        const callbackArg = callArgs[callbackArgIndex];
+                        const callbackMethods = resolveCallbackMethodsFromArg(args.scene, callbackArg, method);
+                        if (callbackMethods.length === 0) continue;
                         const line = stmt.getOriginPositionInfo?.().getLineNo?.() ?? -1;
-                        pushFact(fact, `${method.getName()}:line${line}`, rule.id);
+                        const siteKey = `${method.getSignature().toString()}|callback:${calleeSignature}|line:${line}|cbArg:${callbackArgIndex}`;
+                        if (!canApplyRuleAtSite(rule, siteKey)) continue;
+                        let applied = false;
+
+                        for (const callbackMethod of callbackMethods) {
+                            activatedMethodSignatures.add(callbackMethod.getSignature().toString());
+                            const callbackParams = getParameterLocals(callbackMethod);
+                            const callbackParam = callbackParams.find(p => p.index === targetParamIndex);
+                            if (!callbackParam) continue;
+
+                            const callbackFacts = seedFactsFromValue(
+                                args.pag,
+                                callbackParam.local,
+                                sourceTag,
+                                args.emptyContextId,
+                                target.path
+                            );
+                            for (const fact of callbackFacts) {
+                                if (pushFact(
+                                    fact,
+                                    `${callbackMethod.getName()}:arg${targetParamIndex}@${calleeName || "callback"}#cbArg${callbackArgIndex}`,
+                                    rule.id
+                                )) {
+                                    applied = true;
+                                }
+                            }
+
+                            const aliasFacts = seedLocalAliasFactsInMethod(
+                                args.pag,
+                                callbackMethod,
+                                callbackParam.local,
+                                sourceTag,
+                                args.emptyContextId,
+                                target.path
+                            );
+                            for (const fact of aliasFacts) {
+                                if (pushFact(
+                                    fact,
+                                    `${callbackMethod.getName()}:arg${targetParamIndex}->alias#cbArg${callbackArgIndex}`,
+                                    rule.id
+                                )) {
+                                    applied = true;
+                                }
+                            }
+
+                            const forwardedFacts = seedForwardedCallbackParamFacts(
+                                args.scene,
+                                args.pag,
+                                callbackMethod,
+                                callbackParam.local,
+                                sourceTag,
+                                args.emptyContextId,
+                                target.path,
+                                activatedMethodSignatures
+                            );
+                            for (const fact of forwardedFacts) {
+                                if (pushFact(
+                                    fact,
+                                    `${callbackMethod.getName()}:arg${targetParamIndex}->forward#cbArg${callbackArgIndex}`,
+                                    rule.id
+                                )) {
+                                    applied = true;
+                                }
+                            }
+                        }
+                        if (applied) {
+                            markRuleAppliedAtSite(rule, siteKey);
+                        }
                     }
                 }
                 continue;
@@ -119,8 +275,17 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
                     if (!targetValue) continue;
 
                     const readFacts = seedFactsFromValue(args.pag, targetValue, sourceTag, args.emptyContextId, undefined);
+                    let applied = false;
+                    const line = stmt.getOriginPositionInfo?.().getLineNo?.() ?? -1;
+                    const siteKey = `${method.getSignature().toString()}|field:${fieldSignature}|line:${line}`;
+                    if (!canApplyRuleAtSite(rule, siteKey)) continue;
                     for (const fact of readFacts) {
-                        pushFact(fact, `${method.getName()}:${fieldName}`, rule.id);
+                        if (pushFact(fact, `${method.getName()}:${fieldName}`, rule.id)) {
+                            applied = true;
+                        }
+                    }
+                    if (applied) {
+                        markRuleAppliedAtSite(rule, siteKey);
                     }
                 }
             }
@@ -131,19 +296,60 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
         facts,
         seededLocals: [...seededLocals].sort(),
         sourceRuleHits: toRecord(sourceRuleHits),
+        activatedMethodSignatures: [...activatedMethodSignatures].sort(),
     };
 }
 
-function resolveSourceScopeMethods(scene: Scene, entryMethodName?: string, entryMethodPathHint?: string): ArkMethod[] {
-    const allMethods = scene.getMethods().filter(m => m.getName() !== "%dflt");
+function resolveSourceScopeMethods(
+    scene: Scene,
+    entryMethodName?: string,
+    entryMethodPathHint?: string,
+    allowedMethodSignatures?: Set<string>
+): ArkMethod[] {
+    const allMethods = scene.getMethods();
+    if (allowedMethodSignatures && allowedMethodSignatures.size > 0) {
+        return allMethods.filter(m => allowedMethodSignatures.has(m.getSignature().toString()));
+    }
     if (!entryMethodName) return allMethods;
 
     const candidates = allMethods.filter(m => m.getName() === entryMethodName);
-    if (!entryMethodPathHint) return candidates;
+    const selected = (!entryMethodPathHint
+        ? candidates
+        : (() => {
+            const normalizedHint = entryMethodPathHint.replace(/\\/g, "/");
+            const hinted = candidates.filter(m => m.getSignature().toString().includes(normalizedHint));
+            return hinted.length > 0 ? hinted : candidates;
+        })());
+    if (selected.length === 0) return selected;
 
-    const normalizedHint = entryMethodPathHint.replace(/\\/g, "/");
-    const hinted = candidates.filter(m => m.getSignature().toString().includes(normalizedHint));
-    return hinted.length > 0 ? hinted : candidates;
+    const entryFiles = new Set<string>();
+    for (const method of selected) {
+        const file = extractArkFileFromSignature(method.getSignature().toString());
+        if (file.length > 0) entryFiles.add(file);
+    }
+    if (entryFiles.size === 0) return selected;
+
+    const sameFileDefaults = allMethods.filter(m => {
+        if (m.getName() !== "%dflt") return false;
+        const file = extractArkFileFromSignature(m.getSignature().toString());
+        return file.length > 0 && entryFiles.has(file);
+    });
+    if (sameFileDefaults.length === 0) return selected;
+
+    const merged = new Map<string, ArkMethod>();
+    for (const method of selected) {
+        merged.set(method.getSignature().toString(), method);
+    }
+    for (const method of sameFileDefaults) {
+        merged.set(method.getSignature().toString(), method);
+    }
+    return [...merged.values()];
+}
+
+function extractArkFileFromSignature(signature: string): string {
+    const m = signature.match(/@([^:]+):/);
+    if (!m) return "";
+    return m[1].replace(/\\/g, "/");
 }
 
 function getParameterLocals(method: ArkMethod): Array<{ index: number; local: Local }> {
@@ -184,6 +390,7 @@ function resolveSourceRuleTarget(
         || (kind === "entry_param" ? "arg0"
             : kind === "call_return" ? "result"
                 : kind === "call_arg" ? "arg0"
+                    : kind === "callback_param" ? "arg0"
                     : kind === "field_read" ? "result"
                         : undefined);
     return {
@@ -371,6 +578,149 @@ function resolveInvokeTargetValue(stmt: any, invokeExpr: any, endpoint?: RuleEnd
     return args[idx];
 }
 
+function resolveCallbackTargetParamIndex(rule: SourceRule): number | undefined {
+    const endpoint = rule.targetRef?.endpoint || rule.target || "arg0";
+    if (typeof endpoint !== "string") return undefined;
+    const m = /^arg(\d+)$/.exec(endpoint);
+    if (!m) return undefined;
+    return Number(m[1]);
+}
+
+function resolveCallbackArgIndexes(
+    rule: SourceRule,
+    callArgs: any[],
+    scene: Scene,
+    callerMethod?: ArkMethod
+): number[] {
+    const explicit = normalizeCallbackArgIndexes(rule, callArgs.length);
+    if (explicit.length > 0) return explicit;
+
+    const inferred: number[] = [];
+    for (let i = 0; i < callArgs.length; i++) {
+        const arg = callArgs[i];
+        if (!isLikelyCallableArgValue(arg)) continue;
+        const callbackMethods = resolveCallbackMethodsFromArg(scene, arg, callerMethod);
+        if (callbackMethods.length > 0) {
+            inferred.push(i);
+        }
+    }
+    return inferred;
+}
+
+function normalizeCallbackArgIndexes(rule: SourceRule, argCount: number): number[] {
+    const result = new Set<number>();
+    if (Array.isArray(rule.callbackArgIndexes)) {
+        for (const idx of rule.callbackArgIndexes) {
+            if (!Number.isInteger(idx) || idx < 0 || idx >= argCount) continue;
+            result.add(idx);
+        }
+    }
+    if (result.size === 0 && Number.isInteger(rule.callbackArgIndex) && (rule.callbackArgIndex as number) >= 0) {
+        const idx = rule.callbackArgIndex as number;
+        if (idx < argCount) result.add(idx);
+    }
+    return [...result.values()].sort((a, b) => a - b);
+}
+
+function isLikelyCallableArgValue(value: any): boolean {
+    if (!value) return false;
+    const text = String(value?.toString?.() || "");
+    if (text.startsWith("%AM") || text.startsWith("%AC")) return true;
+    const lower = text.toLowerCase();
+    if (lower.includes("callback") || lower.includes("handler") || lower.includes("listener")) return true;
+    const typeText = String(value?.getType?.()?.toString?.() || "").toLowerCase();
+    if (typeText.includes("function") || typeText.includes("callable") || typeText.includes("=>")) return true;
+    return false;
+}
+
+function resolveCallbackMethodsFromArg(scene: Scene, callbackArg: any, callerMethod?: ArkMethod): ArkMethod[] {
+    const out = new Map<string, ArkMethod>();
+    const candidateNames = new Set<string>();
+    const visitingLocals = new Set<string>();
+    const callerSig = callerMethod?.getSignature?.().toString?.() || "";
+    const callerFilePath = callerSig ? extractFilePathFromSignature(callerSig) : "";
+    const callerClassName = callerMethod?.getDeclaringArkClass?.()?.getName?.() || "";
+
+    const addMethodLikeNames = (text: string): void => {
+        if (!text) return;
+        if (/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(text)) {
+            candidateNames.add(text);
+        }
+        const amMatches = text.match(/%AM\d+\$[A-Za-z0-9_]+/g) || [];
+        for (const m of amMatches) {
+            candidateNames.add(m);
+        }
+        const methodSigMatches = text.matchAll(/\.([A-Za-z0-9_$]+)\(/g);
+        for (const m of methodSigMatches) {
+            if (m[1]) candidateNames.add(m[1]);
+        }
+        const tailMember = text.match(/\.([A-Za-z0-9_$]+)$/);
+        if (tailMember && tailMember[1]) {
+            candidateNames.add(tailMember[1]);
+        }
+    };
+
+    const collectFromValue = (value: any): void => {
+        if (!value) return;
+        addMethodLikeNames(value?.toString?.() || "");
+
+        if (!(value instanceof Local)) return;
+        const localName = value.getName();
+        candidateNames.add(localName);
+        if (visitingLocals.has(localName)) return;
+        visitingLocals.add(localName);
+
+        const declStmt = value.getDeclaringStmt?.();
+        if (!(declStmt instanceof ArkAssignStmt) || declStmt.getLeftOp() !== value) return;
+        const rightOp: any = declStmt.getRightOp?.();
+        if (rightOp instanceof Local) {
+            collectFromValue(rightOp);
+            return;
+        }
+        if (rightOp instanceof ArkInstanceFieldRef) {
+            const fieldName = rightOp.getFieldSignature?.().getFieldName?.() || "";
+            if (fieldName) candidateNames.add(fieldName);
+            addMethodLikeNames(rightOp.getFieldSignature?.().toString?.() || "");
+            return;
+        }
+        addMethodLikeNames(rightOp?.toString?.() || "");
+    };
+
+    collectFromValue(callbackArg);
+
+    const methodsByName = new Map<string, ArkMethod[]>();
+    for (const method of scene.getMethods()) {
+        const methodName = method.getName();
+        if (!candidateNames.has(methodName)) continue;
+        if (!methodsByName.has(methodName)) methodsByName.set(methodName, []);
+        methodsByName.get(methodName)!.push(method);
+    }
+
+    for (const [name, methods] of methodsByName.entries()) {
+        if (methods.length <= 1) {
+            out.set(methods[0].getSignature().toString(), methods[0]);
+            continue;
+        }
+
+        const sameFile = callerFilePath
+            ? methods.filter(m => extractFilePathFromSignature(m.getSignature().toString()) === callerFilePath)
+            : [];
+        const sameClass = callerClassName
+            ? methods.filter(m => (m.getDeclaringArkClass?.()?.getName?.() || "") === callerClassName)
+            : [];
+
+        const scoped = sameFile.length > 0
+            ? sameFile
+            : (sameClass.length > 0 ? sameClass : methods);
+
+        for (const method of scoped) {
+            out.set(method.getSignature().toString(), method);
+        }
+    }
+
+    return [...out.values()];
+}
+
 function resolveFieldReadTargetValue(
     stmt: ArkAssignStmt,
     fieldRef: ArkInstanceFieldRef,
@@ -400,7 +750,15 @@ function seedFactsFromValue(
         out.push(fact);
     };
 
-    const pagNodes = pag.getNodesByValue(value);
+    let pagNodes = pag.getNodesByValue(value);
+    if ((!pagNodes || pagNodes.size === 0) && value instanceof Local) {
+        try {
+            pag.getOrNewNode(contextId, value, value.getDeclaringStmt?.() || undefined);
+            pagNodes = pag.getNodesByValue(value);
+        } catch {
+            pagNodes = undefined;
+        }
+    }
     if (!pagNodes || pagNodes.size === 0) return out;
 
     if (targetPath && targetPath.length > 0) {
@@ -421,6 +779,123 @@ function seedFactsFromValue(
     for (const nodeId of pagNodes.values()) {
         add(new TaintFact(pag.getNode(nodeId) as any, sourceTag, contextId));
     }
+    return out;
+}
+
+function seedForwardedCallbackParamFacts(
+    scene: Scene,
+    pag: Pag,
+    callbackMethod: ArkMethod,
+    callbackParamLocal: Local,
+    sourceTag: string,
+    contextId: number,
+    targetPath?: string[],
+    activatedMethodSignatures?: Set<string>
+): TaintFact[] {
+    const out: TaintFact[] = [];
+    const seen = new Set<string>();
+    const add = (fact: TaintFact): void => {
+        if (seen.has(fact.id)) return;
+        seen.add(fact.id);
+        out.push(fact);
+    };
+
+    const cfg = callbackMethod.getCfg();
+    if (!cfg) return out;
+    const aliasNames = collectAliasLocalNames(cfg.getStmts(), callbackParamLocal);
+    aliasNames.add(callbackParamLocal.getName());
+
+    for (const stmt of cfg.getStmts()) {
+        if (!stmt.containsInvokeExpr || !stmt.containsInvokeExpr()) continue;
+        const invokeExpr = stmt.getInvokeExpr();
+        if (!invokeExpr) continue;
+
+        const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
+        if (!args || args.length === 0) continue;
+
+        const calleeSig = invokeExpr.getMethodSignature?.().toString?.() || "";
+        if (!calleeSig) continue;
+        const calleeMethod = scene.getMethods().find(m => m.getSignature().toString() === calleeSig);
+        if (!calleeMethod) continue;
+        activatedMethodSignatures?.add(calleeMethod.getSignature().toString());
+        const calleeParams = getParameterLocals(calleeMethod);
+        if (calleeParams.length === 0) continue;
+
+        for (let idx = 0; idx < args.length; idx++) {
+            const arg = args[idx];
+            if (!(arg instanceof Local)) continue;
+            if (!aliasNames.has(arg.getName())) continue;
+
+            const targetParam = calleeParams.find(p => p.index === idx);
+            if (!targetParam) continue;
+            const facts = seedFactsFromValue(pag, targetParam.local, sourceTag, contextId, targetPath);
+            for (const fact of facts) add(fact);
+            const aliasFacts = seedLocalAliasFactsInMethod(
+                pag,
+                calleeMethod,
+                targetParam.local,
+                sourceTag,
+                contextId,
+                targetPath
+            );
+            for (const fact of aliasFacts) add(fact);
+        }
+    }
+
+    return out;
+}
+
+function collectAliasLocalNames(stmts: any[], seedLocal: Local): Set<string> {
+    const aliases = new Set<string>([seedLocal.getName()]);
+    let changed = true;
+    while (changed) {
+        changed = false;
+        for (const stmt of stmts) {
+            if (!(stmt instanceof ArkAssignStmt)) continue;
+            const left = stmt.getLeftOp();
+            const right = stmt.getRightOp();
+            if (!(left instanceof Local) || !(right instanceof Local)) continue;
+            if (!aliases.has(right.getName())) continue;
+            if (aliases.has(left.getName())) continue;
+            aliases.add(left.getName());
+            changed = true;
+        }
+    }
+    return aliases;
+}
+
+function seedLocalAliasFactsInMethod(
+    pag: Pag,
+    method: ArkMethod,
+    seedLocal: Local,
+    sourceTag: string,
+    contextId: number,
+    targetPath?: string[]
+): TaintFact[] {
+    const out: TaintFact[] = [];
+    const seen = new Set<string>();
+    const add = (fact: TaintFact): void => {
+        if (seen.has(fact.id)) return;
+        seen.add(fact.id);
+        out.push(fact);
+    };
+
+    const cfg = method.getCfg();
+    const body = method.getBody();
+    if (!cfg || !body) return out;
+
+    const aliasNames = collectAliasLocalNames(cfg.getStmts(), seedLocal);
+    aliasNames.delete(seedLocal.getName());
+    if (aliasNames.size === 0) return out;
+
+    const locals = [...body.getLocals().values()];
+    for (const aliasName of aliasNames) {
+        const local = locals.find(l => l.getName() === aliasName);
+        if (!local) continue;
+        const facts = seedFactsFromValue(pag, local, sourceTag, contextId, targetPath);
+        for (const fact of facts) add(fact);
+    }
+
     return out;
 }
 
