@@ -1,4 +1,4 @@
-import { Scene } from "../../arkanalyzer/out/src/Scene";
+﻿import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
 import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
 import { loadRuleSet } from "../core/rules/RuleLoader";
@@ -24,7 +24,12 @@ import {
 import { ensureArktanRunnerScript, runArktanScenarioRound } from "./helpers/ArktanRunnerBridge";
 import { buildTransferCompareDecision, renderTransferCompareMarkdown } from "./helpers/TransferCompareReport";
 
-function parseArgs(argv: string[]): CliOptions {
+interface ParsedArgs {
+    options: CliOptions;
+    scenarioManifestPath?: string;
+}
+
+function parseArgs(argv: string[]): ParsedArgs {
     let rounds = 5;
     let k = 1;
     let outputDir = "tmp/phase55";
@@ -32,6 +37,7 @@ function parseArgs(argv: string[]): CliOptions {
     let arktanRoot = "../Arktan";
     let runStability = false;
     let arktaintEnableProfile = true;
+    let scenarioManifestPath: string | undefined;
 
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
@@ -83,6 +89,14 @@ function parseArgs(argv: string[]): CliOptions {
             arktaintEnableProfile = false;
             continue;
         }
+        if (arg === "--scenarioManifest" && i + 1 < argv.length) {
+            scenarioManifestPath = argv[++i];
+            continue;
+        }
+        if (arg.startsWith("--scenarioManifest=")) {
+            scenarioManifestPath = arg.slice("--scenarioManifest=".length);
+            continue;
+        }
     }
 
     if (!Number.isFinite(rounds) || rounds <= 0) {
@@ -93,14 +107,41 @@ function parseArgs(argv: string[]): CliOptions {
     }
 
     return {
-        rounds: Math.floor(rounds),
-        k,
-        outputDir: path.resolve(outputDir),
-        defaultRulePath: path.resolve(defaultRulePath),
-        arktanRoot: path.resolve(arktanRoot),
-        runStability,
-        arktaintEnableProfile,
+        options: {
+            rounds: Math.floor(rounds),
+            k,
+            outputDir: path.resolve(outputDir),
+            defaultRulePath: path.resolve(defaultRulePath),
+            arktanRoot: path.resolve(arktanRoot),
+            runStability,
+            arktaintEnableProfile,
+        },
+        scenarioManifestPath: scenarioManifestPath ? path.resolve(scenarioManifestPath) : undefined,
     };
+}
+
+function loadScenarioConfigs(manifestPath?: string): ScenarioConfig[] {
+    if (!manifestPath) return DEFAULT_TRANSFER_COMPARE_SCENARIOS;
+    if (!fs.existsSync(manifestPath)) {
+        throw new Error(`scenario manifest not found: ${manifestPath}`);
+    }
+    const raw = fs.readFileSync(manifestPath, "utf-8").replace(/^\uFEFF/, "");
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+        throw new Error(`scenario manifest must be a non-empty array: ${manifestPath}`);
+    }
+
+    const out: ScenarioConfig[] = [];
+    for (const item of parsed) {
+        const id = typeof item?.id === "string" ? item.id.trim() : "";
+        const sourceDir = typeof item?.sourceDir === "string" ? item.sourceDir.trim() : "";
+        const projectRulePath = typeof item?.projectRulePath === "string" ? item.projectRulePath.trim() : "";
+        if (!id || !sourceDir || !projectRulePath) {
+            throw new Error(`invalid scenario item in manifest: ${manifestPath}`);
+        }
+        out.push({ id, sourceDir, projectRulePath });
+    }
+    return out;
 }
 
 function median(nums: number[]): number {
@@ -125,8 +166,8 @@ function expectedFromCaseName(caseName: string): boolean {
     return caseName.endsWith("_T");
 }
 
-function flowSinkInEntryMethod(scene: Scene, sinkStmt: any, entryMethodName: string): boolean {
-    const method = scene.getMethods().find(m => m.getName() === entryMethodName);
+function flowSinkInCaseMethod(scene: Scene, sinkStmt: any, caseMethodName: string): boolean {
+    const method = scene.getMethods().find(m => m.getName() === caseMethodName);
     if (!method) return false;
     const cfg = method.getCfg();
     if (!cfg) return false;
@@ -250,10 +291,10 @@ async function runArkTaintTool(
                     debug: { enableWorklistProfile: options.arktaintEnableProfile },
                 });
                 engine.verbose = false;
-                await engine.buildPAG(caseName);
-                engine.propagateWithSourceRules(scenario.sourceRules, { entryMethodName: caseName });
+                await engine.buildPAG();
+                engine.propagateWithSourceRules(scenario.sourceRules);
                 const flows = engine.detectSinksByRules(scenario.sinkRules)
-                    .filter(flow => flowSinkInEntryMethod(scenario.scene, flow.sink, caseName));
+                    .filter(flow => flowSinkInCaseMethod(scenario.scene, flow.sink, caseName));
                 const detected = flows.length > 0;
                 const old = detections.get(caseName);
                 if (old === undefined) {
@@ -434,7 +475,8 @@ function runStabilityChecks(options: CliOptions): StabilityCheck[] {
 }
 
 async function main(): Promise<void> {
-    const options = parseArgs(process.argv.slice(2));
+    const parsed = parseArgs(process.argv.slice(2));
+    const options = parsed.options;
     if (!fs.existsSync(options.defaultRulePath)) {
         throw new Error(`default rule path not found: ${options.defaultRulePath}`);
     }
@@ -446,7 +488,8 @@ async function main(): Promise<void> {
     }
 
     fs.mkdirSync(options.outputDir, { recursive: true });
-    const scenarios = DEFAULT_TRANSFER_COMPARE_SCENARIOS.map(cfg => loadScenario(cfg, options));
+    const scenarioConfigs = loadScenarioConfigs(parsed.scenarioManifestPath);
+    const scenarios = scenarioConfigs.map(cfg => loadScenario(cfg, options));
 
     const arktaintReport = await runArkTaintTool(scenarios, options);
     const arktanReport = await runArktanTool(scenarios, options);
@@ -538,6 +581,9 @@ async function main(): Promise<void> {
     console.log("====== Transfer Compare (ArkTaint vs Arktan) ======");
     console.log(`rounds=${options.rounds}`);
     console.log(`k=${options.k}`);
+    if (parsed.scenarioManifestPath) {
+        console.log(`scenario_manifest=${parsed.scenarioManifestPath}`);
+    }
     console.log(`arktaint_fp=${arktaintReport.fp}`);
     console.log(`arktaint_fn=${arktaintReport.fn}`);
     console.log(`arktan_fp=${arktanReport.fp}`);
@@ -563,3 +609,4 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+

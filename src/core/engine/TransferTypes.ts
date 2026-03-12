@@ -1,4 +1,5 @@
-import { ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../arkanalyzer/out/src/core/base/Expr";
+import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../../arkanalyzer/out/src/core/base/Expr";
+import { Local } from "../../../arkanalyzer/out/src/core/base/Local";
 import { TaintFact } from "../TaintFact";
 import type {
     RuleEndpoint,
@@ -36,6 +37,16 @@ export interface TransferExecutionStats {
     dedupSkipCount: number;
     resultCount: number;
     elapsedMs: number;
+    noCandidateCallsites: TransferNoCandidateCallsite[];
+}
+
+export interface TransferNoCandidateCallsite {
+    calleeSignature: string;
+    method: string;
+    invokeKind: RuleInvokeKind;
+    argCount: number;
+    sourceFile: string;
+    count: number;
 }
 
 export interface MethodEntityIndex {
@@ -51,7 +62,7 @@ export interface EndpointDescriptor {
 
 export interface InvokeSite {
     stmt: any;
-    invokeExpr: ArkInstanceInvokeExpr | ArkStaticInvokeExpr;
+    invokeExpr: ArkInstanceInvokeExpr | ArkStaticInvokeExpr | ArkPtrInvokeExpr;
     signature: string;
     methodName: string;
     calleeSignature: string;
@@ -59,6 +70,11 @@ export interface InvokeSite {
     calleeFilePath: string;
     calleeClassText: string;
     calleeClassName: string;
+    candidateSignatures?: string[];
+    candidateMethodNames?: string[];
+    candidateClassTexts?: string[];
+    candidateClassNames?: string[];
+    candidateFilePaths?: string[];
     baseValue?: any;
     resultValue?: any;
     args: any[];
@@ -75,6 +91,7 @@ export interface SharedSceneRuleCache {
     stmtOwner: Map<any, any>;
     invokeSiteByStmt: Map<any, InvokeSite>;
     siteRuleCandidateIndex: Map<any, RuntimeRule[]>;
+    paramArgAliasMap: Map<Local, any[]>;
 }
 
 export interface SceneRuleCacheStats {

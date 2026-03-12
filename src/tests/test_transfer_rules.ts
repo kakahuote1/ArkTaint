@@ -76,10 +76,10 @@ function listTestCases(sourceDir: string): string[] {
     return files;
 }
 
-function findEntryMethod(scene: Scene, entryName: string): any {
-    const method = scene.getMethods().find(m => m.getName() === entryName);
+function findCaseMethod(scene: Scene, caseMethodName: string): any {
+    const method = scene.getMethods().find(m => m.getName() === caseMethodName);
     if (!method) {
-        throw new Error(`Entry method not found: ${entryName}`);
+        throw new Error(`Case method not found: ${caseMethodName}`);
     }
     return method;
 }
@@ -124,9 +124,9 @@ async function detectFlowForCase(
 ): Promise<boolean> {
     const engine = new TaintPropagationEngine(scene, k, { transferRules });
     engine.verbose = false;
-    await engine.buildPAG(caseName);
+    await engine.buildPAG();
 
-    const entryMethod = findEntryMethod(scene, caseName);
+    const entryMethod = findCaseMethod(scene, caseName);
     const seeds = collectSeedNodes(engine, entryMethod);
     if (seeds.length === 0) {
         throw new Error(`No taint_src parameter seeds found for case: ${caseName}`);
@@ -234,3 +234,4 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+

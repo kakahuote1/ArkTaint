@@ -1,4 +1,7 @@
-import type { TransferExecutionStats } from "./ConfigBasedTransferExecutor";
+import type {
+    TransferExecutionStats,
+    TransferNoCandidateCallsite,
+} from "./ConfigBasedTransferExecutor";
 
 export interface TransferProfileSnapshot {
     factCount: number;
@@ -11,6 +14,7 @@ export interface TransferProfileSnapshot {
     resultCount: number;
     elapsedMs: number;
     elapsedShare: number;
+    noCandidateCallsites: TransferNoCandidateCallsite[];
 }
 
 export interface WorklistProfileSnapshot {
@@ -52,6 +56,7 @@ export class WorklistProfiler {
     private transferDedupSkipCount = 0;
     private transferResultCount = 0;
     private transferElapsedMs = 0;
+    private readonly transferNoCandidateCallsiteMap = new Map<string, TransferNoCandidateCallsite>();
 
     public onQueueSize(queueSize: number): void {
         if (queueSize > this.maxQueueSize) {
@@ -93,6 +98,15 @@ export class WorklistProfiler {
         this.transferDedupSkipCount += stats.dedupSkipCount;
         this.transferResultCount += stats.resultCount;
         this.transferElapsedMs += stats.elapsedMs;
+        for (const site of stats.noCandidateCallsites || []) {
+            const key = `${site.calleeSignature}|${site.method}|${site.invokeKind}|${site.argCount}|${site.sourceFile}`;
+            const existing = this.transferNoCandidateCallsiteMap.get(key);
+            if (existing) {
+                existing.count += site.count;
+            } else {
+                this.transferNoCandidateCallsiteMap.set(key, { ...site });
+            }
+        }
     }
 
     public snapshot(): WorklistProfileSnapshot {
@@ -112,6 +126,9 @@ export class WorklistProfiler {
         const elapsedShare = elapsedMs > 0
             ? Number((this.transferElapsedMs / elapsedMs).toFixed(6))
             : 0;
+        const noCandidateCallsites = [...this.transferNoCandidateCallsiteMap.values()]
+            .sort((a, b) => b.count - a.count || a.calleeSignature.localeCompare(b.calleeSignature))
+            .slice(0, 200);
 
         return {
             elapsedMs,
@@ -132,6 +149,7 @@ export class WorklistProfiler {
                 resultCount: this.transferResultCount,
                 elapsedMs: this.transferElapsedMs,
                 elapsedShare,
+                noCandidateCallsites,
             },
         };
     }

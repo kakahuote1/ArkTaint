@@ -64,7 +64,7 @@ async function runTest() {
 
             // Assume the function name matches the filename (senior's convention)
             // e.g. constructor_field_001_T.ets -> function constructor_field_001_T()
-            await localEngine.buildPAG(testName);
+            await localEngine.buildPAG();
 
             // Source: Taint the arguments of the entry function
             // We need to find the MethodSignature of the entry function

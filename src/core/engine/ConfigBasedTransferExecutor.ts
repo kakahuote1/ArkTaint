@@ -6,6 +6,12 @@ import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "..
 import { TaintFact } from "../TaintFact";
 import { TaintTracker } from "../TaintTracker";
 import {
+    collectParameterAssignStmts,
+    mapInvokeArgsToParamAssigns,
+    resolveCalleeCandidates,
+    resolveMethodsFromCallable,
+} from "./CalleeResolver";
+import {
     RuleEndpoint,
     RuleScopeConstraint,
     RuleStringConstraint,
@@ -19,6 +25,7 @@ import type {
     RuntimeRule,
     RuntimeRuleBucketIndex,
     SceneRuleCacheStats,
+    TransferNoCandidateCallsite,
     SharedSceneRuleCache,
     TransferExecutionResult,
     TransferExecutionStats,
@@ -33,6 +40,7 @@ export type {
     RuntimeRule,
     RuntimeRuleBucketIndex,
     SceneRuleCacheStats,
+    TransferNoCandidateCallsite,
     SharedSceneRuleCache,
     TransferExecutionResult,
     TransferExecutionStats,
@@ -56,6 +64,8 @@ export class ConfigBasedTransferExecutor {
     private readonly ruleExecutionDedupCache = new Set<string>();
     private readonly stmtRuntimeKeyId = new WeakMap<object, number>();
     private stmtRuntimeKeySeq = 1;
+    private readonly scene?: Scene;
+    private paramArgAliasMap: Map<Local, any[]>;
 
     public static clearSceneRuleCache(): void {
         ConfigBasedTransferExecutor.sceneRuleCache = new WeakMap<Scene, Map<string, SharedSceneRuleCache>>();
@@ -76,10 +86,12 @@ export class ConfigBasedTransferExecutor {
     }
 
     constructor(rules: TransferRule[] = [], scene?: Scene) {
+        this.scene = scene;
         this.perfMode = this.resolvePerfModeFromEnv();
         this.stmtOwner = new Map<any, any>();
         this.invokeSiteByStmt = new Map<any, InvokeSite>();
         this.siteRuleCandidateIndex = new Map<any, RuntimeRule[]>();
+        this.paramArgAliasMap = new Map<Local, any[]>();
 
         if (scene) {
             const cacheEnabled = this.isSceneRuleCacheEnabled();
@@ -93,6 +105,7 @@ export class ConfigBasedTransferExecutor {
                     this.stmtOwner = shared.stmtOwner;
                     this.invokeSiteByStmt = shared.invokeSiteByStmt;
                     this.siteRuleCandidateIndex = shared.siteRuleCandidateIndex;
+                    this.paramArgAliasMap = shared.paramArgAliasMap || new Map<Local, any[]>();
                     return;
                 }
                 ConfigBasedTransferExecutor.sceneRuleCacheStats.missCount++;
@@ -114,6 +127,7 @@ export class ConfigBasedTransferExecutor {
                 this.prebuildInvokeSiteIndex();
                 this.prebuildSiteRuleCandidateIndex();
             }
+            this.paramArgAliasMap = this.buildParamArgAliasMap(scene);
 
             if (cacheEnabled) {
                 this.setSharedSceneRuleCache(scene, cacheKey, {
@@ -122,6 +136,7 @@ export class ConfigBasedTransferExecutor {
                     stmtOwner: this.stmtOwner,
                     invokeSiteByStmt: this.invokeSiteByStmt,
                     siteRuleCandidateIndex: this.siteRuleCandidateIndex,
+                    paramArgAliasMap: this.paramArgAliasMap,
                 });
             }
             return;
@@ -144,6 +159,50 @@ export class ConfigBasedTransferExecutor {
             ConfigBasedTransferExecutor.sceneRuleCache.set(scene, sceneMap);
         }
         sceneMap.set(key, cache);
+    }
+
+    private buildParamArgAliasMap(scene: Scene): Map<Local, any[]> {
+        const aliasSets = new Map<Local, Set<any>>();
+        const methodsBySignature = new Map<string, any>();
+        for (const method of scene.getMethods()) {
+            const sig = method.getSignature?.()?.toString?.();
+            if (!sig) continue;
+            methodsBySignature.set(sig, method);
+        }
+
+        for (const caller of scene.getMethods()) {
+            const cfg = caller.getCfg?.();
+            if (!cfg) continue;
+            for (const stmt of cfg.getStmts()) {
+                if (!stmt?.containsInvokeExpr || !stmt.containsInvokeExpr()) continue;
+                const invokeExpr = stmt.getInvokeExpr?.();
+                if (!invokeExpr) continue;
+                const calleeSig = invokeExpr.getMethodSignature?.()?.toString?.() || "";
+                if (!calleeSig) continue;
+                const callee = methodsBySignature.get(calleeSig);
+                if (!callee) continue;
+                const paramStmts = collectParameterAssignStmts(callee);
+                if (paramStmts.length === 0) continue;
+                const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
+                const argParamPairs = mapInvokeArgsToParamAssigns(invokeExpr, args, paramStmts);
+                for (const pair of argParamPairs) {
+                    const leftOp = pair.paramStmt.getLeftOp?.();
+                    if (!(leftOp instanceof Local)) continue;
+                    let values = aliasSets.get(leftOp);
+                    if (!values) {
+                        values = new Set<any>();
+                        aliasSets.set(leftOp, values);
+                    }
+                    values.add(pair.arg);
+                }
+            }
+        }
+
+        const aliasMap = new Map<Local, any[]>();
+        for (const [local, values] of aliasSets.entries()) {
+            aliasMap.set(local, [...values]);
+        }
+        return aliasMap;
     }
 
     private buildSceneRuleCacheKey(rules: TransferRule[]): string {
@@ -210,8 +269,26 @@ export class ConfigBasedTransferExecutor {
 
         const results: TransferExecutionResult[] = [];
         const seenResultFacts = new Set<string>();
+        const noCandidateCallsiteMap = new Map<string, TransferNoCandidateCallsite>();
         for (const site of sites) {
             const candidateRules = this.resolveCandidateRulesForSite(site);
+            if (candidateRules.length === 0) {
+                const argCount = site.args.length;
+                const key = `${site.signature}|${site.methodName}|${site.invokeKind}|${argCount}|${site.calleeFilePath}`;
+                const existing = noCandidateCallsiteMap.get(key);
+                if (existing) {
+                    existing.count += 1;
+                } else {
+                    noCandidateCallsiteMap.set(key, {
+                        calleeSignature: site.signature,
+                        method: site.methodName,
+                        invokeKind: site.invokeKind,
+                        argCount,
+                        sourceFile: site.calleeFilePath,
+                        count: 1,
+                    });
+                }
+            }
             for (const runtimeRule of candidateRules) {
                 stats.ruleCheckCount++;
 
@@ -254,6 +331,9 @@ export class ConfigBasedTransferExecutor {
         }
 
         stats.resultCount = results.length;
+        stats.noCandidateCallsites = [...noCandidateCallsiteMap.values()]
+            .sort((a, b) => b.count - a.count || a.calleeSignature.localeCompare(b.calleeSignature))
+            .slice(0, 64);
         stats.elapsedMs = this.elapsedMsSince(t0);
         return { results, stats };
     }
@@ -396,18 +476,25 @@ export class ConfigBasedTransferExecutor {
     private buildInvokeSite(stmt: any): InvokeSite | undefined {
         if (!stmt || !stmt.containsInvokeExpr || !stmt.containsInvokeExpr()) return undefined;
         const invokeExpr = stmt.getInvokeExpr();
-        if (!(invokeExpr instanceof ArkInstanceInvokeExpr) && !(invokeExpr instanceof ArkStaticInvokeExpr)) return undefined;
+        if (!(invokeExpr instanceof ArkInstanceInvokeExpr)
+            && !(invokeExpr instanceof ArkStaticInvokeExpr)
+            && !(invokeExpr instanceof ArkPtrInvokeExpr)) return undefined;
 
-        const signature = invokeExpr.getMethodSignature?.()?.toString?.() || "";
+        const rawSignature = invokeExpr.getMethodSignature?.()?.toString?.() || "";
         const methodNameFromSig = invokeExpr.getMethodSignature?.()?.getMethodSubSignature?.()?.getMethodName?.() || "";
         let methodName = methodNameFromSig;
-        if (!methodName && signature) {
-            const match = signature.match(/\.([A-Za-z0-9_$]+)\(/);
+        if (!methodName && rawSignature) {
+            const match = rawSignature.match(/\.([A-Za-z0-9_$]+)\(/);
             methodName = match ? match[1] : "";
         }
+        const resolvedCalleeMeta = this.resolveStructuralCalleeMetadata(invokeExpr);
+        const signature = this.selectPrimaryInvokeText(rawSignature, resolvedCalleeMeta.signatures);
+        methodName = this.selectPrimaryInvokeText(methodName, resolvedCalleeMeta.methodNames);
 
         const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
-        const baseValue = invokeExpr instanceof ArkInstanceInvokeExpr ? invokeExpr.getBase() : undefined;
+        const baseValue = (invokeExpr instanceof ArkInstanceInvokeExpr || invokeExpr instanceof ArkPtrInvokeExpr)
+            ? (invokeExpr as any).getBase?.()
+            : undefined;
         const resultValue = stmt instanceof ArkAssignStmt ? stmt.getLeftOp() : undefined;
 
         const owner = this.stmtOwner.get(stmt);
@@ -415,6 +502,14 @@ export class ConfigBasedTransferExecutor {
         const callerSignature = owner?.getSignature?.()?.toString?.() || "";
         const callerFilePath = this.extractFilePathFromSignature(callerSignature);
         const callerClassText = owner?.getDeclaringArkClass?.()?.getName?.() || callerSignature;
+        const rawCalleeClassText = invokeExpr.getMethodSignature?.().getDeclaringClassSignature?.()?.toString?.() || signature;
+        const rawCalleeClassName = invokeExpr.getMethodSignature?.().getDeclaringClassSignature?.()?.getClassName?.() || "";
+        const calleeClassText = this.selectPrimaryInvokeText(rawCalleeClassText, resolvedCalleeMeta.classTexts);
+        const calleeClassName = this.selectPrimaryInvokeText(rawCalleeClassName, resolvedCalleeMeta.classNames);
+        const calleeFilePath = this.selectPrimaryInvokeText(
+            this.extractFilePathFromSignature(signature),
+            resolvedCalleeMeta.filePaths
+        );
 
         return {
             stmt,
@@ -423,18 +518,150 @@ export class ConfigBasedTransferExecutor {
             methodName,
             calleeSignature: signature,
             calleeMethodName: methodName,
-            calleeFilePath: this.extractFilePathFromSignature(signature),
-            calleeClassText: invokeExpr.getMethodSignature?.().getDeclaringClassSignature?.()?.toString?.() || signature,
-            calleeClassName: invokeExpr.getMethodSignature?.().getDeclaringClassSignature?.()?.getClassName?.() || "",
+            calleeFilePath,
+            calleeClassText,
+            calleeClassName,
+            candidateSignatures: resolvedCalleeMeta.signatures,
+            candidateMethodNames: resolvedCalleeMeta.methodNames,
+            candidateClassTexts: resolvedCalleeMeta.classTexts,
+            candidateClassNames: resolvedCalleeMeta.classNames,
+            candidateFilePaths: resolvedCalleeMeta.filePaths,
             baseValue,
             resultValue,
             args,
-            invokeKind: invokeExpr instanceof ArkInstanceInvokeExpr ? "instance" : "static",
+            invokeKind: invokeExpr instanceof ArkStaticInvokeExpr ? "static" : "instance",
             callerMethodName,
             callerSignature,
             callerFilePath,
             callerClassText,
         };
+    }
+
+    private resolveStructuralCalleeMetadata(invokeExpr: any): {
+        signatures: string[];
+        methodNames: string[];
+        classTexts: string[];
+        classNames: string[];
+        filePaths: string[];
+    } {
+        if (!this.isStructuralCalleeResolveEnabled()) {
+            return {
+                signatures: [],
+                methodNames: [],
+                classTexts: [],
+                classNames: [],
+                filePaths: [],
+            };
+        }
+        if (!this.scene) {
+            return {
+                signatures: [],
+                methodNames: [],
+                classTexts: [],
+                classNames: [],
+                filePaths: [],
+            };
+        }
+
+        const shouldResolve = invokeExpr instanceof ArkPtrInvokeExpr;
+        if (!shouldResolve) {
+            return {
+                signatures: [],
+                methodNames: [],
+                classTexts: [],
+                classNames: [],
+                filePaths: [],
+            };
+        }
+
+        try {
+            const methodBySig = new Map<string, any>();
+            const addMethod = (method: any): void => {
+                if (!method) return;
+                const sig = method.getSignature?.()?.toString?.();
+                if (!sig || methodBySig.has(sig)) return;
+                methodBySig.set(sig, method);
+            };
+
+            const directCandidates = resolveCalleeCandidates(this.scene, invokeExpr, {
+                maxNameMatchCandidates: 4,
+            });
+            for (const item of directCandidates) {
+                addMethod(item.method);
+            }
+
+            if (invokeExpr instanceof ArkPtrInvokeExpr) {
+                const callableValue = invokeExpr.getFuncPtrLocal?.();
+                const baseMethods = resolveMethodsFromCallable(this.scene, callableValue, {
+                    maxCandidates: 4,
+                    enableLocalBacktrace: true,
+                });
+                for (const method of baseMethods) {
+                    addMethod(method);
+                }
+
+                if (callableValue instanceof Local) {
+                    const aliasedValues = this.paramArgAliasMap.get(callableValue) || [];
+                    for (const aliasedValue of aliasedValues) {
+                        const aliasedMethods = resolveMethodsFromCallable(this.scene, aliasedValue, {
+                            maxCandidates: 4,
+                            enableLocalBacktrace: true,
+                        });
+                        for (const method of aliasedMethods) {
+                            addMethod(method);
+                        }
+                    }
+                }
+            }
+
+            const resolvedMethods = [...methodBySig.values()];
+            const signatures = this.uniqueTexts(resolvedMethods
+                .map(method => method.getSignature?.()?.toString?.() || ""));
+            const methodNames = this.uniqueTexts([
+                ...directCandidates.map(item => item.method?.getName?.() || ""),
+                ...resolvedMethods.map(method => method.getName?.() || ""),
+            ]);
+            const classTexts = this.uniqueTexts(resolvedMethods
+                .map(method => method.getDeclaringArkClass?.()?.getSignature?.()?.toString?.() || ""));
+            const classNames = this.uniqueTexts(resolvedMethods
+                .map(method => method.getDeclaringArkClass?.()?.getName?.() || ""));
+            const filePaths = this.uniqueTexts(signatures.map(sig => this.extractFilePathFromSignature(sig)));
+            return { signatures, methodNames, classTexts, classNames, filePaths };
+        } catch {
+            return {
+                signatures: [],
+                methodNames: [],
+                classTexts: [],
+                classNames: [],
+                filePaths: [],
+            };
+        }
+    }
+
+    private uniqueTexts(items: string[]): string[] {
+        const out: string[] = [];
+        const seen = new Set<string>();
+        for (const raw of items) {
+            const text = String(raw || "").trim();
+            if (!text || seen.has(text)) continue;
+            seen.add(text);
+            out.push(text);
+        }
+        return out;
+    }
+
+    private isUnknownInvokeSignature(signature: string): boolean {
+        const text = String(signature || "");
+        return !text || text.includes("%unk");
+    }
+
+    private selectPrimaryInvokeText(primary: string, candidates: string[]): string {
+        const normalizedPrimary = String(primary || "").trim();
+        if (normalizedPrimary && !this.isUnknownInvokeSignature(normalizedPrimary)) {
+            return normalizedPrimary;
+        }
+        if (candidates.length > 0) return candidates[0];
+        return normalizedPrimary;
     }
 
     private resolveCandidateRulesForSite(site: InvokeSite): RuntimeRule[] {
@@ -468,6 +695,11 @@ export class ConfigBasedTransferExecutor {
         return raw !== "0" && raw !== "false" && raw !== "off" && raw !== "disable" && raw !== "disabled";
     }
 
+    private isStructuralCalleeResolveEnabled(): boolean {
+        const raw = String(process.env.ARKTAINT_TRANSFER_STRUCTURAL_CALLEE || "").trim().toLowerCase();
+        return raw !== "0" && raw !== "false" && raw !== "off" && raw !== "disable" && raw !== "disabled";
+    }
+
     private elapsedMsSince(t0: bigint): number {
         const dtNs = process.hrtime.bigint() - t0;
         return Number(dtNs) / 1_000_000;
@@ -477,12 +709,42 @@ export class ConfigBasedTransferExecutor {
         const out: RuntimeRule[] = [];
         const seen = new Set<RuntimeRule>();
         this.appendRuntimeRules(out, seen, this.ruleBuckets.universal);
-        this.appendRuntimeRulesByKey(out, seen, this.ruleBuckets.methodNameEquals, site.methodName);
-        this.appendRuntimeRulesByKey(out, seen, this.ruleBuckets.signatureEquals, site.signature);
-        this.appendRuntimeRulesByKey(out, seen, this.ruleBuckets.calleeSignatureEquals, site.calleeSignature);
-        this.appendRuntimeRulesByKey(out, seen, this.ruleBuckets.declaringClassEquals, site.calleeClassText);
-        this.appendRuntimeRulesByKey(out, seen, this.ruleBuckets.declaringClassEquals, site.calleeClassName);
+        this.appendRuntimeRulesByTexts(
+            out,
+            seen,
+            this.ruleBuckets.methodNameEquals,
+            [site.methodName, ...(site.candidateMethodNames || [])]
+        );
+        this.appendRuntimeRulesByTexts(
+            out,
+            seen,
+            this.ruleBuckets.signatureEquals,
+            [site.signature, ...(site.candidateSignatures || [])]
+        );
+        this.appendRuntimeRulesByTexts(
+            out,
+            seen,
+            this.ruleBuckets.calleeSignatureEquals,
+            [site.calleeSignature, ...(site.candidateSignatures || [])]
+        );
+        this.appendRuntimeRulesByTexts(
+            out,
+            seen,
+            this.ruleBuckets.declaringClassEquals,
+            [site.calleeClassText, site.calleeClassName, ...(site.candidateClassTexts || []), ...(site.candidateClassNames || [])]
+        );
         return out;
+    }
+
+    private appendRuntimeRulesByTexts(
+        out: RuntimeRule[],
+        seen: Set<RuntimeRule>,
+        bucket: Map<string, RuntimeRule[]>,
+        texts: string[]
+    ): void {
+        for (const text of this.uniqueTexts(texts)) {
+            this.appendRuntimeRulesByKey(out, seen, bucket, text);
+        }
     }
 
     private appendRuntimeRulesByKey(
@@ -590,40 +852,42 @@ export class ConfigBasedTransferExecutor {
 
     private matchesRuleStatic(runtimeRule: RuntimeRule, site: InvokeSite): boolean {
         const rule = runtimeRule.rule;
+        if (!this.matchesTierCFallbackGate(rule)) return false;
         if (!this.matchesInvokeShape(rule, site)) return false;
         if (!this.matchesScope(rule.scope, site)) return false;
 
         const value = rule.match.value || "";
+        const signatureTexts = this.resolveSignatureTexts(site);
+        const methodNameTexts = this.resolveMethodNameTexts(site);
+        const classTexts = this.resolveDeclaringClassTexts(site);
         switch (rule.match.kind) {
             case "signature_contains":
-                return site.signature.includes(value);
+                return signatureTexts.some(text => text.includes(value));
             case "signature_equals":
-                return this.exactTextMatch(
-                    site.signature,
+                return signatureTexts.some(text => this.exactTextMatch(
+                    text,
                     runtimeRule.exactSignatureMatch,
                     runtimeRule.normalizedMatchValue
-                );
+                ));
             case "signature_regex":
-                return runtimeRule.matchRegex ? runtimeRule.matchRegex.test(site.signature) : false;
+                return runtimeRule.matchRegex ? signatureTexts.some(text => this.regexTest(runtimeRule.matchRegex!, text)) : false;
             case "callee_signature_equals":
-                return this.exactTextMatch(
-                    site.calleeSignature,
+                return signatureTexts.some(text => this.exactTextMatch(
+                    text,
                     runtimeRule.exactCalleeSignatureMatch,
                     runtimeRule.normalizedMatchValue
-                );
+                ));
             case "declaring_class_equals": {
                 if (runtimeRule.exactDeclaringClassMatch) {
-                    if (site.calleeClassText === runtimeRule.exactDeclaringClassMatch) return true;
-                    if (site.calleeClassName === runtimeRule.exactDeclaringClassMatch) return true;
+                    if (classTexts.some(text => text === runtimeRule.exactDeclaringClassMatch)) return true;
                 }
                 const normalized = runtimeRule.normalizedMatchValue || "";
-                return this.normalizeForExactMatch(site.calleeClassText) === normalized
-                    || this.normalizeForExactMatch(site.calleeClassName) === normalized;
+                return classTexts.some(text => this.normalizeForExactMatch(text) === normalized);
             }
             case "method_name_equals":
-                return site.methodName === value;
+                return methodNameTexts.some(name => name === value);
             case "method_name_regex":
-                return runtimeRule.matchRegex ? runtimeRule.matchRegex.test(site.methodName) : false;
+                return runtimeRule.matchRegex ? methodNameTexts.some(name => this.regexTest(runtimeRule.matchRegex!, name)) : false;
             case "local_name_regex":
                 return true;
             default:
@@ -631,16 +895,32 @@ export class ConfigBasedTransferExecutor {
         }
     }
 
+    private matchesTierCFallbackGate(rule: TransferRule): boolean {
+        if (rule.tier !== "C") return true;
+        if (rule.match.kind !== "method_name_equals") return true;
+        const family = typeof rule.family === "string" ? rule.family.trim() : "";
+        if (!family) return false;
+        if (!rule.invokeKind || rule.invokeKind === "any") return false;
+        if (rule.argCount === undefined) return false;
+        if (!this.hasScopeAnchor(rule.scope)) return false;
+        return true;
+    }
+
+    private hasScopeAnchor(scope: RuleScopeConstraint | undefined): boolean {
+        if (!scope) return false;
+        return !!(scope.file || scope.module || scope.className || scope.methodName);
+    }
+
     private matchesLocalNameRegexRule(runtimeRule: RuntimeRule, site: InvokeSite, fact: TaintFact): boolean {
         if (!runtimeRule.matchRegex) return false;
         const factValue = fact.node.getValue();
-        if (factValue instanceof Local && runtimeRule.matchRegex.test(factValue.getName())) {
+        if (factValue instanceof Local && this.regexTest(runtimeRule.matchRegex, factValue.getName())) {
             return true;
         }
         const fromDescriptor = this.resolveFromDescriptor(runtimeRule.rule);
         const endpointValues = this.resolveEndpointValues(fromDescriptor.endpoint, site);
         for (const endpointValue of endpointValues) {
-            if (endpointValue instanceof Local && runtimeRule.matchRegex.test(endpointValue.getName())) {
+            if (endpointValue instanceof Local && this.regexTest(runtimeRule.matchRegex, endpointValue.getName())) {
                 return true;
             }
         }
@@ -669,10 +949,14 @@ export class ConfigBasedTransferExecutor {
 
     private matchesScope(scope: RuleScopeConstraint | undefined, site: InvokeSite): boolean {
         if (!scope) return true;
-        if (!this.matchStringConstraint(scope.file, site.calleeFilePath)) return false;
-        if (!this.matchStringConstraint(scope.module, site.calleeSignature || site.calleeFilePath)) return false;
-        if (!this.matchStringConstraint(scope.className, site.calleeClassText)) return false;
-        if (!this.matchStringConstraint(scope.methodName, site.calleeMethodName)) return false;
+        const fileTexts = this.resolveCalleeFilePathTexts(site);
+        const signatureTexts = this.resolveSignatureTexts(site);
+        const classTexts = this.resolveDeclaringClassTexts(site);
+        const methodTexts = this.resolveMethodNameTexts(site);
+        if (!this.matchConstraintOnAnyText(scope.file, fileTexts)) return false;
+        if (!this.matchConstraintOnAnyText(scope.module, [...signatureTexts, ...fileTexts])) return false;
+        if (!this.matchConstraintOnAnyText(scope.className, classTexts)) return false;
+        if (!this.matchConstraintOnAnyText(scope.methodName, methodTexts)) return false;
         return true;
     }
 
@@ -685,6 +969,34 @@ export class ConfigBasedTransferExecutor {
         } catch {
             return false;
         }
+    }
+
+    private matchConstraintOnAnyText(constraint: RuleStringConstraint | undefined, texts: string[]): boolean {
+        if (!constraint) return true;
+        const uniqueTexts = this.uniqueTexts(texts);
+        if (uniqueTexts.length === 0) return false;
+        return uniqueTexts.some(text => this.matchStringConstraint(constraint, text));
+    }
+
+    private resolveSignatureTexts(site: InvokeSite): string[] {
+        return this.uniqueTexts([site.signature, site.calleeSignature, ...(site.candidateSignatures || [])]);
+    }
+
+    private resolveMethodNameTexts(site: InvokeSite): string[] {
+        return this.uniqueTexts([site.methodName, site.calleeMethodName, ...(site.candidateMethodNames || [])]);
+    }
+
+    private resolveDeclaringClassTexts(site: InvokeSite): string[] {
+        return this.uniqueTexts([
+            site.calleeClassText,
+            site.calleeClassName,
+            ...(site.candidateClassTexts || []),
+            ...(site.candidateClassNames || []),
+        ]);
+    }
+
+    private resolveCalleeFilePathTexts(site: InvokeSite): string[] {
+        return this.uniqueTexts([site.calleeFilePath, ...(site.candidateFilePaths || [])]);
     }
 
     private resolveFromDescriptor(rule: TransferRule): EndpointDescriptor {
@@ -844,6 +1156,7 @@ export class ConfigBasedTransferExecutor {
             dedupSkipCount: 0,
             resultCount: 0,
             elapsedMs: 0,
+            noCandidateCallsites: [],
         };
     }
 
@@ -989,5 +1302,10 @@ export class ConfigBasedTransferExecutor {
         if (exactValue && text === exactValue) return true;
         if (!normalizedFallback) return false;
         return this.normalizeForExactMatch(text) === normalizedFallback;
+    }
+
+    private regexTest(regex: RegExp, text: string): boolean {
+        regex.lastIndex = 0;
+        return regex.test(text);
     }
 }

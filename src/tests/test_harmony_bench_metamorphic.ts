@@ -1,6 +1,6 @@
 import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
-import { PagEntrySpec, TaintPropagationEngine } from "../core/TaintPropagationEngine";
+import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
 import { LoadedRuleSet, loadRuleSet } from "../core/rules/RuleLoader";
 import { TaintFlow } from "../core/TaintFlow";
 import {
@@ -353,8 +353,7 @@ async function runCase(
     scene: Scene,
     caseInfo: HarmonyBenchCase,
     k: number,
-    loadedRules: LoadedRuleSet,
-    prebuiltEntries?: PagEntrySpec[]
+    loadedRules: LoadedRuleSet
 ): Promise<AnalyzeResult> {
     const start = Date.now();
     try {
@@ -362,22 +361,15 @@ async function runCase(
             transferRules: loadedRules.ruleSet.transfers || [],
         });
         engine.verbose = false;
-        if (prebuiltEntries && prebuiltEntries.length > 0) {
-            await engine.buildPAGForEntries(prebuiltEntries);
-        } else {
-            await engine.buildPAG(caseInfo.entry, caseInfo.file);
-        }
+        await engine.buildPAG();
         try {
-            const reachable = engine.computeReachableMethodSignatures(caseInfo.entry, caseInfo.file);
+            const reachable = engine.computeReachableMethodSignatures();
             engine.setActiveReachableMethodSignatures(reachable);
         } catch {
             engine.setActiveReachableMethodSignatures(undefined);
         }
 
-        const seedInfo = engine.propagateWithSourceRules(loadedRules.ruleSet.sources || [], {
-            entryMethodName: caseInfo.entry,
-            entryMethodPathHint: caseInfo.file,
-        });
+        const seedInfo = engine.propagateWithSourceRules(loadedRules.ruleSet.sources || []);
         const flows = engine.detectSinksByRules(loadedRules.ruleSet.sinks || [], {
             sanitizerRules: loadedRules.ruleSet.sanitizers || [],
         });
@@ -700,39 +692,6 @@ async function main(): Promise<void> {
     const mutatedSceneCache = new Map<string, Scene>();
     const rulesCache = new Map<string, LoadedRuleSet>();
     const baselineCaseCache = new Map<string, AnalyzeResult>();
-    const baselineEntriesByScene = new Map<string, Map<string, PagEntrySpec>>();
-    const mutatedEntriesByScene = new Map<string, Map<string, PagEntrySpec>>();
-
-    const addEntrySpec = (bucket: Map<string, Map<string, PagEntrySpec>>, sceneKey: string, spec: PagEntrySpec): void => {
-        let sceneBucket = bucket.get(sceneKey);
-        if (!sceneBucket) {
-            sceneBucket = new Map<string, PagEntrySpec>();
-            bucket.set(sceneKey, sceneBucket);
-        }
-        const key = `${spec.name}|${spec.pathHint || ""}`;
-        if (!sceneBucket.has(key)) {
-            sceneBucket.set(key, spec);
-        }
-    };
-
-    for (const mutation of dataset.mutations) {
-        addEntrySpec(baselineEntriesByScene, mutation.sourceDirOriginal, {
-            name: mutation.sourceCase.entry,
-            pathHint: mutation.sourceCase.file,
-        });
-        addEntrySpec(mutatedEntriesByScene, mutation.sourceDirMutated, {
-            name: mutation.sourceCase.entry,
-            pathHint: mutation.mutatedFile,
-        });
-    }
-    const baselinePrebuiltEntriesByScene = new Map<string, PagEntrySpec[]>();
-    for (const [sceneKey, entries] of baselineEntriesByScene.entries()) {
-        baselinePrebuiltEntriesByScene.set(sceneKey, [...entries.values()]);
-    }
-    const mutatedPrebuiltEntriesByScene = new Map<string, PagEntrySpec[]>();
-    for (const [sceneKey, entries] of mutatedEntriesByScene.entries()) {
-        mutatedPrebuiltEntriesByScene.set(sceneKey, [...entries.values()]);
-    }
 
     const aItems: AConsistencyItem[] = [];
     const bItems: BChallengeItem[] = [];
@@ -779,8 +738,7 @@ async function main(): Promise<void> {
         const baselineCaseKey = `${rulesKey}|k=${options.k}|${mutation.sourceDirOriginal}|${mutation.sourceCase.case_id}|${mutation.sourceCase.file}|${mutation.sourceCase.entry}`;
         let baseline = baselineCaseCache.get(baselineCaseKey);
         if (!baseline) {
-            const baselinePrebuiltEntries = baselinePrebuiltEntriesByScene.get(mutation.sourceDirOriginal);
-            baseline = await runCase(baselineScene, mutation.sourceCase, options.k, loadedRules, baselinePrebuiltEntries);
+            baseline = await runCase(baselineScene, mutation.sourceCase, options.k, loadedRules);
             baselineCaseCache.set(baselineCaseKey, baseline);
         }
 
@@ -788,15 +746,14 @@ async function main(): Promise<void> {
             ...mutation.sourceCase,
             file: mutation.mutatedFile,
         };
-        const mutatedPrebuiltEntries = mutatedPrebuiltEntriesByScene.get(mutation.sourceDirMutated);
-        let mutated = await runCase(mutatedScene, mutatedCase, options.k, loadedRules, mutatedPrebuiltEntries);
+        let mutated = await runCase(mutatedScene, mutatedCase, options.k, loadedRules);
         const baselineIsReliable = baseline.ok
             && (baseline.classification === "TP" || baseline.classification === "TN");
         const needsIsolationRecheck = baselineIsReliable
             && mutated.ok
             && (mutated.classification === "FP" || mutated.classification === "FN");
         if (needsIsolationRecheck) {
-            const isolated = await runCase(mutatedScene, mutatedCase, options.k, loadedRules, undefined);
+            const isolated = await runCase(mutatedScene, mutatedCase, options.k, loadedRules);
             if (isolated.ok) {
                 mutated = isolated;
             }

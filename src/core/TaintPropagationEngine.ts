@@ -4,6 +4,7 @@ import { PointerAnalysisConfig } from "../../arkanalyzer/out/src/callgraph/point
 import { Pag, PagNode } from "../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { CallGraph } from "../../arkanalyzer/out/src/callgraph/model/CallGraph";
 import { CallGraphBuilder } from "../../arkanalyzer/out/src/callgraph/model/builder/CallGraphBuilder";
+import { DummyMainCreater } from "../../arkanalyzer/out/src/core/common/DummyMainCreater";
 import { ArkAssignStmt } from "../../arkanalyzer/out/src/core/base/Stmt";
 import { TaintFact } from "./TaintFact";
 import { TaintFlow } from "./TaintFlow";
@@ -20,10 +21,6 @@ import {
     SyntheticConstructorStoreInfo,
     SyntheticFieldBridgeInfo
 } from "./engine/SyntheticInvokeEdgeBuilder";
-import {
-    computeReachableMethodSignatures as computeReachableMethodsFromEntry,
-    resolveEntryMethods
-} from "./engine/EntryReachability";
 import { FactRuleChain, WorklistSolver } from "./engine/WorklistSolver";
 import {
     createEmptySinkDetectProfile,
@@ -62,6 +59,7 @@ export interface TaintEngineOptions {
     transferRules?: TransferRule[];
     enableHarmonyAppStorageModeling?: boolean;
     enableHarmonyStateModeling?: boolean;
+    strictSinkDetection?: boolean;
     debug?: DebugOptions;
 }
 
@@ -77,11 +75,6 @@ export interface FlowRuleChain {
 }
 
 export type DetectProfileSnapshot = SinkDetectProfile;
-
-export interface PagEntrySpec {
-    name: string;
-    pathHint?: string;
-}
 
 export class TaintPropagationEngine {
     private static sceneIdSeed: number = 1;
@@ -256,25 +249,12 @@ export class TaintPropagationEngine {
         return out;
     }
 
-    public async buildPAG(entryMethodName: string = "main", entryMethodPathHint?: string): Promise<void> {
-        return this.buildPAGForEntries([{ name: entryMethodName, pathHint: entryMethodPathHint }]);
-    }
-
-    public async buildPAGForEntries(entries: PagEntrySpec[]): Promise<void> {
+    public async buildPAG(): Promise<void> {
         this.clearRuleHits();
         this.clearFactRuleChains();
-        const entrySpecs = entries && entries.length > 0 ? entries : [{ name: "main" }];
-        const resolvedEntryMethods = resolveEntryMethods(this.scene, entrySpecs);
-        if (resolvedEntryMethods.length === 0) {
-            throw new Error("No valid entry methods found in scene");
-        }
-        const resolvedMethods = this.expandPagEntryMethodsWithAsyncCompanions(resolvedEntryMethods);
 
         const sceneId = this.getOrCreateSceneId();
-        const signatureList = resolvedMethods
-            .map(method => method.getSignature().toString())
-            .sort();
-        const cacheKey = `${sceneId}|entries|${signatureList.join("||")}`;
+        const cacheKey = `${sceneId}|entryModel|dummyMain|pure`;
         const cached = TaintPropagationEngine.pagBuildCache.get(cacheKey);
         if (cached) {
             this.pag = cached.pag;
@@ -285,7 +265,7 @@ export class TaintPropagationEngine {
             this.syntheticInvokeEdgeMap = cached.syntheticInvokeEdgeMap;
             this.syntheticConstructorStoreMap = cached.syntheticConstructorStoreMap;
             this.syntheticFieldBridgeMap = cached.syntheticFieldBridgeMap;
-            this.log(`PAG cache hit: entries=${resolvedMethods.length}`);
+            this.log("PAG cache hit: dummyMain(pure)");
             this.log(`PAG nodes: ${this.pag.getNodeNum()}, edges: ${this.pag.getEdgeNum()}`);
             this.log(`CG nodes: ${this.cg.getNodeNum()}, edges: ${this.cg.getEdgeNum()}`);
             this.configureContextStrategy();
@@ -296,11 +276,18 @@ export class TaintPropagationEngine {
         const cgBuilder = new CallGraphBuilder(cg, this.scene);
         cgBuilder.buildDirectCallGraphForScene();
         const pag = new Pag();
-        const entryMethodIDs = resolvedMethods.map(method => cg.getCallGraphNodeByMethod(method.getSignature()).getID());
         const config = PointerAnalysisConfig.create(0, "./out", false, false, false);
         this.pta = new PointerAnalysis(pag, cg, this.scene, config);
-        this.pta.setEntries(entryMethodIDs);
-        this.pta.start();
+        const { dummyMainMethod, cleanup } = this.createDummyMainEntry();
+        try {
+            cgBuilder.buildDirectCallGraph([dummyMainMethod]);
+            const dummyMainMethodID = cg.getCallGraphNodeByMethod(dummyMainMethod.getSignature()).getID();
+            cg.setDummyMainFuncID(dummyMainMethodID);
+            this.pta.setEntries([dummyMainMethodID]);
+            this.pta.start();
+        } finally {
+            cleanup();
+        }
         this.pag = this.pta.getPag();
         this.cg = cg;
 
@@ -326,49 +313,33 @@ export class TaintPropagationEngine {
         this.configureContextStrategy();
     }
 
-    private expandPagEntryMethodsWithAsyncCompanions(entryMethods: any[]): any[] {
-        const methodsBySig = new Map<string, any>();
-        const entryFiles = new Set<string>();
-        const companionMethodNames = new Set<string>(["%dflt", "%statInit", "%instInit", "constructor"]);
-
-        for (const method of entryMethods) {
-            const sig = method?.getSignature?.().toString?.() || "";
-            if (!sig) continue;
-            methodsBySig.set(sig, method);
-            const filePath = this.extractFilePathFromSignature(sig);
-            if (filePath) entryFiles.add(filePath);
-        }
-
-        if (entryFiles.size === 0) {
-            return [...methodsBySig.values()];
-        }
-
-        for (const method of this.scene.getMethods()) {
-            const name = method?.getName?.() || "";
-            const isCompanion =
-                name.startsWith("%AM")
-                || name.startsWith("%AC")
-                || companionMethodNames.has(name);
-            if (!isCompanion) continue;
-
-            const sig = method?.getSignature?.().toString?.() || "";
-            if (!sig) continue;
-            const filePath = this.extractFilePathFromSignature(sig);
-            if (!filePath || !entryFiles.has(filePath)) continue;
-            methodsBySig.set(sig, method);
-        }
-
-        const companionCount = methodsBySig.size - entryMethods.length;
-        if (companionCount > 0) {
-            this.log(`PAG async companion entries added: ${companionCount}`);
-        }
-
-        return [...methodsBySig.values()];
-    }
-
-    private extractFilePathFromSignature(signature: string): string {
-        const m = signature.match(/@([^:>]+):/);
-        return m ? m[1].replace(/\\/g, "/") : "";
+    private createDummyMainEntry(): {
+        dummyMainMethod: any;
+        cleanup: () => void;
+    } {
+        const dummyMainCreater = new DummyMainCreater(this.scene);
+        dummyMainCreater.createDummyMain();
+        const dummyMainMethod = dummyMainCreater.getDummyMain();
+        const dummyMainFile = dummyMainMethod?.getDeclaringArkClass?.()?.getDeclaringArkFile?.();
+        return {
+            dummyMainMethod,
+            cleanup: () => {
+                if (dummyMainMethod) {
+                    try {
+                        this.scene.removeMethod(dummyMainMethod);
+                    } catch {
+                        // Ignore cleanup failures for transient dummy methods.
+                    }
+                }
+                if (dummyMainFile) {
+                    try {
+                        this.scene.removeFile(dummyMainFile);
+                    } catch {
+                        // Ignore cleanup failures for transient dummy files.
+                    }
+                }
+            },
+        };
     }
 
     public setActiveReachableMethodSignatures(methodSignatures?: Set<string>): void {
@@ -379,11 +350,42 @@ export class TaintPropagationEngine {
         this.activeReachableMethodSignatures = new Set(methodSignatures);
     }
 
-    public computeReachableMethodSignatures(entryMethodName: string, entryMethodPathHint?: string): Set<string> {
+    public getActiveReachableMethodSignatures(): Set<string> | undefined {
+        if (!this.activeReachableMethodSignatures) return undefined;
+        return new Set(this.activeReachableMethodSignatures);
+    }
+
+    public computeReachableMethodSignatures(): Set<string> {
         if (!this.cg) {
             throw new Error("PAG/CG not built. Call buildPAG() first.");
         }
-        return computeReachableMethodsFromEntry(this.scene, this.cg, entryMethodName, entryMethodPathHint);
+        const dummyMainFuncId = this.cg.getDummyMainFuncID?.();
+        if (dummyMainFuncId === undefined || dummyMainFuncId === null) {
+            throw new Error("DummyMain not registered in call graph.");
+        }
+
+        const queue: number[] = [dummyMainFuncId];
+        const visited = new Set<number>();
+        const reachable = new Set<string>();
+
+        while (queue.length > 0) {
+            const nodeId = queue.shift()!;
+            if (visited.has(nodeId)) continue;
+            visited.add(nodeId);
+
+            const methodSig = this.cg.getMethodByFuncID(nodeId);
+            if (methodSig) {
+                reachable.add(methodSig.toString());
+            }
+
+            const node = this.cg.getNode(nodeId);
+            if (!node) continue;
+            for (const edge of node.getOutgoingEdges()) {
+                queue.push(edge.getDstID());
+            }
+        }
+
+        return reachable;
     }
 
     public propagate(sourceSignature: string): void {
@@ -464,11 +466,10 @@ export class TaintPropagationEngine {
     }
 
     public propagateWithSourceRules(
-        sourceRules: SourceRule[],
-        options: { entryMethodName?: string; entryMethodPathHint?: string } = {}
+        sourceRules: SourceRule[]
     ): { seedCount: number; seededLocals: string[]; sourceRuleHits: Record<string, number> } {
         this.clearRuleHits("source");
-        const ruleSeeds = this.collectSourceRuleSeeds(sourceRules || [], options);
+        const ruleSeeds = this.collectSourceRuleSeeds(sourceRules || []);
         if (ruleSeeds.activatedMethodSignatures.length > 0) {
             const mergedReachable = new Set<string>(this.activeReachableMethodSignatures || []);
             for (const sig of ruleSeeds.activatedMethodSignatures) {
@@ -478,7 +479,7 @@ export class TaintPropagationEngine {
             // We expand reachable methods to activate callback bodies discovered at registration sites.
             this.activeReachableMethodSignatures = mergedReachable;
         }
-        const harmonySeeds = this.applyHarmonyAugmentation(options);
+        const harmonySeeds = this.applyHarmonyAugmentation();
 
         const mergedFacts = new Map<string, TaintFact>();
         for (const fact of [...ruleSeeds.facts, ...harmonySeeds.facts]) {
@@ -515,9 +516,7 @@ export class TaintPropagationEngine {
         };
     }
 
-    private applyHarmonyAugmentation(
-        options: { entryMethodName?: string; entryMethodPathHint?: string } = {}
-    ): HarmonyLifecycleSeedCollectionResult {
+    private applyHarmonyAugmentation(): HarmonyLifecycleSeedCollectionResult {
         if (!this.pag) {
             return {
                 facts: [],
@@ -525,28 +524,11 @@ export class TaintPropagationEngine {
                 sourceRuleHits: {},
             };
         }
-        let allowedMethodSignatures = this.activeReachableMethodSignatures;
-        if (
-            !allowedMethodSignatures
-            && this.cg
-            && options.entryMethodName
-        ) {
-            try {
-                allowedMethodSignatures = computeReachableMethodsFromEntry(
-                    this.scene,
-                    this.cg,
-                    options.entryMethodName,
-                    options.entryMethodPathHint
-                );
-            } catch {
-                allowedMethodSignatures = undefined;
-            }
-        }
         return collectHarmonyLifecycleSeeds({
             scene: this.scene,
             pag: this.pag,
             emptyContextId: this.ctxManager.getEmptyContextID(),
-            allowedMethodSignatures,
+            allowedMethodSignatures: this.activeReachableMethodSignatures,
         });
     }
 
@@ -584,7 +566,8 @@ export class TaintPropagationEngine {
                 invokeKind?: RuleInvokeKind;
                 argCount?: number;
                 typeHint?: string;
-            }
+            },
+            signatureMatchMode: "contains" | "equals"
         ): string => {
             const endpoint = target.targetEndpoint || "";
             const path = target.targetPath && target.targetPath.length > 0
@@ -593,7 +576,7 @@ export class TaintPropagationEngine {
             const invokeKind = target.invokeKind || "";
             const argCount = target.argCount === undefined ? "" : String(target.argCount);
             const typeHint = target.typeHint || "";
-            return `${signature}|${endpoint}|${path}|${invokeKind}|${argCount}|${typeHint}`;
+            return `${signature}|${endpoint}|${path}|${invokeKind}|${argCount}|${typeHint}|${signatureMatchMode}`;
         };
         const addFlows = (ruleId: string, flows: TaintFlow[]): void => {
             let added = 0;
@@ -619,13 +602,14 @@ export class TaintPropagationEngine {
             if (reachedFlowLimit()) break;
             const signatures = resolveSinkRuleSignaturesByRule(this.scene, rule);
             const target = this.resolveSinkRuleTarget(rule);
+            const signatureMatchMode = this.resolveSinkSignatureMatchMode(rule);
             const sinkEndpoint = target.targetEndpoint || "any_arg";
             const sinkPathSuffix = target.targetPath && target.targetPath.length > 0
                 ? `.${target.targetPath.join(".")}`
                 : "";
             const family = this.resolveRuleFamily(rule);
             for (const signature of signatures) {
-                const cacheKey = buildDetectCacheKey(signature, target);
+                const cacheKey = buildDetectCacheKey(signature, target, signatureMatchMode);
                 const familySiteKey = family ? `${cacheKey}|${family}` : "";
                 if (familySiteKey && matchedSiteFamily.has(familySiteKey)) {
                     continue;
@@ -637,6 +621,7 @@ export class TaintPropagationEngine {
                 } else {
                     const computed = this.detectSinks(signature, {
                         ...target,
+                        signatureMatchMode,
                         sanitizerRules: options?.sanitizerRules || [],
                     });
                     detectCache.set(cacheKey, computed.map(cloneFlow));
@@ -703,8 +688,7 @@ export class TaintPropagationEngine {
     }
 
     private collectSourceRuleSeeds(
-        sourceRules: SourceRule[],
-        options: { entryMethodName?: string; entryMethodPathHint?: string }
+        sourceRules: SourceRule[]
     ): {
         facts: TaintFact[];
         seededLocals: string[];
@@ -716,8 +700,6 @@ export class TaintPropagationEngine {
             pag: this.pag,
             sourceRules: this.orderRulesByFamilyTier(sourceRules || []),
             emptyContextId: this.ctxManager.getEmptyContextID(),
-            entryMethodName: options.entryMethodName,
-            entryMethodPathHint: options.entryMethodPathHint,
             allowedMethodSignatures: this.activeReachableMethodSignatures,
         });
     }
@@ -730,7 +712,9 @@ export class TaintPropagationEngine {
             invokeKind?: RuleInvokeKind;
             argCount?: number;
             typeHint?: string;
+            signatureMatchMode?: "contains" | "equals";
             sanitizerRules?: SanitizerRule[];
+            strictMode?: boolean;
         }
     ): TaintFlow[] {
         if (!this.cg) return [];
@@ -745,9 +729,22 @@ export class TaintPropagationEngine {
                 ...options,
                 fieldToVarIndex: this.fieldToVarIndex,
                 allowedMethodSignatures: this.activeReachableMethodSignatures,
+                strictMode: options?.strictMode === true || this.options.strictSinkDetection === true,
                 onProfile: (profile) => this.mergeDetectProfile(profile),
             }
         );
+    }
+
+    private resolveSinkSignatureMatchMode(rule: SinkRule): "contains" | "equals" {
+        switch (rule.match.kind) {
+            case "signature_equals":
+            case "callee_signature_equals":
+            case "declaring_class_equals":
+            case "signature_regex":
+                return "equals";
+            default:
+                return "contains";
+        }
     }
 
     private resolveSinkRuleTarget(rule: SinkRule): {

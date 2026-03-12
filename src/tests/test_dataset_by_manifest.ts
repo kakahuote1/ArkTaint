@@ -88,7 +88,7 @@ function resolveEntryMethod(scene: Scene, relativePath: string, testName: string
     return { name: testName, pathHint: normalized };
 }
 
-function findEntryMethod(scene: Scene, entry: ResolvedEntry): any | undefined {
+function findCaseMethod(scene: Scene, entry: ResolvedEntry): any | undefined {
     const candidates = scene.getMethods().filter(m => m.getName() === entry.name);
     if (entry.pathHint) {
         const normalizedHint = entry.pathHint.replace(/\\/g, "/");
@@ -212,9 +212,9 @@ async function runWithK(
         try {
             const engine = new TaintPropagationEngine(scene, k);
             engine.verbose = false;
-            await engine.buildPAG(entry.name, entry.pathHint);
+            await engine.buildPAG();
 
-            const entryMethod = findEntryMethod(scene, entry);
+            const entryMethod = findCaseMethod(scene, entry);
             if (!entryMethod) {
                 runtime.skippedNoEntry++;
                 continue;
@@ -336,3 +336,4 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+

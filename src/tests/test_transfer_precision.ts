@@ -89,8 +89,8 @@ function listCases(sourceDir: string): string[] {
         .sort();
 }
 
-function flowSinkInEntryMethod(scene: Scene, sinkStmt: any, entryMethodName: string): boolean {
-    const method = scene.getMethods().find(m => m.getName() === entryMethodName);
+function flowSinkInCaseMethod(scene: Scene, sinkStmt: any, caseMethodName: string): boolean {
+    const method = scene.getMethods().find(m => m.getName() === caseMethodName);
     if (!method) return false;
     const cfg = method.getCfg();
     if (!cfg) return false;
@@ -107,13 +107,10 @@ async function runCase(
 ): Promise<CaseRunResult> {
     const engine = new TaintPropagationEngine(scene, k, { transferRules });
     engine.verbose = false;
-    await engine.buildPAG(caseName);
-
-    const seedInfo = engine.propagateWithSourceRules(sourceRules, {
-        entryMethodName: caseName,
-    });
+    await engine.buildPAG();
+    const seedInfo = engine.propagateWithSourceRules(sourceRules);
     const flows = engine.detectSinksByRules(sinkRules);
-    const scopedFlows = flows.filter(flow => flowSinkInEntryMethod(scene, flow.sink, caseName));
+    const scopedFlows = flows.filter(flow => flowSinkInCaseMethod(scene, flow.sink, caseName));
     return {
         detected: scopedFlows.length > 0,
         seedCount: seedInfo.seedCount,
@@ -235,3 +232,4 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+

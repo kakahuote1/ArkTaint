@@ -35,6 +35,7 @@
         "hilog.info",
         "hilog.error"
       ],
+      "maxEntriesCap": 41,
       "tags": [
         "external",
         "harmony",

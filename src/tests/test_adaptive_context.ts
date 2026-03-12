@@ -79,7 +79,7 @@ async function runSuite(
                 : new TaintPropagationEngine(scene, 1);
             engine.verbose = false;
 
-            await engine.buildPAG(entryName);
+            await engine.buildPAG();
             const entryMethod = scene.getMethods().find(m => m.getName() === entryName);
             if (!entryMethod) continue;
             const body = entryMethod.getBody();

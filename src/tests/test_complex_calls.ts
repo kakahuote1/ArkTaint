@@ -87,7 +87,7 @@ function collectSeedNodes(engine: TaintPropagationEngine, entryMethod: any): any
 async function runCase(scene: Scene, caseName: string, k: number): Promise<boolean> {
     const engine = new TaintPropagationEngine(scene, k);
     engine.verbose = false;
-    await engine.buildPAG(caseName);
+    await engine.buildPAG();
 
     const entryMethod = scene.getMethods().find(m => m.getName() === caseName);
     if (!entryMethod) {

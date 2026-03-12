@@ -18,7 +18,7 @@ async function runTest() {
     let engine = new TaintPropagationEngine(scene);
 
     console.log("Building PAG for benchmark_field_001...");
-    await engine.buildPAG('benchmark_field_001');
+    await engine.buildPAG();
     console.log("PAG Built.");
 
     console.log("Propagating Taint...");

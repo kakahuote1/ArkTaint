@@ -31,7 +31,7 @@ async function runTest() {
 
     // 3. Build PAG (Phase 1)
     console.log("Building PAG...");
-    await engine.buildPAG('main_field');
+    await engine.buildPAG();
     console.log("PAG Built.");
 
     // 4. Propagate (Phase 2)

@@ -5,6 +5,7 @@ import { ArkInstanceFieldRef, ArkParameterRef } from "../../../arkanalyzer/out/s
 import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr } from "../../../arkanalyzer/out/src/core/base/Expr";
 import { Local } from "../../../arkanalyzer/out/src/core/base/Local";
 import { ArkMethod } from "../../../arkanalyzer/out/src/core/model/ArkMethod";
+import { resolveMethodsFromCallable } from "./CalleeResolver";
 import { TaintFact } from "../TaintFact";
 import {
     RuleEndpoint,
@@ -20,8 +21,6 @@ export interface SourceRuleSeedCollectionArgs {
     pag: Pag;
     sourceRules: SourceRule[];
     emptyContextId: number;
-    entryMethodName?: string;
-    entryMethodPathHint?: string;
     allowedMethodSignatures?: Set<string>;
 }
 
@@ -33,12 +32,7 @@ export interface SourceRuleSeedCollectionResult {
 }
 
 export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): SourceRuleSeedCollectionResult {
-    const methods = resolveSourceScopeMethods(
-        args.scene,
-        args.entryMethodName,
-        args.entryMethodPathHint,
-        args.allowedMethodSignatures
-    );
+    const methods = resolveSourceScopeMethods(args.scene, args.allowedMethodSignatures);
     const facts: TaintFact[] = [];
     const seededLocals = new Set<string>();
     const seenFactIds = new Set<string>();
@@ -302,54 +296,13 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
 
 function resolveSourceScopeMethods(
     scene: Scene,
-    entryMethodName?: string,
-    entryMethodPathHint?: string,
     allowedMethodSignatures?: Set<string>
 ): ArkMethod[] {
     const allMethods = scene.getMethods();
     if (allowedMethodSignatures && allowedMethodSignatures.size > 0) {
         return allMethods.filter(m => allowedMethodSignatures.has(m.getSignature().toString()));
     }
-    if (!entryMethodName) return allMethods;
-
-    const candidates = allMethods.filter(m => m.getName() === entryMethodName);
-    const selected = (!entryMethodPathHint
-        ? candidates
-        : (() => {
-            const normalizedHint = entryMethodPathHint.replace(/\\/g, "/");
-            const hinted = candidates.filter(m => m.getSignature().toString().includes(normalizedHint));
-            return hinted.length > 0 ? hinted : candidates;
-        })());
-    if (selected.length === 0) return selected;
-
-    const entryFiles = new Set<string>();
-    for (const method of selected) {
-        const file = extractArkFileFromSignature(method.getSignature().toString());
-        if (file.length > 0) entryFiles.add(file);
-    }
-    if (entryFiles.size === 0) return selected;
-
-    const sameFileDefaults = allMethods.filter(m => {
-        if (m.getName() !== "%dflt") return false;
-        const file = extractArkFileFromSignature(m.getSignature().toString());
-        return file.length > 0 && entryFiles.has(file);
-    });
-    if (sameFileDefaults.length === 0) return selected;
-
-    const merged = new Map<string, ArkMethod>();
-    for (const method of selected) {
-        merged.set(method.getSignature().toString(), method);
-    }
-    for (const method of sameFileDefaults) {
-        merged.set(method.getSignature().toString(), method);
-    }
-    return [...merged.values()];
-}
-
-function extractArkFileFromSignature(signature: string): string {
-    const m = signature.match(/@([^:]+):/);
-    if (!m) return "";
-    return m[1].replace(/\\/g, "/");
+    return allMethods;
 }
 
 function getParameterLocals(method: ArkMethod): Array<{ index: number; local: Local }> {
@@ -427,6 +380,8 @@ function matchesSourceLocalRule(
 
     const methodSignature = method.getSignature().toString();
     const methodName = method.getName();
+    const classSignature = method.getDeclaringArkClass?.()?.getSignature?.()?.toString?.() || "";
+    const className = method.getDeclaringArkClass?.()?.getName?.() || "";
     const value = rule.match.value || "";
     switch (rule.match.kind) {
         case "local_name_regex":
@@ -445,12 +400,17 @@ function matchesSourceLocalRule(
             }
         case "signature_contains":
             return methodSignature.includes(value);
+        case "signature_equals":
+        case "callee_signature_equals":
+            return exactTextMatch(methodSignature, value);
         case "signature_regex":
             try {
                 return new RegExp(value).test(methodSignature);
             } catch {
                 return false;
             }
+        case "declaring_class_equals":
+            return exactDeclaringClassMatch(classSignature, className, value);
         default:
             return false;
     }
@@ -476,12 +436,20 @@ function matchesSourceCallRule(
             }
         case "signature_contains":
             return calleeSignature.includes(value);
+        case "signature_equals":
+        case "callee_signature_equals":
+            return exactTextMatch(calleeSignature, value);
         case "signature_regex":
             try {
                 return new RegExp(value).test(calleeSignature);
             } catch {
                 return false;
             }
+        case "declaring_class_equals": {
+            const classSignature = invokeExpr.getMethodSignature?.().getDeclaringClassSignature?.()?.toString?.() || "";
+            const className = invokeExpr.getMethodSignature?.().getDeclaringClassSignature?.()?.getClassName?.() || "";
+            return exactDeclaringClassMatch(classSignature, className, value);
+        }
         case "local_name_regex": {
             const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
             const argTexts = args.map((a: any) => a?.toString?.() || "");
@@ -508,6 +476,9 @@ function matchesSourceFieldReadRule(
     fieldSignature: string
 ): boolean {
     const value = rule.match.value || "";
+    const methodSignature = method.getSignature().toString();
+    const classSignature = method.getDeclaringArkClass?.()?.getSignature?.()?.toString?.() || "";
+    const className = method.getDeclaringArkClass?.()?.getName?.() || "";
     switch (rule.match.kind) {
         case "method_name_equals":
             return method.getName() === value;
@@ -518,14 +489,19 @@ function matchesSourceFieldReadRule(
                 return false;
             }
         case "signature_contains":
-            return fieldSignature.includes(value) || method.getSignature().toString().includes(value);
+            return fieldSignature.includes(value) || methodSignature.includes(value);
+        case "signature_equals":
+        case "callee_signature_equals":
+            return exactTextMatch(fieldSignature, value) || exactTextMatch(methodSignature, value);
         case "signature_regex":
             try {
                 const re = new RegExp(value);
-                return re.test(fieldSignature) || re.test(method.getSignature().toString());
+                return re.test(fieldSignature) || re.test(methodSignature);
             } catch {
                 return false;
             }
+        case "declaring_class_equals":
+            return exactDeclaringClassMatch(classSignature, className, value);
         case "local_name_regex":
             try {
                 const re = new RegExp(value);
@@ -578,6 +554,21 @@ function resolveInvokeTargetValue(stmt: any, invokeExpr: any, endpoint?: RuleEnd
     return args[idx];
 }
 
+function normalizeExactMatchText(value: string): string {
+    return value.trim();
+}
+
+function exactTextMatch(actual: string, expected: string): boolean {
+    return normalizeExactMatchText(actual) === normalizeExactMatchText(expected);
+}
+
+function exactDeclaringClassMatch(classSignature: string, className: string, expected: string): boolean {
+    const normalizedExpected = normalizeExactMatchText(expected);
+    if (!normalizedExpected) return false;
+    return normalizeExactMatchText(classSignature) === normalizedExpected
+        || normalizeExactMatchText(className) === normalizedExpected;
+}
+
 function resolveCallbackTargetParamIndex(rule: SourceRule): number | undefined {
     const endpoint = rule.targetRef?.endpoint || rule.target || "arg0";
     if (typeof endpoint !== "string") return undefined;
@@ -598,7 +589,6 @@ function resolveCallbackArgIndexes(
     const inferred: number[] = [];
     for (let i = 0; i < callArgs.length; i++) {
         const arg = callArgs[i];
-        if (!isLikelyCallableArgValue(arg)) continue;
         const callbackMethods = resolveCallbackMethodsFromArg(scene, arg, callerMethod);
         if (callbackMethods.length > 0) {
             inferred.push(i);
@@ -622,17 +612,6 @@ function normalizeCallbackArgIndexes(rule: SourceRule, argCount: number): number
     return [...result.values()].sort((a, b) => a - b);
 }
 
-function isLikelyCallableArgValue(value: any): boolean {
-    if (!value) return false;
-    const text = String(value?.toString?.() || "");
-    if (text.startsWith("%AM") || text.startsWith("%AC")) return true;
-    const lower = text.toLowerCase();
-    if (lower.includes("callback") || lower.includes("handler") || lower.includes("listener")) return true;
-    const typeText = String(value?.getType?.()?.toString?.() || "").toLowerCase();
-    if (typeText.includes("function") || typeText.includes("callable") || typeText.includes("=>")) return true;
-    return false;
-}
-
 function resolveCallbackMethodsFromArg(scene: Scene, callbackArg: any, callerMethod?: ArkMethod): ArkMethod[] {
     const out = new Map<string, ArkMethod>();
     const candidateNames = new Set<string>();
@@ -640,6 +619,21 @@ function resolveCallbackMethodsFromArg(scene: Scene, callbackArg: any, callerMet
     const callerSig = callerMethod?.getSignature?.().toString?.() || "";
     const callerFilePath = callerSig ? extractFilePathFromSignature(callerSig) : "";
     const callerClassName = callerMethod?.getDeclaringArkClass?.()?.getName?.() || "";
+
+    // IR-first: resolve callable targets from type/def-use before falling back to name heuristics.
+    const structuralMethods = resolveMethodsFromCallable(scene, callbackArg, {
+        maxCandidates: 12,
+        enableLocalBacktrace: true,
+        maxBacktraceSteps: 6,
+        maxVisitedDefs: 20,
+    }) as ArkMethod[];
+    if (structuralMethods.length > 0) {
+        const scoped = selectScopedCallbackMethods(structuralMethods, callerFilePath, callerClassName);
+        if (scoped.length > 0) {
+            return scoped;
+        }
+        return structuralMethods;
+    }
 
     const addMethodLikeNames = (text: string): void => {
         if (!text) return;
@@ -696,29 +690,34 @@ function resolveCallbackMethodsFromArg(scene: Scene, callbackArg: any, callerMet
         methodsByName.get(methodName)!.push(method);
     }
 
-    for (const [name, methods] of methodsByName.entries()) {
-        if (methods.length <= 1) {
-            out.set(methods[0].getSignature().toString(), methods[0]);
-            continue;
-        }
-
-        const sameFile = callerFilePath
-            ? methods.filter(m => extractFilePathFromSignature(m.getSignature().toString()) === callerFilePath)
-            : [];
-        const sameClass = callerClassName
-            ? methods.filter(m => (m.getDeclaringArkClass?.()?.getName?.() || "") === callerClassName)
-            : [];
-
-        const scoped = sameFile.length > 0
-            ? sameFile
-            : (sameClass.length > 0 ? sameClass : methods);
-
+    for (const [, methods] of methodsByName.entries()) {
+        const scoped = selectScopedCallbackMethods(methods, callerFilePath, callerClassName);
         for (const method of scoped) {
             out.set(method.getSignature().toString(), method);
         }
     }
 
     return [...out.values()];
+}
+
+function selectScopedCallbackMethods(
+    methods: ArkMethod[],
+    callerFilePath: string,
+    callerClassName: string
+): ArkMethod[] {
+    if (!methods || methods.length === 0) return [];
+    if (methods.length === 1) return methods;
+
+    const sameFile = callerFilePath
+        ? methods.filter(m => extractFilePathFromSignature(m.getSignature().toString()) === callerFilePath)
+        : [];
+    const sameClass = callerClassName
+        ? methods.filter(m => (m.getDeclaringArkClass?.()?.getName?.() || "") === callerClassName)
+        : [];
+
+    if (sameFile.length > 0) return sameFile;
+    if (sameClass.length > 0) return sameClass;
+    return methods;
 }
 
 function resolveFieldReadTargetValue(

@@ -6,14 +6,10 @@ import { ConfigBasedTransferExecutor } from "../core/engine/ConfigBasedTransferE
 import { loadRuleSet, LoadedRuleSet } from "../core/rules/RuleLoader";
 import { RuleInvokeKind, RuleMatch, RuleScopeConstraint, RuleStringConstraint, SinkRule, SourceRule, SourceRuleKind, TransferRule } from "../core/rules/RuleSchema";
 import {
-    collectSeedNodes,
+    collectDummyMainSeedNodes,
     detectFlows,
-    EntryCandidate,
-    EntrySelectionResult,
-    findEntryMethod,
     getSourcePattern,
     getSourceRules,
-    selectEntryCandidates,
 } from "./analyzeUtils";
 import { CliOptions } from "./analyzeCliOptions";
 import { renderMarkdownReport } from "./analyzeReport";
@@ -37,7 +33,6 @@ import {
     IncrementalCacheEntry,
     IncrementalCacheScope,
     loadIncrementalCache,
-    resolveEntryFileStamp,
     sameEntryFileStamp,
     saveIncrementalCache,
 } from "./analyzeIncremental";
@@ -178,6 +173,17 @@ function hasEnabledSourcesInRuleFile(ruleFilePath?: string): boolean {
     }
 }
 
+function resolveSourceDirStamp(repo: string, sourceDir: string): EntryFileStamp | undefined {
+    const abs = path.resolve(repo, sourceDir);
+    if (!fs.existsSync(abs)) return undefined;
+    const stat = fs.statSync(abs);
+    return {
+        sourceFile: abs.replace(/\\/g, "/"),
+        mtimeMs: Math.floor(stat.mtimeMs),
+        size: stat.size,
+    };
+}
+
 function getAnalyzeSourceRules(loadedRules: LoadedRuleSet, allowLocalNamePrimary: boolean): SourceRule[] {
     const rules = getSourceRules(loadedRules);
     if (allowLocalNamePrimary) return rules;
@@ -203,6 +209,24 @@ interface InvokeSiteStat {
     callerMethodName: string;
     sourceDir: string;
     count: number;
+}
+
+interface NoCandidateCallsiteStat {
+    callee_signature: string;
+    method: string;
+    invokeKind: RuleInvokeKind;
+    argCount: number;
+    sourceFile: string;
+    count: number;
+    topEntries: string[];
+}
+
+type NoCandidateCategory = "C1_UI_NOISE" | "C2_PROJECT_WRAPPER" | "C3_FRAMEWORK_GAP";
+
+interface ClassifiedNoCandidateCallsite extends NoCandidateCallsiteStat {
+    category: NoCandidateCategory;
+    reason: string;
+    evidence: string[];
 }
 
 function extractFilePathFromSignature(signature: string): string {
@@ -375,7 +399,8 @@ function buildRuleFeedback(
     repoRoot: string,
     loadedRules: LoadedRuleSet,
     ruleHits: RuleHitCounters,
-    sourceContextCache: Map<string, { scene: Scene; selected: EntrySelectionResult }>
+    sourceContextCache: Map<string, { scene: Scene }>,
+    entryResults: EntryAnalyzeResult[]
 ): AnalyzeReport["summary"]["ruleFeedback"] {
     const enabledSources = (loadedRules.ruleSet.sources || []).filter(r => r.enabled !== false);
     const enabledSinks = (loadedRules.ruleSet.sinks || []).filter(r => r.enabled !== false);
@@ -412,6 +437,51 @@ function buildRuleFeedback(
         }
     }
 
+    const noCandidateEntries = entryResults
+        .filter(e => e.transferNoHitReasons.includes("no_candidate_rule_for_callsite"));
+    const noCandidateSourceDirs = new Set(noCandidateEntries.map(e => e.sourceDir));
+    const topEntriesBySourceDir = new Map<string, string[]>();
+    for (const sourceDir of noCandidateSourceDirs) {
+        const sorted = noCandidateEntries
+            .filter(e => e.sourceDir === sourceDir)
+            .sort((a, b) => b.score - a.score || a.entryName.localeCompare(b.entryName));
+        const labels: string[] = [];
+        const seen = new Set<string>();
+        for (const e of sorted) {
+            const label = e.entryPathHint ? `${e.entryName}@${e.entryPathHint}` : e.entryName;
+            if (seen.has(label)) continue;
+            seen.add(label);
+            labels.push(label);
+            if (labels.length >= 8) break;
+        }
+        topEntriesBySourceDir.set(sourceDir, labels);
+    }
+
+    const noCandidateAggregate = new Map<string, NoCandidateCallsiteStat>();
+    for (const entry of noCandidateEntries) {
+        const topEntries = topEntriesBySourceDir.get(entry.sourceDir) || [];
+        for (const site of entry.transferProfile.noCandidateCallsites || []) {
+            const sourceFile = site.sourceFile || extractFilePathFromSignature(site.calleeSignature);
+            const key = `${site.calleeSignature}|${site.method}|${site.invokeKind}|${site.argCount}|${sourceFile}`;
+            const existing = noCandidateAggregate.get(key);
+            if (existing) {
+                existing.count += site.count;
+                continue;
+            }
+            noCandidateAggregate.set(key, {
+                callee_signature: site.calleeSignature,
+                method: site.method,
+                invokeKind: site.invokeKind,
+                argCount: site.argCount,
+                sourceFile,
+                count: site.count,
+                topEntries,
+            });
+        }
+    }
+    const noCandidateCallsites = [...noCandidateAggregate.values()]
+        .sort((a, b) => b.count - a.count || a.callee_signature.localeCompare(b.callee_signature));
+
     const uncovered = [...invokeStats.values()]
         .filter(site => {
             const sourceCovered = enabledSources.some(rule => isSourceCallLikeRule(rule) && ruleMatchesInvokeForSourceCoverage(rule, site));
@@ -438,20 +508,281 @@ function buildRuleFeedback(
             transfer: rank(ruleHits.transfer),
         },
         uncoveredHighFrequencyInvokes: uncovered,
+        noCandidateCallsites,
     };
 }
 
-async function analyzeEntry(
+function renderNoCandidateCallsitesMarkdown(items: NoCandidateCallsiteStat[], report: AnalyzeReport): string {
+    const lines: string[] = [];
+    lines.push("# No Candidate Callsites");
+    lines.push("");
+    lines.push(`- generatedAt: ${report.generatedAt}`);
+    lines.push(`- repo: ${report.repo}`);
+    lines.push(`- total: ${items.length}`);
+    lines.push("");
+    lines.push("| # | callee_signature | method | invokeKind | argCount | sourceFile | count | topEntries |");
+    lines.push("|---|---|---|---|---:|---|---:|---|");
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const topEntries = item.topEntries.join("; ");
+        lines.push(`| ${i + 1} | ${item.callee_signature} | ${item.method} | ${item.invokeKind} | ${item.argCount} | ${item.sourceFile} | ${item.count} | ${topEntries} |`);
+    }
+    return `${lines.join("\n")}\n`;
+}
+
+function writeNoCandidateCallsiteArtifacts(report: AnalyzeReport): void {
+    const items = report.summary.ruleFeedback?.noCandidateCallsites || [];
+    const outputDir = path.resolve("tmp", "real_projects");
+    fs.mkdirSync(outputDir, { recursive: true });
+    const jsonPath = path.resolve(outputDir, "no_candidate_callsites.json");
+    const mdPath = path.resolve(outputDir, "no_candidate_callsites.md");
+    const payload = {
+        generatedAt: report.generatedAt,
+        repo: report.repo,
+        total: items.length,
+        items,
+    };
+    fs.writeFileSync(jsonPath, JSON.stringify(payload, null, 2), "utf-8");
+    fs.writeFileSync(mdPath, renderNoCandidateCallsitesMarkdown(items, report), "utf-8");
+}
+
+function loadAppliedFrameworkTransferRules(loadedRules: LoadedRuleSet): TransferRule[] {
+    const frameworkLayer = loadedRules.layerStatus.find(s => s.name === "framework" && s.applied && !!s.path);
+    if (!frameworkLayer?.path) return [];
+    const frameworkPath = path.isAbsolute(frameworkLayer.path)
+        ? frameworkLayer.path
+        : path.resolve(frameworkLayer.path);
+    if (!fs.existsSync(frameworkPath)) return [];
+    try {
+        const raw = JSON.parse(fs.readFileSync(frameworkPath, "utf-8")) as { transfers?: TransferRule[] };
+        const transfers = Array.isArray(raw.transfers) ? raw.transfers : [];
+        return transfers.filter(rule => !!rule && rule.enabled !== false);
+    } catch {
+        return [];
+    }
+}
+
+function matchNoCandidateCallsiteToTransferRule(site: NoCandidateCallsiteStat, rule: TransferRule): boolean {
+    if (rule.invokeKind && rule.invokeKind !== "any" && rule.invokeKind !== site.invokeKind) return false;
+    if (rule.argCount !== undefined && rule.argCount !== site.argCount) return false;
+    if (rule.scope) {
+        if (!matchStringConstraint(rule.scope.file, site.sourceFile)) return false;
+        if (!matchStringConstraint(rule.scope.module, site.callee_signature || site.sourceFile)) return false;
+        if (!matchStringConstraint(rule.scope.className, site.callee_signature)) return false;
+        if (!matchStringConstraint(rule.scope.methodName, site.method)) return false;
+    }
+
+    const value = rule.match.value || "";
+    switch (rule.match.kind) {
+        case "method_name_equals":
+            return site.method === value;
+        case "method_name_regex":
+            try {
+                return new RegExp(value).test(site.method);
+            } catch {
+                return false;
+            }
+        case "signature_contains":
+            return site.callee_signature.includes(value);
+        case "signature_equals":
+        case "callee_signature_equals":
+            return site.callee_signature === value;
+        case "signature_regex":
+            try {
+                return new RegExp(value).test(site.callee_signature);
+            } catch {
+                return false;
+            }
+        case "declaring_class_equals":
+            return site.callee_signature.includes(value);
+        default:
+            return false;
+    }
+}
+
+function classifyNoCandidateCallsite(
+    site: NoCandidateCallsiteStat,
+    frameworkTransferRules: TransferRule[]
+): ClassifiedNoCandidateCallsite {
+    const sigLower = site.callee_signature.toLowerCase();
+    const methodLower = site.method.toLowerCase();
+    const sourceLower = site.sourceFile.toLowerCase();
+
+    const uiNoiseMethods = new Set([
+        "observecomponentcreation2",
+        "ifelsebranchupdatefunction",
+        "foreachupdatefunction",
+        "updatestatevarsofchildbyelmtid",
+        "initialrender",
+        "rerender",
+        "finalizeconstruction",
+    ]);
+    const uiNoiseByMethod = uiNoiseMethods.has(methodLower);
+    const uiNoiseBySignature = sigLower.includes("arkui")
+        || sigLower.includes("component")
+        || sigLower.includes("builder");
+    const uiNoiseBySource = sourceLower.includes("/pages/")
+        || sourceLower.includes("/view/")
+        || sourceLower.includes(".ets");
+    const isUiNoise = uiNoiseByMethod || ((methodLower === "create" || methodLower === "pop") && uiNoiseBySignature && uiNoiseBySource);
+
+    if (isUiNoise) {
+        return {
+            ...site,
+            category: "C1_UI_NOISE",
+            reason: "调用位点符合 UI 构建链噪音特征，进入报告层降噪。",
+            evidence: [
+                `method=${site.method}`,
+                `signature=${site.callee_signature}`,
+                `sourceFile=${site.sourceFile}`,
+            ],
+        };
+    }
+
+    if (site.callee_signature.includes("@%unk/%unk:")) {
+        return {
+            ...site,
+            category: "C3_FRAMEWORK_GAP",
+            reason: "命中 @%unk/%unk 未解析调用位点，归为 framework 漏匹配/解析缺口。",
+            evidence: [
+                `callee_signature=${site.callee_signature}`,
+                `invokeKind=${site.invokeKind}`,
+                `argCount=${site.argCount}`,
+            ],
+        };
+    }
+
+    const matchedFrameworkRules = frameworkTransferRules
+        .filter(rule => matchNoCandidateCallsiteToTransferRule(site, rule))
+        .slice(0, 3)
+        .map(rule => rule.id);
+    if (matchedFrameworkRules.length > 0) {
+        return {
+            ...site,
+            category: "C3_FRAMEWORK_GAP",
+            reason: "位点与现有 framework transfer 规则族接近，归为 framework 规则漏匹配。",
+            evidence: matchedFrameworkRules.map(id => `matched_framework_rule=${id}`),
+        };
+    }
+
+    return {
+        ...site,
+        category: "C2_PROJECT_WRAPPER",
+        reason: "未命中 UI 噪音与 framework 缺口特征，归入项目私有封装候选。",
+        evidence: [
+            `method=${site.method}`,
+            `sourceFile=${site.sourceFile}`,
+        ],
+    };
+}
+
+function renderNoCandidateCallsitesClassifiedMarkdown(
+    items: ClassifiedNoCandidateCallsite[],
+    categoryCount: Record<NoCandidateCategory, number>,
+    report: AnalyzeReport
+): string {
+    const lines: string[] = [];
+    lines.push("# No Candidate Callsites Classified");
+    lines.push("");
+    lines.push(`- generatedAt: ${report.generatedAt}`);
+    lines.push(`- repo: ${report.repo}`);
+    lines.push(`- total: ${items.length}`);
+    lines.push(`- categoryCount: ${JSON.stringify(categoryCount)}`);
+    lines.push("");
+    lines.push("| # | category | callee_signature | method | invokeKind | argCount | sourceFile | count | reason | evidence |");
+    lines.push("|---|---|---|---|---|---:|---|---:|---|---|");
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const evidence = item.evidence.join("; ");
+        lines.push(`| ${i + 1} | ${item.category} | ${item.callee_signature} | ${item.method} | ${item.invokeKind} | ${item.argCount} | ${item.sourceFile} | ${item.count} | ${item.reason} | ${evidence} |`);
+    }
+    return `${lines.join("\n")}\n`;
+}
+
+function buildProjectCandidatePool(items: ClassifiedNoCandidateCallsite[]): ClassifiedNoCandidateCallsite[] {
+    return items
+        .filter(item => item.category === "C2_PROJECT_WRAPPER")
+        .sort((a, b) => b.count - a.count || a.callee_signature.localeCompare(b.callee_signature));
+}
+
+function renderProjectCandidatePoolMarkdown(
+    items: ClassifiedNoCandidateCallsite[],
+    report: AnalyzeReport
+): string {
+    const lines: string[] = [];
+    lines.push("# No Candidate Project Candidate Pool");
+    lines.push("");
+    lines.push(`- generatedAt: ${report.generatedAt}`);
+    lines.push(`- repo: ${report.repo}`);
+    lines.push(`- total: ${items.length}`);
+    lines.push("- policy: include only C2_PROJECT_WRAPPER; C1_UI_NOISE and C3_FRAMEWORK_GAP are excluded at report layer.");
+    lines.push("");
+    lines.push("| # | category | callee_signature | method | invokeKind | argCount | sourceFile | count | reason | evidence |");
+    lines.push("|---|---|---|---|---|---:|---|---:|---|---|");
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const evidence = item.evidence.join("; ");
+        lines.push(`| ${i + 1} | ${item.category} | ${item.callee_signature} | ${item.method} | ${item.invokeKind} | ${item.argCount} | ${item.sourceFile} | ${item.count} | ${item.reason} | ${evidence} |`);
+    }
+    return `${lines.join("\n")}\n`;
+}
+
+function writeNoCandidateCallsiteClassificationArtifacts(
+    report: AnalyzeReport,
+    loadedRules: LoadedRuleSet
+): void {
+    const baseItems = report.summary.ruleFeedback?.noCandidateCallsites || [];
+    const frameworkTransferRules = loadAppliedFrameworkTransferRules(loadedRules);
+    const items = baseItems
+        .map(site => classifyNoCandidateCallsite(site, frameworkTransferRules))
+        .sort((a, b) => b.count - a.count || a.callee_signature.localeCompare(b.callee_signature));
+
+    const categoryCount: Record<NoCandidateCategory, number> = {
+        C1_UI_NOISE: 0,
+        C2_PROJECT_WRAPPER: 0,
+        C3_FRAMEWORK_GAP: 0,
+    };
+    for (const item of items) {
+        categoryCount[item.category] = (categoryCount[item.category] || 0) + 1;
+    }
+
+    const outputDir = path.resolve("tmp", "real_projects");
+    fs.mkdirSync(outputDir, { recursive: true });
+    const jsonPath = path.resolve(outputDir, "no_candidate_callsites_classified.json");
+    const mdPath = path.resolve(outputDir, "no_candidate_callsites_classified.md");
+    const projectCandidateJsonPath = path.resolve(outputDir, "no_candidate_project_candidates.json");
+    const projectCandidateMdPath = path.resolve(outputDir, "no_candidate_project_candidates.md");
+    const payload = {
+        generatedAt: report.generatedAt,
+        repo: report.repo,
+        total: items.length,
+        categoryCount,
+        items,
+    };
+    const projectCandidates = buildProjectCandidatePool(items);
+    const projectCandidatePayload = {
+        generatedAt: report.generatedAt,
+        repo: report.repo,
+        total: projectCandidates.length,
+        policy: "include_only_C2_PROJECT_WRAPPER",
+        items: projectCandidates,
+    };
+    fs.writeFileSync(jsonPath, JSON.stringify(payload, null, 2), "utf-8");
+    fs.writeFileSync(mdPath, renderNoCandidateCallsitesClassifiedMarkdown(items, categoryCount, report), "utf-8");
+    fs.writeFileSync(projectCandidateJsonPath, JSON.stringify(projectCandidatePayload, null, 2), "utf-8");
+    fs.writeFileSync(projectCandidateMdPath, renderProjectCandidatePoolMarkdown(projectCandidates, report), "utf-8");
+}
+
+async function analyzeSourceDir(
     scene: Scene,
     sourceDir: string,
-    candidate: EntryCandidate,
     options: CliOptions,
     loadedRules: LoadedRuleSet,
-    seedingPolicy: AnalyzeSeedingPolicy,
-    sharedPagEntries?: EntryCandidate[]
+    seedingPolicy: AnalyzeSeedingPolicy
 ): Promise<EntryAnalyzeResult> {
     const t0 = process.hrtime.bigint();
     const stageProfile = emptyEntryStageProfile();
+    const dummyMainEntryName = "@dummyMain";
     try {
         const engine = new TaintPropagationEngine(scene, options.k, {
             transferRules: loadedRules.ruleSet.transfers || [],
@@ -461,72 +792,14 @@ async function analyzeEntry(
         });
         engine.verbose = false;
         const buildPagT0 = process.hrtime.bigint();
-        if (sharedPagEntries && sharedPagEntries.length > 0) {
-            await engine.buildPAGForEntries(
-                sharedPagEntries.map(entry => ({
-                    name: entry.name,
-                    pathHint: entry.pathHint,
-                }))
-            );
-        } else {
-            await engine.buildPAG(candidate.name, candidate.pathHint);
-        }
+        await engine.buildPAG();
         stageProfile.buildPagMs = elapsedMsSince(buildPagT0);
 
-        const entryMethod = findEntryMethod(scene, candidate);
-        if (!entryMethod) {
-            stageProfile.totalMs = elapsedMsSince(t0);
-            return {
-                sourceDir,
-                entryName: candidate.name,
-                entryPathHint: candidate.pathHint,
-                score: candidate.score,
-                status: "no_entry",
-                seedCount: 0,
-                seedLocalNames: [],
-                seedStrategies: [],
-                flowCount: 0,
-                sinkSamples: [],
-                flowRuleTraces: [],
-                ruleHits: emptyRuleHitCounters(),
-                ruleHitEndpoints: emptyRuleHitCounters(),
-                transferProfile: emptyTransferProfile(),
-                detectProfile: emptyDetectProfile(),
-                stageProfile,
-                transferNoHitReasons: ["no_entry_method"],
-                elapsedMs: stageProfile.totalMs
-            };
-        }
-
         try {
-            const reachableMethodSignatures = engine.computeReachableMethodSignatures(candidate.name, candidate.pathHint);
+            const reachableMethodSignatures = engine.computeReachableMethodSignatures();
             engine.setActiveReachableMethodSignatures(reachableMethodSignatures);
         } catch {
             engine.setActiveReachableMethodSignatures(undefined);
-        }
-
-        if (!entryMethod.getBody()) {
-            stageProfile.totalMs = elapsedMsSince(t0);
-            return {
-                sourceDir,
-                entryName: candidate.name,
-                entryPathHint: candidate.pathHint,
-                score: candidate.score,
-                status: "no_body",
-                seedCount: 0,
-                seedLocalNames: [],
-                seedStrategies: [],
-                flowCount: 0,
-                sinkSamples: [],
-                flowRuleTraces: [],
-                ruleHits: emptyRuleHitCounters(),
-                ruleHitEndpoints: emptyRuleHitCounters(),
-                transferProfile: emptyTransferProfile(),
-                detectProfile: emptyDetectProfile(),
-                stageProfile,
-                transferNoHitReasons: ["entry_has_no_body"],
-                elapsedMs: stageProfile.totalMs
-            };
         }
 
         let seedCount = 0;
@@ -534,11 +807,7 @@ async function analyzeEntry(
         const seedStrategies = new Set<string>();
         const sourceSeedT0 = process.hrtime.bigint();
         const sourceRuleResult = engine.propagateWithSourceRules(
-            getAnalyzeSourceRules(loadedRules, seedingPolicy.allowLocalNamePrimaryRule),
-            {
-                entryMethodName: candidate.name,
-                entryMethodPathHint: candidate.pathHint,
-            }
+            getAnalyzeSourceRules(loadedRules, seedingPolicy.allowLocalNamePrimaryRule)
         );
         stageProfile.propagateRuleSeedMs = elapsedMsSince(sourceSeedT0);
         seedCount += sourceRuleResult.seedCount;
@@ -546,9 +815,10 @@ async function analyzeEntry(
         if (sourceRuleResult.seedCount > 0) seedStrategies.add("rule:source");
 
         const heuristicSeedT0 = process.hrtime.bigint();
-        const heuristic = collectSeedNodes(scene, engine, entryMethod, getSourcePattern(loadedRules), {
+        const heuristic = collectDummyMainSeedNodes(scene, engine, getSourcePattern(loadedRules), {
             enableSourceLikeNameSeed: seedingPolicy.enableSourceLikeNameHeuristic,
             enableCrossFunctionFallback: seedingPolicy.enableCrossFunctionFallback,
+            allowedMethodSignatures: engine.getActiveReachableMethodSignatures(),
         });
         if (heuristic.nodes.length > 0) {
             engine.propagateWithSeeds(heuristic.nodes);
@@ -562,9 +832,9 @@ async function analyzeEntry(
             stageProfile.totalMs = elapsedMsSince(t0);
             return {
                 sourceDir,
-                entryName: candidate.name,
-                entryPathHint: candidate.pathHint,
-                score: candidate.score,
+                entryName: dummyMainEntryName,
+                entryPathHint: sourceDir,
+                score: 100,
                 status: "no_seed",
                 seedCount: 0,
                 seedLocalNames: [],
@@ -613,9 +883,9 @@ async function analyzeEntry(
         stageProfile.totalMs = elapsedMsSince(t0);
         return {
             sourceDir,
-            entryName: candidate.name,
-            entryPathHint: candidate.pathHint,
-            score: candidate.score,
+            entryName: dummyMainEntryName,
+            entryPathHint: sourceDir,
+            score: 100,
             status: "ok",
             seedCount,
             seedLocalNames: [...seedLocalNames].sort(),
@@ -635,9 +905,9 @@ async function analyzeEntry(
         stageProfile.totalMs = elapsedMsSince(t0);
         return {
             sourceDir,
-            entryName: candidate.name,
-            entryPathHint: candidate.pathHint,
-            score: candidate.score,
+            entryName: dummyMainEntryName,
+            entryPathHint: sourceDir,
+            score: 100,
             status: "exception",
             seedCount: 0,
             seedLocalNames: [],
@@ -691,21 +961,12 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     const incrementalCache = options.incremental
         ? loadIncrementalCache<EntryAnalyzeResult>(incrementalCachePath, incrementalCacheScope)
         : new Map<string, IncrementalCacheEntry<EntryAnalyzeResult>>();
-    const perSourceMax = Math.max(1, Math.floor(options.maxEntries / Math.max(1, options.sourceDirs.length)));
-    const sourceContextCache = new Map<string, { scene: Scene; selected: EntrySelectionResult }>();
-    const sourceSharedEntryMap = new Map<string, EntryCandidate[]>();
-    const sharedPagWarmPlans: Array<{
-        sourceDir: string;
-        scene: Scene;
-        entries: EntryCandidate[];
-    }> = [];
+    const sourceContextCache = new Map<string, { scene: Scene }>();
     const orderedEntries: Array<EntryAnalyzeResult | undefined> = [];
     const pendingTasks: Array<{
         order: number;
         sourceDir: string;
         scene: Scene;
-        candidate: EntryCandidate;
-        sharedPagEntries: EntryCandidate[];
         entryCacheKey: string;
         entryStamp?: EntryFileStamp;
     }> = [];
@@ -716,8 +977,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         const sourceAbs = path.resolve(options.repo, sourceDir);
         if (!fs.existsSync(sourceAbs)) continue;
         let scene = sourceContextCache.get(sourceAbs)?.scene;
-        let selected = sourceContextCache.get(sourceAbs)?.selected;
-        if (!scene || !selected) {
+        if (!scene) {
             stageProfile.sceneCacheMissCount++;
             const sceneBuildT0 = process.hrtime.bigint();
             const config = new SceneConfig();
@@ -726,111 +986,48 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
             scene.buildSceneFromProjectDir(config);
             scene.inferTypes();
             stageProfile.sceneBuildMs += elapsedMsSince(sceneBuildT0);
-
-            const entrySelectT0 = process.hrtime.bigint();
-            selected = selectEntryCandidates(scene, {
-                maxEntries: perSourceMax,
-                entryHints: options.entryHints,
-                includePaths: options.includePaths,
-                excludePaths: options.excludePaths,
-            }, getSourcePattern(loadedRules), sourceAbs);
-            stageProfile.entrySelectMs += elapsedMsSince(entrySelectT0);
-            sourceContextCache.set(sourceAbs, { scene, selected });
+            sourceContextCache.set(sourceAbs, { scene });
         } else {
             stageProfile.sceneCacheHitCount++;
         }
 
-        if (selected.selected.length === 0) {
-            orderedEntries.push({
-                sourceDir,
-                entryName: "<none>",
-                score: 0,
-                status: "no_entry",
-                seedCount: 0,
-                seedLocalNames: [],
-                seedStrategies: [],
-                flowCount: 0,
-                sinkSamples: [],
-                flowRuleTraces: [],
-                ruleHits: emptyRuleHitCounters(),
-                ruleHitEndpoints: emptyRuleHitCounters(),
-                transferProfile: emptyTransferProfile(),
-                detectProfile: emptyDetectProfile(),
-                stageProfile: emptyEntryStageProfile(),
-                transferNoHitReasons: ["no_selected_entry"],
-                elapsedMs: 0,
-            });
-            continue;
-        }
-
-        sourceSharedEntryMap.set(sourceAbs, selected.selected);
-        let hasPendingForSource = false;
-        for (const candidate of selected.selected) {
-            const order = orderedEntries.length;
-            orderedEntries.push(undefined);
-            const entryCacheKey = buildEntryCacheKey(sourceDir, candidate);
-            const entryStamp = resolveEntryFileStamp(options.repo, sourceDir, candidate.pathHint);
-            if (options.incremental) {
-                const cached = incrementalCache.get(entryCacheKey);
-                if (cached && sameEntryFileStamp(cached.stamp, entryStamp)) {
-                    const cachedResult = cloneCachedEntryResult(cached.result, candidate.score, emptyEntryStageProfile);
-                    orderedEntries[order] = cachedResult;
-                    stageProfile.entryAnalyzeMs += cachedResult.stageProfile.totalMs;
-                    stageProfile.incrementalCacheHitCount++;
-                    continue;
-                }
-                stageProfile.incrementalCacheMissCount++;
+        const order = orderedEntries.length;
+        orderedEntries.push(undefined);
+        const syntheticCandidate = { pathHint: sourceDir, name: "@dummyMain" };
+        const entryCacheKey = buildEntryCacheKey(sourceDir, syntheticCandidate);
+        const entryStamp = resolveSourceDirStamp(options.repo, sourceDir);
+        if (options.incremental) {
+            const cached = incrementalCache.get(entryCacheKey);
+            if (cached && sameEntryFileStamp(cached.stamp, entryStamp)) {
+                const cachedResult = cloneCachedEntryResult(cached.result, 100, emptyEntryStageProfile);
+                orderedEntries[order] = cachedResult;
+                stageProfile.entryAnalyzeMs += cachedResult.stageProfile.totalMs;
+                stageProfile.incrementalCacheHitCount++;
+                continue;
             }
-
-            pendingTasks.push({
-                order,
-                sourceDir,
-                scene,
-                candidate,
-                sharedPagEntries: sourceSharedEntryMap.get(sourceAbs) || selected.selected,
-                entryCacheKey,
-                entryStamp,
-            });
-            hasPendingForSource = true;
+            stageProfile.incrementalCacheMissCount++;
         }
 
-        if (hasPendingForSource) {
-            sharedPagWarmPlans.push({
-                sourceDir,
-                scene,
-                entries: sourceSharedEntryMap.get(sourceAbs) || selected.selected,
-            });
-        }
+        pendingTasks.push({
+            order,
+            sourceDir,
+            scene,
+            entryCacheKey,
+            entryStamp,
+        });
     }
 
     stageProfile.entryParallelTaskCount = pendingTasks.length;
-    for (const warmPlan of sharedPagWarmPlans) {
-        const warmT0 = process.hrtime.bigint();
-        const warmEngine = new TaintPropagationEngine(warmPlan.scene, options.k, {
-            transferRules: loadedRules.ruleSet.transfers || [],
-        });
-        warmEngine.verbose = false;
-        await warmEngine.buildPAGForEntries(
-            warmPlan.entries.map(entry => ({
-                name: entry.name,
-                pathHint: entry.pathHint,
-            }))
-        );
-        stageProfile.entryAnalyzeMs += elapsedMsSince(warmT0);
-    }
-
     const pendingResults = await mapWithConcurrency(
         pendingTasks,
         options.concurrency,
         async (task): Promise<EntryAnalyzeResult> => {
-            return analyzeEntry(
+            return analyzeSourceDir(
                 task.scene,
                 task.sourceDir,
-                task.candidate,
                 options,
                 loadedRules,
-                seedingPolicy,
-                task.sharedPagEntries
+                seedingPolicy
             );
         }
     );
@@ -873,7 +1070,9 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         resultCount: 0,
         elapsedMs: 0,
         elapsedShareAvg: 0,
+        noCandidateCallsites: [] as AnalyzeReport["summary"]["transferProfile"]["noCandidateCallsites"],
     };
+    const noCandidateSummaryMap = new Map<string, AnalyzeReport["summary"]["transferProfile"]["noCandidateCallsites"][number]>();
     const detectProfile = emptyDetectProfile();
     let transferShareCount = 0;
     const transferNoHitReasons: Record<string, number> = {};
@@ -895,6 +1094,15 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         transferProfile.resultCount += e.transferProfile.resultCount;
         transferProfile.elapsedMs += e.transferProfile.elapsedMs;
         transferProfile.elapsedShareAvg += e.transferProfile.elapsedShare;
+        for (const site of e.transferProfile.noCandidateCallsites || []) {
+            const key = `${site.calleeSignature}|${site.method}|${site.invokeKind}|${site.argCount}|${site.sourceFile}`;
+            const existing = noCandidateSummaryMap.get(key);
+            if (existing) {
+                existing.count += site.count;
+            } else {
+                noCandidateSummaryMap.set(key, { ...site });
+            }
+        }
         detectProfile.detectCallCount += e.detectProfile.detectCallCount;
         detectProfile.methodsVisited += e.detectProfile.methodsVisited;
         detectProfile.reachableMethodsVisited += e.detectProfile.reachableMethodsVisited;
@@ -927,12 +1135,16 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     transferProfile.elapsedShareAvg = transferShareCount > 0
         ? Number((transferProfile.elapsedShareAvg / transferShareCount).toFixed(6))
         : 0;
+    transferProfile.noCandidateCallsites = [...noCandidateSummaryMap.values()]
+        .sort((a, b) => b.count - a.count || a.calleeSignature.localeCompare(b.calleeSignature))
+        .slice(0, 200);
     const reportEntries = entries.map(e => toReportEntry(e, options.reportMode));
     const ruleFeedback = buildRuleFeedback(
         options.repo,
         loadedRules,
         ruleHits,
-        sourceContextCache
+        sourceContextCache,
+        entries
     );
 
     const report: AnalyzeReport = {
@@ -997,6 +1209,8 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     report.summary.stageProfile.transferSceneRuleCacheDisabledCount = transferSceneCacheStats.disabledCount;
     fs.writeFileSync(jsonPath, JSON.stringify(report, null, 2), "utf-8");
     fs.writeFileSync(mdPath, renderMarkdownReport(report), "utf-8");
+    writeNoCandidateCallsiteArtifacts(report);
+    writeNoCandidateCallsiteClassificationArtifacts(report, loadedRules);
 
     return {
         report,

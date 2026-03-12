@@ -130,8 +130,8 @@ async function main(): Promise<void> {
     for (const caseName of caseNames) {
         const engine = new TaintPropagationEngine(scene, options.k, { transferRules });
         engine.verbose = false;
-        await engine.buildPAG(caseName);
-        engine.propagateWithSourceRules(sourceRules, { entryMethodName: caseName });
+        await engine.buildPAG();
+        engine.propagateWithSourceRules(sourceRules);
         engine.detectSinksByRules(sinkRules);
     }
 
@@ -154,4 +154,3 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
-

@@ -54,6 +54,11 @@ function isNonEmptyString(value: unknown): value is string {
     return typeof value === "string" && value.trim().length > 0;
 }
 
+function hasScopeAnchor(scope: RuleScopeConstraint | undefined): boolean {
+    if (!scope) return false;
+    return !!(scope.file || scope.module || scope.className || scope.methodName);
+}
+
 function validateMatch(rulePath: string, match: unknown, out: RuleValidationResult): void {
     if (!isObject(match)) {
         out.errors.push(`${rulePath}.match must be an object`);
@@ -197,17 +202,35 @@ function validateRuleCommon(rulePath: string, rule: unknown, out: RuleValidation
     if (isObject(normalizedRule.match) && normalizedRule.match.kind === "method_name_equals" && typeof normalizedRule.match.value === "string") {
         const methodName = normalizedRule.match.value.trim();
         if (HIGH_RISK_METHOD_NAMES.has(methodName)) {
-            const scope = normalizedRule.scope;
-            const hasScopeConstraint = !!(scope && (scope.file || scope.module || scope.className || scope.methodName));
-            const hasShapeConstraint = normalizedRule.invokeKind !== undefined
+            const hasScopeConstraint = hasScopeAnchor(normalizedRule.scope);
+            const hasShapeConstraint = (
+                (normalizedRule.invokeKind !== undefined && normalizedRule.invokeKind !== "any")
                 || normalizedRule.argCount !== undefined
-                || isNonEmptyString(normalizedRule.typeHint);
-            if (!hasScopeConstraint && !hasShapeConstraint) {
+                || isNonEmptyString(normalizedRule.typeHint)
+            );
+            if (!hasScopeConstraint || !hasShapeConstraint) {
+                const missing: string[] = [];
+                if (!hasScopeConstraint) missing.push("scope anchor(file/module/className/methodName)");
+                if (!hasShapeConstraint) missing.push("invokeKind(instance/static)/argCount/typeHint");
                 out.warnings.push(
-                    `${rulePath} uses high-risk method_name_equals('${methodName}') without scope/invoke constraints; `
-                    + `consider className/module + invokeKind/argCount/typeHint to reduce over-match`
+                    `${rulePath} uses high-risk method_name_equals('${methodName}') without combined constraints `
+                    + `(${missing.join(", ")}); consider className/module + invokeKind/argCount/typeHint`
                 );
             }
+        }
+    }
+
+    if (normalizedRule.tier === "C" && isObject(normalizedRule.match) && normalizedRule.match.kind === "method_name_equals") {
+        const missing: string[] = [];
+        if (!isNonEmptyString(normalizedRule.family)) missing.push("family");
+        if (normalizedRule.invokeKind === undefined || normalizedRule.invokeKind === "any") missing.push("invokeKind(instance/static)");
+        if (normalizedRule.argCount === undefined) missing.push("argCount");
+        if (!hasScopeAnchor(normalizedRule.scope)) missing.push("scope anchor(file/module/className/methodName)");
+        if (missing.length > 0) {
+            out.warnings.push(
+                `${rulePath} tier C method fallback is under-constrained (${missing.join(", ")}); `
+                + `Tier C is intended for anchored fallback only`
+            );
         }
     }
 

@@ -101,17 +101,15 @@ async function runCase(
         enableHarmonyStateModeling: !options.disableModeling,
     });
     engine.verbose = false;
-    await engine.buildPAG(caseName);
+    await engine.buildPAG();
     try {
-        const reachable = engine.computeReachableMethodSignatures(caseName);
+        const reachable = engine.computeReachableMethodSignatures();
         engine.setActiveReachableMethodSignatures(reachable);
     } catch {
         engine.setActiveReachableMethodSignatures(undefined);
     }
 
-    const seedInfo = engine.propagateWithSourceRules(sourceRules, {
-        entryMethodName: caseName,
-    });
+    const seedInfo = engine.propagateWithSourceRules(sourceRules);
     const flows = engine.detectSinksByRules(sinkRules);
     const detected = flows.length > 0;
     const pass = detected === expected;

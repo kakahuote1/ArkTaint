@@ -1,4 +1,4 @@
-
+﻿
 import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
 import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
@@ -89,7 +89,7 @@ function resolveEntryMethod(scene: Scene, relativePath: string, testName: string
     return { name: testName, pathHint: normalized };
 }
 
-function findEntryMethod(scene: Scene, entry: ResolvedEntry): any | undefined {
+function findCaseMethod(scene: Scene, entry: ResolvedEntry): any | undefined {
     const candidates = scene.getMethods().filter(m => m.getName() === entry.name);
     if (entry.pathHint) {
         const normalizedHint = entry.pathHint.replace(/\\/g, "/");
@@ -115,11 +115,11 @@ async function runWithK(scene: Scene, allFiles: string[], targetDir: string, k: 
 
         try {
             let engine = new TaintPropagationEngine(scene, k);
-            engine.verbose = false; // 抑制传播日志
+            engine.verbose = false; // 鎶戝埗浼犳挱鏃ュ織
 
-            await engine.buildPAG(entry.name, entry.pathHint);
+            await engine.buildPAG();
 
-            let entryMethod = findEntryMethod(scene, entry);
+            let entryMethod = findCaseMethod(scene, entry);
             if (!entryMethod) continue;
 
             let methodBody = entryMethod.getBody();
@@ -129,7 +129,7 @@ async function runWithK(scene: Scene, allFiles: string[], targetDir: string, k: 
             let localsMap = methodBody.getLocals();
             let seeds: any[] = [];
             for (let local of localsMap.values()) {
-                // 仅从真实参数 local 取 seed，避免把中间变量（如 p Promise 变量）误作为入口污点。
+                // Only use the real parameter locals as synthetic seeds.
                 if (local.getName() === 'taint_src' || paramLocalNames.has(local.getName())) {
                     let nodes = engine.pag.getNodesByValue(local);
                     if (nodes) {
@@ -238,3 +238,5 @@ async function runTest() {
 }
 
 runTest().catch(console.error);
+
+

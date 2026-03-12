@@ -8,10 +8,9 @@ export interface SmokeProjectConfig {
     commit?: string;
     sourceDirs: string[];
     tags?: string[];
-    entryHints?: string[];
-    includePaths?: string[];
-    excludePaths?: string[];
     sinkSignatures?: string[];
+    // Optional per-project upper bound; effective entries = min(cli.maxEntries, maxEntriesCap).
+    maxEntriesCap?: number;
     enabled?: boolean;
 }
 
@@ -32,7 +31,7 @@ export interface ResolvedEntry {
     pathHint?: string;
 }
 
-export interface EntryCandidate extends ResolvedEntry {
+export interface DummyMainUnit extends ResolvedEntry {
     signature: string;
     score: number;
     sourceDir: string;
@@ -87,6 +86,7 @@ export interface ProjectSmokeResult {
     sourceSummaries: SourceDirSummary[];
     entries: EntrySmokeResult[];
     sinkSignatures: string[];
+    effectiveMaxEntries?: number;
     analyzed: number;
     withSeeds: number;
     withFlows: number;
@@ -110,14 +110,8 @@ export interface SmokeReport {
     fatalProjectCount: number;
 }
 
-export interface CandidateSelectorOptions {
-    includePaths: string[];
-    excludePaths: string[];
-    entryHints: string[];
-}
-
-export interface CandidateSelectionResult {
-    selected: EntryCandidate[];
+export interface SourceDirSelectionStats {
+    selected: DummyMainUnit[];
     poolTotal: number;
     filteredTotal: number;
     poolFileCount: number;

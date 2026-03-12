@@ -39,7 +39,7 @@ async function run(): Promise<void> {
     });
     engine.verbose = false;
 
-    await engine.buildPAG(entryName);
+    await engine.buildPAG();
 
     const entryMethod = scene.getMethods().find(m => m.getName() === entryName);
     if (!entryMethod || !entryMethod.getBody()) {

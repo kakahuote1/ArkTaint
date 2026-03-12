@@ -1,7 +1,12 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as path from "path";
 import { runShellOrThrow } from "./ProcessRunner";
 import { ArktanRunnerReport, CliOptions, ScenarioStaticData } from "./TransferCompareTypes";
+
+export interface ArktanCaseSpec {
+    caseId: string;
+    caseMethodName: string;
+}
 
 export function ensureArktanRunnerScript(outputDir: string): string {
     const runnerPath = path.join(outputDir, "arktan_compare_runner.ts");
@@ -142,12 +147,18 @@ function main(): void {
     methodsByName.set(m.getName(), arr);
   }
 
+  const caseSpecs = Array.isArray(payload.cases) && payload.cases.length > 0
+    ? payload.cases
+    : (payload.caseNames as string[]).map((name: string) => ({ caseId: name, caseMethodName: name }));
+
   const sources: any[] = [];
   const missingCaseMethods: string[] = [];
-  for (const caseName of payload.caseNames as string[]) {
-    const matched = methodsByName.get(caseName) || [];
+  for (const item of caseSpecs as any[]) {
+    const caseId = String(item.caseId || item.caseMethodName || "");
+    const caseMethodName = String(item.caseMethodName || item.caseId || "");
+    const matched = methodsByName.get(caseMethodName) || [];
     const withParam = matched.filter((m: any) => m.getParameterInstances().length > 0);
-    if (withParam.length === 0) { missingCaseMethods.push(caseName); continue; }
+    if (withParam.length === 0) { missingCaseMethods.push(caseId); continue; }
     sources.push({ kind: "param", method: withParam[0].getSignature().toString(), index: 0 });
   }
 
@@ -193,9 +204,11 @@ function main(): void {
 
   const flowLines = lines.filter(line => line.includes("Taintflow{"));
   const detectedCases: string[] = [];
-  for (const caseName of payload.caseNames as string[]) {
-    const re = new RegExp("\\\\." + escapeRegExp(caseName) + "\\\\(");
-    if (flowLines.some(line => re.test(line))) detectedCases.push(caseName);
+  for (const item of caseSpecs as any[]) {
+    const caseId = String(item.caseId || item.caseMethodName || "");
+    const caseMethodName = String(item.caseMethodName || item.caseId || "");
+    const re = new RegExp("\\\\." + escapeRegExp(caseMethodName) + "\\\\(");
+    if (flowLines.some(line => re.test(line))) detectedCases.push(caseId);
   }
 
   const report = {
@@ -219,12 +232,37 @@ export function runArktanScenarioRound(
     options: CliOptions,
     runnerPath: string
 ): ArktanRunnerReport {
-    const payloadPath = path.join(options.outputDir, `arktan_payload_${scenario.config.id}.json`);
+    const cases: ArktanCaseSpec[] = scenario.caseNames.map(caseName => ({
+        caseId: caseName,
+        caseMethodName: caseName,
+    }));
+    return runArktanCaseSetRound(
+        scenario.config.id,
+        path.resolve(scenario.config.sourceDir),
+        cases,
+        scenario.sinkMethodName,
+        scenario.transferCandidates,
+        options,
+        runnerPath
+    );
+}
+
+export function runArktanCaseSetRound(
+    scenarioId: string,
+    projectDir: string,
+    cases: ArktanCaseSpec[],
+    sinkMethodName: string,
+    transferCandidates: any[],
+    options: Pick<CliOptions, "outputDir" | "arktanRoot">,
+    runnerPath: string
+): ArktanRunnerReport {
+    const payloadPath = path.join(options.outputDir, `arktan_payload_${scenarioId}.json`);
     const payload = {
-        scenarioId: scenario.config.id,
-        caseNames: scenario.caseNames,
-        sinkMethodName: scenario.sinkMethodName,
-        transferCandidates: scenario.transferCandidates,
+        scenarioId,
+        caseNames: cases.map(item => item.caseId),
+        cases,
+        sinkMethodName,
+        transferCandidates,
     };
     fs.writeFileSync(payloadPath, JSON.stringify(payload, null, 2), "utf-8");
 
@@ -238,24 +276,35 @@ export function runArktanScenarioRound(
         "--arktanRoot",
         q(options.arktanRoot),
         "--projectDir",
-        q(path.resolve(scenario.config.sourceDir)),
+        q(path.resolve(projectDir)),
         "--payload",
         q(payloadPath),
     ].join(" ");
     const cmd = runShellOrThrow(
-        `arktan runner (scenario=${scenario.config.id})`,
+        `arktan runner (scenario=${scenarioId})`,
         cmdLine,
         {
             cwd: ptaWorkDir,
             maxBuffer: 16 * 1024 * 1024,
+            env: {
+                ...process.env,
+                NODE_PATH: [
+                    path.resolve(process.cwd(), "tests", "shims"),
+                    path.resolve(process.cwd(), "node_modules"),
+                    path.resolve(process.cwd(), "arkanalyzer", "node_modules"),
+                    path.resolve(options.arktanRoot, "node_modules"),
+                    process.env.NODE_PATH || "",
+                ].filter(Boolean).join(path.delimiter),
+            },
         }
     );
     const stdout = cmd.stdout;
     const marker = "ARKTAN_REPORT_JSON=";
     const markerLine = stdout.split(/\r?\n/).find(line => line.startsWith(marker));
     if (!markerLine) {
-        throw new Error(`arktan runner output missing marker for scenario=${scenario.config.id}`);
+        throw new Error(`arktan runner output missing marker for scenario=${scenarioId}`);
     }
     const json = markerLine.slice(marker.length);
     return JSON.parse(json) as ArktanRunnerReport;
 }
+

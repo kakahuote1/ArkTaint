@@ -185,8 +185,8 @@ function listCaseNames(sourceDir: string): string[] {
         .sort();
 }
 
-function flowSinkInEntryMethod(scene: Scene, sinkStmt: any, entryMethodName: string): boolean {
-    const method = scene.getMethods().find(m => m.getName() === entryMethodName);
+function flowSinkInCaseMethod(scene: Scene, sinkStmt: any, caseMethodName: string): boolean {
+    const method = scene.getMethods().find(m => m.getName() === caseMethodName);
     if (!method) return false;
     const cfg = method.getCfg();
     if (!cfg) return false;
@@ -278,10 +278,10 @@ async function runRound(
                 debug: { enableWorklistProfile: true },
             });
             engine.verbose = false;
-            await engine.buildPAG(caseName);
-            engine.propagateWithSourceRules(scenario.sourceRules, { entryMethodName: caseName });
+            await engine.buildPAG();
+            engine.propagateWithSourceRules(scenario.sourceRules);
             const flows = engine.detectSinksByRules(scenario.sinkRules)
-                .filter(flow => flowSinkInEntryMethod(scenario.scene, flow.sink, caseName));
+                .filter(flow => flowSinkInCaseMethod(scenario.scene, flow.sink, caseName));
             const detected = flows.length > 0;
             if (detected !== expected) {
                 stats.failCaseCount++;

@@ -13,9 +13,6 @@ export interface CliOptions {
     maxEntries: number;
     reportMode: ReportMode;
     outputDir: string;
-    entryHints: string[];
-    includePaths: string[];
-    excludePaths: string[];
     concurrency: number;
     incremental: boolean;
     incrementalCachePath?: string;
@@ -40,9 +37,6 @@ export function parseArgs(argv: string[]): CliOptions {
     let maxEntriesRaw: number | undefined;
     let outputDir = "";
     let concurrencyRaw: number | undefined;
-    const entryHints: string[] = [];
-    const includePaths: string[] = [];
-    const excludePaths: string[] = [];
     let incremental = true;
     let incrementalCachePath: string | undefined;
     let stopOnFirstFlow = false;
@@ -118,21 +112,15 @@ export function parseArgs(argv: string[]): CliOptions {
         }
         const hintsArg = readValue("--entryHint");
         if (hintsArg !== undefined) {
-            entryHints.push(...splitCsv(hintsArg));
-            if (arg === "--entryHint") i++;
-            continue;
+            throw new Error("deprecated --entryHint: analyze now uses pure dummyMain root. narrow analysis with --sourceDir instead.");
         }
         const includeArg = readValue("--include");
         if (includeArg !== undefined) {
-            includePaths.push(...splitCsv(includeArg));
-            if (arg === "--include") i++;
-            continue;
+            throw new Error("deprecated --include: analyze no longer selects candidate entries. narrow analysis with --sourceDir instead.");
         }
         const excludeArg = readValue("--exclude");
         if (excludeArg !== undefined) {
-            excludePaths.push(...splitCsv(excludeArg));
-            if (arg === "--exclude") i++;
-            continue;
+            throw new Error("deprecated --exclude: analyze no longer selects candidate entries. narrow analysis with --sourceDir instead.");
         }
 
         const defaultRuleArg = readValue("--default");
@@ -263,9 +251,6 @@ export function parseArgs(argv: string[]): CliOptions {
         k,
         maxEntries: Math.floor(maxEntries),
         outputDir,
-        entryHints,
-        includePaths,
-        excludePaths,
         concurrency: Math.floor(concurrency),
         incremental,
         incrementalCachePath,

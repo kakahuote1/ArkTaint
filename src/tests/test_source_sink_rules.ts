@@ -120,11 +120,8 @@ async function main(): Promise<void> {
         const expected = caseName.endsWith("_T");
         const engine = new TaintPropagationEngine(scene, options.k);
         engine.verbose = false;
-        await engine.buildPAG(caseName);
-
-        const seedInfo = engine.propagateWithSourceRules(sourceRules, {
-            entryMethodName: caseName,
-        });
+        await engine.buildPAG();
+        const seedInfo = engine.propagateWithSourceRules(sourceRules);
         const flows = engine.detectSinksByRules(sinkRules);
         const detected = flows.length > 0;
         const pass = detected === expected;

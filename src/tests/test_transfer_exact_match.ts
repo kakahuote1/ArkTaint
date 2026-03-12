@@ -14,8 +14,8 @@ function assert(condition: unknown, message: string): asserts condition {
     if (!condition) throw new Error(message);
 }
 
-function flowSinkInEntryMethod(scene: Scene, sinkStmt: any, entryMethodName: string): boolean {
-    const method = scene.getMethods().find(m => m.getName() === entryMethodName);
+function flowSinkInCaseMethod(scene: Scene, sinkStmt: any, caseMethodName: string): boolean {
+    const method = scene.getMethods().find(m => m.getName() === caseMethodName);
     if (!method) return false;
     const cfg = method.getCfg();
     if (!cfg) return false;
@@ -31,13 +31,10 @@ async function runCase(
 ): Promise<boolean> {
     const engine = new TaintPropagationEngine(scene, 1, { transferRules });
     engine.verbose = false;
-    await engine.buildPAG(caseName);
-
-    engine.propagateWithSourceRules(sourceRules, {
-        entryMethodName: caseName,
-    });
+    await engine.buildPAG();
+    engine.propagateWithSourceRules(sourceRules);
     const flows = engine.detectSinksByRules(sinkRules);
-    const scopedFlows = flows.filter(flow => flowSinkInEntryMethod(scene, flow.sink, caseName));
+    const scopedFlows = flows.filter(flow => flowSinkInCaseMethod(scene, flow.sink, caseName));
     return scopedFlows.length > 0;
 }
 

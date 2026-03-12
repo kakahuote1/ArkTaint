@@ -81,10 +81,11 @@ node out/cli/analyze.js --repo <repo-path>
 | 参数名                | 必填  | 默认值         | 说明                                                                                                                                                                       |
 | :-------------------- | :---: | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--repo <path>`       |   ✅   | -              | 指定要分析的 ArkTS 项目根目录绝对或相对路径。                                                                                                                              |
-| `--sourceDir <path>`  |   ❌   | 自动探测       | 指定源码目录（相对于 repo 根目录，支持逗号分隔）。默认探测 `entry/src/main/ets` 等。                                                                                       |
+| `--sourceDir <path>`  |   ❌   | 自动探测       | 指定源码目录（相对于 repo 根目录，支持逗号分隔）。默认探测 `entry/src/main/ets` 等。`analyze` 当前以 `sourceDir` 为分析单元。每个 `sourceDir` 会构建一个统一的 `@dummyMain` 作为分析入口，因此请通过 `--sourceDir` 控制分析范围。                                                                                       |
 | `--profile <mode>`    |   ❌   | `default`      | 分析配置预设：<br>`default`: k=1, 并发 4, 最大入口 12。<br>`strict`: 最高精度, 最慢。k=1, 并发 2, 最大入口 20。<br>`fast`: 快速扫描, 误报多。k=0, 并发 6, 最大入口 8。<br> |
 | `--reportMode <mode>` |   ❌   | `light`        | 报告详细程度。`light` (仅关键链路) 或 `full` (完整图谱跟踪细节)。                                                                                                          |
 | `--outputDir <path>`  |   ❌   | `tmp/analyze/` | 输出分析报告的存放目录，默认以时间戳命名。                                                                                                                                 |
+
 
 ### 规则与策略调优参数
 
@@ -92,8 +93,6 @@ node out/cli/analyze.js --repo <repo-path>
 | :----------------------- | :--------------------------------------------------------------------------------- |
 | `--framework <path>`     | 指定额外的框架级规则 JSON 文件路径。                                               |
 | `--project <path>`       | 指定项目特异性规则 JSON 文件路径（优先级高于 framework，常用）。                   |
-| `--entryHint <keywords>` | 入口探测关键字，提示分析器优先扫哪些函数（逗号分隔，如 `onClick,aboutToAppear`）。 |
-| `--include`/`--exclude`  | 按文件路径过滤分析范围（支持逗号分隔指定多个规则）。                               |
 | `--[no-]incremental`     | 启用/关闭解析增量缓存（默认自动开启以节约二次扫描时间）。                          |
 
 ### 🚀 执行示例
@@ -105,13 +104,12 @@ node out/cli/analyze.js --repo ../target-project --profile fast
 ```
 
 **示例 2：高精度针对性排查**
-适合深度分析特定组件（如包含关键词 `Login` 的文件），叠加自定义业务白名单规则，并指定关注 `onClick` 入口点：
+适合深度分析特定模块或目录，可通过 `--sourceDir` 缩小分析范围：
 ```bash
 node out/cli/analyze.js --repo ../target-project \
+  --sourceDir entry/src/main/ets \
   --profile strict \
-  --project ./my_custom_rules.json \
-  --include Login \
-  --entryHint onClick
+  --project ./my_custom_rules.json
 ```
 
 分析完成后，可以在对应的 `outputDir` 下查看结果文件 `summary.md` 和 `summary.json` 以获取最终的漏洞统计与追溯链路。
@@ -156,25 +154,32 @@ ArkTaint 的分析行为高度配置化，支持各类规则：
 
 ## 📊 测试与真实项目 (Testing & Real-world Projects)
 
-ArkTaint 包含全量上下文敏感测试集及变形测试集 (`metamorphic`) 来验证引擎稳定性。
+ArkTaint 当前维护两类验证：一类用于覆盖 pure `dummyMain` 主链的正式门禁，另一类用于保留历史 synthetic / generalization 对照与研究验证。
 
-| 验证维度               | 评估结果                  | 备注说明                                    |
-| :--------------------- | :------------------------ | :------------------------------------------ |
-| **全量数据集用例验证** | **100.0%** (230/230, k=1) | 涵盖完整的语法测试用例与高级语言边界        |
-| **泛化性与防过拟合**   | **自动化门禁**            | 引入 `Metamorphic` 变型等价防过拟合验证机制 |
+| 验证维度 | 当前口径 | 说明 |
+| :-- | :-- | :-- |
+| **正式主链门禁** | `npm run verify` / `npm run verify:dev` | 当前默认基线；`verify:dev` 额外覆盖 smoke 与 project-rules workflow |
+| **补充验证** | `npm run verify:legacy-synthetic` / `npm run verify:generalization` | 用于历史对照、泛化与研究验证，不作为当前主链基线 |
 
 ### ✅ 主仓库自动化门禁
 
-每次提交前，可运行基线验证集：
+每次提交前，建议至少运行当前正式门禁：
 
 ```bash
-# 执行完整的开发者数据、holdout 用例和变形等价测试
+# 正式主链门禁
+npm run verify
+
+# 扩展开发门禁（额外覆盖 smoke 与 project-rules workflow）
+npm run verify:dev
+
+# 补充验证（可选）
+npm run verify:legacy-synthetic
 npm run verify:generalization
 ```
 
 ### ⚠️ 真实项目与烟雾测试声明 (重要)
 
-为了保持主仓库代码的纯净，并遵循严格的仓库隔离纪律，**所有第三方的真实大型开源项目（如 `WanAndroidHarmoney`、`HarmonyStudy` 等）的源码均不包含在本项目内。**
+为了保持主仓库代码的纯净，并遵循严格的仓库隔离纪律，**所有第三方的真实大型开源项目的源码均不包含在本项目内。**
 
 因此：
 1. 本仓库内的代码仅包含 ArkTaint 引擎、SDK 规则和各种 mock/demo 小用例。

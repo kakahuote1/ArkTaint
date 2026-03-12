@@ -2,7 +2,9 @@ import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
 import { ArkAssignStmt } from "../../arkanalyzer/out/src/core/base/Stmt";
 import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../arkanalyzer/out/src/core/base/Expr";
-import { selectEntryCandidates } from "./analyzeUtils";
+import { ArkParameterRef } from "../../arkanalyzer/out/src/core/base/Ref";
+import { Local } from "../../arkanalyzer/out/src/core/base/Local";
+import { DummyMainCreater } from "../../arkanalyzer/out/src/core/common/DummyMainCreater";
 import { SinkRule, SourceRule, TaintRuleSet, TransferRule } from "../core/rules/RuleSchema";
 import { validateRuleSet } from "../core/rules/RuleValidator";
 import * as fs from "fs";
@@ -15,7 +17,6 @@ export interface GenerateProjectRuleCliOptions {
     maxEntries: number;
     maxSinks: number;
     maxTransfers: number;
-    entryHints: string[];
     includePaths: string[];
     excludePaths: string[];
     enableCandidates: boolean;
@@ -50,6 +51,13 @@ interface TransferCandidate {
     hitCount: number;
 }
 
+interface SourceCandidateMethod {
+    name: string;
+    pathHint?: string;
+    signature: string;
+    score: number;
+}
+
 const SOURCE_PATTERN = /(taint_src|input|url|uri|path|query|param|params|msg|message|text|content|payload|token|password|pwd|phone|email|name|id|data)/i;
 const SINK_HINTS = [
     "sink",
@@ -81,7 +89,6 @@ function parseArgs(argv: string[]): GenerateProjectRuleCliOptions {
     let maxEntries = 20;
     let maxSinks = 30;
     let maxTransfers = 40;
-    const entryHints: string[] = [];
     const includePaths: string[] = [];
     const excludePaths: string[] = [];
     let enableCandidates = false;
@@ -131,12 +138,6 @@ function parseArgs(argv: string[]): GenerateProjectRuleCliOptions {
             if (arg === "--maxTransfers") i++;
             continue;
         }
-        const entryHintArg = readValue("--entryHint");
-        if (entryHintArg !== undefined) {
-            entryHints.push(...splitCsv(entryHintArg));
-            if (arg === "--entryHint") i++;
-            continue;
-        }
         const includeArg = readValue("--include");
         if (includeArg !== undefined) {
             includePaths.push(...splitCsv(includeArg));
@@ -177,7 +178,6 @@ function parseArgs(argv: string[]): GenerateProjectRuleCliOptions {
         maxEntries: Math.floor(maxEntries),
         maxSinks: Math.floor(maxSinks),
         maxTransfers: Math.floor(maxTransfers),
-        entryHints,
         includePaths,
         excludePaths,
         enableCandidates,
@@ -187,6 +187,126 @@ function parseArgs(argv: string[]): GenerateProjectRuleCliOptions {
 function sanitizeIdPart(raw: string, fallback: string): string {
     const normalized = raw.toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "");
     return normalized.length > 0 ? normalized.slice(0, 48) : fallback;
+}
+
+function normalizeLowerList(values: string[] | undefined): string[] {
+    if (!values) return [];
+    return values.map(v => String(v || "").trim().toLowerCase()).filter(Boolean);
+}
+
+function matchesAny(text: string, patterns: string[]): boolean {
+    if (patterns.length === 0) return false;
+    const lower = text.toLowerCase();
+    return patterns.some(pattern => lower.includes(pattern));
+}
+
+function extractArkFileFromSignature(signature: string): string | undefined {
+    const m = signature.match(/<@([^:>]+\.ets):/);
+    if (m) return m[1].replace(/\\/g, "/");
+    const m2 = signature.match(/@([^:>]+\.ets):/);
+    if (m2) return m2[1].replace(/\\/g, "/");
+    return undefined;
+}
+
+function getParameterLocalCount(method: any): number {
+    const names = new Set<string>();
+    const cfg = method.getCfg?.();
+    if (!cfg) return 0;
+    for (const stmt of cfg.getStmts()) {
+        if (!(stmt instanceof ArkAssignStmt)) continue;
+        if (!(stmt.getRightOp() instanceof ArkParameterRef)) continue;
+        const leftOp = stmt.getLeftOp();
+        if (leftOp instanceof Local) {
+            names.add(leftOp.getName());
+        }
+    }
+    return names.size;
+}
+
+function getSourceLikeLocalCount(method: any): number {
+    const body = method.getBody?.();
+    if (!body) return 0;
+    let count = 0;
+    for (const local of body.getLocals().values()) {
+        if (SOURCE_PATTERN.test(local.getName())) count++;
+    }
+    return count;
+}
+
+function collectDummyMainMethods(scene: Scene): any[] {
+    const dummyMainCreater = new DummyMainCreater(scene);
+    const runtimeMethods = (dummyMainCreater as any).entryMethods;
+    if (!Array.isArray(runtimeMethods)) {
+        return [];
+    }
+    const dedup = new Map<string, any>();
+    for (const method of runtimeMethods) {
+        const signature = method?.getSignature?.()?.toString?.();
+        if (!signature) continue;
+        dedup.set(signature, method);
+    }
+    return [...dedup.values()];
+}
+
+function scoreSourceCandidate(method: any, signature: string, fromDummyMain: boolean): number {
+    const nameLower = String(method.getName?.() || "").toLowerCase();
+    const sigLower = signature.toLowerCase();
+    const paramCount = getParameterLocalCount(method);
+    const sourceLikeCount = getSourceLikeLocalCount(method);
+
+    let score = 0;
+    if (fromDummyMain) score += 50;
+    if (sigLower.includes("/entryability/")) score += 20;
+    if (sigLower.includes("/pages/")) score += 18;
+    if (sigLower.includes("/viewmodel/")) score += 15;
+    if (nameLower === "build") score += 18;
+    if (nameLower.startsWith("on")) score += 14;
+    if (nameLower === "abouttoappear") score += 12;
+    if (paramCount > 0) score += 12;
+    if (sourceLikeCount > 0) score += 8;
+    if (SOURCE_PATTERN.test(nameLower)) score += 6;
+    return score;
+}
+
+function collectSourceCandidates(
+    scene: Scene,
+    sourceDir: string,
+    options: GenerateProjectRuleCliOptions
+): SourceCandidateMethod[] {
+    const includePaths = normalizeLowerList(options.includePaths);
+    const excludePaths = normalizeLowerList(options.excludePaths);
+    const dummyMainMethods = collectDummyMainMethods(scene);
+    const fromDummyMain = dummyMainMethods.length > 0;
+    const baseMethods = fromDummyMain ? dummyMainMethods : scene.getMethods();
+    const dedup = new Map<string, SourceCandidateMethod>();
+
+    for (const method of baseMethods) {
+        if (!method?.getCfg?.() || !method?.getBody?.()) continue;
+        const name = String(method.getName?.() || "");
+        if (!name || name === "%dflt") continue;
+        const signature = method.getSignature?.()?.toString?.()?.replace(/\\/g, "/") || "";
+        if (!signature) continue;
+        const pathHint = extractArkFileFromSignature(signature);
+        if (!pathHint) continue;
+        const text = `${signature} ${pathHint}`.toLowerCase();
+        if (excludePaths.length > 0 && matchesAny(text, excludePaths)) continue;
+        if (includePaths.length > 0 && !matchesAny(text, includePaths)) continue;
+        dedup.set(signature, {
+            name,
+            pathHint,
+            signature,
+            score: scoreSourceCandidate(method, signature, fromDummyMain),
+        });
+    }
+
+    const perSourceBudget = Math.max(1, Math.floor(options.maxEntries / Math.max(1, options.sourceDirs.length)));
+    return [...dedup.values()]
+        .sort((a, b) => b.score - a.score || a.signature.localeCompare(b.signature))
+        .slice(0, perSourceBudget)
+        .map(candidate => ({
+            ...candidate,
+            pathHint: candidate.pathHint || sourceDir,
+        }));
 }
 
 function uniqueBySignature<T extends { signature: string; hitCount: number }>(items: T[]): T[] {
@@ -230,22 +350,15 @@ function pickSinkTarget(invokeKind: "instance" | "static", argCount: number): "b
 function collectCandidatesFromScene(
     scene: Scene,
     sourceDir: string,
-    sourceAbs: string,
     options: GenerateProjectRuleCliOptions,
     sourceRules: SourceRule[],
     sinkCandidates: Map<string, SinkCandidate>,
     transferCandidates: Map<string, TransferCandidate>
 ): void {
-    const perSourceEntryBudget = Math.max(1, Math.floor(options.maxEntries / Math.max(1, options.sourceDirs.length)));
-    const entries = selectEntryCandidates(scene, {
-        entryHints: options.entryHints,
-        includePaths: options.includePaths,
-        excludePaths: options.excludePaths,
-        maxEntries: perSourceEntryBudget,
-    }, SOURCE_PATTERN, sourceAbs).selected;
+    const sourceCandidates = collectSourceCandidates(scene, sourceDir, options);
 
-    for (const entry of entries) {
-        const idPart = sanitizeIdPart(`${entry.name}_${entry.pathHint || sourceDir}`, "entry");
+    for (const candidate of sourceCandidates) {
+        const idPart = sanitizeIdPart(`${candidate.name}_${candidate.pathHint || sourceDir}`, "entry");
         const sourceRule: SourceRule = {
             id: `source.candidate.${idPart}`,
             enabled: options.enableCandidates,
@@ -255,12 +368,12 @@ function collectCandidatesFromScene(
             kind: "entry_param",
             match: {
                 kind: "method_name_equals",
-                value: entry.name,
+                value: candidate.name,
             },
-            scope: entry.pathHint ? {
+            scope: candidate.pathHint ? {
                 file: {
                     mode: "contains",
-                    value: entry.pathHint,
+                    value: candidate.pathHint,
                 },
             } : undefined,
             target: "arg0",
@@ -442,7 +555,7 @@ export function generateProjectRuleScaffold(options: GenerateProjectRuleCliOptio
         const scene = new Scene();
         scene.buildSceneFromProjectDir(config);
         scene.inferTypes();
-        collectCandidatesFromScene(scene, sourceDir, sourceAbs, options, sourceRules, sinkCandidates, transferCandidates);
+        collectCandidatesFromScene(scene, sourceDir, options, sourceRules, sinkCandidates, transferCandidates);
     }
 
     const sinkList = Array.from(sinkCandidates.values()).slice(0, options.maxSinks);

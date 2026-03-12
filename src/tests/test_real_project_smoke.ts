@@ -1,6 +1,13 @@
-import { Scene } from "../../arkanalyzer/out/src/Scene";
-import { SceneConfig } from "../../arkanalyzer/out/src/Config";
-import { buildSmokeRuleConfig, tryLoadRuleSet } from "../core/rules/RuleLoader";
+import {
+    AnalyzeReport,
+    EntryAnalyzeResult,
+    emptyRuleHitCounters,
+    emptyTransferProfile,
+    emptyDetectProfile,
+    emptyEntryStageProfile,
+} from "../cli/analyzeTypes";
+import { CliOptions as AnalyzeCliOptions } from "../cli/analyzeCliOptions";
+import { runAnalyze } from "../cli/analyzeRunner";
 import {
     CliOptions,
     EntrySmokeResult,
@@ -14,68 +21,8 @@ import {
     printConsoleSummary,
     renderMarkdownReport,
 } from "./helpers/SmokeReportUtils";
-import {
-    selectEntryCandidates,
-    SmokeEntrySelectionConfig,
-} from "./helpers/SmokeEntrySelector";
-import {
-    analyzeEntry,
-    SmokeEntryAnalyzerConfig,
-} from "./helpers/SmokeEntryAnalyzer";
 import * as fs from "fs";
 import * as path from "path";
-
-const LOADED_RULES = tryLoadRuleSet();
-const SMOKE_RULE_CONFIG = buildSmokeRuleConfig(LOADED_RULES);
-
-const SOURCE_NAME_PATTERN = SMOKE_RULE_CONFIG.sourceLocalNamePattern;
-const INIT_NAME_PATTERN = /(data|state|model|info|result|resp|response|record|entity|item|user|token|msg|payload|query|param|url|uri|path|text|content|name|id)/i;
-const INIT_CALLEE_PATTERN = /(get|fetch|load|query|request|read|find|resolve|parse|decode|open|from)/i;
-const CALLBACK_INVOKE_HINTS = new Set([
-    "onclick",
-    "onchange",
-    "onsubmit",
-    "then",
-    "catch",
-    "finally",
-    "foreach",
-    "map",
-    "filter",
-    "reduce",
-    "subscribe",
-    "emit",
-    "register",
-    "listen",
-    "addlistener",
-    "settimeout",
-    "setinterval",
-]);
-const SINK_KEYWORDS = SMOKE_RULE_CONFIG.sinkKeywords;
-
-const DEFAULT_SINK_SIGNATURE_PATTERNS = SMOKE_RULE_CONFIG.sinkSignatures;
-
-const ENTRY_METHOD_HINTS = new Set([
-    "build",
-    "onwindowstagecreate",
-    "oncreate",
-    "onforeground",
-    "abouttoappear",
-    "onclick",
-    "pushurl",
-]);
-const ENTRY_SELECTOR_CONFIG: SmokeEntrySelectionConfig = {
-    sourceNamePattern: SOURCE_NAME_PATTERN,
-    sinkKeywords: SINK_KEYWORDS,
-    entryMethodHints: ENTRY_METHOD_HINTS,
-};
-const ENTRY_ANALYZER_CONFIG: SmokeEntryAnalyzerConfig = {
-    sourceNamePattern: SOURCE_NAME_PATTERN,
-    initNamePattern: INIT_NAME_PATTERN,
-    initCalleePattern: INIT_CALLEE_PATTERN,
-    callbackInvokeHints: CALLBACK_INVOKE_HINTS,
-    sinkKeywords: SINK_KEYWORDS,
-};
-
 
 function parseArgs(argv: string[]): CliOptions {
     let manifestPath = "tests/manifests/smoke_projects.json";
@@ -160,27 +107,196 @@ function readManifest(manifestPath: string): SmokeManifest {
     return parsed;
 }
 
-function normalizeSignatureList(values: string[] | undefined): string[] {
-    if (!values) return [];
-    const dedup = new Set<string>();
-    for (const v of values) {
-        const s = String(v || "").trim();
-        if (!s) continue;
-        dedup.add(s);
-    }
-    return [...dedup];
+function sanitizeProjectId(raw: string): string {
+    const normalized = String(raw || "")
+        .replace(/[^A-Za-z0-9._-]+/g, "_")
+        .replace(/^_+|_+$/g, "");
+    return normalized.length > 0 ? normalized : "project";
 }
 
-function resolveProjectSinkSignatures(project: SmokeProjectConfig): string[] {
-    const custom = normalizeSignatureList(project.sinkSignatures);
-    if (custom.length > 0) return custom;
-    return normalizeSignatureList(DEFAULT_SINK_SIGNATURE_PATTERNS);
+function createSyntheticEntryResult(
+    sourceDir: string,
+    status: EntrySmokeResult["status"],
+    error?: string
+): EntrySmokeResult {
+    return {
+        sourceDir,
+        entryName: "@dummyMain",
+        entryPathHint: sourceDir,
+        signature: "@dummyMain",
+        score: 100,
+        status,
+        seedLocalNames: [],
+        seedStrategies: [],
+        seedCount: 0,
+        flowCount: 0,
+        sinkFlowByKeyword: {},
+        sinkFlowBySignature: {},
+        sinkSamples: [],
+        error,
+        elapsedMs: 0,
+    };
+}
+
+function mapAnalyzeEntryToSmokeEntry(entry: EntryAnalyzeResult): EntrySmokeResult {
+    return {
+        sourceDir: entry.sourceDir,
+        entryName: entry.entryName,
+        entryPathHint: entry.entryPathHint,
+        signature: entry.entryName,
+        score: entry.score,
+        status: entry.status,
+        seedLocalNames: entry.seedLocalNames || [],
+        seedStrategies: entry.seedStrategies || [],
+        seedCount: entry.seedCount || 0,
+        flowCount: entry.flowCount || 0,
+        sinkFlowByKeyword: {},
+        sinkFlowBySignature: {},
+        sinkSamples: entry.sinkSamples || [],
+        error: entry.error,
+        elapsedMs: entry.elapsedMs || 0,
+    };
+}
+
+function createAnalyzeOptions(
+    repoAbs: string,
+    validSourceDirs: string[],
+    outputDir: string,
+    k: number,
+    maxEntries: number
+): AnalyzeCliOptions {
+    return {
+        repo: repoAbs,
+        sourceDirs: validSourceDirs,
+        profile: "default",
+        k,
+        maxEntries,
+        reportMode: "full",
+        outputDir,
+        concurrency: Math.max(1, Math.min(2, validSourceDirs.length)),
+        incremental: false,
+        incrementalCachePath: undefined,
+        stopOnFirstFlow: false,
+        maxFlowsPerEntry: undefined,
+        enableCrossFunctionFallback: false,
+        enableSecondarySinkSweep: false,
+        ruleOptions: {
+            autoDiscoverLayers: true,
+        },
+    };
+}
+
+function buildSourceDirEntries(
+    sourceDirs: string[],
+    mappedEntries: EntrySmokeResult[],
+    fatalErrors: string[]
+): EntrySmokeResult[] {
+    const bySourceDir = new Map<string, EntrySmokeResult>();
+    for (const entry of mappedEntries) {
+        bySourceDir.set(entry.sourceDir, entry);
+    }
+
+    const out: EntrySmokeResult[] = [];
+    for (const sourceDir of sourceDirs) {
+        const hit = bySourceDir.get(sourceDir);
+        if (hit) {
+            out.push(hit);
+            continue;
+        }
+        const missing = fatalErrors.find(err => err.includes(sourceDir));
+        out.push(createSyntheticEntryResult(sourceDir, "exception", missing || "source_dir_not_analyzed"));
+    }
+    return out;
+}
+
+function createFallbackAnalyzeReport(repoAbs: string, sourceDirs: string[]): AnalyzeReport {
+    const entries = sourceDirs.map(sourceDir => ({
+        sourceDir,
+        entryName: "@dummyMain",
+        entryPathHint: sourceDir,
+        score: 100,
+        status: "exception" as const,
+        seedCount: 0,
+        seedLocalNames: [],
+        seedStrategies: [],
+        flowCount: 0,
+        sinkSamples: [],
+        flowRuleTraces: [],
+        ruleHits: emptyRuleHitCounters(),
+        ruleHitEndpoints: emptyRuleHitCounters(),
+        transferProfile: emptyTransferProfile(),
+        detectProfile: emptyDetectProfile(),
+        stageProfile: emptyEntryStageProfile(),
+        transferNoHitReasons: ["analyze_exception"],
+        elapsedMs: 0,
+        error: "analyze_failed",
+    }));
+
+    return {
+        generatedAt: new Date().toISOString(),
+        repo: repoAbs,
+        sourceDirs,
+        profile: "default",
+        reportMode: "full",
+        k: 1,
+        maxEntries: sourceDirs.length,
+        ruleLayers: [],
+        ruleLayerStatus: [],
+        summary: {
+            totalEntries: entries.length,
+            okEntries: 0,
+            withSeeds: 0,
+            withFlows: 0,
+            totalFlows: 0,
+            statusCount: { exception: entries.length },
+            ruleHits: emptyRuleHitCounters(),
+            ruleHitEndpoints: emptyRuleHitCounters(),
+            transferProfile: {
+                ...emptyTransferProfile(),
+                elapsedShareAvg: 0,
+            },
+            detectProfile: emptyDetectProfile(),
+            stageProfile: {
+                ruleLoadMs: 0,
+                sceneBuildMs: 0,
+                entrySelectMs: 0,
+                entryAnalyzeMs: 0,
+                reportWriteMs: 0,
+                sceneCacheHitCount: 0,
+                sceneCacheMissCount: 0,
+                transferSceneRuleCacheHitCount: 0,
+                transferSceneRuleCacheMissCount: 0,
+                transferSceneRuleCacheDisabledCount: 0,
+                incrementalCacheHitCount: 0,
+                incrementalCacheMissCount: 0,
+                incrementalCacheWriteCount: 0,
+                entryConcurrency: 0,
+                entryParallelTaskCount: 0,
+                totalMs: 0,
+            },
+            transferNoHitReasons: {},
+            ruleFeedback: {
+                zeroHitRules: emptyRuleHitCounters(),
+                ruleHitRanking: {
+                    source: [],
+                    sink: [],
+                    transfer: [],
+                },
+                uncoveredHighFrequencyInvokes: [],
+                noCandidateCallsites: [],
+            },
+        },
+        entries,
+    };
 }
 
 async function runProject(project: SmokeProjectConfig, options: CliOptions): Promise<ProjectSmokeResult> {
     const repoAbs = path.isAbsolute(project.repoPath) ? project.repoPath : path.resolve(project.repoPath);
     const sourceDirs = project.sourceDirs || [];
-    const sinkSignatures = resolveProjectSinkSignatures(project);
+    let effectiveMaxEntries = options.maxEntries;
+    if (typeof project.maxEntriesCap === "number" && Number.isFinite(project.maxEntriesCap) && project.maxEntriesCap > 0) {
+        effectiveMaxEntries = Math.min(options.maxEntries, Math.floor(project.maxEntriesCap));
+    }
     const result: ProjectSmokeResult = {
         id: project.id,
         repoPath: repoAbs,
@@ -193,7 +309,8 @@ async function runProject(project: SmokeProjectConfig, options: CliOptions): Pro
         sourceDirs,
         sourceSummaries: [],
         entries: [],
-        sinkSignatures,
+        sinkSignatures: project.sinkSignatures || [],
+        effectiveMaxEntries,
         analyzed: 0,
         withSeeds: 0,
         withFlows: 0,
@@ -208,40 +325,61 @@ async function runProject(project: SmokeProjectConfig, options: CliOptions): Pro
         return result;
     }
 
-    const perSourceMax = Math.max(1, Math.floor(options.maxEntries / Math.max(1, sourceDirs.length)));
-
+    const validSourceDirs: string[] = [];
     for (const sourceDir of sourceDirs) {
         const sourceAbs = path.resolve(repoAbs, sourceDir);
         if (!fs.existsSync(sourceAbs)) {
             result.fatalErrors.push(`source_dir_missing: ${sourceAbs}`);
             continue;
         }
+        validSourceDirs.push(sourceDir);
+    }
+    if (validSourceDirs.length === 0) {
+        return result;
+    }
 
-        let scene: Scene;
-        try {
-            const config = new SceneConfig();
-            config.buildFromProjectDir(sourceAbs);
-            scene = new Scene();
-            scene.buildSceneFromProjectDir(config);
-            scene.inferTypes();
-        } catch (err: any) {
-            result.fatalErrors.push(`build_scene_failed(${sourceDir}): ${String(err?.message || err)}`);
-            continue;
-        }
+    if (effectiveMaxEntries !== options.maxEntries) {
+        console.log(`[smoke][project_cap] ${project.id}: cli_maxEntries=${options.maxEntries}, cap=${effectiveMaxEntries}`);
+    }
 
-        const selection = selectEntryCandidates(scene, sourceDir, perSourceMax, {
-            includePaths: project.includePaths || [],
-            excludePaths: project.excludePaths || [],
-            entryHints: project.entryHints || [],
-        }, ENTRY_SELECTOR_CONFIG, sourceAbs);
-        const sourceResults: EntrySmokeResult[] = [];
-        for (const candidate of selection.selected) {
-            const r = await analyzeEntry(scene, candidate, options.k, sinkSignatures, ENTRY_ANALYZER_CONFIG);
-            sourceResults.push(r);
-            result.entries.push(r);
-        }
+    const projectOutputDir = path.resolve(options.outputDir, sanitizeProjectId(project.id));
+    ensureDir(projectOutputDir);
+    let analyzeReport: AnalyzeReport;
+    try {
+        const analyzeOptions = createAnalyzeOptions(
+            repoAbs,
+            validSourceDirs,
+            projectOutputDir,
+            options.k,
+            effectiveMaxEntries
+        );
+        analyzeReport = (await runAnalyze(analyzeOptions)).report;
+    } catch (err: any) {
+        result.fatalErrors.push(`analyze_failed: ${String(err?.message || err)}`);
+        analyzeReport = createFallbackAnalyzeReport(repoAbs, validSourceDirs);
+    }
 
-        const summary = createSourceSummary(sourceDir, sourceResults, selection);
+    const mappedEntries = (analyzeReport.entries || []).map(mapAnalyzeEntryToSmokeEntry);
+    result.entries = buildSourceDirEntries(validSourceDirs, mappedEntries, result.fatalErrors);
+
+    for (const sourceDir of validSourceDirs) {
+        const sourceEntries = result.entries.filter(entry => entry.sourceDir === sourceDir);
+        const hasAnalysis = sourceEntries.length > 0;
+        const summary = createSourceSummary(sourceDir, sourceEntries, {
+            selected: sourceEntries.map(entry => ({
+                name: entry.entryName,
+                pathHint: entry.entryPathHint,
+                signature: entry.signature,
+                score: entry.score,
+                sourceDir: entry.sourceDir,
+                sourceFile: entry.entryPathHint,
+            })),
+            poolTotal: 1,
+            filteredTotal: 1,
+            poolFileCount: 1,
+            filteredFileCount: 1,
+            selectedFileCount: hasAnalysis ? 1 : 0,
+        });
         result.sourceSummaries.push(summary);
     }
 
@@ -250,12 +388,6 @@ async function runProject(project: SmokeProjectConfig, options: CliOptions): Pro
         if (entry.seedCount > 0) result.withSeeds++;
         if (entry.flowCount > 0) result.withFlows++;
         result.totalFlows += entry.flowCount;
-        for (const keyword of Object.keys(entry.sinkFlowByKeyword)) {
-            result.sinkFlowByKeyword[keyword] = (result.sinkFlowByKeyword[keyword] || 0) + entry.sinkFlowByKeyword[keyword];
-        }
-        for (const signature of Object.keys(entry.sinkFlowBySignature)) {
-            result.sinkFlowBySignature[signature] = (result.sinkFlowBySignature[signature] || 0) + entry.sinkFlowBySignature[signature];
-        }
     }
 
     return result;
@@ -263,24 +395,6 @@ async function runProject(project: SmokeProjectConfig, options: CliOptions): Pro
 
 async function main(): Promise<void> {
     const options = parseArgs(process.argv.slice(2));
-    if (LOADED_RULES) {
-        console.log(`[rules] loaded: ${LOADED_RULES.defaultRulePath}`);
-        console.log(`[rules] applied_layers: ${LOADED_RULES.appliedLayerOrder.join(" -> ")}`);
-        if (LOADED_RULES.frameworkRulePath) {
-            console.log(`[rules] framework: ${LOADED_RULES.frameworkRulePath}`);
-        }
-        if (LOADED_RULES.projectRulePath) {
-            console.log(`[rules] project: ${LOADED_RULES.projectRulePath}`);
-        }
-        if (LOADED_RULES.llmCandidateRulePath) {
-            console.log(`[rules] llm_candidate: ${LOADED_RULES.llmCandidateRulePath}`);
-        }
-        for (const warning of LOADED_RULES.warnings) {
-            console.log(`[rules][warn] ${warning}`);
-        }
-    } else {
-        console.log("[rules] default rules unavailable, fallback to built-in smoke defaults.");
-    }
     const manifest = readManifest(options.manifestPath);
     let projects = manifest.projects.filter(p => p.enabled !== false);
     if (options.projectFilter) {

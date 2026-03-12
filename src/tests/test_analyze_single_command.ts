@@ -22,6 +22,7 @@ function runAnalyze(outputDir: string): AnalyzeReport {
     const args = [
         "--repo", "tests/demo/rule_transfer_variants",
         "--maxEntries", "6",
+        "--no-incremental",
         "--outputDir", outputDir,
     ];
     runAnalyzeCli(args);

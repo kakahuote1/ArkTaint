@@ -1,7 +1,7 @@
 import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { ArkAssignStmt } from "../../../arkanalyzer/out/src/core/base/Stmt";
 import { ArkArrayRef, ArkParameterRef } from "../../../arkanalyzer/out/src/core/base/Ref";
-import { ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../arkanalyzer/out/src/core/base/Expr";
+import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../../arkanalyzer/out/src/core/base/Expr";
 import { Local } from "../../../arkanalyzer/out/src/core/base/Local";
 
 export interface ResolvedCallee {
@@ -168,6 +168,17 @@ function isInstanceInvokeLike(invokeExpr: any): boolean {
     return typeof invokeExpr.getBase === "function";
 }
 
+function getInvokeCallableBase(invokeExpr: any): any {
+    if (!invokeExpr) return undefined;
+    if (typeof invokeExpr.getBase === "function") {
+        return invokeExpr.getBase();
+    }
+    if (invokeExpr instanceof ArkPtrInvokeExpr && typeof invokeExpr.getFuncPtrLocal === "function") {
+        return invokeExpr.getFuncPtrLocal();
+    }
+    return undefined;
+}
+
 function isStaticInvokeLike(invokeExpr: any): boolean {
     if (!invokeExpr) return false;
     if (invokeExpr instanceof ArkStaticInvokeExpr) return true;
@@ -262,7 +273,7 @@ function resolveReflectDispatchTargets(
     const args = invokeExpr?.getArgs ? invokeExpr.getArgs() : [];
     const callableValue = kind.startsWith("reflect_")
         ? (args.length > 0 ? args[0] : undefined)
-        : invokeExpr?.getBase?.();
+        : getInvokeCallableBase(invokeExpr);
     const methods = resolveMethodsFromCallableValue(scene, callableValue, { maxCandidates });
     if (methods.length === 0 || methods.length > maxCandidates) return [];
     return methods;
@@ -324,7 +335,7 @@ function getReflectDispatchKind(invokeExpr: any): ReflectDispatchKind | undefine
     const methodName = resolveInvokeMethodName(invokeExpr);
     if (methodName !== "call" && methodName !== "apply") return undefined;
 
-    const base = invokeExpr?.getBase?.();
+    const base = getInvokeCallableBase(invokeExpr);
     const args = invokeExpr?.getArgs ? invokeExpr.getArgs() : [];
 
     const baseIsReflect = isReflectBase(base);
@@ -407,7 +418,7 @@ function resolveDirectCallableTargets(
     const methodName = resolveInvokeMethodName(invokeExpr);
     if (!invokeSig.includes("%unk") && methodName) return [];
 
-    const base = invokeExpr?.getBase?.();
+    const base = getInvokeCallableBase(invokeExpr);
     if (!base || isReflectBase(base)) return [];
 
     const args = invokeExpr?.getArgs ? invokeExpr.getArgs() : [];

@@ -37,7 +37,7 @@ async function runTest() {
 
             try {
                 let engine = new TaintPropagationEngine(scene, k);
-                await engine.buildPAG(testName);
+                await engine.buildPAG();
 
                 // Find entry method
                 let entryMethod = scene.getMethods().find(m => m.getName() === testName);

@@ -56,6 +56,14 @@ export interface EntryAnalyzeResult {
         resultCount: number;
         elapsedMs: number;
         elapsedShare: number;
+        noCandidateCallsites: Array<{
+            calleeSignature: string;
+            method: string;
+            invokeKind: RuleInvokeKind;
+            argCount: number;
+            sourceFile: string;
+            count: number;
+        }>;
     };
     detectProfile: DetectProfileSnapshot;
     stageProfile: EntryStageProfile;
@@ -95,6 +103,14 @@ export interface AnalyzeReport {
             resultCount: number;
             elapsedMs: number;
             elapsedShareAvg: number;
+            noCandidateCallsites: Array<{
+                calleeSignature: string;
+                method: string;
+                invokeKind: RuleInvokeKind;
+                argCount: number;
+                sourceFile: string;
+                count: number;
+            }>;
         };
         detectProfile: DetectProfileSnapshot;
         stageProfile: AnalyzeStageProfile;
@@ -113,6 +129,15 @@ export interface AnalyzeReport {
                 sourceDir: string;
                 invokeKind: RuleInvokeKind;
                 argCount: number;
+            }>;
+            noCandidateCallsites: Array<{
+                callee_signature: string;
+                method: string;
+                invokeKind: RuleInvokeKind;
+                argCount: number;
+                sourceFile: string;
+                count: number;
+                topEntries: string[];
             }>;
         };
     };
@@ -150,6 +175,7 @@ export function emptyTransferProfile(): EntryAnalyzeResult["transferProfile"] {
         resultCount: 0,
         elapsedMs: 0,
         elapsedShare: 0,
+        noCandidateCallsites: [],
     };
 }
 

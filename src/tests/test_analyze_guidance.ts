@@ -10,6 +10,7 @@ function runAnalyze(outputDir: string): string {
         "--project", "tests/rules/transfer_variants.rules.json",
         "--k", "1",
         "--maxEntries", "6",
+        "--no-incremental",
         "--reportMode", "light",
         "--outputDir", outputDir,
     ];

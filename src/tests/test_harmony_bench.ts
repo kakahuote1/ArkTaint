@@ -436,18 +436,15 @@ async function runCase(
             transferRules: loadedRules.ruleSet.transfers || [],
         });
         engine.verbose = false;
-        await engine.buildPAG(caseInfo.entry, caseInfo.file);
+        await engine.buildPAG();
         try {
-            const reachable = engine.computeReachableMethodSignatures(caseInfo.entry, caseInfo.file);
+            const reachable = engine.computeReachableMethodSignatures();
             engine.setActiveReachableMethodSignatures(reachable);
         } catch {
             engine.setActiveReachableMethodSignatures(undefined);
         }
 
-        const seedInfo = engine.propagateWithSourceRules(loadedRules.ruleSet.sources || [], {
-            entryMethodName: caseInfo.entry,
-            entryMethodPathHint: caseInfo.file,
-        });
+        const seedInfo = engine.propagateWithSourceRules(loadedRules.ruleSet.sources || []);
         const flows = engine.detectSinksByRules(loadedRules.ruleSet.sinks || [], {
             sanitizerRules: loadedRules.ruleSet.sanitizers || [],
         });

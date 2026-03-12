@@ -14,7 +14,6 @@ async function main(): Promise<void> {
         maxEntries: 12,
         maxSinks: 16,
         maxTransfers: 20,
-        entryHints: [],
         includePaths: [],
         excludePaths: [],
         enableCandidates: false,
@@ -53,4 +52,3 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
-

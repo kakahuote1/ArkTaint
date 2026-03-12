@@ -73,7 +73,7 @@ npm run analyze -- --repo <你的项目路径> --project rules/project.rules.jso
 
 5. 报告里出现 `status=exception`
 - 原因：入口方法或语义解析异常。
-- 修复：先缩小入口范围重跑（`--entryHint/--include`），再根据异常入口定位具体方法。
+- 修复：先缩小 `sourceDir` 范围重跑，再根据 `summary.json` 中的 `@dummyMain` 分析单元定位具体模块。
 
 ---
 
@@ -82,4 +82,3 @@ npm run analyze -- --repo <你的项目路径> --project rules/project.rules.jso
 1. `generate:project-rules` 生成项目规则草稿  
 2. `analyze --repo --project` 执行分析  
 3. 依据 `summary.md` 的“下一步建议”补规则并重跑
-

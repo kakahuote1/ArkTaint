@@ -118,9 +118,9 @@ function noHitReasonAdvice(reason: string): string {
         from_endpoint_not_tainted_or_path_mismatch: "建议核对 fromRef 路径与端点是否与真实 taint 位置一致。",
         to_endpoint_unresolved_or_no_target_nodes: "建议核对 toRef 端点是否可解析到目标节点。",
         no_source_seed: "建议增加 source 规则（entry_param/call_return/seed_local_name）。",
-        no_entry_method: "建议补充 entryHint 或显式指定 sourceDir/entry。",
-        entry_has_no_body: "目标方法无方法体，建议切换到有实现的入口。",
-        no_selected_entry: "当前未选中入口，建议调整 include/exclude/entryHint。",
+        no_entry_method: "当前 sourceDir 未构建出可分析的 dummyMain 可达入口。",
+        entry_has_no_body: "目标方法无方法体，建议检查 sourceDir 对应模块是否包含可执行 ArkTS 实现。",
+        no_selected_entry: "当前 sourceDir 的 dummyMain 可达域为空，建议检查模块结构或缩小 sourceDir。",
         analyze_exception: "分析异常，建议先查看 summary.json 的 status=exception 入口。",
     };
     return map[reason] || "建议根据该原因补充 source/sink/transfer 规则。";
@@ -184,7 +184,7 @@ function renderGuidance(report: AnalyzeReportLike): string[] {
         lines.push("- 当前无明显规则缺口位点。");
     } else {
         for (const e of sourceGaps) {
-            lines.push(`- [source] ${e.entryName} @ ${e.entryPathHint || "N/A"}: 建议在 ${projectRulePath} 增加 entry_param/call_return source 规则。`);
+            lines.push(`- [source] ${e.entryName} @ ${e.entryPathHint || "N/A"}: 建议在 ${projectRulePath} 增加 dummyMain 可达方法上的 entry_param/call_return source 规则。`);
         }
         for (const e of transferGaps) {
             lines.push(`- [transfer] ${e.entryName} @ ${e.entryPathHint || "N/A"}: 已有 seed 但无 flow，建议在 ${projectRulePath} 补充 from(arg/base)->to(result/base/arg) 的 transfer。`);

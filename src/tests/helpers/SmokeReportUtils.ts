@@ -1,16 +1,16 @@
 import {
-    CandidateSelectionResult,
     CliOptions,
     EntrySmokeResult,
     ProjectSmokeResult,
     SmokeReport,
+    SourceDirSelectionStats,
     SourceDirSummary,
 } from "./SmokeTypes";
 
 export function createSourceSummary(
     sourceDir: string,
     results: EntrySmokeResult[],
-    selection: CandidateSelectionResult
+    selection: SourceDirSelectionStats
 ): SourceDirSummary {
     const statusCount: Record<string, number> = {};
     let analyzed = 0;
@@ -99,7 +99,7 @@ export function renderMarkdownReport(report: SmokeReport): string {
     lines.push(`- k: ${report.options.k}`);
     lines.push(`- maxEntries: ${report.options.maxEntries}`);
     lines.push(`- projects: ${report.totalProjects}`);
-    lines.push(`- analyzed entries: ${report.totalAnalyzedEntries}`);
+    lines.push(`- analyzed dummyMain units: ${report.totalAnalyzedEntries}`);
     lines.push(`- entries with seeds: ${report.totalEntriesWithSeeds}`);
     lines.push(`- entries with flows: ${report.totalEntriesWithFlows}`);
     lines.push(`- total flows: ${report.totalFlows}`);
@@ -132,6 +132,9 @@ export function renderMarkdownReport(report: SmokeReport): string {
         lines.push(`- tags: ${(project.tags || []).join(", ") || "N/A"}`);
         lines.push(`- sourceDirs: ${project.sourceDirs.join(", ")}`);
         lines.push(`- sinkSignatures: ${project.sinkSignatures.join(", ") || "N/A"}`);
+        if (typeof project.effectiveMaxEntries === "number") {
+            lines.push(`- effectiveMaxEntries: ${project.effectiveMaxEntries}`);
+        }
         lines.push(`- analyzed: ${project.analyzed}`);
         lines.push(`- withSeeds: ${project.withSeeds}`);
         lines.push(`- withFlows: ${project.withFlows}`);
@@ -156,7 +159,7 @@ export function renderMarkdownReport(report: SmokeReport): string {
                 return b.score - a.score;
             })
             .slice(0, 8);
-        lines.push("### Top Entries");
+        lines.push("### Top DummyMain Units");
         for (const e of topEntries) {
             const strategyText = e.seedStrategies.length > 0 ? e.seedStrategies.join(",") : "N/A";
             lines.push(`- ${e.entryName} @ ${e.entryPathHint || "N/A"} | status=${e.status} | flows=${e.flowCount} | seeds=${e.seedCount} | seedBy=${strategyText} | score=${e.score}`);
