@@ -331,9 +331,7 @@ async function runArkTaintScenario(
         for (const item of scenario.cases) {
             let detected = false;
             try {
-                const engine = new TaintPropagationEngine(scenario.scene, k, {
-                    strictSinkDetection: mode === "strict",
-                });
+                const engine = new TaintPropagationEngine(scenario.scene, k);
                 engine.verbose = false;
                 await engine.buildPAG();
 

@@ -1,12 +1,14 @@
 ﻿
 import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
-import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
-import { ArkAssignStmt } from "../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkParameterRef } from "../../arkanalyzer/out/src/core/base/Ref";
-import { Local } from "../../arkanalyzer/out/src/core/base/Local";
 import * as fs from 'fs';
 import * as path from 'path';
+import {
+    buildEngineForCase,
+    collectCaseSeedNodes,
+    findCaseMethod,
+    resolveCaseMethod,
+} from "./helpers/SyntheticCaseHarness";
 
 function getFiles(dir: string, fileList: string[] = []): string[] {
     const files = fs.readdirSync(dir);
@@ -29,77 +31,12 @@ interface CategoryStats {
     failedCases: string[];
 }
 
-interface ResolvedEntry {
-    name: string;
-    pathHint?: string;
-}
-
-function getParameterLocalNames(entryMethod: any): Set<string> {
-    let names = new Set<string>();
-    let cfg = entryMethod.getCfg();
-    if (!cfg) return names;
-
-    for (let stmt of cfg.getStmts()) {
-        if (!(stmt instanceof ArkAssignStmt)) continue;
-        if (!(stmt.getRightOp() instanceof ArkParameterRef)) continue;
-        let leftOp = stmt.getLeftOp();
-        if (leftOp instanceof Local) {
-            names.add(leftOp.getName());
-        }
-    }
-    return names;
-}
-
-function resolveEntryMethod(scene: Scene, relativePath: string, testName: string): ResolvedEntry {
-    const normalized = relativePath.split(path.sep).join("/");
-    const isCrossFileA = normalized.includes("completeness/cross_file/") && testName.endsWith("_a");
-    if (isCrossFileA) {
-        const companion = `${testName.slice(0, -2)}_b`;
-        const hasCompanion = scene.getMethods().some(m => m.getName() === companion);
-        if (hasCompanion) {
-            const companionHint = normalized.replace(/_a\.ets$/i, "_b.ets");
-            return { name: companion, pathHint: companionHint };
-        }
-    }
-
-    const hasSameName = scene.getMethods().some(m => m.getName() === testName);
-    if (hasSameName) return { name: testName, pathHint: normalized };
-
-    const methodsInFile = scene
-        .getMethods()
-        .filter(m => m.getSignature().toString().includes(normalized) && m.getName() !== "%dflt");
-    const labeled = methodsInFile.filter(m => /_(T|F)(?:_[ab])?$/.test(m.getName()));
-
-    if (labeled.length === 1) {
-        return { name: labeled[0].getName(), pathHint: normalized };
-    }
-
-    const expectedLabel = testName.includes("_T") ? "_T" : testName.includes("_F") ? "_F" : "";
-    if (expectedLabel) {
-        const labelMatch = labeled.find(m => m.getName().includes(expectedLabel));
-        if (labelMatch) {
-            return { name: labelMatch.getName(), pathHint: normalized };
-        }
-    }
-
-    if (methodsInFile.length > 0) {
-        return { name: methodsInFile[0].getName(), pathHint: normalized };
-    }
-
-    return { name: testName, pathHint: normalized };
-}
-
-function findCaseMethod(scene: Scene, entry: ResolvedEntry): any | undefined {
-    const candidates = scene.getMethods().filter(m => m.getName() === entry.name);
-    if (entry.pathHint) {
-        const normalizedHint = entry.pathHint.replace(/\\/g, "/");
-        const hinted = candidates.find(m => m.getSignature().toString().includes(normalizedHint));
-        if (hinted) return hinted;
-    }
-    return candidates[0];
-}
-
-async function runWithK(scene: Scene, allFiles: string[], targetDir: string, k: number): Promise<Record<string, CategoryStats>> {
+async function runWithK(
+    scene: Scene,
+    allFiles: string[],
+    targetDir: string,
+    k: number
+): Promise<Record<string, CategoryStats>> {
     let stats: Record<string, CategoryStats> = {};
 
     for (let file of allFiles) {
@@ -110,51 +47,52 @@ async function runWithK(scene: Scene, allFiles: string[], targetDir: string, k: 
         if (!stats[category]) stats[category] = { total: 0, passed: 0, failed: 0, failedCases: [] };
 
         let testName = path.basename(file, '.ets');
-        let entry = resolveEntryMethod(scene, relativePath, testName);
+        let entry = resolveCaseMethod(scene, relativePath, testName);
         let expected = testName.endsWith('_T') || testName.includes('_T_');
 
         try {
-            let engine = new TaintPropagationEngine(scene, k);
-            engine.verbose = false; // 鎶戝埗浼犳挱鏃ュ織
-
-            await engine.buildPAG();
-
             let entryMethod = findCaseMethod(scene, entry);
-            if (!entryMethod) continue;
-
-            let methodBody = entryMethod.getBody();
-            if (!methodBody) continue;
-
-            let paramLocalNames = getParameterLocalNames(entryMethod);
-            let localsMap = methodBody.getLocals();
-            let seeds: any[] = [];
-            for (let local of localsMap.values()) {
-                // Only use the real parameter locals as synthetic seeds.
-                if (local.getName() === 'taint_src' || paramLocalNames.has(local.getName())) {
-                    let nodes = engine.pag.getNodesByValue(local);
-                    if (nodes) {
-                        for (let nodeId of nodes.values()) {
-                            seeds.push(engine.pag.getNode(nodeId));
-                        }
-                    }
-                }
+            if (!entryMethod) {
+                stats[category].failed++;
+                stats[category].failedCases.push(`${testName} (reason:no_entry)`);
+                stats[category].total++;
+                continue;
             }
 
-            if (seeds.length > 0) {
-                engine.propagateWithSeeds(seeds);
-                let flows = engine.detectSinks("Sink");
-                let detected = flows.length > 0;
+            let methodBody = entryMethod.getBody();
+            if (!methodBody) {
+                stats[category].failed++;
+                stats[category].failedCases.push(`${testName} (reason:no_body)`);
+                stats[category].total++;
+                continue;
+            }
 
-                if (detected === expected) {
-                    stats[category].passed++;
-                } else {
-                    stats[category].failed++;
-                    stats[category].failedCases.push(`${testName} (Exp:${expected ? 'T' : 'F'} Got:${detected ? 'T' : 'F'})`);
-                }
+            let engine = await buildEngineForCase(scene, k, entryMethod, {
+                verbose: false,
+            });
+            let seeds = collectCaseSeedNodes(engine, entryMethod);
+            if (seeds.length === 0) {
+                stats[category].failed++;
+                stats[category].failedCases.push(`${testName} (reason:no_seed)`);
+                stats[category].total++;
+                continue;
+            }
+
+            engine.propagateWithSeeds(seeds);
+            let flows = engine.detectSinks("Sink");
+            let detected = flows.length > 0;
+
+            if (detected === expected) {
+                stats[category].passed++;
+            } else {
+                stats[category].failed++;
+                stats[category].failedCases.push(`${testName} (Exp:${expected ? 'T' : 'F'} Got:${detected ? 'T' : 'F'})`);
             }
             stats[category].total++;
         } catch (e) {
-            // Silent skip
+            stats[category].failed++;
+            stats[category].failedCases.push(`${testName} (reason:exception ${String(e)})`);
+            stats[category].total++;
         }
     }
     return stats;

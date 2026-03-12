@@ -1,12 +1,14 @@
-import { taint } from "./taint_mock"
-/**
- * Introduction 异常抛出-try�?
- */
+import { taint } from "./taint_mock";
 
-export function exception_throw_002_F(taint_src : string) {
+/**
+ * Introduction throw control - path-sensitive negative
+ */
+export function exception_throw_002_F(taint_src: string) {
+  let result = "clean";
   try {
-    throw new Error()
-    taint.Sink(taint_src)
+    throw new Error();
+    result = taint_src;
   } catch (e) {
   }
+  taint.Sink(result);
 }

@@ -1,12 +1,12 @@
 import { taint } from "./taint_mock";
-/**
- * Introduction 异常抛出-try�?
- */
 
-export function exception_try_002_F(taint_src : string) {
+/**
+ * Introduction try block body
+ */
+export function exception_try_002_F(taint_src: string) {
+  let result = "";
   try {
-    let _t = taint_src;
-    let clean = "_";
-    taint.Sink(clean);
+    result = "clean";
   } catch (e) {}
+  taint.Sink(result);
 }

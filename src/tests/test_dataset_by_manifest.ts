@@ -1,11 +1,13 @@
 import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
-import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
-import { ArkAssignStmt } from "../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkParameterRef } from "../../arkanalyzer/out/src/core/base/Ref";
-import { Local } from "../../arkanalyzer/out/src/core/base/Local";
 import * as fs from "fs";
 import * as path from "path";
+import {
+    buildEngineForCase,
+    collectCaseSeedNodes,
+    findCaseMethod,
+    resolveCaseMethod,
+} from "./helpers/SyntheticCaseHarness";
 
 interface CategoryStats {
     total: number;
@@ -26,76 +28,6 @@ interface CliOptions {
     manifestPath: string;
     kList: number[];
     targetDir: string;
-}
-
-interface ResolvedEntry {
-    name: string;
-    pathHint?: string;
-}
-
-function getParameterLocalNames(entryMethod: any): Set<string> {
-    const names = new Set<string>();
-    const cfg = entryMethod.getCfg();
-    if (!cfg) return names;
-
-    for (const stmt of cfg.getStmts()) {
-        if (!(stmt instanceof ArkAssignStmt)) continue;
-        if (!(stmt.getRightOp() instanceof ArkParameterRef)) continue;
-        const leftOp = stmt.getLeftOp();
-        if (leftOp instanceof Local) names.add(leftOp.getName());
-    }
-    return names;
-}
-
-function resolveEntryMethod(scene: Scene, relativePath: string, testName: string): ResolvedEntry {
-    const normalized = relativePath.split(path.sep).join("/");
-    const isCrossFileA = normalized.includes("completeness/cross_file/") && testName.endsWith("_a");
-    if (isCrossFileA) {
-        const companion = `${testName.slice(0, -2)}_b`;
-        const hasCompanion = scene.getMethods().some(m => m.getName() === companion);
-        if (hasCompanion) {
-            const companionHint = normalized.replace(/_a\.ets$/i, "_b.ets");
-            return { name: companion, pathHint: companionHint };
-        }
-    }
-
-    const hasSameName = scene.getMethods().some(m => m.getName() === testName);
-    if (hasSameName) {
-        return { name: testName, pathHint: normalized };
-    }
-
-    const methodsInFile = scene
-        .getMethods()
-        .filter(m => m.getSignature().toString().includes(normalized) && m.getName() !== "%dflt");
-    const labeled = methodsInFile.filter(m => /_(T|F)(?:_[ab])?$/.test(m.getName()));
-
-    if (labeled.length === 1) {
-        return { name: labeled[0].getName(), pathHint: normalized };
-    }
-
-    const expectedLabel = testName.includes("_T") ? "_T" : testName.includes("_F") ? "_F" : "";
-    if (expectedLabel) {
-        const labelMatch = labeled.find(m => m.getName().includes(expectedLabel));
-        if (labelMatch) {
-            return { name: labelMatch.getName(), pathHint: normalized };
-        }
-    }
-
-    if (methodsInFile.length > 0) {
-        return { name: methodsInFile[0].getName(), pathHint: normalized };
-    }
-
-    return { name: testName, pathHint: normalized };
-}
-
-function findCaseMethod(scene: Scene, entry: ResolvedEntry): any | undefined {
-    const candidates = scene.getMethods().filter(m => m.getName() === entry.name);
-    if (entry.pathHint) {
-        const normalizedHint = entry.pathHint.replace(/\\/g, "/");
-        const hinted = candidates.find(m => m.getSignature().toString().includes(normalizedHint));
-        if (hinted) return hinted;
-    }
-    return candidates[0];
 }
 
 function parseKList(raw: string | undefined): number[] {
@@ -206,41 +138,38 @@ async function runWithK(
         }
 
         const testName = path.basename(file, ".ets");
-        const entry = resolveEntryMethod(scene, relativePath, testName);
+        const entry = resolveCaseMethod(scene, relativePath, testName);
         const expected = testName.endsWith("_T") || testName.includes("_T_");
 
         try {
-            const engine = new TaintPropagationEngine(scene, k);
-            engine.verbose = false;
-            await engine.buildPAG();
-
             const entryMethod = findCaseMethod(scene, entry);
             if (!entryMethod) {
                 runtime.skippedNoEntry++;
+                stats[category].failed++;
+                stats[category].failedCases.push(`${testName} (reason:no_entry)`);
+                stats[category].total++;
                 continue;
             }
 
             const methodBody = entryMethod.getBody();
             if (!methodBody) {
                 runtime.skippedNoBody++;
+                stats[category].failed++;
+                stats[category].failedCases.push(`${testName} (reason:no_body)`);
+                stats[category].total++;
                 continue;
             }
 
-            const paramLocalNames = getParameterLocalNames(entryMethod);
-            const localsMap = methodBody.getLocals();
-            const seeds: any[] = [];
-            for (const local of localsMap.values()) {
-                if (local.getName() === "taint_src" || paramLocalNames.has(local.getName())) {
-                    const nodes = engine.pag.getNodesByValue(local);
-                    if (!nodes) continue;
-                    for (const nodeId of nodes.values()) {
-                        seeds.push(engine.pag.getNode(nodeId));
-                    }
-                }
-            }
+            const engine = await buildEngineForCase(scene, k, entryMethod, {
+                verbose: false,
+            });
+            const seeds = collectCaseSeedNodes(engine, entryMethod);
 
             if (seeds.length === 0) {
                 runtime.skippedNoSeed++;
+                stats[category].failed++;
+                stats[category].failedCases.push(`${testName} (reason:no_seed)`);
+                stats[category].total++;
                 continue;
             }
 
@@ -258,6 +187,9 @@ async function runWithK(
         } catch (err) {
             runtime.skippedException++;
             console.warn(`[WARN] skipped by exception: ${relativePath}`);
+            stats[category].failed++;
+            stats[category].failedCases.push(`${testName} (reason:exception)`);
+            stats[category].total++;
         }
     }
 

@@ -2,11 +2,14 @@ import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
 import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
 import { AdaptiveContextSelectorOptions } from "../core/context/AdaptiveContextSelector";
-import { ArkAssignStmt } from "../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkParameterRef } from "../../arkanalyzer/out/src/core/base/Ref";
-import { Local } from "../../arkanalyzer/out/src/core/base/Local";
 import * as fs from "fs";
 import * as path from "path";
+import {
+    buildEngineForCase,
+    collectCaseSeedNodes,
+    findCaseMethod,
+    resolveCaseMethod,
+} from "./helpers/SyntheticCaseHarness";
 
 interface CategoryStats {
     total: number;
@@ -29,30 +32,6 @@ function getFiles(dir: string, fileList: string[] = []): string[] {
     return fileList;
 }
 
-function getParameterLocalNames(entryMethod: any): Set<string> {
-    const names = new Set<string>();
-    const cfg = entryMethod.getCfg();
-    if (!cfg) return names;
-
-    for (const stmt of cfg.getStmts()) {
-        if (!(stmt instanceof ArkAssignStmt)) continue;
-        if (!(stmt.getRightOp() instanceof ArkParameterRef)) continue;
-        const leftOp = stmt.getLeftOp();
-        if (leftOp instanceof Local) names.add(leftOp.getName());
-    }
-    return names;
-}
-
-function resolveEntryMethodName(scene: Scene, relativePath: string, testName: string): string {
-    const normalized = relativePath.split(path.sep).join("/");
-    const isCrossFileA = normalized.includes("completeness/cross_file/") && testName.endsWith("_a");
-    if (!isCrossFileA) return testName;
-
-    const companion = `${testName.slice(0, -2)}_b`;
-    const hasCompanion = scene.getMethods().some(m => m.getName() === companion);
-    return hasCompanion ? companion : testName;
-}
-
 async function runSuite(
     scene: Scene,
     allFiles: string[],
@@ -70,45 +49,52 @@ async function runSuite(
         if (!stats[category]) stats[category] = { total: 0, passed: 0, failed: 0, failedCases: [] };
 
         const testName = path.basename(file, ".ets");
-        const entryName = resolveEntryMethodName(scene, relativePath, testName);
+        const entry = resolveCaseMethod(scene, relativePath, testName);
         const expected = testName.endsWith("_T") || testName.includes("_T_");
 
         try {
-            const engine = adaptive
-                ? new TaintPropagationEngine(scene, 1, { contextStrategy: "adaptive", adaptiveContext: adaptiveOptions })
-                : new TaintPropagationEngine(scene, 1);
-            engine.verbose = false;
-
-            await engine.buildPAG();
-            const entryMethod = scene.getMethods().find(m => m.getName() === entryName);
-            if (!entryMethod) continue;
+            const entryMethod = findCaseMethod(scene, entry);
+            if (!entryMethod) {
+                stats[category].failed++;
+                stats[category].failedCases.push(`${testName} (reason:no_entry)`);
+                stats[category].total++;
+                continue;
+            }
             const body = entryMethod.getBody();
-            if (!body) continue;
-
-            const paramLocalNames = getParameterLocalNames(entryMethod);
-            const seeds: any[] = [];
-            for (const local of body.getLocals().values()) {
-                if (local.getName() === "taint_src" || paramLocalNames.has(local.getName())) {
-                    const nodes = engine.pag.getNodesByValue(local);
-                    if (!nodes) continue;
-                    for (const nodeId of nodes.values()) {
-                        seeds.push(engine.pag.getNode(nodeId));
-                    }
-                }
+            if (!body) {
+                stats[category].failed++;
+                stats[category].failedCases.push(`${testName} (reason:no_body)`);
+                stats[category].total++;
+                continue;
             }
 
-            if (seeds.length > 0) {
-                engine.propagateWithSeeds(seeds);
-                const detected = engine.detectSinks("Sink").length > 0;
-                if (detected === expected) stats[category].passed++;
-                else {
-                    stats[category].failed++;
-                    stats[category].failedCases.push(testName);
-                }
+            const engineOptions = adaptive
+                ? { contextStrategy: "adaptive" as const, adaptiveContext: adaptiveOptions }
+                : undefined;
+            const engine = await buildEngineForCase(scene, 1, entryMethod, {
+                verbose: false,
+                engineOptions,
+            });
+            const seeds = collectCaseSeedNodes(engine, entryMethod);
+            if (seeds.length === 0) {
+                stats[category].failed++;
+                stats[category].failedCases.push(`${testName} (reason:no_seed)`);
+                stats[category].total++;
+                continue;
+            }
+
+            engine.propagateWithSeeds(seeds);
+            const detected = engine.detectSinks("Sink").length > 0;
+            if (detected === expected) stats[category].passed++;
+            else {
+                stats[category].failed++;
+                stats[category].failedCases.push(testName);
             }
             stats[category].total++;
-        } catch {
-            // ignore single case error, keep sweep running
+        } catch (err) {
+            stats[category].failed++;
+            stats[category].failedCases.push(`${testName} (reason:exception ${String(err)})`);
+            stats[category].total++;
         }
     }
     return stats;

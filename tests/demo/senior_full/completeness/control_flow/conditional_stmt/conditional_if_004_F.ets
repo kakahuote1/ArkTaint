@@ -1,13 +1,14 @@
 import { taint } from "./taint_mock";
 
 /**
- * Introduction 条件语句-else
+ * Introduction else branch body
  */
-export function conditional_if_004_F(taint_src : string) {
-  let _t = taint_src;
-  let clean = "_";
+export function conditional_if_004_F(taint_src: string) {
+  let result = "";
   if (false) {
+    result = "unused";
   } else {
-    taint.Sink(clean);
+    result = "clean";
   }
+  taint.Sink(result);
 }

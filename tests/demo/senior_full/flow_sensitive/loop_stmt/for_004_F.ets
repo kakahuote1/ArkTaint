@@ -1,12 +1,16 @@
-import { taint } from "./taint_mock"
-/**
- * Introduction 循环结构-for
- */
+import { taint } from "./taint_mock";
 
-export function for_003_T(taint_src : string) {
-  let res = ""
-  let i = 0
-  for (taint.Sink(res); i < 1; i++) {
-    res = taint_src
+/**
+ * Introduction for-loop init order - flow-sensitive negative
+ */
+export function for_004_F(taint_src: string) {
+  let res = "";
+  for (recordInitValue(res); false; ) {
+    res = taint_src;
   }
+}
+
+function recordInitValue(value: string) {
+  taint.Sink(value);
+  return 0;
 }

@@ -41,7 +41,7 @@ export interface SmokeRuleConfig {
     sinkSignatures: string[];
 }
 
-const FALLBACK_SOURCE_LOCAL_PATTERN = /(taint_src|input|url|uri|path|query|param|params|msg|message|text|content|payload|token|password|pwd|phone|email|name|id|data)/i;
+const FALLBACK_SOURCE_LOCAL_PATTERN = /a^/;
 const FALLBACK_SINK_KEYWORDS = [
     "axios",
     "fetch",

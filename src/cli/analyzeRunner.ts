@@ -6,9 +6,7 @@ import { ConfigBasedTransferExecutor } from "../core/engine/ConfigBasedTransferE
 import { loadRuleSet, LoadedRuleSet } from "../core/rules/RuleLoader";
 import { RuleInvokeKind, RuleMatch, RuleScopeConstraint, RuleStringConstraint, SinkRule, SourceRule, SourceRuleKind, TransferRule } from "../core/rules/RuleSchema";
 import {
-    collectDummyMainSeedNodes,
     detectFlows,
-    getSourcePattern,
     getSourceRules,
 } from "./analyzeUtils";
 import { CliOptions } from "./analyzeCliOptions";
@@ -161,18 +159,6 @@ function buildRuleEndpointHits(
     return endpointHits;
 }
 
-function hasEnabledSourcesInRuleFile(ruleFilePath?: string): boolean {
-    if (!ruleFilePath) return false;
-    if (!fs.existsSync(ruleFilePath)) return false;
-    try {
-        const raw = JSON.parse(fs.readFileSync(ruleFilePath, "utf-8")) as { sources?: Array<{ enabled?: boolean }> };
-        const sources = raw.sources || [];
-        return sources.some(rule => rule && rule.enabled !== false);
-    } catch {
-        return false;
-    }
-}
-
 function resolveSourceDirStamp(repo: string, sourceDir: string): EntryFileStamp | undefined {
     const abs = path.resolve(repo, sourceDir);
     if (!fs.existsSync(abs)) return undefined;
@@ -184,16 +170,12 @@ function resolveSourceDirStamp(repo: string, sourceDir: string): EntryFileStamp 
     };
 }
 
-function getAnalyzeSourceRules(loadedRules: LoadedRuleSet, allowLocalNamePrimary: boolean): SourceRule[] {
+function getAnalyzeSourceRules(loadedRules: LoadedRuleSet): SourceRule[] {
     const rules = getSourceRules(loadedRules);
-    if (allowLocalNamePrimary) return rules;
     return rules.filter(rule => rule.id !== "source.local_name.primary");
 }
 
 interface AnalyzeSeedingPolicy {
-    allowLocalNamePrimaryRule: boolean;
-    enableSourceLikeNameHeuristic: boolean;
-    enableCrossFunctionFallback: boolean;
     enableSecondarySinkSweep: boolean;
 }
 
@@ -806,27 +788,12 @@ async function analyzeSourceDir(
         const seedLocalNames = new Set<string>();
         const seedStrategies = new Set<string>();
         const sourceSeedT0 = process.hrtime.bigint();
-        const sourceRuleResult = engine.propagateWithSourceRules(
-            getAnalyzeSourceRules(loadedRules, seedingPolicy.allowLocalNamePrimaryRule)
-        );
+        const sourceRuleResult = engine.propagateWithSourceRules(getAnalyzeSourceRules(loadedRules));
         stageProfile.propagateRuleSeedMs = elapsedMsSince(sourceSeedT0);
         seedCount += sourceRuleResult.seedCount;
         for (const x of sourceRuleResult.seededLocals) seedLocalNames.add(x);
         if (sourceRuleResult.seedCount > 0) seedStrategies.add("rule:source");
-
-        const heuristicSeedT0 = process.hrtime.bigint();
-        const heuristic = collectDummyMainSeedNodes(scene, engine, getSourcePattern(loadedRules), {
-            enableSourceLikeNameSeed: seedingPolicy.enableSourceLikeNameHeuristic,
-            enableCrossFunctionFallback: seedingPolicy.enableCrossFunctionFallback,
-            allowedMethodSignatures: engine.getActiveReachableMethodSignatures(),
-        });
-        if (heuristic.nodes.length > 0) {
-            engine.propagateWithSeeds(heuristic.nodes);
-            seedCount += heuristic.nodes.length;
-            for (const x of heuristic.localNames) seedLocalNames.add(x);
-            for (const x of heuristic.strategies) seedStrategies.add(x);
-        }
-        stageProfile.propagateHeuristicSeedMs = elapsedMsSince(heuristicSeedT0);
+        stageProfile.propagateHeuristicSeedMs = 0;
 
         if (seedCount === 0) {
             stageProfile.totalMs = elapsedMsSince(t0);
@@ -940,12 +907,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     const ruleLoadT0 = process.hrtime.bigint();
     const loadedRules = loadRuleSet(options.ruleOptions);
     stageProfile.ruleLoadMs = elapsedMsSince(ruleLoadT0);
-    const hasProjectSourceRules = hasEnabledSourcesInRuleFile(loadedRules.projectRulePath);
-    const useBroadHeuristics = options.profile === "fast";
     const seedingPolicy: AnalyzeSeedingPolicy = {
-        allowLocalNamePrimaryRule: useBroadHeuristics,
-        enableSourceLikeNameHeuristic: useBroadHeuristics || !hasProjectSourceRules,
-        enableCrossFunctionFallback: options.enableCrossFunctionFallback,
         enableSecondarySinkSweep: options.enableSecondarySinkSweep,
     };
     const ruleFingerprint = buildRuleFingerprint(loadedRules);

@@ -18,7 +18,6 @@ export interface CliOptions {
     incrementalCachePath?: string;
     stopOnFirstFlow: boolean;
     maxFlowsPerEntry?: number;
-    enableCrossFunctionFallback: boolean;
     enableSecondarySinkSweep: boolean;
     ruleOptions: RuleLoaderOptions;
 }
@@ -41,7 +40,6 @@ export function parseArgs(argv: string[]): CliOptions {
     let incrementalCachePath: string | undefined;
     let stopOnFirstFlow = false;
     let maxFlowsPerEntryRaw: number | undefined;
-    let crossFunctionFallbackRaw: boolean | undefined;
     let secondarySinkSweepRaw: boolean | undefined;
     const ruleOptions: RuleLoaderOptions = {};
 
@@ -175,12 +173,8 @@ export function parseArgs(argv: string[]): CliOptions {
             if (arg === "--maxFlowsPerEntry") i++;
             continue;
         }
-        if (arg === "--crossFunctionFallback") {
-            crossFunctionFallbackRaw = true;
-            continue;
-        }
-        if (arg === "--no-crossFunctionFallback") {
-            crossFunctionFallbackRaw = false;
+        if (arg === "--crossFunctionFallback" || arg === "--no-crossFunctionFallback") {
+            throw new Error("deprecated --crossFunctionFallback: analyze no longer seeds by cross-function heuristics.");
             continue;
         }
         if (arg === "--secondarySinkSweep") {
@@ -222,9 +216,6 @@ export function parseArgs(argv: string[]): CliOptions {
         throw new Error(`invalid --maxFlowsPerEntry: ${maxFlowsPerEntryRaw}`);
     }
 
-    const enableCrossFunctionFallback = crossFunctionFallbackRaw !== undefined
-        ? crossFunctionFallbackRaw
-        : profile === "fast";
     const enableSecondarySinkSweep = secondarySinkSweepRaw !== undefined
         ? secondarySinkSweepRaw
         : profile === "fast";
@@ -256,7 +247,6 @@ export function parseArgs(argv: string[]): CliOptions {
         incrementalCachePath,
         stopOnFirstFlow,
         maxFlowsPerEntry,
-        enableCrossFunctionFallback,
         enableSecondarySinkSweep,
         ruleOptions,
     };

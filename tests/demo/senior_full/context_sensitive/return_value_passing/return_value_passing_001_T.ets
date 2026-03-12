@@ -1,12 +1,14 @@
 import { taint } from "./taint_mock";
 
 /**
- * Introduction 返回值传�?
+ * Introduction return value passing - context-sensitive positive
  */
-export function return_value_passing_001_T(taint_src : string) {
-  let t = f(taint_src);
-  taint.Sink(t);
+export function return_value_passing_001_T(taint_src: string) {
+  const fromTaint = buildValue(taint_src);
+  const fromClean = buildValue("clean");
+  taint.Sink(fromTaint);
 }
-function f(t : string) {
-  return t;
+
+function buildValue(value: string) {
+  return value;
 }

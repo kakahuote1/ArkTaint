@@ -5,23 +5,7 @@
     "description": "M0 default source/sink/transfer rules",
     "updatedAt": "2026-02-14"
   },
-  "sources": [
-    {
-      "id": "source.local_name.primary",
-      "enabled": true,
-      "description": "Source-like local names for entry seed heuristics.",
-      "profile": "seed_local_name",
-      "target": "arg0",
-      "tags": [
-        "smoke",
-        "seed"
-      ],
-      "match": {
-        "kind": "local_name_regex",
-        "value": "(taint_src|input|url|uri|path|query|param|params|msg|message|text|content|payload|token|password|pwd|phone|email|name|id|data)"
-      }
-    }
-  ],
+  "sources": [],
   "sinks": [
     {
       "id": "sink.keyword.axios",

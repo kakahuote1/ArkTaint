@@ -1,11 +1,14 @@
 import { taint } from "./taint_mock";
-/**
- * Introduction 参数传�?参数位置
- */
 
-export function argument_passing_003_T(taint_src : string) {
-  f(taint_src,"_");
+/**
+ * Introduction argument passing position - context-sensitive positive
+ */
+export function argument_passing_003_T(taint_src: string) {
+  const fromFirst = selectFirst(taint_src, "clean");
+  const fromSecond = selectFirst("clean", taint_src);
+  taint.Sink(fromFirst);
 }
-function f(a : string, b : string) {
-  taint.Sink(a);
+
+function selectFirst(a: string, b: string) {
+  return a;
 }

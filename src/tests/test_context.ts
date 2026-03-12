@@ -1,9 +1,14 @@
 
 import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
-import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
 import * as fs from 'fs';
 import * as path from 'path';
+import {
+    buildEngineForCase,
+    collectCaseSeedNodes,
+    findCaseMethod,
+    resolveCaseMethod,
+} from "./helpers/SyntheticCaseHarness";
 
 async function runTest() {
     let projectDir = "d:/cursor/workplace/ArkTaint/tests/demo/context_sensitive";
@@ -36,17 +41,18 @@ async function runTest() {
             console.log(`Testing: ${testName} (k=${k}, Expect: ${expected ? 'FLOW' : 'NO FLOW'})`);
 
             try {
-                let engine = new TaintPropagationEngine(scene, k);
-                await engine.buildPAG();
-
-                // Find entry method
-                let entryMethod = scene.getMethods().find(m => m.getName() === testName);
+                const entry = resolveCaseMethod(scene, file, testName);
+                let entryMethod = findCaseMethod(scene, entry);
                 if (!entryMethod) {
                     console.error(`  ❌ Method ${testName} not found in scene.`);
                     kStats.failed++;
                     kStats.total++;
                     continue;
                 }
+
+                let engine = await buildEngineForCase(scene, k, entryMethod, {
+                    verbose: false,
+                });
 
                 // Find seeds (taint_src parameter)
                 let methodBody = entryMethod.getBody();
@@ -57,18 +63,7 @@ async function runTest() {
                     continue;
                 }
 
-                let localsMap = methodBody.getLocals();
-                let seeds: any[] = [];
-                for (let local of localsMap.values()) {
-                    if (local.getName() === 'taint_src' || local.getName().startsWith('p')) {
-                        let nodes = engine.pag.getNodesByValue(local);
-                        if (nodes) {
-                            for (let nodeId of nodes.values()) {
-                                seeds.push(engine.pag.getNode(nodeId));
-                            }
-                        }
-                    }
-                }
+                let seeds = collectCaseSeedNodes(engine, entryMethod);
 
                 if (seeds.length === 0) {
                     console.error(`  ⚠️ No seeds found.`);
