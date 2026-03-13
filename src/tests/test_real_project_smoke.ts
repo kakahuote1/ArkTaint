@@ -178,8 +178,8 @@ function createAnalyzeOptions(
         incrementalCachePath: undefined,
         stopOnFirstFlow: false,
         maxFlowsPerEntry: undefined,
-        enableCrossFunctionFallback: false,
         enableSecondarySinkSweep: false,
+        enableCrossFunctionFallback: false, // 【新增这一行】
         ruleOptions: {
             autoDiscoverLayers: true,
         },
