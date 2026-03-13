@@ -800,9 +800,14 @@ async function analyzeSourceDir(
             (virtualCls as any).name = "HapFlowEntryClass";
             (virtualCls as any).methods = [virtualMain];
             virtualMain.setDeclaringArkClass(virtualCls);
-            // 修正：API 为 addArkClass
-            (firstFile as any).addArkClass?.(virtualCls) || (firstFile as any).classes?.push(virtualCls);
-        }
+            // 兼容性挂载
+    if ((firstFile as any).addArkClass) {
+        (firstFile as any).addArkClass(virtualCls);
+    } else {
+        // 直接推入类的数组
+        (firstFile as any).classes = [...((firstFile as any).classes || []), virtualCls];
+    }
+}
 
         const engine = new TaintPropagationEngine(scene, options.k, {
             transferRules: loadedRules.ruleSet.transfers || [],
