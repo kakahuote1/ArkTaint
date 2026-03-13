@@ -249,10 +249,13 @@ export class TaintPropagationEngine {
         return out;
     }
 
-    public async buildPAG(): Promise<void> {
+    public async buildPAG(options?: { syntheticEntryMethods?: any[] }): Promise<void> {
         this.clearRuleHits();
         this.clearFactRuleChains();
 
+        // 如果传入了自定义入口，可以根据需要处理（或直接忽略以使用默认逻辑）
+        const customEntries = options?.syntheticEntryMethods;
+        
         const sceneId = this.getOrCreateSceneId();
         const cacheKey = `${sceneId}|entryModel|dummyMain|pure`;
         const cached = TaintPropagationEngine.pagBuildCache.get(cacheKey);
