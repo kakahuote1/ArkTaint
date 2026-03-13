@@ -6,7 +6,6 @@ import { CallGraph } from "../../arkanalyzer/out/src/callgraph/model/CallGraph";
 import { CallGraphBuilder } from "../../arkanalyzer/out/src/callgraph/model/builder/CallGraphBuilder";
 import { DummyMainCreater } from "../../arkanalyzer/out/src/core/common/DummyMainCreater";
 import { ArkAssignStmt } from "../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkMethod } from "../../arkanalyzer/out/src/core/model/ArkMethod";
 import { TaintFact } from "./TaintFact";
 import { TaintFlow } from "./TaintFlow";
 import { TaintTracker } from "./TaintTracker";
@@ -60,11 +59,8 @@ export interface TaintEngineOptions {
     transferRules?: TransferRule[];
     enableHarmonyAppStorageModeling?: boolean;
     enableHarmonyStateModeling?: boolean;
+    strictSinkDetection?: boolean;
     debug?: DebugOptions;
-}
-
-export interface BuildPAGOptions {
-    syntheticEntryMethods?: ArkMethod[];
 }
 
 export interface RuleHitCounters {
@@ -253,16 +249,12 @@ export class TaintPropagationEngine {
         return out;
     }
 
-    public async buildPAG(options: BuildPAGOptions = {}): Promise<void> {
+    public async buildPAG(): Promise<void> {
         this.clearRuleHits();
         this.clearFactRuleChains();
 
         const sceneId = this.getOrCreateSceneId();
-        const syntheticEntryMethods = this.normalizeSyntheticEntryMethods(options.syntheticEntryMethods);
-        const syntheticKey = syntheticEntryMethods.length > 0
-            ? `synthetic|${syntheticEntryMethods.map(method => method.getSignature().toString()).join("||")}`
-            : "pure";
-        const cacheKey = `${sceneId}|entryModel|dummyMain|${syntheticKey}`;
+        const cacheKey = `${sceneId}|entryModel|dummyMain|pure`;
         const cached = TaintPropagationEngine.pagBuildCache.get(cacheKey);
         if (cached) {
             this.pag = cached.pag;
@@ -273,7 +265,7 @@ export class TaintPropagationEngine {
             this.syntheticInvokeEdgeMap = cached.syntheticInvokeEdgeMap;
             this.syntheticConstructorStoreMap = cached.syntheticConstructorStoreMap;
             this.syntheticFieldBridgeMap = cached.syntheticFieldBridgeMap;
-            this.log(`PAG cache hit: dummyMain(${syntheticKey})`);
+            this.log("PAG cache hit: dummyMain(pure)");
             this.log(`PAG nodes: ${this.pag.getNodeNum()}, edges: ${this.pag.getEdgeNum()}`);
             this.log(`CG nodes: ${this.cg.getNodeNum()}, edges: ${this.cg.getEdgeNum()}`);
             this.configureContextStrategy();
@@ -286,7 +278,7 @@ export class TaintPropagationEngine {
         const pag = new Pag();
         const config = PointerAnalysisConfig.create(0, "./out", false, false, false);
         this.pta = new PointerAnalysis(pag, cg, this.scene, config);
-        const { dummyMainMethod, cleanup } = this.createDummyMainEntry(syntheticEntryMethods);
+        const { dummyMainMethod, cleanup } = this.createDummyMainEntry();
         try {
             cgBuilder.buildDirectCallGraph([dummyMainMethod]);
             const dummyMainMethodID = cg.getCallGraphNodeByMethod(dummyMainMethod.getSignature()).getID();
@@ -321,25 +313,11 @@ export class TaintPropagationEngine {
         this.configureContextStrategy();
     }
 
-    private normalizeSyntheticEntryMethods(methods?: ArkMethod[]): ArkMethod[] {
-        if (!methods || methods.length === 0) return [];
-        const dedup = new Map<string, ArkMethod>();
-        for (const method of methods) {
-            const signature = method?.getSignature?.()?.toString?.();
-            if (!signature || dedup.has(signature)) continue;
-            dedup.set(signature, method);
-        }
-        return [...dedup.values()];
-    }
-
-    private createDummyMainEntry(entryMethods: ArkMethod[] = []): {
+    private createDummyMainEntry(): {
         dummyMainMethod: any;
         cleanup: () => void;
     } {
         const dummyMainCreater = new DummyMainCreater(this.scene);
-        if (entryMethods.length > 0) {
-            dummyMainCreater.setEntryMethods(entryMethods);
-        }
         dummyMainCreater.createDummyMain();
         const dummyMainMethod = dummyMainCreater.getDummyMain();
         const dummyMainFile = dummyMainMethod?.getDeclaringArkClass?.()?.getDeclaringArkFile?.();
@@ -736,6 +714,7 @@ export class TaintPropagationEngine {
             typeHint?: string;
             signatureMatchMode?: "contains" | "equals";
             sanitizerRules?: SanitizerRule[];
+            strictMode?: boolean;
         }
     ): TaintFlow[] {
         if (!this.cg) return [];
@@ -750,6 +729,7 @@ export class TaintPropagationEngine {
                 ...options,
                 fieldToVarIndex: this.fieldToVarIndex,
                 allowedMethodSignatures: this.activeReachableMethodSignatures,
+                strictMode: options?.strictMode === true || this.options.strictSinkDetection === true,
                 onProfile: (profile) => this.mergeDetectProfile(profile),
             }
         );
