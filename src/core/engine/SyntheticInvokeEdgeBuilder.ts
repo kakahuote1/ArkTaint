@@ -84,6 +84,7 @@ export function buildSyntheticInvokeEdges(
         if (!cfg) continue;
 
         for (const stmt of cfg.getStmts()) {
+            
             if (!stmt.containsInvokeExpr()) continue;
             const invokeExpr = stmt.getInvokeExpr();
             if (!invokeExpr) continue;
@@ -101,6 +102,37 @@ export function buildSyntheticInvokeEdges(
                 edgeMap,
                 lookupContext
             );
+            const currentArgs = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
+            currentArgs.forEach((arg: any) => {
+                if (isCallableValue(arg)) {
+                    const callbackMethods = resolveMethodsFromCallable(scene, arg, { maxCandidates: 8 });
+                    for (const cbMethod of callbackMethods) {
+                        const cbParamStmts = collectParameterAssignStmts(cbMethod);
+                        if (cbParamStmts.length === 0) continue;
+
+                        const callSiteId = stmt.getOriginPositionInfo().getLineNo() * 10000 + 999;
+                        const srcNodes = pag.getNodesByValue(arg);
+                        if (!srcNodes) continue;
+
+                        for (const srcNodeId of srcNodes.values()) {
+                            // 建立 PAG 边：从调用处函数参数 -> 到回调函数的第一个形参
+                            const dstNodes = pag.getNodesByValue(cbParamStmts[0].getLeftOp());
+                            if (!dstNodes) continue;
+                            for (const dstNodeId of dstNodes.values()) {
+                                if (!edgeMap.has(srcNodeId)) edgeMap.set(srcNodeId, []);
+                                edgeMap.get(srcNodeId)!.push({
+                                    type: CallEdgeType.CALL,
+                                    srcNodeId,
+                                    dstNodeId,
+                                    callSiteId,
+                                    callerMethodName: caller.getName(),
+                                    calleeMethodName: (cbMethod as any).getName(),
+                                });
+                            }
+                        }
+                    }
+                }
+            });
             if (callSites.length > 0 && !forceFallback && !allowUnknownInvokeFallback) continue;
 
             let callees = resolveCalleeCandidates(scene, invokeExpr);
