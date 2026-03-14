@@ -1,0 +1,322 @@
+{
+  "schemaVersion": "1.1",
+  "meta": {
+    "name": "LLM Generated Rules",
+    "description": "Auto-generated candidate rules by LLM for tests. All rules are disabled by default and require manual review.",
+    "updatedAt": "2026-03-14T07:22:43.635Z"
+  },
+  "sources": [],
+  "sinks": [
+    {
+      "id": "sink.llm.tests.chained_call.setData.arg0",
+      "enabled": false,
+      "profile": "signature",
+      "severity": "medium",
+      "category": "sensitive_persistence",
+      "match": {
+        "kind": "signature_contains",
+        "value": "A.setData"
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      },
+      "scope": {
+        "fileName": {
+          "mode": "contains",
+          "value": "chained_call_001_T.ets"
+        }
+      },
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "setData stores tainted string into object state."
+    },
+    {
+      "id": "sink.llm.tests.chained_call.setData.arg0_F",
+      "enabled": false,
+      "profile": "signature",
+      "severity": "medium",
+      "category": "sensitive_persistence",
+      "match": {
+        "kind": "signature_contains",
+        "value": "A.setData"
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      },
+      "scope": {
+        "fileName": {
+          "mode": "contains",
+          "value": "chained_call_002_F.ets"
+        }
+      },
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "setData stores tainted string into object state."
+    }
+  ],
+  "sanitizers": [],
+  "transfers": [
+    {
+      "id": "transfer.llm.tests.complex_calls.registerWithFlag.arg0_to_result",
+      "enabled": false,
+      "match": {
+        "kind": "signature_contains",
+        "value": "registerWithFlag"
+      },
+      "scope": {
+        "fileName": {
+          "mode": "contains",
+          "value": "callback_one_hop_param_001_T.ets"
+        }
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "registerWithFlag propagates arg0 to result through callback."
+    },
+    {
+      "id": "transfer.llm.tests.complex_calls.registerWithFlag.arg0_to_result_F",
+      "enabled": false,
+      "match": {
+        "kind": "signature_contains",
+        "value": "registerWithFlag"
+      },
+      "scope": {
+        "fileName": {
+          "mode": "contains",
+          "value": "callback_one_hop_param_002_F.ets"
+        }
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "registerWithFlag propagates arg0 to result through callback."
+    },
+    {
+      "id": "transfer.llm.tests.context_sensitive.f.arg0_to_result_T",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "f"
+      },
+      "scope": {
+        "fileName": {
+          "mode": "contains",
+          "value": "multi_invoke_001_T.ets"
+        }
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "Function f propagates string arg0 to result."
+    },
+    {
+      "id": "transfer.llm.tests.context_sensitive.f.arg0_to_result_F",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "f"
+      },
+      "scope": {
+        "fileName": {
+          "mode": "contains",
+          "value": "multi_invoke_002_F.ets"
+        }
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "Function f propagates string arg0 to result."
+    },
+    {
+      "id": "transfer.llm.tests.appstorage.chooseKey.arg0_to_result",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "chooseKey"
+      },
+      "scope": {
+        "fileName": {
+          "mode": "contains",
+          "value": "appstorage_api_dynamic_mismatch_locals_017_F.ets"
+        }
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "chooseKey propagates boolean arg0 to result."
+    },
+    {
+      "id": "transfer.llm.tests.argument_passing.forward.arg0_to_result_T",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "forward"
+      },
+      "scope": {
+        "fileName": {
+          "mode": "contains",
+          "value": "argument_passing_001_T.ets"
+        }
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "forward propagates string arg0 to result."
+    },
+    {
+      "id": "transfer.llm.tests.argument_passing.forward.arg0_to_result_F",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "forward"
+      },
+      "scope": {
+        "fileName": {
+          "mode": "contains",
+          "value": "argument_passing_002_F.ets"
+        }
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "forward propagates string arg0 to result."
+    },
+    {
+      "id": "transfer.llm.tests.argument_passing.selectFirst.arg0_to_result",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "selectFirst"
+      },
+      "scope": {
+        "fileName": {
+          "mode": "contains",
+          "value": "argument_passing_003_T.ets"
+        }
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "selectFirst propagates first string arg to result."
+    },
+    {
+      "id": "transfer.llm.tests.argument_passing.selectSecond.arg0_to_result",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "selectSecond"
+      },
+      "scope": {
+        "fileName": {
+          "mode": "contains",
+          "value": "argument_passing_004_F.ets"
+        }
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "selectSecond propagates first string arg to result."
+    },
+    {
+      "id": "transfer.llm.tests.multi_invoke.f.arg0_to_result_T",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "f"
+      },
+      "scope": {
+        "fileName": {
+          "mode": "contains",
+          "value": "multi_invoke_001_T.ets"
+        }
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "Function f propagates string arg0 to result."
+    },
+    {
+      "id": "transfer.llm.tests.multi_invoke.f.arg0_to_result_F",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "f"
+      },
+      "scope": {
+        "fileName": {
+          "mode": "contains",
+          "value": "multi_invoke_002_F.ets"
+        }
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "Function f propagates string arg0 to result."
+    },
+    {
+      "id": "transfer.llm.tests.return_value_passing.buildValue.arg0_to_result_T",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "buildValue"
+      },
+      "scope": {
+        "fileName": {
+          "mode": "contains",
+          "value": "return_value_passing_001_T.ets"
+        }
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "buildValue propagates string arg0 to result."
+    },
+    {
+      "id": "transfer.llm.tests.return_value_passing.buildValue.arg0_to_result_F",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "buildValue"
+      },
+      "scope": {
+        "fileName": {
+          "mode": "contains",
+          "value": "return_value_passing_002_F.ets"
+        }
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "buildValue propagates string arg0 to result."
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+import { taint } from "./taint_mock"
+
+/**
+ * Introduction 数组索引
+ */
+export function array_003_T(taint_src : string) {
+  let arr = [[taint_src], ["b"], "c"]
+  taint.Sink(arr[0][0]);
+}

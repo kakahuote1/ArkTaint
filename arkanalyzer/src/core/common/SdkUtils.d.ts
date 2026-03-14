@@ -1,0 +1,30 @@
+import { ArkFile } from '../model/ArkFile';
+import { ArkExport } from '../model/ArkExport';
+import { ArkClass } from '../model/ArkClass';
+import { ArkMethod } from '../model/ArkMethod';
+import { AbstractFieldRef } from '../base/Ref';
+import { Sdk } from '../../Config';
+export declare class SdkUtils {
+    private static esVersion;
+    private static esVersionMap;
+    private static sdkImportMap;
+    static BUILT_IN_NAME: string;
+    private static BUILT_IN_PATH;
+    static setEsVersion(buildProfile: any): void;
+    static getBuiltInSdk(): Sdk;
+    static fetchBuiltInFiles(builtInPath: string): string[];
+    private static dfsFiles;
+    static dispose(): void;
+    static buildSdkImportMap(file: ArkFile): void;
+    static getImportSdkFile(from: string): ArkFile | undefined;
+    private static isGlobalPath;
+    static loadGlobalAPI(file: ArkFile, globalMap: Map<string, ArkExport>): void;
+    static mergeGlobalAPI(file: ArkFile, globalMap: Map<string, ArkExport>): void;
+    private static copyNamespace;
+    static loadAPI(api: ArkExport, globalMap: Map<string, ArkExport>, override?: boolean): void;
+    static postInferredSdk(file: ArkFile, globalMap: Map<string, ArkExport>): void;
+    private static loadClass;
+    private static loadGlobalLocal;
+    static copyMembers(from: ArkClass, to: ArkClass): void;
+    static computeGlobalThis(leftOp: AbstractFieldRef, arkMethod: ArkMethod): void;
+}

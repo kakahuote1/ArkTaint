@@ -1,0 +1,16 @@
+# Phase 4.2 metamorphic seed cases
+# context_sensitive
+context_sensitive/argument_value_passing/argument_passing_001_T.ets
+context_sensitive/argument_value_passing/argument_passing_002_F.ets
+
+# flow_sensitive
+flow_sensitive/normal_stmt/assign_expression_001_T.ets
+flow_sensitive/normal_stmt/assign_expression_002_F.ets
+
+# path_sensitive
+path_sensitive/conditional_stmt/conditional_if_001_T.ets
+path_sensitive/conditional_stmt/conditional_if_002_F.ets
+
+# field_sensitive
+field_sensitive/container/map_field_sensitive_001_T.ets
+field_sensitive/container/map_field_sensitive_002_F.ets

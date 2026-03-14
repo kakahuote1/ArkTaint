@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.1",
+  "meta": {
+    "name": "harmony-localstorage-v1-rules",
+    "description": "LocalStorage and LocalStorage decorators modeling tests",
+    "updatedAt": "2026-03-01"
+  },
+  "sources": [
+    {
+      "id": "source.harmony.localstorage.entry_param",
+      "profile": "entry_param",
+      "match": {
+        "kind": "local_name_regex",
+        "value": "^taint_src$"
+      }
+    }
+  ],
+  "sinks": [
+    {
+      "id": "sink.harmony.localstorage.mock_sink",
+      "profile": "signature",
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "Sink"
+      }
+    }
+  ],
+  "sanitizers": [],
+  "transfers": []
+}
+

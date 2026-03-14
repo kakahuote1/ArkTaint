@@ -1,0 +1,17 @@
+# Phase 4.2 v2 metamorphic seed cases (non-overlap with senior_full)
+
+# context_sensitive
+context_sensitive/ctx_dispatch_001_T.ets
+context_sensitive/ctx_dispatch_002_F.ets
+
+# flow_sensitive
+flow_sensitive/flow_order_001_T.ets
+flow_sensitive/flow_order_002_F.ets
+
+# path_sensitive
+path_sensitive/path_gate_001_T.ets
+path_sensitive/path_gate_002_F.ets
+
+# field_sensitive
+field_sensitive/field_map_001_T.ets
+field_sensitive/field_map_002_F.ets

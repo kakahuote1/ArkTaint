@@ -1,0 +1,94 @@
+{
+  "schemaVersion": "1.1",
+  "meta": {
+    "name": "transfer-variants-rule-pack",
+    "description": "Non-overlap transformed transfer samples for anti-overfitting validation",
+    "updatedAt": "2026-02-17"
+  },
+  "sources": [
+    {
+      "id": "source.transfer_variants.entry_param.taint_src",
+      "profile": "entry_param",
+      "kind": "entry_param",
+      "target": "arg0",
+      "targetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "local_name_regex",
+        "value": "^taint_src$"
+      }
+    }
+  ],
+  "sinks": [
+    {
+      "id": "sink.transfer_variants.arg0",
+      "profile": "signature",
+      "sinkTarget": "arg0",
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "Sink"
+      }
+    }
+  ],
+  "transfers": [
+    {
+      "id": "transfer.variants.stash.arg0_to_base",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "stash"
+      },
+      "from": "arg0",
+      "to": "base"
+    },
+    {
+      "id": "transfer.variants.read.base_to_result",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "read"
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.variants.merge.arg1_to_result",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "merge"
+      },
+      "from": "arg1",
+      "to": "result"
+    },
+    {
+      "id": "transfer.variants.attach.arg0_to_base",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "attach"
+      },
+      "from": "arg0",
+      "to": "base"
+    },
+    {
+      "id": "transfer.variants.emit.base_to_arg0",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "emit"
+      },
+      "from": "base",
+      "to": "arg0"
+    },
+    {
+      "id": "transfer.variants.relay.result_to_arg0",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "relay"
+      },
+      "from": "result",
+      "to": "arg0"
+    }
+  ]
+}
+

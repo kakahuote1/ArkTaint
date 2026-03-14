@@ -1,0 +1,1230 @@
+{
+    "name":  "HarmonyBench",
+    "version":  "1.0.0",
+    "description":  "Micro-benchmark for HarmonyOS ArkTS taint analysis",
+    "categories":  [
+                       {
+                           "id":  "C1_Lifecycle",
+                           "name":  "Lifecycle Entry Point Seeding",
+                           "supported":  true,
+                           "sourceDir":  "tests/demo/harmony_lifecycle",
+                           "rules":  {
+                                         "default":  "tests/rules/minimal.rules.json",
+                                         "framework":  "rules/framework.rules.json",
+                                         "project":  "tests/rules/harmony_lifecycle_sink_only.rules.json"
+                                     },
+                           "cases":  [
+                                         {
+                                             "case_id":  "C1_001",
+                                             "file":  "lifecycle_abilitystage_non_oncreate_016_F.ets",
+                                             "entry":  "lifecycle_abilitystage_non_oncreate_016_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C1_002",
+                                             "file":  "lifecycle_abilitystage_oncreate_015_T.ets",
+                                             "entry":  "lifecycle_abilitystage_oncreate_015_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C1_003",
+                                             "file":  "lifecycle_extension_addform_011_T.ets",
+                                             "entry":  "lifecycle_extension_addform_011_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C1_004",
+                                             "file":  "lifecycle_extension_addform_name_mismatch_012_F.ets",
+                                             "entry":  "lifecycle_extension_addform_name_mismatch_012_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C1_005",
+                                             "file":  "lifecycle_extension_addform_safe_sink_019_F.ets",
+                                             "entry":  "lifecycle_extension_addform_safe_sink_019_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C1_006",
+                                             "file":  "lifecycle_extension_formbinding_013_T.ets",
+                                             "entry":  "lifecycle_extension_formbinding_013_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C1_007",
+                                             "file":  "lifecycle_extension_formbinding_name_mismatch_014_F.ets",
+                                             "entry":  "lifecycle_extension_formbinding_name_mismatch_014_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C1_008",
+                                             "file":  "lifecycle_newwant_field_003_T.ets",
+                                             "entry":  "lifecycle_newwant_field_003_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C1_009",
+                                             "file":  "lifecycle_non_lifecycle_method_008_F.ets",
+                                             "entry":  "lifecycle_non_lifecycle_method_008_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C1_010",
+                                             "file":  "lifecycle_param_name_mismatch_006_F.ets",
+                                             "entry":  "lifecycle_param_name_mismatch_006_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C1_011",
+                                             "file":  "lifecycle_param_type_mismatch_007_F.ets",
+                                             "entry":  "lifecycle_param_type_mismatch_007_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C1_012",
+                                             "file":  "lifecycle_router_getparams_009_T.ets",
+                                             "entry":  "lifecycle_router_getparams_009_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C1_013",
+                                             "file":  "lifecycle_router_getparams_alias_018_T.ets",
+                                             "entry":  "lifecycle_router_getparams_alias_018_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C1_014",
+                                             "file":  "lifecycle_router_non_router_getparams_010_F.ets",
+                                             "entry":  "lifecycle_router_non_router_getparams_010_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C1_015",
+                                             "file":  "lifecycle_want_alias_emit_004_T.ets",
+                                             "entry":  "lifecycle_want_alias_emit_004_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C1_016",
+                                             "file":  "lifecycle_want_direct_001_T.ets",
+                                             "entry":  "lifecycle_want_direct_001_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C1_017",
+                                             "file":  "lifecycle_want_field_build_002_T.ets",
+                                             "entry":  "lifecycle_want_field_build_002_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C1_018",
+                                             "file":  "lifecycle_want_to_helper_017_T.ets",
+                                             "entry":  "lifecycle_want_to_helper_017_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C1_019",
+                                             "file":  "lifecycle_want_unused_005_F.ets",
+                                             "entry":  "lifecycle_want_unused_005_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         }
+                                     ]
+                       },
+                       {
+                           "id":  "C2_AppStorage",
+                           "name":  "AppStorage Cross-Component Flow",
+                           "supported":  true,
+                           "sourceDir":  "tests/demo/harmony_appstorage",
+                           "rules":  {
+                                         "default":  "tests/rules/minimal.rules.json",
+                                         "framework":  "tests/rules/minimal.rules.json",
+                                         "project":  "tests/rules/harmony_appstorage.rules.json"
+                                     },
+                           "cases":  [
+                                         {
+                                             "case_id":  "C2_001",
+                                             "file":  "appstorage_api_dynamic_key_004_F.ets",
+                                             "entry":  "appstorage_api_dynamic_key_004_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C2_002",
+                                             "file":  "appstorage_api_multi_key_mismatch_012_F.ets",
+                                             "entry":  "appstorage_api_multi_key_mismatch_012_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C2_003",
+                                             "file":  "appstorage_api_multi_key_token_011_T.ets",
+                                             "entry":  "appstorage_api_multi_key_token_011_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C2_004",
+                                             "file":  "appstorage_api_object_set_get_005_T.ets",
+                                             "entry":  "appstorage_api_object_set_get_005_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C2_005",
+                                             "file":  "appstorage_api_primitive_set_get_001_T.ets",
+                                             "entry":  "appstorage_api_primitive_set_get_001_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C2_006",
+                                             "file":  "appstorage_api_primitive_wrong_key_002_F.ets",
+                                             "entry":  "appstorage_api_primitive_wrong_key_002_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C2_007",
+                                             "file":  "appstorage_api_setorcreate_primitive_003_T.ets",
+                                             "entry":  "appstorage_api_setorcreate_primitive_003_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C2_008",
+                                             "file":  "appstorage_api_setorcreate_then_get_013_T.ets",
+                                             "entry":  "appstorage_api_setorcreate_then_get_013_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C2_009",
+                                             "file":  "appstorage_cross_file_api_009_T.ets",
+                                             "entry":  "appstorage_cross_file_api_009_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C2_010",
+                                             "file":  "appstorage_cross_file_api_010_F.ets",
+                                             "entry":  "appstorage_cross_file_api_010_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C2_011",
+                                             "file":  "appstorage_decorator_storagelink_008_T.ets",
+                                             "entry":  "appstorage_decorator_storagelink_008_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C2_012",
+                                             "file":  "appstorage_decorator_storageprop_006_T.ets",
+                                             "entry":  "appstorage_decorator_storageprop_006_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C2_013",
+                                             "file":  "appstorage_decorator_storageprop_mismatch_007_F.ets",
+                                             "entry":  "appstorage_decorator_storageprop_mismatch_007_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         }
+                                     ]
+                       },
+                       {
+                           "id":  "C3_EventActivation",
+                           "name":  "Event Callback Activation and Param Seeding",
+                           "supported":  true,
+                           "sourceDir":  "tests/demo/harmony_event_activation",
+                           "rules":  {
+                                         "default":  "tests/rules/minimal.rules.json",
+                                         "framework":  "tests/rules/minimal.rules.json",
+                                         "project":  "tests/rules/harmony_event_activation.rules.json"
+                                     },
+                           "cases":  [
+                                         {
+                                             "case_id":  "C3_001",
+                                             "file":  "event_callback_param_index_006_T.ets",
+                                             "entry":  "event_callback_param_index_006_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C3_002",
+                                             "file":  "event_callback_param_index_wrong_007_F.ets",
+                                             "entry":  "event_callback_param_index_wrong_007_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C3_003",
+                                             "file":  "event_onchange_build_001_T.ets",
+                                             "entry":  "event_onchange_build_001_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C3_004",
+                                             "file":  "event_onchange_nested_009_T.ets",
+                                             "entry":  "event_onchange_nested_009_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C3_005",
+                                             "file":  "event_onchange_no_sink_008_F.ets",
+                                             "entry":  "event_onchange_no_sink_008_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C3_006",
+                                             "file":  "event_onchange_outside_build_005_F.ets",
+                                             "entry":  "event_onchange_outside_build_005_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C3_007",
+                                             "file":  "event_onchange2_first_only_011_F.ets",
+                                             "entry":  "event_onchange2_first_only_011_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C3_008",
+                                             "file":  "event_onchange2_second_010_T.ets",
+                                             "entry":  "event_onchange2_second_010_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C3_009",
+                                             "file":  "event_onclick_build_004_F.ets",
+                                             "entry":  "event_onclick_build_004_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C3_010",
+                                             "file":  "event_oninput_build_002_T.ets",
+                                             "entry":  "event_oninput_build_002_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C3_011",
+                                             "file":  "event_onsubmit_build_003_T.ets",
+                                             "entry":  "event_onsubmit_build_003_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         }
+                                     ]
+                       },
+                       {
+                           "id":  "C4_StateProp",
+                           "name":  "State-to-Prop Decorator Flow",
+                           "supported":  true,
+                           "sourceDir":  "tests/demo/harmony_state_mgmt",
+                           "rules":  {
+                                         "default":  "tests/rules/minimal.rules.json",
+                                         "framework":  "tests/rules/minimal.rules.json",
+                                         "project":  "tests/rules/harmony_state_mgmt.rules.json"
+                                     },
+                           "cases":  [
+                                         {
+                                             "case_id":  "C4_001",
+                                             "file":  "state_prop_alias_key_003_T.ets",
+                                             "entry":  "state_prop_alias_key_003_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C4_002",
+                                             "file":  "state_prop_child_not_built_009_F.ets",
+                                             "entry":  "state_prop_child_not_built_009_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C4_003",
+                                             "file":  "state_prop_direct_variant_007_T.ets",
+                                             "entry":  "state_prop_direct_variant_007_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C4_004",
+                                             "file":  "state_prop_non_state_field_002_F.ets",
+                                             "entry":  "state_prop_non_state_field_002_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C4_005",
+                                             "file":  "state_prop_object_literal_001_T.ets",
+                                             "entry":  "state_prop_object_literal_001_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C4_006",
+                                             "file":  "state_prop_precise_callsite_006_F.ets",
+                                             "entry":  "state_prop_precise_callsite_006_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C4_007",
+                                             "file":  "state_prop_transit_child_008_T.ets",
+                                             "entry":  "state_prop_transit_child_008_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C4_008",
+                                             "file":  "state_prop_two_children_005_T.ets",
+                                             "entry":  "state_prop_two_children_005_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C4_009",
+                                             "file":  "state_prop_wrong_key_004_F.ets",
+                                             "entry":  "state_prop_wrong_key_004_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C4_010",
+                                             "file":  "state_prop_multi_param_010_F.ets",
+                                             "entry":  "state_prop_multi_param_010_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C4_011",
+                                             "file":  "state_prop_multi_param_011_T.ets",
+                                             "entry":  "state_prop_multi_param_011_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C4_012",
+                                             "file":  "objectlink_observed_012_T.ets",
+                                             "entry":  "objectlink_observed_012_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C4_013",
+                                             "file":  "objectlink_observed_013_F.ets",
+                                             "entry":  "objectlink_observed_013_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         }
+                                     ]
+                       },
+                       {
+                           "id":  "C5_E2E",
+                           "name":  "End-to-End Cross-Module Chains",
+                           "supported":  true,
+                           "sourceDir":  "tests/demo/harmony_e2e",
+                           "rules":  {
+                                         "default":  "tests/rules/minimal.rules.json",
+                                         "framework":  "tests/rules/minimal.rules.json",
+                                         "project":  "tests/rules/harmony_e2e.rules.json"
+                                     },
+                           "cases":  [
+                                         {
+                                             "case_id":  "C5_001",
+                                             "file":  "e2e_chain_001_T.ets",
+                                             "entry":  "e2e_chain_001_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C5_002",
+                                             "file":  "e2e_chain_break_002_F.ets",
+                                             "entry":  "e2e_chain_break_002_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C5_003",
+                                             "file":  "e2e_chain_cross_assign_005_T.ets",
+                                             "entry":  "e2e_chain_cross_assign_005_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C5_004",
+                                             "file":  "e2e_chain_no_build_004_F.ets",
+                                             "entry":  "e2e_chain_no_build_004_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C5_005",
+                                             "file":  "e2e_chain_storage_to_state_003_T.ets",
+                                             "entry":  "e2e_chain_storage_to_state_003_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         }
+                                     ]
+                       },
+                       {
+                           "id":  "C6_LinkTwoWay",
+                           "name":  "@Link Two-Way Binding (Known Limitation)",
+                           "supported":  false,
+                           "sourceDir":  "tests/demo/harmony_link",
+                           "rules":  {
+                                         "default":  "tests/rules/minimal.rules.json",
+                                         "framework":  "tests/rules/minimal.rules.json",
+                                         "project":  "tests/rules/harmony_link.rules.json"
+                                     },
+                           "cases":  [
+                                         {
+                                             "case_id":  "C6_001",
+                                             "file":  "link_child_update_parent_001_T.ets",
+                                             "entry":  "link_child_update_parent_001_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Link two-way semantics are not fully modeled yet."
+                                         },
+                                         {
+                                             "case_id":  "C6_002",
+                                             "file":  "link_no_taint_003_F.ets",
+                                             "entry":  "link_no_taint_003_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C6_003",
+                                             "file":  "link_parent_to_child_002_T.ets",
+                                             "entry":  "link_parent_to_child_002_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Link two-way semantics are not fully modeled yet."
+                                         },
+                                         {
+                                             "case_id":  "C6_004",
+                                             "file":  "link_prop_mix_005_F.ets",
+                                             "entry":  "link_prop_mix_005_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C6_005",
+                                             "file":  "link_two_way_loop_004_T.ets",
+                                             "entry":  "link_two_way_loop_004_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Link two-way semantics are not fully modeled yet."
+                                         }
+                                     ]
+                       },
+                       {
+                           "id":  "C7_ProvideConsume",
+                           "name":  "@Provide/@Consume (Known Limitation)",
+                           "supported":  false,
+                           "sourceDir":  "tests/demo/harmony_provide_consume",
+                           "rules":  {
+                                         "default":  "tests/rules/minimal.rules.json",
+                                         "framework":  "tests/rules/minimal.rules.json",
+                                         "project":  "tests/rules/harmony_provide_consume.rules.json"
+                                     },
+                           "cases":  [
+                                         {
+                                             "case_id":  "C7_001",
+                                             "file":  "provide_consume_alias_003_T.ets",
+                                             "entry":  "provide_consume_alias_003_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Provide/Consume cross-level implicit propagation is not modeled yet."
+                                         },
+                                         {
+                                             "case_id":  "C7_002",
+                                             "file":  "provide_consume_deep_chain_004_T.ets",
+                                             "entry":  "provide_consume_deep_chain_004_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Provide/Consume cross-level implicit propagation is not modeled yet."
+                                         },
+                                         {
+                                             "case_id":  "C7_003",
+                                             "file":  "provide_consume_mismatch_key_002_F.ets",
+                                             "entry":  "provide_consume_mismatch_key_002_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C7_004",
+                                             "file":  "provide_consume_same_key_001_T.ets",
+                                             "entry":  "provide_consume_same_key_001_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Provide/Consume cross-level implicit propagation is not modeled yet."
+                                         },
+                                         {
+                                             "case_id":  "C7_005",
+                                             "file":  "provide_consume_scope_isolation_005_F.ets",
+                                             "entry":  "provide_consume_scope_isolation_005_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         }
+                                     ]
+                       },
+                       {
+                           "id":  "C8_RouterDynamic",
+                           "name":  "Router and Dynamic-Key AppStorage (Known Limitation)",
+                           "supported":  false,
+                           "sourceDir":  "tests/demo/harmony_router_dynamic",
+                           "rules":  {
+                                         "default":  "tests/rules/minimal.rules.json",
+                                         "framework":  "rules/framework.rules.json",
+                                         "project":  "tests/rules/harmony_router_dynamic.rules.json"
+                                     },
+                           "cases":  [
+                                         {
+                                             "case_id":  "C8_001",
+                                             "file":  "appstorage_dynamic_key_002_T.ets",
+                                             "entry":  "appstorage_dynamic_key_002_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Router handoff and dynamic-key propagation are not fully modeled yet."
+                                         },
+                                         {
+                                             "case_id":  "C8_002",
+                                             "file":  "appstorage_dynamic_key_path_005_T.ets",
+                                             "entry":  "appstorage_dynamic_key_path_005_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Router handoff and dynamic-key propagation are not fully modeled yet."
+                                         },
+                                         {
+                                             "case_id":  "C8_003",
+                                             "file":  "router_getparams_direct_001_T.ets",
+                                             "entry":  "router_getparams_direct_001_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  false
+                                         },
+                                         {
+                                             "case_id":  "C8_004",
+                                             "file":  "router_navigation_like_004_T.ets",
+                                             "entry":  "router_navigation_like_004_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Router handoff and dynamic-key propagation are not fully modeled yet."
+                                         },
+                                         {
+                                             "case_id":  "C8_005",
+                                             "file":  "router_non_framework_003_F.ets",
+                                             "entry":  "router_non_framework_003_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         }
+                                     ]
+                       },
+                       {
+                           "id":  "C9_Watch",
+                           "name":  "@Watch Callback Trigger (Known Limitation)",
+                           "supported":  false,
+                           "sourceDir":  "tests/demo/harmony_watch",
+                           "rules":  {
+                                         "default":  "tests/rules/minimal.rules.json",
+                                         "framework":  "tests/rules/minimal.rules.json",
+                                         "project":  "tests/rules/harmony_watch.rules.json"
+                                     },
+                           "cases":  [
+                                         {
+                                             "case_id":  "C9_001",
+                                             "file":  "watch_explicit_safe_sink_006_F.ets",
+                                             "entry":  "watch_explicit_safe_sink_006_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C9_002",
+                                             "file":  "watch_no_trigger_005_F.ets",
+                                             "entry":  "watch_no_trigger_005_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C9_003",
+                                             "file":  "watch_non_watched_path_007_F.ets",
+                                             "entry":  "watch_non_watched_path_007_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C9_004",
+                                             "file":  "watch_trigger_001_T.ets",
+                                             "entry":  "watch_trigger_001_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Watch-triggered implicit callback activation is not modeled yet."
+                                         },
+                                         {
+                                             "case_id":  "C9_005",
+                                             "file":  "watch_trigger_002_T.ets",
+                                             "entry":  "watch_trigger_002_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Watch-triggered implicit callback activation is not modeled yet."
+                                         },
+                                         {
+                                             "case_id":  "C9_006",
+                                             "file":  "watch_trigger_003_T.ets",
+                                             "entry":  "watch_trigger_003_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Watch-triggered implicit callback activation is not modeled yet."
+                                         },
+                                         {
+                                             "case_id":  "C9_007",
+                                             "file":  "watch_trigger_004_T.ets",
+                                             "entry":  "watch_trigger_004_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Watch-triggered implicit callback activation is not modeled yet."
+                                         }
+                                     ]
+                       },
+                       {
+                           "id":  "C10_WorkerTaskPool",
+                           "name":  "Worker and TaskPool (Known Limitation)",
+                           "supported":  false,
+                           "sourceDir":  "tests/demo/harmony_worker",
+                           "rules":  {
+                                         "default":  "tests/rules/minimal.rules.json",
+                                         "framework":  "tests/rules/minimal.rules.json",
+                                         "project":  "tests/rules/harmony_worker.rules.json"
+                                     },
+                           "cases":  [
+                                         {
+                                             "case_id":  "C10_001",
+                                             "file":  "worker_callback_payload_003_T.ets",
+                                             "entry":  "worker_callback_payload_003_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Worker/TaskPool cross-thread message propagation is not modeled yet."
+                                         },
+                                         {
+                                             "case_id":  "C10_002",
+                                             "file":  "worker_postmessage_001_T.ets",
+                                             "entry":  "worker_postmessage_001_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Worker/TaskPool cross-thread message propagation is not modeled yet."
+                                         },
+                                         {
+                                             "case_id":  "C10_003",
+                                             "file":  "worker_safe_literal_005_F.ets",
+                                             "entry":  "worker_safe_literal_005_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C10_004",
+                                             "file":  "worker_second_worker_004_T.ets",
+                                             "entry":  "worker_second_worker_004_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Worker/TaskPool cross-thread message propagation is not modeled yet."
+                                         },
+                                         {
+                                             "case_id":  "C10_005",
+                                             "file":  "worker_sink_constant_006_F.ets",
+                                             "entry":  "worker_sink_constant_006_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C10_006",
+                                             "file":  "worker_taskpool_002_T.ets",
+                                             "entry":  "worker_taskpool_002_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Worker/TaskPool cross-thread message propagation is not modeled yet."
+                                         },
+                                         {
+                                             "case_id":  "C10_007",
+                                             "file":  "worker_unrelated_sink_007_F.ets",
+                                             "entry":  "worker_unrelated_sink_007_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         }
+                                     ]
+                       },
+                       {
+                           "id":  "C11_EmitterBus",
+                           "name":  "Emitter Event Bus (Known Limitation)",
+                           "supported":  false,
+                           "sourceDir":  "tests/demo/harmony_emitter",
+                           "rules":  {
+                                         "default":  "tests/rules/minimal.rules.json",
+                                         "framework":  "tests/rules/minimal.rules.json",
+                                         "project":  "tests/rules/harmony_emitter.rules.json"
+                                     },
+                           "cases":  [
+                                         {
+                                             "case_id":  "C11_001",
+                                             "file":  "emitter_emit_alias_002_T.ets",
+                                             "entry":  "emitter_emit_alias_002_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Emitter emit-\u003eon precise stitching is not modeled yet."
+                                         },
+                                         {
+                                             "case_id":  "C11_002",
+                                             "file":  "emitter_emit_multi_003_T.ets",
+                                             "entry":  "emitter_emit_multi_003_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Emitter emit-\u003eon precise stitching is not modeled yet."
+                                         },
+                                         {
+                                             "case_id":  "C11_003",
+                                             "file":  "emitter_emit_nested_004_T.ets",
+                                             "entry":  "emitter_emit_nested_004_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Emitter emit-\u003eon precise stitching is not modeled yet."
+                                         },
+                                         {
+                                             "case_id":  "C11_004",
+                                             "file":  "emitter_emit_on_001_T.ets",
+                                             "entry":  "emitter_emit_on_001_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Emitter emit-\u003eon precise stitching is not modeled yet."
+                                         },
+                                         {
+                                             "case_id":  "C11_005",
+                                             "file":  "emitter_safe_constant_006_F.ets",
+                                             "entry":  "emitter_safe_constant_006_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C11_006",
+                                             "file":  "emitter_unrelated_sink_007_F.ets",
+                                             "entry":  "emitter_unrelated_sink_007_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C11_007",
+                                             "file":  "emitter_wrong_event_005_F.ets",
+                                             "entry":  "emitter_wrong_event_005_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         }
+                                     ]
+                       },
+                       {
+                           "id":  "C12_Preferences",
+                           "name":  "Preferences Persistence (Initial Unsupported)",
+                           "supported":  false,
+                           "sourceDir":  "tests/demo/harmony_preferences",
+                           "rules":  {
+                                         "default":  "tests/rules/minimal.rules.json",
+                                         "framework":  "tests/rules/minimal.rules.json",
+                                         "project":  "tests/rules/harmony_preferences.rules.json"
+                                     },
+                           "cases":  [
+                                         {
+                                             "case_id":  "C12_001",
+                                             "file":  "preferences_mismatch_key_003_F.ets",
+                                             "entry":  "preferences_mismatch_key_003_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C12_002",
+                                             "file":  "preferences_overwrite_safe_004_F.ets",
+                                             "entry":  "preferences_overwrite_safe_004_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C12_003",
+                                             "file":  "preferences_put_get_001_T.ets",
+                                             "entry":  "preferences_put_get_001_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Preferences semantic bridge is not modeled yet (initial unsupported category)."
+                                         },
+                                         {
+                                             "case_id":  "C12_004",
+                                             "file":  "preferences_put_get_alias_002_T.ets",
+                                             "entry":  "preferences_put_get_alias_002_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Preferences semantic bridge is not modeled yet (initial unsupported category)."
+                                         },
+                                         {
+                                             "case_id":  "C12_005",
+                                             "file":  "preferences_reopen_like_007_T.ets",
+                                             "entry":  "preferences_reopen_like_007_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Preferences semantic bridge is not modeled yet (initial unsupported category)."
+                                         },
+                                         {
+                                             "case_id":  "C12_006",
+                                             "file":  "preferences_safe_literal_006_F.ets",
+                                             "entry":  "preferences_safe_literal_006_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C12_007",
+                                             "file":  "preferences_two_slots_005_T.ets",
+                                             "entry":  "preferences_two_slots_005_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Preferences semantic bridge is not modeled yet (initial unsupported category)."
+                                         }
+                                     ]
+                       },
+                       {
+                           "id":  "C13_RelationalStore",
+                           "name":  "RelationalStore DB (Initial Unsupported)",
+                           "supported":  false,
+                           "sourceDir":  "tests/demo/harmony_rdb",
+                           "rules":  {
+                                         "default":  "tests/rules/minimal.rules.json",
+                                         "framework":  "tests/rules/minimal.rules.json",
+                                         "project":  "tests/rules/harmony_rdb.rules.json"
+                                     },
+                           "cases":  [
+                                         {
+                                             "case_id":  "C13_001",
+                                             "file":  "rdb_cross_instance_007_T.ets",
+                                             "entry":  "rdb_cross_instance_007_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "RelationalStore semantic bridge is not modeled yet (initial unsupported category)."
+                                         },
+                                         {
+                                             "case_id":  "C13_002",
+                                             "file":  "rdb_insert_query_001_T.ets",
+                                             "entry":  "rdb_insert_query_001_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "RelationalStore semantic bridge is not modeled yet (initial unsupported category)."
+                                         },
+                                         {
+                                             "case_id":  "C13_003",
+                                             "file":  "rdb_insert_query_alias_002_T.ets",
+                                             "entry":  "rdb_insert_query_alias_002_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "RelationalStore semantic bridge is not modeled yet (initial unsupported category)."
+                                         },
+                                         {
+                                             "case_id":  "C13_004",
+                                             "file":  "rdb_mismatch_table_003_F.ets",
+                                             "entry":  "rdb_mismatch_table_003_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C13_005",
+                                             "file":  "rdb_query_constant_006_F.ets",
+                                             "entry":  "rdb_query_constant_006_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C13_006",
+                                             "file":  "rdb_safe_literal_004_F.ets",
+                                             "entry":  "rdb_safe_literal_004_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C13_007",
+                                             "file":  "rdb_two_rows_005_T.ets",
+                                             "entry":  "rdb_two_rows_005_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "RelationalStore semantic bridge is not modeled yet (initial unsupported category)."
+                                         }
+                                     ]
+                       },
+                       {
+                           "id":  "C14_HTTP",
+                           "name":  "HTTP Request/Response (Initial Unsupported)",
+                           "supported":  false,
+                           "sourceDir":  "tests/demo/harmony_http",
+                           "rules":  {
+                                         "default":  "tests/rules/minimal.rules.json",
+                                         "framework":  "tests/rules/minimal.rules.json",
+                                         "project":  "tests/rules/harmony_http.rules.json"
+                                     },
+                           "cases":  [
+                                         {
+                                             "case_id":  "C14_001",
+                                             "file":  "http_async_callback_003_T.ets",
+                                             "entry":  "http_async_callback_003_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "HTTP response/source semantics are not modeled yet (initial unsupported category)."
+                                         },
+                                         {
+                                             "case_id":  "C14_002",
+                                             "file":  "http_callback_safe_007_F.ets",
+                                             "entry":  "http_callback_safe_007_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C14_003",
+                                             "file":  "http_request_body_001_T.ets",
+                                             "entry":  "http_request_body_001_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "HTTP response/source semantics are not modeled yet (initial unsupported category)."
+                                         },
+                                         {
+                                             "case_id":  "C14_004",
+                                             "file":  "http_request_mismatch_005_F.ets",
+                                             "entry":  "http_request_mismatch_005_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C14_005",
+                                             "file":  "http_response_source_002_T.ets",
+                                             "entry":  "http_response_source_002_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "HTTP response/source semantics are not modeled yet (initial unsupported category)."
+                                         },
+                                         {
+                                             "case_id":  "C14_006",
+                                             "file":  "http_safe_literal_004_F.ets",
+                                             "entry":  "http_safe_literal_004_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C14_007",
+                                             "file":  "http_two_calls_006_T.ets",
+                                             "entry":  "http_two_calls_006_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "HTTP response/source semantics are not modeled yet (initial unsupported category)."
+                                         }
+                                     ]
+                       },
+                       {
+                           "id":  "C15_ImplicitFlow",
+                           "name":  "Implicit Flow (Known Limitation)",
+                           "supported":  false,
+                           "sourceDir":  "tests/demo/harmony_implicit",
+                           "rules":  {
+                                         "default":  "tests/rules/minimal.rules.json",
+                                         "framework":  "tests/rules/minimal.rules.json",
+                                         "project":  "tests/rules/harmony_implicit.rules.json"
+                                     },
+                           "cases":  [
+                                         {
+                                             "case_id":  "C15_001",
+                                             "file":  "implicit_boolean_003_T.ets",
+                                             "entry":  "implicit_boolean_003_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Implicit-flow reasoning is outside current explicit dataflow scope."
+                                         },
+                                         {
+                                             "case_id":  "C15_002",
+                                             "file":  "implicit_constant_004_F.ets",
+                                             "entry":  "implicit_constant_004_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C15_003",
+                                             "file":  "implicit_if_flag_001_T.ets",
+                                             "entry":  "implicit_if_flag_001_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Implicit-flow reasoning is outside current explicit dataflow scope."
+                                         },
+                                         {
+                                             "case_id":  "C15_004",
+                                             "file":  "implicit_irrelevant_branch_005_F.ets",
+                                             "entry":  "implicit_irrelevant_branch_005_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C15_005",
+                                             "file":  "implicit_safe_text_006_F.ets",
+                                             "entry":  "implicit_safe_text_006_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C15_006",
+                                             "file":  "implicit_switch_002_T.ets",
+                                             "entry":  "implicit_switch_002_T",
+                                             "expected_flow":  true,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true,
+                                             "limitation_note":  "Implicit-flow reasoning is outside current explicit dataflow scope."
+                                         }
+                                     ]
+                       }
+                   ]
+}

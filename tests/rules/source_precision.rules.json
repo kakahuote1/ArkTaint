@@ -1,0 +1,78 @@
+{
+  "schemaVersion": "1.1",
+  "meta": {
+    "name": "source-precision-rule-pack",
+    "description": "Rules used to validate source precise seeding execution",
+    "updatedAt": "2026-02-15"
+  },
+  "sources": [
+    {
+      "id": "source.precision.call_return.source_return",
+      "kind": "call_return",
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "SourceReturn"
+      }
+    },
+    {
+      "id": "source.precision.call_arg.source_arg_arg1",
+      "kind": "call_arg",
+      "targetRef": {
+        "endpoint": "arg1"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "SourceArg"
+      }
+    },
+    {
+      "id": "source.precision.field_read.secret",
+      "kind": "field_read",
+      "targetRef": {
+        "endpoint": "result",
+        "path": [
+          "secret"
+        ]
+      },
+      "match": {
+        "kind": "method_name_regex",
+        "value": "^source_field_read_00[56]_[TF]$"
+      }
+    },
+    {
+      "id": "source.precision.scope.call_return",
+      "kind": "call_return",
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "scope": {
+        "methodName": {
+          "mode": "equals",
+          "value": "source_scope_match_007_T"
+        }
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "SourceScope"
+      }
+    }
+  ],
+  "sinks": [
+    {
+      "id": "sink.precision.method_name.sink",
+      "profile": "signature",
+      "sinkTarget": "arg0",
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "Sink"
+      }
+    }
+  ],
+  "transfers": []
+}

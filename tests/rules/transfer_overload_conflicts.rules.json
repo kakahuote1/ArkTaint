@@ -1,0 +1,70 @@
+{
+  "schemaVersion": "1.1",
+  "meta": {
+    "name": "transfer-overload-conflicts-rule-pack",
+    "description": "Rules used to validate overload/same-name transfer conflict isolation",
+    "updatedAt": "2026-02-17"
+  },
+  "sources": [
+    {
+      "id": "source.transfer_overload.entry_param.taint_src",
+      "profile": "entry_param",
+      "kind": "entry_param",
+      "target": "arg0",
+      "targetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "local_name_regex",
+        "value": "^taint_src$"
+      }
+    }
+  ],
+  "sinks": [
+    {
+      "id": "sink.transfer_overload.arg0",
+      "profile": "signature",
+      "sinkTarget": "arg0",
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "Sink"
+      }
+    }
+  ],
+  "transfers": [
+    {
+      "id": "transfer.overload.instance.allowed.arg0_to_result",
+      "match": {
+        "kind": "declaring_class_equals",
+        "value": "ConflictAllowed"
+      },
+      "invokeKind": "instance",
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.overload.static.allowed.arg0_to_result",
+      "match": {
+        "kind": "declaring_class_equals",
+        "value": "ConflictStaticAllowed"
+      },
+      "invokeKind": "static",
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.overload.arity.two_args.arg1_to_result",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "BridgeArity"
+      },
+      "invokeKind": "static",
+      "argCount": 2,
+      "from": "arg1",
+      "to": "result"
+    }
+  ]
+}

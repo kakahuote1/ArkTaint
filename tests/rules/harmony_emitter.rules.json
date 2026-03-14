@@ -1,0 +1,37 @@
+{
+    "schemaVersion":  "1.1",
+    "meta":  {
+                 "name":  "harmony_emitter",
+                 "description":  "C11 emitter benchmark rules",
+                 "updatedAt":  "2026-02-22"
+             },
+    "sources":  [
+                    {
+                        "id":  "source.harmony_emitter.entry_param",
+                        "profile":  "entry_param",
+                        "match":  {
+                                      "kind":  "local_name_regex",
+                                      "value":  "^taint_src$"
+                                  }
+                    }
+                ],
+    "sinks":  [
+                  {
+                      "id":  "sink.harmony_emitter.mock_sink",
+                      "profile":  "signature",
+                      "sinkTargetRef":  {
+                                            "endpoint":  "arg0"
+                                        },
+                      "match":  {
+                                    "kind":  "method_name_equals",
+                                    "value":  "Sink"
+                                }
+                  }
+              ],
+    "sanitizers":  [
+
+                   ],
+    "transfers":  [
+
+                  ]
+}

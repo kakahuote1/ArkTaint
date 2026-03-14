@@ -1,0 +1,475 @@
+{
+  "generatedAt": "2026-03-14T07:22:43.647Z",
+  "summaryPath": "tmp/analyze/tests_2026-03-14T03-44-21-222Z/summary.json",
+  "outputPath": "rules/llm_candidate.rules1.json",
+  "projectName": "tests",
+  "hotspotsCount": 30,
+  "decisionsCount": 30,
+  "emittedRulesCount": 15,
+  "ruleBreakdown": {
+    "sources": 0,
+    "sinks": 2,
+    "transfers": 13,
+    "sanitizers": 0
+  },
+  "decisions": [
+    {
+      "hotspotId": "hs_uncovered_001",
+      "action": "skip_framework_covered",
+      "ruleKind": "transfer",
+      "confidence": 0.5,
+      "rationale": "Standard toString() method likely covered by framework rules."
+    },
+    {
+      "hotspotId": "hs_uncovered_002",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.82,
+      "rationale": "registerWithFlag propagates arg0 to result through callback.",
+      "rule": {
+        "id": "transfer.llm.tests.complex_calls.registerWithFlag.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "signature_contains",
+          "value": "registerWithFlag"
+        },
+        "scope": {
+          "fileName": {
+            "mode": "contains",
+            "value": "callback_one_hop_param_001_T.ets"
+          }
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_003",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.82,
+      "rationale": "registerWithFlag propagates arg0 to result through callback.",
+      "rule": {
+        "id": "transfer.llm.tests.complex_calls.registerWithFlag.arg0_to_result_F",
+        "enabled": false,
+        "match": {
+          "kind": "signature_contains",
+          "value": "registerWithFlag"
+        },
+        "scope": {
+          "fileName": {
+            "mode": "contains",
+            "value": "callback_one_hop_param_002_F.ets"
+          }
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_004",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.85,
+      "rationale": "Function f propagates string arg0 to result.",
+      "rule": {
+        "id": "transfer.llm.tests.context_sensitive.f.arg0_to_result_T",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "f"
+        },
+        "scope": {
+          "fileName": {
+            "mode": "contains",
+            "value": "multi_invoke_001_T.ets"
+          }
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_005",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.85,
+      "rationale": "Function f propagates string arg0 to result.",
+      "rule": {
+        "id": "transfer.llm.tests.context_sensitive.f.arg0_to_result_F",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "f"
+        },
+        "scope": {
+          "fileName": {
+            "mode": "contains",
+            "value": "multi_invoke_002_F.ets"
+          }
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_006",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.78,
+      "rationale": "chooseKey propagates boolean arg0 to result.",
+      "rule": {
+        "id": "transfer.llm.tests.appstorage.chooseKey.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "chooseKey"
+        },
+        "scope": {
+          "fileName": {
+            "mode": "contains",
+            "value": "appstorage_api_dynamic_mismatch_locals_017_F.ets"
+          }
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_007",
+      "action": "emit_rule",
+      "ruleKind": "sink",
+      "confidence": 0.88,
+      "rationale": "setData stores tainted string into object state.",
+      "rule": {
+        "id": "sink.llm.tests.chained_call.setData.arg0",
+        "enabled": false,
+        "profile": "signature",
+        "severity": "medium",
+        "category": "sensitive_persistence",
+        "match": {
+          "kind": "signature_contains",
+          "value": "A.setData"
+        },
+        "sinkTargetRef": {
+          "endpoint": "arg0"
+        },
+        "scope": {
+          "fileName": {
+            "mode": "contains",
+            "value": "chained_call_001_T.ets"
+          }
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_008",
+      "action": "emit_rule",
+      "ruleKind": "sink",
+      "confidence": 0.88,
+      "rationale": "setData stores tainted string into object state.",
+      "rule": {
+        "id": "sink.llm.tests.chained_call.setData.arg0_F",
+        "enabled": false,
+        "profile": "signature",
+        "severity": "medium",
+        "category": "sensitive_persistence",
+        "match": {
+          "kind": "signature_contains",
+          "value": "A.setData"
+        },
+        "sinkTargetRef": {
+          "endpoint": "arg0"
+        },
+        "scope": {
+          "fileName": {
+            "mode": "contains",
+            "value": "chained_call_002_F.ets"
+          }
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_009",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.84,
+      "rationale": "forward propagates string arg0 to result.",
+      "rule": {
+        "id": "transfer.llm.tests.argument_passing.forward.arg0_to_result_T",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "forward"
+        },
+        "scope": {
+          "fileName": {
+            "mode": "contains",
+            "value": "argument_passing_001_T.ets"
+          }
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_010",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.84,
+      "rationale": "forward propagates string arg0 to result.",
+      "rule": {
+        "id": "transfer.llm.tests.argument_passing.forward.arg0_to_result_F",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "forward"
+        },
+        "scope": {
+          "fileName": {
+            "mode": "contains",
+            "value": "argument_passing_002_F.ets"
+          }
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_011",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.81,
+      "rationale": "selectFirst propagates first string arg to result.",
+      "rule": {
+        "id": "transfer.llm.tests.argument_passing.selectFirst.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "selectFirst"
+        },
+        "scope": {
+          "fileName": {
+            "mode": "contains",
+            "value": "argument_passing_003_T.ets"
+          }
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_012",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.81,
+      "rationale": "selectSecond propagates first string arg to result.",
+      "rule": {
+        "id": "transfer.llm.tests.argument_passing.selectSecond.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "selectSecond"
+        },
+        "scope": {
+          "fileName": {
+            "mode": "contains",
+            "value": "argument_passing_004_F.ets"
+          }
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_013",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.85,
+      "rationale": "Function f propagates string arg0 to result.",
+      "rule": {
+        "id": "transfer.llm.tests.multi_invoke.f.arg0_to_result_T",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "f"
+        },
+        "scope": {
+          "fileName": {
+            "mode": "contains",
+            "value": "multi_invoke_001_T.ets"
+          }
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_014",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.85,
+      "rationale": "Function f propagates string arg0 to result.",
+      "rule": {
+        "id": "transfer.llm.tests.multi_invoke.f.arg0_to_result_F",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "f"
+        },
+        "scope": {
+          "fileName": {
+            "mode": "contains",
+            "value": "multi_invoke_002_F.ets"
+          }
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_015",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.83,
+      "rationale": "buildValue propagates string arg0 to result.",
+      "rule": {
+        "id": "transfer.llm.tests.return_value_passing.buildValue.arg0_to_result_T",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "buildValue"
+        },
+        "scope": {
+          "fileName": {
+            "mode": "contains",
+            "value": "return_value_passing_001_T.ets"
+          }
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_016",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.83,
+      "rationale": "buildValue propagates string arg0 to result.",
+      "rule": {
+        "id": "transfer.llm.tests.return_value_passing.buildValue.arg0_to_result_F",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "buildValue"
+        },
+        "scope": {
+          "fileName": {
+            "mode": "contains",
+            "value": "return_value_passing_002_F.ets"
+          }
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_017",
+      "action": "skip_framework_covered",
+      "ruleKind": "transfer",
+      "confidence": 0.45,
+      "rationale": "Standard apply() method likely covered by framework rules."
+    },
+    {
+      "hotspotId": "hs_uncovered_018",
+      "action": "skip_framework_covered",
+      "ruleKind": "transfer",
+      "confidence": 0.45,
+      "rationale": "Standard apply() method likely covered by framework rules."
+    },
+    {
+      "hotspotId": "hs_uncovered_019",
+      "action": "skip_framework_covered",
+      "ruleKind": "transfer",
+      "confidence": 0.45,
+      "rationale": "Standard apply() method likely covered by framework rules."
+    },
+    {
+      "hotspotId": "hs_uncovered_020",
+      "action": "skip_framework_covered",
+      "ruleKind": "transfer",
+      "confidence": 0.48,
+      "rationale": "Standard builder() method likely covered by framework rules."
+    },
+    {
+      "hotspotId": "hs_uncovered_021",
+      "action": "skip_framework_covered",
+      "ruleKind": "transfer",
+      "confidence": 0.45,
+      "rationale": "Standard call() method likely covered by framework rules."
+    },
+    {
+      "hotspotId": "hs_uncovered_022",
+      "action": "skip_framework_covered",
+      "ruleKind": "transfer",
+      "confidence": 0.45,
+      "rationale": "Standard call() method likely covered by framework rules."
+    },
+    {
+      "hotspotId": "hs_uncovered_023",
+      "action": "skip_framework_covered",
+      "ruleKind": "transfer",
+      "confidence": 0.45,
+      "rationale": "Standard call() method likely covered by framework rules."
+    },
+    {
+      "hotspotId": "hs_uncovered_024",
+      "action": "skip_framework_covered",
+      "ruleKind": "transfer",
+      "confidence": 0.45,
+      "rationale": "Standard callback() method likely covered by framework rules."
+    },
+    {
+      "hotspotId": "hs_uncovered_025",
+      "action": "skip_framework_covered",
+      "ruleKind": "transfer",
+      "confidence": 0.45,
+      "rationale": "Standard callback() method likely covered by framework rules."
+    },
+    {
+      "hotspotId": "hs_uncovered_026",
+      "action": "skip_framework_covered",
+      "ruleKind": "transfer",
+      "confidence": 0.45,
+      "rationale": "Standard catch() method likely covered by framework rules."
+    },
+    {
+      "hotspotId": "hs_uncovered_027",
+      "action": "skip_framework_covered",
+      "ruleKind": "transfer",
+      "confidence": 0.45,
+      "rationale": "Standard catch() method likely covered by framework rules."
+    },
+    {
+      "hotspotId": "hs_uncovered_028",
+      "action": "skip_framework_covered",
+      "ruleKind": "transfer",
+      "confidence": 0.45,
+      "rationale": "Standard catch() method likely covered by framework rules."
+    },
+    {
+      "hotspotId": "hs_uncovered_029",
+      "action": "skip_framework_covered",
+      "ruleKind": "transfer",
+      "confidence": 0.45,
+      "rationale": "Standard catch() method likely covered by framework rules."
+    },
+    {
+      "hotspotId": "hs_uncovered_030",
+      "action": "skip_framework_covered",
+      "ruleKind": "transfer",
+      "confidence": 0.45,
+      "rationale": "Standard finally() method likely covered by framework rules."
+    }
+  ]
+}

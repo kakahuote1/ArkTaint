@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.1",
+  "meta": {
+    "name": "harmony-lifecycle-sink-only",
+    "description": "Phase 7.1 lifecycle modeling test rules",
+    "updatedAt": "2026-02-21"
+  },
+  "sources": [],
+  "sinks": [
+    {
+      "id": "sink.test.method.Sink",
+      "profile": "signature",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "Sink"
+      },
+      "sinkTarget": "arg0"
+    }
+  ],
+  "sanitizers": [],
+  "transfers": []
+}
+

@@ -1,0 +1,260 @@
+{
+  "schemaVersion": "1.1",
+  "meta": {
+    "name": "LLM Generated Rules",
+    "description": "Auto-generated candidate rules by LLM for tests. All rules are disabled by default and require manual review.",
+    "updatedAt": "2026-03-14T06:22:33.045Z"
+  },
+  "sources": [
+    {
+      "id": "source.llm.auto..tostring.call_return",
+      "enabled": false,
+      "kind": "call_return",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "toString"
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "Potential source from external function toString"
+    },
+    {
+      "id": "source.llm.auto..registerwithflag.call_return",
+      "enabled": false,
+      "kind": "call_return",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "registerWithFlag"
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "Potential source from external function registerWithFlag"
+    },
+    {
+      "id": "source.llm.auto..f.call_return",
+      "enabled": false,
+      "kind": "call_return",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "f"
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "Potential source from external function f"
+    },
+    {
+      "id": "source.llm.auto..choosekey.call_return",
+      "enabled": false,
+      "kind": "call_return",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "chooseKey"
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "Potential source from external function chooseKey"
+    },
+    {
+      "id": "source.llm.auto..forward.call_return",
+      "enabled": false,
+      "kind": "call_return",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "forward"
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "Potential source from external function forward"
+    },
+    {
+      "id": "source.llm.auto..selectfirst.call_return",
+      "enabled": false,
+      "kind": "call_return",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "selectFirst"
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "Potential source from external function selectFirst"
+    },
+    {
+      "id": "source.llm.auto..selectsecond.call_return",
+      "enabled": false,
+      "kind": "call_return",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "selectSecond"
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "Potential source from external function selectSecond"
+    },
+    {
+      "id": "source.llm.auto..buildvalue.call_return",
+      "enabled": false,
+      "kind": "call_return",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "buildValue"
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "Potential source from external function buildValue"
+    },
+    {
+      "id": "source.llm.auto..apply.call_return",
+      "enabled": false,
+      "kind": "call_return",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "apply"
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "Potential source from external function apply"
+    },
+    {
+      "id": "source.llm.auto..builder.call_return",
+      "enabled": false,
+      "kind": "call_return",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "builder"
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "Potential source from external function builder"
+    },
+    {
+      "id": "source.llm.auto..call.call_return",
+      "enabled": false,
+      "kind": "call_return",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "call"
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "Potential source from external function call"
+    },
+    {
+      "id": "source.llm.auto..callback.call_return",
+      "enabled": false,
+      "kind": "call_return",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "callback"
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "Potential source from external function callback"
+    },
+    {
+      "id": "source.llm.auto..catch.call_return",
+      "enabled": false,
+      "kind": "call_return",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "catch"
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "Potential source from external function catch"
+    },
+    {
+      "id": "source.llm.auto..finally.call_return",
+      "enabled": false,
+      "kind": "call_return",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "finally"
+      },
+      "targetRef": {
+        "endpoint": "result"
+      },
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "Potential source from external function finally"
+    }
+  ],
+  "sinks": [
+    {
+      "id": "sink.llm.auto.a.setdata.arg0",
+      "enabled": false,
+      "severity": "medium",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "setData"
+      },
+      "scope": {
+        "className": {
+          "mode": "equals",
+          "value": "A"
+        }
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      },
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "Potential sink at setData"
+    }
+  ],
+  "sanitizers": [],
+  "transfers": []
+}

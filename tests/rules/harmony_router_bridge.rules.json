@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "1.1",
+  "meta": {
+    "name": "harmony-router-bridge-rules",
+    "description": "Rules for router bridge + static init coverage in phase 7.8.4.",
+    "updatedAt": "2026-02-28"
+  },
+  "sources": [
+    {
+      "id": "source.router_bridge.entry_param",
+      "kind": "entry_param",
+      "profile": "entry_param",
+      "match": {
+        "kind": "local_name_regex",
+        "value": "^taint_src$"
+      },
+      "targetRef": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "source.router_bridge.static_init_source",
+      "kind": "call_return",
+      "profile": "seed_local_name",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "Source"
+      },
+      "targetRef": {
+        "endpoint": "result"
+      }
+    }
+  ],
+  "sinks": [
+    {
+      "id": "sink.router_bridge.mock_sink",
+      "profile": "signature",
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "Sink"
+      }
+    }
+  ],
+  "sanitizers": [],
+  "transfers": []
+}

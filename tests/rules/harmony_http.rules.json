@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "1.1",
+  "meta": {
+    "name": "harmony_http",
+    "description": "C14 http benchmark rules (gate-ready minimal semantics)",
+    "updatedAt": "2026-02-22"
+  },
+  "sources": [
+    {
+      "id": "source.harmony_http.entry_param",
+      "profile": "entry_param",
+      "match": {
+        "kind": "local_name_regex",
+        "value": "^taint_src$"
+      }
+    },
+    {
+      "id": "source.harmony_http.request_async_callback_arg0",
+      "kind": "callback_param",
+      "callbackArgIndex": 1,
+      "targetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "requestAsync"
+      }
+    }
+  ],
+  "sinks": [
+    {
+      "id": "sink.harmony_http.mock_sink",
+      "profile": "signature",
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "Sink"
+      }
+    }
+  ],
+  "sanitizers": [],
+  "transfers": [
+    {
+      "id": "transfer.harmony_http.request_arg_to_result",
+      "description": "Model request(url, data): request payload taints response object in benchmark.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "request"
+      },
+      "invokeKind": "instance",
+      "argCount": 2,
+      "typeHint": "Http",
+      "from": "arg1",
+      "to": "result"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+    "targetProjectName": "Photos",
+    "targetProjectDirectory": "/mnt/disk/workspace/jenkins_ci_pool_other_high_001/harmony/applications_photos",
+
+    "logPath": "log/ArkAnalyzer.log",
+    "logLevel": "INFO",
+    
+    "sdks": [
+        {
+            "name": "etsSdk",
+            "path": "/mnt/disk/workspace/jenkins_ci_pool_other_high_001/harmony/pre_scripts/accessory/ohos-sdk/ets",
+            "moduleName": ""
+        }
+    ]
+}

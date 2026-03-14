@@ -1,0 +1,599 @@
+{
+  "generatedAt": "2026-03-14T06:22:33.053Z",
+  "summaryPath": "tmp/analyze/tests_2026-03-14T03-44-21-222Z/summary.json",
+  "outputPath": "rules/llm_candidate.rules.json",
+  "projectName": "tests",
+  "hotspotsCount": 30,
+  "decisionsCount": 30,
+  "emittedRulesCount": 30,
+  "ruleBreakdown": {
+    "sources": 28,
+    "sinks": 2,
+    "transfers": 0,
+    "sanitizers": 0
+  },
+  "decisions": [
+    {
+      "hotspotId": "hs_uncovered_001",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function toString",
+      "rule": {
+        "id": "source.llm.auto..tostring.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "toString"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_002",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function registerWithFlag",
+      "rule": {
+        "id": "source.llm.auto..registerwithflag.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "registerWithFlag"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_003",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function registerWithFlag",
+      "rule": {
+        "id": "source.llm.auto..registerwithflag.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "registerWithFlag"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_004",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function f",
+      "rule": {
+        "id": "source.llm.auto..f.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "f"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_005",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function f",
+      "rule": {
+        "id": "source.llm.auto..f.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "f"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_006",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function chooseKey",
+      "rule": {
+        "id": "source.llm.auto..choosekey.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "chooseKey"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_007",
+      "action": "emit_rule",
+      "ruleKind": "sink",
+      "confidence": 0.7,
+      "rationale": "Potential sink at setData",
+      "rule": {
+        "id": "sink.llm.auto.a.setdata.arg0",
+        "enabled": false,
+        "severity": "medium",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "setData"
+        },
+        "scope": {
+          "className": {
+            "mode": "equals",
+            "value": "A"
+          }
+        },
+        "sinkTargetRef": {
+          "endpoint": "arg0"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_008",
+      "action": "emit_rule",
+      "ruleKind": "sink",
+      "confidence": 0.7,
+      "rationale": "Potential sink at setData",
+      "rule": {
+        "id": "sink.llm.auto.a.setdata.arg0",
+        "enabled": false,
+        "severity": "medium",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "setData"
+        },
+        "scope": {
+          "className": {
+            "mode": "equals",
+            "value": "A"
+          }
+        },
+        "sinkTargetRef": {
+          "endpoint": "arg0"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_009",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function forward",
+      "rule": {
+        "id": "source.llm.auto..forward.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "forward"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_010",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function forward",
+      "rule": {
+        "id": "source.llm.auto..forward.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "forward"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_011",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function selectFirst",
+      "rule": {
+        "id": "source.llm.auto..selectfirst.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "selectFirst"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_012",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function selectSecond",
+      "rule": {
+        "id": "source.llm.auto..selectsecond.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "selectSecond"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_013",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function f",
+      "rule": {
+        "id": "source.llm.auto..f.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "f"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_014",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function f",
+      "rule": {
+        "id": "source.llm.auto..f.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "f"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_015",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function buildValue",
+      "rule": {
+        "id": "source.llm.auto..buildvalue.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "buildValue"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_016",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function buildValue",
+      "rule": {
+        "id": "source.llm.auto..buildvalue.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "buildValue"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_017",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function apply",
+      "rule": {
+        "id": "source.llm.auto..apply.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "apply"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_018",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function apply",
+      "rule": {
+        "id": "source.llm.auto..apply.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "apply"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_019",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function apply",
+      "rule": {
+        "id": "source.llm.auto..apply.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "apply"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_020",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function builder",
+      "rule": {
+        "id": "source.llm.auto..builder.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "builder"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_021",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function call",
+      "rule": {
+        "id": "source.llm.auto..call.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "call"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_022",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function call",
+      "rule": {
+        "id": "source.llm.auto..call.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "call"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_023",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function call",
+      "rule": {
+        "id": "source.llm.auto..call.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "call"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_024",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function callback",
+      "rule": {
+        "id": "source.llm.auto..callback.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "callback"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_025",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function callback",
+      "rule": {
+        "id": "source.llm.auto..callback.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "callback"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_026",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function catch",
+      "rule": {
+        "id": "source.llm.auto..catch.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "catch"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_027",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function catch",
+      "rule": {
+        "id": "source.llm.auto..catch.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "catch"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_028",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function catch",
+      "rule": {
+        "id": "source.llm.auto..catch.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "catch"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_029",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function catch",
+      "rule": {
+        "id": "source.llm.auto..catch.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "catch"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_030",
+      "action": "emit_rule",
+      "ruleKind": "source",
+      "confidence": 0.6,
+      "rationale": "Potential source from external function finally",
+      "rule": {
+        "id": "source.llm.auto..finally.call_return",
+        "enabled": false,
+        "kind": "call_return",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "finally"
+        },
+        "targetRef": {
+          "endpoint": "result"
+        }
+      }
+    }
+  ]
+}

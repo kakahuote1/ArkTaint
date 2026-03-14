@@ -1,0 +1,74 @@
+{
+  "schemaVersion": "1.1",
+  "meta": {
+    "name": "transfer-priority-rule-pack",
+    "description": "Rules used to validate transfer priority exact > constrained > fuzzy",
+    "updatedAt": "2026-02-17"
+  },
+  "sources": [
+    {
+      "id": "source.transfer_priority.entry_param.taint_src",
+      "profile": "entry_param",
+      "kind": "entry_param",
+      "target": "arg0",
+      "targetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "local_name_regex",
+        "value": "^taint_src$"
+      }
+    }
+  ],
+  "sinks": [
+    {
+      "id": "sink.transfer_priority.arg0",
+      "profile": "signature",
+      "sinkTarget": "arg0",
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      },
+      "match": {
+        "kind": "method_name_equals",
+        "value": "Sink"
+      }
+    }
+  ],
+  "transfers": [
+    {
+      "id": "transfer.priority.exact.class_exact.arg0_to_result",
+      "match": {
+        "kind": "declaring_class_equals",
+        "value": "PriorityHostExact"
+      },
+      "invokeKind": "instance",
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.priority.constrained.scope.arg0_to_result",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "Bridge"
+      },
+      "invokeKind": "instance",
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "PriorityHostConstrained"
+        }
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.priority.fuzzy.name_regex.arg0_to_result",
+      "match": {
+        "kind": "method_name_regex",
+        "value": "^Bridge$"
+      },
+      "from": "arg0",
+      "to": "result"
+    }
+  ]
+}

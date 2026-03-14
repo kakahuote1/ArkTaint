@@ -1,0 +1,189 @@
+{
+  "projects": [
+    {
+      "id": "music-player-based-gesture",
+      "repoUrl": "https://github.com/Explore-in-HMS/music-player-based-gesture",
+      "license": "MIT",
+      "sourceMode": "single",
+      "priority": "main",
+      "repoPath": "tmp/phase43/repos/music-player-based-gesture",
+      "commit": "e3a8e99fc94cd2babb8439d65f2d0532cc18a866",
+      "sourceDirs": [
+        "entry/src/main/ets"
+      ],
+      "entryHints": [
+        "onCreate",
+        "onWindowStageCreate",
+        "aboutToAppear",
+        "onClick"
+      ],
+      "includePaths": [
+        "/entryability/",
+        "/pages/",
+        "/viewmodel/"
+      ],
+      "excludePaths": [
+        "/ohostest/",
+        "/test/",
+        "/mock/"
+      ],
+      "sinkSignatures": [
+        "router.pushUrl",
+        "router.back",
+        "fetch(",
+        "axios.get",
+        "axios.post"
+      ],
+      "tags": [
+        "ui",
+        "gesture",
+        "media"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "RdbPlus",
+      "repoUrl": "https://github.com/yongoe/RdbPlus",
+      "license": "MIT",
+      "sourceMode": "multi-module",
+      "priority": "main",
+      "repoPath": "tmp/phase43/repos/RdbPlus",
+      "commit": "4a3fc04ba5903bc1c1b194efbc557017976909dc",
+      "sourceDirs": [
+        "entry/src/main/ets",
+        "rdbplus/src/main/ets"
+      ],
+      "entryHints": [
+        "onCreate",
+        "build",
+        "insert",
+        "update",
+        "delete",
+        "query",
+        "getById"
+      ],
+      "includePaths": [
+        "/entryability/",
+        "/pages/",
+        "/rdb/",
+        "/core/",
+        "/basemapper"
+      ],
+      "excludePaths": [
+        "/ohostest/",
+        "/test/",
+        "/example/"
+      ],
+      "sinkSignatures": [
+        "relationalStore",
+        "getRdbStore",
+        "execDML",
+        "execDQL",
+        "insert(",
+        "update(",
+        "delete(",
+        "query("
+      ],
+      "tags": [
+        "storage",
+        "rdb",
+        "orm"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "wanharmony",
+      "repoUrl": "https://github.com/HarmonyOS-Samples/wanharmony",
+      "license": "Apache-2.0",
+      "sourceMode": "single",
+      "priority": "main",
+      "repoPath": "tmp/phase43/repos/wanharmony",
+      "commit": "00e95a536122accf51518d674989d12fafbf37c2",
+      "sourceDirs": [
+        "entry/src/main/ets"
+      ],
+      "entryHints": [
+        "onCreate",
+        "aboutToAppear",
+        "fetch",
+        "pushUrl",
+        "onClick"
+      ],
+      "includePaths": [
+        "/entryability/",
+        "/pages/",
+        "/view/",
+        "/viewmodel/",
+        "fetchutil"
+      ],
+      "excludePaths": [
+        "/ohostest/",
+        "/test/",
+        "/mock/"
+      ],
+      "sinkSignatures": [
+        "fetch(",
+        "axios.get",
+        "router.pushUrl",
+        "router.back",
+        "router.getParams"
+      ],
+      "tags": [
+        "network",
+        "router",
+        "ui"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "Homogram",
+      "repoUrl": "https://github.com/AAswordman/Homogram",
+      "license": "Apache-2.0",
+      "sourceMode": "multi-module",
+      "priority": "stress",
+      "repoPath": "tmp/phase43/repos/Homogram",
+      "commit": "8a6e85898b6194fdd04ead75e732d348888a0c07",
+      "sourceDirs": [
+        "products/phone/src/main/ets",
+        "features/home/src/main/ets",
+        "common/base/src/main/ets"
+      ],
+      "entryHints": [
+        "onCreate",
+        "onWindowStageCreate",
+        "build",
+        "onClick",
+        "router"
+      ],
+      "includePaths": [
+        "/entryability/",
+        "/pages/",
+        "/viewmodel/",
+        "/views/",
+        "/dao/"
+      ],
+      "excludePaths": [
+        "/ohostest/",
+        "/test/",
+        "/mock/"
+      ],
+      "sinkSignatures": [
+        "relationalStore",
+        "getRdbStore",
+        "insertSync",
+        "querySqlSync",
+        "preferences.getPreferencesSync",
+        "dataPreferences.putSync",
+        "dataPreferences.getSync",
+        "dataPreferences.deleteSync"
+      ],
+      "tags": [
+        "ui",
+        "storage",
+        "preferences",
+        "stress"
+      ],
+      "enabled": true
+    }
+  ]
+}

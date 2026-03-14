@@ -1,0 +1,388 @@
+{
+  "schemaVersion": "1.1",
+  "meta": {
+    "name": "LLM Generated Rules",
+    "description": "Auto-generated candidate rules by LLM for tests. All rules are disabled by default and require manual review.",
+    "updatedAt": "2026-03-14T07:27:54.657Z"
+  },
+  "sources": [],
+  "sinks": [
+    {
+      "id": "sink.llm.tests.demo.chained_call_001.setData.arg0",
+      "enabled": false,
+      "profile": "signature",
+      "severity": "medium",
+      "category": "sensitive_persistence",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "setData"
+      },
+      "scope": {
+        "className": {
+          "mode": "equals",
+          "value": "A"
+        },
+        "filePath": {
+          "mode": "contains",
+          "value": "chained_call_001_T.ets"
+        }
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      },
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "setData() stores tainted string into object state - sensitive persistence sink."
+    },
+    {
+      "id": "sink.llm.tests.demo.chained_call_002.setData.arg0",
+      "enabled": false,
+      "profile": "signature",
+      "severity": "medium",
+      "category": "sensitive_persistence",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "setData"
+      },
+      "scope": {
+        "className": {
+          "mode": "equals",
+          "value": "A"
+        },
+        "filePath": {
+          "mode": "contains",
+          "value": "chained_call_002_F.ets"
+        }
+      },
+      "sinkTargetRef": {
+        "endpoint": "arg0"
+      },
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "setData() stores tainted string into object state - sensitive persistence sink."
+    }
+  ],
+  "sanitizers": [],
+  "transfers": [
+    {
+      "id": "transfer.llm.tests.builtin.toString.base_to_result",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "toString"
+      },
+      "from": "base",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "toString() propagates base object taint to result string."
+    },
+    {
+      "id": "transfer.llm.tests.demo.registerWithFlag_001.arg0_to_result",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "registerWithFlag"
+      },
+      "scope": {
+        "filePath": {
+          "mode": "contains",
+          "value": "callback_one_hop_param_001_T.ets"
+        }
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "registerWithFlag propagates arg0 (number) to result through callback."
+    },
+    {
+      "id": "transfer.llm.tests.demo.registerWithFlag_002.arg0_to_result",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "registerWithFlag"
+      },
+      "scope": {
+        "filePath": {
+          "mode": "contains",
+          "value": "callback_one_hop_param_002_F.ets"
+        }
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "registerWithFlag propagates arg0 (number) to result through callback."
+    },
+    {
+      "id": "transfer.llm.tests.demo.context_sensitive.f_multi_invoke_001.arg0_to_result",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "f"
+      },
+      "scope": {
+        "filePath": {
+          "mode": "contains",
+          "value": "multi_invoke_001_T.ets"
+        }
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "f() propagates string arg0 to result in multi_invoke context."
+    },
+    {
+      "id": "transfer.llm.tests.demo.context_sensitive.f_multi_invoke_002.arg0_to_result",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "f"
+      },
+      "scope": {
+        "filePath": {
+          "mode": "contains",
+          "value": "multi_invoke_002_F.ets"
+        }
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "f() propagates string arg0 to result in multi_invoke context."
+    },
+    {
+      "id": "transfer.llm.tests.demo.appstorage.chooseKey.arg0_to_result",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "chooseKey"
+      },
+      "scope": {
+        "filePath": {
+          "mode": "contains",
+          "value": "appstorage_api_dynamic_mismatch_locals_017_F.ets"
+        }
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "chooseKey() propagates boolean arg0 to result in appstorage context."
+    },
+    {
+      "id": "transfer.llm.tests.demo.argument_passing.forward_001.arg0_to_result",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "forward"
+      },
+      "scope": {
+        "filePath": {
+          "mode": "contains",
+          "value": "argument_passing_001_T.ets"
+        }
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "forward() propagates string arg0 to result in argument passing context."
+    },
+    {
+      "id": "transfer.llm.tests.demo.argument_passing.forward_002.arg0_to_result",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "forward"
+      },
+      "scope": {
+        "filePath": {
+          "mode": "contains",
+          "value": "argument_passing_002_F.ets"
+        }
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "forward() propagates string arg0 to result in argument passing context."
+    },
+    {
+      "id": "transfer.llm.tests.demo.argument_passing.selectFirst.arg0_to_result",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "selectFirst"
+      },
+      "scope": {
+        "filePath": {
+          "mode": "contains",
+          "value": "argument_passing_003_T.ets"
+        }
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "selectFirst() propagates first string arg0 to result."
+    },
+    {
+      "id": "transfer.llm.tests.demo.argument_passing.selectSecond.arg1_to_result",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "selectSecond"
+      },
+      "scope": {
+        "filePath": {
+          "mode": "contains",
+          "value": "argument_passing_004_F.ets"
+        }
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "selectSecond() propagates second string arg to result."
+    },
+    {
+      "id": "transfer.llm.tests.demo.return_value.buildValue_001.arg0_to_result",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "buildValue"
+      },
+      "scope": {
+        "filePath": {
+          "mode": "contains",
+          "value": "return_value_passing_001_T.ets"
+        }
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "buildValue() propagates string arg0 to result in return value passing."
+    },
+    {
+      "id": "transfer.llm.tests.demo.return_value.buildValue_002.arg0_to_result",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "buildValue"
+      },
+      "scope": {
+        "filePath": {
+          "mode": "contains",
+          "value": "return_value_passing_002_F.ets"
+        }
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "buildValue() propagates string arg0 to result in return value passing."
+    },
+    {
+      "id": "transfer.llm.tests.builtin.apply.arg0_to_result",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "apply"
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "apply() propagates arg0 to result in callback execution."
+    },
+    {
+      "id": "transfer.llm.tests.builtin.builder.arg0_to_result",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "builder"
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "builder() propagates arg0 to result in builder pattern."
+    },
+    {
+      "id": "transfer.llm.tests.builtin.call.arg0_to_result",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "call"
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "call() propagates arg0 to result in function invocation."
+    },
+    {
+      "id": "transfer.llm.tests.builtin.callback.arg0_to_result",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "callback"
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "callback() propagates arg0 to result in callback handling."
+    },
+    {
+      "id": "transfer.llm.tests.builtin.catch.arg0_to_result",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "catch"
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "catch() propagates arg0 (error handler) to result in promise chain."
+    },
+    {
+      "id": "transfer.llm.tests.builtin.finally.arg0_to_result",
+      "enabled": false,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "finally"
+      },
+      "from": "arg0",
+      "to": "result",
+      "tags": [
+        "llm_generated"
+      ],
+      "description": "finally() propagates arg0 (cleanup handler) to result in promise chain."
+    }
+  ]
+}

@@ -1,0 +1,157 @@
+{
+  "contractVersion": "1.0",
+  "dataset": "wanharmony-step-b-fewshot",
+  "description": "Few-shot samples distilled from Step B manual rules for Phase 9 LLM rule generation.",
+  "examples": [
+    {
+      "name": "transfer_getKnowledgeDetail_arg0_to_result",
+      "input": {
+        "hotspotId": "hs_transfer_001",
+        "reason": "no_candidate_rule_for_callsite",
+        "functionSignature": "@ets/viewmodel/KnowledgeViewModel.ets: KnowledgeViewModel.getKnowledgeDetail(string)",
+        "callsiteSignature": "instanceinvoke this.<...getKnowledgeDetail()>(courseId)",
+        "file": "entry/src/main/ets/pages/KnowledgeDetail.ets",
+        "method": "aboutToAppear",
+        "snippet": "this.viewModel.getKnowledgeDetail(this.courseId)"
+      },
+      "output": {
+        "action": "emit_rule",
+        "ruleKind": "transfer",
+        "confidence": 0.86,
+        "rationale": "courseId input influences getKnowledgeDetail return value.",
+        "rule": {
+          "id": "transfer.llm.wanharmony.knowledge.getKnowledgeDetail.arg0_to_result",
+          "enabled": false,
+          "match": {
+            "kind": "signature_contains",
+            "value": ".getKnowledgeDetail()"
+          },
+          "scope": {
+            "className": {
+              "mode": "equals",
+              "value": "KnowledgeViewModel"
+            }
+          },
+          "from": "arg0",
+          "to": "result"
+        }
+      }
+    },
+    {
+      "name": "source_article_link_field_read",
+      "input": {
+        "hotspotId": "hs_source_001",
+        "reason": "unknown_external_function",
+        "functionSignature": "@ets/view/Article/ArticleBean.ets: ArticleBean.link",
+        "file": "entry/src/main/ets/view/Article/ArticleItem.ets",
+        "method": "onArticleClick",
+        "snippet": "router.pushUrl({ params: { url: articleBean.link } })"
+      },
+      "output": {
+        "action": "emit_rule",
+        "ruleKind": "source",
+        "confidence": 0.79,
+        "rationale": "backend-controlled field link is consumed as route URL payload.",
+        "rule": {
+          "id": "source.llm.wanharmony.article.link.field_read",
+          "enabled": false,
+          "kind": "field_read",
+          "match": {
+            "kind": "signature_contains",
+            "value": "ArticleBean.link"
+          },
+          "targetRef": {
+            "endpoint": "result"
+          }
+        }
+      }
+    },
+    {
+      "name": "sink_globalcontext_setObject_arg1",
+      "input": {
+        "hotspotId": "hs_sink_001",
+        "reason": "no_sink_match_on_tainted_path",
+        "functionSignature": "@ets/entryability/EntryAbility.ets: EntryAbility.onCreate(Want, LaunchParam)",
+        "callsiteSignature": "instanceinvoke ctx.<...GlobalContext.setObject(string, Object)>('abilityWant', want)",
+        "file": "entry/src/main/ets/entryability/EntryAbility.ets",
+        "method": "onCreate",
+        "snippet": "GlobalContext.getContext().setObject('abilityWant', want)"
+      },
+      "output": {
+        "action": "emit_rule",
+        "ruleKind": "sink",
+        "confidence": 0.91,
+        "rationale": "external entry input stored into globally readable context object.",
+        "rule": {
+          "id": "sink.llm.wanharmony.globalcontext.setObject.arg1",
+          "enabled": false,
+          "profile": "signature",
+          "severity": "medium",
+          "category": "sensitive_persistence",
+          "match": {
+            "kind": "signature_contains",
+            "value": "GlobalContext.setObject"
+          },
+          "sinkTargetRef": {
+            "endpoint": "arg1"
+          },
+          "scope": {
+            "className": {
+              "mode": "equals",
+              "value": "EntryAbility"
+            },
+            "methodName": {
+              "mode": "equals",
+              "value": "onCreate"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "sanitizer_example_guard_url",
+      "input": {
+        "hotspotId": "hs_sanitizer_001",
+        "reason": "flow_found_on_path_without_guard",
+        "functionSignature": "@ets/view/WebPage.ets: WebPage.safeOpen(string)",
+        "file": "entry/src/main/ets/pages/WebPage.ets",
+        "method": "safeOpen",
+        "snippet": "const safeUrl = UrlGuard.normalize(url); Web({ src: safeUrl })"
+      },
+      "output": {
+        "action": "emit_rule",
+        "ruleKind": "sanitizer",
+        "confidence": 0.68,
+        "rationale": "UrlGuard.normalize sanitizes URL before sink invocation.",
+        "rule": {
+          "id": "sanitizer.llm.wanharmony.urlguard.normalize.result",
+          "enabled": false,
+          "match": {
+            "kind": "signature_contains",
+            "value": "UrlGuard.normalize"
+          },
+          "sanitizeTargetRef": {
+            "endpoint": "result"
+          }
+        }
+      }
+    },
+    {
+      "name": "skip_framework_covered_router_getParams",
+      "input": {
+        "hotspotId": "hs_skip_001",
+        "reason": "unknown_external_function",
+        "functionSignature": "@ohos.router: router.getParams()",
+        "file": "entry/src/main/ets/pages/KnowledgeDetail.ets",
+        "method": "aboutToAppear",
+        "snippet": "const params = router.getParams()"
+      },
+      "output": {
+        "action": "skip_framework_covered",
+        "ruleKind": "source",
+        "confidence": 0.97,
+        "rationale": "framework layer already contains stable rule coverage for this API."
+      }
+    }
+  ]
+}

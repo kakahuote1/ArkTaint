@@ -1,0 +1,28 @@
+{
+    "targetProjectName": "sample",
+    "targetProjectOriginDirectory": "./tests/sample",
+    "targetProjectDirectory": "./tests/ets2ts",
+
+    "logPath": "./log/ArkAnalyzer.log",
+    
+    "etsSdkPath": "",
+    
+    "otherSdks": [
+        {
+            "name": "ArkAnalyzer",
+            "path": ""
+        },
+        {
+            "name": "sdk2",
+            "path": ""
+        },
+        {
+            "name": "",
+            "path": "/opt/yy"
+        },
+        {
+            "name": "",
+            "path": ""
+        }
+    ]
+}

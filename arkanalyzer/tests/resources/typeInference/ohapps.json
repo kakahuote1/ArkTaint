@@ -1,0 +1,15 @@
+{
+    "targetProjectName": "TypeInferenceTest",    
+    "targetProjectDirectory": "D:/11study/OHApps/gitee",
+
+    "logPath": "out/ArkAnalyzer.log",
+    "logLevel": "INFO",
+    
+    "sdks": [
+        {
+            "name": "etsSdk",
+            "path": "D:/11study/hwsdk/openharmony/9/ets",
+            "moduleName": ""
+        }
+    ]
+}

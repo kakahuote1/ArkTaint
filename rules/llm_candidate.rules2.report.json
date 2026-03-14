@@ -1,0 +1,633 @@
+{
+  "generatedAt": "2026-03-14T07:27:54.672Z",
+  "summaryPath": "tmp/analyze/tests_2026-03-14T03-44-21-222Z/summary.json",
+  "outputPath": "rules/llm_candidate.rules2.json",
+  "projectName": "tests",
+  "hotspotsCount": 30,
+  "decisionsCount": 30,
+  "emittedRulesCount": 30,
+  "ruleBreakdown": {
+    "sources": 0,
+    "sinks": 2,
+    "transfers": 28,
+    "sanitizers": 0
+  },
+  "decisions": [
+    {
+      "hotspotId": "hs_uncovered_001",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.75,
+      "rationale": "toString() propagates base object taint to result string.",
+      "rule": {
+        "id": "transfer.llm.tests.builtin.toString.base_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "toString"
+        },
+        "from": "base",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_002",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.82,
+      "rationale": "registerWithFlag propagates arg0 (number) to result through callback.",
+      "rule": {
+        "id": "transfer.llm.tests.demo.registerWithFlag.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "registerWithFlag"
+        },
+        "scope": {
+          "filePath": {
+            "mode": "contains",
+            "value": "callback_one_hop_param_001_T.ets"
+          }
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_003",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.82,
+      "rationale": "registerWithFlag propagates arg0 (number) to result through callback.",
+      "rule": {
+        "id": "transfer.llm.tests.demo.registerWithFlag.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "registerWithFlag"
+        },
+        "scope": {
+          "filePath": {
+            "mode": "contains",
+            "value": "callback_one_hop_param_002_F.ets"
+          }
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_004",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.85,
+      "rationale": "f() propagates string arg0 to result in multi_invoke context.",
+      "rule": {
+        "id": "transfer.llm.tests.demo.context_sensitive.f.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "f"
+        },
+        "scope": {
+          "filePath": {
+            "mode": "contains",
+            "value": "multi_invoke_001_T.ets"
+          }
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_005",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.85,
+      "rationale": "f() propagates string arg0 to result in multi_invoke context.",
+      "rule": {
+        "id": "transfer.llm.tests.demo.context_sensitive.f.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "f"
+        },
+        "scope": {
+          "filePath": {
+            "mode": "contains",
+            "value": "multi_invoke_002_F.ets"
+          }
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_006",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.8,
+      "rationale": "chooseKey() propagates boolean arg0 to result in appstorage context.",
+      "rule": {
+        "id": "transfer.llm.tests.demo.appstorage.chooseKey.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "chooseKey"
+        },
+        "scope": {
+          "filePath": {
+            "mode": "contains",
+            "value": "appstorage_api_dynamic_mismatch_locals_017_F.ets"
+          }
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_007",
+      "action": "emit_rule",
+      "ruleKind": "sink",
+      "confidence": 0.88,
+      "rationale": "setData() stores tainted string into object state - sensitive persistence sink.",
+      "rule": {
+        "id": "sink.llm.tests.demo.chained_call.setData.arg0",
+        "enabled": false,
+        "profile": "signature",
+        "severity": "medium",
+        "category": "sensitive_persistence",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "setData"
+        },
+        "scope": {
+          "className": {
+            "mode": "equals",
+            "value": "A"
+          },
+          "filePath": {
+            "mode": "contains",
+            "value": "chained_call_001_T.ets"
+          }
+        },
+        "sinkTargetRef": {
+          "endpoint": "arg0"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_008",
+      "action": "emit_rule",
+      "ruleKind": "sink",
+      "confidence": 0.88,
+      "rationale": "setData() stores tainted string into object state - sensitive persistence sink.",
+      "rule": {
+        "id": "sink.llm.tests.demo.chained_call.setData.arg0",
+        "enabled": false,
+        "profile": "signature",
+        "severity": "medium",
+        "category": "sensitive_persistence",
+        "match": {
+          "kind": "method_name_equals",
+          "value": "setData"
+        },
+        "scope": {
+          "className": {
+            "mode": "equals",
+            "value": "A"
+          },
+          "filePath": {
+            "mode": "contains",
+            "value": "chained_call_002_F.ets"
+          }
+        },
+        "sinkTargetRef": {
+          "endpoint": "arg0"
+        }
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_009",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.83,
+      "rationale": "forward() propagates string arg0 to result in argument passing context.",
+      "rule": {
+        "id": "transfer.llm.tests.demo.argument_passing.forward.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "forward"
+        },
+        "scope": {
+          "filePath": {
+            "mode": "contains",
+            "value": "argument_passing_001_T.ets"
+          }
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_010",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.83,
+      "rationale": "forward() propagates string arg0 to result in argument passing context.",
+      "rule": {
+        "id": "transfer.llm.tests.demo.argument_passing.forward.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "forward"
+        },
+        "scope": {
+          "filePath": {
+            "mode": "contains",
+            "value": "argument_passing_002_F.ets"
+          }
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_011",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.81,
+      "rationale": "selectFirst() propagates first string arg0 to result.",
+      "rule": {
+        "id": "transfer.llm.tests.demo.argument_passing.selectFirst.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "selectFirst"
+        },
+        "scope": {
+          "filePath": {
+            "mode": "contains",
+            "value": "argument_passing_003_T.ets"
+          }
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_012",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.81,
+      "rationale": "selectSecond() propagates second string arg to result.",
+      "rule": {
+        "id": "transfer.llm.tests.demo.argument_passing.selectSecond.arg1_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "selectSecond"
+        },
+        "scope": {
+          "filePath": {
+            "mode": "contains",
+            "value": "argument_passing_004_F.ets"
+          }
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_013",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.85,
+      "rationale": "f() propagates string arg0 to result in multi_invoke context.",
+      "rule": {
+        "id": "transfer.llm.tests.demo.multi_invoke.f.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "f"
+        },
+        "scope": {
+          "filePath": {
+            "mode": "contains",
+            "value": "multi_invoke_001_T.ets"
+          }
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_014",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.85,
+      "rationale": "f() propagates string arg0 to result in multi_invoke context.",
+      "rule": {
+        "id": "transfer.llm.tests.demo.multi_invoke.f.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "f"
+        },
+        "scope": {
+          "filePath": {
+            "mode": "contains",
+            "value": "multi_invoke_002_F.ets"
+          }
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_015",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.84,
+      "rationale": "buildValue() propagates string arg0 to result in return value passing.",
+      "rule": {
+        "id": "transfer.llm.tests.demo.return_value.buildValue.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "buildValue"
+        },
+        "scope": {
+          "filePath": {
+            "mode": "contains",
+            "value": "return_value_passing_001_T.ets"
+          }
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_016",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.84,
+      "rationale": "buildValue() propagates string arg0 to result in return value passing.",
+      "rule": {
+        "id": "transfer.llm.tests.demo.return_value.buildValue.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "buildValue"
+        },
+        "scope": {
+          "filePath": {
+            "mode": "contains",
+            "value": "return_value_passing_002_F.ets"
+          }
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_017",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.72,
+      "rationale": "apply() propagates arg0 to result in callback execution.",
+      "rule": {
+        "id": "transfer.llm.tests.builtin.apply.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "apply"
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_018",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.72,
+      "rationale": "apply() propagates arg0 to result in callback execution.",
+      "rule": {
+        "id": "transfer.llm.tests.builtin.apply.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "apply"
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_019",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.72,
+      "rationale": "apply() propagates arg0 to result in callback execution.",
+      "rule": {
+        "id": "transfer.llm.tests.builtin.apply.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "apply"
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_020",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.73,
+      "rationale": "builder() propagates arg0 to result in builder pattern.",
+      "rule": {
+        "id": "transfer.llm.tests.builtin.builder.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "builder"
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_021",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.74,
+      "rationale": "call() propagates arg0 to result in function invocation.",
+      "rule": {
+        "id": "transfer.llm.tests.builtin.call.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "call"
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_022",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.74,
+      "rationale": "call() propagates arg0 to result in function invocation.",
+      "rule": {
+        "id": "transfer.llm.tests.builtin.call.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "call"
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_023",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.74,
+      "rationale": "call() propagates arg0 to result in function invocation.",
+      "rule": {
+        "id": "transfer.llm.tests.builtin.call.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "call"
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_024",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.76,
+      "rationale": "callback() propagates arg0 to result in callback handling.",
+      "rule": {
+        "id": "transfer.llm.tests.builtin.callback.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "callback"
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_025",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.76,
+      "rationale": "callback() propagates arg0 to result in callback handling.",
+      "rule": {
+        "id": "transfer.llm.tests.builtin.callback.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "callback"
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_026",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.77,
+      "rationale": "catch() propagates arg0 (error handler) to result in promise chain.",
+      "rule": {
+        "id": "transfer.llm.tests.builtin.catch.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "catch"
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_027",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.77,
+      "rationale": "catch() propagates arg0 (error handler) to result in promise chain.",
+      "rule": {
+        "id": "transfer.llm.tests.builtin.catch.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "catch"
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_028",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.77,
+      "rationale": "catch() propagates arg0 (error handler) to result in promise chain.",
+      "rule": {
+        "id": "transfer.llm.tests.builtin.catch.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "catch"
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_029",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.77,
+      "rationale": "catch() propagates arg0 (error handler) to result in promise chain.",
+      "rule": {
+        "id": "transfer.llm.tests.builtin.catch.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "catch"
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    },
+    {
+      "hotspotId": "hs_uncovered_030",
+      "action": "emit_rule",
+      "ruleKind": "transfer",
+      "confidence": 0.78,
+      "rationale": "finally() propagates arg0 (cleanup handler) to result in promise chain.",
+      "rule": {
+        "id": "transfer.llm.tests.builtin.finally.arg0_to_result",
+        "enabled": false,
+        "match": {
+          "kind": "method_name_equals",
+          "value": "finally"
+        },
+        "from": "arg0",
+        "to": "result"
+      }
+    }
+  ]
+}
