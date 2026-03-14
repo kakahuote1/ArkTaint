@@ -179,6 +179,7 @@ function createAnalyzeOptions(
         stopOnFirstFlow: false,
         maxFlowsPerEntry: undefined,
         enableSecondarySinkSweep: false,
+        enableCrossFunctionFallback: false, // 【新增这一行】
         ruleOptions: {
             autoDiscoverLayers: true,
         },

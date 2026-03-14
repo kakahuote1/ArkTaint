@@ -22,6 +22,7 @@ export interface SinkDetectOptions {
     argCount?: number;
     typeHint?: string;
     signatureMatchMode?: "contains" | "equals";
+    strictMode?: boolean; // 【新增这一行】
     fieldToVarIndex?: Map<string, Set<number>>;
     allowedMethodSignatures?: Set<string>;
     sanitizerRules?: SanitizerRule[];

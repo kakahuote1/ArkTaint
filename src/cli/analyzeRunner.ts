@@ -6,9 +6,14 @@ import { ConfigBasedTransferExecutor } from "../core/engine/ConfigBasedTransferE
 import { loadRuleSet, LoadedRuleSet } from "../core/rules/RuleLoader";
 import { RuleInvokeKind, RuleMatch, RuleScopeConstraint, RuleStringConstraint, SinkRule, SourceRule, SourceRuleKind, TransferRule } from "../core/rules/RuleSchema";
 import {
+    collectDummyMainSeedNodes,
     detectFlows,
+    getSourcePattern,
     getSourceRules,
 } from "./analyzeUtils";
+import { ArkClass } from "../../arkanalyzer/out/src";
+import { buildVirtualHarmonyMain } from "../core/harmony/HarmonyLifecycleModeling";
+import { ClosureTransformer } from "../core/harmony/ClosureTransformer";
 import { CliOptions } from "./analyzeCliOptions";
 import { renderMarkdownReport } from "./analyzeReport";
 import {
@@ -159,6 +164,18 @@ function buildRuleEndpointHits(
     return endpointHits;
 }
 
+function hasEnabledSourcesInRuleFile(ruleFilePath?: string): boolean {
+    if (!ruleFilePath) return false;
+    if (!fs.existsSync(ruleFilePath)) return false;
+    try {
+        const raw = JSON.parse(fs.readFileSync(ruleFilePath, "utf-8")) as { sources?: Array<{ enabled?: boolean }> };
+        const sources = raw.sources || [];
+        return sources.some(rule => rule && rule.enabled !== false);
+    } catch {
+        return false;
+    }
+}
+
 function resolveSourceDirStamp(repo: string, sourceDir: string): EntryFileStamp | undefined {
     const abs = path.resolve(repo, sourceDir);
     if (!fs.existsSync(abs)) return undefined;
@@ -170,12 +187,16 @@ function resolveSourceDirStamp(repo: string, sourceDir: string): EntryFileStamp 
     };
 }
 
-function getAnalyzeSourceRules(loadedRules: LoadedRuleSet): SourceRule[] {
+function getAnalyzeSourceRules(loadedRules: LoadedRuleSet, allowLocalNamePrimary: boolean): SourceRule[] {
     const rules = getSourceRules(loadedRules);
+    if (allowLocalNamePrimary) return rules;
     return rules.filter(rule => rule.id !== "source.local_name.primary");
 }
 
 interface AnalyzeSeedingPolicy {
+    allowLocalNamePrimaryRule: boolean;
+    enableSourceLikeNameHeuristic: boolean;
+    enableCrossFunctionFallback: boolean;
     enableSecondarySinkSweep: boolean;
 }
 
@@ -764,19 +785,57 @@ async function analyzeSourceDir(
 ): Promise<EntryAnalyzeResult> {
     const t0 = process.hrtime.bigint();
     const stageProfile = emptyEntryStageProfile();
-    const dummyMainEntryName = "@dummyMain";
+    const dummyMainEntryName = "@HarmonyMain";
     try {
+         // === 【HapFlow 增强 1】：重写闭包 IR ===
+        for (const method of scene.getMethods()) {
+            ClosureTransformer.transform(method);
+        }
+
+        // === 【HapFlow 增强 2】：构建虚拟入口 ===
+        const virtualMain = buildVirtualHarmonyMain(scene);
+        const firstFile = scene.getFiles()[0];
+        if (firstFile) {
+            const virtualCls = new ArkClass();
+            (virtualCls as any).name = "HapFlowEntryClass";
+            (virtualCls as any).methods = [virtualMain];
+            virtualMain.setDeclaringArkClass(virtualCls);
+            // 兼容性挂载
+    if ((firstFile as any).addArkClass) {
+        (firstFile as any).addArkClass(virtualCls);
+    } else {
+        // 直接推入类的数组
+        (firstFile as any).classes = [...((firstFile as any).classes || []), virtualCls];
+    }
+}
+
         const engine = new TaintPropagationEngine(scene, options.k, {
             transferRules: loadedRules.ruleSet.transfers || [],
-            debug: {
-                enableWorklistProfile: true,
-            },
+            debug: { enableWorklistProfile: true },
         });
-        engine.verbose = false;
-        const buildPagT0 = process.hrtime.bigint();
-        await engine.buildPAG();
-        stageProfile.buildPagMs = elapsedMsSince(buildPagT0);
 
+        engine.verbose = false;
+        await engine.buildPAG(); // 此时 buildPAG 会包含我们在 SyntheticInvokeEdgeBuilder 注入的回调边
+
+        try {
+            const reachable = engine.computeReachableMethodSignatures();
+            // 修正：使用 virtualMain 而非未定义的 virtualMainSig
+            const virtualMainSig = virtualMain.getSignature().toString();
+            reachable.add(virtualMainSig);
+
+            // 加入收集到的生命周期和回调
+            const extraEntries = (virtualMain as any).hapFlowCollectedEntries || [];
+            for (const m of extraEntries) {
+                reachable.add(m.getSignature().toString());
+            }
+            engine.setActiveReachableMethodSignatures(reachable);
+        } catch {
+            engine.setActiveReachableMethodSignatures(undefined);
+        }
+        const sourceRuleResult = engine.propagateWithSourceRules(
+            getAnalyzeSourceRules(loadedRules, seedingPolicy.allowLocalNamePrimaryRule)
+        );
+        
         try {
             const reachableMethodSignatures = engine.computeReachableMethodSignatures();
             engine.setActiveReachableMethodSignatures(reachableMethodSignatures);
@@ -788,12 +847,24 @@ async function analyzeSourceDir(
         const seedLocalNames = new Set<string>();
         const seedStrategies = new Set<string>();
         const sourceSeedT0 = process.hrtime.bigint();
-        const sourceRuleResult = engine.propagateWithSourceRules(getAnalyzeSourceRules(loadedRules));
         stageProfile.propagateRuleSeedMs = elapsedMsSince(sourceSeedT0);
         seedCount += sourceRuleResult.seedCount;
         for (const x of sourceRuleResult.seededLocals) seedLocalNames.add(x);
         if (sourceRuleResult.seedCount > 0) seedStrategies.add("rule:source");
-        stageProfile.propagateHeuristicSeedMs = 0;
+
+        const heuristicSeedT0 = process.hrtime.bigint();
+        const heuristic = collectDummyMainSeedNodes(scene, engine, getSourcePattern(loadedRules), {
+            enableSourceLikeNameSeed: seedingPolicy.enableSourceLikeNameHeuristic,
+            enableCrossFunctionFallback: seedingPolicy.enableCrossFunctionFallback,
+            allowedMethodSignatures: engine.getActiveReachableMethodSignatures(),
+        });
+        if (heuristic.nodes.length > 0) {
+            engine.propagateWithSeeds(heuristic.nodes);
+            seedCount += heuristic.nodes.length;
+            for (const x of heuristic.localNames) seedLocalNames.add(x);
+            for (const x of heuristic.strategies) seedStrategies.add(x);
+        }
+        stageProfile.propagateHeuristicSeedMs = elapsedMsSince(heuristicSeedT0);
 
         if (seedCount === 0) {
             stageProfile.totalMs = elapsedMsSince(t0);
@@ -907,7 +978,12 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     const ruleLoadT0 = process.hrtime.bigint();
     const loadedRules = loadRuleSet(options.ruleOptions);
     stageProfile.ruleLoadMs = elapsedMsSince(ruleLoadT0);
+    const hasProjectSourceRules = hasEnabledSourcesInRuleFile(loadedRules.projectRulePath);
+    const useBroadHeuristics = options.profile === "fast";
     const seedingPolicy: AnalyzeSeedingPolicy = {
+        allowLocalNamePrimaryRule: useBroadHeuristics,
+        enableSourceLikeNameHeuristic: useBroadHeuristics || !hasProjectSourceRules,
+        enableCrossFunctionFallback: options.enableCrossFunctionFallback,
         enableSecondarySinkSweep: options.enableSecondarySinkSweep,
     };
     const ruleFingerprint = buildRuleFingerprint(loadedRules);
@@ -947,8 +1023,6 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
             scene = new Scene();
             scene.buildSceneFromProjectDir(config);
             scene.inferTypes();
-            stageProfile.sceneBuildMs += elapsedMsSince(sceneBuildT0);
-            sourceContextCache.set(sourceAbs, { scene });
         } else {
             stageProfile.sceneCacheHitCount++;
         }

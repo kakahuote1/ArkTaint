@@ -11,6 +11,7 @@ async function main(): Promise<void> {
     console.log(`report_mode=${report.reportMode}`);
     console.log(`stop_on_first_flow=${options.stopOnFirstFlow}`);
     console.log(`max_flows_per_entry=${options.maxFlowsPerEntry ?? ""}`);
+    console.log(`cross_function_fallback=${options.enableCrossFunctionFallback}`);
     console.log(`secondary_sink_sweep=${options.enableSecondarySinkSweep}`);
     console.log(`entries=${report.summary.totalEntries}`);
     console.log(`ok_entries=${report.summary.okEntries}`);
