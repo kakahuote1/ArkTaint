@@ -51,4 +51,13 @@ export class ClosureTransformer {
         }
         return captured;
     }
+    // 确保 createVirtualFieldRef 使用的是变量名作为唯一标识
+private static createVirtualFieldRef(base: Local, targetVar: Local): ArkInstanceFieldRef {
+    // 论文中提到：captured variables are packed into %closure
+    // 这里我们必须保证外部打包进 %closure.taint_src 和内部解包 %closure.taint_src 使用的是同一个属性名
+    const fieldName = targetVar.getName(); 
+    // 伪造一个 FieldSignature，确保它能被 PAG 识别
+    const dummySignature = (targetVar as any).getSignature?.() || fieldName;
+    return new ArkInstanceFieldRef(base, dummySignature);
+}
 }
