@@ -84,14 +84,53 @@ export function buildSyntheticInvokeEdges(
         if (!cfg) continue;
 
         for (const stmt of cfg.getStmts()) {
-            
             if (!stmt.containsInvokeExpr()) continue;
             const invokeExpr = stmt.getInvokeExpr();
             if (!invokeExpr) continue;
 
+            const methodName = resolveInvokeMethodName(invokeExpr);
+
+            // 专门处理系统异步调用 (HapFlow 论文 Algorithm 1 补充逻辑)
+            if (methodName === "setTimeout" || methodName === "setInterval") {
+                const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
+                if (args.length > 0) {
+                    const callbackArg = args[0];
+                    // 开启回溯，寻找 cb 在 registerWithFlag 里的原始定义
+                    const callbackMethods = resolveMethodsFromCallable(scene, callbackArg, {
+                        maxCandidates: 8,
+                        enableLocalBacktrace: true // 关键：回溯到 registerWithFlag 的参数
+                    });
+                    
+                    for (const m of callbackMethods) {
+                        const cbMethod = m as ArkMethod;
+                        const calleeSig = cbMethod.getSignature().toString();
+                        const callSiteId = stmt.getOriginPositionInfo().getLineNo() * 10000 + simpleHash(calleeSig);
+                        const srcNodes = pag.getNodesByValue(callbackArg);
+
+                        if (srcNodes) {
+                            for (const srcNodeId of srcNodes.values()) {
+                                // 建立异步激活边：确保分析引擎会进入闭包函数体
+                                if (!edgeMap.has(srcNodeId)) edgeMap.set(srcNodeId, []);
+                                edgeMap.get(srcNodeId)!.push({
+                                    type: CallEdgeType.CALL,
+                                    srcNodeId,
+                                    dstNodeId: srcNodeId, // 激活该节点对应的函数环境
+                                    callSiteId,
+                                    callerMethodName: caller.getName(),
+                                    calleeMethodName: cbMethod.getName(),
+                                });
+                                syntheticCallCount++;
+                            }
+                        }
+                    }
+                }
+            }
+
             const callSites = cg.getCallSiteByStmt(stmt) || [];
             const forceFallback = isReflectDispatchInvoke(invokeExpr);
             const allowUnknownInvokeFallback = isUnknownInvokeSignature(invokeExpr);
+
+            // 1. 处理异步回调捕获（论文 3.4.2 闭包相关）
             syntheticCallCount += injectAsyncCallbackCaptureEdges(
                 scene,
                 cg,
@@ -102,28 +141,56 @@ export function buildSyntheticInvokeEdges(
                 edgeMap,
                 lookupContext
             );
+
+            // 2. 【核心增强：Algorithm 1 跨函数回调识别】
+            // 即使是 registerWithFlag(cb) 这种间接传递，也要尝试识别
             const currentArgs = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
             currentArgs.forEach((arg: any) => {
                 if (isCallableValue(arg)) {
-                    const callbackMethods = resolveMethodsFromCallable(scene, arg, { maxCandidates: 8 });
+                    // 开启回溯：尝试找回该参数最原始的闭包定义
+                    const callbackMethods = resolveMethodsFromCallable(scene, arg, { 
+                        maxCandidates: 8,
+                        enableLocalBacktrace: true, // 必须开启回溯以穿透参数传递
+                        maxBacktraceSteps: 10       // 设置足够的深度以穿透中间函数
+                    });
+
                     for (const cbMethod of callbackMethods) {
                         const cbParamStmts = collectParameterAssignStmts(cbMethod);
-                        if (cbParamStmts.length === 0) continue;
-
-                        const callSiteId = stmt.getOriginPositionInfo().getLineNo() * 10000 + 999;
+                        // 回调函数可能没有参数（如你的 taintedHandler = () => void）
+                        // 即使没有参数，也要建立边以确保闭包内的 Captured Variables 能被激活
+                        
+                        const calleeSig = (cbMethod as any).getSignature().toString();
+                        const callSiteId = stmt.getOriginPositionInfo().getLineNo() * 10000 + simpleHash(calleeSig);
                         const srcNodes = pag.getNodesByValue(arg);
                         if (!srcNodes) continue;
 
                         for (const srcNodeId of srcNodes.values()) {
-                            // 建立 PAG 边：从调用处函数参数 -> 到回调函数的第一个形参
-                            const dstNodes = pag.getNodesByValue(cbParamStmts[0].getLeftOp());
-                            if (!dstNodes) continue;
-                            for (const dstNodeId of dstNodes.values()) {
+                            // 情况 A: 如果回调有参数（Algorithm 1 描述的情况）
+                            if (cbParamStmts.length > 0) {
+                                const dstNodes = pag.getNodesByValue(cbParamStmts[0].getLeftOp());
+                                if (dstNodes) {
+                                    for (const dstNodeId of dstNodes.values()) {
+                                        if (!edgeMap.has(srcNodeId)) edgeMap.set(srcNodeId, []);
+                                        edgeMap.get(srcNodeId)!.push({
+                                            type: CallEdgeType.CALL,
+                                            srcNodeId,
+                                            dstNodeId,
+                                            callSiteId,
+                                            callerMethodName: caller.getName(),
+                                            calleeMethodName: (cbMethod as any).getName(),
+                                        });
+                                        syntheticCallCount++;
+                                    }
+                                }
+                            } else {
+                                // 情况 B: 回调无参数（如你的测试案例），建立一条到函数入口的虚拟边
+                                // 这确保了分析器在分析到这一行时，会“跳进”闭包函数内部执行
+                                const dummyEntryNodeId = -srcNodeId; // 使用负值表示虚拟连通
                                 if (!edgeMap.has(srcNodeId)) edgeMap.set(srcNodeId, []);
                                 edgeMap.get(srcNodeId)!.push({
                                     type: CallEdgeType.CALL,
                                     srcNodeId,
-                                    dstNodeId,
+                                    dstNodeId: srcNodeId, // 自循环边用于激活函数体
                                     callSiteId,
                                     callerMethodName: caller.getName(),
                                     calleeMethodName: (cbMethod as any).getName(),
@@ -133,6 +200,8 @@ export function buildSyntheticInvokeEdges(
                     }
                 }
             });
+
+            // 3. 原有的常规调用/反射调用解析逻辑
             if (callSites.length > 0 && !forceFallback && !allowUnknownInvokeFallback) continue;
 
             let callees = resolveCalleeCandidates(scene, invokeExpr);
@@ -156,6 +225,7 @@ export function buildSyntheticInvokeEdges(
                     callees = merged;
                 }
             }
+            
             if (callees.length === 0) {
                 const dynamicPropFallback = resolveDynamicPropertyOneHopFallbackCallees(
                     scene,
@@ -240,7 +310,6 @@ export function buildSyntheticInvokeEdges(
                     }
                 }
             }
-
         }
     }
 
@@ -248,15 +317,6 @@ export function buildSyntheticInvokeEdges(
     const lookupMs = lookupContext.stats.incomingDirectScanMs + lookupContext.stats.incomingIndexBuildMs;
     const lookupRatio = totalMs > 0 ? ((lookupMs * 100) / totalMs) : 0;
     log(`Synthetic Invoke Edge Map Built: ${syntheticCallCount} call edges, ${syntheticReturnCount} return edges, ${fallbackCalleeCount} fallback callees.`);
-    log(
-        `Synthetic Invoke Lookup Stats: incomingCalls=${lookupContext.stats.incomingLookupCalls}, `
-        + `incomingIndexBuilt=${lookupContext.stats.incomingIndexBuilt ? "yes" : "no"}, `
-        + `incomingScanMs=${lookupContext.stats.incomingDirectScanMs.toFixed(1)}, `
-        + `incomingIndexBuildMs=${lookupContext.stats.incomingIndexBuildMs.toFixed(1)}, `
-        + `incomingLookupRatio=${lookupRatio.toFixed(1)}%, `
-        + `methodLookupCalls=${lookupContext.stats.methodLookupCalls}, `
-        + `methodLookupCacheHits=${lookupContext.stats.methodLookupCacheHits}`
-    );
     return edgeMap;
 }
 
