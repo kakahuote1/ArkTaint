@@ -1,6 +1,6 @@
-import { taint, FormBindingData } from "./taint_mock";
+import { FormBindingData, FormExtensionAbility, taint } from "./taint_mock";
 
-class DemoFormExtension013 {
+class DemoFormExtension013 extends FormExtensionAbility {
     onUpdateForm(formBindingData: FormBindingData): void {
         taint.Sink(formBindingData.payload);
     }
@@ -12,4 +12,3 @@ export function lifecycle_extension_formbinding_013_T(): void {
     data.payload = "binding_payload";
     ext.onUpdateForm(data);
 }
-

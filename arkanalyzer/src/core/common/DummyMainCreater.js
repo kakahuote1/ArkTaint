@@ -275,7 +275,21 @@ class DummyMainCreater {
         return methods;
     }
     classInheritsAbility(arkClass) {
-        const ABILITY_BASE_CLASSES = ['UIExtensionAbility', 'Ability', 'FormExtensionAbility', 'UIAbility', 'BackupExtensionAbility'];
+        const ABILITY_BASE_CLASSES = [
+            'Ability', 'UIAbility', 'ExtensionAbility', 'UIExtensionAbility', 'UiExtensionAbility',
+            'FormExtensionAbility', 'ServiceExtensionAbility', 'BackupExtensionAbility',
+            'InputMethodExtensionAbility', 'WorkSchedulerExtensionAbility', 'AbilityStage',
+            'DriverExtensionAbility', 'AutoFillExtensionAbility', 'VpnExtensionAbility',
+            'FenceExtensionAbility', 'PrintExtensionAbility', 'PhotoEditorExtensionAbility',
+            'UIServiceExtensionAbility', 'AppServiceExtensionAbility', 'ShareExtensionAbility',
+            'ActionExtensionAbility', 'EmbeddableUIAbility', 'EmbeddedUIExtensionAbility',
+            'MediaControlExtensionAbility', 'UserAuthExtensionAbility', 'FormEditExtensionAbility',
+            'ChildProcess', 'InsightIntentExecutor', 'LiveFormExtensionAbility',
+            'AccessibilityExtensionAbility', 'WindowExtensionAbility', 'StaticSubscriberExtensionAbility',
+            'DistributedExtensionAbility', 'EnterpriseAdminExtensionAbility', 'FaultLogExtensionAbility',
+            'WallpaperExtensionAbility', 'DataShareExtensionAbility', 'SelectionExtensionAbility',
+            'AdsServiceExtensionAbility',
+        ];
         if (ABILITY_BASE_CLASSES.includes(arkClass.getSuperClassName())) {
             return true;
         }

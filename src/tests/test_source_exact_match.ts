@@ -1,6 +1,6 @@
-import { Scene } from "../../arkanalyzer/out/src/Scene";
+﻿import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
-import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
+import { TaintPropagationEngine } from "../core/orchestration/TaintPropagationEngine";
 import { SinkRule, SourceRule } from "../core/rules/RuleSchema";
 import { validateRuleSet } from "../core/rules/RuleValidator";
 import * as path from "path";
@@ -60,33 +60,28 @@ async function main(): Promise<void> {
     const sourceRules: SourceRule[] = [
         {
             id: "source.exact.signature_equals.call_return",
-            kind: "call_return",
+            sourceKind: "call_return",
             target: "result",
-            targetRef: { endpoint: "result" },
             match: { kind: "signature_equals", value: sourceReturnSig },
         },
         {
             id: "source.exact.callee_signature_equals.call_arg",
-            kind: "call_arg",
+            sourceKind: "call_arg",
             target: "arg1",
-            targetRef: { endpoint: "arg1" },
-            match: { kind: "callee_signature_equals", value: sourceArgSig },
-            argCount: 2,
+            match: { kind: "signature_equals", value: sourceArgSig, argCount: 2 },
         },
     ];
 
     const sinkRules: SinkRule[] = [
         {
             id: "sink.exact.arg0",
-            profile: "signature",
-            sinkTarget: "arg0",
-            sinkTargetRef: { endpoint: "arg0" },
+            target: { endpoint: "arg0" },
             match: { kind: "method_name_equals", value: "Sink" },
         },
     ];
 
     const validation = validateRuleSet({
-        schemaVersion: "1.1",
+        schemaVersion: "2.0",
         sources: sourceRules,
         sinks: sinkRules,
         transfers: [],
@@ -129,4 +124,5 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+
 

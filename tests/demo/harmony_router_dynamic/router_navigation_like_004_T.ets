@@ -7,9 +7,8 @@ class Detail004 {
     }
 }
 
-export function router_navigation_like_004_T(): void {
-    Router.pushUrl({ url: "Detail", params: "token_from_nav" });
+export function router_navigation_like_004_T(taint_src: string): void {
+    Router.pushUrl({ url: "Detail", params: taint_src });
     const detail = new Detail004();
     detail.build();
 }
-

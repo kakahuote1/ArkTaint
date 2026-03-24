@@ -5,7 +5,7 @@ function chooseKey(flag: boolean): string {
 }
 
 export function appstorage_api_dynamic_mismatch_locals_017_F(taint_src: string): void {
-    const kSet = chooseKey(taint_src.length > 0);
+    const kSet = chooseKey(true);
     const kGet = chooseKey(false);
     AppStorage.set(kSet, taint_src);
     const out = AppStorage.get(kGet);

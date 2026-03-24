@@ -1,4 +1,4 @@
-import { DetectProfileSnapshot, RuleHitCounters } from "../core/TaintPropagationEngine";
+﻿import { DetectProfileSnapshot, RuleHitCounters } from "../core/orchestration/TaintPropagationEngine";
 import { RuleInvokeKind } from "../core/rules/RuleSchema";
 import { AnalyzeProfile, ReportMode } from "./analyzeCliOptions";
 import { FlowRuleTrace } from "./analyzeUtils";
@@ -260,3 +260,4 @@ export function toReportEntry(entry: EntryAnalyzeResult, reportMode: ReportMode)
         transferNoHitReasons: [],
     };
 }
+

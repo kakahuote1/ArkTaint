@@ -2,10 +2,12 @@ import {
     BaseRule,
     RuleConstraintMode,
     RuleEndpoint,
+    EntryParamMatchMode,
     RuleEndpointRef,
     RuleInvokeKind,
     RuleMatchKind,
     RuleScopeConstraint,
+    RuleSeverity,
     RuleStringConstraint,
     RuleValidationResult,
     SanitizerRule,
@@ -14,39 +16,33 @@ import {
     SourceRuleKind,
     TaintRuleSet,
     TransferRule,
+    normalizeEndpoint,
 } from "./RuleSchema";
 
 const MATCH_KINDS: RuleMatchKind[] = [
     "signature_contains",
     "signature_equals",
     "signature_regex",
-    "callee_signature_equals",
     "declaring_class_equals",
     "method_name_equals",
     "method_name_regex",
     "local_name_regex",
 ];
 
-const SOURCE_PROFILES = new Set(["seed_local_name", "entry_param"]);
 const SOURCE_KINDS = new Set<SourceRuleKind>(["seed_local_name", "entry_param", "call_return", "call_arg", "field_read", "callback_param"]);
-const SINK_PROFILES = new Set(["keyword", "signature"]);
-const SINK_SEVERITIES = new Set(["low", "medium", "high"]);
+const RULE_SEVERITIES = new Set<RuleSeverity>(["low", "medium", "high", "critical"]);
 const INVOKE_KINDS = new Set<RuleInvokeKind>(["any", "instance", "static"]);
 const CONSTRAINT_MODES = new Set<RuleConstraintMode>(["equals", "contains", "regex"]);
 const RULE_TIERS = new Set(["A", "B", "C"]);
 const HIGH_RISK_METHOD_NAMES = new Set(["get", "set", "update", "request", "on"]);
-
-const SOURCE_PROFILE_TO_KIND: Record<string, SourceRuleKind> = {
-    seed_local_name: "seed_local_name",
-    entry_param: "entry_param",
-};
+const ENTRY_PARAM_MATCH_MODES = new Set<EntryParamMatchMode>(["name_only", "name_and_type"]);
 
 function isObject(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isRuleEndpoint(value: string): value is RuleEndpoint {
-    if (value === "base" || value === "result") return true;
+    if (value === "base" || value === "result" || value === "matched_param") return true;
     return /^arg\d+$/.test(value);
 }
 
@@ -81,6 +77,23 @@ function validateMatch(rulePath: string, match: unknown, out: RuleValidationResu
         } catch (err: any) {
             out.errors.push(`${rulePath}.match.value regex is invalid: ${String(err?.message || err)}`);
         }
+    }
+
+    if (match.calleeClass !== undefined) {
+        validateStringConstraint(rulePath, "match.calleeClass", match.calleeClass, out);
+    }
+    if (match.invokeKind !== undefined) {
+        if (typeof match.invokeKind !== "string" || !INVOKE_KINDS.has(match.invokeKind as RuleInvokeKind)) {
+            out.errors.push(`${rulePath}.match.invokeKind must be any/instance/static`);
+        }
+    }
+    if (match.argCount !== undefined) {
+        if (typeof match.argCount !== "number" || !Number.isInteger(match.argCount) || match.argCount < 0) {
+            out.errors.push(`${rulePath}.match.argCount must be a non-negative integer`);
+        }
+    }
+    if (match.typeHint !== undefined && !isNonEmptyString(match.typeHint)) {
+        out.errors.push(`${rulePath}.match.typeHint must be a non-empty string`);
     }
 }
 
@@ -126,7 +139,13 @@ function validateScopeConstraint(rulePath: string, scope: unknown, out: RuleVali
     return true;
 }
 
-function validateEndpointRef(rulePath: string, fieldName: string, value: unknown, out: RuleValidationResult): value is RuleEndpointRef {
+function validateEndpointRef(
+    rulePath: string,
+    fieldName: string,
+    value: unknown,
+    out: RuleValidationResult,
+    options: { allowStaticPath?: boolean } = {}
+): value is RuleEndpointRef {
     if (!isObject(value)) {
         out.errors.push(`${rulePath}.${fieldName} must be an object`);
         return false;
@@ -134,17 +153,62 @@ function validateEndpointRef(rulePath: string, fieldName: string, value: unknown
 
     const endpoint = value.endpoint;
     if (typeof endpoint !== "string" || !isRuleEndpoint(endpoint)) {
-        out.errors.push(`${rulePath}.${fieldName}.endpoint must be base/result/argN`);
+        out.errors.push(`${rulePath}.${fieldName}.endpoint must be base/result/matched_param/argN`);
     }
 
+    const allowStaticPath = options.allowStaticPath === true;
     const path = value.path;
     if (path !== undefined) {
-        if (!Array.isArray(path) || path.some(x => typeof x !== "string" || x.trim().length === 0)) {
-            out.errors.push(`${rulePath}.${fieldName}.path must be non-empty string[]`);
+        if (!allowStaticPath) {
+            out.errors.push(`${rulePath}.${fieldName}.path is not supported for transfer rules; use pathFrom + slotKind instead`);
+        } else if (!Array.isArray(path) || path.length === 0 || path.some(item => !isNonEmptyString(item))) {
+            out.errors.push(`${rulePath}.${fieldName}.path must be a non-empty string[]`);
         }
     }
 
+    const pathFrom = value.pathFrom;
+    if (pathFrom !== undefined) {
+        if (typeof pathFrom !== "string" || !isRuleEndpoint(pathFrom)) {
+            out.errors.push(`${rulePath}.${fieldName}.pathFrom must be base/result/matched_param/argN`);
+        }
+    }
+
+    const slotKind = value.slotKind;
+    if (slotKind !== undefined && !isNonEmptyString(slotKind)) {
+        out.errors.push(`${rulePath}.${fieldName}.slotKind must be a non-empty string`);
+    }
+
+    if (pathFrom !== undefined && !isNonEmptyString(slotKind)) {
+        out.errors.push(`${rulePath}.${fieldName}.slotKind is required when pathFrom is set`);
+    }
+    if (pathFrom === undefined && slotKind !== undefined) {
+        out.errors.push(`${rulePath}.${fieldName}.slotKind requires pathFrom`);
+    }
+    if (path !== undefined && pathFrom !== undefined) {
+        out.errors.push(`${rulePath}.${fieldName}.path cannot be combined with pathFrom`);
+    }
+    if (path !== undefined && slotKind !== undefined) {
+        out.errors.push(`${rulePath}.${fieldName}.path cannot be combined with slotKind`);
+    }
+
     return true;
+}
+
+function validateEndpointOrRef(
+    rulePath: string,
+    fieldName: string,
+    value: unknown,
+    out: RuleValidationResult,
+    options: { allowStaticPath?: boolean } = {}
+): boolean {
+    if (typeof value === "string") {
+        if (!isRuleEndpoint(value)) {
+            out.errors.push(`${rulePath}.${fieldName} must be base/result/matched_param/argN`);
+            return false;
+        }
+        return true;
+    }
+    return validateEndpointRef(rulePath, fieldName, value, out, options);
 }
 
 function validateRuleCommon(rulePath: string, rule: unknown, out: RuleValidationResult): rule is BaseRule {
@@ -178,53 +242,52 @@ function validateRuleCommon(rulePath: string, rule: unknown, out: RuleValidation
         }
     }
 
+    if (rule.severity !== undefined) {
+        if (typeof rule.severity !== "string" || !RULE_SEVERITIES.has(rule.severity as RuleSeverity)) {
+            out.errors.push(`${rulePath}.severity must be low/medium/high/critical`);
+        }
+    }
+    if (rule.category !== undefined && !isNonEmptyString(rule.category)) {
+        out.errors.push(`${rulePath}.category must be a non-empty string`);
+    }
+
     if (rule.scope !== undefined) {
         validateScopeConstraint(rulePath, rule.scope, out);
-    }
-    if (rule.invokeKind !== undefined) {
-        if (typeof rule.invokeKind !== "string" || !INVOKE_KINDS.has(rule.invokeKind as RuleInvokeKind)) {
-            out.errors.push(`${rulePath}.invokeKind must be any/instance/static`);
-        }
-    }
-    if (rule.argCount !== undefined) {
-        if (typeof rule.argCount !== "number" || !Number.isInteger(rule.argCount) || rule.argCount < 0) {
-            out.errors.push(`${rulePath}.argCount must be a non-negative integer`);
-        }
-    }
-    if (rule.typeHint !== undefined && !isNonEmptyString(rule.typeHint)) {
-        out.errors.push(`${rulePath}.typeHint must be a non-empty string`);
     }
 
     validateMatch(rulePath, rule.match, out);
     const normalizedRule = rule as unknown as BaseRule;
+    const m = isObject(normalizedRule.match) ? normalizedRule.match : undefined;
 
     // High-risk gate: generic method names must carry stronger constraints.
-    if (isObject(normalizedRule.match) && normalizedRule.match.kind === "method_name_equals" && typeof normalizedRule.match.value === "string") {
-        const methodName = normalizedRule.match.value.trim();
+    if (m && m.kind === "method_name_equals" && typeof m.value === "string") {
+        const methodName = m.value.trim();
         if (HIGH_RISK_METHOD_NAMES.has(methodName)) {
             const hasScopeConstraint = hasScopeAnchor(normalizedRule.scope);
+            const invokeKind = m.invokeKind;
             const hasShapeConstraint = (
-                (normalizedRule.invokeKind !== undefined && normalizedRule.invokeKind !== "any")
-                || normalizedRule.argCount !== undefined
-                || isNonEmptyString(normalizedRule.typeHint)
+                (invokeKind !== undefined && invokeKind !== "any")
+                || m.argCount !== undefined
+                || isNonEmptyString(m.typeHint)
             );
             if (!hasScopeConstraint || !hasShapeConstraint) {
                 const missing: string[] = [];
                 if (!hasScopeConstraint) missing.push("scope anchor(file/module/className/methodName)");
-                if (!hasShapeConstraint) missing.push("invokeKind(instance/static)/argCount/typeHint");
+                if (!hasShapeConstraint) missing.push("match.invokeKind(instance/static)/match.argCount/match.typeHint");
                 out.warnings.push(
                     `${rulePath} uses high-risk method_name_equals('${methodName}') without combined constraints `
-                    + `(${missing.join(", ")}); consider className/module + invokeKind/argCount/typeHint`
+                    + `(${missing.join(", ")}); consider className/module + match.invokeKind/match.argCount/match.typeHint`
                 );
             }
         }
     }
 
-    if (normalizedRule.tier === "C" && isObject(normalizedRule.match) && normalizedRule.match.kind === "method_name_equals") {
+    if (normalizedRule.tier === "C" && m && m.kind === "method_name_equals") {
         const missing: string[] = [];
         if (!isNonEmptyString(normalizedRule.family)) missing.push("family");
-        if (normalizedRule.invokeKind === undefined || normalizedRule.invokeKind === "any") missing.push("invokeKind(instance/static)");
-        if (normalizedRule.argCount === undefined) missing.push("argCount");
+        const mk = m.invokeKind;
+        if (mk === undefined || mk === "any") missing.push("match.invokeKind(instance/static)");
+        if (m.argCount === undefined) missing.push("match.argCount");
         if (!hasScopeAnchor(normalizedRule.scope)) missing.push("scope anchor(file/module/className/methodName)");
         if (missing.length > 0) {
             out.warnings.push(
@@ -241,38 +304,18 @@ function validateSourceRule(rulePath: string, rule: unknown, out: RuleValidation
     if (!validateRuleCommon(rulePath, rule, out)) return false;
     const obj: any = rule;
 
-    if (obj.profile !== undefined) {
-        if (typeof obj.profile !== "string" || !SOURCE_PROFILES.has(obj.profile)) {
-            out.errors.push(`${rulePath}.profile is invalid for source rule`);
-        }
+    if (obj.sourceKind === undefined) {
+        out.errors.push(`${rulePath}.sourceKind is required`);
+    } else if (typeof obj.sourceKind !== "string" || !SOURCE_KINDS.has(obj.sourceKind)) {
+        out.errors.push(`${rulePath}.sourceKind is invalid for source rule`);
     }
-    if (obj.kind !== undefined) {
-        if (typeof obj.kind !== "string" || !SOURCE_KINDS.has(obj.kind)) {
-            out.errors.push(`${rulePath}.kind is invalid for source rule`);
-        }
+
+    if (obj.target === undefined) {
+        out.errors.push(`${rulePath}.target is required`);
+    } else {
+        validateEndpointOrRef(rulePath, "target", obj.target, out, { allowStaticPath: true });
     }
-    if (obj.profile !== undefined && obj.kind !== undefined) {
-        const expected = SOURCE_PROFILE_TO_KIND[String(obj.profile)];
-        if (expected && obj.kind !== expected) {
-            out.warnings.push(`${rulePath}.profile (${obj.profile}) and kind (${obj.kind}) are inconsistent`);
-        }
-    }
-    if (obj.target !== undefined) {
-        if (typeof obj.target !== "string" || !isRuleEndpoint(obj.target)) {
-            out.errors.push(`${rulePath}.target must be base/result/argN`);
-        }
-    }
-    if (obj.targetRef !== undefined) {
-        validateEndpointRef(rulePath, "targetRef", obj.targetRef, out);
-        if (obj.target !== undefined && isObject(obj.targetRef) && obj.targetRef.endpoint !== obj.target) {
-            out.errors.push(`${rulePath}.target and targetRef.endpoint must be the same when both are set`);
-        }
-    }
-    if (obj.callbackArgIndex !== undefined) {
-        if (typeof obj.callbackArgIndex !== "number" || !Number.isInteger(obj.callbackArgIndex) || obj.callbackArgIndex < 0) {
-            out.errors.push(`${rulePath}.callbackArgIndex must be a non-negative integer`);
-        }
-    }
+
     if (obj.callbackArgIndexes !== undefined) {
         if (!Array.isArray(obj.callbackArgIndexes) || obj.callbackArgIndexes.length === 0) {
             out.errors.push(`${rulePath}.callbackArgIndexes must be a non-empty array`);
@@ -280,13 +323,25 @@ function validateSourceRule(rulePath: string, rule: unknown, out: RuleValidation
             out.errors.push(`${rulePath}.callbackArgIndexes must contain non-negative integers only`);
         }
     }
-    if (obj.callbackArgIndex !== undefined && obj.callbackArgIndexes !== undefined) {
-        out.warnings.push(`${rulePath} provides both callbackArgIndex and callbackArgIndexes; callbackArgIndexes takes precedence`);
+    if (obj.paramNameIncludes !== undefined) {
+        if (!Array.isArray(obj.paramNameIncludes) || obj.paramNameIncludes.length === 0 || obj.paramNameIncludes.some((x: unknown) => !isNonEmptyString(x))) {
+            out.errors.push(`${rulePath}.paramNameIncludes must be a non-empty string[]`);
+        }
     }
-    if (obj.kind === "callback_param") {
-        const endpoint = obj.targetRef?.endpoint || obj.target || "arg0";
+    if (obj.paramTypeIncludes !== undefined) {
+        if (!Array.isArray(obj.paramTypeIncludes) || obj.paramTypeIncludes.length === 0 || obj.paramTypeIncludes.some((x: unknown) => !isNonEmptyString(x))) {
+            out.errors.push(`${rulePath}.paramTypeIncludes must be a non-empty string[]`);
+        }
+    }
+    if (obj.paramMatchMode !== undefined) {
+        if (typeof obj.paramMatchMode !== "string" || !ENTRY_PARAM_MATCH_MODES.has(obj.paramMatchMode as EntryParamMatchMode)) {
+            out.errors.push(`${rulePath}.paramMatchMode must be name_only/name_and_type`);
+        }
+    }
+    if (obj.sourceKind === "callback_param") {
+        const endpoint = normalizeEndpoint(obj.target).endpoint;
         if (typeof endpoint !== "string" || !/^arg\d+$/.test(endpoint)) {
-            out.errors.push(`${rulePath}.callback_param requires target/targetRef.endpoint in form argN`);
+            out.errors.push(`${rulePath}.callback_param requires target endpoint in form argN`);
         }
     }
     return true;
@@ -296,29 +351,8 @@ function validateSinkRule(rulePath: string, rule: unknown, out: RuleValidationRe
     if (!validateRuleCommon(rulePath, rule, out)) return false;
     const obj: any = rule;
 
-    if (obj.profile !== undefined) {
-        if (typeof obj.profile !== "string" || !SINK_PROFILES.has(obj.profile)) {
-            out.errors.push(`${rulePath}.profile is invalid for sink rule`);
-        }
-    }
-    if (obj.severity !== undefined) {
-        if (typeof obj.severity !== "string" || !SINK_SEVERITIES.has(obj.severity)) {
-            out.errors.push(`${rulePath}.severity is invalid`);
-        }
-    }
-    if (obj.category !== undefined && !isNonEmptyString(obj.category)) {
-        out.errors.push(`${rulePath}.category must be a non-empty string`);
-    }
-    if (obj.sinkTarget !== undefined) {
-        if (typeof obj.sinkTarget !== "string" || !isRuleEndpoint(obj.sinkTarget)) {
-            out.errors.push(`${rulePath}.sinkTarget must be base/result/argN`);
-        }
-    }
-    if (obj.sinkTargetRef !== undefined) {
-        validateEndpointRef(rulePath, "sinkTargetRef", obj.sinkTargetRef, out);
-        if (obj.sinkTarget !== undefined && isObject(obj.sinkTargetRef) && obj.sinkTargetRef.endpoint !== obj.sinkTarget) {
-            out.errors.push(`${rulePath}.sinkTarget and sinkTargetRef.endpoint must be the same when both are set`);
-        }
+    if (obj.target !== undefined) {
+        validateEndpointOrRef(rulePath, "target", obj.target, out, { allowStaticPath: true });
     }
     return true;
 }
@@ -327,25 +361,17 @@ function validateTransferRule(rulePath: string, rule: unknown, out: RuleValidati
     if (!validateRuleCommon(rulePath, rule, out)) return false;
     const obj: any = rule;
 
-    if (typeof obj.from !== "string" || !isRuleEndpoint(obj.from)) {
-        out.errors.push(`${rulePath}.from must be base/result/argN`);
+    if (obj.from === undefined) {
+        out.errors.push(`${rulePath}.from is required`);
+    } else {
+        validateEndpointOrRef(rulePath, "from", obj.from, out);
     }
-    if (typeof obj.to !== "string" || !isRuleEndpoint(obj.to)) {
-        out.errors.push(`${rulePath}.to must be base/result/argN`);
+    if (obj.to === undefined) {
+        out.errors.push(`${rulePath}.to is required`);
+    } else {
+        validateEndpointOrRef(rulePath, "to", obj.to, out);
     }
 
-    if (obj.fromRef !== undefined) {
-        validateEndpointRef(rulePath, "fromRef", obj.fromRef, out);
-        if (typeof obj.from === "string" && isObject(obj.fromRef) && obj.fromRef.endpoint !== obj.from) {
-            out.errors.push(`${rulePath}.from and fromRef.endpoint must be the same when both are set`);
-        }
-    }
-    if (obj.toRef !== undefined) {
-        validateEndpointRef(rulePath, "toRef", obj.toRef, out);
-        if (typeof obj.to === "string" && isObject(obj.toRef) && obj.toRef.endpoint !== obj.to) {
-            out.errors.push(`${rulePath}.to and toRef.endpoint must be the same when both are set`);
-        }
-    }
     return true;
 }
 
@@ -353,20 +379,8 @@ function validateSanitizerRule(rulePath: string, rule: unknown, out: RuleValidat
     if (!validateRuleCommon(rulePath, rule, out)) return false;
     const obj: any = rule;
 
-    if (obj.sanitizeTarget !== undefined) {
-        if (typeof obj.sanitizeTarget !== "string" || !isRuleEndpoint(obj.sanitizeTarget)) {
-            out.errors.push(`${rulePath}.sanitizeTarget must be base/result/argN`);
-        }
-    }
-    if (obj.sanitizeTargetRef !== undefined) {
-        validateEndpointRef(rulePath, "sanitizeTargetRef", obj.sanitizeTargetRef, out);
-        if (
-            obj.sanitizeTarget !== undefined
-            && isObject(obj.sanitizeTargetRef)
-            && obj.sanitizeTargetRef.endpoint !== obj.sanitizeTarget
-        ) {
-            out.errors.push(`${rulePath}.sanitizeTarget and sanitizeTargetRef.endpoint must be the same when both are set`);
-        }
+    if (obj.target !== undefined) {
+        validateEndpointOrRef(rulePath, "target", obj.target, out, { allowStaticPath: true });
     }
 
     return true;
@@ -398,8 +412,8 @@ export function validateRuleSet(raw: unknown): RuleValidationResult {
     const schemaVersion = raw.schemaVersion;
     if (!isNonEmptyString(schemaVersion)) {
         out.errors.push("schemaVersion must be a non-empty string");
-    } else if (schemaVersion !== "1.1") {
-        out.errors.push(`schemaVersion must be '1.1', got '${schemaVersion}'`);
+    } else if (schemaVersion !== "2.0") {
+        out.errors.push(`schemaVersion must be '2.0', got '${schemaVersion}'`);
     }
 
     if (!Array.isArray(raw.sources)) {

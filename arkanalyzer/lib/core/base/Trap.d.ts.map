@@ -1,0 +1,1 @@
+{"version":3,"file":"Trap.d.ts","sourceRoot":"","sources":["../../../src/core/base/Trap.ts"],"names":[],"mappings":"AAeA,OAAO,EAAE,UAAU,EAAE,MAAM,qBAAqB,CAAC;AAEjD,qBAAa,IAAI;IACb,OAAO,CAAC,QAAQ,CAAC,SAAS,CAAe;IACzC,OAAO,CAAC,QAAQ,CAAC,WAAW,CAAe;gBAE/B,SAAS,EAAE,UAAU,EAAE,EAAE,WAAW,EAAE,UAAU,EAAE;IAKvD,YAAY,IAAI,UAAU,EAAE;IAI5B,cAAc,IAAI,UAAU,EAAE;CAGxC"}

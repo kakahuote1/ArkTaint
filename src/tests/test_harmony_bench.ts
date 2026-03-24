@@ -1,10 +1,11 @@
 import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
-import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
+import { TaintPropagationEngine } from "../core/orchestration/TaintPropagationEngine";
 import { LoadedRuleSet, loadRuleSet } from "../core/rules/RuleLoader";
-import { TaintFlow } from "../core/TaintFlow";
+import { TaintFlow } from "../core/kernel/TaintFlow";
 import * as fs from "fs";
 import * as path from "path";
+import { registerMockSdkFiles } from "./helpers/TestSceneBuilder";
 
 interface HarmonyBenchCase {
     case_id: string;
@@ -322,6 +323,7 @@ function buildScene(sourceDirAbs: string): Scene {
     const scene = new Scene();
     scene.buildSceneFromProjectDir(config);
     scene.inferTypes();
+    registerMockSdkFiles(scene);
     return scene;
 }
 
@@ -681,3 +683,4 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+

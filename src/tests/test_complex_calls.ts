@@ -1,11 +1,13 @@
 import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
-import { ArkAssignStmt } from "../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkParameterRef } from "../../arkanalyzer/out/src/core/base/Ref";
-import { Local } from "../../arkanalyzer/out/src/core/base/Local";
-import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
 import * as fs from "fs";
 import * as path from "path";
+import {
+    buildEngineForCase,
+    collectCaseSeedNodes,
+    findCaseMethod,
+    resolveCaseMethod,
+} from "./helpers/SyntheticCaseHarness";
 
 interface CliOptions {
     sourceDir: string;
@@ -59,42 +61,19 @@ function listCases(sourceDir: string): string[] {
         .sort();
 }
 
-function collectSeedNodes(engine: TaintPropagationEngine, entryMethod: any): any[] {
-    const seeds: any[] = [];
-    const seen = new Set<number>();
-    const cfg = entryMethod.getCfg();
-    if (!cfg) return seeds;
-
-    for (const stmt of cfg.getStmts()) {
-        if (!(stmt instanceof ArkAssignStmt)) continue;
-        const right = stmt.getRightOp();
-        if (!(right instanceof ArkParameterRef)) continue;
-        const left = stmt.getLeftOp();
-        if (!(left instanceof Local)) continue;
-        if (left.getName() !== "taint_src") continue;
-
-        const nodes = engine.pag.getNodesByValue(left);
-        if (!nodes) continue;
-        for (const nodeId of nodes.values()) {
-            if (seen.has(nodeId)) continue;
-            seen.add(nodeId);
-            seeds.push(engine.pag.getNode(nodeId));
-        }
-    }
-    return seeds;
-}
-
 async function runCase(scene: Scene, caseName: string, k: number): Promise<boolean> {
-    const engine = new TaintPropagationEngine(scene, k);
-    engine.verbose = false;
-    await engine.buildPAG();
-
-    const entryMethod = scene.getMethods().find(m => m.getName() === caseName);
+    const relativePath = `${caseName}.ets`;
+    const entry = resolveCaseMethod(scene, relativePath, caseName);
+    const entryMethod = findCaseMethod(scene, entry);
     if (!entryMethod) {
         throw new Error(`entry method not found: ${caseName}`);
     }
 
-    const seeds = collectSeedNodes(engine, entryMethod);
+    const engine = await buildEngineForCase(scene, k, entryMethod, { verbose: false });
+    const seeds = collectCaseSeedNodes(engine, entryMethod, {
+        sourceLocalNames: ["taint_src"],
+        includeParameterLocals: true,
+    });
     if (seeds.length === 0) {
         throw new Error(`no taint_src seeds found: ${caseName}`);
     }
@@ -110,12 +89,6 @@ async function main(): Promise<void> {
         throw new Error(`source dir not found: ${options.sourceDir}`);
     }
 
-    const sceneConfig = new SceneConfig();
-    sceneConfig.buildFromProjectDir(options.sourceDir);
-    const scene = new Scene();
-    scene.buildSceneFromProjectDir(sceneConfig);
-    scene.inferTypes();
-
     const cases = listCases(options.sourceDir);
     if (cases.length === 0) {
         throw new Error(`no .ets cases found under ${options.sourceDir}`);
@@ -123,6 +96,12 @@ async function main(): Promise<void> {
 
     const results: CaseResult[] = [];
     for (const caseName of cases) {
+        const sceneConfig = new SceneConfig();
+        sceneConfig.buildFromProjectDir(options.sourceDir);
+        const scene = new Scene();
+        scene.buildSceneFromProjectDir(sceneConfig);
+        scene.inferTypes();
+
         const expectedFlow = caseName.endsWith("_T");
         const detectedFlow = await runCase(scene, caseName, options.k);
         results.push({

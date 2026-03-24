@@ -1,7 +1,7 @@
 # Harmony Framework Rule Catalog (Phase 7.7.2.3)
 
 ## Purpose
-This catalog tracks threat-oriented framework rules in `rules/framework.rules.json`.
+This catalog tracks threat-oriented framework rules in `src/rules/framework.rules.json`.
 It is the evidence index for `7.7.2.3` (framework-layer expansion).
 
 ## Threat Mapping (T1-T7)

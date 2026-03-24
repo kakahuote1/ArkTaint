@@ -1,7 +1,7 @@
 import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
-import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
-import { AdaptiveContextSelectorOptions } from "../core/context/AdaptiveContextSelector";
+import { TaintPropagationEngine } from "../core/orchestration/TaintPropagationEngine";
+import { AdaptiveContextSelectorOptions } from "../core/kernel/context/AdaptiveContextSelector";
 import * as fs from "fs";
 import * as path from "path";
 import {
@@ -158,3 +158,4 @@ async function run(): Promise<void> {
 }
 
 run().catch(console.error);
+

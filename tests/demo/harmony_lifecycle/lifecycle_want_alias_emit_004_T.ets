@@ -1,6 +1,6 @@
-import { taint, Want } from "./taint_mock";
+import { taint, UIAbility, Want } from "./taint_mock";
 
-class AbilityWantAlias004 {
+class AbilityWantAlias004 extends UIAbility {
     onCreate(want: Want): void {
         const alias = want;
         const msg = alias.parameters;
@@ -18,4 +18,3 @@ export function lifecycle_want_alias_emit_004_T(): void {
     want.parameters = "alias";
     ability.onCreate(want);
 }
-

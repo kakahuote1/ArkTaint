@@ -1,0 +1,145 @@
+{
+    "schemaVersion": "2.0",
+    "meta": {
+        "name": "harmony-framework-entry-probe",
+        "description": "Framework-first probe rules for additional Harmony entry variants",
+        "updatedAt": "2026-03-15"
+    },
+    "sources": [
+        {
+            "id": "source.framework_probe.mock_source",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "Source"
+            },
+            "sourceKind": "call_return",
+            "target": {
+                "endpoint": "result"
+            }
+        },
+        {
+            "id": "source.framework_probe.entry_param",
+            "match": {
+                "kind": "local_name_regex",
+                "value": "^taint_src$"
+            },
+            "sourceKind": "entry_param",
+            "target": "arg0"
+        },
+        {
+            "id": "source.framework_probe.navpathstack.getparams",
+            "match": {
+                "kind": "signature_regex",
+                "value": "NavPathStack.*getParams"
+            },
+            "sourceKind": "call_return",
+            "target": {
+                "endpoint": "result"
+            }
+        },
+        {
+            "id": "source.framework_probe.onclick.arg0",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "onClick"
+            },
+            "sourceKind": "callback_param",
+            "target": {
+                "endpoint": "arg0"
+            },
+            "callbackArgIndexes": [
+                0
+            ]
+        },
+        {
+            "id": "source.framework_probe.webview.onMessage.arg0",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "onMessage"
+            },
+            "sourceKind": "callback_param",
+            "target": {
+                "endpoint": "arg0"
+            },
+            "callbackArgIndexes": [
+                0
+            ]
+        },
+        {
+            "id": "source.framework_probe.windowstage.loadContent.arg1",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "loadContent"
+            },
+            "sourceKind": "callback_param",
+            "target": {
+                "endpoint": "arg1"
+            },
+            "callbackArgIndexes": [
+                0
+            ]
+        }
+    ],
+    "sinks": [
+        {
+            "id": "sink.framework_probe.mock_sink",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "Sink"
+            },
+            "target": {
+                "endpoint": "arg0"
+            }
+        }
+    ],
+    "transfers": [
+        {
+            "id": "transfer.framework_probe.distributedkv.put.arg1_to_base",
+            "description": "DistributedKVStore.put(key, value): value taints store base for entry probe.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "put",
+                "invokeKind": "instance",
+                "argCount": 2
+            },
+            "from": "arg1",
+            "to": "base"
+        },
+        {
+            "id": "transfer.framework_probe.distributedkv.get.base_to_result",
+            "description": "DistributedKVStore.get(key): tainted store base taints read result for entry probe.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "get",
+                "invokeKind": "instance",
+                "argCount": 1
+            },
+            "from": "base",
+            "to": "result"
+        },
+        {
+            "id": "transfer.framework_probe.globalcontext.setObject.arg1_to_base",
+            "description": "GlobalContext.setObject(key, value): value taints context base for entry probe.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "setObject",
+                "invokeKind": "instance",
+                "argCount": 2
+            },
+            "from": "arg1",
+            "to": "base"
+        },
+        {
+            "id": "transfer.framework_probe.globalcontext.getObject.base_to_result",
+            "description": "GlobalContext.getObject(key): tainted context base taints read result for entry probe.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "getObject",
+                "invokeKind": "instance",
+                "argCount": 1
+            },
+            "from": "base",
+            "to": "result"
+        }
+    ]
+}

@@ -6,6 +6,16 @@ export class FormBindingData {
     payload: string = "";
 }
 
+export class UIAbility {}
+
+export class AbilityStage {}
+
+export class FormExtensionAbility {}
+
+export function Entry(_ctor: Function): void {
+    void _ctor;
+}
+
 export class Router {
     static getParams(): string {
         return "router_payload";

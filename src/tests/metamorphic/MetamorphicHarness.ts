@@ -8,6 +8,7 @@ import {
     findCaseMethod,
     resolveCaseMethod,
 } from "../helpers/SyntheticCaseHarness";
+import { registerMockSdkFiles } from "../helpers/TestSceneBuilder";
 
 export interface CliOptions {
     manifestPath: string;
@@ -244,6 +245,7 @@ function buildScene(projectDir: string): Scene {
     const scene = new Scene();
     scene.buildSceneFromProjectDir(config);
     scene.inferTypes();
+    registerMockSdkFiles(scene);
     return scene;
 }
 

@@ -1,65 +1,63 @@
-﻿{
-  "schemaVersion": "1.1",
-  "meta": {
-    "name": "layer-default",
-    "updatedAt": "2026-02-14"
-  },
-  "sources": [
-    {
-      "id": "source.layer.same",
-      "profile": "seed_local_name",
-      "match": {
-        "kind": "local_name_regex",
-        "value": "default_src"
-      }
+{
+    "schemaVersion": "2.0",
+    "meta": {
+        "name": "layer-default",
+        "updatedAt": "2026-02-14"
     },
-    {
-      "id": "source.layer.default_only",
-      "profile": "seed_local_name",
-      "match": {
-        "kind": "local_name_regex",
-        "value": "default_only"
-      }
-    }
-  ],
-  "sinks": [
-    {
-      "id": "sink.layer.same",
-      "profile": "signature",
-      "match": {
-        "kind": "signature_contains",
-        "value": "default_sink"
-      }
-    },
-    {
-      "id": "sink.layer.default_only",
-      "profile": "signature",
-      "match": {
-        "kind": "signature_contains",
-        "value": "default_sink_only"
-      }
-    }
-  ],
-  "transfers": [
-    {
-      "id": "transfer.layer.same",
-      "match": {
-        "kind": "method_name_equals",
-        "value": "transferSame"
-      },
-      "from": "arg0",
-      "to": "base"
-    },
-    {
-      "id": "transfer.layer.default_only",
-      "match": {
-        "kind": "method_name_equals",
-        "value": "transferDefaultOnly"
-      },
-      "from": "arg0",
-      "to": "result"
-    }
-  ]
+    "sources": [
+        {
+            "id": "source.layer.same",
+            "match": {
+                "kind": "local_name_regex",
+                "value": "default_src"
+            },
+            "sourceKind": "seed_local_name",
+            "target": "result"
+        },
+        {
+            "id": "source.layer.default_only",
+            "match": {
+                "kind": "local_name_regex",
+                "value": "default_only"
+            },
+            "sourceKind": "seed_local_name",
+            "target": "result"
+        }
+    ],
+    "sinks": [
+        {
+            "id": "sink.layer.same",
+            "match": {
+                "kind": "signature_contains",
+                "value": "default_sink"
+            }
+        },
+        {
+            "id": "sink.layer.default_only",
+            "match": {
+                "kind": "signature_contains",
+                "value": "default_sink_only"
+            }
+        }
+    ],
+    "transfers": [
+        {
+            "id": "transfer.layer.same",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "transferSame"
+            },
+            "from": "arg0",
+            "to": "base"
+        },
+        {
+            "id": "transfer.layer.default_only",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "transferDefaultOnly"
+            },
+            "from": "arg0",
+            "to": "result"
+        }
+    ]
 }
-
-

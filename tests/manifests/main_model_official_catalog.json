@@ -1,0 +1,407 @@
+{
+  "name": "main-model-official-catalog",
+  "version": "1.0.0",
+  "scope": "ArkTS/Harmony real entry situations",
+  "purpose": "Source-of-truth catalog for entry coverage. Benchmark suites are only evidence against this catalog, not the catalog itself.",
+  "sourceBasis": {
+    "officialRoots": [
+      {
+        "id": "docs_center",
+        "url": "https://developer.huawei.com/consumer/cn/doc/",
+        "focus": "Official HarmonyOS documentation root and API/manual navigation."
+      },
+      {
+        "id": "stage_model",
+        "url": "https://developer.huawei.com/consumer/cn/arkui/arkui-stage/",
+        "focus": "Stage model, UIAbility, ExtensionAbility, AbilityStage, WindowStage."
+      },
+      {
+        "id": "arkui_portal",
+        "url": "https://developer.huawei.com/consumer/cn/arkui/",
+        "focus": "ArkUI state management, component events, navigation, declarative UI."
+      }
+    ],
+    "localEvidence": [
+      "arkanalyzer/node_modules/ohos-typescript/lib/*.d.ts",
+      "tests/demo/sdk_signature_probe/taint_mock.ts",
+      "tests/benchmark/HarmonyBench/manifest.json",
+      "tests/demo/harmony_*",
+      "tests/demo/harmony_framework_entry_probe"
+    ]
+  },
+  "coveragePolicy": {
+    "statusEnum": [
+      "covered",
+      "partial",
+      "missing"
+    ],
+    "requiredCaseShapesPerFamily": [
+      "positive",
+      "negative",
+      "boundary",
+      "indirect_or_dynamic",
+      "composition"
+    ]
+  },
+  "categories": [
+    {
+      "id": "ability_stage_lifecycle",
+      "title": "应用 / Stage / Window 生命周期",
+      "families": [
+        {
+          "id": "uiability_lifecycle",
+          "entrySituations": [
+            "onCreate",
+            "onDestroy",
+            "onForeground",
+            "onBackground",
+            "onNewWant"
+          ],
+          "benchmarkStatus": "covered",
+          "benchmarkSuites": [
+            "harmony_lifecycle",
+            "harmony_multi_ability_chain"
+          ],
+          "missingVariants": []
+        },
+        {
+          "id": "abilitystage_lifecycle",
+          "entrySituations": [
+            "AbilityStage.onCreate"
+          ],
+          "benchmarkStatus": "covered",
+          "benchmarkSuites": [
+            "harmony_lifecycle",
+            "harmony_stage_window_variants"
+          ],
+          "missingVariants": []
+        },
+        {
+          "id": "windowstage_lifecycle_and_callbacks",
+          "entrySituations": [
+            "onWindowStageCreate",
+            "onWindowStageDestroy",
+            "WindowStage.loadContent(callback)"
+          ],
+          "benchmarkStatus": "covered",
+          "benchmarkSuites": [
+            "harmony_lifecycle",
+            "harmony_framework_system_callbacks",
+            "harmony_system_callback_variants",
+            "harmony_stage_window_variants"
+          ],
+          "missingVariants": []
+        }
+      ]
+    },
+    {
+      "id": "extension_families",
+      "title": "ExtensionAbility 入口族",
+      "families": [
+        {
+          "id": "form_extension",
+          "entrySituations": [
+            "FormExtensionAbility.onAddForm",
+            "form binding callbacks"
+          ],
+          "benchmarkStatus": "covered",
+          "benchmarkSuites": [
+            "harmony_lifecycle",
+            "harmony_form_extension_lifecycle"
+          ],
+          "missingVariants": []
+        },
+        {
+          "id": "ui_extension",
+          "entrySituations": [
+            "UiExtensionAbility.onCreate",
+            "UiExtensionAbility.onNewWant",
+            "UiExtensionAbility.onSessionCreate"
+          ],
+          "benchmarkStatus": "covered",
+          "benchmarkSuites": [
+            "harmony_framework_uiextension"
+          ],
+          "missingVariants": []
+        },
+        {
+          "id": "backup_extension",
+          "entrySituations": [
+            "BackupExtensionAbility.onRestore"
+          ],
+          "benchmarkStatus": "covered",
+          "benchmarkSuites": [
+            "harmony_framework_backup_restore"
+          ],
+          "missingVariants": []
+        },
+        {
+          "id": "other_extension_derivatives",
+          "entrySituations": [
+            "InputMethodExtensionAbility",
+            "WorkSchedulerExtensionAbility",
+            "other system-provided ExtensionAbility derivatives"
+          ],
+          "benchmarkStatus": "covered",
+          "benchmarkSuites": [
+            "harmony_extension_variants",
+            "harmony_extension_composition"
+          ],
+          "missingVariants": []
+        }
+      ]
+    },
+    {
+      "id": "page_route_navigation",
+      "title": "页面 / 路由 / 参数栈",
+      "families": [
+        {
+          "id": "entry_page_visibility",
+          "entrySituations": [
+            "@Entry page build()",
+            "aboutToAppear",
+            "onPageShow",
+            "onPageHide"
+          ],
+          "benchmarkStatus": "covered",
+          "benchmarkSuites": [
+            "harmony_e2e",
+            "harmony_lifecycle",
+            "harmony_page_visibility",
+            "harmony_route_stack_variants"
+          ],
+          "missingVariants": []
+        },
+        {
+          "id": "router_push_replace",
+          "entrySituations": [
+            "router push / replace style APIs",
+            "named route APIs"
+          ],
+          "benchmarkStatus": "covered",
+          "benchmarkSuites": [
+            "harmony_router_bridge",
+            "harmony_router_crossfile",
+            "harmony_router_dynamic"
+          ],
+          "caseIncludePatterns": [
+            "^harmony_router_bridge/(router_|navigation_)",
+            "^harmony_router_crossfile/router_",
+            "^harmony_router_dynamic/router_"
+          ],
+          "missingVariants": []
+        },
+        {
+          "id": "navpathstack_params",
+          "entrySituations": [
+            "NavPathStack.getParams"
+          ],
+          "benchmarkStatus": "covered",
+          "benchmarkSuites": [
+            "harmony_framework_navpathstack",
+            "harmony_route_stack_variants"
+          ],
+          "missingVariants": []
+        }
+      ]
+    },
+    {
+      "id": "ui_event_callbacks",
+      "title": "UI 事件回调族",
+      "families": [
+        {
+          "id": "direct_component_callbacks",
+          "entrySituations": [
+            "onClick",
+            "onChange",
+            "onInput",
+            "onSubmit"
+          ],
+          "benchmarkStatus": "covered",
+          "benchmarkSuites": [
+            "harmony_event_activation",
+            "harmony_framework_onclick"
+          ],
+          "missingVariants": []
+        },
+        {
+          "id": "helper_indirect_registration",
+          "entrySituations": [
+            "build -> helper -> callback registration"
+          ],
+          "benchmarkStatus": "covered",
+          "benchmarkSuites": [
+            "harmony_framework_onclick",
+            "harmony_callback_registration",
+            "harmony_system_callback_variants"
+          ],
+          "missingVariants": []
+        },
+        {
+          "id": "factory_returned_callback",
+          "entrySituations": [
+            "factory returns callback then register"
+          ],
+          "benchmarkStatus": "covered",
+          "benchmarkSuites": [
+            "harmony_framework_onclick",
+            "harmony_callback_registration",
+            "harmony_system_callback_variants"
+          ],
+          "missingVariants": []
+        },
+        {
+          "id": "cross_file_registration",
+          "entrySituations": [
+            "callback registration logic lives in other file/module"
+          ],
+          "benchmarkStatus": "covered",
+          "benchmarkSuites": [
+            "harmony_router_crossfile",
+            "harmony_framework_onclick",
+            "harmony_callback_registration",
+            "harmony_system_callback_variants"
+          ],
+          "missingVariants": []
+        }
+      ]
+    },
+    {
+      "id": "reactive_binding",
+      "title": "响应式状态绑定族",
+      "families": [
+        {
+          "id": "watch_triggers",
+          "entrySituations": [
+            "@Watch handlers"
+          ],
+          "benchmarkStatus": "covered",
+          "benchmarkSuites": [
+            "pure_entry_watch",
+            "harmony_reactive_composition",
+            "harmony_reactive_deep_tree"
+          ],
+          "missingVariants": []
+        },
+        {
+          "id": "state_prop_link",
+          "entrySituations": [
+            "@State",
+            "@Prop",
+            "@Link"
+          ],
+          "benchmarkStatus": "covered",
+          "benchmarkSuites": [
+            "harmony_state_mgmt",
+            "harmony_link",
+            "harmony_reactive_composition",
+            "harmony_reactive_deep_tree"
+          ],
+          "missingVariants": []
+        },
+        {
+          "id": "objectlink_provide_consume",
+          "entrySituations": [
+            "@ObjectLink",
+            "@Provide",
+            "@Consume"
+          ],
+          "benchmarkStatus": "covered",
+          "benchmarkSuites": [
+            "harmony_provide_consume",
+            "harmony_reactive_deep_tree"
+          ],
+          "missingVariants": []
+        }
+      ]
+    },
+    {
+      "id": "cross_component_handoff",
+      "title": "跨组件 / 跨 Ability 交接",
+      "families": [
+        {
+          "id": "want_handoff",
+          "entrySituations": [
+            "Want into onCreate",
+            "Want into onNewWant"
+          ],
+          "benchmarkStatus": "covered",
+          "benchmarkSuites": [
+            "harmony_lifecycle",
+            "harmony_handoff_multihop",
+            "harmony_multi_ability_chain"
+          ],
+          "missingVariants": []
+        },
+        {
+          "id": "ability_context_startability",
+          "entrySituations": [
+            "AbilityContext.startAbility",
+            "AbilityContext.startAbilityForResult"
+          ],
+          "benchmarkStatus": "covered",
+          "benchmarkSuites": [
+            "harmony_framework_startability",
+            "harmony_handoff_multihop",
+            "harmony_multi_ability_chain"
+          ],
+          "missingVariants": []
+        }
+      ]
+    },
+    {
+      "id": "async_and_system_events",
+      "title": "异步 / 系统事件族",
+      "families": [
+        {
+          "id": "emitter_family",
+          "entrySituations": [
+            "emitter on/emit patterns"
+          ],
+          "benchmarkStatus": "covered",
+          "benchmarkSuites": [
+            "pure_entry_emitter"
+          ],
+          "missingVariants": []
+        },
+        {
+          "id": "worker_taskpool_family",
+          "entrySituations": [
+            "Worker callbacks",
+            "taskpool execute"
+          ],
+          "benchmarkStatus": "covered",
+          "benchmarkSuites": [
+            "pure_entry_worker"
+          ],
+          "missingVariants": []
+        },
+        {
+          "id": "window_web_callbacks",
+          "entrySituations": [
+            "WindowStage.loadContent(callback)",
+            "WebView.onMessage(callback)"
+          ],
+          "benchmarkStatus": "covered",
+          "benchmarkSuites": [
+            "harmony_framework_system_callbacks",
+            "harmony_system_callback_variants"
+          ],
+          "missingVariants": []
+        },
+        {
+          "id": "timers_and_other_schedulers",
+          "entrySituations": [
+            "setTimeout / setInterval style scheduling",
+            "other scheduler-based UI/event callbacks"
+          ],
+          "benchmarkStatus": "covered",
+          "benchmarkSuites": [
+            "harmony_timer_scheduler"
+          ],
+          "missingVariants": []
+        }
+      ]
+    }
+  ]
+}

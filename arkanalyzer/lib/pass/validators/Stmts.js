@@ -1,0 +1,36 @@
+"use strict";
+/*
+ * Copyright (c) 2024-2025 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AssignStmtValidator = void 0;
+const Validator_1 = require("./Validator");
+const Stmt_1 = require("../../core/base/Stmt");
+const Ref_1 = require("../../core/base/Ref");
+const Local_1 = require("../../core/base/Local");
+class AssignStmtValidator extends Validator_1.StmtValidator {
+    validate(value, ctx) {
+        let left = value.getLeftOp();
+        if (!((left instanceof Local_1.Local) || (left instanceof Ref_1.AbstractFieldRef))) {
+            ctx.error(`must assign to local or field_ref`);
+        }
+    }
+}
+exports.AssignStmtValidator = AssignStmtValidator;
+AssignStmtValidator.INSTANCE = new AssignStmtValidator();
+(() => {
+    AssignStmtValidator.register([Stmt_1.ArkAssignStmt, (v, ctx, mtd) => {
+            AssignStmtValidator.INSTANCE.run(v, ctx, mtd);
+        }]);
+})();

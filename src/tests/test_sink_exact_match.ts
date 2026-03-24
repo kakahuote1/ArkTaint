@@ -1,6 +1,6 @@
-import { Scene } from "../../arkanalyzer/out/src/Scene";
+﻿import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
-import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
+import { TaintPropagationEngine } from "../core/orchestration/TaintPropagationEngine";
 import { SinkRule, SourceRule } from "../core/rules/RuleSchema";
 import { validateRuleSet } from "../core/rules/RuleValidator";
 import * as path from "path";
@@ -72,9 +72,8 @@ async function main(): Promise<void> {
     const sourceRules: SourceRule[] = [
         {
             id: "source.sink_exact.entry_param.taint_src",
-            kind: "entry_param",
+            sourceKind: "entry_param",
             target: "arg0",
-            targetRef: { endpoint: "arg0" },
             match: { kind: "local_name_regex", value: "^taint_src$" },
         },
     ];
@@ -82,31 +81,28 @@ async function main(): Promise<void> {
     const sinkRules: SinkRule[] = [
         {
             id: "sink.exact.signature_equals.arg0",
-            profile: "signature",
-            sinkTarget: "arg0",
-            sinkTargetRef: { endpoint: "arg0" },
+            target: { endpoint: "arg0" },
             match: { kind: "signature_equals", value: sinkArg0Sig },
         },
         {
             id: "sink.exact.callee_signature_equals.arg1",
-            profile: "signature",
-            sinkTarget: "arg1",
-            sinkTargetRef: { endpoint: "arg1" },
-            match: { kind: "callee_signature_equals", value: sinkArg1Sig },
+            target: { endpoint: "arg1" },
+            match: { kind: "signature_equals", value: sinkArg1Sig },
         },
         {
             id: "sink.exact.declaring_class_equals.invoke_kind_host",
-            profile: "signature",
-            sinkTarget: "arg0",
-            sinkTargetRef: { endpoint: "arg0" },
-            invokeKind: "instance",
-            argCount: 1,
-            match: { kind: "declaring_class_equals", value: invokeKindHostClassSig },
+            target: { endpoint: "arg0" },
+            match: {
+                kind: "declaring_class_equals",
+                value: invokeKindHostClassSig,
+                invokeKind: "instance",
+                argCount: 1,
+            },
         },
     ];
 
     const validation = validateRuleSet({
-        schemaVersion: "1.1",
+        schemaVersion: "2.0",
         sources: sourceRules,
         sinks: sinkRules,
         transfers: [],
@@ -151,4 +147,5 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+
 

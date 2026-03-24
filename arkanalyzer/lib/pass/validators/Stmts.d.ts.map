@@ -1,0 +1,1 @@
+{"version":3,"file":"Stmts.d.ts","sourceRoot":"","sources":["../../../src/pass/validators/Stmts.ts"],"names":[],"mappings":"AAeA,OAAO,EAAE,aAAa,EAAE,eAAe,EAAE,MAAM,aAAa,CAAC;AAC7D,OAAO,EAAE,aAAa,EAAE,MAAM,sBAAsB,CAAC;AAMrD,qBAAa,mBAAoB,SAAQ,aAAa,CAAC,aAAa,CAAC;IACjE,OAAO,CAAC,MAAM,CAAC,QAAQ,CAAC,QAAQ,CAA6B;IAE7D,QAAQ,CAAC,KAAK,EAAE,aAAa,EAAE,GAAG,EAAE,eAAe,GAAG,IAAI;CAY7D"}

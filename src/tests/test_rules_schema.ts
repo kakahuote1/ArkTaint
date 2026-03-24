@@ -116,16 +116,16 @@ async function main(): Promise<void> {
         console.log(`  ${key}: ${sanitizerStats[key]}`);
     }
 
-    const sourceProfiles = (loaded.ruleSet.sources || [])
-        .map(r => r.profile || "N/A")
+    const sourceKinds = (loaded.ruleSet.sources || [])
+        .map(r => r.sourceKind || "N/A")
         .filter((v, idx, arr) => arr.indexOf(v) === idx)
         .sort();
-    const sinkProfiles = (loaded.ruleSet.sinks || [])
-        .map(r => r.profile || "N/A")
+    const sinkCategories = (loaded.ruleSet.sinks || [])
+        .map(r => r.category || "N/A")
         .filter((v, idx, arr) => arr.indexOf(v) === idx)
         .sort();
-    console.log(`source_profiles=${sourceProfiles.join(",")}`);
-    console.log(`sink_profiles=${sinkProfiles.join(",")}`);
+    console.log(`source_kinds=${sourceKinds.join(",")}`);
+    console.log(`sink_categories=${sinkCategories.join(",")}`);
 
     console.log(`resolved_default=${path.resolve(loaded.defaultRulePath)}`);
     console.log("layer_status=");

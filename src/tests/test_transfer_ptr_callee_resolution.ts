@@ -1,6 +1,6 @@
-import { Scene } from "../../arkanalyzer/out/src/Scene";
+﻿import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
-import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
+import { TaintPropagationEngine } from "../core/orchestration/TaintPropagationEngine";
 import { SinkRule, SourceRule, TransferRule } from "../core/rules/RuleSchema";
 import { validateRuleSet } from "../core/rules/RuleValidator";
 import * as path from "path";
@@ -60,18 +60,15 @@ async function main(): Promise<void> {
     const sourceRules: SourceRule[] = [
         {
             id: "source.ptr.entry.taint_src",
-            kind: "entry_param",
+            sourceKind: "entry_param",
             target: "arg0",
-            targetRef: { endpoint: "arg0" },
             match: { kind: "local_name_regex", value: "^taint_src$" },
         },
     ];
     const sinkRules: SinkRule[] = [
         {
             id: "sink.ptr.arg0",
-            profile: "signature",
-            sinkTarget: "arg0",
-            sinkTargetRef: { endpoint: "arg0" },
+            target: { endpoint: "arg0" },
             match: { kind: "method_name_equals", value: "Sink" },
         },
     ];
@@ -85,7 +82,7 @@ async function main(): Promise<void> {
     ];
 
     const validation = validateRuleSet({
-        schemaVersion: "1.1",
+        schemaVersion: "2.0",
         sources: sourceRules,
         sinks: sinkRules,
         transfers: transferRules,
@@ -126,4 +123,5 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+
 

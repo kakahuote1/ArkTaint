@@ -1,0 +1,1 @@
+{"version":3,"file":"Fact.d.ts","sourceRoot":"","sources":["../../../src/core/dataflow/Fact.ts"],"names":[],"mappings":"AAeA,OAAO,EAAE,KAAK,EAAE,MAAM,eAAe,CAAC;AACtC,OAAO,EAAE,IAAI,EAAE,MAAM,cAAc,CAAC;AAEpC,qBAAa,IAAI;IACb,MAAM,EAAE,GAAG,CAAC,KAAK,CAAC,CAAoB;IACtC,QAAQ,EAAE,GAAG,CAAC,KAAK,EAAE,IAAI,CAAC,CAA0B;CACvD"}

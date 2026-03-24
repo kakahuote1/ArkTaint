@@ -3,10 +3,11 @@ import { SceneConfig } from "../../arkanalyzer/out/src/Config";
 import { ArkAssignStmt } from "../../arkanalyzer/out/src/core/base/Stmt";
 import { ArkParameterRef } from "../../arkanalyzer/out/src/core/base/Ref";
 import { Local } from "../../arkanalyzer/out/src/core/base/Local";
-import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
+import { TaintPropagationEngine } from "../core/orchestration/TaintPropagationEngine";
 import { ArktanCaseSpec, ensureArktanRunnerScript, runArktanCaseSetRound } from "./helpers/ArktanRunnerBridge";
 import * as fs from "fs";
 import * as path from "path";
+import { registerMockSdkFiles } from "./helpers/TestSceneBuilder";
 
 type CompareMode = "strict" | "default";
 
@@ -220,6 +221,7 @@ function buildScene(projectDir: string): Scene {
     const scene = new Scene();
     scene.buildSceneFromProjectDir(sceneConfig);
     scene.inferTypes();
+    registerMockSdkFiles(scene);
     return scene;
 }
 
@@ -547,4 +549,5 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+
 

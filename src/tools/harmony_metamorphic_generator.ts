@@ -1,5 +1,5 @@
 import * as path from "path";
-import { HarmonyMutatorGroup, generateHarmonyMutationDataset } from "../tests/metamorphic/HarmonyMetamorphicGenerator";
+import { HarmonyMutatorGroup, generateHarmonyMutationDataset } from "./metamorphic/HarmonyMetamorphicGenerator";
 
 interface CliOptions {
     manifestPath: string;

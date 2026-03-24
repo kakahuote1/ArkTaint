@@ -1,7 +1,7 @@
-
+﻿
 import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
-import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
+import { TaintPropagationEngine } from "../core/orchestration/TaintPropagationEngine";
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -70,7 +70,7 @@ async function runTest() {
             // We need to find the MethodSignature of the entry function
             let entryMethod = scene.getMethods().find(m => m.getName() === testName);
             if (!entryMethod) {
-                console.error(`  ❌ Method ${testName} not found in scene.`);
+                console.error(`  鉂?Method ${testName} not found in scene.`);
                 stats.failed++;
                 continue;
             }
@@ -88,7 +88,7 @@ async function runTest() {
 
             let methodBody = entryMethod.getBody();
             if (!methodBody) {
-                console.error(`  ❌ Method ${testName} has no body.`);
+                console.error(`  鉂?Method ${testName} has no body.`);
                 stats.failed++;
                 continue;
             }
@@ -113,7 +113,7 @@ async function runTest() {
             }
 
             if (seeds.length === 0) {
-                console.error(`  ⚠️ No seeds found (param 'taint_src'?).`);
+                console.error(`  鈿狅笍 No seeds found (param 'taint_src'?).`);
                 // Fallback: Taint ALL parameters logic?
                 // Let's try to check parameter list.
                 // For now, fail if no seeds.
@@ -129,10 +129,10 @@ async function runTest() {
 
             let detected = flows.length > 0;
             if (detected === expected) {
-                console.log(`  ✅ PASSED. (Detected: ${detected}, Expected: ${expected})`);
+                console.log(`  鉁?PASSED. (Detected: ${detected}, Expected: ${expected})`);
                 stats.passed++;
             } else {
-                console.log(`  ❌ FAILED. (Detected: ${detected}, Expected: ${expected})`);
+                console.log(`  鉂?FAILED. (Detected: ${detected}, Expected: ${expected})`);
                 if (detected) {
                     console.log("     Unexpected flow:");
                     flows.forEach(f => console.log(f.toString()));
@@ -141,7 +141,7 @@ async function runTest() {
             }
 
         } catch (e) {
-            console.error(`  ❌ Error: ${e}`);
+            console.error(`  鉂?Error: ${e}`);
             stats.failed++;
         }
         stats.total++;
@@ -152,3 +152,4 @@ async function runTest() {
 }
 
 runTest().catch(console.error);
+

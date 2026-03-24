@@ -1,6 +1,6 @@
-import { Scene } from "../../arkanalyzer/out/src/Scene";
+﻿import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
-import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
+import { TaintPropagationEngine } from "../core/orchestration/TaintPropagationEngine";
 import { loadRuleSet } from "../core/rules/RuleLoader";
 import { SanitizerRule, SinkRule, SourceRule } from "../core/rules/RuleSchema";
 import * as fs from "fs";
@@ -168,4 +168,5 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+
 

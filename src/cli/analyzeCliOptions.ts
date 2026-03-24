@@ -8,6 +8,13 @@ export type ReportMode = "light" | "full";
 export interface CliOptions {
     repo: string;
     sourceDirs: string[];
+    packDirs?: string[];
+    disabledPackIds?: string[];
+    pluginPaths?: string[];
+    disabledPluginNames?: string[];
+    pluginIsolate?: string[];
+    pluginDryRun?: boolean;
+    pluginAudit?: boolean;
     profile: AnalyzeProfile;
     k: number;
     maxEntries: number;
@@ -30,6 +37,13 @@ function splitCsv(value?: string): string[] {
 export function parseArgs(argv: string[]): CliOptions {
     let repo = "";
     let sourceDirs: string[] = [];
+    let packDirs: string[] = [];
+    let disabledPackIds: string[] = [];
+    let pluginPaths: string[] = [];
+    let disabledPluginNames: string[] = [];
+    let pluginIsolate: string[] = [];
+    let pluginDryRun = false;
+    let pluginAudit = false;
     let profile: AnalyzeProfile = "default";
     let reportMode: ReportMode = "light";
     let kRaw: number | undefined;
@@ -62,6 +76,44 @@ export function parseArgs(argv: string[]): CliOptions {
         if (sourceDirArg !== undefined) {
             sourceDirs.push(...splitCsv(sourceDirArg));
             if (arg === "--sourceDir") i++;
+            continue;
+        }
+        const packsArg = readValue("--packs");
+        if (packsArg !== undefined) {
+            packDirs.push(...splitCsv(packsArg));
+            if (arg === "--packs") i++;
+            continue;
+        }
+        const disabledPacksArg = readValue("--disable-packs");
+        if (disabledPacksArg !== undefined) {
+            disabledPackIds.push(...splitCsv(disabledPacksArg));
+            if (arg === "--disable-packs") i++;
+            continue;
+        }
+        const pluginsArg = readValue("--plugins");
+        if (pluginsArg !== undefined) {
+            pluginPaths.push(...splitCsv(pluginsArg));
+            if (arg === "--plugins") i++;
+            continue;
+        }
+        const disabledPluginsArg = readValue("--disable-plugins");
+        if (disabledPluginsArg !== undefined) {
+            disabledPluginNames.push(...splitCsv(disabledPluginsArg));
+            if (arg === "--disable-plugins") i++;
+            continue;
+        }
+        const pluginIsolateArg = readValue("--plugin-isolate");
+        if (pluginIsolateArg !== undefined) {
+            pluginIsolate.push(...splitCsv(pluginIsolateArg));
+            if (arg === "--plugin-isolate") i++;
+            continue;
+        }
+        if (arg === "--plugin-dry-run") {
+            pluginDryRun = true;
+            continue;
+        }
+        if (arg === "--plugin-audit") {
+            pluginAudit = true;
             continue;
         }
         const profileArg = readValue("--profile");
@@ -108,19 +160,6 @@ export function parseArgs(argv: string[]): CliOptions {
             if (arg === "--concurrency") i++;
             continue;
         }
-        const hintsArg = readValue("--entryHint");
-        if (hintsArg !== undefined) {
-            throw new Error("deprecated --entryHint: analyze now uses pure dummyMain root. narrow analysis with --sourceDir instead.");
-        }
-        const includeArg = readValue("--include");
-        if (includeArg !== undefined) {
-            throw new Error("deprecated --include: analyze no longer selects candidate entries. narrow analysis with --sourceDir instead.");
-        }
-        const excludeArg = readValue("--exclude");
-        if (excludeArg !== undefined) {
-            throw new Error("deprecated --exclude: analyze no longer selects candidate entries. narrow analysis with --sourceDir instead.");
-        }
-
         const defaultRuleArg = readValue("--default");
         if (defaultRuleArg !== undefined) {
             ruleOptions.defaultRulePath = defaultRuleArg;
@@ -173,10 +212,6 @@ export function parseArgs(argv: string[]): CliOptions {
             if (arg === "--maxFlowsPerEntry") i++;
             continue;
         }
-        if (arg === "--crossFunctionFallback" || arg === "--no-crossFunctionFallback") {
-            throw new Error("deprecated --crossFunctionFallback: analyze no longer seeds by cross-function heuristics.");
-            continue;
-        }
         if (arg === "--secondarySinkSweep") {
             secondarySinkSweepRaw = true;
             continue;
@@ -184,6 +219,9 @@ export function parseArgs(argv: string[]): CliOptions {
         if (arg === "--no-secondarySinkSweep") {
             secondarySinkSweepRaw = false;
             continue;
+        }
+        if (arg.startsWith("--")) {
+            throw new Error(`unknown option: ${arg}`);
         }
     }
 
@@ -197,6 +235,11 @@ export function parseArgs(argv: string[]): CliOptions {
     }
     if (sourceDirs.length === 0) throw new Error("no sourceDir found. pass --sourceDir");
     sourceDirs = [...new Set(sourceDirs.map(d => d.replace(/\\/g, "/")))];
+    packDirs = [...new Set(packDirs.map(d => path.isAbsolute(d) ? d : path.resolve(d)))];
+    disabledPackIds = [...new Set(disabledPackIds.map(id => id.trim()).filter(Boolean))];
+    pluginPaths = [...new Set(pluginPaths.map(d => path.isAbsolute(d) ? d : path.resolve(d)))];
+    disabledPluginNames = [...new Set(disabledPluginNames.map(name => name.trim()).filter(Boolean))];
+    pluginIsolate = [...new Set(pluginIsolate.map(name => name.trim()).filter(Boolean))];
 
     const profileDefaults = profile === "fast"
         ? { k: 0, maxEntries: 8, concurrency: 6 }
@@ -237,6 +280,13 @@ export function parseArgs(argv: string[]): CliOptions {
     return {
         repo: normalizedRepo,
         sourceDirs,
+        packDirs,
+        disabledPackIds,
+        pluginPaths,
+        disabledPluginNames,
+        pluginIsolate,
+        pluginDryRun,
+        pluginAudit,
         profile,
         reportMode,
         k,

@@ -1,8 +1,8 @@
 ﻿import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
-import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
+import { TaintPropagationEngine } from "../core/orchestration/TaintPropagationEngine";
 import { loadRuleSet } from "../core/rules/RuleLoader";
-import { SinkRule, SourceRule, TransferRule } from "../core/rules/RuleSchema";
+import { SinkRule, SourceRule, TransferRule, normalizeEndpoint } from "../core/rules/RuleSchema";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -196,8 +196,8 @@ function toTransferCandidates(transferRules: TransferRule[]): {
             dropped.push({ id, reason: "unsupported_match_kind" });
             continue;
         }
-        const fromEndpoint = rule.fromRef?.endpoint || rule.from;
-        const toEndpoint = rule.toRef?.endpoint || rule.to;
+        const fromEndpoint = normalizeEndpoint(rule.from).endpoint;
+        const toEndpoint = normalizeEndpoint(rule.to).endpoint;
         const from = parseEndpoint(String(fromEndpoint));
         const to = parseEndpoint(String(toEndpoint));
         if (!from || !to) {
@@ -208,9 +208,9 @@ function toTransferCandidates(transferRules: TransferRule[]): {
             id,
             matchKind: String(rule.match.kind),
             matchValue: String(rule.match.value),
-            invokeKind: rule.invokeKind,
-            argCount: rule.argCount,
-            typeHint: rule.typeHint,
+            invokeKind: rule.match.invokeKind,
+            argCount: rule.match.argCount,
+            typeHint: rule.match.typeHint,
             scope: rule.scope as unknown as Record<string, unknown> | undefined,
             from,
             to,
@@ -521,7 +521,7 @@ async function main(): Promise<void> {
         options: {
             rounds: options.rounds,
             k: options.k,
-            ruleSchemaVersion: "1.1",
+            ruleSchemaVersion: "2.0",
             defaultRulePath: options.defaultRulePath,
             arktanRoot: options.arktanRoot,
             runStability: options.runStability,
@@ -609,4 +609,5 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+
 

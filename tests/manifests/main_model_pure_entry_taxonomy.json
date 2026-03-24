@@ -1,0 +1,107 @@
+{
+  "name": "main-model-pure-entry-taxonomy",
+  "version": "2.0.0",
+  "description": "Pure entry discovery benchmark: only suites that test whether methods are correctly discovered as entry points. Suites that primarily test data-flow modeling (Router channel, @State/@Prop/@Link bridge, Want handoff, Storage channel) are excluded — those belong to the harmony-modeling benchmark.",
+  "suites": [
+    {
+      "id": "harmony_lifecycle",
+      "category": "ability_lifecycle",
+      "sourceDir": "tests/demo/harmony_lifecycle",
+      "caseIncludePatterns": [
+        "^lifecycle_(abilitystage_oncreate_015_T|extension_addform_011_T|extension_addform_safe_sink_019_F|newwant_field_003_T|param_name_mismatch_006_F|param_type_mismatch_007_F|want_alias_emit_004_T|want_direct_001_T|want_field_build_002_T|want_to_helper_017_T|want_unused_005_F)$"
+      ]
+    },
+    {
+      "id": "harmony_stage_window_variants",
+      "category": "ability_lifecycle",
+      "sourceDir": "tests/demo/harmony_stage_window_variants"
+    },
+    {
+      "id": "harmony_event_activation",
+      "category": "ui_event_callback",
+      "sourceDir": "tests/demo/harmony_event_activation"
+    },
+    {
+      "id": "harmony_callback_registration",
+      "category": "ui_event_callback",
+      "sourceDir": "tests/demo/harmony_callback_registration"
+    },
+    {
+      "id": "harmony_system_callback_variants",
+      "category": "event_async",
+      "sourceDir": "tests/demo/harmony_system_callback_variants"
+    },
+    {
+      "id": "pure_entry_watch",
+      "category": "reactive_watch",
+      "sourceDir": "tests/demo/pure_entry_watch"
+    },
+    {
+      "id": "harmony_page_visibility",
+      "category": "page_visibility",
+      "sourceDir": "tests/demo/harmony_page_visibility"
+    },
+    {
+      "id": "pure_entry_worker",
+      "category": "event_async",
+      "sourceDir": "tests/demo/pure_entry_worker"
+    },
+    {
+      "id": "pure_entry_emitter",
+      "category": "event_async",
+      "sourceDir": "tests/demo/pure_entry_emitter"
+    },
+    {
+      "id": "harmony_timer_scheduler",
+      "category": "event_async",
+      "sourceDir": "tests/demo/harmony_timer_scheduler"
+    },
+    {
+      "id": "harmony_framework_backup_restore",
+      "category": "ability_lifecycle",
+      "sourceDir": "tests/demo/harmony_framework_entry_probe",
+      "caseIncludePatterns": [
+        "^backup_restore_(001_T|002_F)$"
+      ]
+    },
+    {
+      "id": "harmony_framework_onclick",
+      "category": "ui_event_callback",
+      "sourceDir": "tests/demo/harmony_framework_entry_probe",
+      "caseIncludePatterns": [
+        "^onclick_(build_009_T|factory_011_T|helper_crossfile_010_T)$"
+      ]
+    },
+    {
+      "id": "harmony_framework_uiextension",
+      "category": "ability_lifecycle",
+      "sourceDir": "tests/demo/harmony_framework_entry_probe",
+      "caseIncludePatterns": [
+        "^uiextension_(oncreate_014_T|onnewwant_015_T|sessioncreate_016_T|sessioncreate_017_F)$"
+      ]
+    },
+    {
+      "id": "harmony_framework_system_callbacks",
+      "category": "event_async",
+      "sourceDir": "tests/demo/harmony_framework_entry_probe",
+      "caseIncludePatterns": [
+        "^(webview_onmessage_008_T|windowstage_loadcontent_006_F|windowstage_loadcontent_007_F)$"
+      ]
+    },
+    {
+      "id": "harmony_form_extension_lifecycle",
+      "category": "ability_lifecycle",
+      "sourceDir": "tests/demo/harmony_form_extension_lifecycle"
+    },
+    {
+      "id": "harmony_extension_composition",
+      "category": "ability_lifecycle",
+      "sourceDir": "tests/demo/harmony_extension_composition"
+    },
+    {
+      "id": "harmony_extension_variants",
+      "category": "ability_lifecycle",
+      "sourceDir": "tests/demo/harmony_extension_variants"
+    }
+  ]
+}

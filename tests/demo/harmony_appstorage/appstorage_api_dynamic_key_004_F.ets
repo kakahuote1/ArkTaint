@@ -5,7 +5,7 @@ function chooseKey(flag: boolean): string {
 }
 
 export function appstorage_api_dynamic_key_004_F(taint_src: string): void {
-    const k = chooseKey(taint_src.length > 0);
+    const k = chooseKey(false);
     AppStorage.set(k, taint_src);
     const out = AppStorage.get("token");
     taint.Sink(out);

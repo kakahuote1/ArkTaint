@@ -1,9 +1,9 @@
-import { Scene } from "../../../arkanalyzer/out/src/Scene";
+﻿import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import { ArkAssignStmt } from "../../../arkanalyzer/out/src/core/base/Stmt";
 import { ArkParameterRef } from "../../../arkanalyzer/out/src/core/base/Ref";
 import { Local } from "../../../arkanalyzer/out/src/core/base/Local";
-import { TaintPropagationEngine } from "../../core/TaintPropagationEngine";
+import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import * as path from "path";
 
 function getParameterLocalNames(entryMethod: any): Set<string> {
@@ -82,3 +82,4 @@ run().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+

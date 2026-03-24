@@ -1,34 +1,32 @@
 {
-  "schemaVersion": "1.1",
-  "meta": {
-    "name": "harmony-persistentstorage-rules",
-    "description": "Rules for PersistentStorage <-> AppStorage relation checks",
-    "updatedAt": "2026-03-01"
-  },
-  "sources": [
-    {
-      "id": "source.harmony.persistentstorage.entry_param",
-      "profile": "entry_param",
-      "match": {
-        "kind": "local_name_regex",
-        "value": "^taint_src$"
-      }
-    }
-  ],
-  "sinks": [
-    {
-      "id": "sink.harmony.persistentstorage.mock_sink",
-      "profile": "signature",
-      "sinkTargetRef": {
-        "endpoint": "arg0"
-      },
-      "match": {
-        "kind": "method_name_equals",
-        "value": "Sink"
-      }
-    }
-  ],
-  "sanitizers": [],
-  "transfers": []
+    "schemaVersion": "2.0",
+    "meta": {
+        "name": "harmony-persistentstorage-rules",
+        "description": "Rules for PersistentStorage <-> AppStorage relation checks",
+        "updatedAt": "2026-03-01"
+    },
+    "sources": [
+        {
+            "id": "source.harmony.persistentstorage.entry_param",
+            "match": {
+                "kind": "local_name_regex",
+                "value": "^taint_src$"
+            },
+            "sourceKind": "entry_param",
+            "target": "arg0"
+        }
+    ],
+    "sinks": [
+        {
+            "id": "sink.harmony.persistentstorage.mock_sink",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "Sink"
+            },
+            "target": {
+                "endpoint": "arg0"
+            }
+        }
+    ],
+    "transfers": []
 }
-

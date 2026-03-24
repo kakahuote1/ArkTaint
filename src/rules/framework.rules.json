@@ -1,0 +1,4503 @@
+{
+    "schemaVersion": "2.0",
+  "meta": {
+    "name": "arktaint-harmony-framework-rules",
+    "description": "Framework-level source/sink/transfer rules for HarmonyOS threat-oriented coverage (T1-T7).",
+        "updatedAt": "2026-03-21"
+  },
+  "sources": [
+    {
+      "id": "source.harmony.router.getParams.exact",
+      "enabled": true,
+      "description": "Exact probe signature for router.getParams() (Tier A).",
+      "tags": [
+        "harmony",
+        "phase7",
+        "router",
+        "probe_exact"
+            ],
+            "family": "source.harmony.router.getParams",
+            "tier": "A",
+            "match": {
+                "kind": "signature_equals",
+                "value": "@sdk_signature_probe/taint_mock.ts: Router.getParams()"
+            },
+            "sourceKind": "call_return",
+            "target": {
+                "endpoint": "result"
+            }
+    },
+    {
+      "id": "source.harmony.router.getParams",
+      "enabled": true,
+            "description": "Treat router.getParams() return value as untrusted page input.",
+            "tags": [
+                "harmony",
+                "phase7",
+                "router"
+            ],
+      "family": "source.harmony.router.getParams",
+      "tier": "B",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Router.getParams"
+      },
+            "sourceKind": "call_return",
+            "target": {
+        "endpoint": "result"
+            }
+    },
+    {
+      "id": "source.harmony.router.getParams.fallback",
+      "enabled": true,
+            "description": "Fallback: method-level getParams source with router class scope.",
+            "tags": [
+                "harmony",
+                "phase7",
+                "router",
+                "fallback"
+            ],
+      "family": "source.harmony.router.getParams",
+      "tier": "C",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "getParams"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(Router|router|NavPathStack)"
+        }
+      },
+            "sourceKind": "call_return",
+            "target": {
+        "endpoint": "result"
+            }
+    },
+    {
+      "id": "source.harmony.lifecycle.onCreate.want.arg0",
+      "enabled": true,
+      "description": "Treat onCreate(want, ...) first argument as external input for Ability/Stage/Extension entry.",
+            "tags": [
+                "harmony",
+                "t2",
+                "t5"
+            ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "onCreate"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(Ability|AbilityStage|ExtensionAbility)$"
+        }
+      },
+            "sourceKind": "entry_param",
+            "target": {
+        "endpoint": "arg0"
+            }
+    },
+    {
+      "id": "source.harmony.lifecycle.onNewWant.want.arg0",
+      "enabled": true,
+      "description": "Treat onNewWant(want) argument as external input.",
+            "tags": [
+                "harmony",
+                "t2",
+                "t5"
+            ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "onNewWant"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(Ability|ExtensionAbility)$"
+        }
+      },
+            "sourceKind": "entry_param",
+            "target": {
+        "endpoint": "arg0"
+            }
+    },
+    {
+      "id": "source.harmony.lifecycle.onRestore.arg0",
+      "enabled": true,
+      "description": "Treat backup restore payload as untrusted lifecycle input.",
+            "tags": [
+                "harmony",
+                "t2",
+                "lifecycle"
+            ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "onRestore"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "BackupAbility$"
+        }
+      },
+            "sourceKind": "entry_param",
+            "target": {
+        "endpoint": "arg0"
+            }
+    },
+    {
+      "id": "source.harmony.input.onChange.arg0",
+      "enabled": true,
+      "description": "Text input callback parameter for onChange.",
+      "tags": [
+        "harmony",
+        "t3",
+        "t4",
+        "t6",
+        "t7"
+            ],
+            "match": {
+                "kind": "method_name_equals",
+                "value": "onChange"
+            },
+            "sourceKind": "callback_param",
+            "target": {
+                "endpoint": "arg0"
+            },
+            "callbackArgIndexes": [
+                0
+      ]
+    },
+    {
+      "id": "source.harmony.input.onInput.arg0",
+      "enabled": true,
+      "description": "Text input callback parameter for onInput.",
+      "tags": [
+        "harmony",
+        "t3",
+        "t4",
+        "t6",
+        "t7"
+            ],
+            "match": {
+                "kind": "method_name_equals",
+                "value": "onInput"
+            },
+            "sourceKind": "callback_param",
+            "target": {
+                "endpoint": "arg0"
+            },
+            "callbackArgIndexes": [
+                0
+      ]
+    },
+    {
+      "id": "source.harmony.input.onSubmit.arg0",
+      "enabled": true,
+      "description": "Text input callback parameter for onSubmit.",
+      "tags": [
+        "harmony",
+        "t3",
+        "t4",
+        "t6",
+        "t7"
+            ],
+            "match": {
+                "kind": "method_name_equals",
+                "value": "onSubmit"
+            },
+            "sourceKind": "callback_param",
+            "target": {
+                "endpoint": "arg0"
+            },
+            "callbackArgIndexes": [
+                0
+      ]
+    },
+    {
+      "id": "source.harmony.network.http.requestAsync.callback.arg0",
+      "enabled": true,
+      "description": "requestAsync callback first parameter as response source.",
+      "tags": [
+        "harmony",
+        "t1",
+        "t3",
+        "t5"
+            ],
+            "match": {
+                "kind": "method_name_equals",
+                "value": "requestAsync"
+            },
+            "sourceKind": "callback_param",
+            "target": {
+                "endpoint": "arg0"
+            },
+            "callbackArgIndexes": [
+                1
+      ]
+    },
+    {
+      "id": "source.harmony.network.http.request.result",
+      "enabled": true,
+      "description": "Http.request() promise result as network response source.",
+            "tags": [
+                "harmony",
+                "t1",
+                "t2",
+                "t3",
+                "t5"
+            ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "request"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "Http"
+        }
+      },
+            "sourceKind": "call_return",
+            "target": {
+        "endpoint": "result"
+            }
+    },
+    {
+      "id": "source.harmony.window.loadContent.callback.arg0",
+      "enabled": true,
+      "description": "windowStage.loadContent(page, callback) callback first parameter (err) as framework callback source.",
+      "tags": [
+        "harmony",
+        "t2",
+        "callback"
+            ],
+            "match": {
+                "kind": "method_name_equals",
+                "value": "loadContent"
+            },
+            "sourceKind": "callback_param",
+            "target": {
+                "endpoint": "arg0"
+            },
+            "callbackArgIndexes": [
+                1
+      ]
+    },
+    {
+      "id": "source.harmony.window.loadContent.callback.arg1",
+      "enabled": true,
+      "description": "windowStage.loadContent(page, callback) callback second parameter (data) as framework callback source.",
+      "tags": [
+        "harmony",
+        "t2",
+        "callback"
+            ],
+            "match": {
+                "kind": "method_name_equals",
+                "value": "loadContent"
+            },
+            "sourceKind": "callback_param",
+            "target": {
+                "endpoint": "arg1"
+            },
+            "callbackArgIndexes": [
+                1
+      ]
+    },
+    {
+      "id": "source.harmony.webview.onMessage.callback.arg0",
+      "enabled": true,
+      "description": "WebView onMessage callback payload as untrusted source.",
+      "tags": [
+        "harmony",
+        "t1",
+        "t2"
+            ],
+            "match": {
+                "kind": "method_name_equals",
+                "value": "onMessage"
+            },
+            "sourceKind": "callback_param",
+            "target": {
+                "endpoint": "arg0"
+            },
+            "callbackArgIndexes": [
+                0
+      ]
+    },
+    {
+      "id": "source.harmony.preferences.getSync.result",
+      "enabled": true,
+      "description": "Preference read value as source in leak/persistence scenarios.",
+            "tags": [
+                "harmony",
+                "t2"
+            ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "getSync"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(Preferences|DataPreferences)"
+        }
+      },
+            "sourceKind": "call_return",
+            "target": {
+        "endpoint": "result"
+            }
+    },
+    {
+      "id": "source.harmony.preferences.get.result",
+      "enabled": true,
+      "description": "Preference get() return value as source in leak/persistence scenarios.",
+            "tags": [
+                "harmony",
+                "t2"
+            ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "get"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(Preferences|DataPreferences)"
+        }
+      },
+            "sourceKind": "call_return",
+            "target": {
+        "endpoint": "result"
+            }
+    },
+    {
+      "id": "source.harmony.rdb.querySql.result",
+      "enabled": true,
+      "description": "querySql() return value as source.",
+            "tags": [
+                "harmony",
+                "t2",
+                "t4"
+            ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "querySql"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(RdbStore|RelationalStore)"
+        }
+      },
+            "sourceKind": "call_return",
+            "target": {
+        "endpoint": "result"
+            }
+    },
+    {
+      "id": "source.harmony.rdb.query.result",
+      "enabled": true,
+      "description": "query() return value as source.",
+            "tags": [
+                "harmony",
+                "t2",
+                "t4"
+            ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "query"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(RdbStore|RelationalStore)"
+        }
+      },
+            "sourceKind": "call_return",
+            "target": {
+        "endpoint": "result"
+            }
+    },
+    {
+      "id": "source.harmony.globalcontext.getObject.result",
+      "enabled": true,
+      "description": "GlobalContext.getObject() return value as source when globally persisted data is read back.",
+            "tags": [
+                "harmony",
+                "t2",
+                "t5"
+            ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "GlobalContext.getObject"
+      },
+            "sourceKind": "call_return",
+            "target": {
+        "endpoint": "result"
+            }
+    },
+    {
+      "id": "source.harmony.fs.read.result",
+      "enabled": true,
+      "description": "File read result as untrusted source.",
+            "tags": [
+                "harmony",
+                "t2",
+                "t5"
+            ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "read"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
+        }
+      },
+            "sourceKind": "call_return",
+            "target": {
+        "endpoint": "result"
+            }
+    },
+    {
+      "id": "source.harmony.fs.readSync.result",
+      "enabled": true,
+      "description": "File readSync result as untrusted source.",
+            "tags": [
+                "harmony",
+                "t2",
+                "t5"
+            ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "readSync"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
+        }
+      },
+            "sourceKind": "call_return",
+            "target": {
+        "endpoint": "result"
+            }
+    },
+    {
+      "id": "source.harmony.request.download.result",
+      "enabled": true,
+      "description": "@ohos.request download result as untrusted source.",
+            "tags": [
+                "harmony",
+                "t2",
+                "t5"
+            ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "download"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(request|Request|Download|DownloadTask|RequestAgent)"
+        }
+      },
+            "sourceKind": "call_return",
+            "target": {
+        "endpoint": "result"
+            }
+    },
+    {
+      "id": "source.harmony.request.upload.result",
+      "enabled": true,
+      "description": "@ohos.request upload result as untrusted source.",
+            "tags": [
+                "harmony",
+                "t2",
+                "t5"
+            ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "upload"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(request|Request|Upload|UploadTask|RequestAgent)"
+        }
+      },
+            "sourceKind": "call_return",
+            "target": {
+        "endpoint": "result"
+            }
+    },
+    {
+      "id": "source.harmony.distributedkv.get.result",
+      "enabled": true,
+      "description": "Distributed KV get() return value as source.",
+            "tags": [
+                "harmony",
+                "t2",
+                "t5"
+            ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "get"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(DistributedKVStore|distributedKVStore|KVStore|SingleKVStore)"
+        }
+      },
+            "sourceKind": "call_return",
+            "target": {
+        "endpoint": "result"
+            }
+    },
+    {
+      "id": "source.harmony.abilitystage.context_call",
+      "enabled": true,
+      "description": "V1 stage seeding: mark external context reads inside AbilityStage.onCreate as source.",
+            "tags": [
+                "harmony",
+                "phase7",
+                "abilitystage"
+            ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "SystemEnv.getContext"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "AbilityStage"
+        },
+        "methodName": {
+          "mode": "equals",
+          "value": "onCreate"
+        }
+      },
+            "sourceKind": "call_return",
+            "target": {
+                "endpoint": "result"
+            }
+    },
+    {
+      "id": "source.harmony.privacy.pasteboard.getSystemPasteboard.result",
+            "enabled": true,
+      "description": "Optional privacy source: system pasteboard read result.",
+            "tags": [
+                "harmony",
+                "t2",
+                "privacy_optional"
+            ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "getSystemPasteboard"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(pasteboard|Pasteboard)"
+        }
+      },
+            "sourceKind": "call_return",
+            "target": {
+        "endpoint": "result"
+            }
+      },
+        {
+            "id": "source.harmony.privacy.pasteboard.getData.result",
+            "enabled": true,
+            "description": "Optional privacy source: pasteboard getData() result.",
+      "tags": [
+        "harmony",
+        "t2",
+        "privacy_optional"
+            ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "getData"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(pasteboard|Pasteboard)"
+        }
+      },
+            "sourceKind": "call_return",
+            "target": {
+        "endpoint": "result"
+            }
+      },
+        {
+            "id": "source.harmony.privacy.contacts.queryContacts.result",
+            "enabled": true,
+            "description": "Optional privacy source: contacts query result.",
+      "tags": [
+        "harmony",
+        "t2",
+        "privacy_optional"
+            ],
+            "match": {
+                "kind": "method_name_equals",
+                "value": "queryContacts"
+            },
+            "sourceKind": "call_return",
+            "target": {
+                "endpoint": "result"
+            }
+        },
+        {
+            "id": "source.harmony.commonevent.subscribe.callback.arg0",
+      "enabled": false,
+            "description": "Observation-only: commonEvent subscribe callback payload (cross-process boundary, disabled by default).",
+            "tags": [
+                "harmony",
+                "boundary",
+                "commonevent"
+            ],
+      "match": {
+        "kind": "method_name_equals",
+                "value": "subscribe"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+                    "value": "(commonEventManager|CommonEventManager)"
+                }
+            },
+            "sourceKind": "callback_param",
+            "target": {
+                "endpoint": "arg0"
+            },
+            "callbackArgIndexes": [
+                1
+            ]
+        },
+        {
+            "id": "source.harmony.telephony.getIMEI",
+            "description": "IMEI device identifier",
+      "tags": [
+        "harmony",
+                "phase7118",
+                "device_id",
+                "P0"
+            ],
+            "family": "source.harmony.device_id",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "getIMEI"
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "critical",
+            "category": "device_identifier"
+        },
+        {
+            "id": "source.harmony.oaid.getOAID",
+            "description": "Advertising ID (OAID)",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "device_id",
+                "P0"
+            ],
+            "family": "source.harmony.device_id",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "getOAID"
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "critical",
+            "category": "device_identifier"
+        },
+        {
+            "id": "source.harmony.geo.getCurrentLocation",
+            "description": "Real-time GPS location",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "location",
+                "P0"
+            ],
+            "family": "source.harmony.location",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "getCurrentLocation"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "geoLocation"
+                }
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "critical",
+            "category": "location"
+        },
+        {
+            "id": "source.harmony.geo.getLastLocation",
+            "description": "Cached GPS location",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "location",
+                "P0"
+            ],
+            "family": "source.harmony.location",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "getLastLocation"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "geoLocation"
+                }
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "critical",
+            "category": "location"
+        },
+        {
+            "id": "source.harmony.sim.getSimAccountInfo",
+            "description": "SIM account info with phone number",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "telephony",
+                "P0"
+            ],
+            "family": "source.harmony.telephony",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "getSimAccountInfo"
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "critical",
+            "category": "personal_info"
+        },
+        {
+            "id": "source.harmony.deviceInfo.udid",
+            "description": "Device UDID/serial/ODID constants",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "device_id",
+                "P0"
+            ],
+            "family": "source.harmony.device_id",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "deviceInfo"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "deviceInfo"
+                }
+            },
+            "sourceKind": "field_read",
+            "target": "result",
+            "severity": "critical",
+            "category": "device_identifier"
+        },
+        {
+            "id": "source.harmony.wifi.getLinkedInfo",
+            "description": "WiFi linked info (SSID/BSSID)",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "wifi",
+                "P1"
+            ],
+            "family": "source.harmony.wifi",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "getLinkedInfo"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "wifi"
+                }
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "high",
+            "category": "location"
+        },
+        {
+            "id": "source.harmony.wifi.getScanResults",
+            "description": "WiFi scan results (location fingerprint)",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "wifi",
+                "P1"
+            ],
+            "family": "source.harmony.wifi",
+            "tier": "B",
+      "match": {
+        "kind": "method_name_equals",
+                "value": "getScanResults"
+      },
+      "scope": {
+        "className": {
+                    "mode": "contains",
+                    "value": "wifi"
+                }
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "high",
+            "category": "location"
+        },
+        {
+            "id": "source.harmony.wifi.getScanInfoList",
+            "description": "WiFi scan info list",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "wifi",
+                "P1"
+            ],
+            "family": "source.harmony.wifi",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "getScanInfoList"
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "high",
+            "category": "location"
+        },
+        {
+            "id": "source.harmony.wifi.getDeviceMacAddress",
+            "description": "WiFi MAC address",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "wifi",
+                "P1"
+            ],
+            "family": "source.harmony.wifi",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "getDeviceMacAddress"
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "high",
+            "category": "device_identifier"
+        },
+        {
+            "id": "source.harmony.wifi.getIpInfo",
+            "description": "WiFi IP address info",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "wifi",
+                "P1"
+            ],
+            "family": "source.harmony.wifi",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "getIpInfo"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "wifi"
+                }
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "high",
+            "category": "network_info"
+        },
+        {
+            "id": "source.harmony.wifi.getIpv6Info",
+            "description": "WiFi IPv6 address info",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "wifi",
+                "P1"
+            ],
+            "family": "source.harmony.wifi",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "getIpv6Info"
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "high",
+            "category": "network_info"
+        },
+        {
+            "id": "source.harmony.calendar.getEvents",
+            "description": "Calendar events (personal privacy)",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "calendar",
+                "P1"
+            ],
+            "family": "source.harmony.calendar",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "getEvents"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "Calendar"
+                }
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "high",
+            "category": "personal_info"
+        },
+        {
+            "id": "source.harmony.audio.capturer.read",
+            "description": "Microphone audio capture",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "audio",
+                "P1"
+            ],
+            "family": "source.harmony.audio",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "AudioCapturer"
+            },
+            "scope": {
+                "methodName": {
+                    "mode": "equals",
+                    "value": "read"
+                }
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "high",
+            "category": "media_capture"
+        },
+        {
+            "id": "source.harmony.websocket.onMessage",
+            "description": "WebSocket incoming message",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "network",
+                "P1"
+            ],
+            "family": "source.harmony.network.websocket",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "WebSocket"
+            },
+            "scope": {
+                "methodName": {
+          "mode": "regex",
+                    "value": "^on$"
+                }
+            },
+            "sourceKind": "callback_param",
+            "target": "arg0",
+            "callbackArgIndexes": [
+                0
+            ]
+        },
+        {
+            "id": "source.harmony.socket.onMessage",
+            "description": "TCP/UDP/TLS/Local Socket incoming data",
+      "tags": [
+        "harmony",
+                "phase7118",
+                "network",
+                "P1"
+            ],
+            "family": "source.harmony.network.socket",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "on"
+            },
+            "scope": {
+                "className": {
+                    "mode": "regex",
+                    "value": "(TCP|UDP|TLS|Local)Socket"
+                }
+            },
+            "sourceKind": "callback_param",
+            "target": "arg0",
+            "callbackArgIndexes": [
+                0
+            ]
+        },
+        {
+            "id": "source.harmony.http.onDataReceive",
+            "description": "HTTP streaming response data (requestInStream)",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "network",
+                "P1"
+            ],
+            "family": "source.harmony.network.http",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "HttpRequest"
+            },
+            "scope": {
+                "methodName": {
+                    "mode": "equals",
+                    "value": "on"
+                }
+            },
+            "sourceKind": "callback_param",
+            "target": "arg0",
+            "callbackArgIndexes": [
+                0
+            ]
+        },
+        {
+            "id": "source.harmony.ble.readCharacteristic",
+            "description": "BLE characteristic value read",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "bluetooth",
+                "P1"
+            ],
+            "family": "source.harmony.bluetooth",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "readCharacteristicValue"
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "high",
+            "category": "bluetooth_data"
+        },
+        {
+            "id": "source.harmony.ble.readDescriptor",
+            "description": "BLE descriptor value read",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "bluetooth",
+                "P1"
+            ],
+            "family": "source.harmony.bluetooth",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "readDescriptorValue"
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "high",
+            "category": "bluetooth_data"
+        },
+        {
+            "id": "source.harmony.ble.onCharacteristicChange",
+            "description": "BLE characteristic change notification",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "bluetooth",
+                "P1"
+            ],
+            "family": "source.harmony.bluetooth",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "BLECharacteristicChange"
+            },
+            "sourceKind": "callback_param",
+            "target": "arg0",
+            "callbackArgIndexes": [
+                0
+            ]
+        },
+        {
+            "id": "source.harmony.bt.sppRead",
+            "description": "Bluetooth SPP serial port data receive",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "bluetooth",
+                "P1"
+            ],
+            "family": "source.harmony.bluetooth",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "sppRead"
+            },
+            "sourceKind": "callback_param",
+            "target": "arg0",
+            "callbackArgIndexes": [
+                0
+            ]
+        },
+        {
+            "id": "source.harmony.bt.getPairedDevices",
+            "description": "Bluetooth paired devices list",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "bluetooth",
+                "P1"
+            ],
+            "family": "source.harmony.bluetooth",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "getPairedDevices"
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "high",
+            "category": "device_identifier"
+        },
+        {
+            "id": "source.harmony.bt.getLocalName",
+            "description": "Bluetooth local device name",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "bluetooth",
+                "P1"
+            ],
+            "family": "source.harmony.bluetooth",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "getLocalName"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "bluetooth"
+                }
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "high",
+            "category": "device_identifier"
+        },
+        {
+            "id": "source.harmony.photo.getAssets",
+            "description": "Photo gallery access",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "media",
+                "P1"
+            ],
+            "family": "source.harmony.media",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "getAssets"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "PhotoAccessHelper"
+                }
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "high",
+            "category": "media_capture"
+        },
+        {
+            "id": "source.harmony.fs.readText",
+            "description": "File text read (complement read/readSync)",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "file",
+                "P1"
+            ],
+            "family": "source.harmony.file",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "readText"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "fs"
+                }
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "medium",
+            "category": "file_read"
+        },
+        {
+            "id": "source.harmony.fs.readTextSync",
+            "description": "File text read sync",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "file",
+                "P1"
+            ],
+            "family": "source.harmony.file",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "readTextSync"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "fs"
+                }
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "medium",
+            "category": "file_read"
+        },
+        {
+            "id": "source.harmony.dataShare.query",
+            "description": "DataShare cross-app query",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "datashare",
+                "P1"
+            ],
+            "family": "source.harmony.datashare",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "DataShareHelper"
+            },
+            "scope": {
+                "methodName": {
+                    "mode": "equals",
+                    "value": "query"
+                }
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "high",
+            "category": "cross_app_data"
+        },
+        {
+            "id": "source.harmony.sim.getVoiceMailNumber",
+            "description": "SIM voicemail number",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "telephony",
+                "P1"
+            ],
+            "family": "source.harmony.telephony",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "getVoiceMailNumber"
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "high",
+            "category": "personal_info"
+        },
+        {
+            "id": "source.harmony.contact.queryContact",
+            "description": "Contact single query",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "contact",
+                "P1"
+            ],
+            "family": "source.harmony.contact",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "queryContact"
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "high",
+            "category": "personal_info"
+        },
+        {
+            "id": "source.harmony.contact.selectContact",
+            "description": "Contact picker selection",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "contact",
+                "P1"
+            ],
+            "family": "source.harmony.contact",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "selectContact"
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "high",
+            "category": "personal_info"
+        },
+        {
+            "id": "source.harmony.contact.selectContacts",
+            "description": "Contact multi-picker selection",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "contact",
+                "P1"
+            ],
+            "family": "source.harmony.contact",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "selectContacts"
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "high",
+            "category": "personal_info"
+        },
+        {
+            "id": "source.harmony.account.getOsAccountName",
+            "description": "OS account user name",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "account",
+                "P1"
+            ],
+            "family": "source.harmony.account",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "getOsAccountName"
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "high",
+            "category": "personal_info"
+        },
+        {
+            "id": "source.harmony.sim.getSimSpn",
+            "description": "SIM service provider name",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "telephony",
+                "P2"
+            ],
+            "family": "source.harmony.telephony",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "getSimSpn"
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "low",
+            "category": "device_fingerprint"
+        },
+        {
+            "id": "source.harmony.telephony.getIMEISV",
+            "description": "IMEI software version",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "telephony",
+                "P2"
+            ],
+            "family": "source.harmony.telephony",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "getIMEISV"
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "medium",
+            "category": "device_identifier"
+        },
+        {
+            "id": "source.harmony.telephony.getCellInformation",
+            "description": "Cell tower info (location fingerprint)",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "telephony",
+                "P2"
+            ],
+            "family": "source.harmony.telephony",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "getCellInformation"
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "medium",
+            "category": "location"
+        },
+        {
+            "id": "source.harmony.telephony.getNetworkState",
+            "description": "Network state with PLMN/CellID",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "telephony",
+                "P2"
+            ],
+            "family": "source.harmony.telephony",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "getNetworkState"
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "medium",
+            "category": "location"
+        },
+        {
+            "id": "source.harmony.sensor.on",
+            "description": "Sensor data callback",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "sensor",
+                "P2"
+            ],
+            "family": "source.harmony.sensor",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "on"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "sensor"
+                }
+            },
+            "sourceKind": "callback_param",
+            "target": "arg0",
+            "callbackArgIndexes": [
+                0
+            ]
+        },
+        {
+            "id": "source.harmony.settings.getValue",
+            "description": "System settings value",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "settings",
+                "P2"
+            ],
+            "family": "source.harmony.settings",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "getValue"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "settings"
+                }
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "low",
+            "category": "system_info"
+        },
+        {
+            "id": "source.harmony.settings.getValueSync",
+            "description": "System settings value sync",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "settings",
+                "P2"
+            ],
+            "family": "source.harmony.settings",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "getValueSync"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "settings"
+                }
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "low",
+            "category": "system_info"
+        },
+        {
+            "id": "source.harmony.systemParam.get",
+            "description": "System parameter",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "system",
+                "P2"
+            ],
+            "family": "source.harmony.system",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "systemParameterEnhance"
+            },
+            "scope": {
+                "methodName": {
+                    "mode": "equals",
+                    "value": "get"
+                }
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "low",
+            "category": "system_info"
+        },
+        {
+            "id": "source.harmony.distributedDataObject.onChange",
+            "description": "Distributed data object change notification",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "distributed",
+                "P2"
+            ],
+            "family": "source.harmony.distributed",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "DistributedObject"
+            },
+            "scope": {
+                "methodName": {
+                    "mode": "equals",
+                    "value": "on"
+                }
+            },
+            "sourceKind": "callback_param",
+            "target": "arg0",
+            "callbackArgIndexes": [
+                0
+            ]
+        },
+        {
+            "id": "source.harmony.display.getDefaultDisplay",
+            "description": "Display info (device fingerprint)",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "display",
+                "P2"
+            ],
+            "family": "source.harmony.display",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "getDefaultDisplay"
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "low",
+            "category": "device_fingerprint"
+        },
+        {
+            "id": "source.harmony.unifiedData.getValue",
+            "description": "Unified data channel read",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "data",
+                "P2"
+            ],
+            "family": "source.harmony.data",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "UnifiedRecord"
+            },
+            "scope": {
+                "methodName": {
+                    "mode": "equals",
+                    "value": "getValue"
+                }
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "low",
+            "category": "cross_app_data"
+        },
+        {
+            "id": "source.harmony.nfc.onTagFound",
+            "description": "NFC tag found event",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "nfc",
+                "P2"
+            ],
+            "family": "source.harmony.nfc",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "tagFound"
+            },
+            "sourceKind": "callback_param",
+            "target": "arg0",
+            "callbackArgIndexes": [
+                0
+            ]
+        },
+        {
+            "id": "source.harmony.notification.subscribe",
+            "description": "Notification subscribe receive",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "notification",
+                "P2"
+            ],
+            "family": "source.harmony.notification",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "notification"
+            },
+            "scope": {
+                "methodName": {
+                    "mode": "equals",
+                    "value": "subscribe"
+                }
+            },
+            "sourceKind": "callback_param",
+            "target": "arg0",
+            "callbackArgIndexes": [
+                0
+            ]
+        },
+        {
+            "id": "source.harmony.camera.onPhotoAvailable",
+            "description": "Camera photo data output",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "camera",
+                "P2"
+            ],
+            "family": "source.harmony.camera",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "photoAvailable"
+            },
+            "sourceKind": "callback_param",
+            "target": "arg0",
+            "callbackArgIndexes": [
+                0
+            ]
+        },
+        {
+            "id": "source.harmony.ble.getConnectedDevices",
+            "description": "Connected BLE devices MAC list",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "bluetooth",
+                "P2"
+            ],
+            "family": "source.harmony.bluetooth",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "getConnectedBLEDevices"
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "medium",
+            "category": "device_identifier"
+        },
+        {
+            "id": "source.harmony.distributed.getLocalDeviceId",
+            "description": "Local distributed device ID",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "distributed",
+                "P2"
+            ],
+            "family": "source.harmony.distributed",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "getLocalDeviceId"
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "medium",
+            "category": "device_identifier"
+        },
+        {
+            "id": "source.harmony.distributed.getLocalDeviceName",
+            "description": "Local distributed device name",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "distributed",
+                "P2"
+            ],
+            "family": "source.harmony.distributed",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "getLocalDeviceName"
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "medium",
+            "category": "device_identifier"
+        },
+        {
+            "id": "source.harmony.distributed.getLocalDeviceNetworkId",
+            "description": "Local distributed device network ID",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "distributed",
+                "P2"
+            ],
+            "family": "source.harmony.distributed",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "getLocalDeviceNetworkId"
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "medium",
+            "category": "device_identifier"
+        },
+        {
+            "id": "source.harmony.distributed.getAvailableDeviceList",
+            "description": "Available distributed devices list",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "distributed",
+                "P2"
+            ],
+            "family": "source.harmony.distributed",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "getAvailableDeviceList"
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "medium",
+            "category": "device_identifier"
+        },
+        {
+            "id": "source.harmony.wantAgent.getWant",
+            "description": "Extract Want params from WantAgent",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "ability",
+                "P2"
+            ],
+            "family": "source.harmony.ability",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "getWant"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "wantAgent"
+                }
+            },
+            "sourceKind": "call_return",
+            "target": "result",
+            "severity": "medium",
+            "category": "intent_data"
+    }
+  ],
+  "sinks": [
+    {
+      "id": "sink.harmony.web.create.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "signature_contains",
+        "value": "Web.create"
+      },
+            "category": "webview_injection",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.webcontroller.loadUrl.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "loadUrl"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "WebController"
+        }
+      },
+            "category": "webview_injection",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.webcontroller.runJavaScript.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "runJavaScript"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "WebController"
+        }
+      },
+            "category": "webview_injection",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.hilog.info.arg3.exact",
+      "enabled": true,
+      "family": "sink.harmony.hilog.info",
+      "tier": "A",
+      "match": {
+                "kind": "signature_equals",
+        "value": "@sdk_signature_probe/taint_mock.ts: HiLog.info(number, string, string, any)"
+      },
+            "category": "information_leak",
+            "severity": "medium",
+            "target": {
+        "endpoint": "arg3"
+      }
+    },
+    {
+      "id": "sink.harmony.hilog.error.arg3.exact",
+      "enabled": true,
+      "family": "sink.harmony.hilog.error",
+      "tier": "A",
+      "match": {
+                "kind": "signature_equals",
+        "value": "@sdk_signature_probe/taint_mock.ts: HiLog.error(number, string, string, any)"
+      },
+            "category": "information_leak",
+            "severity": "medium",
+            "target": {
+        "endpoint": "arg3"
+      }
+    },
+    {
+      "id": "sink.harmony.hilog.info.arg3",
+      "enabled": true,
+      "family": "sink.harmony.hilog.info",
+      "tier": "B",
+      "match": {
+        "kind": "method_name_equals",
+                "value": "info",
+      "invokeKind": "instance",
+                "typeHint": "hilog"
+            },
+            "category": "information_leak",
+            "severity": "medium",
+            "target": {
+        "endpoint": "arg3"
+      }
+    },
+    {
+      "id": "sink.harmony.hilog.error.arg3",
+      "enabled": true,
+      "family": "sink.harmony.hilog.error",
+      "tier": "B",
+      "match": {
+        "kind": "method_name_equals",
+                "value": "error",
+      "invokeKind": "instance",
+                "typeHint": "hilog"
+            },
+            "category": "information_leak",
+            "severity": "medium",
+            "target": {
+        "endpoint": "arg3"
+      }
+    },
+    {
+      "id": "sink.harmony.hilog.info.arg3.sig",
+      "enabled": true,
+      "family": "sink.harmony.hilog.info",
+      "tier": "C",
+      "match": {
+        "kind": "signature_contains",
+        "value": "hilog.info"
+      },
+            "category": "information_leak",
+            "severity": "medium",
+            "target": {
+        "endpoint": "arg3"
+      }
+    },
+    {
+      "id": "sink.harmony.hilog.error.arg3.sig",
+      "enabled": true,
+      "family": "sink.harmony.hilog.error",
+      "tier": "C",
+      "match": {
+        "kind": "signature_contains",
+        "value": "hilog.error"
+      },
+            "category": "information_leak",
+            "severity": "medium",
+            "target": {
+        "endpoint": "arg3"
+      }
+    },
+    {
+      "id": "sink.harmony.console.log.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "signature_contains",
+        "value": "console.log"
+      },
+            "category": "information_leak",
+            "severity": "low",
+            "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.http.request.url.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "request"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "Http"
+        }
+      },
+            "category": "ssrf_or_url_injection",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.http.request.body.arg1",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "request"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "Http"
+        }
+      },
+            "category": "information_leak",
+            "severity": "medium",
+            "target": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.axios.get.url.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+                "value": "get",
+      "invokeKind": "instance",
+      "argCount": 1,
+                "typeHint": "axios"
+            },
+            "category": "ssrf_or_url_injection",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.axios.post.url.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+                "value": "post",
+      "invokeKind": "instance",
+      "argCount": 2,
+                "typeHint": "axios"
+            },
+            "category": "ssrf_or_url_injection",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.axios.post.body.arg1",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+                "value": "post",
+      "invokeKind": "instance",
+      "argCount": 2,
+                "typeHint": "axios"
+            },
+            "category": "information_leak",
+            "severity": "medium",
+            "target": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.rdb.executeSql.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "executeSql"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(RdbStore|RelationalStore)"
+        }
+      },
+            "category": "sql_injection",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.rdb.querySql.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "querySql"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(RdbStore|RelationalStore)"
+        }
+      },
+            "category": "sql_injection",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.rdb.update.arg1",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "update"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(RdbStore|RelationalStore)"
+        }
+      },
+            "category": "sql_injection",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.rdb.update.arg2",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "update"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(RdbStore|RelationalStore)"
+        }
+      },
+            "category": "sql_injection",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg2"
+      }
+    },
+    {
+      "id": "sink.harmony.rdb.execDML.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "signature_contains",
+        "value": "execDML"
+      },
+            "category": "sql_injection",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.rdb.execDQL.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "signature_contains",
+        "value": "execDQL"
+      },
+            "category": "sql_injection",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.rdb.insertSync.arg1",
+      "enabled": true,
+      "match": {
+        "kind": "signature_contains",
+        "value": "insertSync"
+      },
+            "category": "persistent_sink",
+            "severity": "medium",
+            "target": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.router.pushUrl.arg0.exact",
+      "enabled": true,
+      "family": "sink.harmony.router.pushUrl",
+      "tier": "A",
+      "match": {
+                "kind": "signature_equals",
+        "value": "@sdk_signature_probe/taint_mock.ts: Router.pushUrl(@sdk_signature_probe/taint_mock.ts: %AC0)"
+      },
+            "category": "router_dispatch",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.router.pushUrl.arg0",
+      "enabled": true,
+      "family": "sink.harmony.router.pushUrl",
+      "tier": "C",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "pushUrl"
+      },
+            "category": "router_dispatch",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.router.pushUrl.arg0.sig",
+      "enabled": true,
+      "family": "sink.harmony.router.pushUrl",
+      "tier": "B",
+      "match": {
+        "kind": "signature_contains",
+        "value": "pushUrl"
+      },
+            "category": "router_dispatch",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.preferences.putSync.arg1",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "putSync"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(Preferences|DataPreferences)"
+        }
+      },
+            "category": "sensitive_persistence",
+            "severity": "medium",
+            "target": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.preferences.put.arg1",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "put"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(Preferences|DataPreferences)"
+        }
+      },
+            "category": "sensitive_persistence",
+            "severity": "medium",
+            "target": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.globalcontext.setObject.arg1",
+      "enabled": true,
+      "match": {
+        "kind": "signature_contains",
+        "value": "GlobalContext.setObject"
+      },
+            "category": "sensitive_persistence",
+            "severity": "medium",
+            "target": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.fs.write.arg1",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "write"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(fs|File|FileIo|FileOutput|FileAccess|FileOperator)"
+        }
+      },
+            "category": "file_operation_injection",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.fs.open.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "open"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
+        }
+      },
+            "category": "file_operation_injection",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.fs.rename.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "rename"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
+        }
+      },
+            "category": "file_operation_injection",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.fs.rename.arg1",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "rename"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
+        }
+      },
+            "category": "file_operation_injection",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.fs.unlink.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "unlink"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
+        }
+      },
+            "category": "file_operation_injection",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.ability.startAbility.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "startAbility"
+      },
+            "category": "intent_injection",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.ability.startAbilityForResult.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "startAbilityForResult"
+      },
+            "category": "intent_injection",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.socket.connect.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "connect"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(socket|Socket|TCPSocket|UDPSocket)"
+        }
+      },
+            "category": "network_socket_injection",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.socket.send.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "send"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(socket|Socket|TCPSocket|UDPSocket)"
+        }
+      },
+            "category": "network_socket_injection",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.request.download.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "download"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(request|Request|Download|DownloadTask|RequestAgent)"
+        }
+      },
+            "category": "network_request_sink",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.request.upload.arg1",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "upload"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(request|Request|Upload|UploadTask|RequestAgent)"
+        }
+      },
+            "category": "network_request_sink",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.distributedkv.put.arg1",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "put"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(DistributedKVStore|distributedKVStore|KVStore|SingleKVStore)"
+        }
+      },
+            "category": "sensitive_persistence",
+            "severity": "medium",
+            "target": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.js.eval.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "eval"
+      },
+            "category": "code_injection",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.js.function_ctor.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "signature_contains",
+        "value": "Function.constructor"
+      },
+            "category": "code_injection",
+            "severity": "high",
+            "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.commonevent.publish.arg1",
+      "enabled": false,
+      "description": "Observation-only: commonEvent publish payload sink (cross-process boundary, disabled by default).",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "publish"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(commonEventManager|CommonEventManager)"
+        }
+      },
+            "category": "cross_process_observation",
+            "severity": "low",
+            "target": {
+        "endpoint": "arg1"
+      }
+        },
+        {
+            "id": "sink.harmony.sms.sendMessage",
+            "description": "SMS send (data exfiltration)",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "sms",
+                "P0"
+            ],
+            "family": "sink.harmony.sms",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "sendShortMessage"
+            },
+            "target": "arg0",
+            "severity": "critical",
+            "category": "sms_exfiltration"
+        },
+        {
+            "id": "sink.harmony.sms.sendMessage.v2",
+            "description": "SMS sendMessage (data exfiltration)",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "sms",
+                "P0"
+            ],
+            "family": "sink.harmony.sms",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "sendMessage"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "sms"
+                }
+            },
+            "target": "arg0",
+            "severity": "critical",
+            "category": "sms_exfiltration"
+        },
+        {
+            "id": "sink.harmony.rpc.sendMessageRequest",
+            "description": "IPC cross-process data send",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "rpc",
+                "P0"
+            ],
+            "family": "sink.harmony.rpc",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "sendMessageRequest"
+            },
+            "target": "arg1",
+            "severity": "critical",
+            "category": "ipc_data_leak"
+        },
+        {
+            "id": "sink.harmony.webview.loadData",
+            "description": "Load HTML data into WebView (XSS)",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "webview",
+                "P0"
+            ],
+            "family": "sink.harmony.webview",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "loadData"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "Webview"
+                }
+            },
+            "target": "arg0",
+            "severity": "critical",
+            "category": "webview_injection"
+        },
+        {
+            "id": "sink.harmony.webview.registerJavaScriptProxy",
+            "description": "Register JS bridge object to WebView",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "webview",
+                "P0"
+            ],
+            "family": "sink.harmony.webview",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "registerJavaScriptProxy"
+            },
+            "target": "arg0",
+            "severity": "critical",
+            "category": "webview_injection"
+        },
+        {
+            "id": "sink.harmony.hilog.debug",
+            "description": "Debug-level log leak",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "log",
+                "P1"
+            ],
+            "family": "sink.harmony.log",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "hilog.debug"
+            },
+            "target": "arg3",
+            "severity": "medium",
+            "category": "information_leak"
+        },
+        {
+            "id": "sink.harmony.hilog.warn",
+            "description": "Warn-level log leak",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "log",
+                "P1"
+            ],
+            "family": "sink.harmony.log",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "hilog.warn"
+            },
+            "target": "arg3",
+            "severity": "medium",
+            "category": "information_leak"
+        },
+        {
+            "id": "sink.harmony.dataShare.insert",
+            "description": "DataShare cross-app insert",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "datashare",
+                "P1"
+            ],
+            "family": "sink.harmony.datashare",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "insert"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "DataShareHelper"
+                }
+            },
+            "target": "arg1",
+            "severity": "high",
+            "category": "cross_app_data"
+        },
+        {
+            "id": "sink.harmony.dataShare.update",
+            "description": "DataShare cross-app update",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "datashare",
+                "P1"
+            ],
+            "family": "sink.harmony.datashare",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "update"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "DataShareHelper"
+                }
+            },
+            "target": "arg2",
+            "severity": "high",
+            "category": "cross_app_data"
+        },
+        {
+            "id": "sink.harmony.dataShare.batchInsert",
+            "description": "DataShare cross-app batch insert",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "datashare",
+                "P1"
+            ],
+            "family": "sink.harmony.datashare",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "batchInsert"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "DataShareHelper"
+                }
+            },
+            "target": "arg1",
+            "severity": "high",
+            "category": "cross_app_data"
+        },
+        {
+            "id": "sink.harmony.rdb.execute",
+            "description": "RDB execute() SQL injection",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "database",
+                "P1"
+            ],
+            "family": "sink.harmony.database",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "execute"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "RdbStore"
+                }
+            },
+            "target": "arg0",
+            "severity": "high",
+            "category": "sql_injection"
+        },
+        {
+            "id": "sink.harmony.rdb.insert",
+            "description": "RDB standard insert",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "database",
+                "P1"
+            ],
+            "family": "sink.harmony.database",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "insert"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "RdbStore"
+                }
+            },
+            "target": "arg1",
+            "severity": "high",
+            "category": "persistent_sink"
+        },
+        {
+            "id": "sink.harmony.rdb.batchInsert",
+            "description": "RDB batch insert",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "database",
+                "P1"
+            ],
+            "family": "sink.harmony.database",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "batchInsert"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "RdbStore"
+                }
+            },
+            "target": "arg1",
+            "severity": "high",
+            "category": "persistent_sink"
+        },
+        {
+            "id": "sink.harmony.bt.sppWrite",
+            "description": "Bluetooth SPP data write",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "bluetooth",
+                "P1"
+            ],
+            "family": "sink.harmony.bluetooth",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "sppWrite"
+            },
+            "target": "arg1",
+            "severity": "high",
+            "category": "bluetooth_exfiltration"
+        },
+        {
+            "id": "sink.harmony.bt.sppWriteAsync",
+            "description": "Bluetooth SPP async data write",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "bluetooth",
+                "P1"
+            ],
+            "family": "sink.harmony.bluetooth",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "sppWriteAsync"
+            },
+            "target": "arg1",
+            "severity": "high",
+            "category": "bluetooth_exfiltration"
+        },
+        {
+            "id": "sink.harmony.notification.publish",
+            "description": "Publish notification with data",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "notification",
+                "P1"
+            ],
+            "family": "sink.harmony.notification",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "publish"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "notification"
+                }
+            },
+            "target": "arg0",
+            "severity": "medium",
+            "category": "information_leak"
+        },
+        {
+            "id": "sink.harmony.pasteboard.setData",
+            "description": "Write to clipboard",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "pasteboard",
+                "P1"
+            ],
+            "family": "sink.harmony.pasteboard",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "setData"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "Pasteboard"
+                }
+            },
+            "target": "arg0",
+            "severity": "high",
+            "category": "sensitive_persistence"
+        },
+        {
+            "id": "sink.harmony.pasteboard.setPasteData",
+            "description": "Write to clipboard (legacy API)",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "pasteboard",
+                "P1"
+            ],
+            "family": "sink.harmony.pasteboard",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "setPasteData"
+            },
+            "target": "arg0",
+            "severity": "high",
+            "category": "sensitive_persistence"
+        },
+        {
+            "id": "sink.harmony.navPathStack.pushPath",
+            "description": "Navigation pushPath parameter injection",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "navigation",
+                "P1"
+            ],
+            "family": "sink.harmony.navigation",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "pushPath"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "NavPathStack"
+                }
+            },
+            "target": "arg0",
+            "severity": "medium",
+            "category": "router_dispatch"
+        },
+        {
+            "id": "sink.harmony.navPathStack.pushPathByName",
+            "description": "Navigation pushPathByName injection",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "navigation",
+                "P1"
+            ],
+            "family": "sink.harmony.navigation",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "pushPathByName"
+            },
+            "target": "arg0",
+            "severity": "medium",
+            "category": "router_dispatch"
+        },
+        {
+            "id": "sink.harmony.navPathStack.replacePath",
+            "description": "Navigation replacePath injection",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "navigation",
+                "P1"
+            ],
+            "family": "sink.harmony.navigation",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "replacePath"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "NavPathStack"
+                }
+            },
+            "target": "arg0",
+            "severity": "medium",
+            "category": "router_dispatch"
+        },
+        {
+            "id": "sink.harmony.telephony.dial",
+            "description": "Phone dial (number injection)",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "telephony",
+                "P1"
+            ],
+            "family": "sink.harmony.telephony",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "dial"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "call"
+                }
+            },
+            "target": "arg0",
+            "severity": "high",
+            "category": "telephony_abuse"
+        },
+        {
+            "id": "sink.harmony.telephony.dialCall",
+            "description": "Phone dialCall (number injection)",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "telephony",
+                "P1"
+            ],
+            "family": "sink.harmony.telephony",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "dialCall"
+            },
+            "target": "arg0",
+            "severity": "high",
+            "category": "telephony_abuse"
+        },
+        {
+            "id": "sink.harmony.telephony.makeCall",
+            "description": "Phone makeCall (number injection)",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "telephony",
+                "P1"
+            ],
+            "family": "sink.harmony.telephony",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "makeCall"
+            },
+            "target": "arg0",
+            "severity": "high",
+            "category": "telephony_abuse"
+        },
+        {
+            "id": "sink.harmony.fs.writeSync",
+            "description": "File sync write (complement async write)",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "file",
+                "P1"
+            ],
+            "family": "sink.harmony.file",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "writeSync"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "fs"
+                }
+            },
+            "target": "arg1",
+            "severity": "medium",
+            "category": "file_operation_injection"
+        },
+        {
+            "id": "sink.harmony.ble.writeCharacteristic",
+            "description": "BLE characteristic value write",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "bluetooth",
+                "P1"
+            ],
+            "family": "sink.harmony.bluetooth",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "writeCharacteristicValue"
+            },
+            "target": "arg0",
+            "severity": "high",
+            "category": "bluetooth_exfiltration"
+        },
+        {
+            "id": "sink.harmony.ble.writeDescriptor",
+            "description": "BLE descriptor value write",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "bluetooth",
+                "P1"
+            ],
+            "family": "sink.harmony.bluetooth",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "writeDescriptorValue"
+            },
+            "target": "arg0",
+            "severity": "high",
+            "category": "bluetooth_exfiltration"
+        },
+        {
+            "id": "sink.harmony.ble.notifyCharacteristic",
+            "description": "BLE server push characteristic data",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "bluetooth",
+                "P1"
+            ],
+            "family": "sink.harmony.bluetooth",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "notifyCharacteristicChanged"
+            },
+            "target": "arg1",
+            "severity": "high",
+            "category": "bluetooth_exfiltration"
+        },
+        {
+            "id": "sink.harmony.ability.startServiceExtension",
+            "description": "Start service extension with intent",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "ability",
+                "P1"
+            ],
+            "family": "sink.harmony.ability",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "startServiceExtensionAbility"
+            },
+            "target": "arg0",
+            "severity": "high",
+            "category": "intent_injection"
+        },
+        {
+            "id": "sink.harmony.wantAgent.trigger",
+            "description": "Trigger WantAgent with data",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "ability",
+                "P1"
+            ],
+            "family": "sink.harmony.ability",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "trigger"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "wantAgent"
+                }
+            },
+            "target": "arg1",
+            "severity": "high",
+            "category": "intent_injection"
+        },
+        {
+            "id": "sink.harmony.router.replaceUrl",
+            "description": "Router replace URL (similar to pushUrl)",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "router",
+                "P2"
+            ],
+            "family": "sink.harmony.router",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "replaceUrl"
+            },
+            "target": "arg0",
+            "severity": "medium",
+            "category": "router_dispatch"
+        },
+        {
+            "id": "sink.harmony.dataShare.publish",
+            "description": "DataShare publish data",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "datashare",
+                "P2"
+            ],
+            "family": "sink.harmony.datashare",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "publish"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "DataShareHelper"
+                }
+            },
+            "target": "arg0",
+            "severity": "medium",
+            "category": "cross_app_data"
+        },
+        {
+            "id": "sink.harmony.rdb.transaction.insert",
+            "description": "RDB transaction insert",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "database",
+                "P2"
+            ],
+            "family": "sink.harmony.database",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "insert"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "Transaction"
+                }
+            },
+            "target": "arg1",
+            "severity": "medium",
+            "category": "persistent_sink"
+        },
+        {
+            "id": "sink.harmony.rdb.transaction.update",
+            "description": "RDB transaction update",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "database",
+                "P2"
+            ],
+            "family": "sink.harmony.database",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "update"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "Transaction"
+                }
+            },
+            "target": "arg1",
+            "severity": "medium",
+            "category": "persistent_sink"
+        },
+        {
+            "id": "sink.harmony.rdb.transaction.execute",
+            "description": "RDB transaction execute",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "database",
+                "P2"
+            ],
+            "family": "sink.harmony.database",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "execute"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "Transaction"
+                }
+            },
+            "target": "arg0",
+            "severity": "medium",
+            "category": "sql_injection"
+        },
+        {
+            "id": "sink.harmony.fs.copyFile",
+            "description": "File copy path injection",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "file",
+                "P2"
+            ],
+            "family": "sink.harmony.file",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "copyFile"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "fs"
+                }
+            },
+            "target": "arg1",
+            "severity": "low",
+            "category": "file_operation_injection"
+        },
+        {
+            "id": "sink.harmony.fs.moveFile",
+            "description": "File move path injection",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "file",
+                "P2"
+            ],
+            "family": "sink.harmony.file",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "moveFile"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "fs"
+                }
+            },
+            "target": "arg1",
+            "severity": "low",
+            "category": "file_operation_injection"
+        },
+        {
+            "id": "sink.harmony.contact.addContact",
+            "description": "Write contact (sensitive persistence)",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "contact",
+                "P2"
+            ],
+            "family": "sink.harmony.contact",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "addContact"
+            },
+            "target": "arg0",
+            "severity": "medium",
+            "category": "sensitive_persistence"
+        },
+        {
+            "id": "sink.harmony.contact.updateContact",
+            "description": "Update contact (sensitive persistence)",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "contact",
+                "P2"
+            ],
+            "family": "sink.harmony.contact",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "updateContact"
+            },
+            "target": "arg0",
+            "severity": "medium",
+            "category": "sensitive_persistence"
+        },
+        {
+            "id": "sink.harmony.calendar.addEvent",
+            "description": "Write calendar event (privacy persistence)",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "calendar",
+                "P2"
+            ],
+            "family": "sink.harmony.calendar",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "addEvent"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "Calendar"
+                }
+            },
+            "target": "arg0",
+            "severity": "low",
+            "category": "sensitive_persistence"
+        },
+        {
+            "id": "sink.harmony.calendar.addEvents",
+            "description": "Write calendar events batch",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "calendar",
+                "P2"
+            ],
+            "family": "sink.harmony.calendar",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "addEvents"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "Calendar"
+                }
+            },
+            "target": "arg0",
+            "severity": "low",
+            "category": "sensitive_persistence"
+        },
+        {
+            "id": "sink.harmony.hiAppEvent.write",
+            "description": "App event logging with sensitive data",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "logging",
+                "P2"
+            ],
+            "family": "sink.harmony.logging",
+            "tier": "B",
+            "match": {
+                "kind": "signature_contains",
+                "value": "hiAppEvent"
+            },
+            "scope": {
+                "methodName": {
+                    "mode": "equals",
+                    "value": "write"
+                }
+            },
+            "target": "arg0",
+            "severity": "low",
+            "category": "information_leak"
+        },
+        {
+            "id": "sink.harmony.print.print",
+            "description": "Print file path leak",
+            "tags": [
+                "harmony",
+                "phase7118",
+                "print",
+                "P2"
+            ],
+            "family": "sink.harmony.print",
+            "tier": "B",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "print"
+            },
+            "scope": {
+                "className": {
+                    "mode": "contains",
+                    "value": "print"
+                }
+            },
+            "target": "arg0",
+            "severity": "low",
+            "category": "information_leak"
+        }
+    ],
+  "transfers": [
+    {
+      "id": "transfer.harmony.globalcontext.setObject.arg1_to_base",
+      "description": "GlobalContext.setObject(key, value): value taints context base object.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "GlobalContext.setObject"
+      },
+      "from": "arg1",
+      "to": "base"
+    },
+    {
+      "id": "transfer.harmony.globalcontext.getObject.base_to_result",
+      "description": "GlobalContext.getObject(key): context base taints read result.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "GlobalContext.getObject"
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.json.stringify.arg0_to_result.exact",
+            "description": "Exact probe signature for stringify (Tier A).",
+      "family": "transfer.harmony.json.stringify",
+      "tier": "A",
+      "match": {
+                "kind": "signature_equals",
+                "value": "@sdk_signature_probe/taint_mock.ts: JsonCodec.stringify(any)",
+      "invokeKind": "instance",
+                "argCount": 1
+            },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.json.parse.arg0_to_result.exact",
+            "description": "Exact probe signature for parse (Tier A).",
+      "family": "transfer.harmony.json.parse",
+      "tier": "A",
+      "match": {
+                "kind": "signature_equals",
+                "value": "@sdk_signature_probe/taint_mock.ts: JsonCodec.parse(string)",
+      "invokeKind": "instance",
+                "argCount": 1
+            },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.json.stringify.arg0_to_result",
+            "description": "JSON.stringify(x): x taints serialized string.",
+      "family": "transfer.harmony.json.stringify",
+      "tier": "B",
+      "match": {
+        "kind": "method_name_equals",
+                "value": "stringify",
+      "invokeKind": "instance",
+      "argCount": 1,
+                "typeHint": "json"
+            },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.json.parse.arg0_to_result",
+            "description": "JSON.parse(str): input string taints parsed value.",
+      "family": "transfer.harmony.json.parse",
+      "tier": "B",
+      "match": {
+        "kind": "method_name_equals",
+                "value": "parse",
+      "invokeKind": "instance",
+      "argCount": 1,
+                "typeHint": "json"
+            },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.json.stringify.arg0_to_result.sig",
+            "description": "Fallback: JSON.stringify(x) via signature match.",
+      "family": "transfer.harmony.json.stringify",
+      "tier": "C",
+      "match": {
+        "kind": "signature_contains",
+        "value": "JsonCodec.stringify"
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.json.parse.arg0_to_result.sig",
+            "description": "Fallback: JSON.parse(str) via signature match.",
+      "family": "transfer.harmony.json.parse",
+      "tier": "C",
+      "match": {
+        "kind": "signature_contains",
+        "value": "JsonCodec.parse"
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.string.concat.arg0_to_result",
+      "description": "String.concat(arg): argument taints concatenation result.",
+      "match": {
+        "kind": "method_name_equals",
+                "value": "concat",
+                "invokeKind": "instance"
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.string.concat.base_to_result",
+      "description": "String.concat(arg): receiver string taints concatenation result.",
+      "match": {
+        "kind": "method_name_equals",
+                "value": "concat",
+                "invokeKind": "instance"
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.string.pure_transform.base_to_result",
+      "description": "Pure String transforms conservatively taint their result from the receiver string.",
+      "match": {
+        "kind": "method_name_regex",
+                "value": "^(toString|toLocaleString|valueOf|slice|substring|substr|trim|trimStart|trimEnd|trimLeft|trimRight|toUpperCase|toLowerCase|repeat|charAt|normalize|toLocaleLowerCase|toLocaleUpperCase)$",
+                "invokeKind": "instance"
+            },
+            "from": "base",
+            "to": "result"
+        },
+        {
+            "id": "transfer.harmony.string.at.base_to_result",
+            "description": "String.at(index): receiver string taints indexed result.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "at",
+      "invokeKind": "instance",
+                "argCount": 1,
+                "typeHint": "string"
+            },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.string.replace.base_to_result",
+      "description": "String.replace(search, replacement): receiver string taints replacement result.",
+      "match": {
+        "kind": "method_name_equals",
+                "value": "replace",
+                "invokeKind": "instance"
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.string.replace.arg1_to_result",
+      "description": "String.replace(search, replacement): replacement text taints replacement result.",
+      "match": {
+        "kind": "method_name_equals",
+                "value": "replace",
+                "invokeKind": "instance"
+            },
+            "from": "arg1",
+            "to": "result"
+        },
+        {
+            "id": "transfer.harmony.string.replaceAll.base_to_result",
+            "description": "String.replaceAll(search, replacement): receiver string taints replacement result.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "replaceAll",
+                "invokeKind": "instance"
+            },
+            "from": "base",
+            "to": "result"
+        },
+        {
+            "id": "transfer.harmony.string.replaceAll.arg1_to_result",
+            "description": "String.replaceAll(search, replacement): replacement text taints replacement result.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "replaceAll",
+                "invokeKind": "instance"
+            },
+            "from": "arg1",
+            "to": "result"
+        },
+        {
+            "id": "transfer.harmony.string.match.base_to_result",
+            "description": "String.match(regexp): receiver string taints match result.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "match",
+      "invokeKind": "instance",
+                "argCount": 1
+            },
+            "from": "base",
+            "to": "result"
+        },
+        {
+            "id": "transfer.harmony.string.matchAll.base_to_result",
+            "description": "String.matchAll(regexp): receiver string taints match iterator result.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "matchAll",
+                "invokeKind": "instance",
+                "argCount": 1
+            },
+            "from": "base",
+            "to": "result"
+        },
+        {
+            "id": "transfer.harmony.string.raw.arg0_to_result",
+            "description": "String.raw(template, ...subs): template taints raw string result.",
+            "match": {
+                "kind": "signature_contains",
+                "value": "String.raw",
+                "invokeKind": "static"
+            },
+            "from": "arg0",
+            "to": "result"
+        },
+        {
+            "id": "transfer.harmony.string.raw.arg1_to_result",
+            "description": "String.raw(template, ...subs): first substitution taints raw string result.",
+            "match": {
+                "kind": "signature_contains",
+                "value": "String.raw",
+                "invokeKind": "static"
+            },
+      "from": "arg1",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.string.padding.base_to_result",
+      "description": "String pad transforms conservatively taint their result from the receiver string.",
+      "match": {
+        "kind": "method_name_regex",
+                "value": "^(padStart|padEnd)$",
+                "invokeKind": "instance"
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.string.padding.arg1_to_result",
+      "description": "String pad transforms propagate taint from the pad string to the result.",
+      "match": {
+        "kind": "method_name_regex",
+                "value": "^(padStart|padEnd)$",
+                "invokeKind": "instance"
+      },
+      "from": "arg1",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.string.split.base_to_result",
+      "description": "String.split(sep): conservatively taint resulting array from the receiver string.",
+      "match": {
+        "kind": "method_name_equals",
+                "value": "split",
+                "invokeKind": "instance"
+            },
+            "from": "base",
+            "to": "result"
+        },
+        {
+            "id": "transfer.harmony.array.join.base_to_result",
+            "description": "Array.join(sep): array elements conservatively taint joined string result.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "join",
+                "invokeKind": "instance"
+            },
+            "from": "base",
+            "to": "result"
+        },
+        {
+            "id": "transfer.harmony.object.assign.arg1_to_arg0",
+            "description": "Object.assign(target, source): source taints target object.",
+            "match": {
+                "kind": "signature_contains",
+                "value": "Object.assign",
+                "invokeKind": "static"
+            },
+            "from": "arg1",
+            "to": "arg0"
+        },
+        {
+            "id": "transfer.harmony.object.assign.arg1_to_result",
+            "description": "Object.assign(target, source): source taints returned object.",
+            "match": {
+                "kind": "signature_contains",
+                "value": "Object.assign",
+                "invokeKind": "static"
+            },
+            "from": "arg1",
+            "to": "result"
+        },
+        {
+            "id": "transfer.harmony.object.keys.arg0_to_result",
+            "description": "Object.keys(obj): object key content taints returned key array.",
+            "match": {
+                "kind": "signature_contains",
+                "value": "Object.keys",
+                "invokeKind": "static",
+                "argCount": 1
+            },
+            "from": "arg0",
+            "to": "result"
+        },
+        {
+            "id": "transfer.harmony.object.values.arg0_to_result",
+            "description": "Object.values(obj): object value content taints returned value array.",
+            "match": {
+                "kind": "signature_contains",
+                "value": "Object.values",
+                "invokeKind": "static",
+                "argCount": 1
+            },
+            "from": "arg0",
+            "to": "result"
+        },
+        {
+            "id": "transfer.harmony.object.entries.arg0_to_result",
+            "description": "Object.entries(obj): object value content taints returned entry array.",
+            "match": {
+                "kind": "signature_contains",
+                "value": "Object.entries",
+                "invokeKind": "static",
+                "argCount": 1
+            },
+            "from": "arg0",
+            "to": "result"
+        },
+        {
+            "id": "transfer.harmony.object.getOwnPropertyDescriptors.arg0_to_result",
+            "description": "Object.getOwnPropertyDescriptors(obj): object value content taints descriptor result.",
+            "match": {
+                "kind": "signature_contains",
+                "value": "Object.getOwnPropertyDescriptors",
+                "invokeKind": "static",
+                "argCount": 1
+            },
+            "from": "arg0",
+            "to": "result"
+        },
+        {
+            "id": "transfer.harmony.reflect.set.arg2_to_arg0",
+            "description": "Reflect.set(target, key, value): value taints target object.",
+            "match": {
+                "kind": "signature_contains",
+                "value": "Reflect.set",
+                "invokeKind": "static",
+                "argCount": 3
+            },
+            "from": "arg2",
+            "to": "arg0"
+        },
+        {
+            "id": "transfer.harmony.weakref.deref.base_to_result",
+            "description": "WeakRef.deref(): wrapped object taint flows to dereferenced result.",
+            "match": {
+                "kind": "signature_contains",
+                "value": "WeakRef.deref",
+      "invokeKind": "instance",
+                "argCount": 0
+            },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.uri.encodeURI.arg0_to_result",
+      "description": "encodeURI(x): input string taints encoded result.",
+      "match": {
+        "kind": "method_name_equals",
+                "value": "encodeURI",
+      "invokeKind": "static",
+                "argCount": 1
+            },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.uri.decodeURI.arg0_to_result",
+      "description": "decodeURI(x): input string taints decoded result.",
+      "match": {
+        "kind": "method_name_equals",
+                "value": "decodeURI",
+      "invokeKind": "static",
+                "argCount": 1
+            },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.uri.encodeURIComponent.arg0_to_result",
+      "description": "encodeURIComponent(x): input string taints encoded component result.",
+      "match": {
+        "kind": "method_name_equals",
+                "value": "encodeURIComponent",
+      "invokeKind": "static",
+                "argCount": 1
+            },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.uri.decodeURIComponent.arg0_to_result",
+      "description": "decodeURIComponent(x): input string taints decoded component result.",
+      "match": {
+        "kind": "method_name_equals",
+                "value": "decodeURIComponent",
+                "invokeKind": "static",
+                "argCount": 1
+            },
+            "from": "arg0",
+            "to": "result"
+        },
+        {
+            "id": "transfer.harmony.uri.escape.arg0_to_result",
+            "description": "escape(x): input string taints escaped result.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "escape",
+      "invokeKind": "static",
+                "argCount": 1
+            },
+            "from": "arg0",
+            "to": "result"
+        },
+        {
+            "id": "transfer.harmony.uri.unescape.arg0_to_result",
+            "description": "unescape(x): input string taints unescaped result.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "unescape",
+                "invokeKind": "static",
+                "argCount": 1
+            },
+            "from": "arg0",
+            "to": "result"
+        },
+        {
+            "id": "transfer.builtin.atob.arg0_to_result",
+            "description": "atob(encoded): Base64-encoded string taints decoded result.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "atob",
+                "invokeKind": "static"
+            },
+            "from": "arg0",
+            "to": "result"
+        },
+        {
+            "id": "transfer.builtin.btoa.arg0_to_result",
+            "description": "btoa(data): input string taints Base64-encoded result.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "btoa",
+                "invokeKind": "static"
+            },
+            "from": "arg0",
+            "to": "result"
+        },
+        {
+            "id": "transfer.builtin.array.sort.base_to_result",
+            "description": "Array.sort(): sorted array (same reference) preserves taint.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "sort",
+                "invokeKind": "instance"
+            },
+            "from": "base",
+            "to": "result"
+        },
+        {
+            "id": "transfer.builtin.array.reverse.base_to_result",
+            "description": "Array.reverse(): reversed array (same reference) preserves taint.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "reverse",
+                "invokeKind": "instance"
+            },
+            "from": "base",
+            "to": "result"
+        },
+        {
+            "id": "transfer.builtin.array.fill.arg0_to_base",
+            "description": "Array.fill(value): fill value taints array base.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "fill",
+                "invokeKind": "instance"
+            },
+            "from": "arg0",
+            "to": "base"
+        },
+        {
+            "id": "transfer.builtin.array.fill.base_to_result",
+            "description": "Array.fill(value): returns same array reference.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "fill",
+                "invokeKind": "instance"
+            },
+            "from": "base",
+            "to": "result"
+        },
+        {
+            "id": "transfer.builtin.array.copyWithin.base_to_result",
+            "description": "Array.copyWithin(): returns same array reference preserving taint.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "copyWithin",
+                "invokeKind": "instance"
+            },
+            "from": "base",
+            "to": "result"
+        },
+        {
+            "id": "transfer.builtin.object.freeze.arg0_to_result",
+            "description": "Object.freeze(obj): returns same frozen object.",
+            "match": {
+                "kind": "signature_contains",
+                "value": "Object.freeze",
+                "invokeKind": "static"
+            },
+            "from": "arg0",
+            "to": "result"
+        },
+        {
+            "id": "transfer.builtin.object.seal.arg0_to_result",
+            "description": "Object.seal(obj): returns same sealed object.",
+            "match": {
+                "kind": "signature_contains",
+                "value": "Object.seal",
+                "invokeKind": "static"
+            },
+            "from": "arg0",
+            "to": "result"
+        },
+        {
+            "id": "transfer.builtin.object.getOwnPropertyNames.arg0_to_result",
+            "description": "Object.getOwnPropertyNames(obj): object property names taint result array.",
+            "match": {
+                "kind": "signature_contains",
+                "value": "Object.getOwnPropertyNames",
+                "invokeKind": "static"
+            },
+            "from": "arg0",
+            "to": "result"
+        },
+        {
+            "id": "transfer.builtin.object.preventExtensions.arg0_to_result",
+            "description": "Object.preventExtensions(obj): returns same object reference.",
+            "match": {
+                "kind": "signature_contains",
+                "value": "Object.preventExtensions",
+                "invokeKind": "static"
+            },
+            "from": "arg0",
+            "to": "result"
+        },
+        {
+            "id": "transfer.builtin.object.create.arg0_to_result",
+            "description": "Object.create(proto): prototype properties accessible on created object.",
+            "match": {
+                "kind": "signature_contains",
+                "value": "Object.create",
+                "invokeKind": "static"
+            },
+            "from": "arg0",
+            "to": "result"
+        },
+        {
+            "id": "transfer.builtin.object.create.arg1_to_result",
+            "description": "Object.create(proto, descriptors): descriptor values taint created object.",
+            "match": {
+                "kind": "signature_contains",
+                "value": "Object.create",
+                "invokeKind": "static",
+                "argCount": 2
+            },
+            "from": "arg1",
+            "to": "result"
+        },
+        {
+            "id": "transfer.builtin.object.defineProperty.arg2_to_arg0",
+            "description": "Object.defineProperty(obj, prop, descriptor): descriptor value taints target.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "defineProperty",
+                "invokeKind": "static",
+                "argCount": 3
+            },
+            "from": "arg2",
+            "to": "arg0"
+        },
+        {
+            "id": "transfer.builtin.object.defineProperty.arg0_to_result",
+            "description": "Object.defineProperty(obj, prop, descriptor): returns same object.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "defineProperty",
+                "invokeKind": "static",
+                "argCount": 3
+            },
+            "from": "arg0",
+            "to": "result"
+        },
+        {
+            "id": "transfer.builtin.object.defineProperties.arg1_to_arg0",
+            "description": "Object.defineProperties(obj, props): descriptor values taint target.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "defineProperties",
+                "invokeKind": "static",
+                "argCount": 2
+            },
+            "from": "arg1",
+            "to": "arg0"
+        },
+        {
+            "id": "transfer.builtin.object.defineProperties.arg0_to_result",
+            "description": "Object.defineProperties(obj, props): returns same object.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "defineProperties",
+                "invokeKind": "static",
+                "argCount": 2
+            },
+            "from": "arg0",
+            "to": "result"
+        },
+        {
+            "id": "transfer.builtin.regexp.exec.arg0_to_result",
+            "description": "RegExp.exec(str): matched string content taints result array.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "exec",
+                "invokeKind": "instance",
+      "argCount": 1,
+                "typeHint": "regexp"
+            },
+      "from": "arg0",
+      "to": "result"
+    },
+        {
+            "id": "transfer.builtin.reflect.ownKeys.arg0_to_result",
+            "description": "Reflect.ownKeys(obj): object property keys taint result array.",
+            "match": {
+                "kind": "signature_contains",
+                "value": "Reflect.ownKeys",
+                "invokeKind": "static"
+            },
+            "from": "arg0",
+            "to": "result"
+        },
+        {
+            "id": "transfer.builtin.reflect.apply.arg2_to_result",
+            "description": "Reflect.apply(target, thisArg, args): args array taints function result.",
+            "match": {
+                "kind": "signature_contains",
+                "value": "Reflect.apply",
+                "invokeKind": "static"
+            },
+            "from": "arg2",
+            "to": "result"
+        },
+        {
+            "id": "transfer.builtin.reflect.construct.arg1_to_result",
+            "description": "Reflect.construct(target, args): args array taints constructed object.",
+            "match": {
+                "kind": "signature_contains",
+                "value": "Reflect.construct",
+                "invokeKind": "static"
+            },
+            "from": "arg1",
+            "to": "result"
+        },
+        {
+            "id": "transfer.builtin.reflect.getOwnPropertyDescriptor.arg0_to_result",
+            "description": "Reflect.getOwnPropertyDescriptor(obj, prop): object content taints descriptor.",
+            "match": {
+                "kind": "signature_contains",
+                "value": "Reflect.getOwnPropertyDescriptor",
+                "invokeKind": "static"
+            },
+            "from": "arg0",
+            "to": "result"
+        },
+        {
+            "id": "transfer.builtin.typedarray.subarray.base_to_result",
+            "description": "TypedArray.subarray(): buffer view preserves taint.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "subarray",
+                "invokeKind": "instance"
+            },
+            "from": "base",
+            "to": "result"
+        },
+        {
+            "id": "transfer.builtin.typedarray.set.arg0_to_base",
+            "description": "TypedArray.set(source): source array content taints target typed array.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "set",
+                "invokeKind": "instance",
+                "typeHint": "array"
+            },
+            "from": "arg0",
+            "to": "base"
+        },
+    {
+      "id": "transfer.harmony.http.request.arg1_to_result",
+      "description": "Http.request(url, data): request payload may influence response result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "request"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "Http"
+        }
+      },
+      "from": "arg1",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.axios.get.arg0_to_result",
+      "description": "axios.get(url): url taints response result.",
+      "match": {
+        "kind": "method_name_equals",
+                "value": "get",
+      "invokeKind": "instance",
+      "argCount": 1,
+                "typeHint": "axios"
+            },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.axios.post.arg1_to_result",
+      "description": "axios.post(url, data): body taints response result.",
+      "match": {
+        "kind": "method_name_equals",
+                "value": "post",
+      "invokeKind": "instance",
+      "argCount": 2,
+                "typeHint": "axios"
+            },
+      "from": "arg1",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.preferences.put.arg1_to_base",
+      "description": "Preferences.put(key, value): value taints preferences base.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "put"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(Preferences|DataPreferences)"
+        }
+      },
+      "from": "arg1",
+      "to": "base"
+    },
+    {
+      "id": "transfer.harmony.preferences.putSync.arg1_to_base",
+      "description": "Preferences.putSync(key, value): value taints preferences base.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "putSync"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(Preferences|DataPreferences)"
+        }
+      },
+      "from": "arg1",
+      "to": "base"
+    },
+    {
+      "id": "transfer.harmony.preferences.get.base_to_result",
+      "description": "Preferences.get(key): preferences base taints read result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "get"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(Preferences|DataPreferences)"
+        }
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.preferences.getSync.base_to_result",
+      "description": "Preferences.getSync(key): preferences base taints read result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "getSync"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(Preferences|DataPreferences)"
+        }
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.rdb.insert.arg1_to_base",
+      "description": "RdbStore.insert(table, row): row taints store base.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "insert"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(RdbStore|RelationalStore)"
+        }
+      },
+      "from": "arg1",
+      "to": "base"
+    },
+    {
+      "id": "transfer.harmony.rdb.query.base_to_result",
+      "description": "RdbStore.query(sql): store base taints query result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "query"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(RdbStore|RelationalStore)"
+        }
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.rdb.querySql.arg0_to_result",
+      "description": "querySql(sql): sql string taints query result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "querySql"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(RdbStore|RelationalStore)"
+        }
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.distributedkv.put.arg1_to_base",
+      "description": "DistributedKVStore.put(key, value): value taints kv-store base.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "put"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(DistributedKVStore|distributedKVStore|KVStore|SingleKVStore)"
+        }
+      },
+      "from": "arg1",
+      "to": "base"
+    },
+    {
+      "id": "transfer.harmony.distributedkv.get.base_to_result",
+      "description": "DistributedKVStore.get(key): kv-store base taints read result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "get"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(DistributedKVStore|distributedKVStore|KVStore|SingleKVStore)"
+        }
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.request.download.arg0_to_result",
+      "description": "@ohos.request download(url): url taints download result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "download"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(request|Request|Download|DownloadTask|RequestAgent)"
+        }
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.request.upload.arg1_to_result",
+      "description": "@ohos.request upload(url, body): body taints upload result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "upload"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(request|Request|Upload|UploadTask|RequestAgent)"
+        }
+      },
+      "from": "arg1",
+      "to": "result"
+    }
+  ]
+}

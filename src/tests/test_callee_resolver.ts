@@ -1,9 +1,14 @@
-import { ArkParameterRef } from "../../arkanalyzer/out/src/core/base/Ref";
+import { ArkParameterRef, ArkInstanceFieldRef } from "../../arkanalyzer/out/src/core/base/Ref";
+import { ArkAssignStmt, ArkInvokeStmt } from "../../arkanalyzer/out/src/core/base/Stmt";
+import { ArkInstanceInvokeExpr } from "../../arkanalyzer/out/src/core/base/Expr";
+import { Local } from "../../arkanalyzer/out/src/core/base/Local";
 import { UnknownType } from "../../arkanalyzer/out/src/core/base/Type";
+import { ClassSignature, FieldSignature, FileSignature, MethodSignature, MethodSubSignature } from "../../arkanalyzer/out/src/core/model/ArkSignature";
 import {
+    analyzeInvokedParams,
     mapInvokeArgsToParamAssigns,
     resolveCalleeCandidates,
-} from "../core/engine/CalleeResolver";
+} from "../core/substrate/queries/CalleeResolver";
 
 function assert(condition: boolean, message: string): void {
     if (!condition) {
@@ -109,10 +114,50 @@ function testDirectCallableTypeFallback(): void {
     assert(candidates[0].reason === "type_fallback", `type fallback reason mismatch: ${candidates[0].reason}`);
 }
 
+function testInvokedParamsTracksFieldRelay(): void {
+    const fileSig = new FileSignature("proj", "demo.ts");
+    const classSig = new ClassSignature("EmitterLike", fileSig);
+    const fieldSig = new FieldSignature("slot", classSig, UnknownType.getInstance(), false);
+    const callSubSig = new MethodSubSignature("callableInvoke", [], UnknownType.getInstance(), false);
+    const callSig = new MethodSignature(classSig, callSubSig);
+
+    const thisLocal = new Local("this");
+    const cbLocal = new Local("%AM_cb", { toString: () => "Function" } as any);
+    const cbParamRef = new ArkParameterRef(0, UnknownType.getInstance());
+    const paramStmt = new ArkAssignStmt(cbLocal, cbParamRef);
+    cbLocal.setDeclaringStmt(paramStmt);
+
+    const storeStmt = new ArkAssignStmt(new ArkInstanceFieldRef(thisLocal, fieldSig), cbLocal);
+
+    const loadedLocal = new Local("%AM_loaded", { toString: () => "Function" } as any);
+    const loadStmt = new ArkAssignStmt(loadedLocal, new ArkInstanceFieldRef(thisLocal, fieldSig));
+    loadedLocal.setDeclaringStmt(loadStmt);
+    const invokeStmt = new ArkInvokeStmt(new ArkInstanceInvokeExpr(loadedLocal, callSig, []));
+
+    const registerCfg: any = { getStmts: () => [paramStmt, storeStmt] };
+    const emitCfg: any = { getStmts: () => [loadStmt, invokeStmt] };
+
+    const declaringClass: any = {
+        getMethods: () => [registerMethod, emitMethod],
+    };
+    const registerMethod: any = {
+        getCfg: () => registerCfg,
+        getDeclaringArkClass: () => declaringClass,
+    };
+    const emitMethod: any = {
+        getCfg: () => emitCfg,
+        getDeclaringArkClass: () => declaringClass,
+    };
+
+    const invoked = analyzeInvokedParams(registerMethod);
+    assert(invoked.has(0), "IP_field should mark callback param stored to this.field then invoked in sibling method");
+}
+
 function main(): void {
     testImplicitThisArgMapping();
     testOwnerInferenceFromBaseType();
     testDirectCallableTypeFallback();
+    testInvokedParamsTracksFieldRelay();
     console.log("callee_resolver_tests=PASS");
 }
 

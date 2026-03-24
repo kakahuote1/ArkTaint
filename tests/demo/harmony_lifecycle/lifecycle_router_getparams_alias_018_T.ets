@@ -1,5 +1,6 @@
-import { Router, taint } from "./taint_mock";
+import { Entry, Router, taint } from "./taint_mock";
 
+@Entry
 class Page018 {
     cache: string = "";
 
@@ -14,4 +15,3 @@ export function lifecycle_router_getparams_alias_018_T(): void {
     const page = new Page018();
     page.build();
 }
-

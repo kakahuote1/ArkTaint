@@ -1,0 +1,34 @@
+{
+    "schemaVersion": "2.0",
+    "meta": {
+        "name": "harmony-multi-ability-chain",
+        "description": "Benchmark multi-ability Want handoff and lifecycle reorder chains",
+        "updatedAt": "2026-03-15"
+    },
+    "sources": [
+        {
+            "id": "source.harmony.multi_ability.source",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "Source"
+            },
+            "sourceKind": "call_return",
+            "target": {
+                "endpoint": "result"
+            }
+        }
+    ],
+    "sinks": [
+        {
+            "id": "sink.harmony.multi_ability.sink",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "Sink"
+            },
+            "target": {
+                "endpoint": "arg0"
+            }
+        }
+    ],
+    "transfers": []
+}

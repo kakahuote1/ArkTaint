@@ -1,4 +1,4 @@
-﻿import * as fs from "fs";
+import * as fs from "fs";
 import * as path from "path";
 import { spawnSync } from "child_process";
 import { RuleInvokeKind, RuleMatchKind, RuleScopeConstraint, RuleStringConstraint } from "../core/rules/RuleSchema";
@@ -10,17 +10,16 @@ interface FrameworkRuleLike {
     enabled?: boolean;
     family?: string;
     tier?: "A" | "B" | "C";
-    kind?: string;
-    profile?: string;
+    sourceKind?: string;
     tags?: string[];
     match: {
         kind: RuleMatchKind;
         value: string;
+        invokeKind?: RuleInvokeKind;
+        argCount?: number;
+        typeHint?: string;
     };
     scope?: RuleScopeConstraint;
-    invokeKind?: RuleInvokeKind;
-    argCount?: number;
-    typeHint?: string;
 }
 
 interface SignatureSample {
@@ -97,10 +96,11 @@ function matchesStringConstraint(constraint: RuleStringConstraint | undefined, t
 }
 
 function matchesInvokeShape(rule: FrameworkRuleLike, site: SignatureSite): boolean {
-    if (rule.invokeKind && rule.invokeKind !== "any" && rule.invokeKind !== site.invokeKind) return false;
-    if (typeof rule.argCount === "number" && rule.argCount !== site.argCount) return false;
-    if (rule.typeHint && rule.typeHint.trim().length > 0) {
-        const hint = rule.typeHint.trim().toLowerCase();
+    const m = rule.match;
+    if (m.invokeKind && m.invokeKind !== "any" && m.invokeKind !== site.invokeKind) return false;
+    if (typeof m.argCount === "number" && m.argCount !== site.argCount) return false;
+    if (m.typeHint && m.typeHint.trim().length > 0) {
+        const hint = m.typeHint.trim().toLowerCase();
         const haystack = `${site.signature} ${site.classSignature} ${site.className}`.toLowerCase();
         if (!haystack.includes(hint)) return false;
     }
@@ -121,7 +121,6 @@ function matchesRuleMatchOnSignature(rule: FrameworkRuleLike, site: SignatureSit
         case "signature_contains":
             return site.signature.includes(value);
         case "signature_equals":
-        case "callee_signature_equals":
             return site.signature === value;
         case "signature_regex":
             try {
@@ -150,7 +149,6 @@ function matchesRuleMatchOnMethod(rule: FrameworkRuleLike, method: MethodSite): 
         case "signature_contains":
             return method.signature.includes(value);
         case "signature_equals":
-        case "callee_signature_equals":
             return method.signature === value;
         case "signature_regex":
             try {
@@ -202,7 +200,7 @@ function matchesCallerScope(scope: RuleScopeConstraint | undefined, site: Signat
 }
 
 function sourceRuleKind(rule: FrameworkRuleLike): string {
-    return rule.kind || (rule.profile === "entry_param" ? "entry_param" : "seed_local_name");
+    return rule.sourceKind || "seed_local_name";
 }
 
 function staticRuleMatches(kind: RuleKind, rule: FrameworkRuleLike, signatures: SignatureSite[], methods: MethodSite[]): boolean {
@@ -238,7 +236,7 @@ function main(): void {
     const signaturesPath = path.resolve("tmp/sdk_signature_probe/signatures.json");
     const analyzeOutputDir = path.resolve("tmp/sdk_signature_probe/analyze");
     const summaryPath = path.join(analyzeOutputDir, "summary.json");
-    const frameworkRulePath = path.resolve("rules/framework.rules.json");
+    const frameworkRulePath = path.resolve("src/rules/framework.rules.json");
     const coverageJsonPath = path.resolve("tmp/sdk_signature_probe/coverage_report.json");
     const coverageMdPath = path.resolve("tmp/sdk_signature_probe/coverage_report.md");
 

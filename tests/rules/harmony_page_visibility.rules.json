@@ -1,0 +1,34 @@
+{
+    "schemaVersion": "2.0",
+    "meta": {
+        "name": "harmony-page-visibility",
+        "description": "Benchmark page visibility lifecycle and route-stack visibility transitions",
+        "updatedAt": "2026-03-15"
+    },
+    "sources": [
+        {
+            "id": "source.harmony.page_visibility.source",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "Source"
+            },
+            "sourceKind": "call_return",
+            "target": {
+                "endpoint": "result"
+            }
+        }
+    ],
+    "sinks": [
+        {
+            "id": "sink.harmony.page_visibility.sink",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "Sink"
+            },
+            "target": {
+                "endpoint": "arg0"
+            }
+        }
+    ],
+    "transfers": []
+}

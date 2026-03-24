@@ -1,0 +1,99 @@
+{
+  "name": "main-model-development-policy",
+  "version": "1.0.0",
+  "purpose": "Family-level development policy for using entry-model taxonomy results as radar instead of direct case-level navigation.",
+  "families": {
+    "uiability_lifecycle": {
+      "realismTier": "common",
+      "developmentAction": "drive_now"
+    },
+    "abilitystage_lifecycle": {
+      "realismTier": "common",
+      "developmentAction": "drive_now"
+    },
+    "windowstage_lifecycle_and_callbacks": {
+      "realismTier": "common",
+      "developmentAction": "drive_now"
+    },
+    "form_extension": {
+      "realismTier": "edge",
+      "developmentAction": "drive_next"
+    },
+    "ui_extension": {
+      "realismTier": "edge",
+      "developmentAction": "drive_next"
+    },
+    "backup_extension": {
+      "realismTier": "edge",
+      "developmentAction": "observe"
+    },
+    "other_extension_derivatives": {
+      "realismTier": "edge",
+      "developmentAction": "observe"
+    },
+    "entry_page_visibility": {
+      "realismTier": "common",
+      "developmentAction": "drive_now"
+    },
+    "router_push_replace": {
+      "realismTier": "common",
+      "developmentAction": "drive_now"
+    },
+    "navpathstack_params": {
+      "realismTier": "common",
+      "developmentAction": "drive_now"
+    },
+    "direct_component_callbacks": {
+      "realismTier": "common",
+      "developmentAction": "drive_now"
+    },
+    "helper_indirect_registration": {
+      "realismTier": "common",
+      "developmentAction": "drive_now"
+    },
+    "factory_returned_callback": {
+      "realismTier": "edge",
+      "developmentAction": "drive_next"
+    },
+    "cross_file_registration": {
+      "realismTier": "common",
+      "developmentAction": "drive_now"
+    },
+    "watch_triggers": {
+      "realismTier": "common",
+      "developmentAction": "drive_now"
+    },
+    "state_prop_link": {
+      "realismTier": "common",
+      "developmentAction": "drive_now"
+    },
+    "objectlink_provide_consume": {
+      "realismTier": "edge",
+      "developmentAction": "drive_next"
+    },
+    "want_handoff": {
+      "realismTier": "common",
+      "developmentAction": "drive_now"
+    },
+    "ability_context_startability": {
+      "realismTier": "common",
+      "developmentAction": "drive_now"
+    },
+    "emitter_family": {
+      "realismTier": "edge",
+      "developmentAction": "drive_next"
+    },
+    "worker_taskpool_family": {
+      "realismTier": "edge",
+      "developmentAction": "drive_next"
+    },
+    "window_web_callbacks": {
+      "realismTier": "common",
+      "developmentAction": "drive_now"
+    },
+    "timers_and_other_schedulers": {
+      "realismTier": "common",
+      "developmentAction": "drive_now"
+    }
+  }
+}

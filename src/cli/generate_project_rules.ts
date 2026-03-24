@@ -4,7 +4,7 @@ import { ArkAssignStmt } from "../../arkanalyzer/out/src/core/base/Stmt";
 import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../arkanalyzer/out/src/core/base/Expr";
 import { ArkParameterRef } from "../../arkanalyzer/out/src/core/base/Ref";
 import { Local } from "../../arkanalyzer/out/src/core/base/Local";
-import { DummyMainCreater } from "../../arkanalyzer/out/src/core/common/DummyMainCreater";
+import { buildArkMainPlan } from "../core/entry/arkmain/ArkMainPlanner";
 import { SinkRule, SourceRule, TaintRuleSet, TransferRule } from "../core/rules/RuleSchema";
 import { validateRuleSet } from "../core/rules/RuleValidator";
 import * as fs from "fs";
@@ -85,7 +85,7 @@ function splitCsv(value?: string): string[] {
 function parseArgs(argv: string[]): GenerateProjectRuleCliOptions {
     let repo = "";
     let sourceDirs: string[] = [];
-    let output = "rules/project.rules.json";
+    let output = "src/rules/project.rules.json";
     let maxEntries = 20;
     let maxSinks = 30;
     let maxTransfers = 40;
@@ -233,14 +233,10 @@ function getSourceLikeLocalCount(method: any): number {
     return count;
 }
 
-function collectDummyMainMethods(scene: Scene): any[] {
-    const dummyMainCreater = new DummyMainCreater(scene);
-    const runtimeMethods = (dummyMainCreater as any).entryMethods;
-    if (!Array.isArray(runtimeMethods)) {
-        return [];
-    }
+function collectArkMainMethods(scene: Scene): any[] {
+    const runtimeMethods = buildArkMainPlan(scene).orderedMethods;
     const dedup = new Map<string, any>();
-    for (const method of runtimeMethods) {
+    for (const method of runtimeMethods || []) {
         const signature = method?.getSignature?.()?.toString?.();
         if (!signature) continue;
         dedup.set(signature, method);
@@ -248,14 +244,14 @@ function collectDummyMainMethods(scene: Scene): any[] {
     return [...dedup.values()];
 }
 
-function scoreSourceCandidate(method: any, signature: string, fromDummyMain: boolean): number {
+function scoreSourceCandidate(method: any, signature: string, fromArkMain: boolean): number {
     const nameLower = String(method.getName?.() || "").toLowerCase();
     const sigLower = signature.toLowerCase();
     const paramCount = getParameterLocalCount(method);
     const sourceLikeCount = getSourceLikeLocalCount(method);
 
     let score = 0;
-    if (fromDummyMain) score += 50;
+    if (fromArkMain) score += 50;
     if (sigLower.includes("/entryability/")) score += 20;
     if (sigLower.includes("/pages/")) score += 18;
     if (sigLower.includes("/viewmodel/")) score += 15;
@@ -275,9 +271,9 @@ function collectSourceCandidates(
 ): SourceCandidateMethod[] {
     const includePaths = normalizeLowerList(options.includePaths);
     const excludePaths = normalizeLowerList(options.excludePaths);
-    const dummyMainMethods = collectDummyMainMethods(scene);
-    const fromDummyMain = dummyMainMethods.length > 0;
-    const baseMethods = fromDummyMain ? dummyMainMethods : scene.getMethods();
+    const arkMainMethods = collectArkMainMethods(scene);
+    const fromArkMain = arkMainMethods.length > 0;
+    const baseMethods = fromArkMain ? arkMainMethods : scene.getMethods();
     const dedup = new Map<string, SourceCandidateMethod>();
 
     for (const method of baseMethods) {
@@ -295,7 +291,7 @@ function collectSourceCandidates(
             name,
             pathHint,
             signature,
-            score: scoreSourceCandidate(method, signature, fromDummyMain),
+            score: scoreSourceCandidate(method, signature, fromArkMain),
         });
     }
 
@@ -362,10 +358,9 @@ function collectCandidatesFromScene(
         const sourceRule: SourceRule = {
             id: `source.candidate.${idPart}`,
             enabled: options.enableCandidates,
-            description: "[候选] 自动发现 entry_param，需人工确认目标参数位点。",
+            description: "[candidate] auto-discovered entry_param; requires manual review of the target parameter slot.",
             tags: ["candidate", "auto", "source", "entry_param"],
-            profile: "entry_param",
-            kind: "entry_param",
+            sourceKind: "entry_param",
             match: {
                 kind: "method_name_equals",
                 value: candidate.name,
@@ -377,9 +372,6 @@ function collectCandidatesFromScene(
                 },
             } : undefined,
             target: "arg0",
-            targetRef: {
-                endpoint: "arg0",
-            },
         };
         sourceRules.push(sourceRule);
     }
@@ -489,21 +481,17 @@ function buildRuleSetFromCandidates(
         .map((c, idx): SinkRule => ({
             id: `sink.candidate.${sanitizeIdPart(c.methodName, "sink")}.${idx + 1}`,
             enabled: enableCandidates,
-            description: `[候选] 自动发现 sink 调用，命中次数=${c.hitCount}，需人工确认位点。`,
+            description: `[候选] 自动发现 sink 调用，命中次�?${c.hitCount}，需人工确认位点。`,
             tags: ["candidate", "auto", "sink"],
-            profile: "signature",
             severity: resolveSinkSeverity(c.signature, c.methodName),
             category: "auto_discovered",
             match: {
                 kind: "signature_equals",
                 value: c.signature,
+                invokeKind: c.invokeKind,
+                argCount: c.argCount,
             },
-            invokeKind: c.invokeKind,
-            argCount: c.argCount,
-            sinkTarget: c.target,
-            sinkTargetRef: {
-                endpoint: c.target,
-            },
+            target: c.target,
         }));
 
     const transfers = transferCandidates
@@ -511,26 +499,20 @@ function buildRuleSetFromCandidates(
         .map((c, idx): TransferRule => ({
             id: `transfer.candidate.${sanitizeIdPart(c.methodName, "transfer")}.${idx + 1}`,
             enabled: enableCandidates,
-            description: `[候选] 自动发现 transfer ${c.from}->${c.to}，命中次数=${c.hitCount}，需人工确认。`,
+            description: `[候选] 自动发现 transfer ${c.from}->${c.to}，命中次�?${c.hitCount}，需人工确认。`,
             tags: ["candidate", "auto", "transfer"],
             match: {
                 kind: "signature_equals",
                 value: c.signature,
+                invokeKind: c.invokeKind,
+                argCount: c.argCount,
             },
-            invokeKind: c.invokeKind,
-            argCount: c.argCount,
             from: c.from,
             to: c.to,
-            fromRef: {
-                endpoint: c.from,
-            },
-            toRef: {
-                endpoint: c.to,
-            },
         }));
 
     return {
-        schemaVersion: "1.1",
+        schemaVersion: "2.0",
         meta: {
             name: "arktaint-project-rules-scaffold",
             description: `Auto generated project rule scaffold for ${repo}. Candidates are disabled by default.`,

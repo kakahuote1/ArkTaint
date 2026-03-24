@@ -6,12 +6,17 @@ class EventPage005 {
         input.onChange(cbOnChange);
     }
 
-    build(): void {
+    onCreate(): void {
         this.helper();
+    }
+
+    build(): void {
+        return;
     }
 }
 
 export function event_onchange_outside_build_005_F(): void {
     const page = new EventPage005();
+    page.onCreate();
     page.build();
 }

@@ -1,10 +1,20 @@
 import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
 import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../arkanalyzer/out/src/core/base/Expr";
-import { RuleHitCounters, TaintPropagationEngine } from "../core/TaintPropagationEngine";
-import { ConfigBasedTransferExecutor } from "../core/engine/ConfigBasedTransferExecutor";
+import { RuleHitCounters, TaintPropagationEngine } from "../core/orchestration/TaintPropagationEngine";
+import { ConfigBasedTransferExecutor } from "../core/kernel/ConfigBasedTransferExecutor";
 import { loadRuleSet, LoadedRuleSet } from "../core/rules/RuleLoader";
-import { RuleInvokeKind, RuleMatch, RuleScopeConstraint, RuleStringConstraint, SinkRule, SourceRule, SourceRuleKind, TransferRule } from "../core/rules/RuleSchema";
+import {
+    normalizeEndpoint,
+    RuleInvokeKind,
+    RuleMatch,
+    RuleScopeConstraint,
+    RuleStringConstraint,
+    SinkRule,
+    SourceRule,
+    SourceRuleKind,
+    TransferRule,
+} from "../core/rules/RuleSchema";
 import {
     detectFlows,
     getSourceRules,
@@ -34,6 +44,11 @@ import {
     sameEntryFileStamp,
     saveIncrementalCache,
 } from "./analyzeIncremental";
+import { injectArkUiSdk } from "../core/orchestration/ArkUiSdkConfig";
+import { SemanticPack } from "../core/kernel/contracts/SemanticPack";
+import { loadSemanticPacks } from "../core/orchestration/packs/PackLoader";
+import { EnginePlugin } from "../core/orchestration/plugins/EnginePlugin";
+import { loadEnginePlugins } from "../core/orchestration/plugins/EnginePluginLoader";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -95,36 +110,34 @@ function summarizeTransferNoHitReasons(
 }
 
 function resolveSourceRuleEndpoint(rule: SourceRule): string {
-    const kind = rule.kind
-        || (rule.profile === "entry_param" ? "entry_param" : "seed_local_name") as SourceRuleKind;
-    const endpoint = rule.targetRef?.endpoint || rule.target
-        || (kind === "entry_param" ? "arg0"
-            : kind === "call_return" ? "result"
-                : kind === "call_arg" ? "arg0"
-                    : kind === "field_read" ? "result"
-                        : "local");
-    const path = rule.targetRef?.path && rule.targetRef.path.length > 0
-        ? `.${rule.targetRef.path.join(".")}`
+    const targetNorm = normalizeEndpoint(rule.target);
+    const endpoint = targetNorm.endpoint;
+    const path = targetNorm.path && targetNorm.path.length > 0
+        ? `.${targetNorm.path.join(".")}`
         : "";
     return `${endpoint}${path}`;
 }
 
 function resolveSinkRuleEndpoint(rule: SinkRule): string {
-    const endpoint = rule.sinkTargetRef?.endpoint || rule.sinkTarget || "any_arg";
-    const path = rule.sinkTargetRef?.path && rule.sinkTargetRef.path.length > 0
-        ? `.${rule.sinkTargetRef.path.join(".")}`
+    if (!rule.target) return "any_arg";
+    const pathNorm = normalizeEndpoint(rule.target);
+    const endpoint = pathNorm.endpoint;
+    const path = pathNorm.path && pathNorm.path.length > 0
+        ? `.${pathNorm.path.join(".")}`
         : "";
     return `${endpoint}${path}`;
 }
 
 function resolveTransferRuleEndpoint(rule: TransferRule): string {
-    const fromEndpoint = rule.fromRef?.endpoint || rule.from;
-    const toEndpoint = rule.toRef?.endpoint || rule.to;
-    const fromPath = rule.fromRef?.path && rule.fromRef.path.length > 0
-        ? `.${rule.fromRef.path.join(".")}`
+    const fromNorm = normalizeEndpoint(rule.from);
+    const toNorm = normalizeEndpoint(rule.to);
+    const fromEndpoint = fromNorm.endpoint;
+    const toEndpoint = toNorm.endpoint;
+    const fromPath = fromNorm.pathFrom && fromNorm.slotKind
+        ? `[${fromNorm.slotKind}:${fromNorm.pathFrom}]`
         : "";
-    const toPath = rule.toRef?.path && rule.toRef.path.length > 0
-        ? `.${rule.toRef.path.join(".")}`
+    const toPath = toNorm.pathFrom && toNorm.slotKind
+        ? `[${toNorm.slotKind}:${toNorm.pathFrom}]`
         : "";
     return `${fromEndpoint}${fromPath}->${toEndpoint}${toPath}`;
 }
@@ -282,7 +295,6 @@ function matchRuleMatch(match: RuleMatch, site: InvokeSiteStat): boolean {
         case "signature_contains":
             return site.signature.includes(value);
         case "signature_equals":
-        case "callee_signature_equals":
             return site.signature === value;
         case "signature_regex":
             try {
@@ -298,9 +310,7 @@ function matchRuleMatch(match: RuleMatch, site: InvokeSiteStat): boolean {
 }
 
 function resolveSourceRuleKind(rule: SourceRule): SourceRuleKind {
-    if (rule.kind) return rule.kind;
-    if (rule.profile === "entry_param") return "entry_param";
-    return "seed_local_name";
+    return rule.sourceKind || "seed_local_name";
 }
 
 function isSourceCallLikeRule(rule: SourceRule): boolean {
@@ -309,19 +319,19 @@ function isSourceCallLikeRule(rule: SourceRule): boolean {
 }
 
 function ruleMatchesInvokeForSourceCoverage(rule: SourceRule, site: InvokeSiteStat): boolean {
-    if (!matchInvokeShape(rule.invokeKind, rule.argCount, rule.typeHint, site)) return false;
+    if (!matchInvokeShape(rule.match.invokeKind, rule.match.argCount, rule.match.typeHint, site)) return false;
     if (!matchRuleMatch(rule.match, site)) return false;
     return matchScopeForCaller(rule.scope, site);
 }
 
 function ruleMatchesInvokeForSinkCoverage(rule: SinkRule, site: InvokeSiteStat): boolean {
-    if (!matchInvokeShape(rule.invokeKind, rule.argCount, rule.typeHint, site)) return false;
+    if (!matchInvokeShape(rule.match.invokeKind, rule.match.argCount, rule.match.typeHint, site)) return false;
     if (!matchRuleMatch(rule.match, site)) return false;
     return matchScopeForCallee(rule.scope, site);
 }
 
 function ruleMatchesInvokeForTransferCoverage(rule: TransferRule, site: InvokeSiteStat): boolean {
-    if (!matchInvokeShape(rule.invokeKind, rule.argCount, rule.typeHint, site)) return false;
+    if (!matchInvokeShape(rule.match.invokeKind, rule.match.argCount, rule.match.typeHint, site)) return false;
     if (!matchRuleMatch(rule.match, site)) return false;
     return matchScopeForCallee(rule.scope, site);
 }
@@ -545,8 +555,9 @@ function loadAppliedFrameworkTransferRules(loadedRules: LoadedRuleSet): Transfer
 }
 
 function matchNoCandidateCallsiteToTransferRule(site: NoCandidateCallsiteStat, rule: TransferRule): boolean {
-    if (rule.invokeKind && rule.invokeKind !== "any" && rule.invokeKind !== site.invokeKind) return false;
-    if (rule.argCount !== undefined && rule.argCount !== site.argCount) return false;
+    const m = rule.match;
+    if (m.invokeKind && m.invokeKind !== "any" && m.invokeKind !== site.invokeKind) return false;
+    if (m.argCount !== undefined && m.argCount !== site.argCount) return false;
     if (rule.scope) {
         if (!matchStringConstraint(rule.scope.file, site.sourceFile)) return false;
         if (!matchStringConstraint(rule.scope.module, site.callee_signature || site.sourceFile)) return false;
@@ -567,7 +578,6 @@ function matchNoCandidateCallsiteToTransferRule(site: NoCandidateCallsiteStat, r
         case "signature_contains":
             return site.callee_signature.includes(value);
         case "signature_equals":
-        case "callee_signature_equals":
             return site.callee_signature === value;
         case "signature_regex":
             try {
@@ -612,7 +622,7 @@ function classifyNoCandidateCallsite(
         return {
             ...site,
             category: "C1_UI_NOISE",
-            reason: "调用位点符合 UI 构建链噪音特征，进入报告层降噪。",
+            reason: "Callsite matches UI construction noise and is downgraded at report layer.",
             evidence: [
                 `method=${site.method}`,
                 `signature=${site.callee_signature}`,
@@ -625,7 +635,7 @@ function classifyNoCandidateCallsite(
         return {
             ...site,
             category: "C3_FRAMEWORK_GAP",
-            reason: "命中 @%unk/%unk 未解析调用位点，归为 framework 漏匹配/解析缺口。",
+            reason: "Callsite hits @%unk/%unk unresolved signature and is classified as a framework gap.",
             evidence: [
                 `callee_signature=${site.callee_signature}`,
                 `invokeKind=${site.invokeKind}`,
@@ -642,7 +652,7 @@ function classifyNoCandidateCallsite(
         return {
             ...site,
             category: "C3_FRAMEWORK_GAP",
-            reason: "位点与现有 framework transfer 规则族接近，归为 framework 规则漏匹配。",
+            reason: "Callsite is close to existing framework transfer rules and is classified as a framework gap.",
             evidence: matchedFrameworkRules.map(id => `matched_framework_rule=${id}`),
         };
     }
@@ -650,7 +660,7 @@ function classifyNoCandidateCallsite(
     return {
         ...site,
         category: "C2_PROJECT_WRAPPER",
-        reason: "未命中 UI 噪音与 framework 缺口特征，归入项目私有封装候选。",
+        reason: "Callsite matches neither UI noise nor framework-gap traits and is classified as a project wrapper candidate.",
         evidence: [
             `method=${site.method}`,
             `sourceFile=${site.sourceFile}`,
@@ -760,21 +770,28 @@ async function analyzeSourceDir(
     sourceDir: string,
     options: CliOptions,
     loadedRules: LoadedRuleSet,
-    seedingPolicy: AnalyzeSeedingPolicy
+    seedingPolicy: AnalyzeSeedingPolicy,
+    semanticPacks: SemanticPack[],
+    enginePlugins: EnginePlugin[],
 ): Promise<EntryAnalyzeResult> {
     const t0 = process.hrtime.bigint();
     const stageProfile = emptyEntryStageProfile();
-    const dummyMainEntryName = "@dummyMain";
+    const arkMainEntryName = "@arkMain";
     try {
         const engine = new TaintPropagationEngine(scene, options.k, {
             transferRules: loadedRules.ruleSet.transfers || [],
+            semanticPacks,
+            enginePlugins,
+            includeBuiltinSemanticPacks: false,
+            pluginDryRun: options.pluginDryRun,
+            pluginIsolate: options.pluginIsolate,
             debug: {
                 enableWorklistProfile: true,
             },
         });
         engine.verbose = false;
         const buildPagT0 = process.hrtime.bigint();
-        await engine.buildPAG();
+        await engine.buildPAG({ entryModel: "arkMain" });
         stageProfile.buildPagMs = elapsedMsSince(buildPagT0);
 
         try {
@@ -799,7 +816,7 @@ async function analyzeSourceDir(
             stageProfile.totalMs = elapsedMsSince(t0);
             return {
                 sourceDir,
-                entryName: dummyMainEntryName,
+                entryName: arkMainEntryName,
                 entryPathHint: sourceDir,
                 score: 100,
                 status: "no_seed",
@@ -845,12 +862,17 @@ async function analyzeSourceDir(
             (loadedRules.ruleSet.transfers || []).length
         );
         stageProfile.detectMs = elapsedMsSince(detectT0);
+        engine.finishEnginePlugins({
+            sourceDir,
+            elapsedMs: stageProfile.detectMs,
+            reachableMethodCount: engine.getActiveReachableMethodSignatures()?.size,
+        });
         const postProcessT0 = process.hrtime.bigint();
         stageProfile.postProcessMs = elapsedMsSince(postProcessT0);
         stageProfile.totalMs = elapsedMsSince(t0);
         return {
             sourceDir,
-            entryName: dummyMainEntryName,
+            entryName: arkMainEntryName,
             entryPathHint: sourceDir,
             score: 100,
             status: "ok",
@@ -872,7 +894,7 @@ async function analyzeSourceDir(
         stageProfile.totalMs = elapsedMsSince(t0);
         return {
             sourceDir,
-            entryName: dummyMainEntryName,
+            entryName: arkMainEntryName,
             entryPathHint: sourceDir,
             score: 100,
             status: "exception",
@@ -904,9 +926,29 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     const analyzeStart = process.hrtime.bigint();
     const stageProfile = emptyAnalyzeStageProfile();
     ConfigBasedTransferExecutor.resetSceneRuleCacheStats();
+    const pluginDirs = (options.pluginPaths || []).filter(p => fs.existsSync(p) && fs.statSync(p).isDirectory());
+    const pluginFiles = (options.pluginPaths || []).filter(p => fs.existsSync(p) && fs.statSync(p).isFile());
+    const semanticPackResult = loadSemanticPacks({
+        packDirs: options.packDirs || [],
+        disabledPackIds: options.disabledPackIds || [],
+    });
+    const enginePluginResult = loadEnginePlugins({
+        pluginDirs,
+        pluginFiles,
+        disabledPluginNames: options.disabledPluginNames || [],
+        isolatePluginNames: options.pluginIsolate || [],
+    });
     const ruleLoadT0 = process.hrtime.bigint();
-    const loadedRules = loadRuleSet(options.ruleOptions);
+    const loadedRules = loadRuleSet({
+        ...options.ruleOptions,
+    });
     stageProfile.ruleLoadMs = elapsedMsSince(ruleLoadT0);
+    for (const warning of semanticPackResult.warnings) {
+        console.warn(`[Phase8] ${warning}`);
+    }
+    for (const warning of enginePluginResult.warnings) {
+        console.warn(`[Phase8.5] ${warning}`);
+    }
     const seedingPolicy: AnalyzeSeedingPolicy = {
         enableSecondarySinkSweep: options.enableSecondarySinkSweep,
     };
@@ -944,6 +986,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
             const sceneBuildT0 = process.hrtime.bigint();
             const config = new SceneConfig();
             config.buildFromProjectDir(sourceAbs);
+            injectArkUiSdk(config);
             scene = new Scene();
             scene.buildSceneFromProjectDir(config);
             scene.inferTypes();
@@ -955,7 +998,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
 
         const order = orderedEntries.length;
         orderedEntries.push(undefined);
-        const syntheticCandidate = { pathHint: sourceDir, name: "@dummyMain" };
+        const syntheticCandidate = { pathHint: sourceDir, name: "@arkMain" };
         const entryCacheKey = buildEntryCacheKey(sourceDir, syntheticCandidate);
         const entryStamp = resolveSourceDirStamp(options.repo, sourceDir);
         if (options.incremental) {
@@ -989,7 +1032,9 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
                 task.sourceDir,
                 options,
                 loadedRules,
-                seedingPolicy
+                seedingPolicy,
+                semanticPackResult.packs,
+                enginePluginResult.plugins,
             );
         }
     );
@@ -1173,6 +1218,16 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     fs.writeFileSync(mdPath, renderMarkdownReport(report), "utf-8");
     writeNoCandidateCallsiteArtifacts(report);
     writeNoCandidateCallsiteClassificationArtifacts(report, loadedRules);
+    if (options.pluginAudit) {
+        const pluginAuditPath = path.resolve(options.outputDir, "plugin_audit.json");
+        fs.writeFileSync(pluginAuditPath, JSON.stringify({
+            dryRun: options.pluginDryRun,
+            isolate: options.pluginIsolate || [],
+            loadedPlugins: enginePluginResult.plugins.map(plugin => plugin.name),
+            loadedFiles: enginePluginResult.loadedFiles,
+            warnings: enginePluginResult.warnings,
+        }, null, 2), "utf-8");
+    }
 
     return {
         report,
@@ -1180,4 +1235,5 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         mdPath,
     };
 }
+
 

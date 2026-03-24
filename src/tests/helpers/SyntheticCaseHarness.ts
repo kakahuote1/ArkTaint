@@ -1,9 +1,9 @@
-import { Scene } from "../../../arkanalyzer/out/src/Scene";
+﻿import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { ArkAssignStmt } from "../../../arkanalyzer/out/src/core/base/Stmt";
 import { ArkParameterRef } from "../../../arkanalyzer/out/src/core/base/Ref";
 import { Local } from "../../../arkanalyzer/out/src/core/base/Local";
 import { ArkMethod } from "../../../arkanalyzer/out/src/core/model/ArkMethod";
-import { TaintPropagationEngine, TaintEngineOptions } from "../../core/TaintPropagationEngine";
+import { TaintPropagationEngine, TaintEngineOptions } from "../../core/orchestration/TaintPropagationEngine";
 
 export interface ResolvedCaseMethod {
     name: string;
@@ -126,3 +126,4 @@ export function collectCaseSeedNodes(
 
     return seeds;
 }
+

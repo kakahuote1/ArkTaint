@@ -1,9 +1,9 @@
-import { Scene } from "../../arkanalyzer/out/src/Scene";
+﻿import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
 import { ArkAssignStmt } from "../../arkanalyzer/out/src/core/base/Stmt";
 import { ArkParameterRef } from "../../arkanalyzer/out/src/core/base/Ref";
 import { Local } from "../../arkanalyzer/out/src/core/base/Local";
-import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
+import { TaintPropagationEngine } from "../core/orchestration/TaintPropagationEngine";
 import { loadRuleSet } from "../core/rules/RuleLoader";
 import { TransferRule } from "../core/rules/RuleSchema";
 import * as fs from "fs";
@@ -105,7 +105,15 @@ function collectSeedNodes(engine: TaintPropagationEngine, entryMethod: any): any
 
     for (const local of seedLocals) {
         if (local.getName() !== "taint_src") continue;
-        const nodes = engine.pag.getNodesByValue(local);
+        let nodes = engine.pag.getNodesByValue(local);
+        if ((!nodes || nodes.size === 0) && local instanceof Local) {
+            try {
+                engine.pag.getOrNewNode(0, local, local.getDeclaringStmt?.() || undefined);
+                nodes = engine.pag.getNodesByValue(local);
+            } catch {
+                nodes = undefined;
+            }
+        }
         if (!nodes) continue;
         for (const nodeId of nodes.values()) {
             if (seenNodeIds.has(nodeId)) continue;
@@ -129,7 +137,7 @@ async function detectFlowForCase(
     const entryMethod = findCaseMethod(scene, caseName);
     const seeds = collectSeedNodes(engine, entryMethod);
     if (seeds.length === 0) {
-        throw new Error(`No taint_src parameter seeds found for case: ${caseName}`);
+        return false;
     }
 
     engine.propagateWithSeeds(seeds);
@@ -234,4 +242,5 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+
 

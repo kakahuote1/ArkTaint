@@ -1,8 +1,9 @@
-import { Scene } from "../../arkanalyzer/out/src/Scene";
+﻿import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
-import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
+import { TaintPropagationEngine } from "../core/orchestration/TaintPropagationEngine";
 import { loadRuleSet } from "../core/rules/RuleLoader";
 import { SinkRule, SourceRule } from "../core/rules/RuleSchema";
+import { buildEngineForCase, findCaseMethod, resolveCaseMethod } from "./helpers/SyntheticCaseHarness";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -118,9 +119,29 @@ async function main(): Promise<void> {
 
     for (const caseName of cases) {
         const expected = caseName.endsWith("_T");
-        const engine = new TaintPropagationEngine(scene, options.k);
-        engine.verbose = false;
-        await engine.buildPAG();
+        const entry = resolveCaseMethod(scene, `${caseName}.ets`, caseName);
+        const entryMethod = findCaseMethod(scene, entry);
+        if (!entryMethod) {
+            const pass = !expected;
+            if (pass) passCount++;
+            results.push({
+                name: caseName,
+                expected,
+                detected: false,
+                seedCount: 0,
+                pass,
+            });
+            continue;
+        }
+        const engine = await buildEngineForCase(scene, options.k, entryMethod, {
+            verbose: false,
+        });
+        try {
+            const reachable = engine.computeReachableMethodSignatures();
+            engine.setActiveReachableMethodSignatures(reachable);
+        } catch {
+            engine.setActiveReachableMethodSignatures(undefined);
+        }
         const seedInfo = engine.propagateWithSourceRules(sourceRules);
         const flows = engine.detectSinksByRules(sinkRules);
         const detected = flows.length > 0;
@@ -157,3 +178,4 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+

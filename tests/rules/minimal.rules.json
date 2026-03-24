@@ -1,14 +1,11 @@
-﻿{
-  "schemaVersion": "1.1",
-  "meta": {
-    "name": "minimal-rule-pack",
-    "description": "Empty baseline pack for rule-driven tests",
-    "updatedAt": "2026-02-14"
-  },
-  "sources": [],
-  "sinks": [],
-  "sanitizers": [],
-  "transfers": []
+{
+    "schemaVersion": "2.0",
+    "meta": {
+        "name": "minimal-rule-pack",
+        "description": "Empty baseline pack for rule-driven tests",
+        "updatedAt": "2026-02-14"
+    },
+    "sources": [],
+    "sinks": [],
+    "transfers": []
 }
-
-

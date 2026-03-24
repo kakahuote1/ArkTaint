@@ -27,7 +27,7 @@ interface AnalyzeReport {
 function parseArgs(argv: string[]): CliOptions {
     let repo = "tmp/phase43/repos/wanharmony";
     let sourceDir = "entry/src/main/ets";
-    let defaultRulePath = "rules/default.rules.json";
+    let defaultRulePath = "src/rules/default.rules.json";
     let projectRulePath = "tests/rules/real_project/wanharmony.project.rules.json";
     let outputDir = "tmp/phase54d/project_rules_only_workflow";
     let k = 1;

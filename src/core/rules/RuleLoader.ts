@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import { SanitizerRule, SinkRule, SourceRule, TaintRuleSet, TransferRule } from "./RuleSchema";
+import { normalizeEndpoint, SanitizerRule, SinkRule, SourceRule, TaintRuleSet, TransferRule } from "./RuleSchema";
 import { assertValidRuleSet, validateRuleSet } from "./RuleValidator";
 
 export type RuleLayerName = "default" | "framework" | "project" | "llm_candidate";
@@ -10,6 +10,7 @@ export interface RuleLoaderOptions {
     frameworkRulePath?: string;
     projectRulePath?: string;
     llmCandidateRulePath?: string;
+    extraRulePaths?: string[];
     autoDiscoverLayers?: boolean;
     allowMissingFramework?: boolean;
     allowMissingProject?: boolean;
@@ -30,6 +31,7 @@ export interface LoadedRuleSet {
     frameworkRulePath?: string;
     projectRulePath?: string;
     llmCandidateRulePath?: string;
+    extraRulePaths: string[];
     appliedLayerOrder: RuleLayerName[];
     layerStatus: RuleLayerStatus[];
     warnings: string[];
@@ -106,19 +108,33 @@ function mergeRuleSets(base: TaintRuleSet, override: TaintRuleSet): TaintRuleSet
 }
 
 export function getDefaultRulePath(): string {
-    return path.resolve(process.cwd(), "rules/default.rules.json");
+    return resolveBundledRulePath("src/rules/default.rules.json");
 }
 
 export function getFrameworkRulePath(): string {
-    return path.resolve(process.cwd(), "rules/framework.rules.json");
+    return resolveBundledRulePath("src/rules/framework.rules.json");
 }
 
 export function getProjectRulePath(): string {
-    return path.resolve(process.cwd(), "rules/project.rules.json");
+    return resolveBundledRulePath("src/rules/project.rules.json");
 }
 
 export function getLlmCandidateRulePath(): string {
-    return path.resolve(process.cwd(), "rules/llm_candidate.rules.json");
+    return resolveBundledRulePath("src/rules/llm_candidate.rules.json");
+}
+
+function resolveBundledRulePath(repoRelativePath: string): string {
+    const repoRelative = repoRelativePath.replace(/\//g, path.sep);
+    const candidates = [
+        path.resolve(__dirname, "../../../", repoRelative),
+        path.resolve(process.cwd(), repoRelative),
+    ];
+    for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) {
+            return candidate;
+        }
+    }
+    return candidates[0];
 }
 
 interface OptionalLayerSpec {
@@ -216,6 +232,7 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
     let frameworkPath: string | undefined;
     let projectPath: string | undefined;
     let llmCandidatePath: string | undefined;
+    const extraRulePaths: string[] = [];
     for (const spec of layerSpecs) {
         const exists = fs.existsSync(spec.path);
         if (!exists) {
@@ -252,6 +269,16 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
         if (spec.name === "llm_candidate") llmCandidatePath = spec.path;
     }
 
+    for (const extraRulePath of options.extraRulePaths || []) {
+        const absPath = path.resolve(extraRulePath);
+        if (!fs.existsSync(absPath)) {
+            throw new Error(`extra rule file not found: ${absPath}`);
+        }
+        const extraRules = loadAndValidateLayer("project", absPath);
+        merged = normalizeRules(mergeRuleSets(merged, extraRules));
+        extraRulePaths.push(absPath);
+    }
+
     const mergedValidation = validateRuleSet(merged);
     if (!mergedValidation.valid) {
         throw new Error(`Merged rule set invalid: ${mergedValidation.errors.join("; ")}`);
@@ -264,6 +291,7 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
         frameworkRulePath: frameworkPath,
         projectRulePath: projectPath,
         llmCandidateRulePath: llmCandidatePath,
+        extraRulePaths,
         appliedLayerOrder,
         layerStatus,
         warnings,
@@ -282,12 +310,8 @@ function sourceRegexRules(rules: SourceRule[]): SourceRule[] {
     return rules.filter(r => r.match.kind === "local_name_regex");
 }
 
-function sinkKeywordRules(rules: SinkRule[]): SinkRule[] {
-    return rules.filter(r => r.profile === "keyword" && r.match.kind === "signature_contains");
-}
-
-function sinkSignatureRules(rules: SinkRule[]): SinkRule[] {
-    return rules.filter(r => r.profile === "signature" && r.match.kind === "signature_contains");
+function sinkSignatureContainsRules(rules: SinkRule[]): SinkRule[] {
+    return rules.filter(r => r.match.kind === "signature_contains");
 }
 
 function firstRegexPattern(rules: SourceRule[]): RegExp | undefined {
@@ -307,13 +331,12 @@ export function buildSmokeRuleConfig(loaded?: LoadedRuleSet): SmokeRuleConfig {
     }
 
     const sourcePattern = firstRegexPattern(sourceRegexRules(rules.sources || [])) || FALLBACK_SOURCE_LOCAL_PATTERN;
-    const sinkKeywords = sinkKeywordRules(rules.sinks || []).map(r => r.match.value);
-    const sinkSignatures = sinkSignatureRules(rules.sinks || []).map(r => r.match.value);
+    const sinkContainsValues = sinkSignatureContainsRules(rules.sinks || []).map(r => r.match.value);
 
     return {
         sourceLocalNamePattern: sourcePattern,
-        sinkKeywords: sinkKeywords.length > 0 ? sinkKeywords : FALLBACK_SINK_KEYWORDS,
-        sinkSignatures: sinkSignatures.length > 0 ? sinkSignatures : FALLBACK_SINK_SIGNATURES,
+        sinkKeywords: sinkContainsValues.length > 0 ? sinkContainsValues : FALLBACK_SINK_KEYWORDS,
+        sinkSignatures: sinkContainsValues.length > 0 ? sinkContainsValues : FALLBACK_SINK_SIGNATURES,
     };
 }
 
@@ -338,7 +361,7 @@ export function summarizeTransferEndpoints(transfers: TransferRule[]): Record<st
 export function summarizeSanitizerTargets(sanitizers: SanitizerRule[]): Record<string, number> {
     const out: Record<string, number> = {};
     for (const s of sanitizers) {
-        const endpoint = s.sanitizeTargetRef?.endpoint || s.sanitizeTarget || "result";
+        const endpoint = s.target ? normalizeEndpoint(s.target).endpoint : "result";
         out[endpoint] = (out[endpoint] || 0) + 1;
     }
     return out;

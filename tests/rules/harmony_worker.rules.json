@@ -1,37 +1,32 @@
 {
-    "schemaVersion":  "1.1",
-    "meta":  {
-                 "name":  "harmony_worker",
-                 "description":  "C10 worker/taskpool benchmark rules",
-                 "updatedAt":  "2026-02-22"
-             },
-    "sources":  [
-                    {
-                        "id":  "source.harmony_worker.entry_param",
-                        "profile":  "entry_param",
-                        "match":  {
-                                      "kind":  "local_name_regex",
-                                      "value":  "^taint_src$"
-                                  }
-                    }
-                ],
-    "sinks":  [
-                  {
-                      "id":  "sink.harmony_worker.mock_sink",
-                      "profile":  "signature",
-                      "sinkTargetRef":  {
-                                            "endpoint":  "arg0"
-                                        },
-                      "match":  {
-                                    "kind":  "method_name_equals",
-                                    "value":  "Sink"
-                                }
-                  }
-              ],
-    "sanitizers":  [
-
-                   ],
-    "transfers":  [
-
-                  ]
+    "schemaVersion": "2.0",
+    "meta": {
+        "name": "harmony_worker",
+        "description": "C10 worker/taskpool benchmark rules",
+        "updatedAt": "2026-02-22"
+    },
+    "sources": [
+        {
+            "id": "source.harmony_worker.entry_param",
+            "match": {
+                "kind": "local_name_regex",
+                "value": "^taint_src$"
+            },
+            "sourceKind": "entry_param",
+            "target": "arg0"
+        }
+    ],
+    "sinks": [
+        {
+            "id": "sink.harmony_worker.mock_sink",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "Sink"
+            },
+            "target": {
+                "endpoint": "arg0"
+            }
+        }
+    ],
+    "transfers": []
 }

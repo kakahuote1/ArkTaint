@@ -1,60 +1,59 @@
 {
-  "schemaVersion": "1.1",
-  "meta": {
-    "name": "harmony_preferences",
-    "description": "C12 preferences benchmark rules (gate-ready minimal semantics)",
-    "updatedAt": "2026-02-22"
-  },
-  "sources": [
-    {
-      "id": "source.harmony_preferences.entry_param",
-      "profile": "entry_param",
-      "match": {
-        "kind": "local_name_regex",
-        "value": "^taint_src$"
-      }
-    }
-  ],
-  "sinks": [
-    {
-      "id": "sink.harmony_preferences.mock_sink",
-      "profile": "signature",
-      "sinkTargetRef": {
-        "endpoint": "arg0"
-      },
-      "match": {
-        "kind": "method_name_equals",
-        "value": "Sink"
-      }
-    }
-  ],
-  "sanitizers": [],
-  "transfers": [
-    {
-      "id": "transfer.harmony_preferences.put_value_to_store",
-      "description": "Model put(key, value): value taints preference instance.",
-      "match": {
-        "kind": "method_name_equals",
-        "value": "put"
-      },
-      "invokeKind": "instance",
-      "argCount": 2,
-      "typeHint": "Preferences",
-      "from": "arg1",
-      "to": "base"
+    "schemaVersion": "2.0",
+    "meta": {
+        "name": "harmony_preferences",
+        "description": "C12 preferences benchmark rules (gate-ready minimal semantics)",
+        "updatedAt": "2026-02-22"
     },
-    {
-      "id": "transfer.harmony_preferences.get_store_to_result",
-      "description": "Model get(key): tainted preference instance taints return value.",
-      "match": {
-        "kind": "method_name_equals",
-        "value": "get"
-      },
-      "invokeKind": "instance",
-      "argCount": 1,
-      "typeHint": "Preferences",
-      "from": "base",
-      "to": "result"
-    }
-  ]
+    "sources": [
+        {
+            "id": "source.harmony_preferences.entry_param",
+            "match": {
+                "kind": "local_name_regex",
+                "value": "^taint_src$"
+            },
+            "sourceKind": "entry_param",
+            "target": "arg0"
+        }
+    ],
+    "sinks": [
+        {
+            "id": "sink.harmony_preferences.mock_sink",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "Sink"
+            },
+            "target": {
+                "endpoint": "arg0"
+            }
+        }
+    ],
+    "transfers": [
+        {
+            "id": "transfer.harmony_preferences.put_value_to_store",
+            "description": "Model put(key, value): value taints preference instance.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "put",
+                "invokeKind": "instance",
+                "argCount": 2,
+                "typeHint": "Preferences"
+            },
+            "from": "arg1",
+            "to": "base"
+        },
+        {
+            "id": "transfer.harmony_preferences.get_store_to_result",
+            "description": "Model get(key): tainted preference instance taints return value.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "get",
+                "invokeKind": "instance",
+                "argCount": 1,
+                "typeHint": "Preferences"
+            },
+            "from": "base",
+            "to": "result"
+        }
+    ]
 }

@@ -19,50 +19,166 @@ import { Stmt } from '../core/base/Stmt';
 import { FunctionType } from '../core/base/Type';
 
 export const LIFECYCLE_METHOD_NAME: string[] = [
-    'onCreate', // 组件实例创建
-    'onDestroy', // 组件实例销毁
-    'onWindowStageCreate', // 窗口创建
-    'onWindowStageDestroy', // 窗口销毁
-    'onForeground', // 应用进入前台
-    'onBackground', // 应用进入后台
-    'onBackup', // 应用数据备份
-    'onRestore', // 应用数据恢复
+    // --- UIAbility (from @ohos.app.ability.UIAbility.d.ts) ---
+    'onCreate',
+    'onDestroy',
+    'onDestroyAsync',
+    'onWindowStageCreate',
+    'onWindowStageWillDestroy',
+    'onWindowStageDestroy',
+    'onWindowStageRestore',
+    'onForeground',
+    'onWillForeground',
+    'onDidForeground',
+    'onBackground',
+    'onWillBackground',
+    'onDidBackground',
     'onContinue',
     'onNewWant',
     'onDump',
     'onSaveState',
+    'onSaveStateAsync',
     'onShare',
     'onPrepareToTerminate',
+    'onPrepareToTerminateAsync',
     'onBackPressed',
-    'onSessionCreate',
-    'onSessionDestory',
+    'onCollaborate',
+    'onBackup',
+    'onRestore',
+    // --- AbilityStage (from @ohos.app.ability.AbilityStage.d.ts) ---
+    'onAcceptWant',
+    'onAcceptWantAsync',
+    'onNewProcessRequest',
+    'onNewProcessRequestAsync',
+    'onMemoryLevel',
+    'onPrepareTermination',
+    'onPrepareTerminationAsync',
+    // --- ServiceExtensionAbility (from @ohos.app.ability.ServiceExtensionAbility.d.ts) ---
+    'onRequest',
+    'onConnect',
+    'onDisconnect',
+    'onDisconnectAsync',
+    'onReconnect',
+    // --- FormExtensionAbility (from @ohos.app.form.FormExtensionAbility.d.ts) ---
     'onAddForm',
     'onCastToNormalForm',
     'onUpdateForm',
     'onChangeFormVisibility',
     'onFormEvent',
     'onRemoveForm',
-    'onConfigurationUpdate',
     'onAcquireFormState',
-    'onWindowStageWillDestroy',
+    'onFormLocationChanged',
+    'onSizeChanged',
+    // --- UIExtensionAbility (from @ohos.app.ability.UIExtensionAbility.d.ts) ---
+    'onSessionCreate',
+    'onSessionDestroy',
+    // --- Shared across multiple Ability types ---
+    'onConfigurationUpdate',
+    // --- DriverExtensionAbility (from @ohos.app.ability.DriverExtensionAbility.d.ts) ---
+    'onInit',
+    // --- AutoFillExtensionAbility (from @ohos.app.ability.AutoFillExtensionAbility.d.ts) ---
+    'onFillRequest',
+    'onSaveRequest',
+    'onUpdateRequest',
+    // --- FenceExtensionAbility (from @ohos.app.ability.FenceExtensionAbility.d.ts) ---
+    'onFenceStatusChange',
+    // --- PrintExtensionAbility (from @ohos.app.ability.PrintExtensionAbility.d.ts) ---
+    'onStartDiscoverPrinter',
+    'onStopDiscoverPrinter',
+    'onConnectPrinter',
+    'onDisconnectPrinter',
+    'onStartPrintJob',
+    'onCancelPrintJob',
+    'onRequestPrinterCapability',
+    'onRequestPreview',
+    // --- PhotoEditorExtensionAbility (from @ohos.app.ability.PhotoEditorExtensionAbility.d.ts) ---
+    'onStartContentEditing',
+    // --- UIServiceExtensionAbility (from @ohos.app.ability.UIServiceExtensionAbility.d.ts) ---
+    'onWindowWillCreate',
+    'onWindowDidCreate',
+    'onData',
+    // --- ChildProcess (from @ohos.app.ability.ChildProcess.d.ts) ---
+    'onStart',
+    // --- InsightIntentExecutor (from @ohos.app.ability.InsightIntentExecutor.d.ts) ---
+    'onExecuteInUIAbilityForegroundMode',
+    'onExecuteInUIAbilityBackgroundMode',
+    'onExecuteInUIExtensionAbility',
+    'onExecuteInServiceExtensionAbility',
+    // --- BackupExtensionAbility (from @ohos.application.BackupExtensionAbility.d.ts) ---
+    'onRestoreEx',
+    'onBackupEx',
+    'onProcess',
+    'onRelease',
+    // --- LiveFormExtensionAbility (from @ohos.app.form.LiveFormExtensionAbility.d.ts) ---
+    'onLiveFormCreate',
+    'onLiveFormDestroy',
+    // --- AccessibilityExtensionAbility (from @ohos.application.AccessibilityExtensionAbility.d.ts) ---
+    'onAccessibilityConnect',
+    'onAccessibilityDisconnect',
+    'onAccessibilityEvent',
+    'onAccessibilityEventInfo',
+    'onAccessibilityKeyEvent',
+    // --- EnterpriseAdminExtensionAbility (from @ohos.enterprise.EnterpriseAdminExtensionAbility.d.ts) ---
+    'onAdminEnabled',
+    'onAdminDisabled',
+    'onBundleAdded',
+    'onBundleRemoved',
+    'onAppStart',
+    'onAppStop',
+    'onSystemUpdate',
+    'onAccountAdded',
+    'onAccountSwitched',
+    'onAccountRemoved',
+    'onKioskModeEntering',
+    'onKioskModeExiting',
+    // --- WindowExtensionAbility (from @ohos.application.WindowExtensionAbility.d.ts) ---
+    'onWindowReady',
+    // --- WallpaperExtensionAbility (from @ohos.WallpaperExtensionAbility.d.ts) ---
+    'onWallpaperChange',
+    // --- FaultLogExtensionAbility (from @ohos.hiviewdfx.FaultLogExtensionAbility.d.ts) ---
+    'onFaultReportReady',
+    // --- AdsServiceExtensionAbility (from @ohos.advertising.AdsServiceExtensionAbility.d.ts) ---
+    'onLoadAd',
+    'onLoadAdWithMultiSlots',
+    // --- StaticSubscriberExtensionAbility (from @ohos.application.StaticSubscriberExtensionAbility.d.ts) ---
+    'onReceiveEvent',
+    // --- FormExtensionAbility additional (from @ohos.app.form.FormExtensionAbility.d.ts) ---
+    'onShareForm',
+    'onAcquireFormData',
+    'onStop',
+    // --- DriverExtensionAbility additional ---
+    'onKeyEvent',
+    // --- WorkSchedulerExtensionAbility (from @ohos.WorkSchedulerExtensionAbility.d.ts) ---
+    'onWorkStart',
+    'onWorkStop',
+    // --- FormExtensionAbility / general ---
+    'onVisibilityChange',
 ];
 export const CALLBACK_METHOD_NAME: string[] = [
-    'onClick', // 点击事件，当用户点击组件时触发
-    'onTouch', // 触摸事件，当手指在组件上按下、滑动、抬起时触发
-    'onAppear', // 组件挂载显示时触发
-    'onDisAppear', // 组件卸载消失时触发
-    'onDragStart', // 拖拽开始事件，当组件被长按后开始拖拽时触发
-    'onDragEnter', // 拖拽进入组件范围时触发
-    'onDragMove', // 拖拽在组件范围内移动时触发
-    'onDragLeave', // 拖拽离开组件范围内时触发
-    'onDrop', // 拖拽释放目标，当在本组件范围内停止拖拽行为时触发
-    'onKeyEvent', // 按键事件，当组件获焦后，按键动作触发
-    'onFocus', // 焦点事件，当组件获取焦点时触发
-    'onBlur', // 当组件失去焦点时触发的回调
-    'onHover', // 鼠标悬浮事件，鼠标进入或退出组件时触发
-    'onMouse', // 鼠标事件，当鼠标按键点击或在组件上移动时触发
-    'onAreaChange', // 组件区域变化事件，组件尺寸、位置变化时触发
-    'onVisibleAreaChange', // 组件可见区域变化事件，组件在屏幕中的显示区域面积变化时触发
+    'onClick',
+    'onTouch',
+    'onAppear',
+    'onDisAppear',
+    'onAttach',
+    'onDetach',
+    'onDragStart',
+    'onDragEnter',
+    'onDragMove',
+    'onDragLeave',
+    'onDrop',
+    'onDragEnd',
+    'onPreDrag',
+    'onKeyEvent',
+    'onKeyPreIme',
+    'onFocus',
+    'onBlur',
+    'onHover',
+    'onMouse',
+    'onAreaChange',
+    'onVisibleAreaChange',
+    'onGestureJudgeBegin',
+    'onSizeChange',
+    'onChange',
 ];
 
 export const COMPONENT_LIFECYCLE_METHOD_NAME: string[] = [
@@ -83,6 +199,7 @@ export const COMPONENT_LIFECYCLE_METHOD_NAME: string[] = [
     'onBackPress',
     'pageTransition',
     'onDidBuild',
+    'onNewParam',
 ];
 
 export interface AbilityMessage {

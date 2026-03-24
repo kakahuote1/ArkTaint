@@ -1,5 +1,5 @@
-import { TaintFlow } from "../core/TaintFlow";
-import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
+import { TaintFlow } from "../core/kernel/TaintFlow";
+import { TaintPropagationEngine } from "../core/orchestration/TaintPropagationEngine";
 import { SanitizerRule, SinkRule, SourceRule } from "../core/rules/RuleSchema";
 import { buildSmokeRuleConfig, LoadedRuleSet } from "../core/rules/RuleLoader";
 
@@ -141,3 +141,4 @@ export function detectFlows(
 export function getSourceRules(loadedRules: LoadedRuleSet | undefined): SourceRule[] {
     return loadedRules?.ruleSet.sources || [];
 }
+

@@ -74,7 +74,7 @@ function parseArgs(argv: string[]): CliOptions {
     let profile = "default";
     let k = 1;
     let maxEntries = 12;
-    let defaultRulePath = "rules/default.rules.json";
+    let defaultRulePath = "src/rules/default.rules.json";
     let projectRulePath = "tests/rules/real_project/wanharmony.project.rules.json";
     let outputDir = "tmp/phase53/unknown_reduction_wanharmony";
     let threshold = 0.05;

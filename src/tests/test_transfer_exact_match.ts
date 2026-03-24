@@ -1,6 +1,6 @@
-import { Scene } from "../../arkanalyzer/out/src/Scene";
+﻿import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
-import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
+import { TaintPropagationEngine } from "../core/orchestration/TaintPropagationEngine";
 import { SinkRule, SourceRule, TransferRule } from "../core/rules/RuleSchema";
 import { validateRuleSet } from "../core/rules/RuleValidator";
 import * as path from "path";
@@ -73,9 +73,8 @@ async function main(): Promise<void> {
     const sourceRules: SourceRule[] = [
         {
             id: "source.exact.entry.taint_src",
-            kind: "entry_param",
+            sourceKind: "entry_param",
             target: "arg0",
-            targetRef: { endpoint: "arg0" },
             match: { kind: "local_name_regex", value: "^taint_src$" },
         },
     ];
@@ -83,9 +82,7 @@ async function main(): Promise<void> {
     const sinkRules: SinkRule[] = [
         {
             id: "sink.exact.arg0",
-            profile: "signature",
-            sinkTarget: "arg0",
-            sinkTargetRef: { endpoint: "arg0" },
+            target: { endpoint: "arg0" },
             match: { kind: "method_name_equals", value: "Sink" },
         },
     ];
@@ -99,7 +96,7 @@ async function main(): Promise<void> {
         },
         {
             id: "transfer.exact.callee_signature_equals.scope_allowed",
-            match: { kind: "callee_signature_equals", value: scopeAllowedSig },
+            match: { kind: "signature_equals", value: scopeAllowedSig },
             from: "arg0",
             to: "result",
         },
@@ -112,12 +109,81 @@ async function main(): Promise<void> {
     ];
 
     const validation = validateRuleSet({
-        schemaVersion: "1.1",
+        schemaVersion: "2.0",
         sources: sourceRules,
         sinks: sinkRules,
         transfers: transferRules,
     });
     assert(validation.valid, `exact-match rules invalid: ${validation.errors.join("; ")}`);
+
+    const pathFromValidation = validateRuleSet({
+        schemaVersion: "2.0",
+        sources: [],
+        sinks: [],
+        transfers: [{
+            id: "transfer.path_from.ok",
+            match: { kind: "signature_contains", value: "Map.get", invokeKind: "instance", argCount: 1 },
+            from: {
+                endpoint: "base",
+                pathFrom: "arg0",
+                slotKind: "map",
+            },
+            to: "result",
+        }],
+    });
+    assert(pathFromValidation.valid, `pathFrom transfer rule should be valid: ${pathFromValidation.errors.join("; ")}`);
+
+    const sourcePathValidation = validateRuleSet({
+        schemaVersion: "2.0",
+        sources: [{
+            id: "source.static.path.ok",
+            sourceKind: "field_read",
+            target: {
+                endpoint: "result",
+                path: ["secret"],
+            },
+            match: { kind: "method_name_equals", value: "ReadSecret" },
+        }],
+        sinks: [],
+        transfers: [],
+    });
+    assert(sourcePathValidation.valid, `source static path rule should be valid: ${sourcePathValidation.errors.join("; ")}`);
+
+    const sinkPathValidation = validateRuleSet({
+        schemaVersion: "2.0",
+        sources: [],
+        sinks: [{
+            id: "sink.static.path.ok",
+            target: {
+                endpoint: "arg0",
+                path: ["secret"],
+            },
+            match: { kind: "method_name_equals", value: "SinkField" },
+        }],
+        transfers: [],
+    });
+    assert(sinkPathValidation.valid, `sink static path rule should be valid: ${sinkPathValidation.errors.join("; ")}`);
+
+    const invalidTransferPathValidation = validateRuleSet({
+        schemaVersion: "2.0",
+        sources: [],
+        sinks: [],
+        transfers: [{
+            id: "transfer.invalid.path.bad",
+            match: { kind: "signature_contains", value: "Map.get" },
+            from: {
+                endpoint: "base",
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                path: ["legacy"] as any,
+            } as any,
+            to: "result",
+        }],
+    });
+    assert(!invalidTransferPathValidation.valid, "invalid transfer path rule should be rejected");
+    assert(
+        invalidTransferPathValidation.errors.some(err => err.includes("path is not supported for transfer rules")),
+        `invalid transfer path rejection missing, errors=${invalidTransferPathValidation.errors.join("; ")}`
+    );
 
     const cases: CaseSpec[] = [
         { name: "transfer_invoke_kind_003_T", expected: true },
@@ -156,4 +222,5 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+
 

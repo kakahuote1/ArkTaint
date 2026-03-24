@@ -1,7 +1,7 @@
-
+﻿
 import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
-import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
+import { TaintPropagationEngine } from "../core/orchestration/TaintPropagationEngine";
 import * as path from 'path';
 
 async function runTest() {
@@ -34,11 +34,12 @@ async function runTest() {
 
     // 6. Report
     if (flows.length > 0) {
-        console.log("✅ SUCCESS: Detected Taint Flows:");
+        console.log("鉁?SUCCESS: Detected Taint Flows:");
         flows.forEach(f => console.log(f.toString()));
     } else {
-        console.log("❌ FAILURE: No flows detected.");
+        console.log("鉂?FAILURE: No flows detected.");
     }
 }
 
 runTest().catch(console.error);
+

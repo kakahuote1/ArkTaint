@@ -1,6 +1,6 @@
-import { Scene } from "../../arkanalyzer/out/src/Scene";
+﻿import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
-import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
+import { TaintPropagationEngine } from "../core/orchestration/TaintPropagationEngine";
 import { SinkRule, SourceRule, TransferRule } from "../core/rules/RuleSchema";
 import * as path from "path";
 
@@ -51,18 +51,15 @@ async function main(): Promise<void> {
     const sourceRules: SourceRule[] = [
         {
             id: "source.tierc.entry_param",
-            kind: "entry_param",
+            sourceKind: "entry_param",
             target: "arg0",
-            targetRef: { endpoint: "arg0" },
             match: { kind: "local_name_regex", value: "^taint_src$" },
         },
     ];
     const sinkRules: SinkRule[] = [
         {
             id: "sink.tierc.arg0",
-            profile: "signature",
-            sinkTarget: "arg0",
-            sinkTargetRef: { endpoint: "arg0" },
+            target: { endpoint: "arg0" },
             match: { kind: "method_name_equals", value: "Sink" },
         },
     ];
@@ -79,9 +76,7 @@ async function main(): Promise<void> {
         id: "transfer.tierc.anchored",
         family: "transfer.tierc.bridge",
         tier: "C",
-        match: { kind: "method_name_equals", value: "Bridge" },
-        invokeKind: "instance",
-        argCount: 1,
+        match: { kind: "method_name_equals", value: "Bridge", invokeKind: "instance", argCount: 1 },
         scope: {
             className: { mode: "contains", value: "PriorityHostConstrained" },
         },
@@ -114,4 +109,5 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+
 

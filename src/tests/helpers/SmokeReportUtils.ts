@@ -99,7 +99,7 @@ export function renderMarkdownReport(report: SmokeReport): string {
     lines.push(`- k: ${report.options.k}`);
     lines.push(`- maxEntries: ${report.options.maxEntries}`);
     lines.push(`- projects: ${report.totalProjects}`);
-    lines.push(`- analyzed dummyMain units: ${report.totalAnalyzedEntries}`);
+    lines.push(`- analyzed arkMain units: ${report.totalAnalyzedEntries}`);
     lines.push(`- entries with seeds: ${report.totalEntriesWithSeeds}`);
     lines.push(`- entries with flows: ${report.totalEntriesWithFlows}`);
     lines.push(`- total flows: ${report.totalFlows}`);
@@ -159,7 +159,7 @@ export function renderMarkdownReport(report: SmokeReport): string {
                 return b.score - a.score;
             })
             .slice(0, 8);
-        lines.push("### Top DummyMain Units");
+        lines.push("### Top ArkMain Units");
         for (const e of topEntries) {
             const strategyText = e.seedStrategies.length > 0 ? e.seedStrategies.join(",") : "N/A";
             lines.push(`- ${e.entryName} @ ${e.entryPathHint || "N/A"} | status=${e.status} | flows=${e.flowCount} | seeds=${e.seedCount} | seedBy=${strategyText} | score=${e.score}`);

@@ -20,13 +20,13 @@ import path from 'path';
 import * as fs from 'fs';
 import { CallGraph, CallGraphNode, CallSite, DynCallSite, FuncID } from '../model/CallGraph';
 import { AbstractAnalysis } from '../algorithm/AbstractAnalysis';
-import { ClassType, Type, UnknownType } from '../../core/base/Type';
+import { ClassType, FunctionType, Type, UnknownType } from '../../core/base/Type';
 import { CallGraphBuilder } from '../model/builder/CallGraphBuilder';
 import { Stmt } from '../../core/base/Stmt';
 import Logger, { LOG_MODULE_TYPE } from '../../utils/logger';
 import { DummyMainCreater } from '../../core/common/DummyMainCreater';
 import { PTAStat } from '../common/Statistics';
-import { Pag, PagNode, PagEdgeKind, PagEdge, PagLocalNode, PagGlobalThisNode, PagArrayNode } from './Pag';
+import { Pag, PagNode, PagEdgeKind, PagEdge, PagLocalNode, PagGlobalThisNode, PagArrayNode, PagFuncNode } from './Pag';
 import { PagBuilder } from './PagBuilder';
 import { PointerAnalysisConfig, PtaAnalysisScale } from './PointerAnalysisConfig';
 import { DiffPTData, IPtsCollection } from './PtsDS';
@@ -294,8 +294,10 @@ export class PointerAnalysis extends AbstractAnalysis {
             let srcNode = edge.getSrcNode() as PagNode;
             this.ptaStat.numProcessedWrite++;
             for (let pt of diffPts!) {
-                // filter pt
-                // clone the real field node with abstract field node
+                let ptNode = this.pag.getNode(pt) as PagNode;
+                if (this.isFunctionLikePagNode(ptNode)) {
+                    continue;
+                }
                 let dstNode;
                 if (fieldNode instanceof PagArrayNode) {
                     let arrayBase = (fieldNode.getValue() as ArkArrayRef).getBase();
@@ -324,6 +326,10 @@ export class PointerAnalysis extends AbstractAnalysis {
             let dstNode = edge.getDstNode() as PagNode;
             this.ptaStat.numProcessedLoad++;
             for (let pt of diffPts!) {
+                let ptNode = this.pag.getNode(pt) as PagNode;
+                if (this.isFunctionLikePagNode(ptNode)) {
+                    continue;
+                }
                 let srcNode;
                 if (fieldNode instanceof PagArrayNode) {
                     let arrayBase = (fieldNode.getValue() as ArkArrayRef).getBase();
@@ -343,6 +349,14 @@ export class PointerAnalysis extends AbstractAnalysis {
                 }
             }
         });
+    }
+
+    private isFunctionLikePagNode(node: PagNode): boolean {
+        if (node instanceof PagFuncNode) {
+            return true;
+        }
+        const value = node.getValue();
+        return value.getType() instanceof FunctionType;
     }
 
     /**

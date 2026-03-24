@@ -277,8 +277,10 @@ class PointerAnalysis extends AbstractAnalysis_1.AbstractAnalysis {
             let srcNode = edge.getSrcNode();
             this.ptaStat.numProcessedWrite++;
             for (let pt of diffPts) {
-                // filter pt
-                // clone the real field node with abstract field node
+                let ptNode = this.pag.getNode(pt);
+                if (ptNode instanceof Pag_1.PagFuncNode) {
+                    continue;
+                }
                 let dstNode;
                 if (fieldNode instanceof Pag_1.PagArrayNode) {
                     let arrayBase = fieldNode.getValue().getBase();
@@ -305,6 +307,10 @@ class PointerAnalysis extends AbstractAnalysis_1.AbstractAnalysis {
             let dstNode = edge.getDstNode();
             this.ptaStat.numProcessedLoad++;
             for (let pt of diffPts) {
+                let ptNode = this.pag.getNode(pt);
+                if (ptNode instanceof Pag_1.PagFuncNode) {
+                    continue;
+                }
                 let srcNode;
                 if (fieldNode instanceof Pag_1.PagArrayNode) {
                     let arrayBase = fieldNode.getValue().getBase();

@@ -1,8 +1,9 @@
-import { Scene } from "../../arkanalyzer/out/src/Scene";
+﻿import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
-import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
+import { TaintPropagationEngine } from "../core/orchestration/TaintPropagationEngine";
 import { loadRuleSet } from "../core/rules/RuleLoader";
 import { SinkRule, SourceRule } from "../core/rules/RuleSchema";
+import { buildEngineForCase, findCaseMethod, resolveCaseMethod } from "./helpers/SyntheticCaseHarness";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -92,16 +93,29 @@ function listCases(sourceDir: string): string[] {
 async function runCase(
     scene: Scene,
     caseName: string,
+    relativePath: string,
     options: CliOptions,
     sourceRules: SourceRule[],
     sinkRules: SinkRule[]
 ): Promise<CaseResult> {
     const expected = caseName.endsWith("_T");
-    const engine = new TaintPropagationEngine(scene, options.k, {
+    const entry = resolveCaseMethod(scene, relativePath, caseName);
+    const entryMethod = findCaseMethod(scene, entry);
+    if (!entryMethod) {
+        return {
+            name: caseName,
+            expected,
+            detected: false,
+            seedCount: 0,
+            pass: !expected,
+        };
+    }
+    const engine = await buildEngineForCase(scene, options.k, entryMethod, {
+        engineOptions: {
         enableHarmonyAppStorageModeling: !options.disableModeling,
+        },
+        verbose: false,
     });
-    engine.verbose = false;
-    await engine.buildPAG();
     try {
         const reachable = engine.computeReachableMethodSignatures();
         engine.setActiveReachableMethodSignatures(reachable);
@@ -158,7 +172,7 @@ async function main(): Promise<void> {
     let passCount = 0;
 
     for (const caseName of cases) {
-        const result = await runCase(scene, caseName, options, sourceRules, sinkRules);
+        const result = await runCase(scene, caseName, `${caseName}.ets`, options, sourceRules, sinkRules);
         if (result.pass) passCount++;
         results.push(result);
     }
@@ -185,3 +199,4 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+

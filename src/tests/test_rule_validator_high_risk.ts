@@ -7,13 +7,12 @@ function assert(condition: unknown, message: string): asserts condition {
 
 function buildRuleSetWithSink(sinkRule: SinkRule) {
     return {
-        schemaVersion: "1.1",
+        schemaVersion: "2.0",
         sources: [
             {
                 id: "source.min.entry_param",
-                kind: "entry_param",
-                target: "arg0",
-                targetRef: { endpoint: "arg0" },
+                sourceKind: "entry_param",
+                target: { endpoint: "arg0" },
                 match: { kind: "local_name_regex", value: "^taint_src$" },
             },
         ],
@@ -38,16 +37,14 @@ function hasHighRiskWarning(warnings: string[]): boolean {
 
 function main(): void {
     const baseSink: Omit<SinkRule, "id"> = {
-        profile: "signature",
-        sinkTarget: "arg0",
-        sinkTargetRef: { endpoint: "arg0" },
+        target: { endpoint: "arg0" },
         match: { kind: "method_name_equals", value: "request" },
     };
 
     const missingScope: SinkRule = {
         id: "sink.highrisk.missing_scope",
         ...baseSink,
-        invokeKind: "instance",
+        match: { ...baseSink.match, invokeKind: "instance" },
     };
     const onlyScope: SinkRule = {
         id: "sink.highrisk.only_scope",
@@ -59,8 +56,7 @@ function main(): void {
     const combinedOk: SinkRule = {
         id: "sink.highrisk.combined_ok",
         ...baseSink,
-        invokeKind: "instance",
-        argCount: 2,
+        match: { ...baseSink.match, invokeKind: "instance", argCount: 2 },
         scope: {
             className: { mode: "contains", value: "Http" },
         },

@@ -1,4 +1,4 @@
-interface RuleHitCountersLike {
+﻿interface RuleHitCountersLike {
     source: Record<string, number>;
     sink: Record<string, number>;
     transfer: Record<string, number>;
@@ -110,20 +110,20 @@ function rankCounters(record: Record<string, number>, limit: number): RankedCoun
 
 function noHitReasonAdvice(reason: string): string {
     const map: Record<string, string> = {
-        no_transfer_rules_loaded: "建议在项目规则中补充 transfer 规则（from/to 端点）。",
-        no_tainted_facts: "建议补充 source 规则，确保入口参数或关键局部变量能产生 seed。",
-        no_invoke_site_from_tainted_fact: "建议检查 taint 到调用点前的传播链路，补充必要 transfer。",
-        no_candidate_rule_for_callsite: "建议补充更宽的 match 条件（method/signature/regex）。",
-        rule_static_match_failed: "建议调整 match（signature_contains/regex）或 invokeKind/argCount。",
-        from_endpoint_not_tainted_or_path_mismatch: "建议核对 fromRef 路径与端点是否与真实 taint 位置一致。",
-        to_endpoint_unresolved_or_no_target_nodes: "建议核对 toRef 端点是否可解析到目标节点。",
-        no_source_seed: "建议增加 source 规则（entry_param/call_return/seed_local_name）。",
-        no_entry_method: "当前 sourceDir 未构建出可分析的 dummyMain 可达入口。",
-        entry_has_no_body: "目标方法无方法体，建议检查 sourceDir 对应模块是否包含可执行 ArkTS 实现。",
-        no_selected_entry: "当前 sourceDir 的 dummyMain 可达域为空，建议检查模块结构或缩小 sourceDir。",
-        analyze_exception: "分析异常，建议先查看 summary.json 的 status=exception 入口。",
+        no_transfer_rules_loaded: "Add transfer rules for the relevant from/to endpoints.",
+        no_tainted_facts: "Add source rules so entry params or key locals can produce seeds.",
+        no_invoke_site_from_tainted_fact: "Check the taint chain before the invoke site and add missing transfer rules.",
+        no_candidate_rule_for_callsite: "Broaden the match condition with method/signature/regex coverage.",
+        rule_static_match_failed: "Adjust the rule match or invokeKind/argCount constraints.",
+        from_endpoint_not_tainted_or_path_mismatch: "Verify that fromRef matches the real tainted endpoint and path.",
+        to_endpoint_unresolved_or_no_target_nodes: "Verify that toRef resolves to concrete target nodes.",
+        no_source_seed: "Add source rules such as entry_param, call_return, or seed_local_name.",
+        no_entry_method: "The current sourceDir did not produce reachable arkMain entries.",
+        entry_has_no_body: "The target method has no body; check whether sourceDir contains the executable ArkTS implementation.",
+        no_selected_entry: "The current sourceDir produced an empty arkMain reachable scope; check module layout or narrow sourceDir.",
+        analyze_exception: "Analysis threw an exception; inspect the summary for the failing entry.",
     };
-    return map[reason] || "建议根据该原因补充 source/sink/transfer 规则。";
+    return map[reason] || "Add or adjust source/sink/transfer rules based on the reported reason.";
 }
 
 function resolveProjectRulePath(report: AnalyzeReportLike): string {
@@ -131,7 +131,7 @@ function resolveProjectRulePath(report: AnalyzeReportLike): string {
     if (appliedProject) return appliedProject.path;
     const knownProject = report.ruleLayerStatus.find(s => s.name === "project");
     if (knownProject) return knownProject.path;
-    return "rules/project.rules.json";
+    return "src/rules/project.rules.json";
 }
 
 function renderGuidance(report: AnalyzeReportLike): string[] {
@@ -146,23 +146,23 @@ function renderGuidance(report: AnalyzeReportLike): string[] {
     lines.push("");
     lines.push("### 命中规则（Top）");
     if (topSourceHits.length === 0 && topSinkHits.length === 0 && topTransferHits.length === 0) {
-        lines.push("- 当前无规则命中，建议先补充最小 source/sink 规则集。");
+        lines.push("- No rule hits yet; start by adding a minimal source/sink rule set.");
     } else {
         if (topSourceHits.length > 0) {
-            lines.push(`- source 鍛戒腑: ${topSourceHits.map(x => `${x.key}(${x.count})`).join(", ")}`);
+            lines.push(`- source hits: ${topSourceHits.map(x => `${x.key}(${x.count})`).join(", ")}`);
         }
         if (topSinkHits.length > 0) {
-            lines.push(`- sink 鍛戒腑: ${topSinkHits.map(x => `${x.key}(${x.count})`).join(", ")}`);
+            lines.push(`- sink hits: ${topSinkHits.map(x => `${x.key}(${x.count})`).join(", ")}`);
         }
         if (topTransferHits.length > 0) {
-            lines.push(`- transfer 鍛戒腑: ${topTransferHits.map(x => `${x.key}(${x.count})`).join(", ")}`);
+            lines.push(`- transfer hits: ${topTransferHits.map(x => `${x.key}(${x.count})`).join(", ")}`);
         }
     }
 
     lines.push("");
     lines.push("### 未命中原因（Top）");
     if (topNoHitReasons.length === 0) {
-        lines.push("- 无明显未命中原因。");
+        lines.push("- No obvious no-hit reasons.");
     } else {
         for (const item of topNoHitReasons) {
             lines.push(`- ${item.key}(${item.count}): ${noHitReasonAdvice(item.key)}`);
@@ -181,13 +181,13 @@ function renderGuidance(report: AnalyzeReportLike): string[] {
     lines.push("");
     lines.push("### 建议补规则位点（Top）");
     if (sourceGaps.length === 0 && transferGaps.length === 0) {
-        lines.push("- 当前无明显规则缺口位点。");
+        lines.push("- No obvious rule gaps.");
     } else {
         for (const e of sourceGaps) {
-            lines.push(`- [source] ${e.entryName} @ ${e.entryPathHint || "N/A"}: 建议在 ${projectRulePath} 增加 dummyMain 可达方法上的 entry_param/call_return source 规则。`);
+            lines.push(`- [source] ${e.entryName} @ ${e.entryPathHint || "N/A"}: add entry_param or call_return source rules in ${projectRulePath}.`);
         }
         for (const e of transferGaps) {
-            lines.push(`- [transfer] ${e.entryName} @ ${e.entryPathHint || "N/A"}: 已有 seed 但无 flow，建议在 ${projectRulePath} 补充 from(arg/base)->to(result/base/arg) 的 transfer。`);
+            lines.push(`- [transfer] ${e.entryName} @ ${e.entryPathHint || "N/A"}: seeds exist but no flow; add from(arg/base)->to(result/base/arg) transfers in ${projectRulePath}.`);
         }
     }
     return lines;
@@ -272,3 +272,4 @@ export function renderMarkdownReport(report: AnalyzeReportLike): string {
     }
     return lines.join("\n");
 }
+

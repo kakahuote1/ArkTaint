@@ -7,8 +7,8 @@ class RouterPage001 {
     }
 }
 
-export function router_getparams_direct_001_T(): void {
-    Router.pushUrl({ url: "detail", params: "tainted" });
+export function router_getparams_direct_001_T(taint_src: string): void {
+    Router.pushUrl({ url: "detail", params: taint_src });
     const page = new RouterPage001();
     page.build();
 }

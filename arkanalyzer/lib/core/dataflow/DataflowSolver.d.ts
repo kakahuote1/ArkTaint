@@ -1,0 +1,45 @@
+import { Scene } from '../../Scene';
+import { ArkInvokeStmt, Stmt } from '../base/Stmt';
+import { ArkMethod } from '../model/ArkMethod';
+import { DataflowProblem } from './DataflowProblem';
+import { PathEdge, PathEdgePoint } from './Edge';
+import { BasicBlock } from '../graph/BasicBlock';
+import { ClassHierarchyAnalysis } from '../../callgraph/algorithm/ClassHierarchyAnalysis';
+type CallToReturnCacheEdge<D> = PathEdge<D>;
+export declare abstract class DataflowSolver<D> {
+    protected problem: DataflowProblem<D>;
+    protected workList: Array<PathEdge<D>>;
+    protected pathEdgeSet: Set<PathEdge<D>>;
+    protected zeroFact: D;
+    protected inComing: Map<PathEdgePoint<D>, Set<PathEdgePoint<D>>>;
+    protected endSummary: Map<PathEdgePoint<D>, Set<PathEdgePoint<D>>>;
+    protected summaryEdge: Set<CallToReturnCacheEdge<D>>;
+    protected scene: Scene;
+    protected CHA: ClassHierarchyAnalysis;
+    protected stmtNexts: Map<Stmt, Set<Stmt>>;
+    protected laterEdges: Set<PathEdge<D>>;
+    constructor(problem: DataflowProblem<D>, scene: Scene);
+    solve(): void;
+    protected computeResult(stmt: Stmt, d: D): boolean;
+    protected getChildren(stmt: Stmt): Stmt[];
+    protected init(): void;
+    protected buildStmtMapInClass(): void;
+    protected buildStmtMapInBlock(block: BasicBlock): void;
+    protected setCfg4AllStmt(): void;
+    protected getAllCalleeMethods(callNode: ArkInvokeStmt): Set<ArkMethod>;
+    protected getReturnSiteOfCall(call: Stmt): Stmt;
+    protected getStartOfCallerMethod(call: Stmt): Stmt;
+    protected pathEdgeSetHasEdge(edge: PathEdge<D>): boolean;
+    protected propagate(edge: PathEdge<D>): void;
+    protected processExitNode(edge: PathEdge<D>): void;
+    private handleFacts;
+    protected processNormalNode(edge: PathEdge<D>): void;
+    protected processCallNode(edge: PathEdge<D>): void;
+    protected callNodeFactPropagate(edge: PathEdge<D>, firstStmt: Stmt, fact: D, returnSite: Stmt): void;
+    protected doSolve(): void;
+    protected isCallStatement(stmt: Stmt): boolean;
+    protected isExitStatement(stmt: Stmt): boolean;
+    getPathEdgeSet(): Set<PathEdge<D>>;
+}
+export {};
+//# sourceMappingURL=DataflowSolver.d.ts.map

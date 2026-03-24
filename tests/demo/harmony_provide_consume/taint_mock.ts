@@ -1,8 +1,8 @@
-export function Provide(_key: string): any {
+export function Provide(_key?: string): any {
     return function (_target: any, _propertyKey: string): void {};
 }
 
-export function Consume(_key: string): any {
+export function Consume(_key?: string): any {
     return function (_target: any, _propertyKey: string): void {};
 }
 

@@ -1,6 +1,6 @@
-import { Scene } from "../../arkanalyzer/out/src/Scene";
+﻿import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
-import { TaintPropagationEngine } from "../core/TaintPropagationEngine";
+import { TaintPropagationEngine } from "../core/orchestration/TaintPropagationEngine";
 import { loadRuleSet } from "../core/rules/RuleLoader";
 import { SinkRule, SourceRule, TransferRule } from "../core/rules/RuleSchema";
 import * as fs from "fs";
@@ -100,10 +100,9 @@ async function runCase(
     const seedInfo = engine.propagateWithSourceRules(sourceRules);
     const flows = engine.detectSinksByRules(sinkRules);
     const scopedFlows = flows.filter(flow => flowSinkInCaseMethod(scene, flow.sink, caseName));
-    const transferRuleHits = Object.entries(engine.getRuleHitCounters().transfer)
-        .filter(([, hit]) => hit > 0)
-        .map(([id]) => id)
-        .sort();
+    const transferRuleHits = [...new Set(
+        scopedFlows.flatMap(flow => flow.transferRuleIds || [])
+    )].sort();
 
     return {
         detected: scopedFlows.length > 0,
@@ -184,4 +183,5 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+
 

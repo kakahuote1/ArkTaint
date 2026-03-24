@@ -121,9 +121,9 @@ function createSyntheticEntryResult(
 ): EntrySmokeResult {
     return {
         sourceDir,
-        entryName: "@dummyMain",
+        entryName: "@arkMain",
         entryPathHint: sourceDir,
-        signature: "@dummyMain",
+        signature: "@arkMain",
         score: 100,
         status,
         seedLocalNames: [],
@@ -211,7 +211,7 @@ function buildSourceDirEntries(
 function createFallbackAnalyzeReport(repoAbs: string, sourceDirs: string[]): AnalyzeReport {
     const entries = sourceDirs.map(sourceDir => ({
         sourceDir,
-        entryName: "@dummyMain",
+        entryName: "@arkMain",
         entryPathHint: sourceDir,
         score: 100,
         status: "exception" as const,
