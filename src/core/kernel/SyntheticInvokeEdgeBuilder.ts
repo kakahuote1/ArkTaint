@@ -2,9 +2,23 @@ import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { CallGraph } from "../../../arkanalyzer/out/src/callgraph/model/CallGraph";
 import { Pag, PagNode } from "../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { ArkAssignStmt, ArkReturnStmt } from "../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkParameterRef, ArkInstanceFieldRef, ClosureFieldRef } from "../../../arkanalyzer/out/src/core/base/Ref";
+import {
+    ArkParameterRef,
+    ArkInstanceFieldRef,
+    ArkStaticFieldRef,
+    ArkArrayRef,
+    ArkThisRef,
+    ClosureFieldRef,
+} from "../../../arkanalyzer/out/src/core/base/Ref";
 import { Local } from "../../../arkanalyzer/out/src/core/base/Local";
-import { ArkInstanceInvokeExpr } from "../../../arkanalyzer/out/src/core/base/Expr";
+import { Constant } from "../../../arkanalyzer/out/src/core/base/Constant";
+import {
+    AbstractExpr,
+    ArkAwaitExpr,
+    ArkInstanceInvokeExpr,
+    ArkNewArrayExpr,
+    ArkNewExpr,
+} from "../../../arkanalyzer/out/src/core/base/Expr";
 import { CallEdgeType } from "./context/TaintContext";
 import { resolveCallbackMethodsFromValueWithReturns } from "../substrate/queries/CallbackBindingQuery";
 import {
@@ -1387,16 +1401,72 @@ function findAnyPagNodeForMethod(pag: Pag, method: any): number | undefined {
 }
 
 function getOrCreatePagNodes(pag: Pag, value: any, anchorStmt: any): Map<number, number> | undefined {
-    let nodes = pag.getNodesByValue(value);
+    const pagValue = resolvePagNodeValue(value, anchorStmt);
+    if (!pagValue) {
+        return undefined;
+    }
+
+    let nodes = pag.getNodesByValue(pagValue);
     if (nodes && nodes.size > 0) {
         return nodes;
     }
     if (!anchorStmt) {
         return nodes;
     }
-    pag.addPagNode(0, value, anchorStmt);
-    nodes = pag.getNodesByValue(value);
+    try {
+        pag.addPagNode(0, pagValue, anchorStmt);
+    } catch {
+        return undefined;
+    }
+    nodes = pag.getNodesByValue(pagValue);
     return nodes;
+}
+
+function resolvePagNodeValue(value: any, anchorStmt: any, visiting: Set<any> = new Set()): any | undefined {
+    if (!value || visiting.has(value)) {
+        return undefined;
+    }
+    visiting.add(value);
+
+    if (isPagNodeValue(value)) {
+        return value;
+    }
+
+    if (value instanceof ArkAwaitExpr) {
+        return resolvePagNodeValue(value.getPromise(), anchorStmt, visiting);
+    }
+
+    if (value instanceof AbstractExpr) {
+        const uses = value.getUses?.() || [];
+        for (const use of uses) {
+            const resolved = resolvePagNodeValue(use, anchorStmt, visiting);
+            if (resolved) {
+                return resolved;
+            }
+        }
+    }
+
+    const left = anchorStmt?.getLeftOp?.();
+    if (left && left !== value) {
+        const resolvedLeft = resolvePagNodeValue(left, undefined, visiting);
+        if (resolvedLeft) {
+            return resolvedLeft;
+        }
+    }
+
+    return undefined;
+}
+
+function isPagNodeValue(value: any): boolean {
+    return value instanceof Local
+        || value instanceof ArkInstanceFieldRef
+        || value instanceof ArkStaticFieldRef
+        || value instanceof ArkArrayRef
+        || value instanceof ArkNewExpr
+        || value instanceof ArkNewArrayExpr
+        || value instanceof ArkParameterRef
+        || value instanceof ArkThisRef
+        || value instanceof Constant;
 }
 
 function resolveAsyncCallbackBindings(
