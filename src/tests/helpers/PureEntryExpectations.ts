@@ -12,7 +12,7 @@ interface PureEntryExpectationManifest {
 }
 
 export function loadPureEntryExpectationSuites(): Map<string, PureEntryExpectationSuite> {
-    const manifestPath = path.resolve("tests/manifests/main_model_pure_entry_expectations.json");
+    const manifestPath = path.resolve("tests/manifests/entry_model/main_model_pure_entry_expectations.json");
     const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as PureEntryExpectationManifest;
     return new Map(manifest.suites.map(suite => [suite.id, suite]));
 }
@@ -49,3 +49,4 @@ export function buildPureEntryExpectationLookup(
 
     return lookup;
 }
+

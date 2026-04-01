@@ -1,6 +1,6 @@
 import { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import { Pag, PagNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
-import { TaintFact } from "../TaintFact";
+import { TaintFact } from "../model/TaintFact";
 
 export interface PropagationContext {
     scene: Scene;

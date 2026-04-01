@@ -1,6 +1,7 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as path from "path";
 import { runCommandOrThrow } from "./helpers/ProcessRunner";
+import { getAnalyzeSummaryJsonPath } from "./helpers/AnalyzeCliRunner";
 
 interface AnalyzeSummary {
     summary: {
@@ -21,7 +22,7 @@ function assert(condition: unknown, message: string): asserts condition {
 }
 
 function readSummary(outputDir: string): AnalyzeSummary {
-    const summaryPath = path.resolve(outputDir, "summary.json");
+    const summaryPath = getAnalyzeSummaryJsonPath(outputDir);
     if (!fs.existsSync(summaryPath)) {
         throw new Error(`summary missing: ${summaryPath}`);
     }
@@ -70,7 +71,7 @@ function medianPoint(points: PerfPoint[]): PerfPoint {
 }
 
 function main(): void {
-    const root = path.resolve("tmp/phase79/transfer_structural_callee_perf");
+    const root = path.resolve("tmp/test_runs/perf/transfer_structural_callee_perf/latest");
     fs.rmSync(root, { recursive: true, force: true });
     fs.mkdirSync(root, { recursive: true });
 
@@ -125,3 +126,4 @@ try {
     console.error(err);
     process.exitCode = 1;
 }
+

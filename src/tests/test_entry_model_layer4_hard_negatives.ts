@@ -1,4 +1,4 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as path from "path";
 import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
@@ -217,7 +217,7 @@ function assert(condition: unknown, message: string): void {
 
 async function main(): Promise<void> {
     const sourceDir = path.resolve("tests/demo/layer4_hard_negatives");
-    const outputDir = path.resolve("tmp/phase717/layer4_hard_negative_benchmark");
+    const outputDir = path.resolve("tmp/test_runs/entry_model/layer4_hard_negative_benchmark/latest");
     const caseViewRoot = path.join(outputDir, "case_views");
     ensureDir(outputDir);
     ensureDir(caseViewRoot);
@@ -276,3 +276,4 @@ main().catch(error => {
     console.error(error);
     process.exit(1);
 });
+

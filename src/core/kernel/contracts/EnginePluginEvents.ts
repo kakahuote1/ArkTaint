@@ -1,4 +1,4 @@
-import type { TaintFact } from "../TaintFact";
+import type { TaintFact } from "../model/TaintFact";
 
 export interface CallEdgeEvent {
     reason: string;

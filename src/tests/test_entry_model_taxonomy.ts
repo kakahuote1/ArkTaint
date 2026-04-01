@@ -1,4 +1,4 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as path from "path";
 import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
@@ -52,7 +52,7 @@ interface SuiteReport {
 
 function loadManifest(): TaxonomyManifest {
     return JSON.parse(
-        fs.readFileSync(path.resolve("tests/manifests/main_model_pure_entry_taxonomy.json"), "utf8"),
+        fs.readFileSync(path.resolve("tests/manifests/entry_model/main_model_pure_entry_taxonomy.json"), "utf8"),
     ) as TaxonomyManifest;
 }
 
@@ -166,7 +166,7 @@ async function runPureEntryCase(
 }
 
 async function main(): Promise<void> {
-    const outputDir = path.resolve("tmp/phase719/main_model_taxonomy");
+    const outputDir = path.resolve("tmp/test_runs/entry_model/main_model_taxonomy/latest");
     const outputPath = path.join(outputDir, "main_model_taxonomy_report.json");
     const caseViewRoot = path.join(outputDir, "case_views");
     ensureDir(outputDir);
@@ -243,7 +243,7 @@ async function main(): Promise<void> {
     const totalRuntimeErrors = suiteReports.reduce((sum, report) => sum + report.runtimeErrors, 0);
     const report = {
         benchmarkKind: "pure_entry_taxonomy_arkmain",
-        manifest: "tests/manifests/main_model_pure_entry_taxonomy.json",
+        manifest: "tests/manifests/entry_model/main_model_pure_entry_taxonomy.json",
         suiteCount: suiteReports.length,
         totalScoredCases,
         totalPassCases,
@@ -269,3 +269,5 @@ main().catch(error => {
     console.error(error);
     process.exit(1);
 });
+
+

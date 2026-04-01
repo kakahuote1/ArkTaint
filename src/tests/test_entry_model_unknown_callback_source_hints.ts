@@ -1,4 +1,4 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as path from "path";
 import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
@@ -73,7 +73,7 @@ async function runCase(projectDir: string): Promise<{
 
 async function main(): Promise<void> {
     const sourceDir = path.resolve("tests/demo/sdk_structural_fallback_realworld");
-    const outputRoot = path.resolve("tmp/phase719/unknown_callback_source_hints");
+    const outputRoot = path.resolve("tmp/test_runs/entry_model/unknown_callback_source_hints/latest");
     ensureDir(outputRoot);
 
     const cases: CaseSpec[] = [
@@ -97,3 +97,4 @@ main().catch(error => {
     console.error(error);
     process.exit(1);
 });
+

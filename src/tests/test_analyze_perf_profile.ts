@@ -1,7 +1,8 @@
-import { spawnSync } from "child_process";
+﻿import { spawnSync } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+import { getAnalyzeSummaryJsonPath } from "./helpers/AnalyzeCliRunner";
 
 type PerfMode = "baseline" | "optimized";
 
@@ -85,7 +86,7 @@ function parseArgs(argv: string[]): CliOptions {
     let k = 1;
     let maxEntries = 12;
     let defaultRulePath = "tests/rules/minimal.rules.json";
-    let outputDir = "tmp/phase56";
+    let outputDir = "tmp/test_runs/perf/analyze_perf_suite/latest";
     let tag = "round1";
 
     for (let i = 0; i < argv.length; i++) {
@@ -216,7 +217,7 @@ function runAnalyze(
             `analyze failed: mode=${mode}, scenario=${scenario.id}, stderr=${proc.stderr || proc.stdout || "no output"}`
         );
     }
-    const summaryPath = path.resolve(outputDir, "summary.json");
+    const summaryPath = getAnalyzeSummaryJsonPath(outputDir);
     if (!fs.existsSync(summaryPath)) {
         throw new Error(`summary not found: ${summaryPath}`);
     }
@@ -417,3 +418,4 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+

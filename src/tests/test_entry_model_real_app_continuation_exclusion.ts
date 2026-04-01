@@ -1,4 +1,4 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as path from "path";
 import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
@@ -79,7 +79,7 @@ async function main(): Promise<void> {
         promiseContinuationFacts,
     };
 
-    const outputDir = path.resolve("tmp/phase717/real_app_continuation_exclusion");
+    const outputDir = path.resolve("tmp/test_runs/entry_model/real_app_continuation_exclusion/latest");
     const outputPath = path.join(outputDir, "harmonystudy_continuation_exclusion_report.json");
     ensureDir(outputDir);
     fs.writeFileSync(outputPath, JSON.stringify(report, null, 2), "utf8");
@@ -100,3 +100,4 @@ main().catch(error => {
     console.error(error);
     process.exit(1);
 });
+

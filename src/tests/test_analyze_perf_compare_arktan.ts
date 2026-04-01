@@ -1,4 +1,4 @@
-import { spawnSync } from "child_process";
+﻿import { spawnSync } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -81,7 +81,7 @@ interface PerfCompareReport {
 function parseArgs(argv: string[]): CliOptions {
     let rounds = 5;
     let k = 1;
-    let outputDir = "tmp/phase56";
+    let outputDir = "tmp/test_runs/perf/analyze_perf_suite/latest";
     let arktanRoot = "../Arktan";
     let tag = "round1";
     let runStability = false;
@@ -283,3 +283,4 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+

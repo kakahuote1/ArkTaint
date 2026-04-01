@@ -1,4 +1,4 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as path from "path";
 import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
@@ -61,7 +61,7 @@ function buildScene(projectDir: string): Scene {
 }
 
 function assertManifestPureScope(): void {
-    const manifestPath = path.resolve("tests/manifests/main_model_pure_entry_taxonomy.json");
+    const manifestPath = path.resolve("tests/manifests/entry_model/main_model_pure_entry_taxonomy.json");
     const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as PureEntryTaxonomyManifest;
     const expectationSuites = loadPureEntryExpectationSuites();
     const forbiddenCategories = new Set([
@@ -114,7 +114,7 @@ function assertOracle(spec: OracleProbeSpec, outputRoot: string): void {
 }
 
 function main(): void {
-    const outputRoot = path.resolve("tmp/phase717/pure_entry_oracle_case_views");
+    const outputRoot = path.resolve("tmp/test_runs/entry_model/pure_entry_oracle_case_views/latest");
     ensureDir(outputRoot);
     assertManifestPureScope();
 
@@ -305,3 +305,5 @@ function main(): void {
 }
 
 main();
+
+

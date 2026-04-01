@@ -16,6 +16,8 @@ import {
     resolveMethodsFromCallable,
 } from "../../core/kernel/contracts/SemanticPack";
 import { addMapSetValue, resolveClassKeyFromMethodSig, resolveHarmonyMethods } from "../../core/kernel/contracts/HarmonyModelingUtils";
+import { getMethodBySignature } from "../../core/kernel/contracts/MethodLookup";
+import { safeGetOrCreatePagNodes } from "../../core/kernel/contracts/PagNodeResolution";
 
 export type RouterModel = RouterSemanticModel;
 export type BuildRouterModelArgs = BuildRouterSemanticModelArgs;
@@ -548,7 +550,7 @@ function resolveCallbackMethodsFromArg(scene: Scene, arg: any): any[] {
 
     const methodSigText = arg?.getType?.()?.getMethodSignature?.()?.toString?.() || "";
     if (methodSigText) {
-        const matched = scene.getMethods().find(m => m.getSignature?.().toString?.() === methodSigText);
+        const matched = getMethodBySignature(scene, methodSigText);
         if (matched && matched.getCfg?.()) {
             bySig.add(matched);
         }
@@ -598,17 +600,7 @@ function collectCallableNameHints(...texts: string[]): string[] {
 }
 
 function getOrCreatePagNodes(pag: Pag, value: any, anchorStmt: ArkAssignStmt): Map<number, number> | undefined {
-    let nodes = pag.getNodesByValue(value);
-    if (nodes && nodes.size > 0) {
-        return nodes;
-    }
-    // Intentional side effect:
-    // Some callback parameter locals are not materialized in PAG by base PTA.
-    // We add a missing node anchored to the current stmt to preserve router callback bridge completeness.
-    // This operation is idempotent (add-if-absent), so it is safe with PAG cache reuse.
-    pag.addPagNode(0, value, anchorStmt);
-    nodes = pag.getNodesByValue(value);
-    return nodes;
+    return safeGetOrCreatePagNodes(pag, value, anchorStmt);
 }
 
 function collectNavDestinationRouteKeys(scene: Scene, method: any, invokeExpr: any): string[] {

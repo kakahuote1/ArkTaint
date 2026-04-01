@@ -1,4 +1,4 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { readAnalyzeSummary, runAnalyzeCli } from "../helpers/AnalyzeCliRunner";
@@ -66,7 +66,7 @@ function parseArgs(argv: string[]): CliOptions {
     let rounds = 5;
     let threshold = 0.2;
     let k = 1;
-    let outputDir = "tmp/phase66";
+    let outputDir = "tmp/test_runs/archive/phase66_detect_perf/latest";
     let tag = "round1";
 
     for (let i = 0; i < argv.length; i++) {
@@ -315,3 +315,4 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+

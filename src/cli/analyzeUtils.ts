@@ -1,4 +1,4 @@
-import { TaintFlow } from "../core/kernel/TaintFlow";
+import { TaintFlow } from "../core/kernel/model/TaintFlow";
 import { TaintPropagationEngine } from "../core/orchestration/TaintPropagationEngine";
 import { SanitizerRule, SinkRule, SourceRule } from "../core/rules/RuleSchema";
 import { buildSmokeRuleConfig, LoadedRuleSet } from "../core/rules/RuleLoader";

@@ -1,9 +1,10 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as path from "path";
 import {
     readAnalyzeSummary,
     runAnalyzeCli,
 } from "./helpers/AnalyzeCliRunner";
+import { resolveTestRunDir, resolveTestRunPath } from "./helpers/TestWorkspaceLayout";
 
 interface ClassifiedItem {
     category: string;
@@ -41,7 +42,8 @@ function readJson<T>(filePath: string): T {
 }
 
 function main(): void {
-    const outputDir = path.resolve("tmp/analyze/no_candidate_project_candidate_pool");
+    const outputDir = resolveTestRunDir("analyze", "no_candidate_project_candidate_pool");
+    const feedbackDir = resolveTestRunPath("analyze", "no_candidate_project_candidate_pool", "feedback", "rule_feedback");
     fs.rmSync(outputDir, { recursive: true, force: true });
     fs.mkdirSync(outputDir, { recursive: true });
 
@@ -55,8 +57,8 @@ function main(): void {
     ]);
 
     const summary = readAnalyzeSummary<AnalyzeSummary>(outputDir);
-    const classifiedPath = path.resolve("tmp/real_projects/no_candidate_callsites_classified.json");
-    const projectCandidatePath = path.resolve("tmp/real_projects/no_candidate_project_candidates.json");
+    const classifiedPath = path.resolve(feedbackDir, "no_candidate_callsites_classified.json");
+    const projectCandidatePath = path.resolve(feedbackDir, "no_candidate_project_candidates.json");
     const classified = readJson<ClassifiedPayload>(classifiedPath);
     const projectCandidates = readJson<ProjectCandidatePayload>(projectCandidatePath);
     const summaryNoCandidate = summary.summary.ruleFeedback?.noCandidateCallsites || [];
@@ -81,3 +83,5 @@ try {
     console.error(err);
     process.exitCode = 1;
 }
+
+

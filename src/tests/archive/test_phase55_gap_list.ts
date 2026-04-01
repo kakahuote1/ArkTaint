@@ -1,4 +1,4 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as path from "path";
 
 interface CliOptions {
@@ -64,8 +64,8 @@ interface DroppedRuleInfo {
 }
 
 function parseArgs(argv: string[]): CliOptions {
-    let reportPath = "tmp/phase55/compare_report.json";
-    let outputPath = "tmp/phase55/gap_list.md";
+    let reportPath = "tmp/test_runs/compare/transfer_compare_arktan/latest/compare_report.json";
+    let outputPath = "tmp/test_runs/compare/transfer_compare_arktan/latest/gap_list.md";
 
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
@@ -232,3 +232,4 @@ function main(): void {
 }
 
 main();
+

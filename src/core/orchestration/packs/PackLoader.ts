@@ -2,7 +2,9 @@ import * as fs from "fs";
 import * as path from "path";
 import { SemanticPack } from "../../kernel/contracts/SemanticPack";
 import {
+    auditExtensionDirectoryFiles,
     collectTypeScriptSourceFiles,
+    ExtensionModuleLoadIssue,
     filterTypeScriptSourceFilesByMarkers,
     loadExtensionCandidatesFromModule,
     pushLoaderWarning,
@@ -24,6 +26,7 @@ export interface SemanticPackLoadResult {
     packs: SemanticPack[];
     loadedFiles: string[];
     warnings: string[];
+    loadIssues: ExtensionModuleLoadIssue[];
 }
 
 interface LoadedSemanticPackCandidate {
@@ -31,11 +34,24 @@ interface LoadedSemanticPackCandidate {
     enabled: boolean;
 }
 
+interface LoadedSemanticPackModuleResult {
+    candidates: LoadedSemanticPackCandidate[];
+    loadIssue?: ExtensionModuleLoadIssue;
+}
+
+type PackSelectionSource = "builtin" | "external" | "explicit";
+
+interface SelectedSemanticPack {
+    pack: SemanticPack;
+    source: PackSelectionSource;
+}
+
 export function loadSemanticPacks(options: PackLoaderOptions = {}): SemanticPackLoadResult {
     const warnings: string[] = [];
     const attemptedModules = new Set<string>();
     const loadedFiles = new Set<string>();
-    const discoveredPacks: SemanticPack[] = [];
+    const loadIssues: ExtensionModuleLoadIssue[] = [];
+    const selectedPacks = new Map<string, SelectedSemanticPack>();
     const builtinPackFiles = new Set<string>();
     const externalPackFiles = new Set<string>();
     const disabledPackIds = new Set(options.disabledPackIds || []);
@@ -43,6 +59,7 @@ export function loadSemanticPacks(options: PackLoaderOptions = {}): SemanticPack
 
     if (options.includeBuiltinPacks !== false) {
         for (const dir of getBuiltinPackDirs(options.builtinPackDirs)) {
+            auditExtensionDirectoryFiles(dir, "semantic pack", warnings, options.onWarning);
             for (const file of collectPackFiles(dir)) {
                 builtinPackFiles.add(file);
             }
@@ -50,7 +67,9 @@ export function loadSemanticPacks(options: PackLoaderOptions = {}): SemanticPack
     }
 
     for (const dir of options.packDirs || []) {
-        for (const file of collectPackFiles(path.resolve(dir))) {
+        const absDir = path.resolve(dir);
+        auditExtensionDirectoryFiles(absDir, "semantic pack", warnings, options.onWarning);
+        for (const file of collectPackFiles(absDir)) {
             externalPackFiles.add(file);
         }
     }
@@ -68,19 +87,14 @@ export function loadSemanticPacks(options: PackLoaderOptions = {}): SemanticPack
         if (attemptedModules.has(modulePath)) continue;
         attemptedModules.add(modulePath);
         const packs = loadPacksFromModule(modulePath, warnings, options.onWarning);
-        if (packs.length > 0) {
+        if (packs.loadIssue) {
+            loadIssues.push(packs.loadIssue);
+        }
+        if (packs.candidates.length > 0) {
             loadedFiles.add(modulePath);
         }
-        for (const candidate of packs) {
+        for (const candidate of packs.candidates) {
             const pack = candidate.pack;
-            if (discoveredPackIds.has(pack.id)) {
-                pushLoaderWarning(
-                    warnings,
-                    options.onWarning,
-                    `duplicate builtin semantic pack id ${pack.id}; keeping first discovered module`,
-                );
-                continue;
-            }
             discoveredPackIds.add(pack.id);
             if (!candidate.enabled) {
                 continue;
@@ -88,7 +102,7 @@ export function loadSemanticPacks(options: PackLoaderOptions = {}): SemanticPack
             if (disabledPackIds.has(pack.id)) {
                 continue;
             }
-            discoveredPacks.push(pack);
+            registerSemanticPack(selectedPacks, pack, "builtin", warnings, options.onWarning);
         }
     }
 
@@ -101,19 +115,14 @@ export function loadSemanticPacks(options: PackLoaderOptions = {}): SemanticPack
         if (attemptedModules.has(modulePath)) continue;
         attemptedModules.add(modulePath);
         const packs = loadPacksFromModule(modulePath, warnings, options.onWarning);
-        if (packs.length > 0) {
+        if (packs.loadIssue) {
+            loadIssues.push(packs.loadIssue);
+        }
+        if (packs.candidates.length > 0) {
             loadedFiles.add(modulePath);
         }
-        for (const candidate of packs) {
+        for (const candidate of packs.candidates) {
             const pack = candidate.pack;
-            if (discoveredPackIds.has(pack.id)) {
-                pushLoaderWarning(
-                    warnings,
-                    options.onWarning,
-                    `duplicate semantic pack id ${pack.id}; keeping first discovered module`,
-                );
-                continue;
-            }
             discoveredPackIds.add(pack.id);
             if (!candidate.enabled) {
                 continue;
@@ -121,8 +130,17 @@ export function loadSemanticPacks(options: PackLoaderOptions = {}): SemanticPack
             if (disabledPackIds.has(pack.id)) {
                 continue;
             }
-            discoveredPacks.push(pack);
+            registerSemanticPack(selectedPacks, pack, "external", warnings, options.onWarning);
         }
+    }
+
+    for (const pack of options.packs || []) {
+        if (!pack?.id) continue;
+        discoveredPackIds.add(pack.id);
+        if (disabledPackIds.has(pack.id)) {
+            continue;
+        }
+        registerSemanticPack(selectedPacks, pack, "explicit", warnings, options.onWarning);
     }
 
     for (const packId of disabledPackIds) {
@@ -135,12 +153,12 @@ export function loadSemanticPacks(options: PackLoaderOptions = {}): SemanticPack
         }
     }
 
-    const allPacks = [...discoveredPacks, ...(options.packs || []).filter(pack => !disabledPackIds.has(pack.id))];
-    assertUniquePackIds(allPacks);
+    const allPacks = [...selectedPacks.values()].map(item => item.pack);
     return {
         packs: allPacks,
         loadedFiles: [...loadedFiles.values()].sort((a, b) => a.localeCompare(b)),
         warnings,
+        loadIssues,
     };
 }
 
@@ -173,8 +191,8 @@ function loadPacksFromModule(
     modulePath: string,
     warnings: string[],
     onWarning?: (warning: string) => void,
-): LoadedSemanticPackCandidate[] {
-    return loadExtensionCandidatesFromModule<SemanticPack>({
+): LoadedSemanticPackModuleResult {
+    const result = loadExtensionCandidatesFromModule<SemanticPack>({
         modulePath,
         kindLabel: "semantic pack",
         warnings,
@@ -183,10 +201,14 @@ function loadPacksFromModule(
         isCandidate: isSemanticPack,
         getId: candidate => candidate.id,
         isEnabled: candidate => candidate.enabled !== false,
-    }).map(candidate => ({
-        pack: candidate.value,
-        enabled: candidate.enabled,
-    }));
+    });
+    return {
+        candidates: result.candidates.map(candidate => ({
+            pack: candidate.value,
+            enabled: candidate.enabled,
+        })),
+        loadIssue: result.loadIssue,
+    };
 }
 
 function isSemanticPack(value: any): value is SemanticPack {
@@ -196,12 +218,32 @@ function isSemanticPack(value: any): value is SemanticPack {
         && typeof value.description === "string";
 }
 
-function assertUniquePackIds(packs: SemanticPack[]): void {
-    const owners = new Set<string>();
-    for (const pack of packs) {
-        if (owners.has(pack.id)) {
-            throw new Error(`Duplicate semantic pack id: ${pack.id}`);
-        }
-        owners.add(pack.id);
+function registerSemanticPack(
+    selectedPacks: Map<string, SelectedSemanticPack>,
+    pack: SemanticPack,
+    source: PackSelectionSource,
+    warnings: string[],
+    onWarning?: (warning: string) => void,
+): void {
+    const existing = selectedPacks.get(pack.id);
+    if (existing) {
+        pushLoaderWarning(
+            warnings,
+            onWarning,
+            `semantic pack id ${pack.id} from ${describePackSource(source)} overrides ${describePackSource(existing.source)}`,
+        );
     }
+    selectedPacks.set(pack.id, { pack, source });
+}
+
+function describePackSource(source: PackSelectionSource): string {
+    switch (source) {
+        case "builtin":
+            return "builtin pack";
+        case "external":
+            return "external pack";
+        case "explicit":
+            return "explicit pack object";
+    }
+    return "semantic pack";
 }

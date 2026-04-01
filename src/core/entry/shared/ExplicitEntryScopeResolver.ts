@@ -51,8 +51,8 @@ export function expandMethodsByDirectCalls(
     const allowedDeclaringClassNames = options.allowedDeclaringClassNames;
 
     while (true) {
-        while (queue.length > 0) {
-            const method = queue.shift()!;
+        for (let head = 0; head < queue.length; head++) {
+            const method = queue[head];
             const signature = method.getSignature?.()?.toString?.();
             if (!signature || out.has(signature)) continue;
             out.set(signature, method);
@@ -85,6 +85,7 @@ export function expandMethodsByDirectCalls(
                 && isAllowedDeclaringClass(method, allowedDeclaringClassNames);
         });
         if (newCallbacks.length === 0) break;
+        queue.length = 0;
         queue.push(...newCallbacks);
     }
 

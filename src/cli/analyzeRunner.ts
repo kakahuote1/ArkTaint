@@ -1,18 +1,16 @@
 import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
-import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../arkanalyzer/out/src/core/base/Expr";
 import { RuleHitCounters, TaintPropagationEngine } from "../core/orchestration/TaintPropagationEngine";
-import { ConfigBasedTransferExecutor } from "../core/kernel/ConfigBasedTransferExecutor";
+import { ConfigBasedTransferExecutor } from "../core/kernel/rules/ConfigBasedTransferExecutor";
+import {
+    emptyPagNodeResolutionAuditSnapshot,
+    PagNodeResolutionAuditSnapshot,
+} from "../core/kernel/contracts/PagNodeResolution";
 import { loadRuleSet, LoadedRuleSet } from "../core/rules/RuleLoader";
 import {
     normalizeEndpoint,
-    RuleInvokeKind,
-    RuleMatch,
-    RuleScopeConstraint,
-    RuleStringConstraint,
     SinkRule,
     SourceRule,
-    SourceRuleKind,
     TransferRule,
 } from "../core/rules/RuleSchema";
 import {
@@ -22,10 +20,21 @@ import {
 import { CliOptions } from "./analyzeCliOptions";
 import { renderMarkdownReport } from "./analyzeReport";
 import {
+    normalizeDiagnosticsItems,
+    writeDiagnosticsArtifacts,
+} from "./diagnosticsFormat";
+import {
+    ensureAnalyzeOutputLayout,
+    resolveAnalyzeOutputLayout,
+    writeAnalyzeRunManifest,
+} from "./analyzeOutputLayout";
+import {
     accumulateRuleHitCounters,
     AnalyzeReport,
+    emptyAnalyzeErrorDiagnostics,
     emptyAnalyzeStageProfile,
     emptyDetectProfile,
+    emptyEnginePluginAuditSnapshot,
     emptyEntryStageProfile,
     emptyRuleHitCounters,
     emptyTransferProfile,
@@ -33,21 +42,27 @@ import {
     EntryAnalyzeResult,
     toReportEntry,
 } from "./analyzeTypes";
+import { emptySemanticPackAuditSnapshot } from "../core/kernel/contracts/SemanticPack";
 import {
     buildEntryCacheKey,
+    buildIncrementalFingerprint,
     buildRuleFingerprint,
     cloneCachedEntryResult,
     EntryFileStamp,
     IncrementalCacheEntry,
     IncrementalCacheScope,
     loadIncrementalCache,
+    resolveDirectoryTreeStamp,
     sameEntryFileStamp,
     saveIncrementalCache,
 } from "./analyzeIncremental";
+import {
+    buildRuleFeedback,
+    writeNoCandidateCallsiteArtifacts,
+    writeNoCandidateCallsiteClassificationArtifacts,
+} from "./ruleFeedback";
 import { injectArkUiSdk } from "../core/orchestration/ArkUiSdkConfig";
-import { SemanticPack } from "../core/kernel/contracts/SemanticPack";
 import { loadSemanticPacks } from "../core/orchestration/packs/PackLoader";
-import { EnginePlugin } from "../core/orchestration/plugins/EnginePlugin";
 import { loadEnginePlugins } from "../core/orchestration/plugins/EnginePluginLoader";
 import * as fs from "fs";
 import * as path from "path";
@@ -107,6 +122,58 @@ function summarizeTransferNoHitReasons(
         reasons.push("to_endpoint_unresolved_or_no_target_nodes");
     }
     return reasons;
+}
+
+function accumulatePagNodeResolutionAudit(
+    dst: PagNodeResolutionAuditSnapshot,
+    src: PagNodeResolutionAuditSnapshot,
+): void {
+    dst.requestCount += src.requestCount;
+    dst.directHitCount += src.directHitCount;
+    dst.fallbackResolveCount += src.fallbackResolveCount;
+    dst.awaitFallbackCount += src.awaitFallbackCount;
+    dst.exprUseFallbackCount += src.exprUseFallbackCount;
+    dst.anchorLeftFallbackCount += src.anchorLeftFallbackCount;
+    dst.addAttemptCount += src.addAttemptCount;
+    dst.addFailureCount += src.addFailureCount;
+    dst.unresolvedCount += src.unresolvedCount;
+    for (const [kind, count] of Object.entries(src.unsupportedValueKinds || {})) {
+        dst.unsupportedValueKinds[kind] = (dst.unsupportedValueKinds[kind] || 0) + count;
+    }
+}
+
+function dedupFailureEvents<T extends { message: string }>(
+    items: T[],
+    keyOf: (item: T) => string,
+): T[] {
+    const seen = new Set<string>();
+    const out: T[] = [];
+    for (const item of items) {
+        const key = keyOf(item);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(item);
+    }
+    return out;
+}
+
+function buildLoadedFileFingerprint(filePaths: string[]): string {
+    const records = filePaths
+        .map(filePath => path.resolve(filePath))
+        .sort((a, b) => a.localeCompare(b))
+        .map(filePath => {
+            if (!fs.existsSync(filePath)) {
+                return { filePath, exists: false };
+            }
+            const stat = fs.statSync(filePath);
+            return {
+                filePath,
+                exists: true,
+                mtimeMs: Math.floor(stat.mtimeMs),
+                size: stat.size,
+            };
+        });
+    return buildIncrementalFingerprint(records);
 }
 
 function resolveSourceRuleEndpoint(rule: SourceRule): string {
@@ -172,17 +239,6 @@ function buildRuleEndpointHits(
     return endpointHits;
 }
 
-function resolveSourceDirStamp(repo: string, sourceDir: string): EntryFileStamp | undefined {
-    const abs = path.resolve(repo, sourceDir);
-    if (!fs.existsSync(abs)) return undefined;
-    const stat = fs.statSync(abs);
-    return {
-        sourceFile: abs.replace(/\\/g, "/"),
-        mtimeMs: Math.floor(stat.mtimeMs),
-        size: stat.size,
-    };
-}
-
 function getAnalyzeSourceRules(loadedRules: LoadedRuleSet): SourceRule[] {
     const rules = getSourceRules(loadedRules);
     return rules.filter(rule => rule.id !== "source.local_name.primary");
@@ -192,597 +248,29 @@ interface AnalyzeSeedingPolicy {
     enableSecondarySinkSweep: boolean;
 }
 
-interface InvokeSiteStat {
-    signature: string;
-    methodName: string;
-    invokeKind: RuleInvokeKind;
-    argCount: number;
-    calleeFilePath: string;
-    calleeClassText: string;
-    callerFilePath: string;
-    callerClassText: string;
-    callerMethodName: string;
-    sourceDir: string;
-    count: number;
-}
-
-interface NoCandidateCallsiteStat {
-    callee_signature: string;
-    method: string;
-    invokeKind: RuleInvokeKind;
-    argCount: number;
-    sourceFile: string;
-    count: number;
-    topEntries: string[];
-}
-
-type NoCandidateCategory = "C1_UI_NOISE" | "C2_PROJECT_WRAPPER" | "C3_FRAMEWORK_GAP";
-
-interface ClassifiedNoCandidateCallsite extends NoCandidateCallsiteStat {
-    category: NoCandidateCategory;
-    reason: string;
-    evidence: string[];
-}
-
-function extractFilePathFromSignature(signature: string): string {
-    const m = signature.match(/@([^:>]+):/);
-    return m ? m[1].replace(/\\/g, "/") : signature;
-}
-
-function resolveInvokeMethodName(invokeExpr: any, signature: string): string {
-    const fromSig = invokeExpr.getMethodSignature?.().getMethodSubSignature?.().getMethodName?.() || "";
-    if (fromSig) return String(fromSig);
-    const m = signature.match(/\.([A-Za-z0-9_$]+)\(/);
-    return m ? m[1] : "";
-}
-
-function matchStringConstraint(constraint: RuleStringConstraint | undefined, text: string): boolean {
-    if (!constraint) return true;
-    if (constraint.mode === "equals") return text === constraint.value;
-    if (constraint.mode === "contains") return text.includes(constraint.value);
-    try {
-        return new RegExp(constraint.value).test(text);
-    } catch {
-        return false;
-    }
-}
-
-function matchScopeForCallee(scope: RuleScopeConstraint | undefined, site: InvokeSiteStat): boolean {
-    if (!scope) return true;
-    if (!matchStringConstraint(scope.file, site.calleeFilePath)) return false;
-    if (!matchStringConstraint(scope.module, site.signature || site.calleeFilePath)) return false;
-    if (!matchStringConstraint(scope.className, site.calleeClassText)) return false;
-    if (!matchStringConstraint(scope.methodName, site.methodName)) return false;
-    return true;
-}
-
-function matchScopeForCaller(scope: RuleScopeConstraint | undefined, site: InvokeSiteStat): boolean {
-    if (!scope) return true;
-    if (!matchStringConstraint(scope.file, site.callerFilePath)) return false;
-    if (!matchStringConstraint(scope.module, site.callerFilePath || site.callerClassText)) return false;
-    if (!matchStringConstraint(scope.className, site.callerClassText)) return false;
-    if (!matchStringConstraint(scope.methodName, site.callerMethodName)) return false;
-    return true;
-}
-
-function matchInvokeShape(
-    invokeKind: RuleInvokeKind | undefined,
-    argCount: number | undefined,
-    typeHint: string | undefined,
-    site: InvokeSiteStat
-): boolean {
-    if (invokeKind && invokeKind !== "any" && invokeKind !== site.invokeKind) return false;
-    if (argCount !== undefined && argCount !== site.argCount) return false;
-    if (typeHint && typeHint.trim().length > 0) {
-        const hint = typeHint.trim().toLowerCase();
-        const haystack = `${site.signature} ${site.calleeClassText}`.toLowerCase();
-        if (!haystack.includes(hint)) return false;
-    }
-    return true;
-}
-
-function matchRuleMatch(match: RuleMatch, site: InvokeSiteStat): boolean {
-    const value = match.value || "";
-    switch (match.kind) {
-        case "method_name_equals":
-            return site.methodName === value;
-        case "method_name_regex":
-            try {
-                return new RegExp(value).test(site.methodName);
-            } catch {
-                return false;
-            }
-        case "signature_contains":
-            return site.signature.includes(value);
-        case "signature_equals":
-            return site.signature === value;
-        case "signature_regex":
-            try {
-                return new RegExp(value).test(site.signature);
-            } catch {
-                return false;
-            }
-        case "declaring_class_equals":
-            return site.calleeClassText === value;
-        default:
-            return false;
-    }
-}
-
-function resolveSourceRuleKind(rule: SourceRule): SourceRuleKind {
-    return rule.sourceKind || "seed_local_name";
-}
-
-function isSourceCallLikeRule(rule: SourceRule): boolean {
-    const kind = resolveSourceRuleKind(rule);
-    return kind === "call_return" || kind === "call_arg" || kind === "callback_param";
-}
-
-function ruleMatchesInvokeForSourceCoverage(rule: SourceRule, site: InvokeSiteStat): boolean {
-    if (!matchInvokeShape(rule.match.invokeKind, rule.match.argCount, rule.match.typeHint, site)) return false;
-    if (!matchRuleMatch(rule.match, site)) return false;
-    return matchScopeForCaller(rule.scope, site);
-}
-
-function ruleMatchesInvokeForSinkCoverage(rule: SinkRule, site: InvokeSiteStat): boolean {
-    if (!matchInvokeShape(rule.match.invokeKind, rule.match.argCount, rule.match.typeHint, site)) return false;
-    if (!matchRuleMatch(rule.match, site)) return false;
-    return matchScopeForCallee(rule.scope, site);
-}
-
-function ruleMatchesInvokeForTransferCoverage(rule: TransferRule, site: InvokeSiteStat): boolean {
-    if (!matchInvokeShape(rule.match.invokeKind, rule.match.argCount, rule.match.typeHint, site)) return false;
-    if (!matchRuleMatch(rule.match, site)) return false;
-    return matchScopeForCallee(rule.scope, site);
-}
-
-function collectInvokeSiteStatsForSourceDir(scene: Scene, sourceDir: string): Map<string, InvokeSiteStat> {
-    const stats = new Map<string, InvokeSiteStat>();
-    for (const method of scene.getMethods()) {
-        const cfg = method.getCfg();
-        if (!cfg) continue;
-        const callerSignature = method.getSignature().toString();
-        const callerFilePath = extractFilePathFromSignature(callerSignature);
-        const callerClassText = method.getDeclaringArkClass?.()?.getName?.() || callerSignature;
-        const callerMethodName = method.getName();
-        for (const stmt of cfg.getStmts()) {
-            if (!stmt.containsInvokeExpr || !stmt.containsInvokeExpr()) continue;
-            const invokeExpr = stmt.getInvokeExpr?.();
-            if (!invokeExpr) continue;
-            const signature = invokeExpr.getMethodSignature?.().toString?.() || "";
-            if (!signature) continue;
-            const methodName = resolveInvokeMethodName(invokeExpr, signature);
-            if (!methodName || methodName.startsWith("%") || methodName === "constructor") continue;
-            if (signature.includes("/taint_mock.ts")) continue;
-            let invokeKind: RuleInvokeKind = "static";
-            if (invokeExpr instanceof ArkInstanceInvokeExpr || invokeExpr instanceof ArkPtrInvokeExpr) {
-                invokeKind = "instance";
-            } else if (invokeExpr instanceof ArkStaticInvokeExpr) {
-                invokeKind = "static";
-            }
-            const argCount = invokeExpr.getArgs ? invokeExpr.getArgs().length : 0;
-            const calleeFilePath = extractFilePathFromSignature(signature);
-            const calleeClassText = invokeExpr.getMethodSignature?.().getDeclaringClassSignature?.()?.toString?.() || signature;
-            const key = `${signature}|${callerSignature}`;
-            const existing = stats.get(key);
-            if (existing) {
-                existing.count += 1;
-            } else {
-                stats.set(key, {
-                    signature,
-                    methodName,
-                    invokeKind,
-                    argCount,
-                    calleeFilePath,
-                    calleeClassText,
-                    callerFilePath,
-                    callerClassText,
-                    callerMethodName,
-                    sourceDir,
-                    count: 1,
-                });
-            }
-        }
-    }
-    return stats;
-}
-
-function buildRuleFeedback(
-    repoRoot: string,
-    loadedRules: LoadedRuleSet,
-    ruleHits: RuleHitCounters,
-    sourceContextCache: Map<string, { scene: Scene }>,
-    entryResults: EntryAnalyzeResult[]
-): AnalyzeReport["summary"]["ruleFeedback"] {
-    const enabledSources = (loadedRules.ruleSet.sources || []).filter(r => r.enabled !== false);
-    const enabledSinks = (loadedRules.ruleSet.sinks || []).filter(r => r.enabled !== false);
-    const enabledTransfers = (loadedRules.ruleSet.transfers || []).filter(r => r.enabled !== false);
-
-    const zeroHitRules = emptyRuleHitCounters();
-    for (const rule of enabledSources) {
-        if (!(ruleHits.source[rule.id] > 0)) zeroHitRules.source[rule.id] = 0;
-    }
-    for (const rule of enabledSinks) {
-        if (!(ruleHits.sink[rule.id] > 0)) zeroHitRules.sink[rule.id] = 0;
-    }
-    for (const rule of enabledTransfers) {
-        if (!(ruleHits.transfer[rule.id] > 0)) zeroHitRules.transfer[rule.id] = 0;
-    }
-
-    const rank = (record: Record<string, number>) => Object.entries(record)
-        .filter(([, v]) => Number.isFinite(v) && v > 0)
-        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-        .slice(0, 20)
-        .map(([key, count]) => ({ key, count }));
-
-    const invokeStats = new Map<string, InvokeSiteStat>();
-    for (const [sourceAbs, ctx] of sourceContextCache.entries()) {
-        const rel = path.relative(repoRoot, sourceAbs).replace(/\\/g, "/");
-        const bySource = collectInvokeSiteStatsForSourceDir(ctx.scene, rel);
-        for (const [key, stat] of bySource.entries()) {
-            const cur = invokeStats.get(key);
-            if (cur) {
-                cur.count += stat.count;
-            } else {
-                invokeStats.set(key, { ...stat });
-            }
-        }
-    }
-
-    const noCandidateEntries = entryResults
-        .filter(e => e.transferNoHitReasons.includes("no_candidate_rule_for_callsite"));
-    const noCandidateSourceDirs = new Set(noCandidateEntries.map(e => e.sourceDir));
-    const topEntriesBySourceDir = new Map<string, string[]>();
-    for (const sourceDir of noCandidateSourceDirs) {
-        const sorted = noCandidateEntries
-            .filter(e => e.sourceDir === sourceDir)
-            .sort((a, b) => b.score - a.score || a.entryName.localeCompare(b.entryName));
-        const labels: string[] = [];
-        const seen = new Set<string>();
-        for (const e of sorted) {
-            const label = e.entryPathHint ? `${e.entryName}@${e.entryPathHint}` : e.entryName;
-            if (seen.has(label)) continue;
-            seen.add(label);
-            labels.push(label);
-            if (labels.length >= 8) break;
-        }
-        topEntriesBySourceDir.set(sourceDir, labels);
-    }
-
-    const noCandidateAggregate = new Map<string, NoCandidateCallsiteStat>();
-    for (const entry of noCandidateEntries) {
-        const topEntries = topEntriesBySourceDir.get(entry.sourceDir) || [];
-        for (const site of entry.transferProfile.noCandidateCallsites || []) {
-            const sourceFile = site.sourceFile || extractFilePathFromSignature(site.calleeSignature);
-            const key = `${site.calleeSignature}|${site.method}|${site.invokeKind}|${site.argCount}|${sourceFile}`;
-            const existing = noCandidateAggregate.get(key);
-            if (existing) {
-                existing.count += site.count;
-                continue;
-            }
-            noCandidateAggregate.set(key, {
-                callee_signature: site.calleeSignature,
-                method: site.method,
-                invokeKind: site.invokeKind,
-                argCount: site.argCount,
-                sourceFile,
-                count: site.count,
-                topEntries,
-            });
-        }
-    }
-    const noCandidateCallsites = [...noCandidateAggregate.values()]
-        .sort((a, b) => b.count - a.count || a.callee_signature.localeCompare(b.callee_signature));
-
-    const uncovered = [...invokeStats.values()]
-        .filter(site => {
-            const sourceCovered = enabledSources.some(rule => isSourceCallLikeRule(rule) && ruleMatchesInvokeForSourceCoverage(rule, site));
-            const sinkCovered = enabledSinks.some(rule => ruleMatchesInvokeForSinkCoverage(rule, site));
-            const transferCovered = enabledTransfers.some(rule => ruleMatchesInvokeForTransferCoverage(rule, site));
-            return !(sourceCovered || sinkCovered || transferCovered);
-        })
-        .sort((a, b) => b.count - a.count || a.signature.localeCompare(b.signature))
-        .slice(0, 30)
-        .map(site => ({
-            signature: site.signature,
-            methodName: site.methodName,
-            count: site.count,
-            sourceDir: site.sourceDir,
-            invokeKind: site.invokeKind,
-            argCount: site.argCount,
-        }));
-
-    return {
-        zeroHitRules,
-        ruleHitRanking: {
-            source: rank(ruleHits.source),
-            sink: rank(ruleHits.sink),
-            transfer: rank(ruleHits.transfer),
-        },
-        uncoveredHighFrequencyInvokes: uncovered,
-        noCandidateCallsites,
-    };
-}
-
-function renderNoCandidateCallsitesMarkdown(items: NoCandidateCallsiteStat[], report: AnalyzeReport): string {
-    const lines: string[] = [];
-    lines.push("# No Candidate Callsites");
-    lines.push("");
-    lines.push(`- generatedAt: ${report.generatedAt}`);
-    lines.push(`- repo: ${report.repo}`);
-    lines.push(`- total: ${items.length}`);
-    lines.push("");
-    lines.push("| # | callee_signature | method | invokeKind | argCount | sourceFile | count | topEntries |");
-    lines.push("|---|---|---|---|---:|---|---:|---|");
-    for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        const topEntries = item.topEntries.join("; ");
-        lines.push(`| ${i + 1} | ${item.callee_signature} | ${item.method} | ${item.invokeKind} | ${item.argCount} | ${item.sourceFile} | ${item.count} | ${topEntries} |`);
-    }
-    return `${lines.join("\n")}\n`;
-}
-
-function writeNoCandidateCallsiteArtifacts(report: AnalyzeReport): void {
-    const items = report.summary.ruleFeedback?.noCandidateCallsites || [];
-    const outputDir = path.resolve("tmp", "real_projects");
-    fs.mkdirSync(outputDir, { recursive: true });
-    const jsonPath = path.resolve(outputDir, "no_candidate_callsites.json");
-    const mdPath = path.resolve(outputDir, "no_candidate_callsites.md");
-    const payload = {
-        generatedAt: report.generatedAt,
-        repo: report.repo,
-        total: items.length,
-        items,
-    };
-    fs.writeFileSync(jsonPath, JSON.stringify(payload, null, 2), "utf-8");
-    fs.writeFileSync(mdPath, renderNoCandidateCallsitesMarkdown(items, report), "utf-8");
-}
-
-function loadAppliedFrameworkTransferRules(loadedRules: LoadedRuleSet): TransferRule[] {
-    const frameworkLayer = loadedRules.layerStatus.find(s => s.name === "framework" && s.applied && !!s.path);
-    if (!frameworkLayer?.path) return [];
-    const frameworkPath = path.isAbsolute(frameworkLayer.path)
-        ? frameworkLayer.path
-        : path.resolve(frameworkLayer.path);
-    if (!fs.existsSync(frameworkPath)) return [];
-    try {
-        const raw = JSON.parse(fs.readFileSync(frameworkPath, "utf-8")) as { transfers?: TransferRule[] };
-        const transfers = Array.isArray(raw.transfers) ? raw.transfers : [];
-        return transfers.filter(rule => !!rule && rule.enabled !== false);
-    } catch {
-        return [];
-    }
-}
-
-function matchNoCandidateCallsiteToTransferRule(site: NoCandidateCallsiteStat, rule: TransferRule): boolean {
-    const m = rule.match;
-    if (m.invokeKind && m.invokeKind !== "any" && m.invokeKind !== site.invokeKind) return false;
-    if (m.argCount !== undefined && m.argCount !== site.argCount) return false;
-    if (rule.scope) {
-        if (!matchStringConstraint(rule.scope.file, site.sourceFile)) return false;
-        if (!matchStringConstraint(rule.scope.module, site.callee_signature || site.sourceFile)) return false;
-        if (!matchStringConstraint(rule.scope.className, site.callee_signature)) return false;
-        if (!matchStringConstraint(rule.scope.methodName, site.method)) return false;
-    }
-
-    const value = rule.match.value || "";
-    switch (rule.match.kind) {
-        case "method_name_equals":
-            return site.method === value;
-        case "method_name_regex":
-            try {
-                return new RegExp(value).test(site.method);
-            } catch {
-                return false;
-            }
-        case "signature_contains":
-            return site.callee_signature.includes(value);
-        case "signature_equals":
-            return site.callee_signature === value;
-        case "signature_regex":
-            try {
-                return new RegExp(value).test(site.callee_signature);
-            } catch {
-                return false;
-            }
-        case "declaring_class_equals":
-            return site.callee_signature.includes(value);
-        default:
-            return false;
-    }
-}
-
-function classifyNoCandidateCallsite(
-    site: NoCandidateCallsiteStat,
-    frameworkTransferRules: TransferRule[]
-): ClassifiedNoCandidateCallsite {
-    const sigLower = site.callee_signature.toLowerCase();
-    const methodLower = site.method.toLowerCase();
-    const sourceLower = site.sourceFile.toLowerCase();
-
-    const uiNoiseMethods = new Set([
-        "observecomponentcreation2",
-        "ifelsebranchupdatefunction",
-        "foreachupdatefunction",
-        "updatestatevarsofchildbyelmtid",
-        "initialrender",
-        "rerender",
-        "finalizeconstruction",
-    ]);
-    const uiNoiseByMethod = uiNoiseMethods.has(methodLower);
-    const uiNoiseBySignature = sigLower.includes("arkui")
-        || sigLower.includes("component")
-        || sigLower.includes("builder");
-    const uiNoiseBySource = sourceLower.includes("/pages/")
-        || sourceLower.includes("/view/")
-        || sourceLower.includes(".ets");
-    const isUiNoise = uiNoiseByMethod || ((methodLower === "create" || methodLower === "pop") && uiNoiseBySignature && uiNoiseBySource);
-
-    if (isUiNoise) {
-        return {
-            ...site,
-            category: "C1_UI_NOISE",
-            reason: "Callsite matches UI construction noise and is downgraded at report layer.",
-            evidence: [
-                `method=${site.method}`,
-                `signature=${site.callee_signature}`,
-                `sourceFile=${site.sourceFile}`,
-            ],
-        };
-    }
-
-    if (site.callee_signature.includes("@%unk/%unk:")) {
-        return {
-            ...site,
-            category: "C3_FRAMEWORK_GAP",
-            reason: "Callsite hits @%unk/%unk unresolved signature and is classified as a framework gap.",
-            evidence: [
-                `callee_signature=${site.callee_signature}`,
-                `invokeKind=${site.invokeKind}`,
-                `argCount=${site.argCount}`,
-            ],
-        };
-    }
-
-    const matchedFrameworkRules = frameworkTransferRules
-        .filter(rule => matchNoCandidateCallsiteToTransferRule(site, rule))
-        .slice(0, 3)
-        .map(rule => rule.id);
-    if (matchedFrameworkRules.length > 0) {
-        return {
-            ...site,
-            category: "C3_FRAMEWORK_GAP",
-            reason: "Callsite is close to existing framework transfer rules and is classified as a framework gap.",
-            evidence: matchedFrameworkRules.map(id => `matched_framework_rule=${id}`),
-        };
-    }
-
-    return {
-        ...site,
-        category: "C2_PROJECT_WRAPPER",
-        reason: "Callsite matches neither UI noise nor framework-gap traits and is classified as a project wrapper candidate.",
-        evidence: [
-            `method=${site.method}`,
-            `sourceFile=${site.sourceFile}`,
-        ],
-    };
-}
-
-function renderNoCandidateCallsitesClassifiedMarkdown(
-    items: ClassifiedNoCandidateCallsite[],
-    categoryCount: Record<NoCandidateCategory, number>,
-    report: AnalyzeReport
-): string {
-    const lines: string[] = [];
-    lines.push("# No Candidate Callsites Classified");
-    lines.push("");
-    lines.push(`- generatedAt: ${report.generatedAt}`);
-    lines.push(`- repo: ${report.repo}`);
-    lines.push(`- total: ${items.length}`);
-    lines.push(`- categoryCount: ${JSON.stringify(categoryCount)}`);
-    lines.push("");
-    lines.push("| # | category | callee_signature | method | invokeKind | argCount | sourceFile | count | reason | evidence |");
-    lines.push("|---|---|---|---|---|---:|---|---:|---|---|");
-    for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        const evidence = item.evidence.join("; ");
-        lines.push(`| ${i + 1} | ${item.category} | ${item.callee_signature} | ${item.method} | ${item.invokeKind} | ${item.argCount} | ${item.sourceFile} | ${item.count} | ${item.reason} | ${evidence} |`);
-    }
-    return `${lines.join("\n")}\n`;
-}
-
-function buildProjectCandidatePool(items: ClassifiedNoCandidateCallsite[]): ClassifiedNoCandidateCallsite[] {
-    return items
-        .filter(item => item.category === "C2_PROJECT_WRAPPER")
-        .sort((a, b) => b.count - a.count || a.callee_signature.localeCompare(b.callee_signature));
-}
-
-function renderProjectCandidatePoolMarkdown(
-    items: ClassifiedNoCandidateCallsite[],
-    report: AnalyzeReport
-): string {
-    const lines: string[] = [];
-    lines.push("# No Candidate Project Candidate Pool");
-    lines.push("");
-    lines.push(`- generatedAt: ${report.generatedAt}`);
-    lines.push(`- repo: ${report.repo}`);
-    lines.push(`- total: ${items.length}`);
-    lines.push("- policy: include only C2_PROJECT_WRAPPER; C1_UI_NOISE and C3_FRAMEWORK_GAP are excluded at report layer.");
-    lines.push("");
-    lines.push("| # | category | callee_signature | method | invokeKind | argCount | sourceFile | count | reason | evidence |");
-    lines.push("|---|---|---|---|---|---:|---|---:|---|---|");
-    for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        const evidence = item.evidence.join("; ");
-        lines.push(`| ${i + 1} | ${item.category} | ${item.callee_signature} | ${item.method} | ${item.invokeKind} | ${item.argCount} | ${item.sourceFile} | ${item.count} | ${item.reason} | ${evidence} |`);
-    }
-    return `${lines.join("\n")}\n`;
-}
-
-function writeNoCandidateCallsiteClassificationArtifacts(
-    report: AnalyzeReport,
-    loadedRules: LoadedRuleSet
-): void {
-    const baseItems = report.summary.ruleFeedback?.noCandidateCallsites || [];
-    const frameworkTransferRules = loadAppliedFrameworkTransferRules(loadedRules);
-    const items = baseItems
-        .map(site => classifyNoCandidateCallsite(site, frameworkTransferRules))
-        .sort((a, b) => b.count - a.count || a.callee_signature.localeCompare(b.callee_signature));
-
-    const categoryCount: Record<NoCandidateCategory, number> = {
-        C1_UI_NOISE: 0,
-        C2_PROJECT_WRAPPER: 0,
-        C3_FRAMEWORK_GAP: 0,
-    };
-    for (const item of items) {
-        categoryCount[item.category] = (categoryCount[item.category] || 0) + 1;
-    }
-
-    const outputDir = path.resolve("tmp", "real_projects");
-    fs.mkdirSync(outputDir, { recursive: true });
-    const jsonPath = path.resolve(outputDir, "no_candidate_callsites_classified.json");
-    const mdPath = path.resolve(outputDir, "no_candidate_callsites_classified.md");
-    const projectCandidateJsonPath = path.resolve(outputDir, "no_candidate_project_candidates.json");
-    const projectCandidateMdPath = path.resolve(outputDir, "no_candidate_project_candidates.md");
-    const payload = {
-        generatedAt: report.generatedAt,
-        repo: report.repo,
-        total: items.length,
-        categoryCount,
-        items,
-    };
-    const projectCandidates = buildProjectCandidatePool(items);
-    const projectCandidatePayload = {
-        generatedAt: report.generatedAt,
-        repo: report.repo,
-        total: projectCandidates.length,
-        policy: "include_only_C2_PROJECT_WRAPPER",
-        items: projectCandidates,
-    };
-    fs.writeFileSync(jsonPath, JSON.stringify(payload, null, 2), "utf-8");
-    fs.writeFileSync(mdPath, renderNoCandidateCallsitesClassifiedMarkdown(items, categoryCount, report), "utf-8");
-    fs.writeFileSync(projectCandidateJsonPath, JSON.stringify(projectCandidatePayload, null, 2), "utf-8");
-    fs.writeFileSync(projectCandidateMdPath, renderProjectCandidatePoolMarkdown(projectCandidates, report), "utf-8");
-}
-
 async function analyzeSourceDir(
     scene: Scene,
     sourceDir: string,
     options: CliOptions,
     loadedRules: LoadedRuleSet,
     seedingPolicy: AnalyzeSeedingPolicy,
-    semanticPacks: SemanticPack[],
-    enginePlugins: EnginePlugin[],
+    pluginDirs: string[],
+    pluginFiles: string[],
 ): Promise<EntryAnalyzeResult> {
     const t0 = process.hrtime.bigint();
     const stageProfile = emptyEntryStageProfile();
     const arkMainEntryName = "@arkMain";
+    let engine: TaintPropagationEngine | undefined;
     try {
-        const engine = new TaintPropagationEngine(scene, options.k, {
+        engine = new TaintPropagationEngine(scene, options.k, {
             transferRules: loadedRules.ruleSet.transfers || [],
-            semanticPacks,
-            enginePlugins,
-            includeBuiltinSemanticPacks: false,
+            semanticPackDirs: options.packDirs,
+            disabledSemanticPackIds: options.disabledPackIds,
+            enginePluginDirs: pluginDirs,
+            enginePluginFiles: pluginFiles,
+            disabledEnginePluginNames: options.disabledPluginNames,
+            includeBuiltinSemanticPacks: true,
+            includeBuiltinEnginePlugins: true,
             pluginDryRun: options.pluginDryRun,
             pluginIsolate: options.pluginIsolate,
             debug: {
@@ -794,12 +282,8 @@ async function analyzeSourceDir(
         await engine.buildPAG({ entryModel: "arkMain" });
         stageProfile.buildPagMs = elapsedMsSince(buildPagT0);
 
-        try {
-            const reachableMethodSignatures = engine.computeReachableMethodSignatures();
-            engine.setActiveReachableMethodSignatures(reachableMethodSignatures);
-        } catch {
-            engine.setActiveReachableMethodSignatures(undefined);
-        }
+        const reachableMethodSignatures = engine.computeReachableMethodSignatures();
+        engine.setActiveReachableMethodSignatures(reachableMethodSignatures);
 
         let seedCount = 0;
         const seedLocalNames = new Set<string>();
@@ -832,6 +316,9 @@ async function analyzeSourceDir(
                 detectProfile: emptyDetectProfile(),
                 stageProfile,
                 transferNoHitReasons: ["no_source_seed"],
+                pagNodeResolutionAudit: engine.getPagNodeResolutionAuditSnapshot(),
+                semanticPackAudit: engine.getSemanticPackAuditSnapshot(),
+                enginePluginAudit: engine.getEnginePluginAuditSnapshot(),
                 elapsedMs: stageProfile.totalMs
             };
         }
@@ -888,6 +375,9 @@ async function analyzeSourceDir(
             detectProfile,
             stageProfile,
             transferNoHitReasons,
+            pagNodeResolutionAudit: engine.getPagNodeResolutionAuditSnapshot(),
+            semanticPackAudit: engine.getSemanticPackAuditSnapshot(),
+            enginePluginAudit: engine.getEnginePluginAuditSnapshot(),
             elapsedMs: stageProfile.totalMs,
         };
     } catch (err: any) {
@@ -910,6 +400,9 @@ async function analyzeSourceDir(
             detectProfile: emptyDetectProfile(),
             stageProfile,
             transferNoHitReasons: ["analyze_exception"],
+            pagNodeResolutionAudit: engine?.getPagNodeResolutionAuditSnapshot() || emptyPagNodeResolutionAuditSnapshot(),
+            semanticPackAudit: engine?.getSemanticPackAuditSnapshot() || emptySemanticPackAuditSnapshot(),
+            enginePluginAudit: engine?.getEnginePluginAuditSnapshot() || emptyEnginePluginAuditSnapshot(),
             elapsedMs: stageProfile.totalMs,
             error: String(err?.message || err),
         };
@@ -920,6 +413,8 @@ export interface AnalyzeRunResult {
     report: AnalyzeReport;
     jsonPath: string;
     mdPath: string;
+    diagnosticsJsonPath: string;
+    diagnosticsTextPath: string;
 }
 
 export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult> {
@@ -943,21 +438,38 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         ...options.ruleOptions,
     });
     stageProfile.ruleLoadMs = elapsedMsSince(ruleLoadT0);
+    for (const warning of loadedRules.warnings) {
+        console.warn(`rule warning: ${warning}`);
+    }
     for (const warning of semanticPackResult.warnings) {
-        console.warn(`[Phase8] ${warning}`);
+        console.warn(`semantic pack warning: ${warning}`);
     }
     for (const warning of enginePluginResult.warnings) {
-        console.warn(`[Phase8.5] ${warning}`);
+        console.warn(`engine plugin warning: ${warning}`);
     }
     const seedingPolicy: AnalyzeSeedingPolicy = {
         enableSecondarySinkSweep: options.enableSecondarySinkSweep,
     };
     const ruleFingerprint = buildRuleFingerprint(loadedRules);
+    const analysisFingerprint = buildIncrementalFingerprint({
+        ruleFingerprint,
+        semanticPackFiles: buildLoadedFileFingerprint(semanticPackResult.loadedFiles),
+        enginePluginFiles: buildLoadedFileFingerprint(enginePluginResult.loadedFiles),
+        packDirs: (options.packDirs || []).map(item => path.resolve(item)).sort(),
+        disabledPackIds: [...(options.disabledPackIds || [])].sort(),
+        pluginPaths: (options.pluginPaths || []).map(item => path.resolve(item)).sort(),
+        disabledPluginNames: [...(options.disabledPluginNames || [])].sort(),
+        pluginIsolate: [...(options.pluginIsolate || [])].sort(),
+        pluginDryRun: options.pluginDryRun === true,
+        stopOnFirstFlow: options.stopOnFirstFlow,
+        maxFlowsPerEntry: options.maxFlowsPerEntry ?? null,
+        enableSecondarySinkSweep: options.enableSecondarySinkSweep,
+    });
     const incrementalCacheScope: IncrementalCacheScope = {
         repo: options.repo,
         k: options.k,
         profile: options.profile,
-        ruleFingerprint,
+        analysisFingerprint,
     };
     const repoTag = path.basename(options.repo).replace(/[^A-Za-z0-9._-]/g, "_");
     const incrementalCachePath = options.incrementalCachePath
@@ -1000,7 +512,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         orderedEntries.push(undefined);
         const syntheticCandidate = { pathHint: sourceDir, name: "@arkMain" };
         const entryCacheKey = buildEntryCacheKey(sourceDir, syntheticCandidate);
-        const entryStamp = resolveSourceDirStamp(options.repo, sourceDir);
+        const entryStamp = resolveDirectoryTreeStamp(path.resolve(options.repo, sourceDir));
         if (options.incremental) {
             const cached = incrementalCache.get(entryCacheKey);
             if (cached && sameEntryFileStamp(cached.stamp, entryStamp)) {
@@ -1033,8 +545,8 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
                 options,
                 loadedRules,
                 seedingPolicy,
-                semanticPackResult.packs,
-                enginePluginResult.plugins,
+                pluginDirs,
+                pluginFiles,
             );
         }
     );
@@ -1081,6 +593,8 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     };
     const noCandidateSummaryMap = new Map<string, AnalyzeReport["summary"]["transferProfile"]["noCandidateCallsites"][number]>();
     const detectProfile = emptyDetectProfile();
+    const pagNodeResolutionAudit = emptyPagNodeResolutionAuditSnapshot();
+    const diagnostics = emptyAnalyzeErrorDiagnostics();
     let transferShareCount = 0;
     const transferNoHitReasons: Record<string, number> = {};
     for (const e of entries) {
@@ -1120,8 +634,6 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         detectProfile.sinksChecked += e.detectProfile.sinksChecked;
         detectProfile.candidateCount += e.detectProfile.candidateCount;
         detectProfile.taintCheckCount += e.detectProfile.taintCheckCount;
-        detectProfile.cfgGuardCheckCount += e.detectProfile.cfgGuardCheckCount;
-        detectProfile.cfgGuardSkipCount += e.detectProfile.cfgGuardSkipCount;
         detectProfile.defReachabilityCheckCount += e.detectProfile.defReachabilityCheckCount;
         detectProfile.fieldPathCheckCount += e.detectProfile.fieldPathCheckCount;
         detectProfile.fieldPathHitCount += e.detectProfile.fieldPathHitCount;
@@ -1129,19 +641,32 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         detectProfile.sanitizerGuardHitCount += e.detectProfile.sanitizerGuardHitCount;
         detectProfile.signatureMatchMs += e.detectProfile.signatureMatchMs;
         detectProfile.candidateResolveMs += e.detectProfile.candidateResolveMs;
-        detectProfile.cfgGuardMs += e.detectProfile.cfgGuardMs;
         detectProfile.taintEvalMs += e.detectProfile.taintEvalMs;
         detectProfile.sanitizerGuardMs += e.detectProfile.sanitizerGuardMs;
         detectProfile.traversalMs += e.detectProfile.traversalMs;
         detectProfile.totalMs += e.detectProfile.totalMs;
+        accumulatePagNodeResolutionAudit(pagNodeResolutionAudit, e.pagNodeResolutionAudit);
+        diagnostics.semanticPackRuntimeFailures.push(...e.semanticPackAudit.failureEvents);
+        diagnostics.enginePluginRuntimeFailures.push(...e.enginePluginAudit.failureEvents);
         transferShareCount++;
         for (const reason of e.transferNoHitReasons) {
             transferNoHitReasons[reason] = (transferNoHitReasons[reason] || 0) + 1;
         }
     }
+    diagnostics.semanticPackLoadIssues = semanticPackResult.loadIssues.map(issue => ({ ...issue }));
+    diagnostics.enginePluginLoadIssues = enginePluginResult.loadIssues.map(issue => ({ ...issue }));
+    diagnostics.semanticPackRuntimeFailures = dedupFailureEvents(
+        diagnostics.semanticPackRuntimeFailures,
+        item => `${item.packId}|${item.phase}|${item.message}|${item.path || ""}|${item.line || ""}|${item.column || ""}`,
+    );
+    diagnostics.enginePluginRuntimeFailures = dedupFailureEvents(
+        diagnostics.enginePluginRuntimeFailures,
+        item => `${item.pluginName}|${item.phase}|${item.message}|${item.path || ""}|${item.line || ""}|${item.column || ""}`,
+    );
     transferProfile.elapsedShareAvg = transferShareCount > 0
         ? Number((transferProfile.elapsedShareAvg / transferShareCount).toFixed(6))
         : 0;
+    const diagnosticItems = normalizeDiagnosticsItems(diagnostics);
     transferProfile.noCandidateCallsites = [...noCandidateSummaryMap.values()]
         .sort((a, b) => b.count - a.count || a.calleeSignature.localeCompare(b.calleeSignature))
         .slice(0, 200);
@@ -1151,7 +676,10 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         loadedRules,
         ruleHits,
         sourceContextCache,
-        entries
+        entries,
+        {
+            includeCoverageScan: options.reportMode === "full",
+        },
     );
 
     const report: AnalyzeReport = {
@@ -1175,37 +703,41 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
             ruleHitEndpoints,
             transferProfile,
             detectProfile,
-                stageProfile: {
-                    ruleLoadMs: Number(stageProfile.ruleLoadMs.toFixed(3)),
-                    sceneBuildMs: Number(stageProfile.sceneBuildMs.toFixed(3)),
-                    entrySelectMs: Number(stageProfile.entrySelectMs.toFixed(3)),
-                    entryAnalyzeMs: Number(stageProfile.entryAnalyzeMs.toFixed(3)),
-                    reportWriteMs: 0,
-                    sceneCacheHitCount: stageProfile.sceneCacheHitCount,
-                    sceneCacheMissCount: stageProfile.sceneCacheMissCount,
-                    transferSceneRuleCacheHitCount: 0,
-                    transferSceneRuleCacheMissCount: 0,
-                    transferSceneRuleCacheDisabledCount: 0,
-                    incrementalCacheHitCount: stageProfile.incrementalCacheHitCount,
-                    incrementalCacheMissCount: stageProfile.incrementalCacheMissCount,
-                    incrementalCacheWriteCount: stageProfile.incrementalCacheWriteCount,
-                    entryConcurrency: stageProfile.entryConcurrency,
-                    entryParallelTaskCount: stageProfile.entryParallelTaskCount,
-                    totalMs: 0,
-                },
-                transferNoHitReasons,
-                ruleFeedback,
+            pagNodeResolutionAudit,
+            diagnostics,
+            diagnosticItems,
+            stageProfile: {
+                ruleLoadMs: Number(stageProfile.ruleLoadMs.toFixed(3)),
+                sceneBuildMs: Number(stageProfile.sceneBuildMs.toFixed(3)),
+                entrySelectMs: Number(stageProfile.entrySelectMs.toFixed(3)),
+                entryAnalyzeMs: Number(stageProfile.entryAnalyzeMs.toFixed(3)),
+                reportWriteMs: 0,
+                sceneCacheHitCount: stageProfile.sceneCacheHitCount,
+                sceneCacheMissCount: stageProfile.sceneCacheMissCount,
+                transferSceneRuleCacheHitCount: 0,
+                transferSceneRuleCacheMissCount: 0,
+                transferSceneRuleCacheDisabledCount: 0,
+                incrementalCacheHitCount: stageProfile.incrementalCacheHitCount,
+                incrementalCacheMissCount: stageProfile.incrementalCacheMissCount,
+                incrementalCacheWriteCount: stageProfile.incrementalCacheWriteCount,
+                entryConcurrency: stageProfile.entryConcurrency,
+                entryParallelTaskCount: stageProfile.entryParallelTaskCount,
+                totalMs: 0,
+            },
+            transferNoHitReasons,
+            ruleFeedback,
         },
         entries: reportEntries,
     };
 
     const reportWriteT0 = process.hrtime.bigint();
-    fs.mkdirSync(options.outputDir, { recursive: true });
+    const outputLayout = resolveAnalyzeOutputLayout(options.outputDir);
+    ensureAnalyzeOutputLayout(outputLayout);
     if (options.incremental) {
         saveIncrementalCache(incrementalCachePath, incrementalCacheScope, incrementalCache);
     }
-    const jsonPath = path.resolve(options.outputDir, "summary.json");
-    const mdPath = path.resolve(options.outputDir, "summary.md");
+    const jsonPath = outputLayout.summaryJsonPath;
+    const mdPath = outputLayout.summaryMarkdownPath;
     fs.writeFileSync(jsonPath, JSON.stringify(report, null, 2), "utf-8");
     fs.writeFileSync(mdPath, renderMarkdownReport(report), "utf-8");
     report.summary.stageProfile.reportWriteMs = Number(elapsedMsSince(reportWriteT0).toFixed(3));
@@ -1216,23 +748,32 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     report.summary.stageProfile.transferSceneRuleCacheDisabledCount = transferSceneCacheStats.disabledCount;
     fs.writeFileSync(jsonPath, JSON.stringify(report, null, 2), "utf-8");
     fs.writeFileSync(mdPath, renderMarkdownReport(report), "utf-8");
-    writeNoCandidateCallsiteArtifacts(report);
-    writeNoCandidateCallsiteClassificationArtifacts(report, loadedRules);
+    writeNoCandidateCallsiteArtifacts(report, options.outputDir);
+    writeNoCandidateCallsiteClassificationArtifacts(report, loadedRules, options.outputDir);
+    const diagnosticsArtifacts = writeDiagnosticsArtifacts(outputLayout.diagnosticsDir, report.summary.diagnostics);
     if (options.pluginAudit) {
-        const pluginAuditPath = path.resolve(options.outputDir, "plugin_audit.json");
-        fs.writeFileSync(pluginAuditPath, JSON.stringify({
+        const pluginAuditPayload = {
             dryRun: options.pluginDryRun,
             isolate: options.pluginIsolate || [],
             loadedPlugins: enginePluginResult.plugins.map(plugin => plugin.name),
             loadedFiles: enginePluginResult.loadedFiles,
             warnings: enginePluginResult.warnings,
-        }, null, 2), "utf-8");
+            loadIssues: enginePluginResult.loadIssues,
+            runtimeFailures: report.summary.diagnostics.enginePluginRuntimeFailures,
+            diagnosticItems: report.summary.diagnosticItems.filter(item => item.category === "Plugin"),
+        };
+        fs.writeFileSync(outputLayout.pluginAuditJsonPath, JSON.stringify(pluginAuditPayload, null, 2), "utf-8");
     }
+    writeAnalyzeRunManifest(outputLayout, report, {
+        pluginAuditEnabled: options.pluginAudit,
+    });
 
     return {
         report,
         jsonPath,
         mdPath,
+        diagnosticsJsonPath: diagnosticsArtifacts.jsonPath,
+        diagnosticsTextPath: diagnosticsArtifacts.textPath,
     };
 }
 

@@ -1,11 +1,11 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as path from "path";
 import { generateProjectRuleScaffold } from "../cli/generate_project_rules";
 import { validateRuleSet } from "../core/rules/RuleValidator";
 
 async function main(): Promise<void> {
     const repo = path.resolve("tests/demo/rule_precision_transfer");
-    const output = path.resolve("tmp/phase54c/project.rules.generated.json");
+    const output = path.resolve("tmp/test_runs/scaffolding/rule_scaffold_generation/latest/project.rules.generated.json");
 
     const result = generateProjectRuleScaffold({
         repo,
@@ -52,3 +52,4 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+

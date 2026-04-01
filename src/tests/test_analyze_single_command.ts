@@ -1,10 +1,10 @@
-import * as fs from "fs";
-import * as path from "path";
+﻿import * as fs from "fs";
 import {
     getAnalyzeSummaryMarkdownPath,
     readAnalyzeSummary,
     runAnalyzeCli,
 } from "./helpers/AnalyzeCliRunner";
+import { resolveTestRunDir } from "./helpers/TestWorkspaceLayout";
 
 interface AnalyzeReport {
     repo: string;
@@ -31,7 +31,7 @@ function runAnalyze(outputDir: string): AnalyzeReport {
 }
 
 async function main(): Promise<void> {
-    const root = path.resolve("tmp/phase57/analyze_single_command");
+    const root = resolveTestRunDir("analyze", "single_command");
     fs.rmSync(root, { recursive: true, force: true });
     fs.mkdirSync(root, { recursive: true });
 
@@ -62,3 +62,4 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+

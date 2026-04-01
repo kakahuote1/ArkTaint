@@ -11,6 +11,7 @@ import {
     resolveMethodsFromCallable,
     toContainerFieldKey,
 } from "../../core/kernel/contracts/SemanticPack";
+import { safeGetOrCreatePagNodes } from "../../core/kernel/contracts/PagNodeResolution";
 
 export interface ContainerSlotStoreInfo {
     objId: number;
@@ -747,7 +748,13 @@ function mergePathKeys(target: Set<string>, src: Set<string>): void {
 
 function rootPathKey(local: Local): string {
     const line = local.getDeclaringStmt()?.getOriginPositionInfo()?.getLineNo?.() ?? -1;
-    return `${local.getName()}@${line}`;
+    const methodSig = local
+        .getDeclaringStmt?.()
+        ?.getCfg?.()
+        ?.getDeclaringMethod?.()
+        ?.getSignature?.()
+        ?.toString?.() || "";
+    return `${methodSig}::${local.getName()}@${line}`;
 }
 
 function hasPathIntersection(a: Set<string>, b: Set<string>): boolean {
@@ -1099,15 +1106,7 @@ function resolveCallbackMethods(scene: Scene, callbackArg: any): any[] {
 }
 
 function getOrCreatePagNodes(pag: Pag, value: any, anchorStmt: ArkAssignStmt): Map<number, number> | undefined {
-    let nodes = pag.getNodesByValue(value);
-    if (nodes && nodes.size > 0) {
-        return nodes;
-    }
-    // Some callback parameter locals are not materialized by base PTA.
-    // Add an anchored PAG node so semantic callback bridges can taint them directly.
-    pag.addPagNode(0, value, anchorStmt);
-    nodes = pag.getNodesByValue(value);
-    return nodes;
+    return safeGetOrCreatePagNodes(pag, value, anchorStmt);
 }
 
 function collectContainerSlotLoadNodeIdsForBaseLocal(
@@ -1161,6 +1160,9 @@ function collectContainerSlotLoadNodeIdsForBaseLocal(
                     matched = key !== undefined && isContainerSlotMatch(slot, `map:${key}`);
                 } else if (methodName === "getFirst" && queueLike) {
                     matched = isContainerSlotMatch(slot, "queue:0");
+                } else if (methodName === "get" && listLike) {
+                    const idxKey = args.length > 0 ? resolveValueKey(args[0]) : undefined;
+                    matched = idxKey !== undefined && isContainerSlotMatch(slot, `list:${idxKey}`);
                 } else if (methodName === "values" && mapLike) {
                     matched = slot.startsWith("map:");
                 } else if (methodName === "keys" && mapLike) {

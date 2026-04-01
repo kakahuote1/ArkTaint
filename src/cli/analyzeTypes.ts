@@ -1,4 +1,15 @@
-﻿import { DetectProfileSnapshot, RuleHitCounters } from "../core/orchestration/TaintPropagationEngine";
+import { DetectProfileSnapshot, RuleHitCounters } from "../core/orchestration/TaintPropagationEngine";
+import { EnginePluginAuditSnapshot } from "../core/orchestration/plugins/EnginePluginRuntime";
+import { ExtensionModuleLoadIssue } from "../core/orchestration/ExtensionLoaderUtils";
+import {
+    emptySemanticPackAuditSnapshot,
+    SemanticPackAuditSnapshot,
+} from "../core/kernel/contracts/SemanticPack";
+import {
+    emptyPagNodeResolutionAuditSnapshot,
+    PagNodeResolutionAuditSnapshot,
+} from "../core/kernel/contracts/PagNodeResolution";
+import { RuleLoadIssue } from "../core/rules/RuleLoader";
 import { RuleInvokeKind } from "../core/rules/RuleSchema";
 import { AnalyzeProfile, ReportMode } from "./analyzeCliOptions";
 import { FlowRuleTrace } from "./analyzeUtils";
@@ -68,9 +79,46 @@ export interface EntryAnalyzeResult {
     detectProfile: DetectProfileSnapshot;
     stageProfile: EntryStageProfile;
     transferNoHitReasons: string[];
+    pagNodeResolutionAudit: PagNodeResolutionAuditSnapshot;
+    semanticPackAudit: SemanticPackAuditSnapshot;
+    enginePluginAudit: EnginePluginAuditSnapshot;
     elapsedMs: number;
     fromCache?: boolean;
     error?: string;
+}
+
+export interface AnalyzeErrorDiagnostics {
+    ruleLoadIssues: RuleLoadIssue[];
+    semanticPackLoadIssues: ExtensionModuleLoadIssue[];
+    semanticPackRuntimeFailures: SemanticPackAuditSnapshot["failureEvents"];
+    enginePluginLoadIssues: ExtensionModuleLoadIssue[];
+    enginePluginRuntimeFailures: EnginePluginAuditSnapshot["failureEvents"];
+    systemFailures: Array<{
+        phase: string;
+        message: string;
+        path?: string;
+        line?: number;
+        column?: number;
+        stackExcerpt?: string;
+        userMessage: string;
+        code?: string;
+        summary?: string;
+        advice?: string;
+        title?: string;
+    }>;
+}
+
+export interface NormalizedAnalyzeDiagnosticItem {
+    category: "Rule" | "Pack" | "Plugin" | "System";
+    code: string;
+    title: string;
+    summary: string;
+    rawMessage: string;
+    advice: string;
+    path?: string;
+    line?: number;
+    column?: number;
+    fieldPath?: string;
 }
 
 export interface AnalyzeReport {
@@ -115,6 +163,9 @@ export interface AnalyzeReport {
         detectProfile: DetectProfileSnapshot;
         stageProfile: AnalyzeStageProfile;
         transferNoHitReasons: Record<string, number>;
+        pagNodeResolutionAudit: PagNodeResolutionAuditSnapshot;
+        diagnostics: AnalyzeErrorDiagnostics;
+        diagnosticItems: NormalizedAnalyzeDiagnosticItem[];
         ruleFeedback: {
             zeroHitRules: RuleHitCounters;
             ruleHitRanking: {
@@ -191,8 +242,6 @@ export function emptyDetectProfile(): DetectProfileSnapshot {
         sinksChecked: 0,
         candidateCount: 0,
         taintCheckCount: 0,
-        cfgGuardCheckCount: 0,
-        cfgGuardSkipCount: 0,
         defReachabilityCheckCount: 0,
         fieldPathCheckCount: 0,
         fieldPathHitCount: 0,
@@ -200,7 +249,6 @@ export function emptyDetectProfile(): DetectProfileSnapshot {
         sanitizerGuardHitCount: 0,
         signatureMatchMs: 0,
         candidateResolveMs: 0,
-        cfgGuardMs: 0,
         taintEvalMs: 0,
         sanitizerGuardMs: 0,
         traversalMs: 0,
@@ -240,6 +288,33 @@ export function emptyAnalyzeStageProfile(): AnalyzeStageProfile {
     };
 }
 
+export function emptyEnginePluginAuditSnapshot(): EnginePluginAuditSnapshot {
+    return {
+        loadedPluginNames: [],
+        failedPluginNames: [],
+        failureEvents: [],
+        dryRun: false,
+        optionOverrides: {},
+        start: {
+            sourceRulesAdded: 0,
+            sinkRulesAdded: 0,
+            transferRulesAdded: 0,
+            sanitizerRulesAdded: 0,
+        },
+    };
+}
+
+export function emptyAnalyzeErrorDiagnostics(): AnalyzeErrorDiagnostics {
+    return {
+        ruleLoadIssues: [],
+        semanticPackLoadIssues: [],
+        semanticPackRuntimeFailures: [],
+        enginePluginLoadIssues: [],
+        enginePluginRuntimeFailures: [],
+        systemFailures: [],
+    };
+}
+
 export function elapsedMsSince(t0: bigint): number {
     return Number(process.hrtime.bigint() - t0) / 1_000_000;
 }
@@ -258,6 +333,8 @@ export function toReportEntry(entry: EntryAnalyzeResult, reportMode: ReportMode)
         detectProfile: emptyDetectProfile(),
         stageProfile: emptyEntryStageProfile(),
         transferNoHitReasons: [],
+        pagNodeResolutionAudit: emptyPagNodeResolutionAuditSnapshot(),
+        semanticPackAudit: emptySemanticPackAuditSnapshot(),
+        enginePluginAudit: emptyEnginePluginAuditSnapshot(),
     };
 }
-

@@ -8,13 +8,14 @@ export interface EntryFileStamp {
     sourceFile: string;
     mtimeMs: number;
     size: number;
+    fingerprint: string;
 }
 
 export interface IncrementalCacheScope {
     repo: string;
     k: number;
     profile: AnalyzeProfile;
-    ruleFingerprint: string;
+    analysisFingerprint: string;
 }
 
 export interface IncrementalCacheEntry<T> {
@@ -28,7 +29,19 @@ interface IncrementalCacheFile<T> {
     entries: Record<string, IncrementalCacheEntry<T>>;
 }
 
-const INCREMENTAL_CACHE_VERSION = 1;
+const INCREMENTAL_CACHE_VERSION = 3;
+const IGNORED_STAMP_DIR_NAMES = new Set([
+    ".git",
+    ".hg",
+    ".svn",
+    ".idea",
+    ".vscode",
+    "node_modules",
+    "out",
+    "dist",
+    "build",
+    "tmp",
+]);
 
 function stableStringify(value: any): string {
     if (value === null || value === undefined) return JSON.stringify(value);
@@ -45,6 +58,10 @@ function sha256Hex(text: string): string {
     return crypto.createHash("sha256").update(text).digest("hex");
 }
 
+export function buildIncrementalFingerprint(payload: any): string {
+    return sha256Hex(stableStringify(payload));
+}
+
 export function buildRuleFingerprint(loadedRules: LoadedRuleSet): string {
     const payload = {
         appliedLayerOrder: loadedRules.appliedLayerOrder || [],
@@ -57,7 +74,7 @@ export function buildRuleFingerprint(loadedRules: LoadedRuleSet): string {
         })),
         ruleSet: loadedRules.ruleSet || {},
     };
-    return sha256Hex(stableStringify(payload));
+    return buildIncrementalFingerprint(payload);
 }
 
 export function buildEntryCacheKey(
@@ -92,14 +109,74 @@ export function resolveEntryFileStamp(
             sourceFile: abs.replace(/\\/g, "/"),
             mtimeMs: Math.floor(stat.mtimeMs),
             size: stat.size,
+            fingerprint: buildIncrementalFingerprint({
+                sourceFile: abs.replace(/\\/g, "/"),
+                mtimeMs: Math.floor(stat.mtimeMs),
+                size: stat.size,
+            }),
         };
     }
     return undefined;
 }
 
+export function resolveDirectoryTreeStamp(rootPath: string): EntryFileStamp | undefined {
+    if (!fs.existsSync(rootPath)) return undefined;
+    const stat = fs.statSync(rootPath);
+    if (stat.isFile()) {
+        return {
+            sourceFile: rootPath.replace(/\\/g, "/"),
+            mtimeMs: Math.floor(stat.mtimeMs),
+            size: stat.size,
+            fingerprint: buildIncrementalFingerprint({
+                sourceFile: rootPath.replace(/\\/g, "/"),
+                mtimeMs: Math.floor(stat.mtimeMs),
+                size: stat.size,
+            }),
+        };
+    }
+    if (!stat.isDirectory()) return undefined;
+
+    const normalizedRoot = path.resolve(rootPath);
+    const queue = [normalizedRoot];
+    const entries: Array<{ path: string; mtimeMs: number; size: number }> = [];
+    let maxMtimeMs = 0;
+    let totalSize = 0;
+
+    for (let head = 0; head < queue.length; head++) {
+        const current = queue[head];
+        for (const dirent of fs.readdirSync(current, { withFileTypes: true })) {
+            const fullPath = path.join(current, dirent.name);
+            if (dirent.isDirectory()) {
+                if (IGNORED_STAMP_DIR_NAMES.has(dirent.name)) continue;
+                queue.push(fullPath);
+                continue;
+            }
+            if (!dirent.isFile()) continue;
+            const fileStat = fs.statSync(fullPath);
+            const mtimeMs = Math.floor(fileStat.mtimeMs);
+            const size = fileStat.size;
+            entries.push({
+                path: path.relative(normalizedRoot, fullPath).replace(/\\/g, "/"),
+                mtimeMs,
+                size,
+            });
+            maxMtimeMs = Math.max(maxMtimeMs, mtimeMs);
+            totalSize += size;
+        }
+    }
+
+    entries.sort((a, b) => a.path.localeCompare(b.path));
+    return {
+        sourceFile: normalizedRoot.replace(/\\/g, "/"),
+        mtimeMs: maxMtimeMs,
+        size: totalSize,
+        fingerprint: buildIncrementalFingerprint(entries),
+    };
+}
+
 export function sameEntryFileStamp(a?: EntryFileStamp, b?: EntryFileStamp): boolean {
     if (!a || !b) return false;
-    return a.sourceFile === b.sourceFile && a.mtimeMs === b.mtimeMs && a.size === b.size;
+    return a.sourceFile === b.sourceFile && a.fingerprint === b.fingerprint;
 }
 
 export function loadIncrementalCache<T>(
@@ -113,7 +190,7 @@ export function loadIncrementalCache<T>(
         if (raw.scope.repo !== scope.repo) return new Map();
         if (raw.scope.k !== scope.k) return new Map();
         if (raw.scope.profile !== scope.profile) return new Map();
-        if (raw.scope.ruleFingerprint !== scope.ruleFingerprint) return new Map();
+        if (raw.scope.analysisFingerprint !== scope.analysisFingerprint) return new Map();
         const out = new Map<string, IncrementalCacheEntry<T>>();
         for (const [k, v] of Object.entries(raw.entries)) {
             if (!v || !v.stamp || !v.result) continue;

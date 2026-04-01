@@ -1,4 +1,4 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as path from "path";
 import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
@@ -29,7 +29,7 @@ function findExplanation(report: ReturnType<typeof buildArkMainExplainabilityBun
 
 async function main(): Promise<void> {
     const projectDir = path.resolve("tests/demo/arkmain_entry_phases");
-    const outputDir = path.resolve("tmp/phase717");
+    const outputDir = path.resolve("tmp/test_runs/entry_model/ark_main_explainability/latest");
     const outputPath = path.join(outputDir, "arkmain_explainability_report.json");
     ensureDir(outputDir);
 
@@ -137,4 +137,5 @@ main().catch(error => {
     console.error(error);
     process.exit(1);
 });
+
 

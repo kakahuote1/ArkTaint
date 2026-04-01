@@ -1,4 +1,4 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as path from "path";
 import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
@@ -188,7 +188,7 @@ function computeStatus(
 
 function main(): void {
     const sourceDir = path.resolve("tests/demo/sdk_channel_provenance_probe");
-    const outputDir = path.resolve("tmp/phase717/channel_provenance_probe");
+    const outputDir = path.resolve("tmp/test_runs/entry_model/channel_provenance_probe/latest");
     ensureDir(outputDir);
 
     const scene = buildScene(sourceDir);
@@ -253,3 +253,4 @@ function main(): void {
 }
 
 main();
+

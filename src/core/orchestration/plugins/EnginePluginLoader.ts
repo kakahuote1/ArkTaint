@@ -2,7 +2,9 @@ import * as fs from "fs";
 import * as path from "path";
 import { EnginePlugin } from "./EnginePlugin";
 import {
+    auditExtensionDirectoryFiles,
     collectTypeScriptSourceFiles,
+    ExtensionModuleLoadIssue,
     filterTypeScriptSourceFilesByMarkers,
     loadExtensionCandidatesFromModule,
     pushLoaderWarning,
@@ -25,6 +27,7 @@ export interface EnginePluginLoadResult {
     plugins: EnginePlugin[];
     loadedFiles: string[];
     warnings: string[];
+    loadIssues: ExtensionModuleLoadIssue[];
 }
 
 interface LoadedEnginePluginCandidate {
@@ -32,11 +35,24 @@ interface LoadedEnginePluginCandidate {
     enabled: boolean;
 }
 
+interface LoadedEnginePluginModuleResult {
+    candidates: LoadedEnginePluginCandidate[];
+    loadIssue?: ExtensionModuleLoadIssue;
+}
+
+type PluginSelectionSource = "builtin" | "external" | "explicit";
+
+interface SelectedEnginePlugin {
+    plugin: EnginePlugin;
+    source: PluginSelectionSource;
+}
+
 export function loadEnginePlugins(options: EnginePluginLoaderOptions = {}): EnginePluginLoadResult {
     const warnings: string[] = [];
-    const discoveredPlugins: EnginePlugin[] = [];
+    const selectedPlugins = new Map<string, SelectedEnginePlugin>();
     const attemptedModules = new Set<string>();
     const loadedFiles = new Set<string>();
+    const loadIssues: ExtensionModuleLoadIssue[] = [];
     const discoveredPluginNames = new Set<string>();
     const builtinPluginFiles = new Set<string>();
     const externalPluginFiles = new Set<string>();
@@ -46,6 +62,7 @@ export function loadEnginePlugins(options: EnginePluginLoaderOptions = {}): Engi
 
     if (options.includeBuiltinPlugins !== false) {
         for (const dir of getBuiltinPluginDirs(options.builtinPluginDirs)) {
+            auditExtensionDirectoryFiles(dir, "engine plugin", warnings, options.onWarning);
             for (const file of collectPluginFiles(dir)) {
                 builtinPluginFiles.add(file);
             }
@@ -58,6 +75,7 @@ export function loadEnginePlugins(options: EnginePluginLoaderOptions = {}): Engi
             externalPluginFiles.add(abs);
             continue;
         }
+        auditExtensionDirectoryFiles(abs, "engine plugin", warnings, options.onWarning);
         for (const file of collectPluginFiles(abs)) {
             externalPluginFiles.add(file);
         }
@@ -76,19 +94,14 @@ export function loadEnginePlugins(options: EnginePluginLoaderOptions = {}): Engi
         if (attemptedModules.has(modulePath)) continue;
         attemptedModules.add(modulePath);
         const plugins = loadPluginsFromModule(modulePath, warnings, options.onWarning);
-        if (plugins.length > 0) {
+        if (plugins.loadIssue) {
+            loadIssues.push(plugins.loadIssue);
+        }
+        if (plugins.candidates.length > 0) {
             loadedFiles.add(modulePath);
         }
-        for (const candidate of plugins) {
+        for (const candidate of plugins.candidates) {
             const plugin = candidate.plugin;
-            if (discoveredPluginNames.has(plugin.name)) {
-                pushLoaderWarning(
-                    warnings,
-                    options.onWarning,
-                    `duplicate engine plugin name ${plugin.name}; keeping first discovered module`,
-                );
-                continue;
-            }
             discoveredPluginNames.add(plugin.name);
             if (!candidate.enabled) {
                 continue;
@@ -102,20 +115,18 @@ export function loadEnginePlugins(options: EnginePluginLoaderOptions = {}): Engi
             if (isolateNames.has(plugin.name)) {
                 discoveredIsolateMatches.add(plugin.name);
             }
-            discoveredPlugins.push(plugin);
+            registerEnginePlugin(
+                selectedPlugins,
+                plugin,
+                builtinPluginFiles.has(file) ? "builtin" : "external",
+                warnings,
+                options.onWarning,
+            );
         }
     }
 
     for (const plugin of options.plugins || []) {
         if (!plugin?.name) continue;
-        if (discoveredPluginNames.has(plugin.name)) {
-            pushLoaderWarning(
-                warnings,
-                options.onWarning,
-                `duplicate engine plugin name ${plugin.name}; keeping first discovered plugin object`,
-            );
-            continue;
-        }
         discoveredPluginNames.add(plugin.name);
         if (disabledPluginNames.has(plugin.name)) {
             continue;
@@ -126,7 +137,7 @@ export function loadEnginePlugins(options: EnginePluginLoaderOptions = {}): Engi
         if (isolateNames.has(plugin.name)) {
             discoveredIsolateMatches.add(plugin.name);
         }
-        discoveredPlugins.push(plugin);
+        registerEnginePlugin(selectedPlugins, plugin, "explicit", warnings, options.onWarning);
     }
 
     for (const pluginName of isolateNames) {
@@ -140,11 +151,11 @@ export function loadEnginePlugins(options: EnginePluginLoaderOptions = {}): Engi
         }
     }
 
-    assertUniquePluginNames(discoveredPlugins);
     return {
-        plugins: discoveredPlugins,
+        plugins: [...selectedPlugins.values()].map(item => item.plugin),
         loadedFiles: [...loadedFiles.values()].sort((a, b) => a.localeCompare(b)),
         warnings,
+        loadIssues,
     };
 }
 
@@ -177,8 +188,8 @@ function loadPluginsFromModule(
     modulePath: string,
     warnings: string[],
     onWarning?: (warning: string) => void,
-): LoadedEnginePluginCandidate[] {
-    return loadExtensionCandidatesFromModule<EnginePlugin>({
+): LoadedEnginePluginModuleResult {
+    const result = loadExtensionCandidatesFromModule<EnginePlugin>({
         modulePath,
         kindLabel: "engine plugin",
         warnings,
@@ -187,10 +198,14 @@ function loadPluginsFromModule(
         isCandidate: isEnginePlugin,
         getId: candidate => candidate.name,
         isEnabled: candidate => candidate.enabled !== false,
-    }).map(candidate => ({
-        plugin: candidate.value,
-        enabled: candidate.enabled,
-    }));
+    });
+    return {
+        candidates: result.candidates.map(candidate => ({
+            plugin: candidate.value,
+            enabled: candidate.enabled,
+        })),
+        loadIssue: result.loadIssue,
+    };
 }
 
 function isEnginePlugin(value: any): value is EnginePlugin {
@@ -199,12 +214,32 @@ function isEnginePlugin(value: any): value is EnginePlugin {
         && value.name.trim().length > 0;
 }
 
-function assertUniquePluginNames(plugins: EnginePlugin[]): void {
-    const seen = new Set<string>();
-    for (const plugin of plugins) {
-        if (seen.has(plugin.name)) {
-            throw new Error(`Duplicate engine plugin name: ${plugin.name}`);
-        }
-        seen.add(plugin.name);
+function registerEnginePlugin(
+    selectedPlugins: Map<string, SelectedEnginePlugin>,
+    plugin: EnginePlugin,
+    source: PluginSelectionSource,
+    warnings: string[],
+    onWarning?: (warning: string) => void,
+): void {
+    const existing = selectedPlugins.get(plugin.name);
+    if (existing) {
+        pushLoaderWarning(
+            warnings,
+            onWarning,
+            `engine plugin ${plugin.name} from ${describePluginSource(source)} overrides ${describePluginSource(existing.source)}`,
+        );
     }
+    selectedPlugins.set(plugin.name, { plugin, source });
+}
+
+function describePluginSource(source: PluginSelectionSource): string {
+    switch (source) {
+        case "builtin":
+            return "builtin plugin";
+        case "external":
+            return "external plugin";
+        case "explicit":
+            return "explicit plugin object";
+    }
+    return "engine plugin";
 }

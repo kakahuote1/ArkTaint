@@ -1,6 +1,6 @@
-import * as fs from "fs";
-import * as path from "path";
+﻿import * as fs from "fs";
 import { readAnalyzeSummary, runAnalyzeCli } from "./helpers/AnalyzeCliRunner";
+import { resolveTestRunDir, resolveTestRunPath } from "./helpers/TestWorkspaceLayout";
 
 interface AnalyzeReport {
     reportMode: "light" | "full";
@@ -39,12 +39,12 @@ function hitCount(rec: Record<string, number>): number {
 }
 
 async function main(): Promise<void> {
-    const root = path.resolve("tmp/phase56/analyze_report_mode");
+    const root = resolveTestRunDir("analyze", "report_mode");
     fs.rmSync(root, { recursive: true, force: true });
     fs.mkdirSync(root, { recursive: true });
 
-    const light = runAnalyze(path.join(root, "light"), "light");
-    const full = runAnalyze(path.join(root, "full"), "full");
+    const light = runAnalyze(resolveTestRunPath("analyze", "report_mode", "light"), "light");
+    const full = runAnalyze(resolveTestRunPath("analyze", "report_mode", "full"), "full");
 
     if (light.reportMode !== "light") {
         throw new Error(`expected light.reportMode=light, got ${light.reportMode}`);
@@ -93,3 +93,4 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+

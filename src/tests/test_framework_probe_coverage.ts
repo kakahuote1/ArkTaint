@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { spawnSync } from "child_process";
 import { RuleInvokeKind, RuleMatchKind, RuleScopeConstraint, RuleStringConstraint } from "../core/rules/RuleSchema";
+import { getAnalyzeSummaryJsonPath } from "./helpers/AnalyzeCliRunner";
 
 type RuleKind = "source" | "sink" | "transfer";
 
@@ -235,7 +236,7 @@ function main(): void {
     const probeRepo = path.resolve("tests/demo/sdk_signature_probe");
     const signaturesPath = path.resolve("tmp/sdk_signature_probe/signatures.json");
     const analyzeOutputDir = path.resolve("tmp/sdk_signature_probe/analyze");
-    const summaryPath = path.join(analyzeOutputDir, "summary.json");
+    const summaryPath = getAnalyzeSummaryJsonPath(analyzeOutputDir);
     const frameworkRulePath = path.resolve("src/rules/framework.rules.json");
     const coverageJsonPath = path.resolve("tmp/sdk_signature_probe/coverage_report.json");
     const coverageMdPath = path.resolve("tmp/sdk_signature_probe/coverage_report.md");

@@ -1,7 +1,8 @@
-import { spawnSync } from "child_process";
+﻿import { spawnSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import { generateProjectRuleScaffold } from "../cli/generate_project_rules";
+import { getAnalyzeSummaryJsonPath } from "./helpers/AnalyzeCliRunner";
 
 interface CliOptions {
     repo: string;
@@ -25,11 +26,11 @@ interface AnalyzeReport {
 }
 
 function parseArgs(argv: string[]): CliOptions {
-    let repo = "tmp/phase43/repos/wanharmony";
+    let repo = "tmp/test_runs/project_rules/wanharmony_fixture/latest/repo";
     let sourceDir = "entry/src/main/ets";
     let defaultRulePath = "src/rules/default.rules.json";
     let projectRulePath = "tests/rules/real_project/wanharmony.project.rules.json";
-    let outputDir = "tmp/phase54d/project_rules_only_workflow";
+    let outputDir = "tmp/test_runs/project_rules/project_rules_only_workflow/latest";
     let k = 1;
     let maxEntries = 12;
     let threshold = 0.05;
@@ -146,7 +147,7 @@ function runAnalyze(options: CliOptions, outputDir: string, projectRulePath?: st
             `Analyze failed (status=${proc.status}): ${proc.stderr || proc.stdout || "no output"}`
         );
     }
-    return path.resolve(outputDir, "summary.json");
+    return getAnalyzeSummaryJsonPath(outputDir);
 }
 
 function readAnalyzeReport(summaryPath: string): AnalyzeReport {
@@ -240,3 +241,4 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+

@@ -86,7 +86,7 @@ interface SummaryReport {
 function parseArgs(argv: string[]): ParsedArgs {
     let sourceRoot = "tests/demo/senior_full";
     let arktanRoot = "../Arktan";
-    let outputDir = "tmp/senior_compare_arktan";
+    let outputDir = "tmp/test_runs/compare/senior_compare_arktan/latest";
     let rounds = 1;
     let k = 1;
     let mode: CompareMode = "strict";
@@ -549,5 +549,6 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+
 
 

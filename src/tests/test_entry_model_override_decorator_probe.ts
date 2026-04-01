@@ -1,4 +1,4 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as path from "path";
 import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
@@ -57,7 +57,7 @@ function findFact(plan: ReturnType<typeof buildArkMainPlan>, kind: string, class
 async function main(): Promise<void> {
     const projectDir = path.resolve("tests/demo/sdk_override_decorator_probe");
     const scene = buildScene(projectDir);
-    const outputDir = path.resolve("tmp/phase717/override_decorator_probe");
+    const outputDir = path.resolve("tmp/test_runs/entry_model/override_decorator_probe/latest");
     fs.mkdirSync(outputDir, { recursive: true });
 
     const overrideCandidates = collectSdkOverrideCandidates(scene);
@@ -143,3 +143,4 @@ main().catch(error => {
     console.error(error);
     process.exit(1);
 });
+

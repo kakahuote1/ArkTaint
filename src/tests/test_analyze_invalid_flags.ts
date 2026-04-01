@@ -1,5 +1,6 @@
-import * as path from "path";
+﻿import * as path from "path";
 import { runShell } from "./helpers/ProcessRunner";
+import { resolveTestRunDir } from "./helpers/TestWorkspaceLayout";
 
 function runAnalyzeWithFlag(flag: string, value: string): { status: number | null; output: string } {
     const cli = path.resolve("out/cli/analyze.js");
@@ -9,7 +10,7 @@ function runAnalyzeWithFlag(flag: string, value: string): { status: number | nul
         "--repo", "tests/demo/rule_transfer_variants",
         "--sourceDir", ".",
         flag, value,
-        "--outputDir", "tmp/phase719/invalid_flags_probe",
+        "--outputDir", resolveTestRunDir("analyze", "invalid_flags"),
     ].join(" ");
     const result = runShell(command, { stdio: "pipe" });
     return {

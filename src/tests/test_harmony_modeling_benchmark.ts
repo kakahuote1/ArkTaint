@@ -122,11 +122,11 @@ function createCaseView(sourceDir: string, caseName: string, outputRoot: string)
 }
 
 function loadManifest(): BenchmarkManifest {
-    return readJsonFile<BenchmarkManifest>(path.resolve("tests/manifests/harmony_modeling_benchmark.json"));
+    return readJsonFile<BenchmarkManifest>(path.resolve("tests/manifests/benchmarks/harmony_modeling_benchmark.json"));
 }
 
 function loadExpectations(): ExpectationManifest {
-    return readJsonFile<ExpectationManifest>(path.resolve("tests/manifests/harmony_modeling_expectations.json"));
+    return readJsonFile<ExpectationManifest>(path.resolve("tests/manifests/benchmarks/harmony_modeling_expectations.json"));
 }
 
 function listCases(sourceDir: string, spec: SuiteSpec): string[] {
@@ -289,11 +289,11 @@ async function runCaseVariant(
 }
 
 async function main(): Promise<void> {
-    const manifestPath = path.resolve("tests/manifests/harmony_modeling_benchmark.json");
-    const expectationPath = path.resolve("tests/manifests/harmony_modeling_expectations.json");
+    const manifestPath = path.resolve("tests/manifests/benchmarks/harmony_modeling_benchmark.json");
+    const expectationPath = path.resolve("tests/manifests/benchmarks/harmony_modeling_expectations.json");
     const manifest = loadManifest();
     const expectations = loadExpectations();
-    const outputRoot = path.resolve("tmp/phase717/harmony_modeling_benchmark");
+    const outputRoot = path.resolve("tmp/test_runs/modeling/harmony_modeling_benchmark/latest");
     const caseViewRoot = path.join(outputRoot, "cases");
     ensureDir(caseViewRoot);
 
@@ -433,4 +433,6 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+
+
 

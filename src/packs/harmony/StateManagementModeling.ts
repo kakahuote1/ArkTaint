@@ -15,6 +15,7 @@ import {
     collectParameterAssignStmts,
     resolveMethodsFromCallable,
 } from "../../core/kernel/contracts/SemanticPack";
+import { safeGetOrCreatePagNodes } from "../../core/kernel/contracts/PagNodeResolution";
 
 const DECORATOR_STATE = "State";
 const DECORATOR_PROP = "Prop";
@@ -824,11 +825,7 @@ function findLocalPagNodeIds(pag: Pag, method: any, localName: string): Set<numb
         const left = stmt.getLeftOp();
         if (!(left instanceof Local)) continue;
         if (left.getName() !== localName) continue;
-        let nodes = pag.getNodesByValue(left);
-        if (!nodes || nodes.size === 0) {
-            try { pag.addPagNode(0, left, stmt); } catch { /* */ }
-            nodes = pag.getNodesByValue(left);
-        }
+        const nodes = safeGetOrCreatePagNodes(pag, left, stmt);
         if (nodes && nodes.size > 0) {
             for (const nodeId of nodes.values()) out.add(nodeId);
         }
@@ -853,11 +850,9 @@ function collectCallbackParamNodeIds(
                 const right = stmt.getRightOp();
                 if (!(right instanceof ArkParameterRef) || right.getIndex() !== paramIndex) continue;
                 const left = stmt.getLeftOp();
-                let nodes = pag.getNodesByValue(left);
-                if ((!nodes || nodes.size === 0) && left instanceof Local) {
-                    try { pag.addPagNode(0, left, stmt); } catch { /* */ }
-                    nodes = pag.getNodesByValue(left);
-                }
+                const nodes = left instanceof Local
+                    ? safeGetOrCreatePagNodes(pag, left, stmt)
+                    : pag.getNodesByValue(left);
                 if (!nodes || nodes.size === 0) continue;
                 for (const nodeId of nodes.values()) out.add(nodeId);
             }
@@ -865,11 +860,9 @@ function collectCallbackParamNodeIds(
         }
         for (const paramStmt of paramStmts) {
             const left = paramStmt.getLeftOp();
-            let nodes = pag.getNodesByValue(left);
-            if ((!nodes || nodes.size === 0) && left instanceof Local) {
-                try { pag.addPagNode(0, left, paramStmt); } catch { /* */ }
-                nodes = pag.getNodesByValue(left);
-            }
+            const nodes = left instanceof Local
+                ? safeGetOrCreatePagNodes(pag, left, paramStmt)
+                : pag.getNodesByValue(left);
             if (!nodes || nodes.size === 0) continue;
             for (const nodeId of nodes.values()) out.add(nodeId);
         }

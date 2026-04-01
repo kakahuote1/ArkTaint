@@ -1,4 +1,4 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as path from "path";
 import { spawnSync } from "child_process";
 
@@ -235,28 +235,28 @@ function passedByMetamorphic(metrics: Record<string, MetamorphicMetrics>): boole
 
 async function main(): Promise<void> {
     const dateTag = toDateTag();
-    const outputDir = path.resolve("tmp/phase44");
+    const outputDir = path.resolve("tmp/test_runs/generalization/verify_generalization/latest");
     ensureDir(outputDir);
 
     const stepSpecs: StepSpec[] = [
         {
             name: "test:dev",
-            args: ["out/tests/test_dataset_by_manifest.js", "--manifest", "tests/manifests/dev.list", "--k", "1"],
+            args: ["out/tests/test_dataset_by_manifest.js", "--manifest", "tests/manifests/datasets/dev.list", "--k", "1"],
         },
         {
             name: "test:holdout",
-            args: ["out/tests/test_dataset_by_manifest.js", "--manifest", "tests/manifests/holdout.list", "--k", "1"],
+            args: ["out/tests/test_dataset_by_manifest.js", "--manifest", "tests/manifests/datasets/holdout.list", "--k", "1"],
         },
         {
             name: "test:metamorphic",
-            args: ["out/tests/test_metamorphic.js", "--manifest", "tests/manifests/metamorphic_seed.list", "--k", "1"],
+            args: ["out/tests/test_metamorphic.js", "--manifest", "tests/manifests/metamorphic/metamorphic_seed.list", "--k", "1"],
         },
         {
             name: "test:metamorphic:v2",
             args: [
                 "out/tests/test_metamorphic_v2.js",
                 "--manifest",
-                "tests/manifests/metamorphic_seed_v2.list",
+                "tests/manifests/metamorphic/metamorphic_seed_v2.list",
                 "--sourceDir",
                 "tests/demo/metamorphic_seed_v2",
                 "--k",
@@ -268,7 +268,7 @@ async function main(): Promise<void> {
             args: [
                 "out/tests/test_metamorphic_v3.js",
                 "--manifest",
-                "tests/manifests/metamorphic_seed_v3.list",
+                "tests/manifests/metamorphic/metamorphic_seed_v3.list",
                 "--sourceDir",
                 "tests/demo/metamorphic_seed_v2",
                 "--k",
@@ -280,7 +280,7 @@ async function main(): Promise<void> {
             args: [
                 "out/tests/test_real_project_smoke.js",
                 "--manifest",
-                "tests/manifests/smoke_projects.json",
+                "tests/manifests/real_projects/smoke_projects.json",
                 "--k",
                 "1",
                 "--maxEntries",
@@ -295,11 +295,11 @@ async function main(): Promise<void> {
     const devMetrics = parseManifestMetrics(stepByName.get("test:dev")?.stdout || "");
     const holdoutMetrics = parseManifestMetrics(stepByName.get("test:holdout")?.stdout || "");
     const metamorphicMetrics: Record<string, MetamorphicMetrics> = {
-        v1: readMetamorphicMetrics("tmp/phase42/metamorphic_report.json"),
-        v2: readMetamorphicMetrics("tmp/phase42_v2/metamorphic_report.json"),
-        v3: readMetamorphicMetrics("tmp/phase42_v3/metamorphic_report.json"),
+        v1: readMetamorphicMetrics("tmp/test_runs/metamorphic/seed_v1/latest/metamorphic_report.json"),
+        v2: readMetamorphicMetrics("tmp/test_runs/metamorphic/seed_v2/latest/metamorphic_report.json"),
+        v3: readMetamorphicMetrics("tmp/test_runs/metamorphic/seed_v3/latest/metamorphic_report.json"),
     };
-    const smokeMetrics = readSmokeMetrics("tmp/phase43/smoke_report.json");
+    const smokeMetrics = readSmokeMetrics("tmp/test_runs/real_projects/smoke/latest/smoke_report.json");
 
     const gate = {
         devPassed: stepByName.get("test:dev")?.success === true && passedByManifest(devMetrics),
@@ -365,3 +365,5 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+
+

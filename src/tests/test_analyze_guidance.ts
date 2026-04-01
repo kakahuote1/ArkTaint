@@ -1,6 +1,6 @@
 ﻿import * as fs from "fs";
-import * as path from "path";
 import { getAnalyzeSummaryMarkdownPath, runAnalyzeCli } from "./helpers/AnalyzeCliRunner";
+import { resolveTestRunDir } from "./helpers/TestWorkspaceLayout";
 
 function runAnalyze(outputDir: string): string {
     const args = [
@@ -27,7 +27,7 @@ function section(md: string, title: string): string {
 }
 
 async function main(): Promise<void> {
-    const root = path.resolve("tmp/phase57/analyze_guidance");
+    const root = resolveTestRunDir("analyze", "guidance");
     fs.rmSync(root, { recursive: true, force: true });
     fs.mkdirSync(root, { recursive: true });
 
@@ -64,3 +64,4 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+

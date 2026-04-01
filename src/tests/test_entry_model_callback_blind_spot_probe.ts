@@ -1,4 +1,4 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as path from "path";
 import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
@@ -229,7 +229,7 @@ function bumpCoverage(
 
 function main(): void {
     const sourceDir = path.resolve("tests/demo/sdk_callback_provenance_probe");
-    const outputRoot = path.resolve("tmp/phase717/callback_blind_spot_probe");
+    const outputRoot = path.resolve("tmp/test_runs/entry_model/callback_blind_spot_probe/latest");
     ensureDir(outputRoot);
 
     const caseViews = listProbeCases(sourceDir);
@@ -324,3 +324,4 @@ function main(): void {
 }
 
 main();
+

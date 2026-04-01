@@ -2,7 +2,7 @@ import * as path from "path";
 import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { Pag } from "../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { TaintPropagationEngine } from "../core/orchestration/TaintPropagationEngine";
-import { TaintFlow } from "../core/kernel/TaintFlow";
+import { TaintFlow } from "../core/kernel/model/TaintFlow";
 import { loadEnginePlugins } from "../core/orchestration/plugins/EnginePluginLoader";
 import { defineEnginePlugin } from "../core/orchestration/plugins/EnginePlugin";
 import { buildTestScene } from "./helpers/TestSceneBuilder";
@@ -127,6 +127,23 @@ async function main(): Promise<void> {
         !loadedPluginResult.plugins.some(plugin => plugin.name === "fixture.disabled_file"),
         "file-disabled engine plugins should not be loaded",
     );
+    const overrideExternalPlugin = defineEnginePlugin({
+        name: "fixture.entry_and_rules",
+    });
+    const overriddenPluginResult = loadEnginePlugins({
+        includeBuiltinPlugins: false,
+        pluginDirs: [pluginDir],
+        plugins: [overrideExternalPlugin],
+    });
+    assert(overriddenPluginResult.plugins.length === 1, "explicit plugin object should replace external duplicate name");
+    assert(
+        overriddenPluginResult.plugins[0] === overrideExternalPlugin,
+        "explicit plugin object should win over external plugin with the same name",
+    );
+    assert(
+        overriddenPluginResult.warnings.some(w => w.includes("engine plugin fixture.entry_and_rules") && w.includes("overrides external plugin")),
+        "overriding a loaded external plugin should emit an explicit override warning",
+    );
     const disabledPluginResult = loadEnginePlugins({
         includeBuiltinPlugins: false,
         pluginDirs: [pluginDir],
@@ -207,6 +224,40 @@ async function main(): Promise<void> {
     {
         const scene = buildTestScene(projectDir);
         const buildMethod = findMethodByName(scene, buildMethodName);
+        const brokenStartPlugin = defineEnginePlugin({
+            name: "fixture.broken_start",
+            onStart() {
+                throw new Error("broken-start");
+            },
+        });
+        const engine = new TaintPropagationEngine(scene, 1, {
+            enginePlugins: [brokenStartPlugin],
+        });
+        engine.verbose = false;
+        await engine.buildPAG({
+            entryModel: "arkMain",
+            syntheticEntryMethods: buildMethod ? [buildMethod] : undefined,
+        });
+        engine.setActiveReachableMethodSignatures(engine.computeReachableMethodSignatures());
+        const seeds = engine.propagateWithSourceRules([sourceRule()]);
+        assert(seeds.seedCount > 0, "broken start plugin should be isolated and baseline seeding should continue");
+        const findings = engine.detectSinksByRules([sinkRule()]);
+        assert(findings.length > 0, "broken start plugin should not abort baseline detection");
+        const pluginAudit = engine.getEnginePluginAuditSnapshot();
+        assert(pluginAudit.failedPluginNames.includes("fixture.broken_start"), "engine plugin audit should expose failed plugin names");
+        assert(
+            pluginAudit.failureEvents.some(event => event.pluginName === "fixture.broken_start" && event.phase === "onStart" && event.message.includes("broken-start")),
+            "engine plugin audit should record onStart failure details",
+        );
+        assert(
+            pluginAudit.failureEvents.some(event => event.pluginName === "fixture.broken_start" && typeof event.line === "number" && typeof event.column === "number"),
+            "engine plugin audit should record failure line/column when stack information is available",
+        );
+    }
+
+    {
+        const scene = buildTestScene(projectDir);
+        const buildMethod = findMethodByName(scene, buildMethodName);
         const events = {
             callEdges: 0,
             taintFlows: 0,
@@ -238,6 +289,44 @@ async function main(): Promise<void> {
         engine.propagateWithSourceRules([sourceRule()]);
         assert(events.taintFlows > 0, "onTaintFlow should observe propagation edges");
         assert(events.methods > 0, "onMethodReached should observe reached methods");
+    }
+
+    {
+        const scene = buildTestScene(projectDir);
+        const buildMethod = findMethodByName(scene, buildMethodName);
+        let failureCount = 0;
+        const brokenObserverPlugin = defineEnginePlugin({
+            name: "fixture.broken_observer",
+            onPropagation(api) {
+                api.onTaintFlow(() => {
+                    failureCount++;
+                    throw new Error("broken-observer");
+                });
+            },
+        });
+        const engine = new TaintPropagationEngine(scene, 1, {
+            enginePlugins: [brokenObserverPlugin],
+        });
+        engine.verbose = false;
+        await engine.buildPAG({
+            entryModel: "arkMain",
+            syntheticEntryMethods: buildMethod ? [buildMethod] : undefined,
+        });
+        engine.setActiveReachableMethodSignatures(engine.computeReachableMethodSignatures());
+        const seeds = engine.propagateWithSourceRules([sourceRule()]);
+        assert(seeds.seedCount > 0, "broken propagation observer should not stop baseline propagation");
+        const findings = engine.detectSinksByRules([sinkRule()]);
+        assert(findings.length > 0, "broken propagation observer should not stop baseline findings");
+        assert(failureCount === 1, "broken propagation observer should be disabled after its first failure");
+        const pluginAudit = engine.getEnginePluginAuditSnapshot();
+        assert(
+            pluginAudit.failureEvents.some(event => event.pluginName === "fixture.broken_observer" && event.phase === "propagation.observer" && event.message.includes("broken-observer")),
+            "engine plugin audit should record propagation observer failure details",
+        );
+        assert(
+            pluginAudit.failureEvents.some(event => event.pluginName === "fixture.broken_observer" && event.userMessage.includes("failed in propagation.observer") && event.userMessage.includes(":")),
+            "engine plugin user message should stay concise and include location when available",
+        );
     }
 
     {

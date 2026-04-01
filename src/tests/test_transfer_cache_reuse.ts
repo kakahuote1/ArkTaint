@@ -2,7 +2,7 @@ import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
 import { TaintPropagationEngine } from "../core/orchestration/TaintPropagationEngine";
 import { loadRuleSet } from "../core/rules/RuleLoader";
-import { ConfigBasedTransferExecutor } from "../core/kernel/ConfigBasedTransferExecutor";
+import { ConfigBasedTransferExecutor } from "../core/kernel/rules/ConfigBasedTransferExecutor";
 import * as fs from "fs";
 import * as path from "path";
 import { registerMockSdkFiles } from "./helpers/TestSceneBuilder";

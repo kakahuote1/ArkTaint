@@ -1,6 +1,7 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as path from "path";
 import { spawnSync } from "child_process";
+import { getAnalyzeSummaryJsonPath } from "./helpers/AnalyzeCliRunner";
 
 interface CliOptions {
     repo: string;
@@ -69,14 +70,14 @@ interface UnknownDeltaReport {
 }
 
 function parseArgs(argv: string[]): CliOptions {
-    let repo = "tmp/phase43/repos/wanharmony";
+    let repo = "tmp/test_runs/project_rules/wanharmony_fixture/latest/repo";
     const sourceDirs: string[] = ["entry/src/main/ets"];
     let profile = "default";
     let k = 1;
     let maxEntries = 12;
     let defaultRulePath = "src/rules/default.rules.json";
     let projectRulePath = "tests/rules/real_project/wanharmony.project.rules.json";
-    let outputDir = "tmp/phase53/unknown_reduction_wanharmony";
+    let outputDir = "tmp/test_runs/project_rules/unknown_reduction_wanharmony/latest";
     let threshold = 0.05;
 
     for (let i = 0; i < argv.length; i++) {
@@ -303,8 +304,8 @@ async function main(): Promise<void> {
     runAnalyze(options, baselineDir, false);
     runAnalyze(options, withProjectDir, true);
 
-    const baselineSummaryPath = path.resolve(baselineDir, "summary.json");
-    const withProjectSummaryPath = path.resolve(withProjectDir, "summary.json");
+    const baselineSummaryPath = getAnalyzeSummaryJsonPath(baselineDir);
+    const withProjectSummaryPath = getAnalyzeSummaryJsonPath(withProjectDir);
     const baselineSummary = readAnalyzeSummary(baselineSummaryPath);
     const withProjectSummary = readAnalyzeSummary(withProjectSummaryPath);
 
@@ -388,3 +389,4 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+

@@ -86,7 +86,15 @@ export async function buildEngineForCase(
         syntheticEntryMethods?: ArkMethod[];
     }
 ): Promise<TaintPropagationEngine> {
-    const engine = new TaintPropagationEngine(scene, k, options?.engineOptions || {});
+    const requestedOptions = options?.engineOptions || {};
+    const researchDeferredHandoffMode = requestedOptions.researchDeferredHandoffMode;
+    const allowResearchDeferredHandoffModes =
+        requestedOptions.allowResearchDeferredHandoffModes === true
+        || researchDeferredHandoffMode !== undefined;
+    const engine = new TaintPropagationEngine(scene, k, {
+        ...requestedOptions,
+        allowResearchDeferredHandoffModes,
+    });
     engine.verbose = options?.verbose ?? false;
     await engine.buildPAG({
         syntheticEntryMethods: options?.syntheticEntryMethods || [entryMethod],

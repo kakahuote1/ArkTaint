@@ -1,11 +1,15 @@
-import {
+﻿import {
     AnalyzeReport,
     EntryAnalyzeResult,
+    emptyAnalyzeErrorDiagnostics,
     emptyRuleHitCounters,
     emptyTransferProfile,
     emptyDetectProfile,
+    emptyEnginePluginAuditSnapshot,
     emptyEntryStageProfile,
 } from "../cli/analyzeTypes";
+import { emptySemanticPackAuditSnapshot } from "../core/kernel/contracts/SemanticPack";
+import { emptyPagNodeResolutionAuditSnapshot } from "../core/kernel/contracts/PagNodeResolution";
 import { CliOptions as AnalyzeCliOptions } from "../cli/analyzeCliOptions";
 import { runAnalyze } from "../cli/analyzeRunner";
 import {
@@ -25,10 +29,10 @@ import * as fs from "fs";
 import * as path from "path";
 
 function parseArgs(argv: string[]): CliOptions {
-    let manifestPath = "tests/manifests/smoke_projects.json";
+    let manifestPath = "tests/manifests/real_projects/smoke_projects.json";
     let k = 1;
     let maxEntries = 12;
-    let outputDir = "tmp/phase43";
+    let outputDir = "tmp/test_runs/real_projects/smoke/latest";
     let projectFilter: string | undefined;
 
     for (let i = 0; i < argv.length; i++) {
@@ -227,6 +231,9 @@ function createFallbackAnalyzeReport(repoAbs: string, sourceDirs: string[]): Ana
         detectProfile: emptyDetectProfile(),
         stageProfile: emptyEntryStageProfile(),
         transferNoHitReasons: ["analyze_exception"],
+        pagNodeResolutionAudit: emptyPagNodeResolutionAuditSnapshot(),
+        semanticPackAudit: emptySemanticPackAuditSnapshot(),
+        enginePluginAudit: emptyEnginePluginAuditSnapshot(),
         elapsedMs: 0,
         error: "analyze_failed",
     }));
@@ -255,6 +262,9 @@ function createFallbackAnalyzeReport(repoAbs: string, sourceDirs: string[]): Ana
                 elapsedShareAvg: 0,
             },
             detectProfile: emptyDetectProfile(),
+            pagNodeResolutionAudit: emptyPagNodeResolutionAuditSnapshot(),
+            diagnostics: emptyAnalyzeErrorDiagnostics(),
+            diagnosticItems: [],
             stageProfile: {
                 ruleLoadMs: 0,
                 sceneBuildMs: 0,
@@ -430,3 +440,5 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+
+

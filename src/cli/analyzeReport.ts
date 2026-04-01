@@ -37,13 +37,24 @@ interface EntryAnalyzeResultLike {
         sanitizerGuardHitCount: number;
         signatureMatchMs: number;
         candidateResolveMs: number;
-        cfgGuardMs: number;
         taintEvalMs: number;
         sanitizerGuardMs: number;
         traversalMs: number;
         totalMs: number;
     };
     transferNoHitReasons: string[];
+    pagNodeResolutionAudit?: {
+        requestCount: number;
+        directHitCount: number;
+        fallbackResolveCount: number;
+        awaitFallbackCount: number;
+        exprUseFallbackCount: number;
+        anchorLeftFallbackCount: number;
+        addAttemptCount: number;
+        addFailureCount: number;
+        unresolvedCount: number;
+        unsupportedValueKinds: Record<string, number>;
+    };
 }
 
 interface AnalyzeReportLike {
@@ -67,8 +78,29 @@ interface AnalyzeReportLike {
         ruleHitEndpoints: RuleHitCountersLike;
         transferProfile: any;
         detectProfile: any;
+        pagNodeResolutionAudit?: any;
+        diagnostics?: {
+            ruleLoadIssues?: Array<{ userMessage?: string; message: string }>;
+            semanticPackLoadIssues?: Array<{ modulePath: string; message: string; userMessage?: string }>;
+            semanticPackRuntimeFailures?: Array<{ packId: string; phase: string; message: string; userMessage?: string }>;
+            enginePluginLoadIssues?: Array<{ modulePath: string; message: string; userMessage?: string }>;
+            enginePluginRuntimeFailures?: Array<{ pluginName: string; phase: string; message: string; userMessage?: string }>;
+            systemFailures?: Array<{ phase: string; message: string; userMessage?: string }>;
+        };
         stageProfile: any;
         transferNoHitReasons: Record<string, number>;
+        diagnosticItems?: Array<{
+            category: "Rule" | "Pack" | "Plugin" | "System";
+            code: string;
+            title: string;
+            summary: string;
+            rawMessage: string;
+            advice: string;
+            path?: string;
+            line?: number;
+            column?: number;
+            fieldPath?: string;
+        }>;
         ruleFeedback?: {
             zeroHitRules?: RuleHitCountersLike;
             ruleHitRanking?: {
@@ -197,6 +229,11 @@ export function renderMarkdownReport(report: AnalyzeReportLike): string {
     const sourceRuleHits = countTotalHits(report.summary.ruleHits.source);
     const sinkRuleHits = countTotalHits(report.summary.ruleHits.sink);
     const transferRuleHits = countTotalHits(report.summary.ruleHits.transfer);
+    const diagnostics = report.summary.diagnostics;
+    const pagAudit = report.summary.pagNodeResolutionAudit || {};
+    const topNoHitSummary = rankCounters(report.summary.transferNoHitReasons || {}, 5)
+        .map(item => `${item.key}(${item.count})`)
+        .join(", ");
     const lines: string[] = [];
     lines.push("# ArkTaint Analyze Report");
     lines.push("");
@@ -215,13 +252,18 @@ export function renderMarkdownReport(report: AnalyzeReportLike): string {
     lines.push(`- totalFlows: ${report.summary.totalFlows}`);
     lines.push(`- statusCount: ${JSON.stringify(report.summary.statusCount)}`);
     lines.push(`- ruleHitsTotal: source=${sourceRuleHits}, sink=${sinkRuleHits}, transfer=${transferRuleHits}`);
-    lines.push(`- ruleHitEndpoints: ${JSON.stringify(report.summary.ruleHitEndpoints)}`);
-    lines.push(`- transferProfile: ${JSON.stringify(report.summary.transferProfile)}`);
-    lines.push(`- detectProfile: ${JSON.stringify(report.summary.detectProfile)}`);
-    lines.push(`- stageProfile: ${JSON.stringify(report.summary.stageProfile)}`);
-    lines.push(`- transferNoHitReasons: ${JSON.stringify(report.summary.transferNoHitReasons)}`);
+    lines.push(`- transferProfile: checks=${report.summary.transferProfile.ruleCheckCount}, matches=${report.summary.transferProfile.ruleMatchCount}, endpointMatches=${report.summary.transferProfile.endpointMatchCount}, results=${report.summary.transferProfile.resultCount}, dedupSkips=${report.summary.transferProfile.dedupSkipCount}, elapsedMs=${report.summary.transferProfile.elapsedMs}`);
+    lines.push(`- detectProfile: calls=${report.summary.detectProfile.detectCallCount}, sinksChecked=${report.summary.detectProfile.sinksChecked}, sanitizerChecks=${report.summary.detectProfile.sanitizerGuardCheckCount}, sanitizerHits=${report.summary.detectProfile.sanitizerGuardHitCount}, totalMs=${report.summary.detectProfile.totalMs}`);
+    lines.push(`- pagNodeResolutionAudit: requests=${pagAudit.requestCount || 0}, directHits=${pagAudit.directHitCount || 0}, fallbacks=${pagAudit.fallbackResolveCount || 0}, addFailures=${pagAudit.addFailureCount || 0}, unresolved=${pagAudit.unresolvedCount || 0}`);
+    if (diagnostics) {
+        lines.push(`- diagnostics: total=${(report.summary.diagnosticItems || []).length}, rule=${(diagnostics.ruleLoadIssues || []).length}, packLoad=${(diagnostics.semanticPackLoadIssues || []).length}, packRuntime=${(diagnostics.semanticPackRuntimeFailures || []).length}, pluginLoad=${(diagnostics.enginePluginLoadIssues || []).length}, pluginRuntime=${(diagnostics.enginePluginRuntimeFailures || []).length}`);
+    }
+    if (topNoHitSummary) {
+        lines.push(`- transferNoHitReasonsTop: ${topNoHitSummary}`);
+    }
     if (report.summary.ruleFeedback) {
-        lines.push(`- ruleFeedback.zeroHitRules: ${JSON.stringify(report.summary.ruleFeedback.zeroHitRules || {})}`);
+        const zeroHit = report.summary.ruleFeedback.zeroHitRules || { source: {}, sink: {}, transfer: {} };
+        lines.push(`- ruleFeedback.zeroHitRules: source=${Object.keys(zeroHit.source || {}).length}, sink=${Object.keys(zeroHit.sink || {}).length}, transfer=${Object.keys(zeroHit.transfer || {}).length}`);
     }
     lines.push("");
     lines.push(...renderGuidance(report));
@@ -246,6 +288,29 @@ export function renderMarkdownReport(report: AnalyzeReportLike): string {
             lines.push("- uncovered high-frequency invokes: []");
         }
     }
+    if (diagnostics) {
+        lines.push("");
+        lines.push("## Diagnostics");
+        lines.push("");
+        const normalizedItems = report.summary.diagnosticItems || [];
+        if (normalizedItems.length > 0) {
+            for (const item of normalizedItems) {
+                const location = item.path
+                    ? item.line && item.column
+                        ? `${item.path}:${item.line}:${item.column}`
+                        : item.path
+                    : "(no file)";
+                lines.push(`- [${item.category}] ${item.code} | ${item.title} | ${location}`);
+                lines.push(`  - summary: ${item.summary}`);
+                lines.push(`  - message: ${item.rawMessage}`);
+                if (item.fieldPath) {
+                    lines.push(`  - field: ${item.fieldPath}`);
+                }
+                lines.push(`  - advice: ${item.advice}`);
+            }
+            lines.push("");
+        }
+    }
     lines.push("");
     lines.push("## Top Entries");
     lines.push("");
@@ -259,7 +324,10 @@ export function renderMarkdownReport(report: AnalyzeReportLike): string {
             continue;
         }
         lines.push(`  - transferProfile: checks=${e.transferProfile.ruleCheckCount}, matches=${e.transferProfile.ruleMatchCount}, endpointMatches=${e.transferProfile.endpointMatchCount}, results=${e.transferProfile.resultCount}, dedupSkips=${e.transferProfile.dedupSkipCount}, elapsedMs=${e.transferProfile.elapsedMs}`);
-        lines.push(`  - detectProfile: calls=${e.detectProfile.detectCallCount}, sinksChecked=${e.detectProfile.sinksChecked}, sanitizerChecks=${e.detectProfile.sanitizerGuardCheckCount}, sanitizerHits=${e.detectProfile.sanitizerGuardHitCount}, signatureMs=${e.detectProfile.signatureMatchMs}, candidateMs=${e.detectProfile.candidateResolveMs}, cfgMs=${e.detectProfile.cfgGuardMs}, taintMs=${e.detectProfile.taintEvalMs}, sanitizerMs=${e.detectProfile.sanitizerGuardMs}, traversalMs=${e.detectProfile.traversalMs}, totalMs=${e.detectProfile.totalMs}`);
+        lines.push(`  - detectProfile: calls=${e.detectProfile.detectCallCount}, sinksChecked=${e.detectProfile.sinksChecked}, sanitizerChecks=${e.detectProfile.sanitizerGuardCheckCount}, sanitizerHits=${e.detectProfile.sanitizerGuardHitCount}, signatureMs=${e.detectProfile.signatureMatchMs}, candidateMs=${e.detectProfile.candidateResolveMs}, taintMs=${e.detectProfile.taintEvalMs}, sanitizerMs=${e.detectProfile.sanitizerGuardMs}, traversalMs=${e.detectProfile.traversalMs}, totalMs=${e.detectProfile.totalMs}`);
+        if (e.pagNodeResolutionAudit) {
+            lines.push(`  - pagNodeResolutionAudit: requests=${e.pagNodeResolutionAudit.requestCount}, directHits=${e.pagNodeResolutionAudit.directHitCount}, fallbacks=${e.pagNodeResolutionAudit.fallbackResolveCount}, addFailures=${e.pagNodeResolutionAudit.addFailureCount}, unresolved=${e.pagNodeResolutionAudit.unresolvedCount}`);
+        }
         if (e.transferNoHitReasons.length > 0) {
             lines.push(`  - transferNoHitReasons: ${e.transferNoHitReasons.join(",")}`);
         }

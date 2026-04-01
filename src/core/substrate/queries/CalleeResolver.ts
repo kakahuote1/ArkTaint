@@ -1,7 +1,7 @@
 import { Scene } from "../../../../arkanalyzer/out/src/Scene";
-import { ArkAssignStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkArrayRef, ArkInstanceFieldRef, ArkParameterRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
-import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
+import { ArkAssignStmt, ArkReturnStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
+import { ArkArrayRef, ArkInstanceFieldRef, ArkParameterRef, ArkStaticFieldRef, ClosureFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
+import { ArkAwaitExpr, ArkCastExpr, ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 
 export interface ResolvedCallee {
@@ -19,6 +19,8 @@ export interface CallableResolveOptions {
     maxBacktraceSteps?: number;
     maxVisitedDefs?: number;
 }
+
+type CallableCarrierValue = ArkInstanceFieldRef | ClosureFieldRef | ArkArrayRef | ArkStaticFieldRef;
 
 export interface InvokeArgParamPair {
     arg: any;
@@ -168,7 +170,7 @@ export function resolveMethodsFromCallable(
     options: CallableResolveOptions = {}
 ): any[] {
     const maxCandidates = options.maxCandidates ?? DEFAULT_MAX_NAME_MATCH_CANDIDATES;
-    const methods = resolveMethodsFromCallableValue(scene, callableValue, options);
+    const methods = resolveMethodsFromCallableValue(scene, callableValue, options, new Set<string>());
     if (methods.length === 0 || methods.length > maxCandidates) {
         return [];
     }
@@ -495,10 +497,21 @@ function resolveReflectDispatchTargets(
 function resolveMethodsFromCallableValue(
     scene: Scene,
     callableValue: any,
-    options: CallableResolveOptions = {}
+    options: CallableResolveOptions = {},
+    visitingFactoryMethods: Set<string> = new Set<string>(),
 ): any[] {
     if (!callableValue) return [];
     const resolvedCallable = resolveCallableValueByLocalBacktrace(callableValue, options);
+    const carrierVisitKey = isCallableCarrierValue(resolvedCallable)
+        ? `carrier:${describeCallableCarrierValue(resolvedCallable)}`
+        : undefined;
+    if (carrierVisitKey) {
+        if (visitingFactoryMethods.has(carrierVisitKey)) {
+            return [];
+        }
+        visitingFactoryMethods.add(carrierVisitKey);
+    }
+
     const candidates: any[] = [];
     const seen = new Set<string>();
     const idx = getSceneMethodIndex(scene);
@@ -510,35 +523,506 @@ function resolveMethodsFromCallableValue(
         candidates.push(m);
     };
 
-    const type = resolvedCallable?.getType?.();
-    const methodSig = type?.getMethodSignature?.();
-    const methodSigText = methodSig?.toString?.();
-    if (methodSigText) {
-        addMethod(idx.bySignature.get(methodSigText));
+    try {
+        const type = resolvedCallable?.getType?.();
+        const methodSig = type?.getMethodSignature?.();
+        const methodSigText = methodSig?.toString?.();
+        if (methodSigText) {
+            addMethod(idx.bySignature.get(methodSigText));
+            if (candidates.length > 0) {
+                return candidates;
+            }
+        }
+
+        for (const returnedMethod of resolveMethodsFromReturnedCallableFactory(
+            scene,
+            resolvedCallable,
+            options,
+            visitingFactoryMethods,
+        )) {
+            addMethod(returnedMethod);
+        }
         if (candidates.length > 0) {
             return candidates;
         }
-    }
 
-    if (!isCallableValue(resolvedCallable)) {
+        for (const memberMethod of resolveMethodsFromCallableCarrierValue(
+            scene,
+            resolvedCallable,
+            options,
+            visitingFactoryMethods,
+        )) {
+            addMethod(memberMethod);
+        }
+        if (candidates.length > 0) {
+            return candidates;
+        }
+
+        if (!isCallableValue(resolvedCallable)) {
+            return candidates;
+        }
+
+        const localName = resolvedCallable?.getName?.();
+        if (localName) {
+            for (const m of idx.byNormalizedName.get(normalizeMethodName(localName)) || []) {
+                addMethod(m);
+            }
+        }
+
+        const rawText = resolvedCallable?.toString?.();
+        if (rawText && rawText !== localName) {
+            for (const m of idx.byNormalizedName.get(normalizeMethodName(rawText)) || []) {
+                addMethod(m);
+            }
+        }
+
         return candidates;
+    } finally {
+        if (carrierVisitKey) {
+            visitingFactoryMethods.delete(carrierVisitKey);
+        }
     }
+}
 
-    const localName = resolvedCallable?.getName?.();
-    if (localName) {
-        for (const m of idx.byNormalizedName.get(normalizeMethodName(localName)) || []) {
-            addMethod(m);
+function resolveMethodsFromCallableCarrierValue(
+    scene: Scene,
+    callableValue: any,
+    options: CallableResolveOptions,
+    visitingFactoryMethods: Set<string>,
+): any[] {
+    if (callableValue instanceof ArkInstanceFieldRef || callableValue instanceof ClosureFieldRef) {
+        return resolveMethodsFromCallableFieldCarrier(scene, callableValue, options, visitingFactoryMethods);
+    }
+    if (callableValue instanceof ArkArrayRef) {
+        return resolveMethodsFromCallableArrayCarrier(scene, callableValue, options, visitingFactoryMethods);
+    }
+    if (callableValue instanceof ArkStaticFieldRef) {
+        return resolveMethodsFromCallableStaticFieldCarrier(scene, callableValue, options, visitingFactoryMethods);
+    }
+    return [];
+}
+
+export function resolveMethodsFromAnonymousObjectCarrier(
+    scene: Scene,
+    objectValue: any,
+    options: CallableResolveOptions = {},
+    visitingFactoryMethods: Set<string> = new Set<string>(),
+): any[] {
+    const classSig = objectValue?.getType?.()?.getClassSignature?.()?.toString?.() || "";
+    if (!classSig || !isAnonymousObjectCarrierClassSignature(classSig)) return [];
+
+    const out: any[] = [];
+    const seen = new Set<string>();
+    for (const method of scene.getMethods()) {
+        const declaringClassSig = method.getDeclaringArkClass?.()?.getSignature?.()?.toString?.() || "";
+        if (declaringClassSig !== classSig) continue;
+        const name = method.getName?.() || "";
+        if (!isAnonymousObjectCallableMethodName(name)) continue;
+        const sig = method.getSignature?.()?.toString?.();
+        if (!sig || seen.has(sig) || !method.getCfg?.()) continue;
+        seen.add(sig);
+        out.push(method);
+    }
+    const maxCandidates = options.maxCandidates ?? DEFAULT_MAX_NAME_MATCH_CANDIDATES;
+    if (out.length > maxCandidates) return [];
+    return out;
+}
+
+export function resolveMethodsFromAnonymousObjectCarrierByField(
+    scene: Scene,
+    objectValue: any,
+    fieldName: string,
+    options: CallableResolveOptions = {},
+    visitingFactoryMethods: Set<string> = new Set<string>(),
+): any[] {
+    const classSig = objectValue?.getType?.()?.getClassSignature?.()?.toString?.() || "";
+    if (!classSig || !isAnonymousObjectCarrierClassSignature(classSig)) return [];
+
+    const out: any[] = [];
+    const seen = new Set<string>();
+    const addResolvedMethods = (callable: any): void => {
+        for (const method of resolveMethodsFromCallableValue(scene, callable, options, visitingFactoryMethods)) {
+            const sig = method.getSignature?.()?.toString?.();
+            if (!sig || seen.has(sig)) continue;
+            seen.add(sig);
+            out.push(method);
+        }
+    };
+
+    for (const method of scene.getMethods()) {
+        const declaringClassSig = method.getDeclaringArkClass?.()?.getSignature?.()?.toString?.() || "";
+        if (declaringClassSig !== classSig) continue;
+        const name = method.getName?.() || "";
+        if (matchesAnonymousCarrierFieldMethod(name, fieldName)) {
+            const sig = method.getSignature?.()?.toString?.();
+            if (sig && !seen.has(sig) && method.getCfg?.()) {
+                seen.add(sig);
+                out.push(method);
+            }
+        }
+        if (!(name.includes("constructor(") || name.includes("%instInit"))) continue;
+        const cfg = method.getCfg?.();
+        if (!cfg) continue;
+        for (const stmt of cfg.getStmts()) {
+            if (!(stmt instanceof ArkAssignStmt)) continue;
+            const left = stmt.getLeftOp();
+            if (!(left instanceof ArkInstanceFieldRef)) continue;
+            const leftBase = left.getBase?.();
+            if (!(leftBase instanceof Local) || leftBase.getName() !== "this") continue;
+            const leftFieldName = left.getFieldSignature?.().getFieldName?.() || "";
+            if (leftFieldName !== fieldName) continue;
+            addResolvedMethods(stmt.getRightOp());
         }
     }
 
-    const rawText = resolvedCallable?.toString?.();
-    if (rawText && rawText !== localName) {
-        for (const m of idx.byNormalizedName.get(normalizeMethodName(rawText)) || []) {
-            addMethod(m);
+    const maxCandidates = options.maxCandidates ?? DEFAULT_MAX_NAME_MATCH_CANDIDATES;
+    if (out.length > maxCandidates) return [];
+    return out;
+}
+
+function resolveMethodsFromCallableFieldCarrier(
+    scene: Scene,
+    fieldRef: ArkInstanceFieldRef | ClosureFieldRef,
+    options: CallableResolveOptions,
+    visitingFactoryMethods: Set<string>,
+): any[] {
+    const out: any[] = [];
+    const seen = new Set<string>();
+    const addMethod = (method: any): void => {
+        const sig = method?.getSignature?.()?.toString?.();
+        if (!sig || seen.has(sig)) return;
+        seen.add(sig);
+        out.push(method);
+    };
+
+    const base = fieldRef.getBase?.();
+    const fieldName = fieldRef instanceof ClosureFieldRef
+        ? fieldRef.getFieldName?.()
+        : fieldRef.getFieldSignature?.().getFieldName?.();
+    if (!fieldName) return out;
+
+    if (base) {
+        for (const method of resolveMethodsFromAnonymousObjectCarrierByField(
+            scene,
+            base,
+            fieldName,
+            options,
+            visitingFactoryMethods,
+        )) {
+            addMethod(method);
         }
     }
 
-    return candidates;
+    const assignedValues = collectAssignedFieldCarrierValues(fieldRef, options);
+    for (const assignedValue of assignedValues) {
+        for (const method of resolveMethodsFromCallableValue(scene, assignedValue, options, visitingFactoryMethods)) {
+            addMethod(method);
+        }
+    }
+
+    return out;
+}
+
+function resolveMethodsFromCallableArrayCarrier(
+    scene: Scene,
+    arrayRef: ArkArrayRef,
+    options: CallableResolveOptions,
+    visitingFactoryMethods: Set<string>,
+): any[] {
+    const out: any[] = [];
+    const seen = new Set<string>();
+    const addMethod = (method: any): void => {
+        const sig = method?.getSignature?.()?.toString?.();
+        if (!sig || seen.has(sig)) return;
+        seen.add(sig);
+        out.push(method);
+    };
+
+    for (const assignedValue of collectAssignedArrayCarrierValues(arrayRef, options)) {
+        for (const method of resolveMethodsFromCallableValue(scene, assignedValue, options, visitingFactoryMethods)) {
+            addMethod(method);
+        }
+    }
+
+    return out;
+}
+
+function resolveMethodsFromCallableStaticFieldCarrier(
+    scene: Scene,
+    fieldRef: ArkStaticFieldRef,
+    options: CallableResolveOptions,
+    visitingFactoryMethods: Set<string>,
+): any[] {
+    const out: any[] = [];
+    const seen = new Set<string>();
+    const fieldSigText = fieldRef.getFieldSignature?.().toString?.() || "";
+    if (!fieldSigText) return out;
+
+    for (const method of scene.getMethods()) {
+        const cfg = method.getCfg?.();
+        if (!cfg) continue;
+        for (const stmt of cfg.getStmts()) {
+            if (!(stmt instanceof ArkAssignStmt)) continue;
+            const left = stmt.getLeftOp();
+            if (!(left instanceof ArkStaticFieldRef)) continue;
+            const leftFieldSigText = left.getFieldSignature?.().toString?.() || "";
+            if (leftFieldSigText !== fieldSigText) continue;
+            for (const candidate of resolveMethodsFromCallableValue(scene, stmt.getRightOp(), options, visitingFactoryMethods)) {
+                const sig = candidate.getSignature?.()?.toString?.();
+                if (!sig || seen.has(sig)) continue;
+                seen.add(sig);
+                out.push(candidate);
+            }
+        }
+    }
+
+    return out;
+}
+
+function collectAssignedFieldCarrierValues(
+    fieldRef: ArkInstanceFieldRef | ClosureFieldRef,
+    options: CallableResolveOptions,
+): any[] {
+    const base = fieldRef.getBase?.();
+    const method = resolveDeclaringMethodForCarrierBase(base);
+    const cfg = method?.getCfg?.();
+    if (!cfg) return [];
+
+    const out: any[] = [];
+    const seen = new Set<string>();
+    for (const stmt of cfg.getStmts()) {
+        if (!(stmt instanceof ArkAssignStmt)) continue;
+        const left = stmt.getLeftOp();
+        if (!matchesCallableFieldCarrier(left, fieldRef, options)) continue;
+        pushUniqueCarrierValue(out, seen, stmt.getRightOp());
+    }
+    return out;
+}
+
+function collectAssignedArrayCarrierValues(
+    arrayRef: ArkArrayRef,
+    options: CallableResolveOptions,
+): any[] {
+    const base = arrayRef.getBase?.();
+    if (!(base instanceof Local)) return [];
+    const method = resolveDeclaringMethodForCarrierBase(base);
+    const cfg = method?.getCfg?.();
+    if (!cfg) return [];
+
+    const out: any[] = [];
+    const seen = new Set<string>();
+    for (const stmt of cfg.getStmts()) {
+        if (!(stmt instanceof ArkAssignStmt)) continue;
+        const left = stmt.getLeftOp();
+        if (!(left instanceof ArkArrayRef)) continue;
+        if (!matchesCallableArrayCarrier(left, arrayRef, options)) continue;
+        pushUniqueCarrierValue(out, seen, stmt.getRightOp());
+    }
+    return out;
+}
+
+function resolveDeclaringMethodForCarrierBase(base: any): any | undefined {
+    if (base instanceof Local) {
+        return base.getDeclaringStmt?.()?.getCfg?.()?.getDeclaringMethod?.();
+    }
+    if (base instanceof ArkInstanceFieldRef || base instanceof ClosureFieldRef || base instanceof ArkArrayRef) {
+        return resolveDeclaringMethodForCarrierBase(base.getBase?.());
+    }
+    return undefined;
+}
+
+function matchesCallableFieldCarrier(
+    candidate: any,
+    target: ArkInstanceFieldRef | ClosureFieldRef,
+    options: CallableResolveOptions,
+): boolean {
+    if (!(candidate instanceof ArkInstanceFieldRef) && !(candidate instanceof ClosureFieldRef)) {
+        return false;
+    }
+    const targetIdentity = getCallableFieldIdentity(target);
+    const candidateIdentity = getCallableFieldIdentity(candidate);
+    if (!targetIdentity || !candidateIdentity || targetIdentity !== candidateIdentity) {
+        return false;
+    }
+    return areEquivalentCarrierBases(candidate.getBase?.(), target.getBase?.(), options);
+}
+
+function matchesCallableArrayCarrier(
+    candidate: ArkArrayRef,
+    target: ArkArrayRef,
+    options: CallableResolveOptions,
+): boolean {
+    if (!areEquivalentCarrierBases(candidate.getBase?.(), target.getBase?.(), options)) {
+        return false;
+    }
+    return normalizeCarrierArrayIndex(candidate.getIndex?.(), options)
+        === normalizeCarrierArrayIndex(target.getIndex?.(), options);
+}
+
+function areEquivalentCarrierBases(
+    candidateBase: any,
+    targetBase: any,
+    options: CallableResolveOptions,
+): boolean {
+    if (candidateBase === targetBase) return true;
+    if (candidateBase instanceof Local && targetBase instanceof Local) {
+        return getAliasRootLocalIdentity(candidateBase, options)
+            === getAliasRootLocalIdentity(targetBase, options);
+    }
+    return String(candidateBase?.toString?.() || "")
+        === String(targetBase?.toString?.() || "");
+}
+
+function getAliasRootLocalIdentity(local: Local, options: CallableResolveOptions): string {
+    const root = resolveAliasRootLocal(local, options);
+    const methodSig = getDeclaringMethodSignatureFromLocal(root) || "__unknown_method__";
+    const declIdentity = getDeclaringStmtIdentity(root.getDeclaringStmt?.());
+    return `${methodSig}::${root.getName?.() || ""}::${declIdentity}`;
+}
+
+function resolveAliasRootLocal(local: Local, options: CallableResolveOptions): Local {
+    if (options.enableLocalBacktrace === false) return local;
+    const maxBacktraceSteps = options.maxBacktraceSteps ?? DEFAULT_MAX_BACKTRACE_STEPS;
+    const maxVisitedDefs = options.maxVisitedDefs ?? DEFAULT_MAX_VISITED_DEFS;
+    const rootMethodSig = getDeclaringMethodSignatureFromLocal(local);
+    if (!rootMethodSig) return local;
+
+    let current: Local = local;
+    let steps = 0;
+    const visitedDefs = new Set<string>();
+    while (steps < maxBacktraceSteps) {
+        const key = `${current.getName?.() || ""}#${getDeclaringStmtIdentity(current.getDeclaringStmt?.())}`;
+        if (visitedDefs.has(key)) break;
+        visitedDefs.add(key);
+        if (visitedDefs.size > maxVisitedDefs) break;
+
+        const declStmt = current.getDeclaringStmt?.();
+        if (!(declStmt instanceof ArkAssignStmt) || declStmt.getLeftOp() !== current) break;
+        const declMethodSig = declStmt.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.() || "";
+        if (!declMethodSig || declMethodSig !== rootMethodSig) break;
+
+        const rightOp = declStmt.getRightOp();
+        const next = resolveBacktraceAliasLocal(rightOp, rootMethodSig);
+        if (!(next instanceof Local)) break;
+        current = next;
+        steps += 1;
+    }
+    return current;
+}
+
+function resolveBacktraceAliasLocal(value: any, rootMethodSig: string): Local | undefined {
+    if (value instanceof Local) {
+        const rightMethodSig = getDeclaringMethodSignatureFromLocal(value);
+        if (!rightMethodSig || rightMethodSig !== rootMethodSig) return undefined;
+        return value;
+    }
+    if (value instanceof ArkCastExpr) {
+        return resolveBacktraceAliasLocal(value.getOp?.(), rootMethodSig);
+    }
+    if (value instanceof ArkAwaitExpr) {
+        return resolveBacktraceAliasLocal(value.getPromise?.(), rootMethodSig);
+    }
+    return undefined;
+}
+
+function normalizeCarrierArrayIndex(indexValue: any, options: CallableResolveOptions): string {
+    const resolved = resolveSimpleAliasValue(indexValue, options);
+    if (resolved instanceof Local) {
+        return `local:${getAliasRootLocalIdentity(resolved, options)}`;
+    }
+    const parsed = parseArrayIndex(resolved);
+    if (parsed !== undefined) {
+        return `const:${parsed}`;
+    }
+    return `text:${String(resolved?.toString?.() || "")}`;
+}
+
+function resolveSimpleAliasValue(value: any, options: CallableResolveOptions): any {
+    if (options.enableLocalBacktrace === false || !(value instanceof Local)) {
+        return value;
+    }
+    const maxBacktraceSteps = options.maxBacktraceSteps ?? DEFAULT_MAX_BACKTRACE_STEPS;
+    const maxVisitedDefs = options.maxVisitedDefs ?? DEFAULT_MAX_VISITED_DEFS;
+    const rootMethodSig = getDeclaringMethodSignatureFromLocal(value);
+    if (!rootMethodSig) return value;
+
+    let current: any = value;
+    let steps = 0;
+    const visitedDefs = new Set<string>();
+    while (steps < maxBacktraceSteps && current instanceof Local) {
+        const key = `${current.getName?.() || ""}#${getDeclaringStmtIdentity(current.getDeclaringStmt?.())}`;
+        if (visitedDefs.has(key)) break;
+        visitedDefs.add(key);
+        if (visitedDefs.size > maxVisitedDefs) break;
+
+        const declStmt = current.getDeclaringStmt?.();
+        if (!(declStmt instanceof ArkAssignStmt) || declStmt.getLeftOp() !== current) break;
+        const declMethodSig = declStmt.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.() || "";
+        if (!declMethodSig || declMethodSig !== rootMethodSig) break;
+
+        const rightOp = declStmt.getRightOp();
+        const nextLocal = resolveBacktraceAliasLocal(rightOp, rootMethodSig);
+        if (nextLocal instanceof Local) {
+            current = nextLocal;
+            steps += 1;
+            continue;
+        }
+        return rightOp;
+    }
+    return current;
+}
+
+function getCallableFieldIdentity(fieldRef: ArkInstanceFieldRef | ClosureFieldRef): string | undefined {
+    if (fieldRef instanceof ClosureFieldRef) {
+        const fieldName = fieldRef.getFieldName?.();
+        return fieldName ? `closure:${fieldName}` : undefined;
+    }
+    const fieldSigText = fieldRef.getFieldSignature?.().toString?.();
+    if (fieldSigText) return `field_sig:${fieldSigText}`;
+    const fieldName = fieldRef.getFieldSignature?.().getFieldName?.();
+    return fieldName ? `field_name:${fieldName}` : undefined;
+}
+
+function pushUniqueCarrierValue(out: any[], seen: Set<string>, value: any): void {
+    if (value === undefined || value === null) return;
+    const key = describeCallableCarrierValue(value);
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(value);
+}
+
+function describeCallableCarrierValue(value: any): string {
+    if (value instanceof Local) {
+        return getAliasRootLocalIdentity(value, {});
+    }
+    if (value instanceof ArkInstanceFieldRef || value instanceof ClosureFieldRef || value instanceof ArkArrayRef || value instanceof ArkStaticFieldRef) {
+        return String(value.toString?.() || value);
+    }
+    return String(value?.toString?.() || value);
+}
+
+function isCallableCarrierValue(value: any): value is CallableCarrierValue {
+    return value instanceof ArkInstanceFieldRef
+        || value instanceof ClosureFieldRef
+        || value instanceof ArkArrayRef
+        || value instanceof ArkStaticFieldRef;
+}
+
+export function isAnonymousObjectCarrierClassSignature(classSig: string): boolean {
+    if (!classSig) return false;
+    return /(^|[.: \t])%AC\d+\$/.test(classSig) || classSig.includes(": %AC");
+}
+
+function isAnonymousObjectCallableMethodName(name: string): boolean {
+    if (!name) return false;
+    if (name.startsWith("%AM")) return true;
+    return !(name === "constructor" || name.includes("constructor(") || name === "%instInit");
+}
+
+function matchesAnonymousCarrierFieldMethod(methodName: string, fieldName: string): boolean {
+    if (!isAnonymousObjectCallableMethodName(methodName)) return false;
+    if (normalizeMethodName(methodName) === fieldName) return true;
+    return methodName.startsWith("%AM") && methodName.includes(`$${fieldName}`);
 }
 
 type ReflectDispatchKind = "reflect_call" | "reflect_apply" | "function_call" | "function_apply";
@@ -681,6 +1165,20 @@ function resolveCallableValueByLocalBacktrace(
             continue;
         }
 
+        if (rightOp instanceof ArkCastExpr) {
+            current = rightOp.getOp?.();
+            continue;
+        }
+
+        if (rightOp instanceof ArkAwaitExpr) {
+            current = rightOp.getPromise?.();
+            continue;
+        }
+
+        if (isCallableCarrierValue(rightOp)) {
+            return rightOp;
+        }
+
         if (isCallableValue(rightOp)) {
             return rightOp;
         }
@@ -690,6 +1188,90 @@ function resolveCallableValueByLocalBacktrace(
     }
 
     return current;
+}
+
+function resolveMethodsFromReturnedCallableFactory(
+    scene: Scene,
+    callableValue: any,
+    options: CallableResolveOptions,
+    visitingFactoryMethods: Set<string>,
+): any[] {
+    if (!(callableValue instanceof Local)) return [];
+    const declStmt = callableValue.getDeclaringStmt?.();
+    if (!(declStmt instanceof ArkAssignStmt) || declStmt.getLeftOp() !== callableValue) {
+        return [];
+    }
+
+    const rightOp = declStmt.getRightOp();
+    if (!(rightOp instanceof ArkStaticInvokeExpr)
+        && !(rightOp instanceof ArkInstanceInvokeExpr)
+        && !(rightOp instanceof ArkPtrInvokeExpr)) {
+        return [];
+    }
+
+    const out: any[] = [];
+    const seen = new Set<string>();
+    const addMethod = (method: any): void => {
+        if (!method?.getCfg?.()) return;
+        const sig = method.getSignature?.()?.toString?.();
+        if (!sig || seen.has(sig)) return;
+        seen.add(sig);
+        out.push(method);
+    };
+
+    const maxNameMatchCandidates = options.maxCandidates ?? DEFAULT_MAX_NAME_MATCH_CANDIDATES;
+    const resolvedCallees = resolveCalleeCandidates(scene, rightOp, { maxNameMatchCandidates });
+    for (const resolved of resolvedCallees) {
+        const calleeMethod = resolved.method;
+        const calleeSig = calleeMethod?.getSignature?.()?.toString?.();
+        if (!calleeSig || visitingFactoryMethods.has(calleeSig)) continue;
+        visitingFactoryMethods.add(calleeSig);
+        for (const returnedMethod of collectReturnedCallableMethods(
+            scene,
+            calleeMethod,
+            options,
+            visitingFactoryMethods,
+        )) {
+            addMethod(returnedMethod);
+        }
+        visitingFactoryMethods.delete(calleeSig);
+    }
+
+    return out;
+}
+
+function collectReturnedCallableMethods(
+    scene: Scene,
+    method: any,
+    options: CallableResolveOptions,
+    visitingFactoryMethods: Set<string>,
+): any[] {
+    const out: any[] = [];
+    const seen = new Set<string>();
+    const addMethod = (candidate: any): void => {
+        if (!candidate?.getCfg?.()) return;
+        const sig = candidate.getSignature?.()?.toString?.();
+        if (!sig || seen.has(sig)) return;
+        seen.add(sig);
+        out.push(candidate);
+    };
+
+    const returnStmts = method?.getReturnStmt?.() || [];
+    for (const retStmt of returnStmts) {
+        if (!(retStmt instanceof ArkReturnStmt)) continue;
+        const returnedValue = retStmt.getOp?.();
+        if (!returnedValue) continue;
+        for (const candidate of resolveMethodsFromCallableValue(
+            scene,
+            returnedValue,
+            options,
+            visitingFactoryMethods,
+        )) {
+            addMethod(candidate);
+        }
+    }
+
+    return out;
 }
 
 function getDeclaringMethodSignatureFromLocal(local: Local): string | undefined {

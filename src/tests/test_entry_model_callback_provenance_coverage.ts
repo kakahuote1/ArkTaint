@@ -1,4 +1,4 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as path from "path";
 
 interface CoverageCounter {
@@ -50,7 +50,7 @@ const TARGET_FAMILIES = [
 ] as const;
 
 function main(): void {
-    const blindSpotReportPath = path.resolve("tmp/phase717/callback_blind_spot_probe/callback_blind_spot_report.json");
+    const blindSpotReportPath = path.resolve("tmp/test_runs/entry_model/callback_blind_spot_probe/latest/callback_blind_spot_report.json");
     if (!fs.existsSync(blindSpotReportPath)) {
         throw new Error(`missing blind-spot report: ${blindSpotReportPath}`);
     }
@@ -99,7 +99,7 @@ function main(): void {
         throw new Error("Callback provenance coverage report found no family independently covered by sdk_provenance.");
     }
 
-    const outputDir = path.resolve("tmp/phase717/callback_provenance_coverage");
+    const outputDir = path.resolve("tmp/test_runs/entry_model/callback_provenance_coverage/latest");
     fs.mkdirSync(outputDir, { recursive: true });
     const outputPath = path.join(outputDir, "callback_provenance_coverage_report.json");
     fs.writeFileSync(outputPath, JSON.stringify(report, null, 2), "utf8");
@@ -116,3 +116,4 @@ function main(): void {
 }
 
 main();
+

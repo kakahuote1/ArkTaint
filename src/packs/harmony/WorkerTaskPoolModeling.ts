@@ -10,6 +10,7 @@ import {
 } from "../../core/kernel/contracts/WorkerTaskPoolModelingProvider";
 import { resolveMethodsFromCallable } from "../../core/kernel/contracts/SemanticPack";
 import { collectNodeIdsFromValue, collectObjectNodeIdsFromValue, resolveHarmonyMethods } from "../../core/kernel/contracts/HarmonyModelingUtils";
+import { safeGetOrCreatePagNodes } from "../../core/kernel/contracts/PagNodeResolution";
 
 export type WorkerTaskPoolModel = WorkerTaskPoolSemanticModel;
 export type BuildWorkerTaskPoolModelArgs = BuildWorkerTaskPoolSemanticModelArgs;
@@ -172,9 +173,5 @@ function hasIntersection(a: Set<number>, b: Set<number>): boolean {
 }
 
 function getOrCreatePagNodes(pag: Pag, value: any, anchorStmt: ArkAssignStmt): Map<number, number> | undefined {
-    let nodes = pag.getNodesByValue(value);
-    if (nodes && nodes.size > 0) return nodes;
-    pag.addPagNode(0, value, anchorStmt);
-    nodes = pag.getNodesByValue(value);
-    return nodes;
+    return safeGetOrCreatePagNodes(pag, value, anchorStmt);
 }

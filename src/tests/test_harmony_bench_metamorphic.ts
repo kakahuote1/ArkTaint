@@ -2,7 +2,7 @@ import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
 import { TaintPropagationEngine } from "../core/orchestration/TaintPropagationEngine";
 import { LoadedRuleSet, loadRuleSet } from "../core/rules/RuleLoader";
-import { TaintFlow } from "../core/kernel/TaintFlow";
+import { TaintFlow } from "../core/kernel/model/TaintFlow";
 import {
     HarmonyBenchCase,
     HarmonyMutatedCase,
@@ -146,7 +146,7 @@ function parseGroups(input: string): HarmonyMutatorGroup[] {
 
 function parseArgs(argv: string[]): CliOptions {
     let manifestPath = "tests/benchmark/HarmonyBench/manifest.json";
-    let outputDir = "tmp/harmony_bench_metamorphic";
+    let outputDir = "tmp/test_runs/benchmark/harmony_bench_metamorphic/latest";
     let docsPath = "docs/harmony_bench_metamorphic.md";
     let k = 1;
     let groups: HarmonyMutatorGroup[] = ["A", "B"];
@@ -932,4 +932,5 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+
 

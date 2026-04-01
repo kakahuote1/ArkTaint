@@ -90,8 +90,8 @@ const ROOT_CAUSE_HINTS = [
 ];
 
 function parseArgs(argv: string[]): CliOptions {
-    let reportPath = "tmp/phase43/smoke_report.json";
-    let outputDir = "tmp/phase43";
+    let reportPath = "tmp/test_runs/real_projects/smoke/latest/smoke_report.json";
+    let outputDir = "tmp/test_runs/real_projects/smoke/latest";
     let sampleSize = 20;
     let dateTag: string | undefined;
     let labelsPath: string | undefined;
@@ -478,5 +478,6 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+
 
 

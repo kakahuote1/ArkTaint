@@ -33,8 +33,8 @@ export function collectCallbackFacts(scene: Scene, context: ArkMainFactCollectio
     );
     const scannedSignatures = new Set<string>();
 
-    while (pendingMethods.length > 0) {
-        const method = pendingMethods.shift()!;
+    for (let head = 0; head < pendingMethods.length; head++) {
+        const method = pendingMethods[head];
         const methodSignature = method.getSignature?.()?.toString?.();
         if (!methodSignature || scannedSignatures.has(methodSignature)) {
             continue;

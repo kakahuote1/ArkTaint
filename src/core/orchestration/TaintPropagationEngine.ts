@@ -9,45 +9,49 @@ import { ArkInstanceFieldRef } from "../../../arkanalyzer/out/src/core/base/Ref"
 import { Local } from "../../../arkanalyzer/out/src/core/base/Local";
 import { ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../arkanalyzer/out/src/core/base/Expr";
 import { ArkMethod } from "../../../arkanalyzer/out/src/core/model/ArkMethod";
-import { TaintFact } from "../kernel/TaintFact";
-import { TaintFlow } from "../kernel/TaintFlow";
-import { TaintTracker } from "../kernel/TaintTracker";
+import { TaintFact } from "../kernel/model/TaintFact";
+import { TaintFlow } from "../kernel/model/TaintFlow";
+import { TaintTracker } from "../kernel/model/TaintTracker";
 import { TaintContextManager, CallEdgeInfo, CallEdgeType } from "../kernel/context/TaintContext";
 import { AdaptiveContextSelector, AdaptiveContextSelectorOptions } from "../kernel/context/AdaptiveContextSelector";
-import { buildFieldToVarIndex } from "../kernel/FieldIndexBuilder";
+import { buildFieldToVarIndex } from "../kernel/builders/FieldIndexBuilder";
 import {
     buildCallEdgeMap,
     buildCaptureEdgeMap,
     buildCaptureLazyMaterializer,
+    buildReceiverFieldBridgeMap,
     CaptureEdgeInfo,
     CaptureLazyMaterializer,
-    materializeCaptureSitesForNode
-} from "../kernel/CallEdgeMapBuilder";
+    materializeCaptureSitesForNode,
+    ReceiverFieldBridgeInfo,
+} from "../kernel/builders/CallEdgeMapBuilder";
 import {
     buildSyntheticInvokeEdges,
     buildSyntheticInvokeLazyMaterializer,
     buildSyntheticConstructorStoreMap,
     buildSyntheticFieldBridgeMap,
+    buildSyntheticStaticInitStoreMap,
     materializeEagerSyntheticInvokeSites,
     materializeSyntheticInvokeSitesForNode,
     materializeAllSyntheticInvokeSites,
     SyntheticInvokeEdgeInfo,
     SyntheticConstructorStoreInfo,
     SyntheticFieldBridgeInfo,
+    SyntheticStaticInitStoreInfo,
     SyntheticInvokeLazyMaterializer
-} from "../kernel/SyntheticInvokeEdgeBuilder";
-import { FactRuleChain, WorklistSolver, WorklistSolverDeps } from "../kernel/WorklistSolver";
+} from "../kernel/builders/SyntheticInvokeEdgeBuilder";
+import { FactRuleChain, WorklistSolver, WorklistSolverDeps } from "../kernel/propagation/WorklistSolver";
 import {
     createEmptySinkDetectProfile,
     detectSinks as runSinkDetector,
     mergeSinkDetectProfiles,
     SinkDetectProfile,
-} from "../kernel/SinkDetector";
-import { collectSourceRuleSeeds as collectSourceRuleSeedsFromRules } from "../kernel/SourceRuleSeedCollector";
-import { resolveSinkRuleSignatures as resolveSinkRuleSignaturesByRule } from "../kernel/SinkRuleSignatureResolver";
-import { createDebugCollectors, dumpDebugArtifactsToDir } from "../kernel/DebugArtifactUtils";
-import { WorklistProfiler, WorklistProfileSnapshot } from "../kernel/WorklistProfiler";
-import { PropagationTrace } from "../kernel/PropagationTrace";
+} from "../kernel/rules/SinkDetector";
+import { collectSourceRuleSeeds as collectSourceRuleSeedsFromRules } from "../kernel/rules/SourceRuleSeedCollector";
+import { resolveSinkRuleSignatures as resolveSinkRuleSignaturesByRule } from "../kernel/rules/SinkRuleSignatureResolver";
+import { createDebugCollectors, dumpDebugArtifactsToDir } from "../kernel/debug/DebugArtifactUtils";
+import { WorklistProfiler, WorklistProfileSnapshot } from "../kernel/debug/WorklistProfiler";
+import { PropagationTrace } from "../kernel/debug/PropagationTrace";
 import { expandEntryMethodsByDirectCalls } from "../entry/shared/ExplicitEntryScopeResolver";
 import {
     collectKnownKeyedDispatchKeysFromMethod,
@@ -63,7 +67,31 @@ import {
 import { collectFiniteStringCandidatesFromValue } from "../substrate/queries/FiniteStringCandidateResolver";
 import { buildArkMainPlan } from "../entry/arkmain/ArkMainPlanner";
 import { ArkMainSyntheticRootBuilder } from "../entry/arkmain/ArkMainSyntheticRootBuilder";
-import { SemanticPack } from "../kernel/contracts/SemanticPack";
+import {
+    emptySemanticPackAuditSnapshot,
+    SemanticPack,
+    SemanticPackAuditSnapshot,
+} from "../kernel/contracts/SemanticPack";
+import {
+    getPagNodeResolutionAuditSnapshot,
+    PagNodeResolutionAuditSnapshot,
+    resetPagNodeResolutionAudit,
+} from "../kernel/contracts/PagNodeResolution";
+import {
+    ExecutionHandoffContractSnapshot,
+    ExecutionHandoffContractSnapshotItem,
+} from "../kernel/handoff/ExecutionHandoffContract";
+import {
+    buildExecutionHandoffContracts,
+    buildExecutionHandoffSnapshot,
+} from "../kernel/handoff/ExecutionHandoffInference";
+import {
+    DeferredHandoffMode,
+    MainlineDeferredHandoffMode,
+    ResearchDeferredHandoffMode,
+} from "./ExecutionHandoffModes";
+import { buildExecutionHandoffSyntheticInvokeEdges } from "../kernel/handoff/ExecutionHandoffEdgeEmitter";
+import { filterExecutionHandoffContractsForMode } from "./ExecutionHandoffResearchFilter";
 import { loadSemanticPacks } from "./packs/PackLoader";
 import { createSemanticPackRuntime } from "./packs/PackRuntime";
 import { EnginePlugin } from "./plugins/EnginePlugin";
@@ -93,6 +121,9 @@ export interface DebugOptions {
 }
 
 export interface TaintEngineOptions {
+    deferredHandoffMode?: MainlineDeferredHandoffMode;
+    researchDeferredHandoffMode?: ResearchDeferredHandoffMode;
+    allowResearchDeferredHandoffModes?: boolean;
     contextStrategy?: "fixed" | "adaptive";
     adaptiveContext?: AdaptiveContextSelectorOptions;
     transferRules?: TransferRule[];
@@ -104,6 +135,7 @@ export interface TaintEngineOptions {
     enginePlugins?: EnginePlugin[];
     enginePluginDirs?: string[];
     enginePluginFiles?: string[];
+    includeBuiltinEnginePlugins?: boolean;
     disabledEnginePluginNames?: string[];
     pluginDryRun?: boolean;
     pluginIsolate?: string[];
@@ -154,20 +186,21 @@ interface PagBuildCacheEntry {
     cg: CallGraph;
     fieldToVarIndex: Map<string, Set<number>>;
     callEdgeMap: Map<string, CallEdgeInfo>;
+    receiverFieldBridgeMap: Map<number, ReceiverFieldBridgeInfo[]>;
     captureEdgeMap: Map<number, CaptureEdgeInfo[]>;
     syntheticInvokeEdgeMap: Map<number, SyntheticInvokeEdgeInfo[]>;
     syntheticConstructorStoreMap: Map<number, SyntheticConstructorStoreInfo[]>;
+    syntheticStaticInitStoreMap: Map<number, SyntheticStaticInitStoreInfo[]>;
     syntheticFieldBridgeMap: Map<string, SyntheticFieldBridgeInfo[]>;
     captureLazyMaterializer?: CaptureLazyMaterializer;
     syntheticInvokeLazyMaterializer?: SyntheticInvokeLazyMaterializer;
     captureEdgeMapReady: boolean;
     syntheticInvokeEdgeMapReady: boolean;
+    executionHandoffSnapshot?: ExecutionHandoffContractSnapshot;
 }
 
 export class TaintPropagationEngine {
-    private static sceneIdSeed: number = 1;
-    private static sceneIds: WeakMap<Scene, number> = new WeakMap();
-    private static pagBuildCache: Map<string, PagBuildCacheEntry> = new Map();
+    private static pagBuildCacheByScene: WeakMap<Scene, Map<string, PagBuildCacheEntry>> = new WeakMap();
 
     private scene: Scene;
     public pag!: Pag; // Public for test seeding.
@@ -178,9 +211,11 @@ export class TaintPropagationEngine {
     private fieldToVarIndex: Map<string, Set<number>> = new Map();
     private ctxManager: TaintContextManager;
     private callEdgeMap: Map<string, CallEdgeInfo> = new Map();
+    private receiverFieldBridgeMap: Map<number, ReceiverFieldBridgeInfo[]> = new Map();
     private captureEdgeMap: Map<number, CaptureEdgeInfo[]> = new Map();
     private syntheticInvokeEdgeMap: Map<number, SyntheticInvokeEdgeInfo[]> = new Map();
     private syntheticConstructorStoreMap: Map<number, SyntheticConstructorStoreInfo[]> = new Map();
+    private syntheticStaticInitStoreMap: Map<number, SyntheticStaticInitStoreInfo[]> = new Map();
     private syntheticFieldBridgeMap: Map<string, SyntheticFieldBridgeInfo[]> = new Map();
     private captureLazyMaterializer?: CaptureLazyMaterializer;
     private syntheticInvokeLazyMaterializer?: SyntheticInvokeLazyMaterializer;
@@ -189,6 +224,9 @@ export class TaintPropagationEngine {
     private propagationTrace?: PropagationTrace;
     private options: TaintEngineOptions;
     private semanticPacks: SemanticPack[];
+    private semanticPackRuntime?: ReturnType<typeof createSemanticPackRuntime>;
+    private semanticPackRuntimeKey?: string;
+    private semanticPackRuntimePag?: Pag;
     private enginePlugins: EnginePlugin[];
     private enginePluginRuntime: EnginePluginRuntime;
     private enginePluginWarnings: string[] = [];
@@ -211,6 +249,7 @@ export class TaintPropagationEngine {
     private keyedRouteMismatchCache: Map<string, boolean> = new Map();
     private routePushKeyCache: Map<string, Set<string>> = new Map();
     private activePagCacheEntry?: PagBuildCacheEntry;
+    private executionHandoffSnapshot?: ExecutionHandoffContractSnapshot;
 
     public verbose: boolean = true;
 
@@ -237,7 +276,7 @@ export class TaintPropagationEngine {
             packDirs: options.semanticPackDirs,
             packFiles: options.semanticPackFiles,
             packs: options.semanticPacks,
-            onWarning: (warning) => this.log(`[Phase8] ${warning}`),
+            onWarning: (warning) => this.log(`semantic pack warning: ${warning}`),
         });
         return loadedPacks.packs;
     }
@@ -252,12 +291,13 @@ export class TaintPropagationEngine {
         runtime: EnginePluginRuntime;
     } {
         const loadedPlugins = loadEnginePlugins({
+            includeBuiltinPlugins: options.includeBuiltinEnginePlugins,
             pluginDirs: options.enginePluginDirs,
             pluginFiles: options.enginePluginFiles,
             plugins: options.enginePlugins,
             disabledPluginNames: options.disabledEnginePluginNames,
             isolatePluginNames: options.pluginIsolate,
-            onWarning: (warning) => this.log(`[Phase8.5] ${warning}`),
+            onWarning: (warning) => this.log(`engine plugin warning: ${warning}`),
         });
         return {
             plugins: loadedPlugins.plugins,
@@ -331,6 +371,185 @@ export class TaintPropagationEngine {
 
     public getEnginePluginAuditSnapshot(): EnginePluginAuditSnapshot {
         return this.enginePluginRuntime.getAuditSnapshot();
+    }
+
+    public getSemanticPackAuditSnapshot(): SemanticPackAuditSnapshot {
+        if (!this.semanticPackRuntime && this.pag) {
+            this.refreshSemanticPackRuntime();
+        }
+        return this.semanticPackRuntime?.getAuditSnapshot() || emptySemanticPackAuditSnapshot();
+    }
+
+    public getExecutionHandoffContractSnapshot(): ExecutionHandoffContractSnapshot | undefined {
+        return this.executionHandoffSnapshot
+            ? this.cloneExecutionHandoffSnapshot(this.executionHandoffSnapshot)
+            : undefined;
+    }
+
+    public getSyntheticInvokeEdgeSnapshot(): {
+        totalEdges: number;
+        callerSignatures: string[];
+        calleeSignatures: string[];
+    } {
+        const callerSignatures = new Set<string>();
+        const calleeSignatures = new Set<string>();
+        let totalEdges = 0;
+        for (const edges of this.syntheticInvokeEdgeMap.values()) {
+            for (const edge of edges) {
+                totalEdges += 1;
+                if (edge.callerSignature) callerSignatures.add(edge.callerSignature);
+                if (edge.calleeSignature) calleeSignatures.add(edge.calleeSignature);
+            }
+        }
+        return {
+            totalEdges,
+            callerSignatures: [...callerSignatures].sort(),
+            calleeSignatures: [...calleeSignatures].sort(),
+        };
+    }
+
+    private refreshSemanticPackRuntime(): void {
+        if (!this.pag) return;
+        const reachableKey = this.activeReachableMethodSignatures
+            ? [...this.activeReachableMethodSignatures].sort().join("||")
+            : "*";
+        const nextKey = reachableKey;
+        if (this.semanticPackRuntime && this.semanticPackRuntimePag === this.pag && this.semanticPackRuntimeKey === nextKey) {
+            return;
+        }
+        this.semanticPackRuntime = createSemanticPackRuntime(this.semanticPacks, {
+            scene: this.scene,
+            pag: this.pag,
+            allowedMethodSignatures: this.activeReachableMethodSignatures,
+            fieldToVarIndex: this.fieldToVarIndex,
+            queries: {
+                resolveMethodsFromCallable,
+                collectParameterAssignStmts,
+                collectFiniteStringCandidatesFromValue,
+            },
+            log: this.log.bind(this),
+        });
+        this.semanticPackRuntimeKey = nextKey;
+        this.semanticPackRuntimePag = this.pag;
+    }
+
+    public getPagNodeResolutionAuditSnapshot(): PagNodeResolutionAuditSnapshot {
+        if (!this.pag) {
+            return {
+                requestCount: 0,
+                directHitCount: 0,
+                fallbackResolveCount: 0,
+                awaitFallbackCount: 0,
+                exprUseFallbackCount: 0,
+                anchorLeftFallbackCount: 0,
+                addAttemptCount: 0,
+                addFailureCount: 0,
+                unresolvedCount: 0,
+                unsupportedValueKinds: {},
+            };
+        }
+        return getPagNodeResolutionAuditSnapshot(this.pag);
+    }
+
+    private resolveDeferredHandoffMode(): DeferredHandoffMode {
+        const researchMode = this.options.researchDeferredHandoffMode;
+        if (researchMode !== undefined) {
+            if (this.options.allowResearchDeferredHandoffModes !== true) {
+                throw new Error(
+                    `Deferred handoff research mode '${researchMode}' is compare-only and requires `
+                    + "allowResearchDeferredHandoffModes=true in dedicated compare/test runs.",
+                );
+            }
+            return researchMode;
+        }
+
+        const mode = this.options.deferredHandoffMode || "contract_active";
+        if (this.options.allowResearchDeferredHandoffModes === true) {
+            throw new Error(
+                "allowResearchDeferredHandoffModes=true requires an explicit researchDeferredHandoffMode.",
+            );
+        }
+        return mode;
+    }
+
+    private cloneExecutionHandoffSnapshot(
+        snapshot: ExecutionHandoffContractSnapshot,
+    ): ExecutionHandoffContractSnapshot {
+        return {
+            totalContracts: snapshot.totalContracts,
+            contracts: snapshot.contracts.map((item: ExecutionHandoffContractSnapshotItem) => ({
+                ...item,
+                pathLabels: [...item.pathLabels],
+                kernel: { ...item.kernel },
+                ports: { ...item.ports },
+            })),
+        };
+    }
+
+    private configureExecutionHandoffLayer(cacheEntry: PagBuildCacheEntry): void {
+        const mode = this.resolveDeferredHandoffMode();
+        const contracts = filterExecutionHandoffContractsForMode(
+            mode,
+            buildExecutionHandoffContracts(this.scene, this.cg),
+        );
+        const snapshot = buildExecutionHandoffSnapshot(contracts);
+        this.executionHandoffSnapshot = snapshot;
+        cacheEntry.executionHandoffSnapshot = this.cloneExecutionHandoffSnapshot(snapshot);
+        const deferredContracts = snapshot.contracts.filter(item => item.kernel.domain === "deferred").length;
+        this.log(
+            `[ExecutionHandoff] mode=${mode}, contracts=${snapshot.totalContracts}, deferred=${deferredContracts}`,
+        );
+
+        const contractEdges = buildExecutionHandoffSyntheticInvokeEdges(
+            this.scene,
+            this.cg,
+            this.pag,
+            contracts,
+        );
+        this.log(
+            `[ExecutionHandoff] contract synthetic sites=${contractEdges.stats.siteCount}, callEdges=${contractEdges.stats.callEdges}`,
+        );
+
+        this.syntheticInvokeEdgeMap = contractEdges.edgeMap;
+        this.syntheticInvokeLazyMaterializer = undefined;
+        cacheEntry.syntheticInvokeEdgeMap = this.syntheticInvokeEdgeMap;
+        cacheEntry.syntheticInvokeLazyMaterializer = undefined;
+        cacheEntry.syntheticInvokeEdgeMapReady = true;
+    }
+
+    private mergeSyntheticInvokeEdgeMaps(
+        target: Map<number, SyntheticInvokeEdgeInfo[]>,
+        source: Map<number, SyntheticInvokeEdgeInfo[]>,
+    ): void {
+        for (const [nodeId, edges] of source.entries()) {
+            if (!target.has(nodeId)) {
+                target.set(nodeId, []);
+            }
+            const dest = target.get(nodeId)!;
+            const seen = new Set<string>(
+                dest.map(edge => [
+                    edge.type,
+                    edge.srcNodeId,
+                    edge.dstNodeId,
+                    edge.callSiteId,
+                    edge.callerSignature || "",
+                    edge.calleeSignature || "",
+                ].join("|")),
+            );
+            for (const edge of edges) {
+                const key = [
+                    edge.type,
+                    edge.srcNodeId,
+                    edge.dstNodeId,
+                    edge.callSiteId,
+                    edge.callerSignature || "",
+                    edge.calleeSignature || "",
+                ].join("|");
+                if (seen.has(key)) continue;
+                seen.add(key);
+                dest.push(edge);
+            }
+        }
     }
 
     private parseSourceRuleId(source: string): string | undefined {
@@ -420,8 +639,11 @@ export class TaintPropagationEngine {
     public async buildPAG(options: BuildPAGOptions = {}): Promise<void> {
         this.clearRuleHits();
         this.clearFactRuleChains();
+        this.semanticPackRuntime = undefined;
+        this.semanticPackRuntimeKey = undefined;
+        this.semanticPackRuntimePag = undefined;
+        this.executionHandoffSnapshot = undefined;
 
-        const sceneId = this.getOrCreateSceneId();
         const entryModel: EntryModel = options.entryModel || "arkMain";
         const explicitSyntheticEntries = this.normalizeSyntheticEntryMethods(options.syntheticEntryMethods);
         this.explicitEntryScopeMethodSignatures = this.resolveExplicitEntryScope(explicitSyntheticEntries);
@@ -440,20 +662,27 @@ export class TaintPropagationEngine {
         const syntheticKey = syntheticEntryMethods.length > 0
             ? `synthetic|${syntheticEntryMethods.map(method => method.getSignature().toString()).join("||")}`
             : "pure";
-        const cacheKey = `${sceneId}|entryModel|${entryModel}|${syntheticKey}`;
-        const cached = TaintPropagationEngine.pagBuildCache.get(cacheKey);
+        const cacheKey = `entryModel|${entryModel}|${syntheticKey}|handoff|${this.resolveDeferredHandoffMode()}`;
+        const sceneCache = this.getPagBuildCacheForScene();
+        const cached = sceneCache.get(cacheKey);
         if (cached) {
             this.activePagCacheEntry = cached;
             this.pag = cached.pag;
             this.cg = cached.cg;
             this.fieldToVarIndex = cached.fieldToVarIndex;
             this.callEdgeMap = cached.callEdgeMap;
+            this.receiverFieldBridgeMap = cached.receiverFieldBridgeMap;
             this.captureEdgeMap = cached.captureEdgeMap;
             this.syntheticInvokeEdgeMap = cached.syntheticInvokeEdgeMap;
             this.syntheticConstructorStoreMap = cached.syntheticConstructorStoreMap;
+            this.syntheticStaticInitStoreMap = cached.syntheticStaticInitStoreMap;
             this.syntheticFieldBridgeMap = cached.syntheticFieldBridgeMap;
             this.captureLazyMaterializer = cached.captureLazyMaterializer;
             this.syntheticInvokeLazyMaterializer = cached.syntheticInvokeLazyMaterializer;
+            this.executionHandoffSnapshot = cached.executionHandoffSnapshot
+                ? this.cloneExecutionHandoffSnapshot(cached.executionHandoffSnapshot)
+                : undefined;
+            resetPagNodeResolutionAudit(this.pag);
             this.log(`PAG cache hit: ${entryModel}(${syntheticKey})`);
             this.log(`PAG nodes: ${this.pag.getNodeNum()}, edges: ${this.pag.getEdgeNum()}`);
             this.log(`CG nodes: ${this.cg.getNodeNum()}, edges: ${this.cg.getEdgeNum()}`);
@@ -465,6 +694,7 @@ export class TaintPropagationEngine {
         const cgBuilder = new CallGraphBuilder(cg, this.scene);
         cgBuilder.buildDirectCallGraphForScene();
         const pag = new Pag();
+        resetPagNodeResolutionAudit(pag);
         const config = PointerAnalysisConfig.create(0, "./out", false, false, false);
         this.pta = new PointerAnalysis(pag, cg, this.scene, config);
         const { syntheticRootMethod, cleanup } = this.createSyntheticEntry(syntheticEntryMethods);
@@ -485,28 +715,34 @@ export class TaintPropagationEngine {
 
         this.fieldToVarIndex = buildFieldToVarIndex(this.pag, this.log.bind(this));
         this.callEdgeMap = buildCallEdgeMap(this.scene, this.cg, this.pag, this.log.bind(this));
+        this.receiverFieldBridgeMap = buildReceiverFieldBridgeMap(this.scene, this.cg, this.pag, this.log.bind(this));
         this.captureEdgeMap = new Map<number, CaptureEdgeInfo[]>();
         this.syntheticInvokeEdgeMap = new Map<number, SyntheticInvokeEdgeInfo[]>();
         this.captureLazyMaterializer = buildCaptureLazyMaterializer(this.scene, this.cg, this.pag);
         this.syntheticInvokeLazyMaterializer = buildSyntheticInvokeLazyMaterializer(this.scene, this.cg, this.pag, this.log.bind(this));
         this.syntheticConstructorStoreMap = buildSyntheticConstructorStoreMap(this.scene, this.cg, this.pag, this.log.bind(this));
+        this.syntheticStaticInitStoreMap = buildSyntheticStaticInitStoreMap(this.scene, this.cg, this.pag, this.log.bind(this));
         this.syntheticFieldBridgeMap = buildSyntheticFieldBridgeMap(this.scene, this.cg, this.pag, this.log.bind(this));
         const cacheEntry: PagBuildCacheEntry = {
             pag: this.pag,
             cg: this.cg,
             fieldToVarIndex: this.fieldToVarIndex,
             callEdgeMap: this.callEdgeMap,
+            receiverFieldBridgeMap: this.receiverFieldBridgeMap,
             captureEdgeMap: this.captureEdgeMap,
             syntheticInvokeEdgeMap: this.syntheticInvokeEdgeMap,
             syntheticConstructorStoreMap: this.syntheticConstructorStoreMap,
+            syntheticStaticInitStoreMap: this.syntheticStaticInitStoreMap,
             syntheticFieldBridgeMap: this.syntheticFieldBridgeMap,
             captureLazyMaterializer: this.captureLazyMaterializer,
             syntheticInvokeLazyMaterializer: this.syntheticInvokeLazyMaterializer,
             captureEdgeMapReady: false,
             syntheticInvokeEdgeMapReady: false,
+            executionHandoffSnapshot: undefined,
         };
         this.activePagCacheEntry = cacheEntry;
-        TaintPropagationEngine.pagBuildCache.set(cacheKey, cacheEntry);
+        this.configureExecutionHandoffLayer(cacheEntry);
+        sceneCache.set(cacheKey, cacheEntry);
         this.configureContextStrategy();
     }
 
@@ -585,9 +821,11 @@ export class TaintPropagationEngine {
         }
         if (merged.size === 0) {
             this.activeReachableMethodSignatures = undefined;
+            this.refreshSemanticPackRuntime();
             return;
         }
         this.activeReachableMethodSignatures = merged;
+        this.refreshSemanticPackRuntime();
     }
 
     public getActiveReachableMethodSignatures(): Set<string> | undefined {
@@ -608,8 +846,8 @@ export class TaintPropagationEngine {
         const visited = new Set<number>();
         const reachable = new Set<string>();
 
-        while (queue.length > 0) {
-            const nodeId = queue.shift()!;
+        for (let head = 0; head < queue.length; head++) {
+            const nodeId = queue[head];
             if (visited.has(nodeId)) continue;
             visited.add(nodeId);
 
@@ -639,8 +877,8 @@ export class TaintPropagationEngine {
         }
         const syntheticQueue = [...reachable];
         const syntheticVisited = new Set<string>(reachable);
-        while (syntheticQueue.length > 0) {
-            const sig = syntheticQueue.shift()!;
+        for (let head = 0; head < syntheticQueue.length; head++) {
+            const sig = syntheticQueue[head];
             const callees = syntheticAdj.get(sig);
             if (!callees) continue;
             for (const callee of callees) {
@@ -761,7 +999,7 @@ export class TaintPropagationEngine {
                     for (const sig of recoveredReachable) {
                         merged.add(sig);
                     }
-                    this.activeReachableMethodSignatures = merged;
+                    this.setActiveReachableMethodSignatures(merged);
                 }
             }
         }
@@ -772,7 +1010,7 @@ export class TaintPropagationEngine {
             }
             // NOTE: flow-insensitive propagation does not model event-loop ordering.
             // We expand reachable methods to activate callback bodies discovered at registration sites.
-            this.activeReachableMethodSignatures = mergedReachable;
+            this.setActiveReachableMethodSignatures(mergedReachable);
         }
         const mergedFacts = new Map<string, TaintFact>();
         for (const fact of ruleSeeds.facts) {
@@ -1031,7 +1269,8 @@ export class TaintPropagationEngine {
             collectParameterAssignStmts,
             collectFiniteStringCandidatesFromValue,
         };
-        const semanticPackRuntime = createSemanticPackRuntime(this.semanticPacks, {
+        this.refreshSemanticPackRuntime();
+        const semanticPackRuntime = this.semanticPackRuntime || createSemanticPackRuntime(this.semanticPacks, {
             scene: this.scene,
             pag: this.pag,
             allowedMethodSignatures: this.activeReachableMethodSignatures,
@@ -1039,15 +1278,18 @@ export class TaintPropagationEngine {
             queries: semanticPackQueries,
             log: this.log.bind(this),
         });
+        this.semanticPackRuntime = semanticPackRuntime;
         return {
             scene: this.scene,
             pag: this.pag,
             tracker: this.tracker,
             ctxManager: this.ctxManager,
             callEdgeMap: this.callEdgeMap,
+            receiverFieldBridgeMap: this.receiverFieldBridgeMap,
             captureEdgeMap: this.captureEdgeMap,
             syntheticInvokeEdgeMap: this.syntheticInvokeEdgeMap,
             syntheticConstructorStoreMap: this.syntheticConstructorStoreMap,
+            syntheticStaticInitStoreMap: this.syntheticStaticInitStoreMap,
             syntheticFieldBridgeMap: this.syntheticFieldBridgeMap,
             ensureCaptureEdgesForNode: (nodeId) => this.ensureLazyCaptureEdgesForNode(nodeId),
             ensureSyntheticInvokeEdgesForNode: (nodeId) => this.ensureLazySyntheticInvokeEdgesForNode(nodeId),
@@ -1694,13 +1936,13 @@ export class TaintPropagationEngine {
         return signatures.size > 0 ? signatures : undefined;
     }
 
-    private getOrCreateSceneId(): number {
-        let sceneId = TaintPropagationEngine.sceneIds.get(this.scene);
-        if (!sceneId) {
-            sceneId = TaintPropagationEngine.sceneIdSeed++;
-            TaintPropagationEngine.sceneIds.set(this.scene, sceneId);
+    private getPagBuildCacheForScene(): Map<string, PagBuildCacheEntry> {
+        let cache = TaintPropagationEngine.pagBuildCacheByScene.get(this.scene);
+        if (!cache) {
+            cache = new Map<string, PagBuildCacheEntry>();
+            TaintPropagationEngine.pagBuildCacheByScene.set(this.scene, cache);
         }
-        return sceneId;
+        return cache;
     }
 
 }

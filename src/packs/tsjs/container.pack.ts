@@ -1,6 +1,4 @@
-import { ArkInstanceFieldRef } from "../../../arkanalyzer/out/src/core/base/Ref";
 import { Local } from "../../../arkanalyzer/out/src/core/base/Local";
-import { PagInstanceFieldNode } from "../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import {
     defineSemanticPack,
     fromContainerFieldKey,
@@ -48,28 +46,13 @@ export const tsjsContainerPack: SemanticPack = defineSemanticPack({
     description: "Built-in TS/JS container and collection semantics.",
     setup() {
         const {
-            collectArrayConstructorEffectsFromTaintedLocal,
-            collectArrayFromMapperCallbackParamNodeIdsForObj,
-            collectArrayFromMapperCallbackParamNodeIdsFromTaintedLocal,
-            collectArrayHigherOrderEffectsFromTaintedLocal,
-            collectArrayStaticViewEffectsBySlot,
             collectContainerMutationBaseNodeIdsFromTaintedLocal,
             collectContainerSlotLoadNodeIds,
             collectContainerSlotStoresFromTaintedLocal,
             collectContainerViewEffectsBySlot,
             collectObjectFromEntriesEffectsFromTaintedLocal,
-            collectPreciseArrayLoadNodeIdsFromTaintedLocal,
             collectPromiseAggregateEffectsFromTaintedLocal,
-            collectStringSplitEffectsFromTaintedLocal,
         } = require("./ContainerModel") as typeof import("./ContainerModel");
-        const arraySlotObjsByCtx = new Map<number, Set<number>>();
-
-        const markArraySlotObj = (contextId: number, objId: number): void => {
-            if (!arraySlotObjsByCtx.has(contextId)) {
-                arraySlotObjsByCtx.set(contextId, new Set<number>());
-            }
-            arraySlotObjsByCtx.get(contextId)!.add(objId);
-        };
 
         return {
             onFact(event) {
@@ -82,15 +65,8 @@ export const tsjsContainerPack: SemanticPack = defineSemanticPack({
                 if (!event.fact.field || event.fact.field.length === 0) {
                     const value = event.node.getValue?.();
                     if (value instanceof Local) {
-                        push(emitNodeFactsByIds(
-                            event.pag,
-                            collectPreciseArrayLoadNodeIdsFromTaintedLocal(value, event.pag),
-                            event.fact.source,
-                            event.fact.contextID,
-                            "Array-Precise",
-                        ));
-
                         for (const info of collectContainerSlotStoresFromTaintedLocal(value, event.pag)) {
+                            if (info.slot.startsWith("arr:")) continue;
                             push(emitObjectFieldFactsByIds(
                                 event.pag,
                                 [info.objId],
@@ -99,28 +75,16 @@ export const tsjsContainerPack: SemanticPack = defineSemanticPack({
                                 "Container-Store",
                                 [toContainerFieldKey(info.slot)],
                             ));
-                            if (info.slot.startsWith("arr:")) {
-                                markArraySlotObj(event.fact.contextID, info.objId);
-                            }
                         }
 
                         push(emitNodeFactsByIds(
                             event.pag,
-                            collectContainerMutationBaseNodeIdsFromTaintedLocal(value, event.pag),
+                            collectContainerMutationBaseNodeIdsFromTaintedLocal(value, event.pag)
+                                .filter(nodeId => !isNativeArrayBaseNode(event.pag, nodeId)),
                             event.fact.source,
                             event.fact.contextID,
                             "Container-Mutation-Base",
                         ));
-
-                        const arrayHof = collectArrayHigherOrderEffectsFromTaintedLocal(value, event.pag, event.scene);
-                        push(emitNodeFactsByIds(
-                            event.pag,
-                            arrayHof.callbackParamNodeIds,
-                            event.fact.source,
-                            event.fact.contextID,
-                            "Array-HOF-CB",
-                        ));
-                        push(collectResultContainerEmissions(event, "Array-HOF-Result", arrayHof.resultNodeIds, arrayHof.resultSlotStores));
 
                         const objectFromEntries = collectObjectFromEntriesEffectsFromTaintedLocal(value, event.pag);
                         push(emitLoadLikeFactsByIds(
@@ -144,26 +108,12 @@ export const tsjsContainerPack: SemanticPack = defineSemanticPack({
 
                         const promiseAggregate = collectPromiseAggregateEffectsFromTaintedLocal(value, event.pag);
                         push(collectResultContainerEmissions(event, "Promise-Aggregate", promiseAggregate.resultNodeIds, promiseAggregate.resultSlotStores));
-
-                        const arrayCtor = collectArrayConstructorEffectsFromTaintedLocal(value, event.pag);
-                        push(collectResultContainerEmissions(event, "Array-Constructor", arrayCtor.resultNodeIds, arrayCtor.resultSlotStores));
-
-                        const stringSplit = collectStringSplitEffectsFromTaintedLocal(value, event.pag);
-                        push(collectResultContainerEmissions(event, "String-Split", stringSplit.resultNodeIds, stringSplit.resultSlotStores));
-
-                        push(emitNodeFactsByIds(
-                            event.pag,
-                            collectArrayFromMapperCallbackParamNodeIdsFromTaintedLocal(value, event.pag, event.scene),
-                            event.fact.source,
-                            event.fact.contextID,
-                            "Array-From-Mapper-CB",
-                        ));
                     }
                 }
 
                 if (event.fact.field && event.fact.field.length > 0) {
                     const slot = fromContainerFieldKey(event.fact.field[0]);
-                    if (slot !== null) {
+                    if (slot !== null && !slot.startsWith("arr:")) {
                         const remaining = event.fact.field.length > 1 ? event.fact.field.slice(1) : undefined;
                         push(emitLoadLikeFactsByIds(
                             event.pag,
@@ -175,46 +125,21 @@ export const tsjsContainerPack: SemanticPack = defineSemanticPack({
                         ));
                         const viewEffects = collectContainerViewEffectsBySlot(event.node.getID(), slot, event.pag);
                         push(collectResultContainerEmissions(event, "Container-View", viewEffects.resultNodeIds, viewEffects.resultSlotStores));
-                        const staticViewEffects = collectArrayStaticViewEffectsBySlot(event.node.getID(), slot, event.pag);
-                        push(collectResultContainerEmissions(event, "Array-StaticView", staticViewEffects.resultNodeIds, staticViewEffects.resultSlotStores));
-                        push(emitLoadLikeFactsByIds(
-                            event.pag,
-                            collectArrayFromMapperCallbackParamNodeIdsForObj(event.node.getID(), event.pag, event.scene),
-                            event.fact.source,
-                            event.fact.contextID,
-                            "Array-From-Mapper-CB",
-                            remaining,
-                        ));
                     }
                 }
 
                 return emissions.length > 0 ? emissions : undefined;
             },
-            shouldSkipCopyEdge(event) {
-                if (!(event.node instanceof PagInstanceFieldNode)) return false;
-                const fieldRef = event.node.getValue();
-                if (!(fieldRef instanceof ArkInstanceFieldRef)) return false;
-                const fieldSigText = fieldRef.getFieldSignature().toString();
-                if (!fieldSigText.includes("Array.field")) return false;
-                const baseLocal = fieldRef.getBase();
-                if (!(baseLocal instanceof Local)) return false;
-                const baseNodes = event.pag.getNodesByValue(baseLocal);
-                if (!baseNodes) return false;
-                const slotObjs = arraySlotObjsByCtx.get(event.contextId);
-                if (!slotObjs || slotObjs.size === 0) return false;
-                for (const baseNodeId of baseNodes.values()) {
-                    const baseNode = event.pag.getNode(baseNodeId) as any;
-                    if (!baseNode) continue;
-                    for (const objId of baseNode.getPointTo()) {
-                        if (slotObjs.has(objId)) {
-                            return true;
-                        }
-                    }
-                }
-                return false;
-            },
         };
     },
 });
+
+function isNativeArrayBaseNode(pag: any, nodeId: number): boolean {
+    const node = pag.getNode(nodeId);
+    const value = node?.getValue?.();
+    const type = value?.getType?.();
+    const typeText = type?.toString?.() || "";
+    return typeText.endsWith("[]") || type?.constructor?.name === "ArrayType";
+}
 
 export default tsjsContainerPack;

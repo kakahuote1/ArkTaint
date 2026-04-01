@@ -32,7 +32,7 @@ interface ParsedArgs {
 function parseArgs(argv: string[]): ParsedArgs {
     let rounds = 5;
     let k = 1;
-    let outputDir = "tmp/phase55";
+    let outputDir = "tmp/test_runs/compare/transfer_compare_arktan/latest";
     let defaultRulePath = "tests/rules/minimal.rules.json";
     let arktanRoot = "../Arktan";
     let runStability = false;
@@ -609,5 +609,6 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+
 
 

@@ -1,7 +1,7 @@
 import { Pag, PagNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { Scene } from "../../../../arkanalyzer/out/src/Scene";
-import { fromContainerFieldKey, toContainerFieldKey } from "../ContainerSlotKeys";
-import { TaintFact } from "../TaintFact";
+import { fromContainerFieldKey, toContainerFieldKey } from "../model/ContainerSlotKeys";
+import { TaintFact } from "../model/TaintFact";
 import type { CallableResolveOptions } from "../../substrate/queries/CalleeResolver";
 
 export interface SemanticPackRuleChain {
@@ -60,6 +60,25 @@ export interface SemanticPackSession {
     shouldSkipCopyEdge?(event: SemanticPackCopyEdgeEvent): boolean;
 }
 
+export interface SemanticPackFailureEvent {
+    packId: string;
+    phase: "setup" | "onFact" | "onInvoke" | "shouldSkipCopyEdge";
+    message: string;
+    code?: string;
+    advice?: string;
+    path?: string;
+    line?: number;
+    column?: number;
+    stackExcerpt?: string;
+    userMessage: string;
+}
+
+export interface SemanticPackAuditSnapshot {
+    loadedPackIds: string[];
+    failedPackIds: string[];
+    failureEvents: SemanticPackFailureEvent[];
+}
+
 export interface SemanticPack {
     readonly id: string;
     readonly description: string;
@@ -69,9 +88,18 @@ export interface SemanticPack {
 
 export interface SemanticPackRuntime {
     listPackIds(): string[];
+    getAuditSnapshot(): SemanticPackAuditSnapshot;
     emitForFact(event: SemanticPackFactEvent): SemanticPackEmission[];
     emitForInvoke(event: SemanticPackInvokeEvent): SemanticPackEmission[];
     shouldSkipCopyEdge(event: SemanticPackCopyEdgeEvent): boolean;
+}
+
+export function emptySemanticPackAuditSnapshot(): SemanticPackAuditSnapshot {
+    return {
+        loadedPackIds: [],
+        failedPackIds: [],
+        failureEvents: [],
+    };
 }
 
 export function defineSemanticPack<T extends SemanticPack>(pack: T): T {

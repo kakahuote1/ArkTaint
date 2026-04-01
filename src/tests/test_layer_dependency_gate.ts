@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
-type LayerId = "L1" | "L2" | "L3" | "L4" | "L5" | "L6" | "L7";
+type LayerId = "L1" | "L2" | "L4" | "L6" | "L7";
 
 interface ImportEdge {
     fromFile: string;
@@ -14,6 +14,19 @@ const CORE_ROOT = path.resolve("src/core");
 const RULE_ROOT = path.resolve("src/rules");
 const PACK_ROOT = path.resolve("src/packs");
 const PLUGIN_ROOT = path.resolve("src/plugins");
+const ALLOWED_PACK_CORE_IMPORTS = new Set<string>([
+    "src/core/kernel/contracts/SemanticPack.ts",
+    "src/core/kernel/contracts/PackEmissionUtils.ts",
+    "src/core/kernel/contracts/HarmonyModelingUtils.ts",
+    "src/core/kernel/contracts/AbilityHandoffModelingProvider.ts",
+    "src/core/kernel/contracts/AppStorageModelingProvider.ts",
+    "src/core/kernel/contracts/EmitterModelingProvider.ts",
+    "src/core/kernel/contracts/RouterModelingProvider.ts",
+    "src/core/kernel/contracts/StateManagementModelingProvider.ts",
+    "src/core/kernel/contracts/WorkerTaskPoolModelingProvider.ts",
+    "src/core/kernel/contracts/MethodLookup.ts",
+    "src/core/kernel/contracts/PagNodeResolution.ts",
+]);
 const LEGACY_ALLOWED_VIOLATIONS = new Set<string>([
 ]);
 
@@ -82,8 +95,6 @@ function resolveLayerId(absPath: string): LayerId | null {
     if (normalized.startsWith("src/core/orchestration/")) return "L7";
     if (normalized.startsWith("src/core/substrate/")) return "L1";
     if (normalized.startsWith("src/core/entry/")) return "L2";
-    if (normalized.startsWith("src/core/library/")) return "L3";
-    if (normalized.startsWith("src/core/harmony/")) return "L5";
     if (normalized.startsWith("src/core/rules/")) return "L6";
     if (normalized.startsWith("src/core/kernel/")) return "L4";
     return null;
@@ -124,9 +135,7 @@ function isAllowedLayerDependency(fromLayer: LayerId, toLayer: LayerId): boolean
     const allowed: Record<Exclude<LayerId, "L7">, Set<LayerId>> = {
         L1: new Set(["L1"]),
         L2: new Set(["L1", "L2"]),
-        L3: new Set(["L1", "L3", "L4"]),
         L4: new Set(["L1", "L4", "L6"]),
-        L5: new Set(["L1", "L4", "L5"]),
         L6: new Set(["L6"]),
     };
     return allowed[fromLayer].has(toLayer);
@@ -162,7 +171,7 @@ function collectIllegalImports(): ImportEdge[] {
 }
 
 function isAllowedPackImport(edge: ImportEdge): boolean {
-    return edge.toFile.startsWith("src/core/kernel/contracts/");
+    return ALLOWED_PACK_CORE_IMPORTS.has(edge.toFile);
 }
 
 function isAllowedRuleImport(edge: ImportEdge): boolean {

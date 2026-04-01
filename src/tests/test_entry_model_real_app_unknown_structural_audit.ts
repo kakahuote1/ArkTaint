@@ -1,4 +1,4 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as path from "path";
 import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
@@ -304,7 +304,7 @@ async function main(): Promise<void> {
         `regression: likely_overbroad_internal_async reappeared (${report.classifiedAsLikelyOverbroad} > ${projectConfig.maxLikelyOverbroadInternalAsync})`,
     );
 
-    const outputDir = path.resolve("tmp/phase717/real_app_unknown_structural_audit");
+    const outputDir = path.resolve("tmp/test_runs/entry_model/real_app_unknown_structural_audit/latest");
     const outputPath = path.join(outputDir, projectConfig.outputFileName);
     ensureDir(outputDir);
     fs.writeFileSync(outputPath, JSON.stringify(report, null, 2), "utf8");
@@ -327,3 +327,4 @@ main().catch(error => {
     console.error(error);
     process.exit(1);
 });
+

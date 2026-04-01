@@ -1,6 +1,6 @@
-import * as fs from "fs";
-import * as path from "path";
+﻿import * as fs from "fs";
 import { readAnalyzeSummary, runAnalyzeCli } from "./helpers/AnalyzeCliRunner";
+import { resolveTestRunDir, resolveTestRunPath } from "./helpers/TestWorkspaceLayout";
 
 interface AnalyzeSummary {
     summary: {
@@ -31,10 +31,10 @@ function runAnalyze(outputDir: string, cachePath: string): AnalyzeSummary {
 }
 
 async function main(): Promise<void> {
-    const root = path.resolve("tmp/phase56/analyze_incremental");
-    const out1 = path.join(root, "round1");
-    const out2 = path.join(root, "round2");
-    const cachePath = path.join(root, "analyze.incremental.cache.json");
+    const root = resolveTestRunDir("analyze", "incremental");
+    const out1 = resolveTestRunPath("analyze", "incremental", "round1");
+    const out2 = resolveTestRunPath("analyze", "incremental", "round2");
+    const cachePath = resolveTestRunPath("analyze", "incremental", "analyze.incremental.cache.json");
     fs.rmSync(root, { recursive: true, force: true });
     fs.mkdirSync(root, { recursive: true });
 
@@ -72,3 +72,4 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+

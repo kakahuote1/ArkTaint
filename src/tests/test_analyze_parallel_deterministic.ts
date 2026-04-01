@@ -1,7 +1,8 @@
-import * as crypto from "crypto";
+﻿import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
 import { readAnalyzeSummary, runAnalyzeCli } from "./helpers/AnalyzeCliRunner";
+import { resolveTestRunDir, resolveTestRunPath } from "./helpers/TestWorkspaceLayout";
 
 interface AnalyzeSummary {
     summary: {
@@ -137,7 +138,7 @@ function normalizeReport(report: AnalyzeSummary): any {
 }
 
 async function main(): Promise<void> {
-    const root = path.resolve("tmp/phase56/analyze_parallel_deterministic");
+    const root = resolveTestRunDir("analyze", "parallel_deterministic");
     fs.rmSync(root, { recursive: true, force: true });
     fs.mkdirSync(root, { recursive: true });
 
@@ -169,3 +170,5 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+
+

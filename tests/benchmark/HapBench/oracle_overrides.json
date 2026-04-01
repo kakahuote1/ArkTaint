@@ -1,0 +1,24 @@
+{
+  "name": "hapbench-oracle-overrides",
+  "version": "1.0.0",
+  "description": "Manual ground-truth overrides for HapBench cases whose original files do not annotate sink labels.",
+  "paperClaims": {
+    "precision": 0.9615,
+    "recall": 0.9434,
+    "source": "internal_docs/3793863.pdf"
+  },
+  "overrides": {
+    "Lifecycle Modeling/ComponentLifecycle3": {
+      "expectedFlow": true,
+      "reason": "EntryAbility writes the source in onWindowStageCreate and Index.aboutToRecycle logs EntryAbility.info."
+    },
+    "OpenHarmony Specific APIs/CallbackInSource": {
+      "expectedFlow": true,
+      "reason": "sim.getSimAccountInfo callback result is treated as source in HapFlow sources.json and flows to hilog.info."
+    },
+    "OpenHarmony Specific APIs/DirectLeak-want": {
+      "expectedFlow": true,
+      "reason": "onCreate(want, ...) first parameter is treated as a sensitive source in HapFlow sources.json and is logged directly."
+    }
+  }
+}

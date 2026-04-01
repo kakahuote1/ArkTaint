@@ -2,7 +2,7 @@ import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
 import { TaintPropagationEngine } from "../core/orchestration/TaintPropagationEngine";
 import { LoadedRuleSet, loadRuleSet } from "../core/rules/RuleLoader";
-import { TaintFlow } from "../core/kernel/TaintFlow";
+import { TaintFlow } from "../core/kernel/model/TaintFlow";
 import * as fs from "fs";
 import * as path from "path";
 import { registerMockSdkFiles } from "./helpers/TestSceneBuilder";
@@ -139,7 +139,7 @@ interface BenchmarkReport {
 function parseArgs(argv: string[]): CliOptions {
     let manifestPath = "tests/benchmark/HarmonyBench/manifest.json";
     let k = 1;
-    let outputDir = "tmp/harmony_bench";
+    let outputDir = "tmp/test_runs/benchmark/harmony_bench/latest";
 
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
@@ -683,4 +683,5 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+
 

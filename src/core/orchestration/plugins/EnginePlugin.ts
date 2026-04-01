@@ -13,10 +13,10 @@ import type {
     MethodReachedEvent,
     TaintFlowEvent,
 } from "../../kernel/contracts/EnginePluginEvents";
-import type { TaintFact } from "../../kernel/TaintFact";
-import type { TaintFlow } from "../../kernel/TaintFlow";
-import type { TaintTracker } from "../../kernel/TaintTracker";
-import type { WorklistSolverDeps } from "../../kernel/WorklistSolver";
+import type { TaintFact } from "../../kernel/model/TaintFact";
+import type { TaintFlow } from "../../kernel/model/TaintFlow";
+import type { TaintTracker } from "../../kernel/model/TaintTracker";
+import type { WorklistSolverDeps } from "../../kernel/propagation/WorklistSolver";
 import type {
     SanitizerRule,
     SinkRule,

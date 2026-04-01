@@ -37,6 +37,27 @@ export interface LoadedRuleSet {
     warnings: string[];
 }
 
+export interface RuleLoadIssue {
+    kind: "file_missing" | "json_parse" | "schema_assert" | "validation" | "merged_validation";
+    layerName: RuleLayerName | "extra" | "merged";
+    path: string;
+    message: string;
+    fieldPath?: string;
+    line?: number;
+    column?: number;
+    userMessage: string;
+}
+
+export class RuleLoadError extends Error {
+    readonly issues: RuleLoadIssue[];
+
+    constructor(message: string, issues: RuleLoadIssue[]) {
+        super(message);
+        this.name = "RuleLoadError";
+        this.issues = issues;
+    }
+}
+
 export interface SmokeRuleConfig {
     sourceLocalNamePattern: RegExp;
     sinkKeywords: string[];
@@ -73,10 +94,200 @@ const FALLBACK_SINK_SIGNATURES = [
     "dataPreferences.getSync",
     "dataPreferences.deleteSync",
 ];
+const SAFE_RULE_DIR_EXTENSIONS = new Set([".json", ".ts", ".md"]);
 
-function readJsonFile(absPath: string): unknown {
+function extractValidationFieldPath(message: string): string | undefined {
+    const lineMatch = message.match(/(?:^|\n)-\s*([A-Za-z0-9_.\[\]]+)/);
+    if (lineMatch?.[1]) {
+        return lineMatch[1];
+    }
+    const match = message.match(/^([A-Za-z0-9_.\[\]]+)/);
+    return match?.[1];
+}
+
+interface RuleIssueLocation {
+    line?: number;
+    column?: number;
+}
+
+function createJsonSourceFile(absPath: string, raw: string): any | undefined {
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const ts = require("typescript");
+        const normalizedPath = absPath.replace(/\\/g, "/");
+        return ts.createSourceFile(normalizedPath, raw, ts.ScriptTarget.ES2020, true, ts.ScriptKind.JSON);
+    } catch {
+        return undefined;
+    }
+}
+
+function formatRuleIssueLocation(issue: Omit<RuleLoadIssue, "userMessage">): string {
+    if (issue.line && issue.column) {
+        return `${issue.path}:${issue.line}:${issue.column}`;
+    }
+    return issue.path;
+}
+
+function parseRuleFieldPath(fieldPath: string): Array<string | number> {
+    const tokens: Array<string | number> = [];
+    const matcher = /([^[.\]]+)|\[(\d+)\]/g;
+    let match: RegExpExecArray | null;
+    while ((match = matcher.exec(fieldPath)) !== null) {
+        if (match[1]) {
+            tokens.push(match[1]);
+        } else if (match[2]) {
+            tokens.push(Number(match[2]));
+        }
+    }
+    return tokens;
+}
+
+function locateJsonNodeByFieldPath(absPath: string, raw: string, fieldPath: string): RuleIssueLocation | undefined {
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const ts = require("typescript");
+        const sourceFile = createJsonSourceFile(absPath, raw);
+        const root = sourceFile?.statements?.[0]?.expression;
+        if (!root) return undefined;
+
+        const locationOfNode = (node: any): RuleIssueLocation | undefined => {
+            if (!node) return undefined;
+            const start = node.name?.getStart?.(sourceFile) ?? node.getStart?.(sourceFile);
+            if (typeof start !== "number") return undefined;
+            const pos = sourceFile.getLineAndCharacterOfPosition(start);
+            return {
+                line: pos.line + 1,
+                column: pos.character + 1,
+            };
+        };
+
+        let current = root;
+        for (const segment of parseRuleFieldPath(fieldPath)) {
+            if (typeof segment === "string") {
+                if (!ts.isObjectLiteralExpression(current)) {
+                    return locationOfNode(current);
+                }
+                const property = current.properties.find((item: any) => {
+                    const nameText = item.name?.text || item.name?.getText?.(sourceFile)?.replace(/^['"]|['"]$/g, "");
+                    return nameText === segment;
+                });
+                if (!property) {
+                    return locationOfNode(current);
+                }
+                current = property.initializer || property;
+                continue;
+            }
+            if (!ts.isArrayLiteralExpression(current)) {
+                return locationOfNode(current);
+            }
+            const element = current.elements?.[segment];
+            if (!element) {
+                return locationOfNode(current);
+            }
+            current = element;
+        }
+
+        return locationOfNode(current);
+    } catch {
+        return undefined;
+    }
+}
+
+function locateJsonSyntaxError(absPath: string, raw: string): RuleIssueLocation | undefined {
+    try {
+        const sourceFile = createJsonSourceFile(absPath, raw);
+        if (!sourceFile) return undefined;
+        const diagnostic = sourceFile.parseDiagnostics?.[0];
+        if (!diagnostic || typeof diagnostic.start !== "number") {
+            return undefined;
+        }
+        const pos = sourceFile.getLineAndCharacterOfPosition(diagnostic.start);
+        return {
+            line: pos.line + 1,
+            column: pos.character + 1,
+        };
+    } catch {
+        return undefined;
+    }
+}
+
+function toUserRuleMessage(issue: Omit<RuleLoadIssue, "userMessage">): string {
+    const location = `[${issue.layerName}] ${formatRuleIssueLocation(issue)}`;
+    switch (issue.kind) {
+        case "file_missing":
+            return `${location}: rule file not found`;
+        case "json_parse":
+            return `${location}: JSON syntax invalid: ${issue.message}`;
+        case "schema_assert":
+            return `${location}: rule schema invalid: ${issue.message}`;
+        case "validation":
+            return `${location}: rule field invalid${issue.fieldPath ? ` (${issue.fieldPath})` : ""}: ${issue.message}`;
+        case "merged_validation":
+            return `${location}: merged rule set invalid${issue.fieldPath ? ` (${issue.fieldPath})` : ""}: ${issue.message}`;
+    }
+    return `${location}: ${issue.message}`;
+}
+
+function createRuleLoadIssue(issue: Omit<RuleLoadIssue, "userMessage">): RuleLoadIssue {
+    return {
+        ...issue,
+        userMessage: toUserRuleMessage(issue),
+    };
+}
+
+function throwRuleLoadError(issue: Omit<RuleLoadIssue, "userMessage">): never {
+    const full = createRuleLoadIssue(issue);
+    throw new RuleLoadError(full.userMessage, [full]);
+}
+
+function auditRuleDirectories(knownRuleFiles: string[]): string[] {
+    const warnings: string[] = [];
+    const knownFiles = new Set(knownRuleFiles.map(item => path.resolve(item)));
+    const dirs = new Set(knownRuleFiles.map(item => path.dirname(path.resolve(item))));
+    for (const dir of dirs) {
+        if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) continue;
+        const queue = [dir];
+        for (let head = 0; head < queue.length; head++) {
+            const current = queue[head];
+            for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+                const fullPath = path.resolve(path.join(current, entry.name));
+                if (entry.isDirectory()) {
+                    queue.push(fullPath);
+                    continue;
+                }
+                if (!entry.isFile()) continue;
+                if (entry.name.startsWith(".")) continue;
+                if (knownFiles.has(fullPath)) continue;
+                const ext = path.extname(entry.name).toLowerCase();
+                if (entry.name.endsWith(".rules.json")) {
+                    warnings.push(`rule-like file ignored because it is not part of the active rule layers: ${fullPath}`);
+                    continue;
+                }
+                if (SAFE_RULE_DIR_EXTENSIONS.has(ext)) {
+                    continue;
+                }
+                warnings.push(`unexpected file ignored in rules directory: ${fullPath}`);
+            }
+        }
+    }
+    return warnings;
+}
+
+function readJsonFile(layerName: RuleLayerName | "extra", absPath: string): unknown {
     const raw = fs.readFileSync(absPath, "utf-8").replace(/^\uFEFF/, "");
-    return JSON.parse(raw);
+    try {
+        return JSON.parse(raw);
+    } catch (error: any) {
+        const location = locateJsonSyntaxError(absPath, raw);
+        throwRuleLoadError({
+            kind: "json_parse",
+            layerName,
+            path: absPath,
+            message: String(error?.message || error),
+            line: location?.line,
+            column: location?.column,
+        });
+    }
 }
 
 function mergeById<T extends { id: string }>(base: T[], override: T[]): T[] {
@@ -171,12 +382,44 @@ function appendOptionalLayerSpec(
     });
 }
 
-function loadAndValidateLayer(layerName: RuleLayerName, absPath: string): TaintRuleSet {
-    const raw = readJsonFile(absPath);
-    assertValidRuleSet(raw, absPath);
+function loadAndValidateLayer(layerName: RuleLayerName | "extra", absPath: string): TaintRuleSet {
+    const rawText = fs.readFileSync(absPath, "utf-8").replace(/^\uFEFF/, "");
+    const raw = readJsonFile(layerName, absPath);
+    try {
+        assertValidRuleSet(raw, absPath);
+    } catch (error: any) {
+        const message = String(error?.message || error);
+        const fieldPath = extractValidationFieldPath(message);
+        const location = fieldPath ? locateJsonNodeByFieldPath(absPath, rawText, fieldPath) : undefined;
+        throwRuleLoadError({
+            kind: "schema_assert",
+            layerName,
+            path: absPath,
+            message,
+            fieldPath,
+            line: location?.line,
+            column: location?.column,
+        });
+    }
     const validation = validateRuleSet(raw);
     if (!validation.valid) {
-        throw new Error(`Rule set invalid (${layerName}): ${validation.errors.join("; ")}`);
+        const issues = validation.errors.map(message => {
+            const fieldPath = extractValidationFieldPath(message);
+            const location = fieldPath ? locateJsonNodeByFieldPath(absPath, rawText, fieldPath) : undefined;
+            return createRuleLoadIssue({
+                kind: "validation",
+                layerName,
+                path: absPath,
+                message,
+                fieldPath,
+                line: location?.line,
+                column: location?.column,
+            });
+        });
+        throw new RuleLoadError(
+            issues[0]?.userMessage || `Rule set invalid (${layerName}): ${absPath}`,
+            issues,
+        );
     }
     return raw as TaintRuleSet;
 }
@@ -186,7 +429,12 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
     const autoDiscover = options.autoDiscoverLayers !== false;
     const defaultPath = path.resolve(options.defaultRulePath || getDefaultRulePath());
     if (!fs.existsSync(defaultPath)) {
-        throw new Error(`Default rule file not found: ${defaultPath}`);
+        throwRuleLoadError({
+            kind: "file_missing",
+            layerName: "default",
+            path: defaultPath,
+            message: `Default rule file not found: ${defaultPath}`,
+        });
     }
 
     const defaultRules = loadAndValidateLayer("default", defaultPath);
@@ -248,7 +496,12 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
                     warnings.push(`${spec.name} rule file not found (ignored): ${spec.path}`);
                 }
             } else {
-                throw new Error(`${spec.name} rule file not found: ${spec.path}`);
+                throwRuleLoadError({
+                    kind: "file_missing",
+                    layerName: spec.name,
+                    path: spec.path,
+                    message: `${spec.name} rule file not found: ${spec.path}`,
+                });
             }
             continue;
         }
@@ -272,18 +525,40 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
     for (const extraRulePath of options.extraRulePaths || []) {
         const absPath = path.resolve(extraRulePath);
         if (!fs.existsSync(absPath)) {
-            throw new Error(`extra rule file not found: ${absPath}`);
+            throwRuleLoadError({
+                kind: "file_missing",
+                layerName: "extra",
+                path: absPath,
+                message: `extra rule file not found: ${absPath}`,
+            });
         }
-        const extraRules = loadAndValidateLayer("project", absPath);
+        const extraRules = loadAndValidateLayer("extra", absPath);
         merged = normalizeRules(mergeRuleSets(merged, extraRules));
         extraRulePaths.push(absPath);
     }
 
     const mergedValidation = validateRuleSet(merged);
     if (!mergedValidation.valid) {
-        throw new Error(`Merged rule set invalid: ${mergedValidation.errors.join("; ")}`);
+        const issues = mergedValidation.errors.map(message => createRuleLoadIssue({
+            kind: "merged_validation",
+            layerName: "merged",
+            path: "<merged>",
+            message,
+            fieldPath: extractValidationFieldPath(message),
+        }));
+        throw new RuleLoadError(
+            issues[0]?.userMessage || "Merged rule set invalid",
+            issues,
+        );
     }
     warnings.push(...mergedValidation.warnings);
+    warnings.push(...auditRuleDirectories([
+        defaultPath,
+        ...(frameworkPath ? [frameworkPath] : []),
+        ...(projectPath ? [projectPath] : []),
+        ...(llmCandidatePath ? [llmCandidatePath] : []),
+        ...extraRulePaths,
+    ]));
 
     return {
         ruleSet: merged,

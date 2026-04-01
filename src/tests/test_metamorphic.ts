@@ -1,4 +1,4 @@
-import {
+﻿import {
     runMetamorphicSuite,
     TransformOutput,
     TransformSpec,
@@ -32,10 +32,10 @@ const transforms: TransformSpec[] = [
 
 runMetamorphicSuite({
     defaults: {
-        manifestPath: "tests/manifests/metamorphic_seed.list",
+        manifestPath: "tests/manifests/metamorphic/metamorphic_seed.list",
         sourceDir: "tests/demo/senior_full",
-        tempProjectDir: "tmp/phase42/metamorphic_project",
-        reportPath: "tmp/phase42/metamorphic_report.json",
+        tempProjectDir: "tmp/test_runs/metamorphic/seed_v1/latest/metamorphic_project",
+        reportPath: "tmp/test_runs/metamorphic/seed_v1/latest/metamorphic_report.json",
         k: 1,
     },
     transforms,
@@ -44,3 +44,5 @@ runMetamorphicSuite({
     console.error(err);
     process.exitCode = 1;
 });
+
+

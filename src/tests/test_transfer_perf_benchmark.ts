@@ -89,7 +89,7 @@ function parseArgs(argv: string[]): CliOptions {
     let rounds = 5;
     let threshold = 0.3;
     let noiseRules = 400;
-    let outputDir = "tmp/phase54d/transfer_perf_benchmark";
+    let outputDir = "tmp/test_runs/perf/transfer_perf_benchmark/latest";
     let k = 1;
     let defaultRulePath = "tests/rules/minimal.rules.json";
 
@@ -465,5 +465,6 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+
 
 

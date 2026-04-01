@@ -266,7 +266,7 @@ export function parseArgs(argv: string[]): CliOptions {
     if (!outputDir) {
         const repoName = path.basename(normalizedRepo);
         const ts = new Date().toISOString().replace(/[:.]/g, "-");
-        outputDir = path.resolve("tmp", "analyze", `${repoName}_${ts}`);
+        outputDir = path.resolve("output", "runs", "analyze", repoName, ts);
     } else {
         outputDir = path.isAbsolute(outputDir) ? outputDir : path.resolve(outputDir);
     }

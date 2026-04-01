@@ -1,4 +1,4 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as path from "path";
 import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
@@ -143,7 +143,7 @@ function buildScene(projectDir: string): Scene {
 }
 
 function loadPureEntryManifest(): PureEntryManifest {
-    const manifestPath = path.resolve("tests/manifests/main_model_pure_entry_taxonomy.json");
+    const manifestPath = path.resolve("tests/manifests/entry_model/main_model_pure_entry_taxonomy.json");
     return JSON.parse(fs.readFileSync(manifestPath, "utf8")) as PureEntryManifest;
 }
 
@@ -472,7 +472,7 @@ function aggregateDataset(datasetId: string, caseViews: Array<{ caseName: string
 }
 
 function main(): void {
-    const outputRoot = path.resolve("tmp/phase717/callback_provenance_diagnostic");
+    const outputRoot = path.resolve("tmp/test_runs/entry_model/callback_provenance_diagnostic/latest");
     ensureDir(outputRoot);
 
     const datasets = collectDatasetSpecs();
@@ -525,3 +525,5 @@ function main(): void {
 }
 
 main();
+
+

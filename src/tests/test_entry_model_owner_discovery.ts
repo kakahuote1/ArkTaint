@@ -1,4 +1,4 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as path from "path";
 import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
@@ -106,7 +106,7 @@ async function main(): Promise<void> {
     assert(hasPageBuildOnManagedOwner, "Managed component owner should produce page build contract fact.");
     assert(hasPageBuildOnPlainOwner, "Plain component contract owner should produce page build contract fact.");
 
-    const reportDir = path.resolve("tmp/phase717/owner_discovery_probe");
+    const reportDir = path.resolve("tmp/test_runs/entry_model/owner_discovery_probe/latest");
     fs.mkdirSync(reportDir, { recursive: true });
     const reportPath = path.join(reportDir, "owner_discovery_report.json");
     fs.writeFileSync(reportPath, JSON.stringify({
@@ -128,3 +128,4 @@ main().catch(error => {
     console.error(error);
     process.exit(1);
 });
+

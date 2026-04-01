@@ -1,0 +1,175 @@
+{
+  "version": 1,
+  "name": "execution_handoff_compare_realworld_framework_entry_probe",
+  "sourceDir": "tests/demo/harmony_framework_entry_probe",
+  "purpose": "Small real-world-style slice compare for Harmony framework entry variants under the same rule/runtime harness.",
+  "globalFactorUniverse": {
+    "carrier": ["direct_callable", "returned_callable", "field_callable", "slot_callable"],
+    "trigger": ["call", "event", "settle_fulfilled", "settle_rejected", "settle_any"],
+    "payload": ["none", "param0", "param1", "multi"],
+    "capture": ["none", "capture_in", "capture_out", "capture_in_out"],
+    "resume": ["none", "promise_chain", "await_site"],
+    "relayDepth": [0, 1, 2],
+    "bindingSite": ["local", "samefile_helper", "crossfile_helper", "field", "slot"],
+    "deferred": [true, false]
+  },
+  "activeCompareScope": {
+    "name": "realworld_framework_entry_probe",
+    "outputTag": "realworld_framework_entry_probe",
+    "activeLayers": ["natural_sample_reserved"],
+    "rationale": [
+      "Use a few framework-style demo slices instead of more synthetic mechanism rows.",
+      "Keep the runtime fixed across paper_like, baseline, and contract_active, including the same project rule set.",
+      "Do not use these slices to tune the algorithm; they only provide external-style evidence after the theory and controlled compares are frozen."
+    ],
+    "fixedFactors": {
+      "trigger": ["event"],
+      "resume": ["none"]
+    },
+    "deferredFocus": ["event"],
+    "controlRows": [],
+    "excludedForNow": [
+      "Immediate field/slot callable invoke remains a shared common gap and is not part of this real-world deferred-handoff slice.",
+      "This manifest is a natural-sample slice, not a twin-based factor-matrix benchmark."
+    ]
+  },
+  "twinRules": [
+    "Natural sample slices do not need to be positive/negative twins.",
+    "Each slice should still have an explicit expected label and factor annotation."
+  ],
+  "runtime": {
+    "seedMode": "source_rules",
+    "defaultRulePath": "tests/rules/minimal.rules.json",
+    "projectRulePath": "tests/rules/harmony_framework_entry_probe.rules.json",
+    "includeBuiltinSemanticPacks": false,
+    "includeBuiltinEnginePlugins": false
+  },
+  "cases": [
+    {
+      "caseName": "onclick_build_009_T",
+      "expected": true,
+      "layer": "natural_sample_reserved",
+      "twinGroup": "realworld_onclick_direct",
+      "semanticFamily": "framework_entry_realworld",
+      "variantId": "onclick_direct",
+      "polarity": "positive",
+      "semanticFlip": "framework_entry_payload_consumed",
+      "note": "Direct framework onClick callback in a realistic build method.",
+      "factors": {
+        "carrier": "direct_callable",
+        "trigger": "event",
+        "payload": "param0",
+        "capture": "none",
+        "resume": "none",
+        "relayDepth": 0,
+        "bindingSite": "local",
+        "deferred": true
+      }
+    },
+    {
+      "caseName": "onclick_helper_crossfile_010_T",
+      "expected": true,
+      "layer": "natural_sample_reserved",
+      "twinGroup": "realworld_onclick_relay",
+      "semanticFamily": "framework_entry_realworld",
+      "variantId": "onclick_crossfile_helper",
+      "polarity": "positive",
+      "semanticFlip": "framework_entry_payload_consumed",
+      "note": "Cross-file helper relay before framework onClick registration.",
+      "factors": {
+        "carrier": "direct_callable",
+        "trigger": "event",
+        "payload": "param0",
+        "capture": "none",
+        "resume": "none",
+        "relayDepth": 1,
+        "bindingSite": "crossfile_helper",
+        "deferred": true
+      }
+    },
+    {
+      "caseName": "onclick_factory_011_T",
+      "expected": true,
+      "layer": "natural_sample_reserved",
+      "twinGroup": "realworld_onclick_factory",
+      "semanticFamily": "framework_entry_realworld",
+      "variantId": "onclick_factory",
+      "polarity": "positive",
+      "semanticFlip": "framework_entry_payload_consumed",
+      "note": "Returned callable registered to framework onClick.",
+      "factors": {
+        "carrier": "returned_callable",
+        "trigger": "event",
+        "payload": "param0",
+        "capture": "none",
+        "resume": "none",
+        "relayDepth": 0,
+        "bindingSite": "local",
+        "deferred": true
+      }
+    },
+    {
+      "caseName": "webview_onmessage_008_T",
+      "expected": true,
+      "layer": "natural_sample_reserved",
+      "twinGroup": "realworld_webview_direct",
+      "semanticFamily": "framework_entry_realworld",
+      "variantId": "webview_direct",
+      "polarity": "positive",
+      "semanticFlip": "framework_entry_payload_consumed",
+      "note": "Direct WebView.onMessage callback in a realistic page method.",
+      "factors": {
+        "carrier": "direct_callable",
+        "trigger": "event",
+        "payload": "param0",
+        "capture": "none",
+        "resume": "none",
+        "relayDepth": 0,
+        "bindingSite": "local",
+        "deferred": true
+      }
+    },
+    {
+      "caseName": "windowstage_loadcontent_006_F",
+      "expected": false,
+      "layer": "natural_sample_reserved",
+      "twinGroup": "realworld_windowstage_negative",
+      "semanticFamily": "framework_entry_realworld",
+      "variantId": "windowstage_negative",
+      "polarity": "negative",
+      "semanticFlip": "framework_entry_payload_consumed",
+      "note": "Negative WindowStage.loadContent slice from the real-style suite.",
+      "factors": {
+        "carrier": "direct_callable",
+        "trigger": "event",
+        "payload": "param1",
+        "capture": "none",
+        "resume": "none",
+        "relayDepth": 0,
+        "bindingSite": "local",
+        "deferred": true
+      }
+    },
+    {
+      "caseName": "navpathstack_fake_013_F",
+      "expected": false,
+      "layer": "natural_sample_reserved",
+      "twinGroup": "realworld_fake_owner_negative",
+      "semanticFamily": "framework_entry_realworld",
+      "variantId": "fake_owner_negative",
+      "polarity": "negative",
+      "semanticFlip": "framework_entry_payload_consumed",
+      "note": "Fake owner/control negative that should stay outside framework entry recovery.",
+      "factors": {
+        "carrier": "direct_callable",
+        "trigger": "call",
+        "payload": "none",
+        "capture": "none",
+        "resume": "none",
+        "relayDepth": 0,
+        "bindingSite": "local",
+        "deferred": false
+      }
+    }
+  ]
+}

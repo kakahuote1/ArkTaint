@@ -3,11 +3,12 @@ import * as path from "path";
 import {
     collectFiniteStringCandidatesFromValue,
     collectParameterAssignStmts,
+    defineSemanticPack,
     resolveMethodsFromCallable,
 } from "../core/kernel/contracts/SemanticPack";
 import { loadSemanticPacks } from "../core/orchestration/packs/PackLoader";
 import { createSemanticPackRuntime } from "../core/orchestration/packs/PackRuntime";
-import { TaintFact } from "../core/kernel/TaintFact";
+import { TaintFact } from "../core/kernel/model/TaintFact";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -19,6 +20,7 @@ async function main(): Promise<void> {
     const fixtureRoot = path.resolve("tests/fixtures/semantic_pack_runtime");
     const externalPackDir = path.join(fixtureRoot, "external_packs");
     const packDir = path.join(fixtureRoot, "demo_pack");
+    const loaderReloadDir = path.resolve("tmp/test_runs/runtime/semantic_pack_runtime/latest/loader_reload");
 
     const externalPacks = loadSemanticPacks({
         includeBuiltinPacks: false,
@@ -29,6 +31,24 @@ async function main(): Promise<void> {
     assert(
         !externalPacks.packs.some(pack => pack.id === "external.disabled_pack"),
         "file-disabled semantic packs should not be loaded",
+    );
+    const overrideExternalPack = defineSemanticPack({
+        id: "external.custom_pack",
+        description: "override external pack",
+    });
+    const overriddenExternalPacks = loadSemanticPacks({
+        includeBuiltinPacks: false,
+        packDirs: [externalPackDir],
+        packs: [overrideExternalPack],
+    });
+    assert(overriddenExternalPacks.packs.length === 1, "explicit pack object should replace external duplicate id");
+    assert(
+        overriddenExternalPacks.packs[0] === overrideExternalPack,
+        "explicit pack object should win over external pack with the same id",
+    );
+    assert(
+        overriddenExternalPacks.warnings.some(w => w.includes("semantic pack id external.custom_pack") && w.includes("overrides external pack")),
+        "overriding a loaded external pack should emit an explicit override warning",
     );
 
     const packResult = loadSemanticPacks({
@@ -41,6 +61,59 @@ async function main(): Promise<void> {
     assert(
         !packResult.packs.some(pack => pack.id === "fixture.runtime.disabled_inline"),
         "inline-disabled semantic packs should not be loaded",
+    );
+
+    fs.rmSync(loaderReloadDir, { recursive: true, force: true });
+    fs.mkdirSync(loaderReloadDir, { recursive: true });
+    const semanticPackImportPath = path.relative(
+        loaderReloadDir,
+        path.resolve("src/core/kernel/contracts/SemanticPack"),
+    ).replace(/\\/g, "/");
+    const reloadPackFile = path.join(loaderReloadDir, "reload.pack.ts");
+    const reloadDescFile = path.join(loaderReloadDir, "reload_desc.ts");
+    const writeReloadFixture = (description: string): void => {
+        fs.writeFileSync(
+            reloadDescFile,
+            `export const description = ${JSON.stringify(description)};\n`,
+            "utf-8",
+        );
+        fs.writeFileSync(
+            reloadPackFile,
+            [
+                `import { defineSemanticPack } from "./${semanticPackImportPath}";`,
+                "import { description } from \"./reload_desc\";",
+                "",
+                "export default defineSemanticPack({",
+                "  id: \"fixture.reloadable\",",
+                "  description,",
+                "});",
+                "",
+            ].join("\n"),
+            "utf-8",
+        );
+    };
+    const tsRequireHookBefore = require.extensions[".ts"];
+    writeReloadFixture("reload:v1");
+    const reloadFirst = loadSemanticPacks({
+        includeBuiltinPacks: false,
+        packFiles: [reloadPackFile],
+    });
+    writeReloadFixture("reload:v2");
+    const reloadSecond = loadSemanticPacks({
+        includeBuiltinPacks: false,
+        packFiles: [reloadPackFile],
+    });
+    assert(
+        reloadFirst.packs[0]?.description === "reload:v1",
+        "first fresh-loaded semantic pack should reflect initial dependency contents",
+    );
+    assert(
+        reloadSecond.packs[0]?.description === "reload:v2",
+        "second fresh-loaded semantic pack should reflect updated dependency contents",
+    );
+    assert(
+        require.extensions[".ts"] === tsRequireHookBefore,
+        "semantic pack loading should not mutate the process-wide .ts require hook",
     );
 
     const builtinResult = loadSemanticPacks({
@@ -77,7 +150,7 @@ async function main(): Promise<void> {
         "disable-packs should not warn for inline-disabled semantic packs that are present but disabled in-file",
     );
 
-    const cwdProbeDir = path.resolve("tmp/phase8/semantic_pack_runtime/cwd_probe");
+    const cwdProbeDir = path.resolve("tmp/test_runs/runtime/semantic_pack_runtime/latest/cwd_probe");
     fs.mkdirSync(cwdProbeDir, { recursive: true });
     const originalCwd = process.cwd();
     let builtinFromNestedCwd;
@@ -187,6 +260,83 @@ async function main(): Promise<void> {
         }),
         "pack runtime should support copy-edge suppression",
     );
+
+    let badPackFactCalls = 0;
+    const badSetupPack = defineSemanticPack({
+        id: "fixture.bad_setup",
+        description: "broken setup pack",
+        setup() {
+            throw new Error("boom-setup");
+        },
+    });
+    const badFactPack = defineSemanticPack({
+        id: "fixture.bad_fact",
+        description: "broken fact pack",
+        setup() {
+            return {
+                onFact() {
+                    badPackFactCalls++;
+                    throw new Error("boom-fact");
+                },
+            };
+        },
+    });
+    const isolatedRuntime = createSemanticPackRuntime(
+        [packResult.packs[0], badSetupPack, badFactPack],
+        {
+            scene: null as any,
+            pag: null as any,
+            allowedMethodSignatures: undefined,
+            fieldToVarIndex: new Map<string, Set<number>>(),
+            queries,
+            log: () => {},
+        },
+    );
+    const isolatedFirst = isolatedRuntime.emitForFact({
+        scene: null as any,
+        pag: null as any,
+        allowedMethodSignatures: undefined,
+        fieldToVarIndex: new Map<string, Set<number>>(),
+        queries,
+        log: () => {},
+        fact: seedFact,
+        node: fakeNode,
+    });
+    const isolatedSecond = isolatedRuntime.emitForFact({
+        scene: null as any,
+        pag: null as any,
+        allowedMethodSignatures: undefined,
+        fieldToVarIndex: new Map<string, Set<number>>(),
+        queries,
+        log: () => {},
+        fact: seedFact,
+        node: fakeNode,
+    });
+    assert(isolatedFirst.length === 1, "failing packs should not suppress healthy pack emissions");
+    assert(isolatedSecond.length === 1, "disabled failing packs should stay isolated on later events");
+    assert(badPackFactCalls === 1, "failing pack should be disabled after its first runtime failure");
+    const isolatedAudit = isolatedRuntime.getAuditSnapshot();
+    assert(
+        isolatedAudit.failedPackIds.includes("fixture.bad_setup") && isolatedAudit.failedPackIds.includes("fixture.bad_fact"),
+        "pack runtime audit should expose failed pack ids",
+    );
+    assert(
+        isolatedAudit.failureEvents.some(event => event.packId === "fixture.bad_setup" && event.phase === "setup" && event.message.includes("boom-setup")),
+        "pack runtime audit should record setup failure details",
+    );
+    assert(
+        isolatedAudit.failureEvents.some(event => event.packId === "fixture.bad_fact" && event.phase === "onFact" && event.message.includes("boom-fact")),
+        "pack runtime audit should record hook failure details",
+    );
+    assert(
+        isolatedAudit.failureEvents.some(event => event.packId === "fixture.bad_setup" && typeof event.line === "number" && typeof event.column === "number"),
+        "pack runtime audit should record failure line/column when stack information is available",
+    );
+    assert(
+        isolatedAudit.failureEvents.some(event => event.packId === "fixture.bad_fact" && event.userMessage.includes(":") && event.userMessage.includes("failed in onFact")),
+        "pack runtime user message should stay concise and include location when available",
+    );
+
     console.log("PASS test_semantic_pack_runtime");
     console.log(`external_pack_count=${externalPacks.packs.length}`);
     console.log(`builtin_pack_count=${builtinResult.packs.length}`);
@@ -199,3 +349,4 @@ main().catch((error) => {
     console.error(error);
     process.exit(1);
 });
+
