@@ -10,6 +10,10 @@ export interface ResolvedCaseMethod {
     pathHint?: string;
 }
 
+export interface ResolveCaseMethodOptions {
+    explicitEntry?: ResolvedCaseMethod;
+}
+
 export function getParameterLocalNames(entryMethod: ArkMethod): Set<string> {
     const names = new Set<string>();
     const cfg = entryMethod.getCfg();
@@ -26,9 +30,22 @@ export function getParameterLocalNames(entryMethod: ArkMethod): Set<string> {
     return names;
 }
 
-export function resolveCaseMethod(scene: Scene, relativePath: string, testName: string): ResolvedCaseMethod {
+export function resolveCaseMethod(
+    scene: Scene,
+    relativePath: string,
+    testName: string,
+    options?: ResolveCaseMethodOptions,
+): ResolvedCaseMethod {
+    if (options?.explicitEntry?.name) {
+        return options.explicitEntry;
+    }
     const normalized = relativePath.replace(/\\/g, "/");
-    const isCrossFileA = normalized.includes("completeness/cross_file/") && testName.endsWith("_a");
+    const isCrossFileA = testName.startsWith("cross_file_")
+        && testName.endsWith("_a")
+        && (
+            normalized.includes("completeness/cross_file/")
+            || normalized === `${testName}.ets`
+        );
     if (isCrossFileA) {
         const companion = `${testName.slice(0, -2)}_b`;
         const hasCompanion = scene.getMethods().some(m => m.getName() === companion);
@@ -84,20 +101,15 @@ export async function buildEngineForCase(
         engineOptions?: TaintEngineOptions;
         verbose?: boolean;
         syntheticEntryMethods?: ArkMethod[];
+        entryModel?: "arkMain" | "explicit";
     }
 ): Promise<TaintPropagationEngine> {
     const requestedOptions = options?.engineOptions || {};
-    const researchDeferredHandoffMode = requestedOptions.researchDeferredHandoffMode;
-    const allowResearchDeferredHandoffModes =
-        requestedOptions.allowResearchDeferredHandoffModes === true
-        || researchDeferredHandoffMode !== undefined;
-    const engine = new TaintPropagationEngine(scene, k, {
-        ...requestedOptions,
-        allowResearchDeferredHandoffModes,
-    });
+    const engine = new TaintPropagationEngine(scene, k, requestedOptions);
     engine.verbose = options?.verbose ?? false;
     await engine.buildPAG({
         syntheticEntryMethods: options?.syntheticEntryMethods || [entryMethod],
+        entryModel: options?.entryModel,
     });
     return engine;
 }

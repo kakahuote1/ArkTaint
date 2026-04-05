@@ -7,7 +7,7 @@ export interface CliOptions {
     rounds: number;
     k: number;
     outputDir: string;
-    defaultRulePath: string;
+    kernelRulePath: string;
     arktanRoot: string;
     runStability: boolean;
     arktaintEnableProfile: boolean;
@@ -95,7 +95,7 @@ export interface CompareReport {
         rounds: number;
         k: number;
         ruleSchemaVersion: string;
-        defaultRulePath: string;
+        kernelRulePath: string;
         arktanRoot: string;
         runStability: boolean;
     };

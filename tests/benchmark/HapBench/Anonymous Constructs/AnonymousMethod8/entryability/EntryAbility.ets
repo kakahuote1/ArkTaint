@@ -9,7 +9,7 @@ export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     let info = JSON.stringify(geoLocationManager.getLastLocation()); //source
     geoLocationManager.off('locationChange', () => {
-      hilog.info(0x0000, 'testTag', '%{public}s', info); //sink, leak
+      hilog.info(0x0000, 'testTag', '%{public}s', info); //sink, no leak
     })
   }
 }

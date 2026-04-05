@@ -64,14 +64,14 @@ export function collectSchedulerFacts(scene: Scene, context: ArkMainFactCollecti
 }
 
 /**
- * Build a map: methodName â†?minimum depth needed to reach a scheduler call.
+ * Build a map: methodName ï¿½?minimum depth needed to reach a scheduler call.
  *
  * Level 0: method names whose body directly contains setTimeout/setInterval
  * Level 1: method names that call a Level 0 method
  * Level N: method names that call a Level N-1 method
  *
  * BFS propagates backwards from scheduler calls through the
- * callerName â†?calleeName edges built in a single pass over the scene.
+ * callerName ï¿½?calleeName edges built in a single pass over the scene.
  */
 function buildTransitiveSchedulerReachableNames(scene: Scene): Map<string, number> {
     const callerToCallees = new Map<string, Set<string>>();

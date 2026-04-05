@@ -2,8 +2,8 @@ import { ArkMainFactKind, ArkMainPhaseName } from "../ArkMainTypes";
 
 export interface ArkMainLifecycleContractMatch {
     phase: ArkMainPhaseName;
-    kind: Extract<ArkMainFactKind, "ability_lifecycle" | "page_build" | "page_lifecycle">;
-    entryFamily: "ability_lifecycle" | "page_build" | "page_lifecycle";
+    kind: Extract<ArkMainFactKind, "ability_lifecycle" | "stage_lifecycle" | "extension_lifecycle" | "page_build" | "page_lifecycle">;
+    entryFamily: "ability_lifecycle" | "stage_lifecycle" | "extension_lifecycle" | "page_build" | "page_lifecycle";
     entryShape: "override_slot" | "declaration_owner_slot";
     reason: string;
 }
@@ -193,35 +193,77 @@ const ABILITY_TEARDOWN_METHOD_NAMES = new Set([
     "onStop",
 ]);
 
+const STAGE_BOOTSTRAP_METHOD_NAMES = new Set([
+    "onCreate",
+]);
+
+const STAGE_HANDOFF_METHOD_NAMES = new Set([
+    "onAcceptWant",
+    "onAcceptWantAsync",
+    "onNewProcessRequest",
+    "onNewProcessRequestAsync",
+]);
+
+const STAGE_INTERACTION_METHOD_NAMES = new Set([
+    "onMemoryLevel",
+    "onConfigurationUpdate",
+    "onAppStart",
+    "onAppStop",
+]);
+
+const STAGE_TEARDOWN_METHOD_NAMES = new Set([
+    "onDestroy",
+]);
+
 export function resolveAbilityLifecycleContractFromOverride(methodName: string): ArkMainLifecycleContractMatch | null {
-    if (
-        !ABILITY_BOOTSTRAP_METHOD_NAMES.has(methodName)
-        && !ABILITY_HANDOFF_METHOD_NAMES.has(methodName)
-        && !ABILITY_INTERACTION_METHOD_NAMES.has(methodName)
-        && !ABILITY_TEARDOWN_METHOD_NAMES.has(methodName)
-    ) {
-        return null;
-    }
-    const phase = resolveAbilityLifecyclePhase(methodName);
-    return {
-        phase,
-        kind: "ability_lifecycle",
-        entryFamily: "ability_lifecycle",
-        entryShape: "override_slot",
-        reason: `Ability lifecycle override slot ${methodName}`,
-    };
+    return resolveOverrideLifecycleContract(
+        methodName,
+        "ability_lifecycle",
+        "Ability lifecycle override slot",
+        resolveAbilityLifecyclePhase,
+        ABILITY_BOOTSTRAP_METHOD_NAMES,
+        ABILITY_HANDOFF_METHOD_NAMES,
+        ABILITY_INTERACTION_METHOD_NAMES,
+        ABILITY_TEARDOWN_METHOD_NAMES,
+    );
 }
 
 export function resolveAbilityLifecycleContract(methodName: string): ArkMainLifecycleContractMatch | null {
-    if (
-        !ABILITY_BOOTSTRAP_METHOD_NAMES.has(methodName)
-        && !ABILITY_HANDOFF_METHOD_NAMES.has(methodName)
-        && !ABILITY_INTERACTION_METHOD_NAMES.has(methodName)
-        && !ABILITY_TEARDOWN_METHOD_NAMES.has(methodName)
-    ) {
-        return null;
-    }
     return resolveAbilityLifecycleContractFromOverride(methodName);
+}
+
+export function resolveStageLifecycleContractFromOverride(methodName: string): ArkMainLifecycleContractMatch | null {
+    return resolveOverrideLifecycleContract(
+        methodName,
+        "stage_lifecycle",
+        "Stage lifecycle override slot",
+        resolveStageLifecyclePhase,
+        STAGE_BOOTSTRAP_METHOD_NAMES,
+        STAGE_HANDOFF_METHOD_NAMES,
+        STAGE_INTERACTION_METHOD_NAMES,
+        STAGE_TEARDOWN_METHOD_NAMES,
+    );
+}
+
+export function resolveStageLifecycleContract(methodName: string): ArkMainLifecycleContractMatch | null {
+    return resolveStageLifecycleContractFromOverride(methodName);
+}
+
+export function resolveExtensionLifecycleContractFromOverride(methodName: string): ArkMainLifecycleContractMatch | null {
+    return resolveOverrideLifecycleContract(
+        methodName,
+        "extension_lifecycle",
+        "Extension lifecycle override slot",
+        resolveAbilityLifecyclePhase,
+        ABILITY_BOOTSTRAP_METHOD_NAMES,
+        ABILITY_HANDOFF_METHOD_NAMES,
+        ABILITY_INTERACTION_METHOD_NAMES,
+        ABILITY_TEARDOWN_METHOD_NAMES,
+    );
+}
+
+export function resolveExtensionLifecycleContract(methodName: string): ArkMainLifecycleContractMatch | null {
+    return resolveExtensionLifecycleContractFromOverride(methodName);
 }
 
 export function resolveComponentLifecycleContract(methodName: string): ArkMainLifecycleContractMatch | null {
@@ -236,6 +278,19 @@ function resolveAbilityLifecyclePhase(methodName: string): ArkMainPhaseName {
         return "interaction";
     }
     if (ABILITY_TEARDOWN_METHOD_NAMES.has(methodName)) {
+        return "teardown";
+    }
+    return "bootstrap";
+}
+
+function resolveStageLifecyclePhase(methodName: string): ArkMainPhaseName {
+    if (STAGE_HANDOFF_METHOD_NAMES.has(methodName)) {
+        return "reactive_handoff";
+    }
+    if (STAGE_INTERACTION_METHOD_NAMES.has(methodName)) {
+        return "interaction";
+    }
+    if (STAGE_TEARDOWN_METHOD_NAMES.has(methodName)) {
         return "teardown";
     }
     return "bootstrap";
@@ -256,4 +311,31 @@ function resolveContractByMethodName(
         };
     }
     return null;
+}
+
+function resolveOverrideLifecycleContract(
+    methodName: string,
+    kind: Extract<ArkMainFactKind, "ability_lifecycle" | "stage_lifecycle" | "extension_lifecycle">,
+    reasonPrefix: string,
+    phaseResolver: (methodName: string) => ArkMainPhaseName,
+    bootstrapMethods: ReadonlySet<string>,
+    handoffMethods: ReadonlySet<string>,
+    interactionMethods: ReadonlySet<string>,
+    teardownMethods: ReadonlySet<string>,
+): ArkMainLifecycleContractMatch | null {
+    if (
+        !bootstrapMethods.has(methodName)
+        && !handoffMethods.has(methodName)
+        && !interactionMethods.has(methodName)
+        && !teardownMethods.has(methodName)
+    ) {
+        return null;
+    }
+    return {
+        phase: phaseResolver(methodName),
+        kind,
+        entryFamily: kind,
+        entryShape: "override_slot",
+        reason: `${reasonPrefix} ${methodName}`,
+    };
 }

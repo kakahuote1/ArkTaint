@@ -81,16 +81,29 @@ interface AnalyzeReportLike {
         pagNodeResolutionAudit?: any;
         diagnostics?: {
             ruleLoadIssues?: Array<{ userMessage?: string; message: string }>;
-            semanticPackLoadIssues?: Array<{ modulePath: string; message: string; userMessage?: string }>;
-            semanticPackRuntimeFailures?: Array<{ packId: string; phase: string; message: string; userMessage?: string }>;
+            moduleLoadIssues?: Array<{ modulePath: string; message: string; userMessage?: string }>;
+            moduleRuntimeFailures?: Array<{ moduleId: string; phase: string; message: string; userMessage?: string }>;
             enginePluginLoadIssues?: Array<{ modulePath: string; message: string; userMessage?: string }>;
             enginePluginRuntimeFailures?: Array<{ pluginName: string; phase: string; message: string; userMessage?: string }>;
             systemFailures?: Array<{ phase: string; message: string; userMessage?: string }>;
         };
+        pluginAudit?: {
+            loadedPluginNames: string[];
+            failedPluginNames: string[];
+            plugins: Record<string, {
+                sourcePath?: string;
+                startHookCalls: number;
+                entryHookCalls: number;
+                propagationHookCalls: number;
+                detectionHookCalls: number;
+                resultHookCalls: number;
+                finishHookCalls: number;
+            }>;
+        };
         stageProfile: any;
         transferNoHitReasons: Record<string, number>;
         diagnosticItems?: Array<{
-            category: "Rule" | "Pack" | "Plugin" | "System";
+            category: "Rule" | "Module" | "Plugin" | "System";
             code: string;
             title: string;
             summary: string;
@@ -174,9 +187,9 @@ function renderGuidance(report: AnalyzeReportLike): string[] {
     const topTransferHits = rankCounters(report.summary.ruleHits.transfer, 5);
     const topNoHitReasons = rankCounters(report.summary.transferNoHitReasons, 5);
 
-    lines.push("## 下一步建议");
+    lines.push("## Next Steps");
     lines.push("");
-    lines.push("### 命中规则（Top）");
+    lines.push("### Hit Rules (Top)");
     if (topSourceHits.length === 0 && topSinkHits.length === 0 && topTransferHits.length === 0) {
         lines.push("- No rule hits yet; start by adding a minimal source/sink rule set.");
     } else {
@@ -192,7 +205,7 @@ function renderGuidance(report: AnalyzeReportLike): string[] {
     }
 
     lines.push("");
-    lines.push("### 未命中原因（Top）");
+    lines.push("### No-Hit Reasons (Top)");
     if (topNoHitReasons.length === 0) {
         lines.push("- No obvious no-hit reasons.");
     } else {
@@ -211,7 +224,7 @@ function renderGuidance(report: AnalyzeReportLike): string[] {
         .slice(0, 3);
 
     lines.push("");
-    lines.push("### 建议补规则位点（Top）");
+    lines.push("### Suggested Rule Gaps (Top)");
     if (sourceGaps.length === 0 && transferGaps.length === 0) {
         lines.push("- No obvious rule gaps.");
     } else {
@@ -256,7 +269,10 @@ export function renderMarkdownReport(report: AnalyzeReportLike): string {
     lines.push(`- detectProfile: calls=${report.summary.detectProfile.detectCallCount}, sinksChecked=${report.summary.detectProfile.sinksChecked}, sanitizerChecks=${report.summary.detectProfile.sanitizerGuardCheckCount}, sanitizerHits=${report.summary.detectProfile.sanitizerGuardHitCount}, totalMs=${report.summary.detectProfile.totalMs}`);
     lines.push(`- pagNodeResolutionAudit: requests=${pagAudit.requestCount || 0}, directHits=${pagAudit.directHitCount || 0}, fallbacks=${pagAudit.fallbackResolveCount || 0}, addFailures=${pagAudit.addFailureCount || 0}, unresolved=${pagAudit.unresolvedCount || 0}`);
     if (diagnostics) {
-        lines.push(`- diagnostics: total=${(report.summary.diagnosticItems || []).length}, rule=${(diagnostics.ruleLoadIssues || []).length}, packLoad=${(diagnostics.semanticPackLoadIssues || []).length}, packRuntime=${(diagnostics.semanticPackRuntimeFailures || []).length}, pluginLoad=${(diagnostics.enginePluginLoadIssues || []).length}, pluginRuntime=${(diagnostics.enginePluginRuntimeFailures || []).length}`);
+        lines.push(`- diagnostics: total=${(report.summary.diagnosticItems || []).length}, rule=${(diagnostics.ruleLoadIssues || []).length}, moduleLoad=${(diagnostics.moduleLoadIssues || []).length}, moduleRuntime=${(diagnostics.moduleRuntimeFailures || []).length}, pluginLoad=${(diagnostics.enginePluginLoadIssues || []).length}, pluginRuntime=${(diagnostics.enginePluginRuntimeFailures || []).length}`);
+    }
+    if (report.summary.pluginAudit) {
+        lines.push(`- pluginAudit: loaded=${report.summary.pluginAudit.loadedPluginNames.length}, failed=${report.summary.pluginAudit.failedPluginNames.length}`);
     }
     if (topNoHitSummary) {
         lines.push(`- transferNoHitReasonsTop: ${topNoHitSummary}`);

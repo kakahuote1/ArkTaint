@@ -1,0 +1,160 @@
+{
+  "schemaVersion": "2.0",
+  "sources": [],
+  "sinks": [
+    {
+      "id": "sink.harmony.hilog.info.arg3.exact",
+      "enabled": true,
+      "match": {
+        "kind": "signature_equals",
+        "value": "@sdk_signature_probe/taint_mock.ts: HiLog.info(number, string, string, any)"
+      },
+      "category": "information_leak",
+      "severity": "medium",
+      "target": {
+        "endpoint": "arg3"
+      }
+    },
+    {
+      "id": "sink.harmony.hilog.error.arg3.exact",
+      "enabled": true,
+      "match": {
+        "kind": "signature_equals",
+        "value": "@sdk_signature_probe/taint_mock.ts: HiLog.error(number, string, string, any)"
+      },
+      "category": "information_leak",
+      "severity": "medium",
+      "target": {
+        "endpoint": "arg3"
+      }
+    },
+    {
+      "id": "sink.harmony.hilog.info.arg3",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "info",
+        "invokeKind": "instance",
+        "typeHint": "hilog"
+      },
+      "category": "information_leak",
+      "severity": "medium",
+      "target": {
+        "endpoint": "arg3"
+      }
+    },
+    {
+      "id": "sink.harmony.hilog.error.arg3",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "error",
+        "invokeKind": "instance",
+        "typeHint": "hilog"
+      },
+      "category": "information_leak",
+      "severity": "medium",
+      "target": {
+        "endpoint": "arg3"
+      }
+    },
+    {
+      "id": "sink.harmony.hilog.info.arg3.sig",
+      "enabled": true,
+      "match": {
+        "kind": "signature_contains",
+        "value": "hilog.info"
+      },
+      "category": "information_leak",
+      "severity": "medium",
+      "target": {
+        "endpoint": "arg3"
+      }
+    },
+    {
+      "id": "sink.harmony.hilog.error.arg3.sig",
+      "enabled": true,
+      "match": {
+        "kind": "signature_contains",
+        "value": "hilog.error"
+      },
+      "category": "information_leak",
+      "severity": "medium",
+      "target": {
+        "endpoint": "arg3"
+      }
+    },
+    {
+      "id": "sink.harmony.console.log.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "signature_contains",
+        "value": "console.log"
+      },
+      "category": "information_leak",
+      "severity": "low",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.hilog.debug",
+      "description": "Debug-level log leak",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "log",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "hilog.debug"
+      },
+      "target": "arg3",
+      "severity": "medium",
+      "category": "information_leak"
+    },
+    {
+      "id": "sink.harmony.hilog.warn",
+      "description": "Warn-level log leak",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "log",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "hilog.warn"
+      },
+      "target": "arg3",
+      "severity": "medium",
+      "category": "information_leak"
+    },
+    {
+      "id": "sink.harmony.hiAppEvent.write",
+      "description": "App event logging with sensitive data",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "logging",
+        "P2"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "hiAppEvent"
+      },
+      "scope": {
+        "methodName": {
+          "mode": "equals",
+          "value": "write"
+        }
+      },
+      "target": "arg0",
+      "severity": "low",
+      "category": "information_leak"
+    }
+  ],
+  "sanitizers": [],
+  "transfers": []
+}

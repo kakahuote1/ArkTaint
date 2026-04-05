@@ -49,8 +49,6 @@ export interface AsyncCallbackBinding {
     reason: "direct" | "one_hop" | "name_fallback";
 }
 
-export type PromiseContinuationEdgeKind = "then" | "catch" | "finally";
-
 export function collectAsyncCallbackBindingsForStmt(
     scene: Scene,
     cg: CallGraph,
@@ -571,70 +569,6 @@ export function injectCallbackBindingEdges(
     }
 
     return count;
-}
-
-export function injectPromiseContinuationContractEdges(
-    pag: Pag,
-    caller: any,
-    stmt: any,
-    invokeExpr: any,
-    edgeMap: Map<number, SyntheticInvokeEdgeInfo[]>,
-    cbMethod: any,
-    sourceMethod: any,
-    continuationKind: PromiseContinuationEdgeKind,
-): { callCount: number; returnCount: number } {
-    const baseValue = invokeExpr?.getBase?.();
-    const explicitParamSourceNodeIds = continuationKind === "finally" || !baseValue
-        ? undefined
-        : safeGetOrCreatePagNodes(pag, baseValue, stmt);
-    const callCount = injectCallbackBindingEdges(
-        pag,
-        caller,
-        stmt,
-        edgeMap,
-        cbMethod,
-        sourceMethod,
-        {
-            explicitParamSourceNodeIds,
-            allowFallback: false,
-        },
-    );
-
-    if (!(stmt instanceof ArkAssignStmt) || continuationKind === "finally") {
-        return { callCount, returnCount: 0 };
-    }
-
-    const calleeSig = cbMethod.getSignature?.().toString?.() || "";
-    if (!calleeSig) return { callCount, returnCount: 0 };
-    const callSiteId = stmt.getOriginPositionInfo?.()?.getLineNo?.() * 10000 + simpleHash(calleeSig);
-    const dstNodes = safeGetOrCreatePagNodes(pag, stmt.getLeftOp(), stmt);
-    if (!dstNodes || dstNodes.size === 0) return { callCount, returnCount: 0 };
-
-    let returnCount = 0;
-    for (const retStmt of cbMethod.getReturnStmt?.() || []) {
-        if (!(retStmt instanceof ArkReturnStmt)) continue;
-        const retValue = retStmt.getOp?.();
-        if (!(retValue instanceof Local)) continue;
-        const srcNodes = safeGetOrCreatePagNodes(pag, retValue, retStmt);
-        if (!srcNodes || srcNodes.size === 0) continue;
-        for (const srcNodeId of srcNodes.values()) {
-            for (const dstNodeId of dstNodes.values()) {
-                pushEdge(edgeMap, srcNodeId, {
-                    type: CallEdgeType.RETURN,
-                    srcNodeId,
-                    dstNodeId,
-                    callSiteId,
-                    callerMethodName: sourceMethod.getName?.() || caller.getName(),
-                    calleeMethodName: cbMethod.getName(),
-                    callerSignature: sourceMethod.getSignature?.().toString?.() || caller.getSignature?.().toString?.(),
-                    calleeSignature: calleeSig,
-                });
-                returnCount++;
-            }
-        }
-    }
-
-    return { callCount, returnCount };
 }
 
 function pushEdge(map: Map<number, SyntheticInvokeEdgeInfo[]>, key: number, edge: SyntheticInvokeEdgeInfo): void {

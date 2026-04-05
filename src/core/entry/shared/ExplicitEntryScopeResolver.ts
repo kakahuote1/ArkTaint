@@ -1,6 +1,7 @@
 import { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import { ArkMethod } from "../../../../arkanalyzer/out/src/core/model/ArkMethod";
-import { resolveCalleeCandidates } from "../../substrate/queries/CalleeResolver";
+import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
+import { resolveCalleeCandidates, resolveMethodsFromCallable } from "../../substrate/queries/CalleeResolver";
 import {
     collectKnownKeyedDispatchKeysFromMethod,
     KeyedCallbackDispatchRegistration,
@@ -11,6 +12,25 @@ interface DirectCallExpansionOptions {
     includeKeyedDispatchCallbacks?: boolean;
     allowedDeclaringClassNames?: Set<string>;
 }
+
+const KNOWN_ORDINARY_CALLBACK_ARG_INDEXES = new Map<string, number[]>([
+    ["forEach", [0]],
+    ["map", [0]],
+    ["filter", [0]],
+    ["find", [0]],
+    ["findIndex", [0]],
+    ["some", [0]],
+    ["every", [0]],
+    ["reduce", [0]],
+    ["reduceRight", [0]],
+    ["flatMap", [0]],
+]);
+
+const KNOWN_DEFERRED_CALLBACK_ARG_INDEXES = new Map<string, number[]>([
+    ["then", [0, 1]],
+    ["catch", [0]],
+    ["finally", [0]],
+]);
 
 function dedupeMethods(methods: ArkMethod[]): ArkMethod[] {
     const dedup = new Map<string, ArkMethod>();
@@ -73,6 +93,13 @@ export function expandMethodsByDirectCalls(
                     if (!isAllowedDeclaringClass(calleeMethod, allowedDeclaringClassNames)) continue;
                     queue.push(calleeMethod);
                 }
+
+                for (const calleeMethod of collectCallableExpansionTargets(scene, invokeExpr)) {
+                    const calleeSignature = calleeMethod?.getSignature?.()?.toString?.();
+                    if (!calleeSignature || out.has(calleeSignature)) continue;
+                    if (!isAllowedDeclaringClass(calleeMethod, allowedDeclaringClassNames)) continue;
+                    queue.push(calleeMethod);
+                }
             }
         }
 
@@ -90,6 +117,52 @@ export function expandMethodsByDirectCalls(
     }
 
     return [...out.values()];
+}
+
+function collectCallableExpansionTargets(scene: Scene, invokeExpr: any): ArkMethod[] {
+    const out: ArkMethod[] = [];
+    const seen = new Set<string>();
+
+    const addMethod = (method: any): void => {
+        const signature = method?.getSignature?.()?.toString?.();
+        if (!signature || seen.has(signature)) return;
+        seen.add(signature);
+        out.push(method as ArkMethod);
+    };
+
+    const addCallableTargetsFromValue = (value: any): void => {
+        for (const method of resolveMethodsFromCallable(scene, value, { maxCandidates: 8 })) {
+            addMethod(method);
+        }
+    };
+
+    if (invokeExpr instanceof ArkInstanceInvokeExpr) {
+        addCallableTargetsFromValue(invokeExpr.getBase?.());
+    }
+
+    if (invokeExpr instanceof ArkPtrInvokeExpr && typeof invokeExpr.getFuncPtrLocal === "function") {
+        addCallableTargetsFromValue(invokeExpr.getFuncPtrLocal());
+    }
+
+    const args = invokeExpr?.getArgs ? invokeExpr.getArgs() : [];
+    const methodName = invokeExpr?.getMethodSignature?.()?.getMethodSubSignature?.()?.getMethodName?.() || "";
+    for (const argIndex of resolveKnownCallableArgIndexes(methodName)) {
+        if (argIndex < 0 || argIndex >= args.length) continue;
+        addCallableTargetsFromValue(args[argIndex]);
+    }
+
+    return out;
+}
+
+function resolveKnownCallableArgIndexes(methodName: string): number[] {
+    if (!methodName) return [];
+    const ordinary = KNOWN_ORDINARY_CALLBACK_ARG_INDEXES.get(methodName) || [];
+    const deferred = KNOWN_DEFERRED_CALLBACK_ARG_INDEXES.get(methodName) || [];
+    return ordinary.length === 0
+        ? deferred
+        : deferred.length === 0
+            ? ordinary
+            : [...new Set([...ordinary, ...deferred])];
 }
 
 function isAllowedDeclaringClass(

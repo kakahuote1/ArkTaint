@@ -2,9 +2,10 @@ import { DetectProfileSnapshot, RuleHitCounters } from "../core/orchestration/Ta
 import { EnginePluginAuditSnapshot } from "../core/orchestration/plugins/EnginePluginRuntime";
 import { ExtensionModuleLoadIssue } from "../core/orchestration/ExtensionLoaderUtils";
 import {
-    emptySemanticPackAuditSnapshot,
-    SemanticPackAuditSnapshot,
-} from "../core/kernel/contracts/SemanticPack";
+    emptyModuleAuditSnapshot,
+    ModuleAuditEntry,
+    ModuleAuditSnapshot,
+} from "../core/kernel/contracts/ModuleContract";
 import {
     emptyPagNodeResolutionAuditSnapshot,
     PagNodeResolutionAuditSnapshot,
@@ -80,7 +81,7 @@ export interface EntryAnalyzeResult {
     stageProfile: EntryStageProfile;
     transferNoHitReasons: string[];
     pagNodeResolutionAudit: PagNodeResolutionAuditSnapshot;
-    semanticPackAudit: SemanticPackAuditSnapshot;
+    moduleAudit: ModuleAuditSnapshot;
     enginePluginAudit: EnginePluginAuditSnapshot;
     elapsedMs: number;
     fromCache?: boolean;
@@ -89,8 +90,8 @@ export interface EntryAnalyzeResult {
 
 export interface AnalyzeErrorDiagnostics {
     ruleLoadIssues: RuleLoadIssue[];
-    semanticPackLoadIssues: ExtensionModuleLoadIssue[];
-    semanticPackRuntimeFailures: SemanticPackAuditSnapshot["failureEvents"];
+    moduleLoadIssues: ExtensionModuleLoadIssue[];
+    moduleRuntimeFailures: ModuleAuditSnapshot["failureEvents"];
     enginePluginLoadIssues: ExtensionModuleLoadIssue[];
     enginePluginRuntimeFailures: EnginePluginAuditSnapshot["failureEvents"];
     systemFailures: Array<{
@@ -109,7 +110,7 @@ export interface AnalyzeErrorDiagnostics {
 }
 
 export interface NormalizedAnalyzeDiagnosticItem {
-    category: "Rule" | "Pack" | "Plugin" | "System";
+    category: "Rule" | "Module" | "Plugin" | "System";
     code: string;
     title: string;
     summary: string;
@@ -166,6 +167,18 @@ export interface AnalyzeReport {
         pagNodeResolutionAudit: PagNodeResolutionAuditSnapshot;
         diagnostics: AnalyzeErrorDiagnostics;
         diagnosticItems: NormalizedAnalyzeDiagnosticItem[];
+        moduleAudit: {
+            loadedModuleIds: string[];
+            failedModuleIds: string[];
+            discoveredModuleProjects: string[];
+            enabledModuleProjects: string[];
+            modules: Record<string, ModuleAuditEntry>;
+        };
+        pluginAudit: {
+            loadedPluginNames: string[];
+            failedPluginNames: string[];
+            plugins: Record<string, EnginePluginAuditSnapshot["pluginStats"][string]>;
+        };
         ruleFeedback: {
             zeroHitRules: RuleHitCounters;
             ruleHitRanking: {
@@ -295,6 +308,7 @@ export function emptyEnginePluginAuditSnapshot(): EnginePluginAuditSnapshot {
         failureEvents: [],
         dryRun: false,
         optionOverrides: {},
+        pluginStats: {},
         start: {
             sourceRulesAdded: 0,
             sinkRulesAdded: 0,
@@ -307,8 +321,8 @@ export function emptyEnginePluginAuditSnapshot(): EnginePluginAuditSnapshot {
 export function emptyAnalyzeErrorDiagnostics(): AnalyzeErrorDiagnostics {
     return {
         ruleLoadIssues: [],
-        semanticPackLoadIssues: [],
-        semanticPackRuntimeFailures: [],
+        moduleLoadIssues: [],
+        moduleRuntimeFailures: [],
         enginePluginLoadIssues: [],
         enginePluginRuntimeFailures: [],
         systemFailures: [],
@@ -334,7 +348,7 @@ export function toReportEntry(entry: EntryAnalyzeResult, reportMode: ReportMode)
         stageProfile: emptyEntryStageProfile(),
         transferNoHitReasons: [],
         pagNodeResolutionAudit: emptyPagNodeResolutionAuditSnapshot(),
-        semanticPackAudit: emptySemanticPackAuditSnapshot(),
+        moduleAudit: emptyModuleAuditSnapshot(),
         enginePluginAudit: emptyEnginePluginAuditSnapshot(),
     };
 }

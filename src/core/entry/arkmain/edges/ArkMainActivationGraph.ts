@@ -43,7 +43,7 @@ export function buildArkMainActivationGraph(
     for (const edge of buildCallbackRegistrationEdges(facts)) addEdge(edge);
     for (const edge of buildSchedulerActivationEdges(facts)) addEdge(edge);
     for (const edge of buildStateWatchEdges(facts)) addEdge(edge);
-    for (const edge of buildChannelEdges(facts)) addEdge(edge);
+    for (const edge of buildChannelEdges(facts, seedMethods)) addEdge(edge);
     for (const edge of buildHandoffEdges(facts)) addEdge(edge);
 
     return {

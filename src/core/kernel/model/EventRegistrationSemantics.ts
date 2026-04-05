@@ -36,7 +36,15 @@ export function looksLikeEventRegistrationByConvention(invokeExpr: any): boolean
     const invokeName = invokeExpr?.getMethodSignature?.()?.getMethodSubSignature?.()?.getMethodName?.() || "";
     if (!invokeName) return false;
     const normalized = invokeName.trim();
-    if (normalized === "on" || normalized === "bind" || normalized === "subscribe") {
+    if (
+        normalized === "on"
+        || normalized === "bind"
+        || normalized === "subscribe"
+        || normalized === "setTimeout"
+        || normalized === "setInterval"
+        || normalized === "queueMicrotask"
+        || normalized === "requestAnimationFrame"
+    ) {
         return true;
     }
     return /^on[A-Z_]/.test(normalized);

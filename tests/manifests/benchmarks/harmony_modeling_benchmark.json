@@ -1,13 +1,13 @@
 {
   "name": "harmony-modeling-benchmark",
   "version": "1.0.0",
-  "description": "Official Harmony modeling benchmark: propagation-only suites for Router/NavPathStack, Storage, reactive bridge, and ability handoff. Entry-only suites are excluded and handled by the pure-entry benchmark.",
+  "description": "Official Harmony modeling benchmark: propagation-only suites for all built-in Harmony modules. Entry-only suites are excluded and handled by the pure-entry benchmark.",
   "suites": [
     {
       "id": "harmony_state_mgmt",
       "category": "reactive_binding",
       "sourceDir": "tests/demo/harmony_state_mgmt",
-      "defaultRulePath": "tests/rules/minimal.rules.json",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
       "projectRulePath": "tests/rules/harmony_state_mgmt.rules.json",
       "modelingCapabilities": ["state"]
     },
@@ -15,7 +15,7 @@
       "id": "harmony_link",
       "category": "reactive_binding",
       "sourceDir": "tests/demo/harmony_link",
-      "defaultRulePath": "tests/rules/minimal.rules.json",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
       "projectRulePath": "tests/rules/harmony_link.rules.json",
       "modelingCapabilities": ["state"]
     },
@@ -23,7 +23,7 @@
       "id": "harmony_provide_consume",
       "category": "reactive_binding",
       "sourceDir": "tests/demo/harmony_provide_consume",
-      "defaultRulePath": "tests/rules/minimal.rules.json",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
       "projectRulePath": "tests/rules/harmony_provide_consume.rules.json",
       "modelingCapabilities": ["state"]
     },
@@ -31,8 +31,8 @@
       "id": "harmony_reactive_composition",
       "category": "reactive_composition",
       "sourceDir": "tests/demo/harmony_reactive_composition",
-      "defaultRulePath": "tests/rules/minimal.rules.json",
-      "frameworkRulePath": "src/rules/framework.rules.json",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "ruleCatalogPath": "src/rules",
       "projectRulePath": "tests/rules/harmony_reactive_composition.rules.json",
       "modelingCapabilities": ["state"]
     },
@@ -40,8 +40,8 @@
       "id": "harmony_reactive_deep_tree",
       "category": "reactive_composition",
       "sourceDir": "tests/demo/harmony_reactive_deep_tree",
-      "defaultRulePath": "tests/rules/minimal.rules.json",
-      "frameworkRulePath": "src/rules/framework.rules.json",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "ruleCatalogPath": "src/rules",
       "projectRulePath": "tests/rules/harmony_reactive_deep_tree.rules.json",
       "modelingCapabilities": ["state"]
     },
@@ -49,50 +49,63 @@
       "id": "harmony_router_bridge",
       "category": "route_handoff",
       "sourceDir": "tests/demo/harmony_router_bridge",
-      "defaultRulePath": "tests/rules/minimal.rules.json",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
       "projectRulePath": "tests/rules/harmony_router_bridge.rules.json",
-      "modelingCapabilities": ["router"]
+      "modelingCapabilities": ["router"],
+      "disabledAutoSourceRuleIdPrefixes": ["source.arkmain.contract.router.trigger."]
     },
     {
       "id": "harmony_router_crossfile",
       "category": "route_handoff",
       "sourceDir": "tests/demo/harmony_router_crossfile",
-      "defaultRulePath": "tests/rules/minimal.rules.json",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
       "projectRulePath": "tests/rules/harmony_router_crossfile.rules.json",
-      "modelingCapabilities": ["router"]
+      "modelingCapabilities": ["router"],
+      "disabledAutoSourceRuleIdPrefixes": ["source.arkmain.contract.router.trigger."]
     },
     {
       "id": "harmony_router_dynamic",
       "category": "route_handoff",
       "sourceDir": "tests/demo/harmony_router_dynamic",
-      "defaultRulePath": "tests/rules/minimal.rules.json",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
       "projectRulePath": "tests/rules/harmony_router_dynamic.rules.json",
-      "modelingCapabilities": ["router"]
+      "modelingCapabilities": ["router"],
+      "disabledAutoSourceRuleIdPrefixes": ["source.arkmain.contract.router.trigger."]
     },
     {
       "id": "harmony_route_stack_variants",
       "category": "route_handoff",
       "sourceDir": "tests/demo/harmony_route_stack_variants",
-      "defaultRulePath": "tests/rules/minimal.rules.json",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
       "projectRulePath": "tests/rules/harmony_route_stack_variants.rules.json",
-      "modelingCapabilities": ["router"]
+      "modelingCapabilities": ["router"],
+      "disabledAutoSourceRuleIdPrefixes": ["source.arkmain.contract.router.trigger."]
     },
     {
       "id": "harmony_framework_navpathstack",
       "category": "route_handoff",
       "sourceDir": "tests/demo/harmony_framework_entry_probe",
-      "defaultRulePath": "tests/rules/minimal.rules.json",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
       "projectRulePath": "tests/rules/harmony_framework_entry_probe.rules.json",
       "caseIncludePatterns": [
         "^navpathstack_(getparams_003_T|fake_013_F)$"
       ],
-      "modelingCapabilities": ["router"]
+      "modelingCapabilities": ["router"],
+      "disabledAutoSourceRuleIdPrefixes": ["source.arkmain.contract.router.trigger."]
+    },
+    {
+      "id": "harmony_emitter",
+      "category": "event_channel",
+      "sourceDir": "tests/demo/harmony_emitter",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_emitter.rules.json",
+      "modelingCapabilities": ["emitter"]
     },
     {
       "id": "harmony_appstorage",
       "category": "storage_channel",
       "sourceDir": "tests/demo/harmony_appstorage",
-      "defaultRulePath": "tests/rules/minimal.rules.json",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
       "projectRulePath": "tests/rules/harmony_appstorage.rules.json",
       "modelingCapabilities": ["storage"]
     },
@@ -100,7 +113,7 @@
       "id": "harmony_localstorage",
       "category": "storage_channel",
       "sourceDir": "tests/demo/harmony_localstorage",
-      "defaultRulePath": "tests/rules/minimal.rules.json",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
       "projectRulePath": "tests/rules/harmony_localstorage.rules.json",
       "modelingCapabilities": ["storage"]
     },
@@ -108,7 +121,7 @@
       "id": "harmony_persistentstorage",
       "category": "storage_channel",
       "sourceDir": "tests/demo/harmony_persistentstorage",
-      "defaultRulePath": "tests/rules/minimal.rules.json",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
       "projectRulePath": "tests/rules/harmony_persistentstorage.rules.json",
       "modelingCapabilities": ["storage"]
     },
@@ -116,36 +129,57 @@
       "id": "harmony_preferences",
       "category": "storage_channel",
       "sourceDir": "tests/demo/harmony_preferences",
-      "defaultRulePath": "tests/rules/minimal.rules.json",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
       "projectRulePath": "tests/rules/harmony_preferences.rules.json",
       "modelingCapabilities": ["storage"]
+    },
+    {
+      "id": "harmony_worker",
+      "category": "async_channel",
+      "sourceDir": "tests/demo/harmony_worker",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_worker.rules.json",
+      "modelingCapabilities": ["worker_taskpool"]
     },
     {
       "id": "harmony_handoff_multihop",
       "category": "cross_component_handoff",
       "sourceDir": "tests/demo/harmony_handoff_multihop",
-      "defaultRulePath": "tests/rules/minimal.rules.json",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
       "projectRulePath": "tests/rules/harmony_handoff_multihop.rules.json",
-      "modelingCapabilities": ["handoff"]
+      "modelingCapabilities": ["handoff"],
+      "disabledAutoSourceRuleIdPrefixes": [
+        "source.arkmain.contract.lifecycle.param.",
+        "source.arkmain.contract.lifecycle.want."
+      ]
     },
     {
       "id": "harmony_multi_ability_chain",
       "category": "cross_component_handoff",
       "sourceDir": "tests/demo/harmony_multi_ability_chain",
-      "defaultRulePath": "tests/rules/minimal.rules.json",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
       "projectRulePath": "tests/rules/harmony_multi_ability_chain.rules.json",
-      "modelingCapabilities": ["handoff"]
+      "modelingCapabilities": ["handoff"],
+      "disabledAutoSourceRuleIdPrefixes": [
+        "source.arkmain.contract.lifecycle.param.",
+        "source.arkmain.contract.lifecycle.want."
+      ]
     },
     {
       "id": "harmony_framework_startability",
       "category": "cross_component_handoff",
       "sourceDir": "tests/demo/harmony_framework_entry_probe",
-      "defaultRulePath": "tests/rules/minimal.rules.json",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
       "projectRulePath": "tests/rules/harmony_framework_entry_probe.rules.json",
       "caseIncludePatterns": [
         "^startability_(handoff_004_T|handoff_005_T|for_result_012_T)$"
       ],
-      "modelingCapabilities": ["handoff"]
+      "modelingCapabilities": ["handoff"],
+      "disabledAutoSourceRuleIdPrefixes": [
+        "source.arkmain.contract.lifecycle.param.",
+        "source.arkmain.contract.lifecycle.want."
+      ]
     }
   ]
 }
+

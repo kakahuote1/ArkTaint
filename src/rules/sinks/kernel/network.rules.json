@@ -1,0 +1,369 @@
+{
+  "schemaVersion": "2.0",
+  "sources": [],
+  "sinks": [
+    {
+      "id": "sink.harmony.http.request.url.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "request"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "Http"
+        }
+      },
+      "category": "ssrf_or_url_injection",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.http.request.body.arg1",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "request"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "Http"
+        }
+      },
+      "category": "information_leak",
+      "severity": "medium",
+      "target": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.axios.get.url.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "get",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "axios"
+      },
+      "category": "ssrf_or_url_injection",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.axios.post.url.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "post",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "axios"
+      },
+      "category": "ssrf_or_url_injection",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.axios.post.body.arg1",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "post",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "axios"
+      },
+      "category": "information_leak",
+      "severity": "medium",
+      "target": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.socket.connect.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "connect"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(socket|Socket|TCPSocket|UDPSocket)"
+        }
+      },
+      "category": "network_socket_injection",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.socket.send.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "send"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(socket|Socket|TCPSocket|UDPSocket)"
+        }
+      },
+      "category": "network_socket_injection",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.request.download.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "download"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(request|Request|Download|DownloadTask|RequestAgent)"
+        }
+      },
+      "category": "network_request_sink",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.request.upload.arg1",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "upload"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(request|Request|Upload|UploadTask|RequestAgent)"
+        }
+      },
+      "category": "network_request_sink",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.sms.sendMessage",
+      "description": "SMS send (data exfiltration)",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "sms",
+        "P0"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "sendShortMessage"
+      },
+      "target": "arg0",
+      "severity": "critical",
+      "category": "sms_exfiltration"
+    },
+    {
+      "id": "sink.harmony.sms.sendMessage.v2",
+      "description": "SMS sendMessage (data exfiltration)",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "sms",
+        "P0"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "sendMessage"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "sms"
+        }
+      },
+      "target": "arg0",
+      "severity": "critical",
+      "category": "sms_exfiltration"
+    },
+    {
+      "id": "sink.harmony.rpc.sendMessageRequest",
+      "description": "IPC cross-process data send",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "rpc",
+        "P0"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "sendMessageRequest"
+      },
+      "target": "arg1",
+      "severity": "critical",
+      "category": "ipc_data_leak"
+    },
+    {
+      "id": "sink.harmony.bt.sppWrite",
+      "description": "Bluetooth SPP data write",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "bluetooth",
+        "P1"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "sppWrite"
+      },
+      "target": "arg1",
+      "severity": "high",
+      "category": "bluetooth_exfiltration"
+    },
+    {
+      "id": "sink.harmony.bt.sppWriteAsync",
+      "description": "Bluetooth SPP async data write",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "bluetooth",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "sppWriteAsync"
+      },
+      "target": "arg1",
+      "severity": "high",
+      "category": "bluetooth_exfiltration"
+    },
+    {
+      "id": "sink.harmony.telephony.dial",
+      "description": "Phone dial (number injection)",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "telephony",
+        "P1"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "dial"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "call"
+        }
+      },
+      "target": "arg0",
+      "severity": "high",
+      "category": "telephony_abuse"
+    },
+    {
+      "id": "sink.harmony.telephony.dialCall",
+      "description": "Phone dialCall (number injection)",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "telephony",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "dialCall"
+      },
+      "target": "arg0",
+      "severity": "high",
+      "category": "telephony_abuse"
+    },
+    {
+      "id": "sink.harmony.telephony.makeCall",
+      "description": "Phone makeCall (number injection)",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "telephony",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "makeCall"
+      },
+      "target": "arg0",
+      "severity": "high",
+      "category": "telephony_abuse"
+    },
+    {
+      "id": "sink.harmony.ble.writeCharacteristic",
+      "description": "BLE characteristic value write",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "bluetooth",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "writeCharacteristicValue"
+      },
+      "target": "arg0",
+      "severity": "high",
+      "category": "bluetooth_exfiltration"
+    },
+    {
+      "id": "sink.harmony.ble.writeDescriptor",
+      "description": "BLE descriptor value write",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "bluetooth",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "writeDescriptorValue"
+      },
+      "target": "arg0",
+      "severity": "high",
+      "category": "bluetooth_exfiltration"
+    },
+    {
+      "id": "sink.harmony.ble.notifyCharacteristic",
+      "description": "BLE server push characteristic data",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "bluetooth",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "notifyCharacteristicChanged"
+      },
+      "target": "arg1",
+      "severity": "high",
+      "category": "bluetooth_exfiltration"
+    }
+  ],
+  "sanitizers": [],
+  "transfers": []
+}

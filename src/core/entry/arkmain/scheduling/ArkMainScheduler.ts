@@ -6,9 +6,11 @@ import {
     ArkMainActivationGraph,
     ArkMainActivationReason,
 } from "../edges/ArkMainActivationTypes";
+import { matchesWatchTargets } from "../edges/ArkMainActivationBuilderUtils";
 import {
     canScheduleArkMainActivationEdge,
     compareArkMainPhases,
+    getArkMainTargetPhase,
 } from "./ArkMainSchedulingRules";
 
 export interface ArkMainScheduledMethod {
@@ -68,7 +70,7 @@ export function buildArkMainSchedule(
                 continue;
             }
             const before = active.size;
-            activateMethod(active, edge.toMethod, edge.phaseHint, round, edge);
+            activateMethod(active, edge.toMethod, getArkMainTargetPhase(edge.edgeFamily), round, edge);
             if (active.size > before) {
                 changed = true;
                 continue;
@@ -97,10 +99,17 @@ export function buildArkMainSchedule(
         if (fact.kind !== "watch_handler" || fact.schedule === false) continue;
         const sig = signatureOf(fact.method);
         if (!sig || active.has(sig)) continue;
+        const hasMatchingWatchSource = graph.facts.some(candidate =>
+            candidate.kind === "watch_source"
+            && matchesWatchTargets(candidate, fact),
+        );
+        if (!hasMatchingWatchSource) {
+            continue;
+        }
         activateMethod(active, fact.method, "reactive_handoff", promotionRound, {
             kind: "state_watch_trigger",
             edgeFamily: "state_watch",
-            phaseHint: "reactive_handoff",
+            phaseHint: getArkMainTargetPhase("state_watch"),
             toMethod: fact.method,
             reasons: [{
                 kind: "entry_fact",
@@ -111,6 +120,10 @@ export function buildArkMainSchedule(
                 recognitionLayer: fact.recognitionLayer,
             }],
         });
+        const activation = active.get(sig);
+        if (activation) {
+            activation.phase = getArkMainTargetPhase("state_watch");
+        }
     }
 
     const activations = [...active.values()].sort((a, b) => {

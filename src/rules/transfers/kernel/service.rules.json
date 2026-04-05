@@ -1,0 +1,130 @@
+{
+  "schemaVersion": "2.0",
+  "sources": [],
+  "sinks": [],
+  "sanitizers": [],
+  "transfers": [
+    {
+      "id": "transfer.harmony.http.request.arg1_to_result",
+      "description": "Http.request(url, data): request payload may influence response result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "request"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "Http"
+        }
+      },
+      "from": "arg1",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.axios.get.arg0_to_result",
+      "description": "axios.get(url): url taints response result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "get",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "axios"
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.axios.post.arg1_to_result",
+      "description": "axios.post(url, data): body taints response result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "post",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "axios"
+      },
+      "from": "arg1",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.rdb.insert.arg1_to_base",
+      "description": "RdbStore.insert(table, row): row taints store base.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "insert"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(RdbStore|RelationalStore)"
+        }
+      },
+      "from": "arg1",
+      "to": "base"
+    },
+    {
+      "id": "transfer.harmony.rdb.query.base_to_result",
+      "description": "RdbStore.query(sql): store base taints query result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "query"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(RdbStore|RelationalStore)"
+        }
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.rdb.querySql.arg0_to_result",
+      "description": "querySql(sql): sql string taints query result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "querySql"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(RdbStore|RelationalStore)"
+        }
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.request.download.arg0_to_result",
+      "description": "@ohos.request download(url): url taints download result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "download"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(request|Request|Download|DownloadTask|RequestAgent)"
+        }
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.request.upload.arg1_to_result",
+      "description": "@ohos.request upload(url, body): body taints upload result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "upload"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(request|Request|Upload|UploadTask|RequestAgent)"
+        }
+      },
+      "from": "arg1",
+      "to": "result"
+    }
+  ]
+}

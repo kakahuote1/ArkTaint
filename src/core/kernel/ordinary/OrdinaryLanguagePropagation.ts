@@ -14,8 +14,8 @@ import {
 } from "../../../../arkanalyzer/out/src/core/base/Expr";
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { ArrayType } from "../../../../arkanalyzer/out/src/core/base/Type";
-import { ArkAssignStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkArrayRef, ArkInstanceFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
+import { ArkAssignStmt, ArkThrowStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
+import { ArkArrayRef, ArkCaughtExceptionRef, ArkInstanceFieldRef, ArkParameterRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
 import { TaintFact } from "../model/TaintFact";
 import { TaintTracker } from "../model/TaintTracker";
 import { toContainerFieldKey } from "../model/ContainerSlotKeys";
@@ -546,9 +546,212 @@ export function collectOrdinaryRegexArrayResultFactsFromTaintedLocal(
     return dedupFacts(results);
 }
 
+export function collectOrdinaryErrorMessageFactsFromTaintedLocal(
+    taintedNode: PagNode,
+    source: string,
+    currentCtx: number,
+    pag: Pag,
+): TaintFact[] {
+    const results: TaintFact[] = [];
+    const value = taintedNode.getValue?.();
+    if (!(value instanceof Local)) return results;
+
+    for (const stmt of value.getUsedStmts()) {
+        if (!(stmt instanceof ArkAssignStmt)) continue;
+        const rightOp = stmt.getRightOp();
+        if (!(rightOp instanceof ArkInstanceInvokeExpr)) continue;
+        if (!isErrorConstructorInvoke(rightOp) || !hasLocalUse(rightOp, value)) continue;
+
+        const baseLocal = rightOp.getBase?.();
+        const candidateValue = baseLocal instanceof Local ? baseLocal : stmt.getLeftOp();
+        const resultNodes = safeGetOrCreatePagNodes(pag, candidateValue, stmt);
+        if (!resultNodes || resultNodes.size === 0) continue;
+
+        for (const resultNodeId of resultNodes.values()) {
+            const resultNode = pag.getNode(resultNodeId) as PagNode;
+            if (!resultNode) continue;
+            let hasPointTo = false;
+            for (const objId of resultNode.getPointTo()) {
+                hasPointTo = true;
+                const objNode = pag.getNode(objId) as PagNode;
+                if (!objNode) continue;
+                results.push(new TaintFact(objNode, source, currentCtx, ["message"]));
+            }
+            if (!hasPointTo) {
+                results.push(new TaintFact(resultNode, source, currentCtx, ["message"]));
+            }
+        }
+    }
+
+    return dedupFacts(results);
+}
+
+export function collectOrdinaryCaughtExceptionFieldLoadFactsFromTaintedObj(
+    taintedObjId: number,
+    fieldPath: string[],
+    source: string,
+    currentCtx: number,
+    pag: Pag,
+    classBySignature?: Map<string, any>,
+): TaintFact[] {
+    if (fieldPath.length === 0) return [];
+
+    const fieldName = fieldPath[0];
+    const remainingPath = fieldPath.length > 1 ? fieldPath.slice(1) : undefined;
+    const results: TaintFact[] = [];
+
+    for (const aliasLocal of collectAliasLocalsForCarrier(pag, taintedObjId, classBySignature)) {
+        const cfg = aliasLocal.getDeclaringStmt?.()?.getCfg?.();
+        if (!cfg) continue;
+        const stmts = cfg.getStmts?.() || [];
+        const throwIndexes = collectThrownLocalStmtIndexes(stmts, aliasLocal);
+        if (throwIndexes.length === 0) continue;
+
+        const catchLocals = collectCaughtExceptionLocals(stmts);
+        if (catchLocals.length === 0) continue;
+
+        for (const throwIndex of throwIndexes) {
+            for (const catchBinding of catchLocals) {
+                if (catchBinding.index < throwIndex) continue;
+                for (let stmtIndex = catchBinding.index + 1; stmtIndex < stmts.length; stmtIndex++) {
+                    const stmt = stmts[stmtIndex];
+                    if (!(stmt instanceof ArkAssignStmt)) continue;
+                    const left = stmt.getLeftOp();
+                    const right = stmt.getRightOp();
+                    if (!(left instanceof Local) || !(right instanceof ArkInstanceFieldRef)) continue;
+                    const rightBase = right.getBase?.();
+                    if (!(rightBase instanceof Local) || rightBase.getName() !== catchBinding.local.getName()) continue;
+
+                    const rightFieldName = right.getFieldSignature?.()?.getFieldName?.() || right.getFieldName?.();
+                    if (rightFieldName !== fieldName) continue;
+
+                    const targetNodes = safeGetOrCreatePagNodes(pag, left, stmt);
+                    if (!targetNodes || targetNodes.size === 0) continue;
+                    for (const targetNodeId of targetNodes.values()) {
+                        const targetNode = pag.getNode(targetNodeId) as PagNode;
+                        if (!targetNode) continue;
+                        if (remainingPath && remainingPath.length > 0) {
+                            let hasPointTo = false;
+                            for (const nestedObjId of targetNode.getPointTo()) {
+                                hasPointTo = true;
+                                const nestedObjNode = pag.getNode(nestedObjId) as PagNode;
+                                if (!nestedObjNode) continue;
+                                results.push(new TaintFact(nestedObjNode, source, currentCtx, [...remainingPath]));
+                            }
+                            if (!hasPointTo) {
+                                results.push(new TaintFact(targetNode, source, currentCtx, [...remainingPath]));
+                            }
+                            continue;
+                        }
+                        results.push(new TaintFact(targetNode, source, currentCtx));
+                    }
+                }
+            }
+        }
+    }
+
+    return dedupFacts(results);
+}
+
 export function resolveOrdinaryArraySlotName(indexValue: any): string {
     const resolvedIndex = resolveIntegerLikeValue(indexValue, 0, new Set<string>());
     return resolvedIndex === undefined ? ARRAY_ANY_SLOT : `arr:${resolvedIndex}`;
+}
+
+export function collectOrdinaryTaintPreservingSourceLocals(value: any): Local[] {
+    const results = new Map<string, Local>();
+    const addLocal = (candidate: any): void => {
+        if (!(candidate instanceof Local)) return;
+        const key = `${candidate.getName?.() || ""}#${candidate.getDeclaringStmt?.()?.toString?.() || ""}`;
+        if (!results.has(key)) {
+            results.set(key, candidate);
+        }
+    };
+    const addUses = (candidate: any): void => {
+        const uses = candidate?.getUses?.() || [];
+        for (const use of uses) {
+            addLocal(use);
+        }
+    };
+
+    if (value instanceof Local) {
+        addLocal(value);
+        return [...results.values()];
+    }
+
+    if (value instanceof ArkCastExpr
+        || value instanceof ArkPhiExpr
+        || value instanceof ArkAwaitExpr
+        || value instanceof ArkUnopExpr
+        || value instanceof ArkConditionExpr
+        || value instanceof ArkNormalBinopExpr
+        || value instanceof ArkArrayRef
+        || value instanceof ArkInstanceFieldRef) {
+        addUses(value);
+        return [...results.values()];
+    }
+
+    if (value instanceof ArkStaticInvokeExpr
+        || value instanceof ArkInstanceInvokeExpr
+        || value instanceof ArkPtrInvokeExpr) {
+        const uses = value.getUses?.() || [];
+        for (const use of uses) {
+            if (use instanceof Local && resolveOrdinaryCopyLikeInvokeKind(value, use)) {
+                addLocal(use);
+            }
+        }
+        return [...results.values()];
+    }
+
+    return [...results.values()];
+}
+
+export function collectOrdinaryTaintPreservingDestinationLocals(value: any): Local[] {
+    const results = new Map<string, Local>();
+    const addLocal = (candidate: any): void => {
+        if (!(candidate instanceof Local)) return;
+        const key = `${candidate.getName?.() || ""}#${candidate.getDeclaringStmt?.()?.toString?.() || ""}`;
+        if (!results.has(key)) {
+            results.set(key, candidate);
+        }
+    };
+    const addUses = (candidate: any): void => {
+        const uses = candidate?.getUses?.() || [];
+        for (const use of uses) {
+            addLocal(use);
+        }
+    };
+
+    if (value instanceof Local || value instanceof ArkParameterRef) {
+        addUses(value);
+        return [...results.values()];
+    }
+
+    if (value instanceof ArkCastExpr
+        || value instanceof ArkPhiExpr
+        || value instanceof ArkAwaitExpr
+        || value instanceof ArkUnopExpr
+        || value instanceof ArkConditionExpr
+        || value instanceof ArkNormalBinopExpr
+        || value instanceof ArkArrayRef
+        || value instanceof ArkInstanceFieldRef) {
+        addUses(value);
+        return [...results.values()];
+    }
+
+    if (value instanceof ArkStaticInvokeExpr
+        || value instanceof ArkInstanceInvokeExpr
+        || value instanceof ArkPtrInvokeExpr) {
+        const uses = value.getUses?.() || [];
+        for (const use of uses) {
+            if (use instanceof Local && resolveOrdinaryCopyLikeInvokeKind(value, use)) {
+                addLocal(use);
+            }
+        }
+        return [...results.values()];
+    }
+
+    return [...results.values()];
 }
 
 function shouldPropagateAssignedValue(rightOp: any, local: Local, preserveFieldCarrierOnly: boolean): boolean {
@@ -601,6 +804,32 @@ function shouldPropagateAssignedValue(rightOp: any, local: Local, preserveFieldC
     }
 
     return false;
+}
+
+function collectThrownLocalStmtIndexes(stmts: any[], local: Local): number[] {
+    const out: number[] = [];
+    for (let i = 0; i < stmts.length; i++) {
+        const stmt = stmts[i];
+        if (!(stmt instanceof ArkThrowStmt)) continue;
+        if (isSameLocal(stmt.getOp?.(), local)) {
+            out.push(i);
+        }
+    }
+    return out;
+}
+
+function collectCaughtExceptionLocals(stmts: any[]): Array<{ index: number; local: Local }> {
+    const out: Array<{ index: number; local: Local }> = [];
+    for (let i = 0; i < stmts.length; i++) {
+        const stmt = stmts[i];
+        if (!(stmt instanceof ArkAssignStmt)) continue;
+        const left = stmt.getLeftOp();
+        const right = stmt.getRightOp();
+        if (left instanceof Local && right instanceof ArkCaughtExceptionRef) {
+            out.push({ index: i, local: left });
+        }
+    }
+    return out;
 }
 
 function shouldPropagateFieldCarrier(rightOp: any, local: Local): boolean {
@@ -731,6 +960,27 @@ function isContainerReadMethod(methodName: string): boolean {
         || methodName === "values"
         || methodName === "keys"
         || methodName === "entries";
+}
+
+function isErrorConstructorInvoke(invokeExpr: ArkInstanceInvokeExpr): boolean {
+    const methodName = invokeExpr.getMethodSignature?.()?.getMethodSubSignature?.()?.getMethodName?.() || "";
+    if (methodName !== "constructor") return false;
+    const sigStr = invokeExpr.getMethodSignature?.()?.toString?.() || "";
+    const baseTypeText = invokeExpr.getBase?.()?.getType?.()?.toString?.() || "";
+    const baseText = normalizeInvokeText(baseTypeText || invokeExpr.getBase?.()?.toString?.() || "");
+    return sigStr.includes("Error.constructor")
+        || sigStr.includes("@%unk/%unk: Error.constructor")
+        || baseText === "error"
+        || baseText.endsWith(".error")
+        || hasInvokeTypeToken(baseTypeText, "Error");
+}
+
+function hasInvokeTypeToken(text: string, typeName: string): boolean {
+    const normalized = String(text || "").trim();
+    if (!normalized) return false;
+    const escapedTypeName = typeName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = new RegExp(`(^|[^A-Za-z0-9_])${escapedTypeName}(?:<[^|)]*>)?(?=$|[^A-Za-z0-9_])`);
+    return pattern.test(normalized);
 }
 
 function resolveOrdinaryCopyLikeInvokeKind(

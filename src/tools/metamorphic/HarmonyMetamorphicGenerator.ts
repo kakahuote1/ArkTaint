@@ -5,8 +5,8 @@ import * as ts from "typescript";
 export type HarmonyMutatorGroup = "A" | "B";
 
 export interface HarmonyBenchRulePaths {
-    default: string;
-    framework: string;
+    kernelRule: string;
+    ruleCatalog: string;
     project: string;
 }
 
@@ -395,8 +395,8 @@ function readRuleFile(rulePath: string): HarmonyRuleFileShape {
 
 function buildAnchorProfile(rulePaths: HarmonyBenchRulePaths): HarmonyAnchorProfile {
     const files = [
-        readRuleFile(rulePaths.default),
-        readRuleFile(rulePaths.framework),
+        readRuleFile(rulePaths.kernelRule),
+        readRuleFile(rulePaths.ruleCatalog),
         readRuleFile(rulePaths.project),
     ];
     const sinkSet = new Set<string>();

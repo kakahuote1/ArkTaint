@@ -15,6 +15,8 @@ export type RuleConstraintMode = "equals" | "contains" | "regex";
 export type SourceRuleKind = "seed_local_name" | "entry_param" | "call_return" | "call_arg" | "field_read" | "callback_param";
 export type EntryParamMatchMode = "name_only" | "name_and_type";
 export type RuleSeverity = "low" | "medium" | "high" | "critical";
+export type RuleTier = "A" | "B" | "C";
+export type RuleLayer = "kernel" | "project";
 
 export interface RuleStringConstraint {
     mode: RuleConstraintMode;
@@ -57,8 +59,9 @@ export interface BaseRule {
     enabled?: boolean;
     description?: string;
     tags?: string[];
+    layer?: RuleLayer;
     family?: string;
-    tier?: "A" | "B" | "C";
+    tier?: RuleTier;
     match: RuleMatch;
     scope?: RuleScopeConstraint;
     category?: string;
@@ -68,6 +71,7 @@ export interface BaseRule {
 export interface SourceRule extends BaseRule {
     sourceKind: SourceRuleKind;
     target: RuleEndpointOrRef;
+    calleeScope?: RuleScopeConstraint;
     callbackArgIndexes?: number[];
     paramNameIncludes?: string[];
     paramTypeIncludes?: string[];

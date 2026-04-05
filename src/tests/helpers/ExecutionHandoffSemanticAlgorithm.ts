@@ -2,29 +2,19 @@ import type {
     ExecutionHandoffContractSnapshotItem,
     HandoffTriggerToken,
 } from "../../core/kernel/handoff/ExecutionHandoffContract";
-import type { ExecutionHandoffCompareCase } from "./ExecutionHandoffCompareManifest";
+import type { ExecutionHandoffSemanticCase } from "./ExecutionHandoffSemanticManifest";
 
-export type SemanticDomain = "deferred" | "control";
 export type PayloadPortClass = "payload0" | "payload+";
 export type EnvPortClass = "env0" | "envIn" | "envOut" | "envIO";
 export type CompletionClass = "none" | "promise_chain" | "await_site";
 export type PreserveClass = "preserve0" | "settle(rejected)" | "settle(fulfilled)" | "settle(any)" | "mixed";
 
-export interface ExecutionHandoffSemanticKernel {
-    domain: SemanticDomain;
+export interface ExecutionHandoffSemanticAlgorithm {
     activation: HandoffTriggerToken;
-}
-
-export interface ExecutionHandoffPortSummary {
     payload: PayloadPortClass;
     env: EnvPortClass;
     completion: CompletionClass;
     preserve: PreserveClass;
-}
-
-export interface ExecutionHandoffSemanticAlgorithm {
-    kernel: ExecutionHandoffSemanticKernel;
-    summary: ExecutionHandoffPortSummary;
 }
 
 export interface ExecutionHandoffSemanticAlgorithmWitness {
@@ -40,19 +30,14 @@ export interface ExecutionHandoffSemanticAlgorithmProjection {
 }
 
 export function expectedExecutionHandoffSemanticAlgorithm(
-    spec: ExecutionHandoffCompareCase,
+    spec: ExecutionHandoffSemanticCase,
 ): ExecutionHandoffSemanticAlgorithm {
     return {
-        kernel: {
-            domain: spec.factors.deferred ? "deferred" : "control",
-            activation: expectedActivation(spec),
-        },
-        summary: {
-            payload: spec.factors.payload === "none" ? "payload0" : "payload+",
-            env: expectedEnv(spec),
-            completion: expectedCompletion(spec),
-            preserve: expectedPreserve(spec),
-        },
+        activation: expectedActivation(spec),
+        payload: spec.factors.payload === "none" ? "payload0" : "payload+",
+        env: expectedEnv(spec),
+        completion: expectedCompletion(spec),
+        preserve: expectedPreserve(spec),
     };
 }
 
@@ -61,16 +46,11 @@ export function projectExecutionHandoffSemanticAlgorithm(
 ): ExecutionHandoffSemanticAlgorithmProjection {
     return {
         algorithm: {
-            kernel: {
-                domain: item.kernel.domain,
-                activation: item.kernel.activation,
-            },
-            summary: {
-                payload: item.ports.payload,
-                env: item.ports.env,
-                completion: item.ports.completion,
-                preserve: item.ports.preserve,
-            },
+            activation: item.activation,
+            payload: item.ports.payload,
+            env: item.ports.env,
+            completion: item.ports.completion,
+            preserve: item.ports.preserve,
         },
         witness: {
             contractId: item.id,
@@ -85,12 +65,11 @@ export function executionHandoffSemanticAlgorithmKey(
     algorithm: ExecutionHandoffSemanticAlgorithm,
 ): string {
     return [
-        algorithm.kernel.domain,
-        algorithm.kernel.activation,
-        algorithm.summary.payload,
-        algorithm.summary.env,
-        algorithm.summary.completion,
-        algorithm.summary.preserve,
+        algorithm.activation,
+        algorithm.payload,
+        algorithm.env,
+        algorithm.completion,
+        algorithm.preserve,
     ].join("|");
 }
 
@@ -106,16 +85,15 @@ export function executionHandoffSemanticAlgorithmScore(
     observed: ExecutionHandoffSemanticAlgorithm,
 ): number {
     let score = 0;
-    if (expected.kernel.domain === observed.kernel.domain) score += 3;
-    if (expected.kernel.activation === observed.kernel.activation) score += 4;
-    if (expected.summary.payload === observed.summary.payload) score += 2;
-    if (expected.summary.env === observed.summary.env) score += 2;
-    if (expected.summary.completion === observed.summary.completion) score += 2;
-    if (expected.summary.preserve === observed.summary.preserve) score += 1;
+    if (expected.activation === observed.activation) score += 4;
+    if (expected.payload === observed.payload) score += 2;
+    if (expected.env === observed.env) score += 2;
+    if (expected.completion === observed.completion) score += 2;
+    if (expected.preserve === observed.preserve) score += 1;
     return score;
 }
 
-function expectedActivation(spec: ExecutionHandoffCompareCase): HandoffTriggerToken {
+function expectedActivation(spec: ExecutionHandoffSemanticCase): HandoffTriggerToken {
     switch (spec.factors.trigger) {
         case "event":
             return "event(c)";
@@ -131,14 +109,14 @@ function expectedActivation(spec: ExecutionHandoffCompareCase): HandoffTriggerTo
     }
 }
 
-function expectedCompletion(spec: ExecutionHandoffCompareCase): CompletionClass {
+function expectedCompletion(spec: ExecutionHandoffSemanticCase): CompletionClass {
     if (!spec.factors.deferred) {
         return "none";
     }
     return spec.factors.resume as CompletionClass;
 }
 
-function expectedEnv(spec: ExecutionHandoffCompareCase): EnvPortClass {
+function expectedEnv(spec: ExecutionHandoffSemanticCase): EnvPortClass {
     switch (spec.factors.capture) {
         case "capture_in":
             return "envIn";
@@ -152,7 +130,7 @@ function expectedEnv(spec: ExecutionHandoffCompareCase): EnvPortClass {
     }
 }
 
-function expectedPreserve(spec: ExecutionHandoffCompareCase): PreserveClass {
+function expectedPreserve(spec: ExecutionHandoffSemanticCase): PreserveClass {
     switch (spec.factors.trigger) {
         case "settle_fulfilled":
             return "settle(rejected)";

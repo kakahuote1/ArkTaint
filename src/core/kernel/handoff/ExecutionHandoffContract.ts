@@ -6,10 +6,9 @@ export type HandoffTriggerToken =
     | "settle(fulfilled)"
     | "settle(rejected)"
     | "settle(any)";
+export type ExecutionHandoffActivationToken = Exclude<HandoffTriggerToken, "call(c)">;
 
 export type HandoffResumeKind = "none" | "promise_chain" | "await_site";
-
-export type ExecutionHandoffDomain = "deferred" | "control";
 export type ExecutionHandoffPayloadClass = "payload0" | "payload+";
 export type ExecutionHandoffEnvClass = "env0" | "envIn" | "envOut" | "envIO";
 export type ExecutionHandoffCompletionClass = HandoffResumeKind;
@@ -44,11 +43,6 @@ export type HandoffCarrierKind = "direct" | "returned" | "relay" | "field" | "sl
 export type HandoffReturnKind = "none" | "payload" | "capture" | "value";
 export type ExecutionHandoffContinuationRole = "none" | "value" | "error" | "observe";
 
-export interface ExecutionHandoffSemanticKernelRecord {
-    domain: ExecutionHandoffDomain;
-    activation: HandoffTriggerToken;
-}
-
 export interface ExecutionHandoffPortSummaryClassRecord {
     payload: ExecutionHandoffPayloadClass;
     env: ExecutionHandoffEnvClass;
@@ -57,10 +51,9 @@ export interface ExecutionHandoffPortSummaryClassRecord {
 }
 
 export interface ExecutionHandoffRecoveredSemanticsRecord {
-    domain: ExecutionHandoffDomain;
     activation: HandoffTriggerToken;
     completion: HandoffResumeKind;
-    preserve: HandoffTriggerToken[];
+    preserve: ExecutionHandoffActivationToken[];
     continuationRole: ExecutionHandoffContinuationRole;
 }
 
@@ -100,11 +93,11 @@ export interface ExecutionUnitSummaryRecord {
     envReadPorts: number;
     envWritePorts: number;
     returnKind: HandoffReturnKind;
-    preserve: HandoffTriggerToken[];
+    preserve: ExecutionHandoffActivationToken[];
 }
 
 export interface ExecutionHandoffContractRecord extends ExecutionHandoffActivationPathRecord {
-    kernel: ExecutionHandoffSemanticKernelRecord;
+    activation: ExecutionHandoffActivationToken;
     ports: ExecutionHandoffPortSummaryClassRecord;
     summary: ExecutionUnitSummaryRecord;
 }
@@ -118,7 +111,7 @@ export interface ExecutionHandoffContractSnapshotItem {
     activationLabel: HandoffActivationLabel;
     pathLabels: HandoffPathLabel[];
     hasResumeAnchor: boolean;
-    kernel: ExecutionHandoffSemanticKernelRecord;
+    activation: ExecutionHandoffActivationToken;
     ports: ExecutionHandoffPortSummaryClassRecord;
 }
 
@@ -136,4 +129,10 @@ export interface ExecutionHandoffEdgeBuildStats {
 export interface ExecutionHandoffEdgeBuildResult {
     edgeMap: Map<number, SyntheticInvokeEdgeInfo[]>;
     stats: ExecutionHandoffEdgeBuildStats;
+}
+
+export function isDeferredHandoffActivationToken(
+    token: HandoffTriggerToken,
+): token is ExecutionHandoffActivationToken {
+    return token !== "call(c)";
 }

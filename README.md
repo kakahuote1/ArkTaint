@@ -1,389 +1,344 @@
 <div align="center">
 
-# ArkTaint
+# 🛡️ ArkTaint
 
-**面向 HarmonyOS (ArkTS) 的静态污点分析引擎**
+**面向 HarmonyOS (ArkTS) 的新一代深层静态污点分析引擎**  
+**Advanced Static Taint Analysis Framework for HarmonyOS (ArkTS)**  
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/language-TypeScript-3178C6.svg)](https://www.typescriptlang.org/)
 [![HarmonyOS](https://img.shields.io/badge/platform-HarmonyOS-black)](https://developer.huawei.com/consumer/cn/harmonyos)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 
-[项目简介](#项目简介) · [核心特性](#核心特性) · [架构设计](#架构设计) · [快速开始](#快速开始) · [CLI 使用指南](#cli-使用指南) · [扩展开发](#扩展开发) · [规则配置](#规则配置) · [测试体系](#测试体系)
+[简体中文](#简体中文) | [English](#english)
 
 </div>
 
 ---
 
-## 项目简介
+## 简体中文
 
-**ArkTaint** 是面向 **HarmonyOS (ArkTS)** 生态的静态污点分析引擎，用于自动化检测隐私泄露、注入攻击等数据流安全问题。
+### 📖 项目简介
 
-它构建在程序分析底座 [ArkAnalyzer](https://gitcode.net/openharmony-sig/arkanalyzer) 之上，复用其指针分析图 (PAG) 与调用图 (CallGraph)，在此基础上实现上下文敏感的污点传播、检测与报告。
+**ArkTaint** 是专为 HarmonyOS (ArkTS) 应用开发的高精度静态污点分析引擎。它构建在 [ArkAnalyzer](https://gitcode.net/openharmony-sig/arkanalyzer) 坚实的底层基础架构之上（充分利用其 IR、调用图机制与指针分析底座），并在此基础上突破性地引入了深度的框架语义级控制流恢复、基于 PAG (Provenance Analysis Graph) 的惰性数据流追踪，以及灵活且严谨的三维扩展隔离架构。
 
-**设计目标**：使用者只需提供项目路径与规则配置（可选），即可获得漏洞识别报告，**无需修改引擎源码**。
+无论是用于大规模开源鸿蒙工程的安全漏洞扫描、对复杂的长时异步 API 行为进行语义建模，还是通过插件深层定制符合特定企业合规的分析流水线，ArkTaint 都能提供极其精准、低假阳性的分析支撑。
 
-## 核心特性
+### 📌 项目状态
 
-### 分析能力
+ArkTaint 当前已经具备完整的工程主线：可运行的 CLI、规则系统、模块系统、插件系统、主回归测试、基准测试以及结构化诊断输出。  
+同时，它仍然是一个持续演进中的分析框架，而不是冻结不变的产品化 SDK。这意味着：
 
-- **自适应上下文敏感分析 (Adaptive k-CFA)** — 按方法热度动态调整上下文深度，平衡精度与性能
-- **Worklist 污点传播引擎** — 基于 PAG 的精确数据流追踪，支持表达式级传播、字段敏感、容器语义
-- **ArkMain 入口自动发现** — 不依赖 `main()` 函数，自动识别框架驱动的入口点（UIAbility 生命周期、Router 回调、Extension 等）
-- **闭包与回调桥接** — 处理闭包捕获、回调注册 (`.on`/`.off`)、`Function.bind`、跨组件数据传递
+- 日常使用和扩展开发已经是第一等公民能力；
+- 工程纪律已经明确；
+- 但建模能力、基准覆盖和作者接口仍会继续迭代。
 
-### 鸿蒙深度建模
+### ✨ 核心技术突破
 
-通过可插拔语义包 (Semantic Pack) 实现，支持以下 HarmonyOS 特性的污点传播建模：
+相较于传统的“泛匹配”或“硬编码”类型的污点引擎，ArkTaint 解决了现代响应式声明 UI 框架和重度异步调度平台特有的痛点：
 
-| 特性 | 语义包 | 建模内容 |
-|------|--------|---------|
-| AppStorage / LocalStorage | `appstorage.pack` | 跨组件持久化存储的数据流传播 |
-| Router 路由参数 | `router.pack` | `pushUrl` / `getParams` 跨页面参数传递 |
-| UI 状态装饰器 | `state.pack` | `@State` / `@Prop` / `@Link` 父子组件数据绑定 |
-| EventHub / Emitter | `emitter.pack` | `emit` → `on` 事件驱动数据流桥接 |
-| Worker / TaskPool | `worker_taskpool.pack` | 跨线程数据传递 |
-| Ability Handoff | `ability_handoff.pack` | `want` / `startAbility` 跨 Ability 数据流 |
-| 容器语义 | `container.pack` | Map / Set / Array 容器操作的污点传播 |
+- 🎯 **框架感知的语义级入口恢复 (ArkMain 核心算法)**  
+  在 HarmonyOS 中，不存在单一的 `main()` 入口。控制流碎片化散落在 `Ability / Component` 生命周期、UI 交互事件、系统调度器行为，乃至页面间 Router 与 Want 的唤起投递中。传统的 CG/PAG 对这些“隐式触发”完全盲视。  
+  ArkTaint 摒弃了松散的字符串匹配启发式猜测，首创了 **ArkMain 算法**：它通过推断精确的 **Activation Contract**（激活契约：包含 owner, surface, trigger, phase, boundary 维度），找出合法的 Framework-managed Entry，并将这些散落的代码片段严格按时序物化出一个合成的根节点 (`@arkMain Synthetic Root`)，为后续分析奠定了绝对合规可溯的启动面。
 
-### 工程化能力
+- 🔄 **统一延后执行建模 (Unified Deferred Execution)**  
+  传统分析引擎针对 Callback、Closure、Promise 会编写数十套“打补丁式”的遍历逻辑。ArkTaint 从理论模型层面进行了降维打击，设计了极简的 **Activation Handoff Contract** 模型。  
+  通过将各类异步现象抽象为 `Semantic Kernel` 与 `Port Summary`，ArkTaint 完美统一了不同异步投递机制之间的数据交接，避免了全剧图泛洪，并全面依托于 PAG 的惰性求值策略 (Lazy Evaluation) 进行精确演算，达到计算性能与分析精度的极限平衡。
 
-- **规则分层机制** — `default` → `framework` → `project` 三级规则自动合并，优先级递增
-- **引擎插件系统** — 6 阶段钩子 (`onStart` → `onEntry` → `onPropagation` → `onDetection` → `onResult` → `onFinish`)，支持观察、追加、替换三级能力
-- **零代码接入** — 新项目分析不需要修改 `src/core/`，仅通过规则和配置驱动
-- **解释性报告** — 输出 `summary.md` / `summary.json`，展示完整污点链路与规则命中明细
+- 🌊 **基于工作表 (Worklist) 的纵深污点传播**  
+  不满足于局部变量的数据流传递，ArkTaint 的分析指针具备跨越系统运行期的深厚穿透力：包含基础的 Local Value Flow 和对象状态演移 (Object State / Field Flow)；解决重度复杂的 ES6 高级容器追踪 (Array, Map, Set)；甚至支持应用层从局部组件经由 `AppStorage / LocalStorage / PersistentStorage` 全局响应式黑洞发生的数据污染逃逸追踪。
 
-## 架构设计
+---
 
-ArkTaint 采用 **"三域"架构 (Core–Contract–Extension)**，将不可变的分析引擎、可插拔的扩展模块、用户交互接口彻底分离：
+### 🏗 体系架构
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                       引擎域 (src/core/)                         │
-│                                                                  │
-│   Assembler (orchestration/)   ── 驱动全流程，装配所有模块        │
-│       │                                                          │
-│   ┌───┴──────────────────────────────────────────────────┐       │
-│   │  Substrate     Entry       Kernel        Rules       │       │
-│   │  IR 查询    入口发现     传播引擎      规则引擎       │       │
-│   └──────────────────────┬───────────────────────────────┘       │
-│                          │                                       │
-│               ┌──────────┴──────────┐                            │
-│               │    契约边界          │                            │
-│               │  kernel/contracts/  │                            │
-│               └──┬──────┬───────┬──┘                            │
-└──────────────────┼──────┼───────┼────────────────────────────────┘
-                   │      │       │
-    ┌──────────────┼──────┼───────┼──────────────────────┐
-    │       扩展域  ▼      ▼       ▼                      │
-    │   ┌────────┐ ┌──────┐ ┌──────────┐                 │
-    │   │ 规则    │ │ 语义包│ │ 引擎插件  │                 │
-    │   │src/rules│ │src/  │ │src/      │                 │
-    │   │        │ │packs/│ │plugins/  │                 │
-    │   └────────┘ └──────┘ └──────────┘                 │
-    └────────────────────────────────────────────────────┘
+ArkTaint 采用模块化分层防腐架构设计，确保了引擎的稳定性与纯粹性：
 
-    ┌────────────────────────────────────────────────────┐
-    │       接口域                                        │
-    │   src/cli/       命令行入口                         │
-    │   docs/          用户文档                           │
-    └────────────────────────────────────────────────────┘
+```text
+src/
+├── core/     # 🧠 分析内核、传播引擎、ArkMain Contract 推理总线、PAG 求值体系
+├── rules/    # 📜 Builtin Default Rules (基于声明式的数据来源与终端点映射)
+├── modules/  # 🛠 Builtin Semantic Modules (闭包桥接、生命周期调度、Router/Worker 等深度支持)
+├── plugins/  # 🔌 Engine Plugins (自定义探察发现机制，运行期审计与观测)
+├── cli/      # 💻 命令行执行驱动、结构化输出报告总装、系统诊断调试工具
+├── tests/    # 🧪 涵盖架构防劣化门禁、Metamorphic 变异测试集、HapBench 集成跑道
+└── tools/    # 🔧 内部研效工具与自动特征生成系
 ```
 
-### 引擎域（`src/core/`）
+---
 
-不可变的分析引擎内核，由 5 个功能模块组成：
+### 🚀 快速开始
 
-| 模块 | 路径 | 职责 |
-|------|------|------|
-| **Substrate** | `core/substrate/` | 对 ArkAnalyzer IR 的查询封装（方法解析、回调识别、字符串追溯、SDK 来源判断） |
-| **Entry** | `core/entry/` | ArkMain 入口自动发现模型（生命周期、回调、通道、调度器、桥接、可解释性） |
-| **Kernel** | `core/kernel/` | WorklistSolver 污点传播 + 上下文敏感管理 + 契约接口定义 |
-| **Rules** | `core/rules/` | Rule Schema v2.0 类型定义 + 多层规则加载合并 + 规则校验 |
-| **Assembler** | `core/orchestration/` | 总装配器：驱动分析流程 + 语义包/引擎插件的加载与运行时调度 |
+#### 环境要求
+- **Node.js** `>= 18`
+- 确保可用环境拥有 `npm` 或 `pnpm` 包管理器。
 
-模块间依赖由自动化门禁 (`test_layer_dependency_gate`) 守卫。
-
-### 契约边界（`kernel/contracts/`）
-
-引擎域与扩展域之间的**唯一通道**。扩展域的所有代码只允许 import 契约接口，不允许触碰引擎域的实现文件。
-
-### 扩展域
-
-三类可插拔扩展，各自有严格的 import 隔离墙：
-
-| 扩展类型 | 路径 | 允许 import | 用途 |
-|---------|------|------------|------|
-| **规则内容** | `src/rules/` | `core/rules/RuleSchema.ts` | 规则 JSON 文件 + 规则生成器 |
-| **语义包** | `src/packs/` | `core/kernel/contracts/*` | 领域知识建模（数据流传播语义） |
-| **引擎插件** | `src/plugins/` | `core/orchestration/plugins/EnginePlugin.ts` | 分析流程定制（修改引擎行为） |
-
-### 项目目录结构
-
-```
-ArkTaint/
-├── arkanalyzer/                    # 不可变底座（ArkAnalyzer）
-├── src/
-│   ├── core/                       # 引擎域
-│   │   ├── substrate/queries/      #   IR 查询（4 文件）
-│   │   ├── entry/                  #   入口发现（33 文件）
-│   │   │   ├── arkmain/            #     ArkMain 模型
-│   │   │   └── shared/             #     公用入口工具
-│   │   ├── kernel/                 #   传播引擎（34 文件）
-│   │   │   ├── context/            #     上下文敏感
-│   │   │   └── contracts/          #     契约边界（15 文件）
-│   │   ├── rules/                  #   规则引擎（3 文件）
-│   │   └── orchestration/          #   装配器（8 文件）
-│   │       ├── packs/              #     语义包加载器 + 运行时
-│   │       └── plugins/            #     引擎插件加载器 + 运行时
-│   ├── rules/                      # 扩展域：规则内容
-│   │   ├── default.rules.json      #   内置默认规则
-│   │   ├── framework.rules.json    #   框架级规则
-│   │   └── templates/              #   项目规则模板
-│   ├── packs/                      # 扩展域：语义包
-│   │   ├── tsjs/                   #   TS/JS 通用（容器语义）
-│   │   └── harmony/                #   HarmonyOS 特性建模（6 个语义包）
-│   ├── plugins/                    # 扩展域：引擎插件
-│   ├── cli/                        # 接口域：CLI
-│   ├── tests/                      # 测试代码
-│   └── tools/                      # 工具脚本
-├── sdk/arkui/                      # 内置 ArkUI SDK 声明
-├── tests/                          # 测试数据（67 个用例类别）
-├── docs/                           # 用户文档
-└── examples/                       # 语义包 / 引擎插件示例
-```
-
-## 快速开始
-
-### 环境要求
-
-| 依赖 | 版本要求 |
-|------|---------|
-| Node.js | `>= 18.15.0` |
-| npm | `>= 9.0.0` |
-| TypeScript | `>= 5.0.0` |
-| 操作系统 | Windows / macOS / Linux |
-
-### 安装与构建
+#### 构建项目
 
 ```bash
-git clone https://github.com/ArkTaint/ArkTaint.git
-cd ArkTaint
 npm install
 npm run build
 ```
 
-### 验证安装
+#### 工程防线回归与检查
+
+开发周期内最核心的准入门禁。不仅会跑单元测试，还会执行系统运行期的契约审计（涵盖引擎架构、Module 规范与 ArkMain 入口一致性等）：
 
 ```bash
 npm run verify
 ```
 
-## CLI 使用指南
+---
 
-### 基础用法
+### 💻 核心 CLI 审计方案
 
+提供高度可配的扫描入口（全量参数详见 [CLI Usage Guide](./docs/cli_usage.md)）。
+
+**1. 基线项目扫描（仅拉起内置安全池）**
 ```bash
-node out/cli/analyze.js --repo <项目路径>
-```
-
-### 参数说明
-
-| 参数 | 必填 | 默认值 | 说明 |
-|------|:----:|--------|------|
-| `--repo <path>` | 是 | — | ArkTS 项目根目录路径 |
-| `--sourceDir <path>` | 否 | 自动探测 | 源码目录（相对于 repo，逗号分隔多目录） |
-| `--profile <mode>` | 否 | `default` | 分析预设：`fast`（快速）/ `default`（均衡）/ `strict`（高精度） |
-| `--reportMode <mode>` | 否 | `light` | 报告详细度：`light`（关键链路）/ `full`（完整细节） |
-| `--outputDir <path>` | 否 | `tmp/analyze/` | 报告输出目录 |
-| `--framework <path>` | 否 | — | 额外的框架级规则 JSON 文件 |
-| `--project <path>` | 否 | — | 项目特定规则 JSON 文件（最高优先级） |
-| `--[no-]incremental` | 否 | 开启 | 启用/关闭解析增量缓存 |
-| `--packs <path>` | 否 | — | 额外语义包目录 |
-| `--plugins <path>` | 否 | — | 额外引擎插件目录或文件 |
-| `--disable-builtin-packs` | 否 | — | 禁用内置语义包 |
-| `--disable-plugins <name>` | 否 | — | 按名称禁用指定引擎插件 |
-
-### 使用示例
-
-**快速扫描**
-
-```bash
-node out/cli/analyze.js --repo ../my-harmony-app --profile fast
-```
-
-**高精度分析 + 自定义规则**
-
-```bash
-node out/cli/analyze.js --repo ../my-harmony-app \
+node out/cli/analyze.js \
+  --repo <鸿蒙工程代码根目录> \
   --sourceDir entry/src/main/ets \
-  --profile strict \
-  --project ./my_rules.json
+  --ruleCatalog src/rules
 ```
 
-**加载外部语义包和插件**
+**2. 加装业务防护与自定义规则**
+使用宿主特化的 Rules 与定制 Modules，对业务特定的敏感点与自研框架开展扫描：
+```bash
+node out/cli/analyze.js \
+  --repo <repo> \
+  --sourceDir entry/src/main/ets \
+  --ruleCatalog src/rules \
+  --project <自研项目.rules.json> \
+  --module-root <特定模型加载目录> \
+  --enable-module-project <projectId>
+```
+
+**命令行结构化输出解析：**
+引擎生成的中间件与分析物会被按需生成：
+- `run.json`: 当前任务引擎负载与耗时分发记录。
+- `summary/summary.md`: 图文并茂的问题链路溯源 Markdown 报告。
+- `summary/summary.json`: 面向程序与 AI 的结构化摘要，不阅读测试或源码也能理解这次分析的总体结论。
+- `diagnostics/diagnostics.json`: 若您的扩展发生了语法或注册违规，该文件会产生具备精确定位的长篇建议（结构化错误码机制）。
+
+**如果您第一次运行 ArkTaint，建议优先查看：**
+
+1. `summary/summary.md`
+2. `summary/summary.json`
+3. `diagnostics/diagnostics.txt`
+
+---
+
+### 🧪 测试与 Benchmark 基准体系
+
+ArkTaint 不将所有测试混入不可解释的单体应用，而是维护了极其庞杂且专项的测试沙盒。所有的跑测执行产物均沉淀于 `tmp/test_runs/...` 中，长跑时还会自动输出 `progress.json` 指标。
+
+**常用测试入口矩阵：**
+
+| 命令 | 作用 |
+|------|------|
+| `npm run verify` | 主工程回归，检查系统契约是否被打坏 |
+| `npm run test:diagnostics` | Rules / Modules / Plugins 的报错定位与 inspection 回归 |
+| `npm run test:arktaint-bench` | ArkTaint 主集成 benchmark |
+| `npm run test:harmony-modeling` | Harmony 内建 modules 的专项建模 benchmark |
+
+---
+
+### 🔌 扩展与贡献指南
+
+为应对日益膨胀的未知 API，ArkTaint 建立了极其严苛的工程纪律：**绝不对 Core Kernel 进行散装逻辑修补**。扩展能力被正交定义为三个位面。
+
+#### 严谨的三维扩展架构 (弹性边界隔离)
+
+- **Rules (配置规则)**: 用于低阶的声明式 Endpoint 传播表达，如标记某个入参为 Sink，定义某个 API 返回值为 Source，或是配置 Sanitizer 拦截网。
+- **Modules (语义模块)**: 专用于弥合复杂调用，如强语义框架的调度桥接任务、特定 Event Emitter 的派发收敛，以及闭包或 Worker/TaskPool 层面的状态硬编码恢复。
+- **Plugins (引擎插件)**: 允许深度侵入分析主流水线，可监听传播事件 (Propagation Observers)、注入自定发现逻辑机制，或执行定制化的结果收口与报表过滤。
+
+#### 🧭 何时使用 Rules / Modules / Plugins
+
+| 需求类型 | 推荐方式 |
+|---------|---------|
+| 只需要声明某个 endpoint 是 source / sink / transfer / sanitizer | **Rules** |
+| 需要为某个 API、框架能力或 SDK 行为补语义逻辑 | **Modules** |
+| 需要改变分析流程本身，如 entry、propagation、detection、result | **Plugins** |
+
+#### 🧩 贡献建议
+
+如果您准备为 ArkTaint 增加新能力，推荐遵循如下顺序：
+
+1. 能用声明式 endpoint 语义表达的，优先写 **Rules**；
+2. 需要针对具体 API 或框架补语义的，优先写 **Modules**；
+3. 只有在需要改变分析流程本身时，才写 **Plugins**；
+4. 只有在现有公开作者接口确实不够表达一类通用能力时，才考虑修改 **Kernel**。
+
+如果您希望从最小样例入手，建议先看：
+- `examples/module/demo-module/demo.ts`
+- `examples/plugins/timer_and_filter.plugin.ts`
+
+---
+
+## English
+
+### 📖 Overview
+
+**ArkTaint** is an advanced, high-precision static taint analysis engine built specifically for HarmonyOS (ArkTS) applications. Operating atop the [ArkAnalyzer](https://gitcode.net/openharmony-sig/arkanalyzer) infrastructure (maximizing its capability for IR mapping, Call Graph construction, and root Pointer Analysis), ArkTaint sets entirely new benchmarks by pioneering deep, framework-aware control flow recovery, PAG-based lazy evaluation for robust data flow tracking, and adopting a highly disciplined three-dimensional extension architecture. 
+
+Whether engaged in vulnerability hunting across immense OpenHarmony codebases, crafting intricate semantic modeling for opaque asynchronous endpoints, or seamlessly plugging in organizational compliance checks, ArkTaint offers uncompromised stability and precision.
+
+### 📌 Project Status
+
+ArkTaint already has a complete engineering backbone: a working CLI, rule system, module system, plugin system, primary regression lanes, benchmark lanes, and structured diagnostics.  
+At the same time, it should still be understood as an actively evolving analysis framework rather than a frozen product SDK. In practice, this means:
+
+- day-to-day usage and extension work are first-class workflows;
+- engineering discipline is already enforced;
+- modeling coverage, benchmark scope, and authoring surfaces continue to evolve.
+
+### ✨ Deep Engineering Breakthroughs
+
+Instead of relying on crude substring matchers or patchwork syntax handlers, ArkTaint directly resolves fundamental issues within modern reactive frameworks and asynchronous scheduling:
+
+- 🎯 **Framework-Aware Semantic Entry Recovery (ArkMain Algorithm)**  
+  In contemporary ArkTS code, control flows are massively fragmented—shattered across `Ability/Component` lifecycles, callback handlers, watcher event loops, scheduling timers, and `Want`/`Router` handoffs. Standard analyses remain blind to these disjointed invocations.  
+  ArkTaint answers this by implementing the proprietary **ArkMain Algorithm**: rather than engaging in loose heuristic guessing, it identifies concrete *Framework-managed Entries* and deduces rigid **Activation Contracts** (mapped along owner, surface, trigger, phase, and boundary dimensions). It then synthesizes an irrefutable synthetic root pointer (`@arkMain Synthetic Root`), providing an uncompromising initiation phase for downstream parsing, bridging isolated closures back into a sequential timeline.
+
+- 🔄 **Unified Deferred Execution Mapping**  
+  Historically, analyzing `Callbacks`, `Closures`, and `Promises` resulted in vast quantities of scattered handler patches. ArkTaint eradicates this using theoretical refinement via the **Activation Handoff Contract**.  
+  By abstracting all fragmented deferred evaluations into a uniform intersection of a `Semantic Kernel` and `Port Summary`, the engine gracefully manages data transitions. Integrated fully with PAG-based Lazy Evaluation logic, it accurately models continuation execution edges while virtually nullifying explosive edge generation and performance bloat.
+
+- 🌊 **Worklist-Driven Penetrative Taint Propagation**  
+  Moving past elementary logic, ArkTaint's worklist core is designed to persistently traverse deep local boundaries.  
+  It navigates standard local value flows, intricate object state shifts, complex data topologies housed within ES6 native containers (Array, Map, Set bindings), and fully bridges state-reactive escapement mechanisms common in Harmony frameworks like AppStorage, LocalStorage, and PersistentStorage mutations.
+
+---
+
+### 🏗 Component Architecture
+
+ArkTaint deploys a layered anti-corruption structural layout to isolate specific responsibilities:
+
+```text
+src/
+├── core/     # 🧠 Core Kernel, Propagation Graph Matrix, ArkMain Bus, PAG evaluators 
+├── rules/    # 📜 Builtin default schema layouts covering OS-level declarative patterns
+├── modules/  # 🛠 Builtin semantic handlers for bridging asynchronous APIs & closures
+├── plugins/  # 🔌 Custom engine plugins governing instrumentation, interception & audit
+├── cli/      # 💻 Terminal runner, structured diagnostic formatter & audit tooling
+├── tests/    # 🧪 Hardened CI pipeline gates, Metamorphic verifiers, & HapBench runner
+└── tools/    # 🔧 Developer SDK generation and metric extraction tools
+```
+
+---
+
+### 🚀 Rapid Start
+
+#### System Requirements
+- Environment equipped with **Node.js 18+**
+- Node Package Manager (`npm` or `pnpm`)
+
+#### Assembly
 
 ```bash
-node out/cli/analyze.js --repo ../my-harmony-app \
-  --packs ./my-packs \
-  --plugins ./my-plugins/custom.ts
+npm install
+npm run build
 ```
 
-分析完成后，在 `outputDir` 下查看 `summary.md` 和 `summary.json` 获取漏洞报告。
+#### Executing the Core Verification Gate
 
-## 扩展开发
-
-ArkTaint 提供两种扩展机制，均为"放入即生效、删除即消失"的热插拔模式。
-
-### 语义包（Semantic Pack）
-
-用于添加领域知识——告诉引擎"数据在特定 API 中如何流动"。
-
-```typescript
-import { defineSemanticPack } from "../../core/kernel/contracts/SemanticPack";
-
-export default defineSemanticPack({
-    id: "my.custom.modeling",
-    description: "自定义 API 的数据流建模",
-    setup(ctx) {
-        return {
-            onInvoke(event) {
-                if (event.methodName === "myTransfer") {
-                    // 返回新的污点事实
-                }
-            },
-        };
-    },
-});
-```
-
-将 `.pack.ts` 文件放入 `src/packs/` 或通过 `--packs` 指定外部目录。
-
-### 引擎插件（Engine Plugin）
-
-用于定制分析流程——修改引擎在各阶段的行为。
-
-```typescript
-import { defineEnginePlugin } from "../core/orchestration/plugins/EnginePlugin";
-
-export default defineEnginePlugin({
-    name: "my.custom.plugin",
-    onStart(api) {
-        // 动态添加规则
-        api.addSourceRule({ /* ... */ });
-    },
-    onEntry(api) {
-        // 添加自定义入口
-        api.addEntry(myMethod);
-    },
-    onResult(api) {
-        // 过滤误报
-        api.filter(finding => isRelevant(finding) ? finding : null);
-    },
-});
-```
-
-将 `.ts` 文件放入 `src/plugins/` 或通过 `--plugins` 指定。
-
-6 个阶段钩子提供三级能力：
-
-| 能力级别 | 说明 | 示例 |
-|---------|------|------|
-| **观察** | 只读获取分析状态 | `getScene()`, `getFindings()`, `onCallEdge()` |
-| **追加** | 向默认结果追加内容 | `addRule()`, `addEntry()`, `addFlow()`, `addFinding()` |
-| **替换** | 接管整个阶段（可回退到默认实现） | `replace(fn, fallback)` |
-
-> 详细开发指南参见 [`docs/engine_plugin_guide.md`](docs/engine_plugin_guide.md) 和 [`docs/semantic_pack_development_guide.md`](docs/semantic_pack_development_guide.md)。
-
-## 规则配置
-
-ArkTaint 使用 Rule Schema v2.0，支持四种规则类型。规则文件以 JSON 格式编写，通过分层机制自动合并。
-
-### 污染源规则（Source）
-
-```json
-{
-  "sources": [{
-    "id": "source.harmony.want_uri",
-    "sourceKind": "call_return",
-    "match": { "kind": "method_name_equals", "value": "getWantUri" },
-    "target": "result"
-  }]
-}
-```
-
-### 污染汇规则（Sink）
-
-```json
-{
-  "sinks": [{
-    "id": "sink.harmony.web_load",
-    "match": { "kind": "method_name_equals", "value": "loadUrl" },
-    "target": "arg0"
-  }]
-}
-```
-
-### 传播规则（Transfer）
-
-```json
-{
-  "transfers": [{
-    "id": "transfer.array.push",
-    "match": { "kind": "method_name_equals", "value": "push" },
-    "from": "arg0",
-    "to": "base"
-  }]
-}
-```
-
-### 净化规则（Sanitizer）
-
-```json
-{
-  "sanitizers": [{
-    "id": "sanitizer.escape_html",
-    "match": { "kind": "method_name_equals", "value": "escapeHtml" },
-    "target": "result"
-  }]
-}
-```
-
-规则加载优先级：`default.rules.json` < `framework.rules.json` < `project.rules.json`
-
-> 完整的规则 Schema 文档参见 [`docs/rule_schema.md`](docs/rule_schema.md)。
-
-## 测试体系
-
-### 门禁测试
-
-| 命令 | 覆盖范围 |
-|------|---------|
-| `npm run verify` | 主链门禁：构建 + 层级依赖检查 + 语义包/插件运行时 + 入口模型 + CLI 集成 |
-| `npm run verify:dev` | 扩展门禁：主链 + 真实项目烟测 + 项目规则工作流 |
-
-### 专项测试
+Considered mandatory ahead of contributing logic; checks the physical health of not only compilation tests but operational contract bounds, module hygiene, and ArkMain architectural persistence:
 
 ```bash
-npm run test:context                # 上下文敏感测试
-npm run test:full                   # 全量数据集测试
-npm run test:harmony-bench          # HarmonyOS Benchmark
-npm run test:entry-model            # ArkMain 入口模型测试
-npm run test:layer-dependency-gate  # 架构层级依赖门禁
-npm run verify:generalization       # 泛化验证
+npm run verify
 ```
 
-### 真实项目声明
+---
 
-为保持仓库纯净，**所有第三方项目源码不包含在本仓库内**。如需运行真实项目烟测：
+### 💻 Deep CLI Auditing
 
-1. 自行 Clone 目标项目到外部隔离目录
-2. 修改 `tests/manifests/*_projects.json` 中的路径映射
-3. 执行 `npm run test:smoke` 或 `npm run test:smoke:external`
+Delivers highly configurable targets (exhaustive metrics and configurations found via the [CLI Documentation](./docs/cli_usage.md)).
 
-## 许可证
+**1. Baseline Application Audit**
+```bash
+node out/cli/analyze.js \
+  --repo <Local Repo Directory> \
+  --sourceDir entry/src/main/ets \
+  --ruleCatalog src/rules
+```
 
-本项目基于 [Apache License 2.0](LICENSE) 开源协议发布。
+**2. Amplified Security Assessment with Distinct Logic Imports**
+Integrates unique company-bound intelligence and isolated behavior modeling capabilities over the runtime:
+```bash
+node out/cli/analyze.js \
+  --repo <repo> \
+  --sourceDir entry/src/main/ets \
+  --ruleCatalog src/rules \
+  --project <project.rules.json> \
+  --module-root <directory path representing your structural model> \
+  --enable-module-project <project target identifier>
+```
 
-## 联系方式
+**Expected Structural Telemetry:**
+- `run.json`: Global operational metadata spanning pipeline payload usage.
+- `summary/summary.md`: Highly narrative, graph-based markdown mapping pinpointing taint origins.
+- `summary/summary.json`: Machine-friendly and AI-friendly structured output that explains the run verdict without requiring test or source inspection.
+- `diagnostics/diagnostics.json`: Absolute precision engine warnings mapping syntactic violations occurring via your Rules or Code module additions against strict internal constraints.
 
-使用中遇到的问题及安全漏报/误报，欢迎提交 Issue。
+**For a first-time run, start by opening:**
+
+1. `summary/summary.md`
+2. `summary/summary.json`
+3. `diagnostics/diagnostics.txt`
+
+---
+
+### 🧪 Benchmarking Corridors
+
+Refusing to entangle distinct features within monolith CI runners, ArkTaint houses distinct, isolated architectural evaluation sandboxes. *(Artifacts output dynamically per run sequence toward `tmp/test_runs/...` inclusive of the detailed `progress.json` traces indicative of extensive executions.)*
+
+**Common test matrix:**
+
+| Command | Purpose |
+|---------|---------|
+| `npm run verify` | Primary engineering regression |
+| `npm run test:diagnostics` | Diagnostics and inspection regression for Rules, Modules, and Plugins |
+| `npm run test:arktaint-bench` | Integrated ArkTaint benchmark |
+| `npm run test:harmony-modeling` | Dedicated benchmark for builtin Harmony modules |
+
+---
+
+### 🔌 Extensibility & Contribution Guidance
+
+ArkTaint establishes a fiercely policed engineering doctrine: **Never submit disparate, loose logic patches to the Core Kernel.** All expansions must abide by an orthogonal layout:
+
+#### Disciplined Architectonic Extensions (Elastic Isolation boundaries)
+
+- **Rules**: Used for zero-code declarative mapping (categorizing isolated endpoint signatures as Sources, Sinks, Transfers, or Sanitizers).
+- **Modules**: Crucial for defining deep, semantic-level framework interventions (e.g., stitching fractured Event Emitter handovers, hardcoding `Worker/TaskPool` context bridges, or state continuations).
+- **Plugins**: A raw avenue into the central pipeline itself—enabling interceptors acting as Propagation Observers, injecting radical discovery routines, and manipulating output logic sets.
+
+#### 🧭 When to Use Rules / Modules / Plugins
+
+| Need | Recommended Surface |
+|------|---------------------|
+| You only need to mark a source, sink, transfer, or sanitizer endpoint | **Rules** |
+| You need semantic logic for a concrete API, framework feature, or SDK | **Modules** |
+| You need to change the analysis pipeline itself | **Plugins** |
+
+#### 🧩 Contribution Guidance
+
+If you plan to extend ArkTaint, the preferred order is:
+
+1. use **Rules** when declarative endpoint semantics are enough;
+2. use **Modules** when a concrete API or framework semantic must be modeled;
+3. use **Plugins** only when the analysis workflow itself must change;
+4. evolve **Kernel** only when the public authoring surface is fundamentally insufficient.
+
+Useful starting points:
+- `examples/module/demo-module/demo.ts`
+- `examples/plugins/timer_and_filter.plugin.ts`
+
+---
+
+### 📄 Licensing Directives
+
+ArkTaint operates proudly beneath the [Apache License 2.0](./LICENSE).  
+Copyright © Contributors to the ArkTaint Project.

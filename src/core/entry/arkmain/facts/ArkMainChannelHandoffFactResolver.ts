@@ -8,7 +8,11 @@ export function collectChannelHandoffFacts(scene: Scene, context: ArkMainFactCol
     const managedOwners = collectFrameworkManagedOwners(scene);
     const candidateMethods = dedupeMethods(
         scene.getClasses().flatMap(cls => {
-            if (!managedOwners.isAbilityOwner(cls)) {
+            if (
+                !managedOwners.isAbilityOwner(cls)
+                && !managedOwners.isStageOwner(cls)
+                && !managedOwners.isExtensionOwner(cls)
+            ) {
                 return [];
             }
             return cls.getMethods().filter(method =>

@@ -30,7 +30,7 @@
             "id": "source.framework_probe.navpathstack.getparams",
             "match": {
                 "kind": "signature_regex",
-                "value": "NavPathStack.*getParams"
+                "value": "\\bNavPathStack\\.getParams\\("
             },
             "sourceKind": "call_return",
             "target": {

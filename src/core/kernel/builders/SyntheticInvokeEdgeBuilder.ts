@@ -36,6 +36,7 @@ import {
     type SyntheticInvokeLookupContext,
     type SyntheticInvokeLookupStats,
 } from "./SyntheticInvokeCallbacks";
+import { buildExecutionHandoffSiteKeyFromStmt } from "../handoff/ExecutionHandoffSiteKey";
 export {
     buildSyntheticConstructorStoreMap,
     buildSyntheticFieldBridgeMap,
@@ -95,7 +96,8 @@ export function buildSyntheticInvokeEdges(
     scene: Scene,
     cg: CallGraph,
     pag: Pag,
-    log: (msg: string) => void
+    log: (msg: string) => void,
+    excludedDeferredSiteKeys?: ReadonlySet<string>,
 ): Map<number, SyntheticInvokeEdgeInfo[]> {
     const buildStartMs = Date.now();
     const edgeMap = new Map<number, SyntheticInvokeEdgeInfo[]>();
@@ -105,7 +107,7 @@ export function buildSyntheticInvokeEdges(
     const lazy = buildSyntheticInvokeLazyMaterializer(scene, cg, pag, log);
 
     for (const site of lazy.sites) {
-        const stats = materializeSyntheticInvokeSite(scene, cg, pag, edgeMap, lazy, site);
+        const stats = materializeSyntheticInvokeSite(scene, cg, pag, edgeMap, lazy, site, excludedDeferredSiteKeys);
         syntheticCallCount += stats.callCount;
         syntheticReturnCount += stats.returnCount;
         fallbackCalleeCount += stats.fallbackCalleeCount;
@@ -214,7 +216,8 @@ export function materializeSyntheticInvokeSitesForNode(
     pag: Pag,
     edgeMap: Map<number, SyntheticInvokeEdgeInfo[]>,
     lazy: SyntheticInvokeLazyMaterializer,
-    nodeId: number
+    nodeId: number,
+    excludedDeferredSiteKeys?: ReadonlySet<string>,
 ): { callCount: number; returnCount: number; fallbackCalleeCount: number } {
     const siteIds = lazy.siteIdsByTriggerNodeId.get(nodeId) || [];
     let callCount = 0;
@@ -226,7 +229,7 @@ export function materializeSyntheticInvokeSitesForNode(
         lazy.materializedSiteIds.add(siteId);
         const site = lazy.siteById.get(siteId);
         if (!site) continue;
-        const stats = materializeSyntheticInvokeSite(scene, cg, pag, edgeMap, lazy, site);
+        const stats = materializeSyntheticInvokeSite(scene, cg, pag, edgeMap, lazy, site, excludedDeferredSiteKeys);
         callCount += stats.callCount;
         returnCount += stats.returnCount;
         fallbackCalleeCount += stats.fallbackCalleeCount;
@@ -240,7 +243,8 @@ export function materializeEagerSyntheticInvokeSites(
     cg: CallGraph,
     pag: Pag,
     edgeMap: Map<number, SyntheticInvokeEdgeInfo[]>,
-    lazy: SyntheticInvokeLazyMaterializer
+    lazy: SyntheticInvokeLazyMaterializer,
+    excludedDeferredSiteKeys?: ReadonlySet<string>,
 ): { callCount: number; returnCount: number; fallbackCalleeCount: number } {
     if (lazy.eagerSitesMaterialized) {
         return { callCount: 0, returnCount: 0, fallbackCalleeCount: 0 };
@@ -255,7 +259,7 @@ export function materializeEagerSyntheticInvokeSites(
         lazy.materializedSiteIds.add(siteId);
         const site = lazy.siteById.get(siteId);
         if (!site) continue;
-        const stats = materializeSyntheticInvokeSite(scene, cg, pag, edgeMap, lazy, site);
+        const stats = materializeSyntheticInvokeSite(scene, cg, pag, edgeMap, lazy, site, excludedDeferredSiteKeys);
         callCount += stats.callCount;
         returnCount += stats.returnCount;
         fallbackCalleeCount += stats.fallbackCalleeCount;
@@ -268,13 +272,14 @@ export function materializeAllSyntheticInvokeSites(
     cg: CallGraph,
     pag: Pag,
     edgeMap: Map<number, SyntheticInvokeEdgeInfo[]>,
-    lazy: SyntheticInvokeLazyMaterializer
+    lazy: SyntheticInvokeLazyMaterializer,
+    excludedDeferredSiteKeys?: ReadonlySet<string>,
 ): void {
     lazy.eagerSitesMaterialized = true;
     for (const site of lazy.sites) {
         if (lazy.materializedSiteIds.has(site.id)) continue;
         lazy.materializedSiteIds.add(site.id);
-        materializeSyntheticInvokeSite(scene, cg, pag, edgeMap, lazy, site);
+        materializeSyntheticInvokeSite(scene, cg, pag, edgeMap, lazy, site, excludedDeferredSiteKeys);
     }
 }
 
@@ -364,39 +369,46 @@ function materializeSyntheticInvokeSite(
     pag: Pag,
     edgeMap: Map<number, SyntheticInvokeEdgeInfo[]>,
     lazy: SyntheticInvokeLazyMaterializer,
-    site: SyntheticInvokeLazySite
+    site: SyntheticInvokeLazySite,
+    excludedDeferredSiteKeys?: ReadonlySet<string>,
 ): { callCount: number; returnCount: number; fallbackCalleeCount: number } {
     const { caller, stmt, invokeExpr } = site;
-    const callCount = injectAsyncCallbackCaptureEdges(
-        scene,
-        cg,
-        pag,
-        caller,
-        stmt,
-        invokeExpr,
-        edgeMap,
-        lazy.lookupContext
-    ) + injectResolvedCallbackParameterEdges(
-        scene,
-        cg,
-        pag,
-        caller,
-        stmt,
-        invokeExpr,
-        edgeMap,
-        lazy.invokedParamCache
-    );
+    const siteKey = buildExecutionHandoffSiteKeyFromStmt(caller, stmt);
+    const skipDeferredCallbacks = excludedDeferredSiteKeys?.has(siteKey) || false;
+    const callCount = skipDeferredCallbacks
+        ? 0
+        : injectAsyncCallbackCaptureEdges(
+            scene,
+            cg,
+            pag,
+            caller,
+            stmt,
+            invokeExpr,
+            edgeMap,
+            lazy.lookupContext
+        ) + injectResolvedCallbackParameterEdges(
+            scene,
+            cg,
+            pag,
+            caller,
+            stmt,
+            invokeExpr,
+            edgeMap,
+            lazy.invokedParamCache
+        );
 
-    const directStats = materializeDirectSyntheticInvokeEdges(
-        scene,
-        cg,
-        pag,
-        caller,
-        stmt,
-        invokeExpr,
-        edgeMap,
-        lazy.lookupContext
-    );
+    const directStats = skipDeferredCallbacks
+        ? { callCount: 0, returnCount: 0, fallbackCalleeCount: 0 }
+        : materializeDirectSyntheticInvokeEdges(
+            scene,
+            cg,
+            pag,
+            caller,
+            stmt,
+            invokeExpr,
+            edgeMap,
+            lazy.lookupContext
+        );
 
     return {
         callCount: callCount + directStats.callCount,

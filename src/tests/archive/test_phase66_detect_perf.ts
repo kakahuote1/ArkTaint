@@ -1,4 +1,4 @@
-﻿import * as fs from "fs";
+import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { readAnalyzeSummary, runAnalyzeCli } from "../helpers/AnalyzeCliRunner";
@@ -151,7 +151,7 @@ function runAnalyze(
     const args = [
         "--repo", scenario.repo,
         "--sourceDir", scenario.sourceDir,
-        "--default", "tests/rules/minimal.rules.json",
+        "--kernelRule", "tests/rules/minimal.rules.json",
         "--project", scenario.projectRulePath,
         "--profile", "fast",
         "--k", String(options.k),

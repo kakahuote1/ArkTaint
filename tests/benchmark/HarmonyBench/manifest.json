@@ -9,8 +9,8 @@
                            "supported":  true,
                            "sourceDir":  "tests/demo/harmony_lifecycle",
                            "rules":  {
-                                         "default":  "tests/rules/minimal.rules.json",
-                                         "framework":  "src/rules/framework.rules.json",
+                                         "kernelRule":  "tests/rules/minimal.rules.json",
+                                         "ruleCatalog":  "src/rules",
                                          "project":  "tests/rules/harmony_lifecycle_sink_only.rules.json"
                                      },
                            "cases":  [
@@ -174,8 +174,8 @@
                            "supported":  true,
                            "sourceDir":  "tests/demo/harmony_appstorage",
                            "rules":  {
-                                         "default":  "tests/rules/minimal.rules.json",
-                                         "framework":  "tests/rules/minimal.rules.json",
+                                         "kernelRule":  "tests/rules/minimal.rules.json",
+                                         "ruleCatalog":  "tests/rules/minimal.rules.json",
                                          "project":  "tests/rules/harmony_appstorage.rules.json"
                                      },
                            "cases":  [
@@ -291,8 +291,8 @@
                            "supported":  true,
                            "sourceDir":  "tests/demo/harmony_event_activation",
                            "rules":  {
-                                         "default":  "tests/rules/minimal.rules.json",
-                                         "framework":  "tests/rules/minimal.rules.json",
+                                         "kernelRule":  "tests/rules/minimal.rules.json",
+                                         "ruleCatalog":  "tests/rules/minimal.rules.json",
                                          "project":  "tests/rules/harmony_event_activation.rules.json"
                                      },
                            "cases":  [
@@ -392,8 +392,8 @@
                            "supported":  true,
                            "sourceDir":  "tests/demo/harmony_state_mgmt",
                            "rules":  {
-                                         "default":  "tests/rules/minimal.rules.json",
-                                         "framework":  "tests/rules/minimal.rules.json",
+                                         "kernelRule":  "tests/rules/minimal.rules.json",
+                                         "ruleCatalog":  "tests/rules/minimal.rules.json",
                                          "project":  "tests/rules/harmony_state_mgmt.rules.json"
                                      },
                            "cases":  [
@@ -509,8 +509,8 @@
                            "supported":  true,
                            "sourceDir":  "tests/demo/harmony_e2e",
                            "rules":  {
-                                         "default":  "tests/rules/minimal.rules.json",
-                                         "framework":  "tests/rules/minimal.rules.json",
+                                         "kernelRule":  "tests/rules/minimal.rules.json",
+                                         "ruleCatalog":  "tests/rules/minimal.rules.json",
                                          "project":  "tests/rules/harmony_e2e.rules.json"
                                      },
                            "cases":  [
@@ -562,8 +562,8 @@
                            "supported":  false,
                            "sourceDir":  "tests/demo/harmony_link",
                            "rules":  {
-                                         "default":  "tests/rules/minimal.rules.json",
-                                         "framework":  "tests/rules/minimal.rules.json",
+                                         "kernelRule":  "tests/rules/minimal.rules.json",
+                                         "ruleCatalog":  "tests/rules/minimal.rules.json",
                                          "project":  "tests/rules/harmony_link.rules.json"
                                      },
                            "cases":  [
@@ -618,8 +618,8 @@
                            "supported":  false,
                            "sourceDir":  "tests/demo/harmony_provide_consume",
                            "rules":  {
-                                         "default":  "tests/rules/minimal.rules.json",
-                                         "framework":  "tests/rules/minimal.rules.json",
+                                         "kernelRule":  "tests/rules/minimal.rules.json",
+                                         "ruleCatalog":  "tests/rules/minimal.rules.json",
                                          "project":  "tests/rules/harmony_provide_consume.rules.json"
                                      },
                            "cases":  [
@@ -674,8 +674,8 @@
                            "supported":  false,
                            "sourceDir":  "tests/demo/harmony_router_dynamic",
                            "rules":  {
-                                         "default":  "tests/rules/minimal.rules.json",
-                                         "framework":  "src/rules/framework.rules.json",
+                                         "kernelRule":  "tests/rules/minimal.rules.json",
+                                         "ruleCatalog":  "src/rules",
                                          "project":  "tests/rules/harmony_router_dynamic.rules.json"
                                      },
                            "cases":  [
@@ -730,8 +730,8 @@
                            "supported":  false,
                            "sourceDir":  "tests/demo/harmony_watch",
                            "rules":  {
-                                         "default":  "tests/rules/minimal.rules.json",
-                                         "framework":  "tests/rules/minimal.rules.json",
+                                         "kernelRule":  "tests/rules/minimal.rules.json",
+                                         "ruleCatalog":  "tests/rules/minimal.rules.json",
                                          "project":  "tests/rules/harmony_watch.rules.json"
                                      },
                            "cases":  [
@@ -803,8 +803,8 @@
                            "supported":  false,
                            "sourceDir":  "tests/demo/harmony_worker",
                            "rules":  {
-                                         "default":  "tests/rules/minimal.rules.json",
-                                         "framework":  "tests/rules/minimal.rules.json",
+                                         "kernelRule":  "tests/rules/minimal.rules.json",
+                                         "ruleCatalog":  "tests/rules/minimal.rules.json",
                                          "project":  "tests/rules/harmony_worker.rules.json"
                                      },
                            "cases":  [
@@ -876,8 +876,8 @@
                            "supported":  false,
                            "sourceDir":  "tests/demo/harmony_emitter",
                            "rules":  {
-                                         "default":  "tests/rules/minimal.rules.json",
-                                         "framework":  "tests/rules/minimal.rules.json",
+                                         "kernelRule":  "tests/rules/minimal.rules.json",
+                                         "ruleCatalog":  "tests/rules/minimal.rules.json",
                                          "project":  "tests/rules/harmony_emitter.rules.json"
                                      },
                            "cases":  [
@@ -949,8 +949,8 @@
                            "supported":  false,
                            "sourceDir":  "tests/demo/harmony_preferences",
                            "rules":  {
-                                         "default":  "tests/rules/minimal.rules.json",
-                                         "framework":  "tests/rules/minimal.rules.json",
+                                         "kernelRule":  "tests/rules/minimal.rules.json",
+                                         "ruleCatalog":  "tests/rules/minimal.rules.json",
                                          "project":  "tests/rules/harmony_preferences.rules.json"
                                      },
                            "cases":  [
@@ -1022,8 +1022,8 @@
                            "supported":  false,
                            "sourceDir":  "tests/demo/harmony_rdb",
                            "rules":  {
-                                         "default":  "tests/rules/minimal.rules.json",
-                                         "framework":  "tests/rules/minimal.rules.json",
+                                         "kernelRule":  "tests/rules/minimal.rules.json",
+                                         "ruleCatalog":  "tests/rules/minimal.rules.json",
                                          "project":  "tests/rules/harmony_rdb.rules.json"
                                      },
                            "cases":  [
@@ -1095,8 +1095,8 @@
                            "supported":  false,
                            "sourceDir":  "tests/demo/harmony_http",
                            "rules":  {
-                                         "default":  "tests/rules/minimal.rules.json",
-                                         "framework":  "tests/rules/minimal.rules.json",
+                                         "kernelRule":  "tests/rules/minimal.rules.json",
+                                         "ruleCatalog":  "tests/rules/minimal.rules.json",
                                          "project":  "tests/rules/harmony_http.rules.json"
                                      },
                            "cases":  [
@@ -1168,8 +1168,8 @@
                            "supported":  false,
                            "sourceDir":  "tests/demo/harmony_implicit",
                            "rules":  {
-                                         "default":  "tests/rules/minimal.rules.json",
-                                         "framework":  "tests/rules/minimal.rules.json",
+                                         "kernelRule":  "tests/rules/minimal.rules.json",
+                                         "ruleCatalog":  "tests/rules/minimal.rules.json",
                                          "project":  "tests/rules/harmony_implicit.rules.json"
                                      },
                            "cases":  [

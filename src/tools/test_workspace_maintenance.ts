@@ -1,16 +1,16 @@
 import * as fs from "fs";
 import * as path from "path";
 
-type Mode = "report" | "clean-legacy";
+type Mode = "report" | "clean-stale";
 
 interface CliOptions {
     mode: Mode;
 }
 
-interface LegacyEntryRecord {
+interface TmpEntryRecord {
     name: string;
     kind: "directory" | "file";
-    category: "managed" | "legacy" | "other";
+    category: "managed" | "stale" | "other";
     relativePath: string;
     mtime: string;
 }
@@ -19,9 +19,9 @@ interface MaintenanceReport {
     generatedAt: string;
     mode: Mode;
     tmpRoot: string;
-    managedEntries: LegacyEntryRecord[];
-    legacyEntries: LegacyEntryRecord[];
-    otherEntries: LegacyEntryRecord[];
+    managedEntries: TmpEntryRecord[];
+    staleEntries: TmpEntryRecord[];
+    otherEntries: TmpEntryRecord[];
     removedPaths: string[];
 }
 
@@ -30,7 +30,7 @@ const MANAGED_ROOT_NAMES = new Set([
     "test_runs",
 ]);
 
-const LEGACY_ROOT_PATTERNS: RegExp[] = [
+const STALE_ROOT_PATTERNS: RegExp[] = [
     /^phase\d+/i,
     /^harmony_bench/i,
     /^real_project/i,
@@ -68,8 +68,8 @@ const LEGACY_ROOT_PATTERNS: RegExp[] = [
 function parseArgs(argv: string[]): CliOptions {
     let mode: Mode = "report";
     for (const arg of argv) {
-        if (arg === "--apply" || arg === "--mode=clean-legacy") {
-            mode = "clean-legacy";
+        if (arg === "--apply" || arg === "--mode=clean-stale") {
+            mode = "clean-stale";
         } else if (arg === "--mode=report") {
             mode = "report";
         }
@@ -81,17 +81,17 @@ function ensureDir(dir: string): void {
     fs.mkdirSync(dir, { recursive: true });
 }
 
-function classifyEntry(name: string): "managed" | "legacy" | "other" {
+function classifyEntry(name: string): "managed" | "stale" | "other" {
     if (MANAGED_ROOT_NAMES.has(name)) {
         return "managed";
     }
-    if (LEGACY_ROOT_PATTERNS.some(pattern => pattern.test(name))) {
-        return "legacy";
+    if (STALE_ROOT_PATTERNS.some(pattern => pattern.test(name))) {
+        return "stale";
     }
     return "other";
 }
 
-function collectRecords(tmpRoot: string): LegacyEntryRecord[] {
+function collectRecords(tmpRoot: string): TmpEntryRecord[] {
     if (!fs.existsSync(tmpRoot)) {
         return [];
     }
@@ -118,13 +118,13 @@ function renderMarkdown(report: MaintenanceReport): string {
     lines.push(`- mode: ${report.mode}`);
     lines.push(`- tmpRoot: ${report.tmpRoot}`);
     lines.push(`- managed: ${report.managedEntries.length}`);
-    lines.push(`- legacy: ${report.legacyEntries.length}`);
+    lines.push(`- stale: ${report.staleEntries.length}`);
     lines.push(`- other: ${report.otherEntries.length}`);
     lines.push(`- removed: ${report.removedPaths.length}`);
     lines.push("");
-    const sections: Array<[string, LegacyEntryRecord[]]> = [
+    const sections: Array<[string, TmpEntryRecord[]]> = [
         ["Managed", report.managedEntries],
-        ["Legacy", report.legacyEntries],
+        ["Stale", report.staleEntries],
         ["Other", report.otherEntries],
     ];
     for (const [title, items] of sections) {
@@ -157,11 +157,11 @@ function main(): void {
     ensureDir(tmpRoot);
 
     const records = collectRecords(tmpRoot);
-    const legacyEntries = records.filter(item => item.category === "legacy");
+    const staleEntries = records.filter(item => item.category === "stale");
     const removedPaths: string[] = [];
 
-    if (options.mode === "clean-legacy") {
-        for (const item of legacyEntries) {
+    if (options.mode === "clean-stale") {
+        for (const item of staleEntries) {
             const abs = path.resolve(item.relativePath);
             if (!fs.existsSync(abs)) continue;
             fs.rmSync(abs, { recursive: true, force: true });
@@ -174,22 +174,22 @@ function main(): void {
         mode: options.mode,
         tmpRoot,
         managedEntries: records.filter(item => item.category === "managed"),
-        legacyEntries,
+        staleEntries,
         otherEntries: records.filter(item => item.category === "other"),
         removedPaths,
     };
 
     const outDir = path.resolve("tmp", "test_runs", "_maintenance", "latest");
     ensureDir(outDir);
-    const jsonPath = path.join(outDir, "legacy_tmp_report.json");
-    const mdPath = path.join(outDir, "legacy_tmp_report.md");
+    const jsonPath = path.join(outDir, "stale_tmp_report.json");
+    const mdPath = path.join(outDir, "stale_tmp_report.md");
     fs.writeFileSync(jsonPath, JSON.stringify(report, null, 2), "utf-8");
     fs.writeFileSync(mdPath, renderMarkdown(report), "utf-8");
 
     console.log("====== Tmp Workspace Maintenance ======");
     console.log(`mode=${options.mode}`);
     console.log(`managed=${report.managedEntries.length}`);
-    console.log(`legacy=${report.legacyEntries.length}`);
+    console.log(`stale=${report.staleEntries.length}`);
     console.log(`other=${report.otherEntries.length}`);
     console.log(`removed=${report.removedPaths.length}`);
     console.log(`report_json=${jsonPath}`);

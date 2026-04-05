@@ -7,6 +7,30 @@ import {
     SourceDirSummary,
 } from "./SmokeTypes";
 
+function sumCounts(counts: Record<string, number>): number {
+    return Object.values(counts || {}).reduce((sum, value) => sum + value, 0);
+}
+
+function hasInventoryFlow(entry: EntrySmokeResult): boolean {
+    return (entry.flowRuleTraces?.length || 0) > 0
+        || sumCounts(entry.sinkRuleHits) > 0
+        || entry.flowCount > 0;
+}
+
+function inventoryFlowCount(entry: EntrySmokeResult): number {
+    if ((entry.flowRuleTraces?.length || 0) > 0) {
+        return entry.flowRuleTraces.length;
+    }
+    const sinkHitCount = sumCounts(entry.sinkRuleHits);
+    return sinkHitCount > 0 ? sinkHitCount : entry.flowCount;
+}
+
+function mergeCounts(dst: Record<string, number>, src: Record<string, number>): void {
+    for (const [key, value] of Object.entries(src || {})) {
+        dst[key] = (dst[key] || 0) + value;
+    }
+}
+
 export function createSourceSummary(
     sourceDir: string,
     results: EntrySmokeResult[],
@@ -22,8 +46,8 @@ export function createSourceSummary(
         statusCount[r.status] = (statusCount[r.status] || 0) + 1;
         analyzed++;
         if (r.seedCount > 0) withSeeds++;
-        if (r.flowCount > 0) withFlows++;
-        totalFlows += r.flowCount;
+        if (hasInventoryFlow(r)) withFlows++;
+        totalFlows += inventoryFlowCount(r);
     }
 
     const entryCoverageRate = selection.filteredTotal > 0
@@ -52,6 +76,9 @@ export function createSourceSummary(
 }
 
 export function aggregateReport(options: CliOptions, projects: ProjectSmokeResult[]): SmokeReport {
+    const sinkRuleHits: Record<string, number> = {};
+    const sinkFamilyHits: Record<string, number> = {};
+    const sinkEndpointHits: Record<string, number> = {};
     const sinkFlowByKeyword: Record<string, number> = {};
     const sinkFlowBySignature: Record<string, number> = {};
     let totalAnalyzedEntries = 0;
@@ -67,6 +94,9 @@ export function aggregateReport(options: CliOptions, projects: ProjectSmokeResul
         totalFlows += p.totalFlows;
         if (p.fatalErrors.length > 0) fatalProjectCount++;
 
+        mergeCounts(sinkRuleHits, p.sinkRuleHits);
+        mergeCounts(sinkFamilyHits, p.sinkFamilyHits);
+        mergeCounts(sinkEndpointHits, p.sinkEndpointHits);
         for (const keyword of Object.keys(p.sinkFlowByKeyword)) {
             sinkFlowByKeyword[keyword] = (sinkFlowByKeyword[keyword] || 0) + p.sinkFlowByKeyword[keyword];
         }
@@ -84,6 +114,9 @@ export function aggregateReport(options: CliOptions, projects: ProjectSmokeResul
         totalEntriesWithSeeds,
         totalEntriesWithFlows,
         totalFlows,
+        sinkRuleHits,
+        sinkFamilyHits,
+        sinkEndpointHits,
         sinkFlowByKeyword,
         sinkFlowBySignature,
         fatalProjectCount,
@@ -92,7 +125,7 @@ export function aggregateReport(options: CliOptions, projects: ProjectSmokeResul
 
 export function renderMarkdownReport(report: SmokeReport): string {
     const lines: string[] = [];
-    lines.push("# Phase 4.3 Smoke Report");
+    lines.push("# Real Project Smoke Report");
     lines.push("");
     lines.push(`- generatedAt: ${report.generatedAt}`);
     lines.push(`- manifest: ${report.options.manifestPath}`);
@@ -106,17 +139,24 @@ export function renderMarkdownReport(report: SmokeReport): string {
     lines.push(`- fatal projects: ${report.fatalProjectCount}`);
     lines.push("");
 
-    lines.push("## Sink Flow Totals (Keyword)");
+    lines.push("## Sink Flow Totals (Rule)");
     lines.push("");
-    for (const keyword of Object.keys(report.sinkFlowByKeyword).sort()) {
-        lines.push(`- ${keyword}: ${report.sinkFlowByKeyword[keyword]}`);
+    for (const sinkRuleId of Object.keys(report.sinkRuleHits).sort()) {
+        lines.push(`- ${sinkRuleId}: ${report.sinkRuleHits[sinkRuleId]}`);
     }
     lines.push("");
 
-    lines.push("## Sink Flow Totals (Signature)");
+    lines.push("## Sink Flow Totals (Family)");
     lines.push("");
-    for (const signature of Object.keys(report.sinkFlowBySignature).sort()) {
-        lines.push(`- ${signature}: ${report.sinkFlowBySignature[signature]}`);
+    for (const family of Object.keys(report.sinkFamilyHits).sort()) {
+        lines.push(`- ${family}: ${report.sinkFamilyHits[family]}`);
+    }
+    lines.push("");
+
+    lines.push("## Sink Flow Totals (Endpoint)");
+    lines.push("");
+    for (const endpoint of Object.keys(report.sinkEndpointHits).sort()) {
+        lines.push(`- ${endpoint}: ${report.sinkEndpointHits[endpoint]}`);
     }
     lines.push("");
 
@@ -139,6 +179,12 @@ export function renderMarkdownReport(report: SmokeReport): string {
         lines.push(`- withSeeds: ${project.withSeeds}`);
         lines.push(`- withFlows: ${project.withFlows}`);
         lines.push(`- totalFlows: ${project.totalFlows}`);
+        const topProjectSinkRules = Object.entries(project.sinkRuleHits)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5);
+        if (topProjectSinkRules.length > 0) {
+            lines.push(`- sinkRuleHits(top): ${topProjectSinkRules.map(([id, count]) => `${id}:${count}`).join(", ")}`);
+        }
         if (project.fatalErrors.length > 0) {
             lines.push("- fatalErrors:");
             for (const err of project.fatalErrors) {
@@ -154,7 +200,9 @@ export function renderMarkdownReport(report: SmokeReport): string {
 
         const topEntries = [...project.entries]
             .sort((a, b) => {
-                if (b.flowCount !== a.flowCount) return b.flowCount - a.flowCount;
+                const bInventory = inventoryFlowCount(b);
+                const aInventory = inventoryFlowCount(a);
+                if (bInventory !== aInventory) return bInventory - aInventory;
                 if (b.seedCount !== a.seedCount) return b.seedCount - a.seedCount;
                 return b.score - a.score;
             })
@@ -162,7 +210,13 @@ export function renderMarkdownReport(report: SmokeReport): string {
         lines.push("### Top ArkMain Units");
         for (const e of topEntries) {
             const strategyText = e.seedStrategies.length > 0 ? e.seedStrategies.join(",") : "N/A";
-            lines.push(`- ${e.entryName} @ ${e.entryPathHint || "N/A"} | status=${e.status} | flows=${e.flowCount} | seeds=${e.seedCount} | seedBy=${strategyText} | score=${e.score}`);
+            lines.push(`- ${e.entryName} @ ${e.entryPathHint || "N/A"} | status=${e.status} | flows=${inventoryFlowCount(e)} | seeds=${e.seedCount} | seedBy=${strategyText} | score=${e.score}`);
+            const topSinkRules = Object.entries(e.sinkRuleHits)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 3);
+            if (topSinkRules.length > 0) {
+                lines.push(`  - sinkRuleHits: ${topSinkRules.map(([id, count]) => `${id}:${count}`).join(", ")}`);
+            }
             if (e.sinkSamples.length > 0) {
                 for (const sample of e.sinkSamples.slice(0, 3)) {
                     lines.push(`  - ${sample}`);
@@ -176,7 +230,7 @@ export function renderMarkdownReport(report: SmokeReport): string {
 }
 
 export function printConsoleSummary(report: SmokeReport): void {
-    console.log("\n====== Phase 4.3 Smoke Summary ======");
+    console.log("\n====== Real Project Smoke Summary ======");
     console.log(`projects=${report.totalProjects}`);
     console.log(`analyzed_entries=${report.totalAnalyzedEntries}`);
     console.log(`entries_with_seeds=${report.totalEntriesWithSeeds}`);
@@ -193,12 +247,12 @@ export function printConsoleSummary(report: SmokeReport): void {
         console.log(`  ${p.id.padEnd(30)} priority=${(p.priority || "N/A").padEnd(6)} analyzed=${String(p.analyzed).padEnd(3)} withSeeds=${String(p.withSeeds).padEnd(3)} withFlows=${String(p.withFlows).padEnd(3)} totalFlows=${String(p.totalFlows).padEnd(3)} cov=${(coverage * 100).toFixed(1)}% fatal=${p.fatalErrors.length}`);
     }
 
-    console.log("\n------ sink flow totals ------");
-    for (const keyword of Object.keys(report.sinkFlowByKeyword).sort()) {
-        console.log(`  ${keyword.padEnd(20)} ${report.sinkFlowByKeyword[keyword]}`);
+    console.log("\n------ sink flow totals (rule) ------");
+    for (const sinkRuleId of Object.keys(report.sinkRuleHits).sort()) {
+        console.log(`  ${sinkRuleId.padEnd(40)} ${report.sinkRuleHits[sinkRuleId]}`);
     }
-    console.log("\n------ sink flow totals (signature) ------");
-    for (const signature of Object.keys(report.sinkFlowBySignature).sort()) {
-        console.log(`  ${signature.padEnd(32)} ${report.sinkFlowBySignature[signature]}`);
+    console.log("\n------ sink flow totals (endpoint) ------");
+    for (const endpoint of Object.keys(report.sinkEndpointHits).sort()) {
+        console.log(`  ${endpoint.padEnd(20)} ${report.sinkEndpointHits[endpoint]}`);
     }
 }

@@ -196,8 +196,8 @@ export function writeNoCandidateCallsiteClassificationArtifacts(
     outputDir: string,
 ): void {
     const baseItems = report.summary.ruleFeedback?.noCandidateCallsites || [];
-    const frameworkTransferRules = loadAppliedFrameworkTransferRules(loadedRules);
-    const items = baseItems.map(site => classifyNoCandidateCallsite(site, frameworkTransferRules));
+    const kernelTransferRules = loadAppliedKernelTransferRules(loadedRules);
+    const items = baseItems.map(site => classifyNoCandidateCallsite(site, kernelTransferRules));
     const categoryCount = items.reduce((acc, item) => {
         acc[item.category] = (acc[item.category] || 0) + 1;
         return acc;
@@ -464,20 +464,8 @@ function resolveRuleFeedbackOutputDir(outputDir: string): string {
     return path.resolve(outputDir, "feedback", "rule_feedback");
 }
 
-function loadAppliedFrameworkTransferRules(loadedRules: LoadedRuleSet): TransferRule[] {
-    const frameworkLayer = loadedRules.layerStatus.find(s => s.name === "framework" && s.applied && !!s.path);
-    if (!frameworkLayer?.path) return [];
-    const frameworkPath = path.isAbsolute(frameworkLayer.path)
-        ? frameworkLayer.path
-        : path.resolve(frameworkLayer.path);
-    if (!fs.existsSync(frameworkPath)) return [];
-    try {
-        const raw = JSON.parse(fs.readFileSync(frameworkPath, "utf-8")) as { transfers?: TransferRule[] };
-        const transfers = Array.isArray(raw.transfers) ? raw.transfers : [];
-        return transfers.filter(rule => !!rule && rule.enabled !== false);
-    } catch {
-        return [];
-    }
+function loadAppliedKernelTransferRules(loadedRules: LoadedRuleSet): TransferRule[] {
+    return (loadedRules.ruleSet.transfers || []).filter(rule => rule.enabled !== false && rule.layer === "kernel");
 }
 
 function matchNoCandidateCallsiteToTransferRule(site: NoCandidateCallsiteStat, rule: TransferRule): boolean {
@@ -520,7 +508,7 @@ function matchNoCandidateCallsiteToTransferRule(site: NoCandidateCallsiteStat, r
 
 function classifyNoCandidateCallsite(
     site: NoCandidateCallsiteStat,
-    frameworkTransferRules: TransferRule[],
+    kernelTransferRules: TransferRule[],
 ): ClassifiedNoCandidateCallsite {
     const sigLower = site.callee_signature.toLowerCase();
     const methodLower = site.method.toLowerCase();
@@ -570,7 +558,7 @@ function classifyNoCandidateCallsite(
         };
     }
 
-    const matchedFrameworkRules = frameworkTransferRules
+    const matchedFrameworkRules = kernelTransferRules
         .filter(rule => matchNoCandidateCallsiteToTransferRule(site, rule))
         .slice(0, 3)
         .map(rule => rule.id);

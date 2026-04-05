@@ -1,18 +1,9 @@
 import type {
+    ExecutionHandoffActivationToken,
     ExecutionHandoffPortSummaryClassRecord,
     ExecutionHandoffRecoveredSemanticsRecord,
-    ExecutionHandoffSemanticKernelRecord,
     ExecutionUnitSummaryRecord,
 } from "./ExecutionHandoffContract";
-
-export function buildExecutionHandoffSemanticKernel(
-    semantics: ExecutionHandoffRecoveredSemanticsRecord,
-): ExecutionHandoffSemanticKernelRecord {
-    return {
-        domain: semantics.domain,
-        activation: semantics.activation,
-    };
-}
 
 export function buildExecutionHandoffPortSummary(
     summary: ExecutionUnitSummaryRecord,
@@ -45,9 +36,6 @@ function projectCompletion(
     summary: ExecutionUnitSummaryRecord,
     semantics: ExecutionHandoffRecoveredSemanticsRecord,
 ): ExecutionHandoffPortSummaryClassRecord["completion"] {
-    if (semantics.domain !== "deferred") {
-        return "none";
-    }
     if (
         semantics.activation === "settle(any)"
         && summary.returnKind === "none"
@@ -76,4 +64,10 @@ function projectPreserve(summary: ExecutionUnitSummaryRecord): ExecutionHandoffP
         default:
             return "mixed";
     }
+}
+
+export function projectDeferredActivation(
+    semantics: ExecutionHandoffRecoveredSemanticsRecord,
+): ExecutionHandoffActivationToken {
+    return semantics.activation as ExecutionHandoffActivationToken;
 }

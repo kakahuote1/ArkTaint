@@ -36,6 +36,16 @@ export interface ErrorLocation {
     stackExcerpt?: string;
 }
 
+export interface TypeScriptImportRecord {
+    specifier: string;
+    line: number;
+    column: number;
+    resolvedPath?: string;
+}
+
+export const MODULE_API_ALIAS = "@arktaint/module";
+export const PLUGIN_API_ALIAS = "@arktaint/plugin";
+
 export interface LoadExtensionModuleOptions<T> {
     modulePath: string;
     kindLabel: string;
@@ -63,7 +73,11 @@ function classifyExtensionModuleLoadFailure(
 ): { code: string; advice: string } {
     const message = String((error as any)?.message || error);
     const lower = message.toLowerCase();
-    const prefix = kindLabel === "engine plugin" ? "PLUGIN" : "PACK";
+    const prefix = kindLabel === "engine plugin"
+        ? "PLUGIN"
+        : kindLabel === "module"
+            ? "MODULE"
+            : "EXTENSION";
     if (lower.includes("cannot find module")) {
         return {
             code: `${prefix}_MODULE_LOAD_MODULE_NOT_FOUND`,
@@ -146,6 +160,62 @@ export function resolveLoadableTypeScriptModule(absPath: string): string | null 
     if (!fs.existsSync(absPath)) return null;
     if (!absPath.endsWith(".ts") || absPath.endsWith(".d.ts")) return null;
     return absPath;
+}
+
+export function resolvePublicModuleApiPath(): string {
+    const candidates = [
+        path.resolve(process.cwd(), "src/core/kernel/contracts/ModuleApi.ts"),
+        path.resolve(__dirname, "../../../src/core/kernel/contracts/ModuleApi.ts"),
+        path.resolve(__dirname, "../kernel/contracts/ModuleApi.ts"),
+    ];
+    for (const candidate of candidates) {
+        if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+            return candidate;
+        }
+    }
+    return path.resolve(process.cwd(), "src/core/kernel/contracts/ModuleApi.ts");
+}
+
+export function resolvePublicPluginApiPath(): string {
+    const candidates = [
+        path.resolve(process.cwd(), "src/core/orchestration/plugins/PluginApi.ts"),
+        path.resolve(__dirname, "../../../src/core/orchestration/plugins/PluginApi.ts"),
+        path.resolve(__dirname, "./plugins/PluginApi.ts"),
+    ];
+    for (const candidate of candidates) {
+        if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+            return candidate;
+        }
+    }
+    return path.resolve(process.cwd(), "src/core/orchestration/plugins/PluginApi.ts");
+}
+
+export function collectTypeScriptImportRecords(filePath: string): TypeScriptImportRecord[] {
+    if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+        return [];
+    }
+    const source = fs.readFileSync(filePath, "utf8");
+    const records: TypeScriptImportRecord[] = [];
+    const patterns = [
+        /\b(?:import|export)\s+(?:type\s+)?[\s\S]*?\bfrom\s+["']([^"']+)["']/g,
+        /\brequire\(\s*["']([^"']+)["']\s*\)/g,
+    ];
+    for (const pattern of patterns) {
+        let match: RegExpExecArray | null;
+        while ((match = pattern.exec(source)) !== null) {
+            const specifier = match[1];
+            const matchIndex = match.index;
+            const specifierOffset = match[0].lastIndexOf(specifier);
+            const absoluteIndex = matchIndex + Math.max(specifierOffset, 0);
+            records.push({
+                specifier,
+                line: lineNumberAt(source, absoluteIndex),
+                column: columnNumberAt(source, absoluteIndex),
+                resolvedPath: resolveImportTarget(filePath, specifier) || undefined,
+            });
+        }
+    }
+    return records;
 }
 
 export function auditExtensionDirectoryFiles(
@@ -274,6 +344,52 @@ export function pushLoaderWarning(
 
 function isLoadableTypeScriptSourceFile(fileName: string): boolean {
     return fileName.endsWith(".ts") && !fileName.endsWith(".d.ts");
+}
+
+function resolveImportTarget(fromFile: string, specifier: string): string | null {
+    if (specifier === MODULE_API_ALIAS) {
+        return resolvePublicModuleApiPath();
+    }
+    if (specifier === PLUGIN_API_ALIAS) {
+        return resolvePublicPluginApiPath();
+    }
+    if (!specifier.startsWith(".")) {
+        return null;
+    }
+    const basePath = path.resolve(path.dirname(fromFile), specifier);
+    const candidates = [
+        basePath,
+        `${basePath}.ts`,
+        `${basePath}.js`,
+        path.join(basePath, "index.ts"),
+        path.join(basePath, "index.js"),
+    ];
+    for (const candidate of candidates) {
+        if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+            return candidate;
+        }
+    }
+    return null;
+}
+
+function lineNumberAt(source: string, absoluteIndex: number): number {
+    let line = 1;
+    for (let i = 0; i < absoluteIndex && i < source.length; i++) {
+        if (source.charCodeAt(i) === 10) {
+            line++;
+        }
+    }
+    return line;
+}
+
+function columnNumberAt(source: string, absoluteIndex: number): number {
+    let lastLineBreak = -1;
+    for (let i = 0; i < absoluteIndex && i < source.length; i++) {
+        if (source.charCodeAt(i) === 10) {
+            lastLineBreak = i;
+        }
+    }
+    return absoluteIndex - lastLineBreak;
 }
 
 function detectTypeScriptSyntaxOrEncodingIssue(filePath: string, source: string): string | undefined {
@@ -517,6 +633,12 @@ function createFreshModuleRequire(
 }
 
 function resolveLocalTypeScriptDependency(baseDir: string, request: string): string | null {
+    if (request === MODULE_API_ALIAS) {
+        return resolvePublicModuleApiPath();
+    }
+    if (request === PLUGIN_API_ALIAS) {
+        return resolvePublicPluginApiPath();
+    }
     if (!request.startsWith(".") && !path.isAbsolute(request)) {
         return null;
     }

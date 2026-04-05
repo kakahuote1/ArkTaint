@@ -88,6 +88,39 @@ interface EnginePluginFailureEvent {
     userMessage: string;
 }
 
+export interface EnginePluginAuditEntry {
+    pluginName: string;
+    description?: string;
+    sourcePath?: string;
+    startHookCalls: number;
+    entryHookCalls: number;
+    propagationHookCalls: number;
+    detectionHookCalls: number;
+    resultHookCalls: number;
+    finishHookCalls: number;
+    sourceRulesAdded: number;
+    sinkRulesAdded: number;
+    transferRulesAdded: number;
+    sanitizerRulesAdded: number;
+    optionOverrideCount: number;
+    entryAdds: number;
+    entryReplaceUsed: boolean;
+    callEdgeObserverCount: number;
+    taintFlowObserverCount: number;
+    methodReachedObserverCount: number;
+    propagationReplaceUsed: boolean;
+    addedFlowCount: number;
+    addedBridgeCount: number;
+    addedSyntheticEdgeCount: number;
+    enqueuedFactCount: number;
+    detectionCheckNames: string[];
+    detectionCheckRunCount: number;
+    detectionReplaceUsed: boolean;
+    resultFilterCount: number;
+    resultTransformCount: number;
+    resultAddedFindingCount: number;
+}
+
 class EnginePluginDiagnosticError extends Error {
     readonly diagnosticCode: string;
     readonly diagnosticAdvice: string;
@@ -131,6 +164,7 @@ export interface EnginePluginAuditSnapshot {
     failureEvents: EnginePluginFailureEvent[];
     dryRun: boolean;
     optionOverrides: Record<string, unknown>;
+    pluginStats: Record<string, EnginePluginAuditEntry>;
     start: {
         sourceRulesAdded: number;
         sinkRulesAdded: number;
@@ -182,6 +216,7 @@ export class EnginePluginRuntime {
             failureEvents: [],
             dryRun: this.dryRun,
             optionOverrides: {},
+            pluginStats: {},
             start: {
                 sourceRulesAdded: 0,
                 sinkRulesAdded: 0,
@@ -189,6 +224,40 @@ export class EnginePluginRuntime {
                 sanitizerRulesAdded: 0,
             },
         };
+        for (const plugin of plugins) {
+            this.audit.pluginStats[plugin.name] = {
+                pluginName: plugin.name,
+                description: plugin.description,
+                sourcePath: getExtensionSourceModulePath(plugin),
+                startHookCalls: 0,
+                entryHookCalls: 0,
+                propagationHookCalls: 0,
+                detectionHookCalls: 0,
+                resultHookCalls: 0,
+                finishHookCalls: 0,
+                sourceRulesAdded: 0,
+                sinkRulesAdded: 0,
+                transferRulesAdded: 0,
+                sanitizerRulesAdded: 0,
+                optionOverrideCount: 0,
+                entryAdds: 0,
+                entryReplaceUsed: false,
+                callEdgeObserverCount: 0,
+                taintFlowObserverCount: 0,
+                methodReachedObserverCount: 0,
+                propagationReplaceUsed: false,
+                addedFlowCount: 0,
+                addedBridgeCount: 0,
+                addedSyntheticEdgeCount: 0,
+                enqueuedFactCount: 0,
+                detectionCheckNames: [],
+                detectionCheckRunCount: 0,
+                detectionReplaceUsed: false,
+                resultFilterCount: 0,
+                resultTransformCount: 0,
+                resultAddedFindingCount: 0,
+            };
+        }
         this.runStartHooks();
     }
 
@@ -227,6 +296,15 @@ export class EnginePluginRuntime {
             loadedPluginNames: [...this.audit.loadedPluginNames],
             failedPluginNames: [...this.audit.failedPluginNames],
             failureEvents: this.audit.failureEvents.map(event => ({ ...event })),
+            pluginStats: Object.fromEntries(
+                Object.entries(this.audit.pluginStats).map(([pluginName, stats]) => [
+                    pluginName,
+                    {
+                        ...stats,
+                        detectionCheckNames: [...stats.detectionCheckNames],
+                    },
+                ]),
+            ),
             start: { ...this.audit.start },
             lastEntryPhase: this.audit.lastEntryPhase ? { ...this.audit.lastEntryPhase } : undefined,
             lastPropagationPhase: this.audit.lastPropagationPhase ? { ...this.audit.lastPropagationPhase } : undefined,
@@ -254,6 +332,7 @@ export class EnginePluginRuntime {
             const stagedEntries = new Map<string, ArkMethod>();
             let stagedReplaceFn: ((scene: Scene, fallback: EntryDiscoverer) => EntryPlan) | undefined;
             this.currentPluginName = plugin.name;
+            this.requirePluginStats(plugin.name).entryHookCalls++;
             const api: EntryApi = {
                 getScene: () => this.scene,
                 getDefaultEntries: () => [...defaultEntries],
@@ -261,6 +340,7 @@ export class EnginePluginRuntime {
                     const signature = entry?.getSignature?.()?.toString?.();
                     if (!signature || stagedEntries.has(signature) || addedEntries.has(signature)) return;
                     stagedEntries.set(signature, entry);
+                    this.requirePluginStats(plugin.name).entryAdds++;
                 },
                 replace: (fn) => {
                     if (stagedReplaceFn) {
@@ -269,6 +349,7 @@ export class EnginePluginRuntime {
                         );
                     }
                     stagedReplaceFn = fn;
+                    this.requirePluginStats(plugin.name).entryReplaceUsed = true;
                 },
             };
             try {
@@ -325,6 +406,7 @@ export class EnginePluginRuntime {
             const stagedMethodReachedObservers: Array<(event: MethodReachedEvent) => void> = [];
             let stagedReplaceFn: ((input: PropagationInput, fallback: Propagator) => PropagationOutput) | undefined;
             this.currentPluginName = plugin.name;
+            this.requirePluginStats(plugin.name).propagationHookCalls++;
             const api: PropagationApi = {
                 getScene: () => this.scene,
                 getPag: () => {
@@ -333,9 +415,18 @@ export class EnginePluginRuntime {
                     }
                     return this.currentPropagationPag;
                 },
-                onCallEdge: cb => stagedCallEdgeObservers.push(cb),
-                onTaintFlow: cb => stagedTaintFlowObservers.push(cb),
-                onMethodReached: cb => stagedMethodReachedObservers.push(cb),
+                onCallEdge: cb => {
+                    stagedCallEdgeObservers.push(cb);
+                    this.requirePluginStats(plugin.name).callEdgeObserverCount++;
+                },
+                onTaintFlow: cb => {
+                    stagedTaintFlowObservers.push(cb);
+                    this.requirePluginStats(plugin.name).taintFlowObserverCount++;
+                },
+                onMethodReached: cb => {
+                    stagedMethodReachedObservers.push(cb);
+                    this.requirePluginStats(plugin.name).methodReachedObserverCount++;
+                },
                 addFlow: decl => {
                     this.requireActivePropagationCollector().flows.push(decl);
                 },
@@ -353,6 +444,7 @@ export class EnginePluginRuntime {
                         throw new Error(`engine plugin propagation replace conflict within plugin: ${plugin.name}`);
                     }
                     stagedReplaceFn = fn;
+                    this.requirePluginStats(plugin.name).propagationReplaceUsed = true;
                 },
             };
             try {
@@ -425,16 +517,19 @@ export class EnginePluginRuntime {
             const stagedChecks: Array<{ name: string; run: (ctx: DetectionContext) => TaintFlow[] }> = [];
             let stagedReplaceFn: ((input: DetectionInput, fallback: SinkDetectionRunner) => TaintFlow[]) | undefined;
             this.currentPluginName = plugin.name;
+            this.requirePluginStats(plugin.name).detectionHookCalls++;
             const api: DetectionApi = {
                 getTaintFacts: () => ctx.getTaintFacts(),
                 addCheck: (name, fn) => {
                     stagedChecks.push({ name, run: fn });
+                    this.requirePluginStats(plugin.name).detectionCheckNames.push(name);
                 },
                 replace: (fn) => {
                     if (stagedReplaceFn) {
                         throw new Error(`engine plugin detection replace conflict within plugin: ${plugin.name}`);
                     }
                     stagedReplaceFn = fn;
+                    this.requirePluginStats(plugin.name).detectionReplaceUsed = true;
                 },
             };
             try {
@@ -472,6 +567,7 @@ export class EnginePluginRuntime {
         for (const check of checks) {
             if (this.failedPluginNames.has(check.pluginName)) continue;
             try {
+                this.requirePluginStats(check.pluginName).detectionCheckRunCount++;
                 out.push(...(check.run(ctx) || []));
             } catch (error) {
                 this.markPluginFailed(check.pluginName, `detection.check:${check.name}`, error);
@@ -495,11 +591,21 @@ export class EnginePluginRuntime {
             const stagedTransforms: Array<(findings: TaintFlow[]) => TaintFlow[]> = [];
             const stagedFindings: TaintFlow[] = [];
             this.currentPluginName = plugin.name;
+            this.requirePluginStats(plugin.name).resultHookCalls++;
             const api: ResultApi = {
                 getFindings: () => [...findings, ...addedFindings, ...stagedFindings],
-                filter: (fn) => stagedFilters.push(fn),
-                addFinding: (finding) => stagedFindings.push(finding),
-                transform: (fn) => stagedTransforms.push(fn),
+                filter: (fn) => {
+                    stagedFilters.push(fn);
+                    this.requirePluginStats(plugin.name).resultFilterCount++;
+                },
+                addFinding: (finding) => {
+                    stagedFindings.push(finding);
+                    this.requirePluginStats(plugin.name).resultAddedFindingCount++;
+                },
+                transform: (fn) => {
+                    stagedTransforms.push(fn);
+                    this.requirePluginStats(plugin.name).resultTransformCount++;
+                },
             };
             try {
                 plugin.onResult?.(api);
@@ -550,7 +656,7 @@ export class EnginePluginRuntime {
             return;
         }
         const api: FinishApi = {
-            getStats: () => ({ ...stats, loadedPluginNames: [...stats.loadedPluginNames], loadedSemanticPackIds: [...stats.loadedSemanticPackIds] }),
+            getStats: () => ({ ...stats, loadedPluginNames: [...stats.loadedPluginNames], loadedModuleIds: [...stats.loadedModuleIds] }),
             getFindings: () => [...findings],
             exportReport: (format, outputPath) => {
                 if (format === "json") {
@@ -582,6 +688,7 @@ export class EnginePluginRuntime {
         for (const plugin of this.plugins) {
             if (this.failedPluginNames.has(plugin.name)) continue;
             try {
+                this.requirePluginStats(plugin.name).finishHookCalls++;
                 plugin.onFinish?.(api);
             } catch (error) {
                 this.markPluginFailed(plugin.name, "onFinish", error);
@@ -607,6 +714,11 @@ export class EnginePluginRuntime {
                 batch.bridges.push(...staged.bridges);
                 batch.syntheticEdges.push(...staged.syntheticEdges);
                 batch.facts.push(...staged.facts);
+                const stats = this.requirePluginStats(pluginName);
+                stats.addedFlowCount += staged.flows.length;
+                stats.addedBridgeCount += staged.bridges.length;
+                stats.addedSyntheticEdgeCount += staged.syntheticEdges.length;
+                stats.enqueuedFactCount += staged.facts.length;
             } catch (error) {
                 this.markPluginFailed(pluginName, "propagation.observer", error);
             } finally {
@@ -635,10 +747,6 @@ export class EnginePluginRuntime {
 
     private currentPluginName?: string;
 
-    private findCurrentPluginName(): string {
-        return this.currentPluginName || "@unknown_plugin";
-    }
-
     private mergeEntries(base: ArkMethod[], additions: ArkMethod[]): ArkMethod[] {
         const dedup = new Map<string, ArkMethod>();
         for (const method of [...base, ...additions]) {
@@ -658,8 +766,9 @@ export class EnginePluginRuntime {
             }> = [];
             const stagedOptions = new Map<string, unknown>();
             this.currentPluginName = plugin.name;
+            this.requirePluginStats(plugin.name).startHookCalls++;
             const api: StartApi = {
-                getConfig: () => ({ ...this.config, isolatedPluginNames: [...this.config.isolatedPluginNames], semanticPackIds: [...this.config.semanticPackIds] }),
+                getConfig: () => ({ ...this.config, isolatedPluginNames: [...this.config.isolatedPluginNames], moduleIds: [...this.config.moduleIds] }),
                 getScene: () => this.scene,
                 addRule: (kind, rule) => {
                     stagedRules.push({ kind, rule });
@@ -681,11 +790,12 @@ export class EnginePluginRuntime {
                 this.currentPluginName = undefined;
             }
             for (const { kind, rule } of stagedRules) {
-                this.pushRule(kind, rule);
+                this.pushRule(plugin.name, kind, rule);
             }
             for (const [key, value] of stagedOptions.entries()) {
                 this.optionOverrides.set(key, value);
                 this.audit.optionOverrides[key] = value;
+                this.requirePluginStats(plugin.name).optionOverrideCount++;
             }
         }
     }
@@ -726,6 +836,7 @@ export class EnginePluginRuntime {
     }
 
     private pushRule(
+        pluginName: string,
         kind: "source" | "sink" | "transfer" | "sanitizer",
         rule: SourceRule | SinkRule | TransferRule | SanitizerRule,
     ): void {
@@ -733,20 +844,32 @@ export class EnginePluginRuntime {
             case "source":
                 this.additionalSourceRules.push(rule as SourceRule);
                 this.audit.start.sourceRulesAdded++;
+                this.requirePluginStats(pluginName).sourceRulesAdded++;
                 break;
             case "sink":
                 this.additionalSinkRules.push(rule as SinkRule);
                 this.audit.start.sinkRulesAdded++;
+                this.requirePluginStats(pluginName).sinkRulesAdded++;
                 break;
             case "transfer":
                 this.additionalTransferRules.push(rule as TransferRule);
                 this.audit.start.transferRulesAdded++;
+                this.requirePluginStats(pluginName).transferRulesAdded++;
                 break;
             case "sanitizer":
                 this.additionalSanitizerRules.push(rule as SanitizerRule);
                 this.audit.start.sanitizerRulesAdded++;
+                this.requirePluginStats(pluginName).sanitizerRulesAdded++;
                 break;
         }
+    }
+
+    private requirePluginStats(pluginName: string): EnginePluginAuditEntry {
+        const stats = this.audit.pluginStats[pluginName];
+        if (!stats) {
+            throw new Error(`missing plugin audit stats for ${pluginName}`);
+        }
+        return stats;
     }
 }
 

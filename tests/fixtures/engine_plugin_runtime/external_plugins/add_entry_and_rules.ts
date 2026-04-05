@@ -1,4 +1,4 @@
-import { defineEnginePlugin } from "../../../../src/core/orchestration/plugins/EnginePlugin";
+import { defineEnginePlugin } from "@arktaint/plugin";
 
 export default defineEnginePlugin({
     name: "fixture.entry_and_rules",

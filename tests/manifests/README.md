@@ -14,8 +14,8 @@
   - `metamorphic_seed_v3.list`
 - `real_projects/`
   - `smoke_projects.json`
-  - `phase76_smoke_projects.json`
-  - `phase78_external_projects.json`
+  - `smoke_projects_core.json`
+  - `smoke_projects_external.json`
 - `entry_model/`
   - `main_model_framework_taxonomy.json`
   - `main_model_official_catalog.json`

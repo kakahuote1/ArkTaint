@@ -6,11 +6,11 @@ import { window } from '@kit.ArkUI';
 export default class EntryAbility extends UIAbility {
   public static info: string = ''
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
-    hilog.info(0x0000, 'testTag', '%{public}s', EntryAbility.info); //sink, leak
+    hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onCreate');
   }
 
   onDestroy(): void {
-    hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onDestroy');
+    hilog.info(0x0000, 'testTag', '%{public}s', EntryAbility.info); //sink, leak
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {

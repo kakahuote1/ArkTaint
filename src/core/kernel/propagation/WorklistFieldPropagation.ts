@@ -1,16 +1,21 @@
 import { ArkArrayRef, ArkInstanceFieldRef, ArkParameterRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
 import { Pag, PagNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { ArkAssignStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
+import { ArkReturnStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { Constant } from "../../../../arkanalyzer/out/src/core/base/Constant";
 import { Scene } from "../../../../arkanalyzer/out/src/Scene";
-import { ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
+import { ArkCastExpr, ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
 import { TaintFact } from "../model/TaintFact";
+import { TaintTracker } from "../model/TaintTracker";
 import { toContainerFieldKey } from "../model/ContainerSlotKeys";
 import { TaintContextManager } from "../context/TaintContext";
 import { collectAliasLocalsForCarrier, collectCarrierNodeIdsForValueAtStmt } from "../ordinary/OrdinaryAliasPropagation";
+import { isCarrierFieldPathLiveAtStmt } from "../ordinary/OrdinaryObjectInvalidation";
 import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
 import { getMethodBySignature } from "../contracts/MethodLookup";
+
+const getterReturnFieldPathCache: WeakMap<Scene, Map<string, string[] | null>> = new WeakMap();
 
 export function propagateReflectGetFieldLoadsByObj(
     pag: Pag,
@@ -18,6 +23,7 @@ export function propagateReflectGetFieldLoadsByObj(
     fieldPath: string[],
     source: string,
     currentCtx: number,
+    tracker?: TaintTracker,
     classBySignature?: Map<string, any>,
 ): TaintFact[] {
     const results: TaintFact[] = [];
@@ -25,6 +31,7 @@ export function propagateReflectGetFieldLoadsByObj(
     for (const val of collectAliasLocalsForCarrier(pag, taintedObjId, classBySignature)) {
         for (const stmt of val.getUsedStmts()) {
             if (!(stmt instanceof ArkAssignStmt)) continue;
+            if (tracker && !isCarrierFieldPathLiveAtStmt(pag, tracker, taintedObjId, fieldPath, stmt, classBySignature)) continue;
             const rightOp = stmt.getRightOp();
             if (!(rightOp instanceof ArkStaticInvokeExpr) && !(rightOp instanceof ArkInstanceInvokeExpr)) continue;
             if (!isReflectLikeCall(rightOp, "get")) continue;
@@ -62,7 +69,9 @@ export function propagateDirectFieldLoadsByLocal(
     taintedNode: PagNode,
     fieldPath: string[],
     source: string,
-    currentCtx: number
+    currentCtx: number,
+    tracker?: TaintTracker,
+    classBySignature?: Map<string, any>,
 ): TaintFact[] {
     const results: TaintFact[] = [];
     const fieldName = fieldPath[0];
@@ -71,6 +80,12 @@ export function propagateDirectFieldLoadsByLocal(
 
     for (const stmt of val.getUsedStmts()) {
         if (!(stmt instanceof ArkAssignStmt)) continue;
+        if (tracker) {
+            const carrierIds = collectCarrierNodeIdsForValueAtStmt(pag, val, stmt, classBySignature);
+            if (carrierIds.length > 0 && !carrierIds.some(id => isCarrierFieldPathLiveAtStmt(pag, tracker, id, fieldPath, stmt, classBySignature))) {
+                continue;
+            }
+        }
         const rightOp = stmt.getRightOp();
         if (!(rightOp instanceof ArkInstanceFieldRef)) continue;
         if (rightOp.getBase() !== val || rightOp.getFieldSignature().getFieldName() !== fieldName) continue;
@@ -236,6 +251,7 @@ export function propagateDirectFieldLoadsByObj(
     fieldPath: string[],
     source: string,
     currentCtx: number,
+    tracker?: TaintTracker,
     classBySignature?: Map<string, any>,
 ): TaintFact[] {
     const results: TaintFact[] = [];
@@ -243,6 +259,7 @@ export function propagateDirectFieldLoadsByObj(
     for (const val of collectAliasLocalsForCarrier(pag, taintedObjId, classBySignature)) {
         for (const stmt of val.getUsedStmts()) {
             if (!(stmt instanceof ArkAssignStmt)) continue;
+            if (tracker && !isCarrierFieldPathLiveAtStmt(pag, tracker, taintedObjId, fieldPath, stmt, classBySignature)) continue;
             const rightOp = stmt.getRightOp();
             if (!(rightOp instanceof ArkInstanceFieldRef)) continue;
             if (rightOp.getBase() !== val || rightOp.getFieldSignature().getFieldName() !== fieldName) continue;
@@ -274,6 +291,7 @@ export function propagateDirectFieldArgUsesByObj(
     fieldPath: string[],
     source: string,
     currentCtx: number,
+    tracker?: TaintTracker,
     classBySignature?: Map<string, any>,
 ): TaintFact[] {
     const results: TaintFact[] = [];
@@ -281,6 +299,7 @@ export function propagateDirectFieldArgUsesByObj(
     for (const val of collectAliasLocalsForCarrier(pag, taintedObjId, classBySignature)) {
         for (const stmt of val.getUsedStmts()) {
             if (!stmt.containsInvokeExpr || !stmt.containsInvokeExpr()) continue;
+            if (tracker && !isCarrierFieldPathLiveAtStmt(pag, tracker, taintedObjId, fieldPath, stmt, classBySignature)) continue;
             const invokeExpr = stmt.getInvokeExpr();
             if (!(invokeExpr instanceof ArkStaticInvokeExpr) && !(invokeExpr instanceof ArkInstanceInvokeExpr)) continue;
             const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
@@ -302,6 +321,94 @@ export function propagateDirectFieldArgUsesByObj(
                     } else {
                         results.push(new TaintFact(argNode, source, currentCtx));
                     }
+                }
+            }
+        }
+    }
+    return results;
+}
+
+export function propagateCarrierLoadPrefixesByObj(
+    pag: Pag,
+    taintedObjId: number,
+    fieldPath: string[],
+    source: string,
+    currentCtx: number,
+    tracker?: TaintTracker,
+    classBySignature?: Map<string, any>,
+): TaintFact[] {
+    const results: TaintFact[] = [];
+    for (const val of collectAliasLocalsForCarrier(pag, taintedObjId, classBySignature)) {
+        const declStmt = val.getDeclaringStmt?.();
+        if (!(declStmt instanceof ArkAssignStmt) || declStmt.getLeftOp() !== val) continue;
+        if (tracker && !isCarrierFieldPathLiveAtStmt(pag, tracker, taintedObjId, fieldPath, declStmt, classBySignature)) continue;
+
+        const rightOp = declStmt.getRightOp();
+        let pathPrefix: string | undefined;
+        if (rightOp instanceof ArkInstanceFieldRef) {
+            pathPrefix = rightOp.getFieldSignature?.().getFieldName?.() || rightOp.getFieldName?.();
+        }
+        const baseValue = rightOp instanceof ArkInstanceFieldRef ? rightOp.getBase?.() : undefined;
+        if (!pathPrefix || !baseValue) continue;
+
+        const ownerCarrierIds = collectCarrierNodeIdsForValueAtStmt(
+            pag,
+            baseValue,
+            declStmt,
+            classBySignature,
+        );
+        for (const ownerCarrierId of ownerCarrierIds) {
+            const ownerCarrier = pag.getNode(ownerCarrierId) as PagNode;
+            if (!ownerCarrier) continue;
+            results.push(new TaintFact(ownerCarrier, source, currentCtx, [pathPrefix, ...fieldPath]));
+        }
+    }
+    return results;
+}
+
+export function propagateReceiverGetterResultLoadsByObj(
+    scene: Scene,
+    pag: Pag,
+    taintedObjId: number,
+    fieldPath: string[],
+    source: string,
+    currentCtx: number,
+    tracker?: TaintTracker,
+    classBySignature?: Map<string, any>,
+): TaintFact[] {
+    const results: TaintFact[] = [];
+    for (const val of collectAliasLocalsForCarrier(pag, taintedObjId, classBySignature)) {
+        for (const stmt of val.getUsedStmts()) {
+            if (!(stmt instanceof ArkAssignStmt)) continue;
+            if (tracker && !isCarrierFieldPathLiveAtStmt(pag, tracker, taintedObjId, fieldPath, stmt, classBySignature)) continue;
+
+            const rightOp = stmt.getRightOp();
+            if (!(rightOp instanceof ArkInstanceInvokeExpr)) continue;
+            if (rightOp.getBase() !== val) continue;
+
+            const getterFieldPath = resolveReceiverGetterReturnFieldPath(
+                scene,
+                rightOp.getMethodSignature?.()?.toString?.() || "",
+            );
+            if (!getterFieldPath || getterFieldPath.length === 0) continue;
+            if (!fieldPathStartsWith(fieldPath, getterFieldPath)) continue;
+
+            const suffix = fieldPath.slice(getterFieldPath.length);
+            const dstNodes = pag.getNodesByValue(stmt.getLeftOp());
+            const loadNodes = dstNodes && dstNodes.size > 0 ? dstNodes : getOrCreatePagNodes(pag, stmt.getLeftOp(), stmt);
+            if (!loadNodes) continue;
+            for (const dstNodeId of loadNodes.values()) {
+                const dstNode = pag.getNode(dstNodeId) as PagNode;
+                if (suffix.length > 0) {
+                    const dstPts = dstNode.getPointTo();
+                    let hasPointTo = false;
+                    for (const objId of dstPts) {
+                        hasPointTo = true;
+                        results.push(new TaintFact(pag.getNode(objId) as PagNode, source, currentCtx, suffix));
+                    }
+                    if (!hasPointTo) results.push(new TaintFact(dstNode, source, currentCtx, suffix));
+                } else {
+                    results.push(new TaintFact(dstNode, source, currentCtx));
                 }
             }
         }
@@ -450,6 +557,121 @@ function normalizeReflectPropertyLiteral(text: string): string {
 
 function getOrCreatePagNodes(pag: Pag, value: any, anchorStmt: any): Map<number, number> | undefined {
     return safeGetOrCreatePagNodes(pag, value, anchorStmt);
+}
+
+export function resolveReceiverGetterReturnFieldPath(
+    scene: Scene,
+    methodSignature: string,
+): string[] | undefined {
+    if (!methodSignature) return undefined;
+    let cache = getterReturnFieldPathCache.get(scene);
+    if (!cache) {
+        cache = new Map<string, string[] | null>();
+        getterReturnFieldPathCache.set(scene, cache);
+    }
+    if (cache.has(methodSignature)) {
+        return cache.get(methodSignature) || undefined;
+    }
+
+    const method = getMethodBySignature(scene, methodSignature);
+    if (!method?.getCfg?.()) {
+        cache.set(methodSignature, null);
+        return undefined;
+    }
+
+    const returnStmts = method.getReturnStmt?.() || [];
+    const uniquePaths = new Set<string>();
+    for (const retStmt of returnStmts) {
+        if (!(retStmt instanceof ArkReturnStmt)) continue;
+        const fieldPath = resolveReceiverFieldPathFromValue(retStmt.getOp?.(), retStmt, 0, new Set<string>());
+        if (!fieldPath || fieldPath.length === 0) {
+            cache.set(methodSignature, null);
+            return undefined;
+        }
+        uniquePaths.add(fieldPath.join("."));
+    }
+
+    if (uniquePaths.size !== 1) {
+        cache.set(methodSignature, null);
+        return undefined;
+    }
+
+    const resolved = [...uniquePaths][0].split(".");
+    cache.set(methodSignature, resolved);
+    return resolved;
+}
+
+function resolveReceiverFieldPathFromValue(
+    value: any,
+    anchorStmt: any,
+    depth: number,
+    visiting: Set<string>,
+): string[] | undefined {
+    if (depth > 8) return undefined;
+    if (value instanceof Local) {
+        if (isReceiverLikeLocal(value)) return [];
+        const localKey = `${value.getName?.() || ""}#${value.getDeclaringStmt?.()?.toString?.() || ""}`;
+        if (visiting.has(localKey)) return undefined;
+        visiting.add(localKey);
+        const assignStmt = findLatestAssignStmtForLocalBefore(value, anchorStmt);
+        if (!(assignStmt instanceof ArkAssignStmt)) return undefined;
+        const rightOp = assignStmt.getRightOp();
+        if (rightOp instanceof Local) {
+            return resolveReceiverFieldPathFromValue(rightOp, assignStmt, depth + 1, visiting);
+        }
+        if (rightOp instanceof ArkCastExpr) {
+            return resolveReceiverFieldPathFromValue(rightOp.getOp?.(), assignStmt, depth + 1, visiting);
+        }
+        if (rightOp instanceof ArkInstanceFieldRef) {
+            const basePath = resolveReceiverFieldPathFromValue(rightOp.getBase?.(), assignStmt, depth + 1, visiting);
+            const fieldName = rightOp.getFieldSignature?.().getFieldName?.() || rightOp.getFieldName?.();
+            if (!basePath || !fieldName) return undefined;
+            return [...basePath, fieldName];
+        }
+        return undefined;
+    }
+
+    if (value instanceof ArkInstanceFieldRef) {
+        const basePath = resolveReceiverFieldPathFromValue(value.getBase?.(), anchorStmt, depth + 1, visiting);
+        const fieldName = value.getFieldSignature?.().getFieldName?.() || value.getFieldName?.();
+        if (!basePath || !fieldName) return undefined;
+        return [...basePath, fieldName];
+    }
+
+    return undefined;
+}
+
+function findLatestAssignStmtForLocalBefore(local: Local, anchorStmt: any): ArkAssignStmt | undefined {
+    const cfg = anchorStmt?.getCfg?.() || local.getDeclaringStmt?.()?.getCfg?.();
+    const stmts = cfg?.getStmts?.();
+    if (!stmts) return undefined;
+
+    let latest: ArkAssignStmt | undefined;
+    for (const stmt of stmts) {
+        if (stmt === anchorStmt) {
+            if (stmt instanceof ArkAssignStmt && stmt.getLeftOp() === local) {
+                latest = stmt;
+            }
+            break;
+        }
+        if (!(stmt instanceof ArkAssignStmt)) continue;
+        if (stmt.getLeftOp() !== local) continue;
+        latest = stmt;
+    }
+    return latest;
+}
+
+function isReceiverLikeLocal(local: Local): boolean {
+    const name = local.getName?.() || local.toString?.() || "";
+    return name === "this" || name.endsWith(".this");
+}
+
+function fieldPathStartsWith(fieldPath: string[], prefix: string[]): boolean {
+    if (prefix.length > fieldPath.length) return false;
+    for (let i = 0; i < prefix.length; i++) {
+        if (fieldPath[i] !== prefix[i]) return false;
+    }
+    return true;
 }
 
 function isReflectLikeCall(invokeExpr: ArkStaticInvokeExpr | ArkInstanceInvokeExpr, methodName: "get" | "set"): boolean {

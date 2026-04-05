@@ -1,0 +1,463 @@
+{
+  "schemaVersion": "2.0",
+  "sources": [],
+  "sinks": [
+    {
+      "id": "sink.harmony.rdb.executeSql.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "executeSql"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(RdbStore|RelationalStore)"
+        }
+      },
+      "category": "sql_injection",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.rdb.querySql.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "querySql"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(RdbStore|RelationalStore)"
+        }
+      },
+      "category": "sql_injection",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.rdb.update.arg1",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "update"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(RdbStore|RelationalStore)"
+        }
+      },
+      "category": "sql_injection",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.rdb.update.arg2",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "update"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(RdbStore|RelationalStore)"
+        }
+      },
+      "category": "sql_injection",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg2"
+      }
+    },
+    {
+      "id": "sink.harmony.rdb.execDML.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "signature_contains",
+        "value": "execDML"
+      },
+      "category": "sql_injection",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.rdb.execDQL.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "signature_contains",
+        "value": "execDQL"
+      },
+      "category": "sql_injection",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.rdb.insertSync.arg1",
+      "enabled": true,
+      "match": {
+        "kind": "signature_contains",
+        "value": "insertSync"
+      },
+      "category": "persistent_sink",
+      "severity": "medium",
+      "target": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.preferences.putSync.arg1",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "putSync"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(Preferences|DataPreferences)"
+        }
+      },
+      "category": "sensitive_persistence",
+      "severity": "medium",
+      "target": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.preferences.put.arg1",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "put"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(Preferences|DataPreferences)"
+        }
+      },
+      "category": "sensitive_persistence",
+      "severity": "medium",
+      "target": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.globalcontext.setObject.arg1",
+      "enabled": true,
+      "match": {
+        "kind": "signature_contains",
+        "value": "GlobalContext.setObject"
+      },
+      "category": "sensitive_persistence",
+      "severity": "medium",
+      "target": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.distributedkv.put.arg1",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "put"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(DistributedKVStore|distributedKVStore|KVStore|SingleKVStore)"
+        }
+      },
+      "category": "sensitive_persistence",
+      "severity": "medium",
+      "target": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.dataShare.insert",
+      "description": "DataShare cross-app insert",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "datashare",
+        "P1"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "insert"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "DataShareHelper"
+        }
+      },
+      "target": "arg1",
+      "severity": "high",
+      "category": "cross_app_data"
+    },
+    {
+      "id": "sink.harmony.dataShare.update",
+      "description": "DataShare cross-app update",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "datashare",
+        "P1"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "update"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "DataShareHelper"
+        }
+      },
+      "target": "arg2",
+      "severity": "high",
+      "category": "cross_app_data"
+    },
+    {
+      "id": "sink.harmony.dataShare.batchInsert",
+      "description": "DataShare cross-app batch insert",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "datashare",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "batchInsert"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "DataShareHelper"
+        }
+      },
+      "target": "arg1",
+      "severity": "high",
+      "category": "cross_app_data"
+    },
+    {
+      "id": "sink.harmony.rdb.execute",
+      "description": "RDB execute() SQL injection",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "database",
+        "P1"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "execute"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "RdbStore"
+        }
+      },
+      "target": "arg0",
+      "severity": "high",
+      "category": "sql_injection"
+    },
+    {
+      "id": "sink.harmony.rdb.insert",
+      "description": "RDB standard insert",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "database",
+        "P1"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "insert"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "RdbStore"
+        }
+      },
+      "target": "arg1",
+      "severity": "high",
+      "category": "persistent_sink"
+    },
+    {
+      "id": "sink.harmony.rdb.batchInsert",
+      "description": "RDB batch insert",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "database",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "batchInsert"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "RdbStore"
+        }
+      },
+      "target": "arg1",
+      "severity": "high",
+      "category": "persistent_sink"
+    },
+    {
+      "id": "sink.harmony.pasteboard.setData",
+      "description": "Write to clipboard",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "pasteboard",
+        "P1"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "setData"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "Pasteboard"
+        }
+      },
+      "target": "arg0",
+      "severity": "high",
+      "category": "sensitive_persistence"
+    },
+    {
+      "id": "sink.harmony.pasteboard.setPasteData",
+      "description": "Write to clipboard (legacy API)",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "pasteboard",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "setPasteData"
+      },
+      "target": "arg0",
+      "severity": "high",
+      "category": "sensitive_persistence"
+    },
+    {
+      "id": "sink.harmony.dataShare.publish",
+      "description": "DataShare publish data",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "datashare",
+        "P2"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "publish"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "DataShareHelper"
+        }
+      },
+      "target": "arg0",
+      "severity": "medium",
+      "category": "cross_app_data"
+    },
+    {
+      "id": "sink.harmony.rdb.transaction.insert",
+      "description": "RDB transaction insert",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "database",
+        "P2"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "insert"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "Transaction"
+        }
+      },
+      "target": "arg1",
+      "severity": "medium",
+      "category": "persistent_sink"
+    },
+    {
+      "id": "sink.harmony.rdb.transaction.update",
+      "description": "RDB transaction update",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "database",
+        "P2"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "update"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "Transaction"
+        }
+      },
+      "target": "arg1",
+      "severity": "medium",
+      "category": "persistent_sink"
+    },
+    {
+      "id": "sink.harmony.rdb.transaction.execute",
+      "description": "RDB transaction execute",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "database",
+        "P2"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "execute"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "Transaction"
+        }
+      },
+      "target": "arg0",
+      "severity": "medium",
+      "category": "sql_injection"
+    }
+  ],
+  "sanitizers": [],
+  "transfers": []
+}

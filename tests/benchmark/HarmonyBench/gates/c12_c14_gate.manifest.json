@@ -9,8 +9,8 @@
       "supported": true,
       "sourceDir": "tests/demo/harmony_preferences",
       "rules": {
-        "default": "tests/rules/minimal.rules.json",
-        "framework": "src/rules/framework.rules.json",
+        "kernelRule": "tests/rules/minimal.rules.json",
+        "ruleCatalog": "src/rules",
         "project": "tests/rules/harmony_preferences.rules.json"
       },
       "cases": [
@@ -54,8 +54,8 @@
       "supported": true,
       "sourceDir": "tests/demo/harmony_rdb",
       "rules": {
-        "default": "tests/rules/minimal.rules.json",
-        "framework": "src/rules/framework.rules.json",
+        "kernelRule": "tests/rules/minimal.rules.json",
+        "ruleCatalog": "src/rules",
         "project": "tests/rules/harmony_rdb.rules.json"
       },
       "cases": [
@@ -99,8 +99,8 @@
       "supported": true,
       "sourceDir": "tests/demo/harmony_http",
       "rules": {
-        "default": "tests/rules/minimal.rules.json",
-        "framework": "src/rules/framework.rules.json",
+        "kernelRule": "tests/rules/minimal.rules.json",
+        "ruleCatalog": "src/rules",
         "project": "tests/rules/harmony_http.rules.json"
       },
       "cases": [

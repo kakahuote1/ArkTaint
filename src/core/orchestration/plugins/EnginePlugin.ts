@@ -31,7 +31,7 @@ export interface EnginePluginConfigSnapshot {
     verbose: boolean;
     dryRun: boolean;
     isolatedPluginNames: string[];
-    semanticPackIds: string[];
+    moduleIds: string[];
 }
 
 export interface EntryPlan {
@@ -132,7 +132,7 @@ export interface AnalysisStats {
     reachableMethodCount?: number;
     elapsedMs?: number;
     sourceDir?: string;
-    loadedSemanticPackIds: string[];
+    loadedModuleIds: string[];
     loadedPluginNames: string[];
 }
 
@@ -144,6 +144,7 @@ export interface FinishApi {
 
 export interface EnginePlugin {
     readonly name: string;
+    readonly description?: string;
     readonly enabled?: boolean;
     onStart?(api: StartApi): void;
     onEntry?(api: EntryApi): void;

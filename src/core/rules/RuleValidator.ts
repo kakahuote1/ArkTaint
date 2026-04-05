@@ -2,6 +2,7 @@ import {
     BaseRule,
     RuleConstraintMode,
     RuleEndpoint,
+    RuleLayer,
     EntryParamMatchMode,
     RuleEndpointRef,
     RuleInvokeKind,
@@ -9,6 +10,7 @@ import {
     RuleScopeConstraint,
     RuleSeverity,
     RuleStringConstraint,
+    RuleTier,
     RuleValidationResult,
     SanitizerRule,
     SinkRule,
@@ -33,7 +35,8 @@ const SOURCE_KINDS = new Set<SourceRuleKind>(["seed_local_name", "entry_param", 
 const RULE_SEVERITIES = new Set<RuleSeverity>(["low", "medium", "high", "critical"]);
 const INVOKE_KINDS = new Set<RuleInvokeKind>(["any", "instance", "static"]);
 const CONSTRAINT_MODES = new Set<RuleConstraintMode>(["equals", "contains", "regex"]);
-const RULE_TIERS = new Set(["A", "B", "C"]);
+const RULE_TIERS = new Set<RuleTier>(["A", "B", "C"]);
+const RULE_LAYERS = new Set<RuleLayer>(["kernel", "project"]);
 const HIGH_RISK_METHOD_NAMES = new Set(["get", "set", "update", "request", "on"]);
 const ENTRY_PARAM_MATCH_MODES = new Set<EntryParamMatchMode>(["name_only", "name_and_type"]);
 
@@ -53,6 +56,10 @@ function isNonEmptyString(value: unknown): value is string {
 function hasScopeAnchor(scope: RuleScopeConstraint | undefined): boolean {
     if (!scope) return false;
     return !!(scope.file || scope.module || scope.className || scope.methodName);
+}
+
+function hasAnyScopeAnchor(...scopes: Array<RuleScopeConstraint | undefined>): boolean {
+    return scopes.some(scope => hasScopeAnchor(scope));
 }
 
 function validateMatch(rulePath: string, match: unknown, out: RuleValidationResult): void {
@@ -124,17 +131,22 @@ function validateStringConstraint(rulePath: string, fieldName: string, raw: unkn
     return true;
 }
 
-function validateScopeConstraint(rulePath: string, scope: unknown, out: RuleValidationResult): scope is RuleScopeConstraint {
+function validateScopeConstraint(
+    rulePath: string,
+    scope: unknown,
+    out: RuleValidationResult,
+    fieldName = "scope"
+): scope is RuleScopeConstraint {
     if (!isObject(scope)) {
-        out.errors.push(`${rulePath}.scope must be an object`);
+        out.errors.push(`${rulePath}.${fieldName} must be an object`);
         return false;
     }
 
     const fields: Array<keyof RuleScopeConstraint> = ["file", "module", "className", "methodName"];
-    for (const fieldName of fields) {
-        const raw = scope[fieldName];
+    for (const scopeFieldName of fields) {
+        const raw = scope[scopeFieldName];
         if (raw === undefined) continue;
-        validateStringConstraint(rulePath, `scope.${fieldName}`, raw, out);
+        validateStringConstraint(rulePath, `${fieldName}.${scopeFieldName}`, raw, out);
     }
     return true;
 }
@@ -231,11 +243,16 @@ function validateRuleCommon(rulePath: string, rule: unknown, out: RuleValidation
     if (rule.tags !== undefined && (!Array.isArray(rule.tags) || rule.tags.some(x => typeof x !== "string"))) {
         out.errors.push(`${rulePath}.tags must be string[]`);
     }
+    if (rule.layer !== undefined) {
+        if (typeof rule.layer !== "string" || !RULE_LAYERS.has(rule.layer as RuleLayer)) {
+            out.errors.push(`${rulePath}.layer must be kernel/project`);
+        }
+    }
     if (rule.family !== undefined && !isNonEmptyString(rule.family)) {
         out.errors.push(`${rulePath}.family must be a non-empty string`);
     }
     if (rule.tier !== undefined) {
-        if (typeof rule.tier !== "string" || !RULE_TIERS.has(rule.tier)) {
+        if (typeof rule.tier !== "string" || !RULE_TIERS.has(rule.tier as RuleTier)) {
             out.errors.push(`${rulePath}.tier must be A/B/C`);
         } else if (!isNonEmptyString(rule.family)) {
             out.warnings.push(`${rulePath}.tier is set but family is missing; tier preference cannot be applied`);
@@ -252,7 +269,11 @@ function validateRuleCommon(rulePath: string, rule: unknown, out: RuleValidation
     }
 
     if (rule.scope !== undefined) {
-        validateScopeConstraint(rulePath, rule.scope, out);
+        validateScopeConstraint(rulePath, rule.scope, out, "scope");
+    }
+    const sourceLikeRule = rule as unknown as SourceRule;
+    if (sourceLikeRule.calleeScope !== undefined) {
+        validateScopeConstraint(rulePath, sourceLikeRule.calleeScope, out, "calleeScope");
     }
 
     validateMatch(rulePath, rule.match, out);
@@ -263,7 +284,10 @@ function validateRuleCommon(rulePath: string, rule: unknown, out: RuleValidation
     if (m && m.kind === "method_name_equals" && typeof m.value === "string") {
         const methodName = m.value.trim();
         if (HIGH_RISK_METHOD_NAMES.has(methodName)) {
-            const hasScopeConstraint = hasScopeAnchor(normalizedRule.scope);
+            const hasScopeConstraint = hasAnyScopeAnchor(
+                normalizedRule.scope,
+                (rule as any).calleeScope as RuleScopeConstraint | undefined
+            );
             const invokeKind = m.invokeKind;
             const hasShapeConstraint = (
                 (invokeKind !== undefined && invokeKind !== "any")
@@ -288,7 +312,9 @@ function validateRuleCommon(rulePath: string, rule: unknown, out: RuleValidation
         const mk = m.invokeKind;
         if (mk === undefined || mk === "any") missing.push("match.invokeKind(instance/static)");
         if (m.argCount === undefined) missing.push("match.argCount");
-        if (!hasScopeAnchor(normalizedRule.scope)) missing.push("scope anchor(file/module/className/methodName)");
+        if (!hasAnyScopeAnchor(normalizedRule.scope, (rule as any).calleeScope as RuleScopeConstraint | undefined)) {
+            missing.push("scope/calleeScope anchor(file/module/className/methodName)");
+        }
         if (missing.length > 0) {
             out.warnings.push(
                 `${rulePath} tier C method fallback is under-constrained (${missing.join(", ")}); `
@@ -314,6 +340,10 @@ function validateSourceRule(rulePath: string, rule: unknown, out: RuleValidation
         out.errors.push(`${rulePath}.target is required`);
     } else {
         validateEndpointOrRef(rulePath, "target", obj.target, out, { allowStaticPath: true });
+    }
+
+    if (obj.calleeScope !== undefined) {
+        validateScopeConstraint(rulePath, obj.calleeScope, out, "calleeScope");
     }
 
     if (obj.callbackArgIndexes !== undefined) {

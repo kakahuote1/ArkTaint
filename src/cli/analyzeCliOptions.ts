@@ -8,8 +8,17 @@ export type ReportMode = "light" | "full";
 export interface CliOptions {
     repo: string;
     sourceDirs: string[];
-    packDirs?: string[];
-    disabledPackIds?: string[];
+    listModules?: boolean;
+    listModuleProjects?: boolean;
+    explainModuleId?: string;
+    traceModuleId?: string;
+    listPlugins?: boolean;
+    explainPluginName?: string;
+    tracePluginName?: string;
+    moduleRoots?: string[];
+    enabledModuleProjects?: string[];
+    disabledModuleProjects?: string[];
+    disabledModuleIds?: string[];
     pluginPaths?: string[];
     disabledPluginNames?: string[];
     pluginIsolate?: string[];
@@ -37,8 +46,17 @@ function splitCsv(value?: string): string[] {
 export function parseArgs(argv: string[]): CliOptions {
     let repo = "";
     let sourceDirs: string[] = [];
-    let packDirs: string[] = [];
-    let disabledPackIds: string[] = [];
+    let listModules = false;
+    let listModuleProjects = false;
+    let explainModuleId: string | undefined;
+    let traceModuleId: string | undefined;
+    let listPlugins = false;
+    let explainPluginName: string | undefined;
+    let tracePluginName: string | undefined;
+    let moduleRoots: string[] = [];
+    let enabledModuleProjects: string[] = [];
+    let disabledModuleProjects: string[] = [];
+    let disabledModuleIds: string[] = [];
     let pluginPaths: string[] = [];
     let disabledPluginNames: string[] = [];
     let pluginIsolate: string[] = [];
@@ -78,16 +96,64 @@ export function parseArgs(argv: string[]): CliOptions {
             if (arg === "--sourceDir") i++;
             continue;
         }
-        const packsArg = readValue("--packs");
-        if (packsArg !== undefined) {
-            packDirs.push(...splitCsv(packsArg));
-            if (arg === "--packs") i++;
+        if (arg === "--list-modules") {
+            listModules = true;
             continue;
         }
-        const disabledPacksArg = readValue("--disable-packs");
-        if (disabledPacksArg !== undefined) {
-            disabledPackIds.push(...splitCsv(disabledPacksArg));
-            if (arg === "--disable-packs") i++;
+        if (arg === "--list-plugins") {
+            listPlugins = true;
+            continue;
+        }
+        if (arg === "--list-module-projects") {
+            listModuleProjects = true;
+            continue;
+        }
+        const explainModuleArg = readValue("--explain-module");
+        if (explainModuleArg !== undefined) {
+            explainModuleId = explainModuleArg.trim();
+            if (arg === "--explain-module") i++;
+            continue;
+        }
+        const traceModuleArg = readValue("--trace-module");
+        if (traceModuleArg !== undefined) {
+            traceModuleId = traceModuleArg.trim();
+            if (arg === "--trace-module") i++;
+            continue;
+        }
+        const explainPluginArg = readValue("--explain-plugin");
+        if (explainPluginArg !== undefined) {
+            explainPluginName = explainPluginArg.trim();
+            if (arg === "--explain-plugin") i++;
+            continue;
+        }
+        const tracePluginArg = readValue("--trace-plugin");
+        if (tracePluginArg !== undefined) {
+            tracePluginName = tracePluginArg.trim();
+            if (arg === "--trace-plugin") i++;
+            continue;
+        }
+        const moduleRootArg = readValue("--module-root");
+        if (moduleRootArg !== undefined) {
+            moduleRoots.push(...splitCsv(moduleRootArg));
+            if (arg === "--module-root") i++;
+            continue;
+        }
+        const enableModuleProjectArg = readValue("--enable-module-project");
+        if (enableModuleProjectArg !== undefined) {
+            enabledModuleProjects.push(...splitCsv(enableModuleProjectArg));
+            if (arg === "--enable-module-project") i++;
+            continue;
+        }
+        const disableModuleProjectArg = readValue("--disable-module-project");
+        if (disableModuleProjectArg !== undefined) {
+            disabledModuleProjects.push(...splitCsv(disableModuleProjectArg));
+            if (arg === "--disable-module-project") i++;
+            continue;
+        }
+        const disabledModuleArg = readValue("--disable-module");
+        if (disabledModuleArg !== undefined) {
+            disabledModuleIds.push(...splitCsv(disabledModuleArg));
+            if (arg === "--disable-module") i++;
             continue;
         }
         const pluginsArg = readValue("--plugins");
@@ -160,16 +226,16 @@ export function parseArgs(argv: string[]): CliOptions {
             if (arg === "--concurrency") i++;
             continue;
         }
-        const defaultRuleArg = readValue("--default");
-        if (defaultRuleArg !== undefined) {
-            ruleOptions.defaultRulePath = defaultRuleArg;
-            if (arg === "--default") i++;
+        const kernelRuleArg = readValue("--kernelRule");
+        if (kernelRuleArg !== undefined) {
+            ruleOptions.kernelRulePath = kernelRuleArg;
+            if (arg === "--kernelRule") i++;
             continue;
         }
-        const frameworkRuleArg = readValue("--framework");
-        if (frameworkRuleArg !== undefined) {
-            ruleOptions.frameworkRulePath = frameworkRuleArg;
-            if (arg === "--framework") i++;
+        const ruleCatalogArg = readValue("--ruleCatalog") ?? readValue("--rules");
+        if (ruleCatalogArg !== undefined) {
+            ruleOptions.ruleCatalogPath = ruleCatalogArg;
+            if (arg === "--ruleCatalog" || arg === "--rules") i++;
             continue;
         }
         const projectRuleArg = readValue("--project");
@@ -178,10 +244,30 @@ export function parseArgs(argv: string[]): CliOptions {
             if (arg === "--project") i++;
             continue;
         }
-        const llmRuleArg = readValue("--llm");
-        if (llmRuleArg !== undefined) {
-            ruleOptions.llmCandidateRulePath = llmRuleArg;
-            if (arg === "--llm") i++;
+        const enableRulePackArg = readValue("--enable-rule-pack");
+        if (enableRulePackArg !== undefined) {
+            const nextValues = splitCsv(enableRulePackArg);
+            ruleOptions.enabledRulePacks = [
+                ...(ruleOptions.enabledRulePacks || []),
+                ...nextValues,
+            ];
+            if (arg === "--enable-rule-pack") i++;
+            continue;
+        }
+        const disableRulePackArg = readValue("--disable-rule-pack");
+        if (disableRulePackArg !== undefined) {
+            const nextValues = splitCsv(disableRulePackArg);
+            ruleOptions.disabledRulePacks = [
+                ...(ruleOptions.disabledRulePacks || []),
+                ...nextValues,
+            ];
+            if (arg === "--disable-rule-pack") i++;
+            continue;
+        }
+        const candidateRuleArg = readValue("--candidate");
+        if (candidateRuleArg !== undefined) {
+            ruleOptions.candidateRulePath = candidateRuleArg;
+            if (arg === "--candidate") i++;
             continue;
         }
         if (arg === "--incremental") {
@@ -225,6 +311,18 @@ export function parseArgs(argv: string[]): CliOptions {
         }
     }
 
+    const inspectionModeCount = [
+        listModules,
+        listModuleProjects,
+        !!explainModuleId,
+        !!traceModuleId,
+        listPlugins,
+        !!explainPluginName,
+        !!tracePluginName,
+    ].filter(Boolean).length;
+    if (inspectionModeCount > 1) {
+        throw new Error("only one inspection mode may be used at a time: --list-modules, --list-module-projects, --explain-module, --trace-module, --list-plugins, --explain-plugin, --trace-plugin");
+    }
     if (!repo) throw new Error("missing required --repo <path>");
     const normalizedRepo = path.isAbsolute(repo) ? repo : path.resolve(repo);
     if (!fs.existsSync(normalizedRepo)) throw new Error(`repo path not found: ${normalizedRepo}`);
@@ -235,8 +333,10 @@ export function parseArgs(argv: string[]): CliOptions {
     }
     if (sourceDirs.length === 0) throw new Error("no sourceDir found. pass --sourceDir");
     sourceDirs = [...new Set(sourceDirs.map(d => d.replace(/\\/g, "/")))];
-    packDirs = [...new Set(packDirs.map(d => path.isAbsolute(d) ? d : path.resolve(d)))];
-    disabledPackIds = [...new Set(disabledPackIds.map(id => id.trim()).filter(Boolean))];
+    moduleRoots = [...new Set(moduleRoots.map(d => path.isAbsolute(d) ? d : path.resolve(d)))];
+    enabledModuleProjects = [...new Set(enabledModuleProjects.map(id => id.trim()).filter(Boolean))];
+    disabledModuleProjects = [...new Set(disabledModuleProjects.map(id => id.trim()).filter(Boolean))];
+    disabledModuleIds = [...new Set(disabledModuleIds.map(id => id.trim()).filter(Boolean))];
     pluginPaths = [...new Set(pluginPaths.map(d => path.isAbsolute(d) ? d : path.resolve(d)))];
     disabledPluginNames = [...new Set(disabledPluginNames.map(name => name.trim()).filter(Boolean))];
     pluginIsolate = [...new Set(pluginIsolate.map(name => name.trim()).filter(Boolean))];
@@ -272,6 +372,12 @@ export function parseArgs(argv: string[]): CliOptions {
     }
 
     ruleOptions.autoDiscoverLayers = true;
+    if (ruleOptions.enabledRulePacks) {
+        ruleOptions.enabledRulePacks = [...new Set(ruleOptions.enabledRulePacks.map(item => item.trim()).filter(Boolean))];
+    }
+    if (ruleOptions.disabledRulePacks) {
+        ruleOptions.disabledRulePacks = [...new Set(ruleOptions.disabledRulePacks.map(item => item.trim()).filter(Boolean))];
+    }
     if (incrementalCachePath) {
         incrementalCachePath = path.isAbsolute(incrementalCachePath)
             ? incrementalCachePath
@@ -280,8 +386,17 @@ export function parseArgs(argv: string[]): CliOptions {
     return {
         repo: normalizedRepo,
         sourceDirs,
-        packDirs,
-        disabledPackIds,
+        listModules,
+        listModuleProjects,
+        explainModuleId,
+        traceModuleId,
+        listPlugins,
+        explainPluginName,
+        tracePluginName,
+        moduleRoots,
+        enabledModuleProjects,
+        disabledModuleProjects,
+        disabledModuleIds,
         pluginPaths,
         disabledPluginNames,
         pluginIsolate,

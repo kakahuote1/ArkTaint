@@ -11,17 +11,29 @@ import {
 const WATCH_LIKE_DECORATORS = new Set(["Watch", "Monitor"]);
 
 export function classInheritsAbility(arkClass: ArkClass): boolean {
-    if (matchesAbilityBaseName(arkClass.getSuperClassName())) {
-        return true;
+    return !!resolveAbilityLikeOwnerKind(arkClass);
+}
+
+export function resolveAbilityLikeOwnerKind(
+    arkClass: ArkClass,
+): "ability_owner" | "stage_owner" | "extension_owner" | undefined {
+    const directKind = classifyAbilityOwnerBaseName(arkClass.getSuperClassName());
+    if (directKind) {
+        return directKind;
     }
     let superClass = arkClass.getSuperClass();
     while (superClass) {
-        if (matchesAbilityBaseName(superClass.getSuperClassName())) {
-            return true;
+        const namedKind = classifyAbilityOwnerBaseName(superClass.getName?.());
+        if (namedKind) {
+            return namedKind;
+        }
+        const inheritedKind = classifyAbilityOwnerBaseName(superClass.getSuperClassName());
+        if (inheritedKind) {
+            return inheritedKind;
         }
         superClass = superClass.getSuperClass();
     }
-    return false;
+    return undefined;
 }
 
 export function dedupeMethods(methods: ArkMethod[]): ArkMethod[] {
@@ -137,10 +149,20 @@ export function collectThisFieldWrites(method: ArkMethod, watchedFields: Set<str
     return [...out.values()].sort((a, b) => a.localeCompare(b));
 }
 
-function matchesAbilityBaseName(raw: string | undefined): boolean {
+function classifyAbilityOwnerBaseName(
+    raw: string | undefined,
+): "ability_owner" | "stage_owner" | "extension_owner" | undefined {
     const normalized = normalizeClassName(raw);
-    if (!normalized) return false;
-    return ARK_MAIN_ABILITY_BASE_CLASS_NAMES.has(normalized);
+    if (!normalized) return undefined;
+    if (normalized === "AbilityStage") {
+        return "stage_owner";
+    }
+    if (normalized.endsWith("ExtensionAbility")) {
+        return "extension_owner";
+    }
+    return ARK_MAIN_ABILITY_BASE_CLASS_NAMES.has(normalized)
+        ? "ability_owner"
+        : undefined;
 }
 
 function normalizeDecoratorParam(raw: string): string | undefined {

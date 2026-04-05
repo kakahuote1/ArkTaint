@@ -4,7 +4,7 @@ import { ContextID } from "../../../../arkanalyzer/out/src/callgraph/pointerAnal
 
 export class TaintFact {
     public node: PagNode;
-    public contextID: ContextID;  // 上下�?ID�? = 空上下文�?
+    public contextID: ContextID;  // 上下�?ID�? = 空上下文�?
     public field?: string[];
     public source: string;
 

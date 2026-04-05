@@ -9,6 +9,7 @@ import {
     resolveCallbackRegistrationsFromStmt,
 } from "../../substrate/queries/CallbackBindingQuery";
 import {
+    ExecutionHandoffActivationToken,
     ExecutionHandoffContinuationRole,
     ExecutionHandoffActivationPathRecord,
     ExecutionHandoffFeatures,
@@ -586,13 +587,12 @@ function buildRecoveredSemantics(
     activationLabel: HandoffActivationLabel,
     activation: HandoffTriggerToken,
     completion: HandoffResumeKind,
-    preserve: HandoffTriggerToken[],
+    preserve: ExecutionHandoffActivationToken[],
     continuationRole: ExecutionHandoffContinuationRole,
 ): RecoveredExecutionHandoffSemantics {
     return {
         activationLabel,
         semantics: {
-            domain: activation === "call(c)" && completion === "none" ? "control" : "deferred",
             activation,
             completion,
             preserve: [...preserve],

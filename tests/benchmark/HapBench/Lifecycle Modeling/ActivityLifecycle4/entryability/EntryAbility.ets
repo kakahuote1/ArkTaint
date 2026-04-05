@@ -7,6 +7,7 @@ import Generalbility from './GeneralAbility';
 
 export default class EntryAbility extends Generalbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
+    super.onCreate(want, launchParam);
     hilog.info(0x0000, 'testTag', '%{public}s', EntryAbility.info); //sink, leak
   }
 }

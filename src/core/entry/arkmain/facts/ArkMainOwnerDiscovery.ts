@@ -1,10 +1,15 @@
 import { Scene } from "../../../../../arkanalyzer/out/src/Scene";
 import { ArkClass } from "../../../../../arkanalyzer/out/src/core/model/ArkClass";
 import { ArkMethod } from "../../../../../arkanalyzer/out/src/core/model/ArkMethod";
-import { classInheritsAbility, normalizeDecoratorKind } from "./ArkMainFactResolverUtils";
+import { normalizeDecoratorKind, resolveAbilityLikeOwnerKind } from "./ArkMainFactResolverUtils";
 import { resolveComponentLifecycleContract } from "./ArkMainLifecycleContracts";
 
-export type ArkMainManagedOwnerKind = "ability_owner" | "component_owner" | "builder_owner";
+export type ArkMainManagedOwnerKind =
+    | "ability_owner"
+    | "stage_owner"
+    | "extension_owner"
+    | "component_owner"
+    | "builder_owner";
 
 export interface ArkMainManagedOwnerEvidence {
     ownerKind: ArkMainManagedOwnerKind;
@@ -25,6 +30,8 @@ export interface ArkMainManagedOwnerDiscovery {
     records: ArkMainManagedOwnerRecord[];
     isFrameworkManagedOwner: (cls: ArkClass | null | undefined) => boolean;
     isAbilityOwner: (cls: ArkClass | null | undefined) => boolean;
+    isStageOwner: (cls: ArkClass | null | undefined) => boolean;
+    isExtensionOwner: (cls: ArkClass | null | undefined) => boolean;
     isComponentOwner: (cls: ArkClass | null | undefined) => boolean;
     isBuilderOwner: (cls: ArkClass | null | undefined) => boolean;
     getEvidences: (cls: ArkClass | null | undefined) => ArkMainManagedOwnerEvidence[];
@@ -51,11 +58,12 @@ export function collectFrameworkManagedOwners(
         if (!className) continue;
 
         const record = ensureRecord(ownerMap, ownerOrder, className, cls);
-        if (classInheritsAbility(cls)) {
+        const inheritedOwnerKind = resolveAbilityLikeOwnerKind(cls);
+        if (inheritedOwnerKind) {
             pushEvidence(record, {
-                ownerKind: "ability_owner",
+                ownerKind: inheritedOwnerKind,
                 recognitionLayer: "owner_qualified_inheritance",
-                reason: "inherits sdk ability base class",
+                reason: "inherits sdk managed owner base class",
             });
         }
 
@@ -104,6 +112,8 @@ export function collectFrameworkManagedOwners(
             return recordByClassName.has(className);
         },
         isAbilityOwner: (cls: ArkClass | null | undefined): boolean => hasKind(cls, "ability_owner"),
+        isStageOwner: (cls: ArkClass | null | undefined): boolean => hasKind(cls, "stage_owner"),
+        isExtensionOwner: (cls: ArkClass | null | undefined): boolean => hasKind(cls, "extension_owner"),
         isComponentOwner: (cls: ArkClass | null | undefined): boolean => hasKind(cls, "component_owner"),
         isBuilderOwner: (cls: ArkClass | null | undefined): boolean => hasKind(cls, "builder_owner"),
         getEvidences: (cls: ArkClass | null | undefined): ArkMainManagedOwnerEvidence[] => {

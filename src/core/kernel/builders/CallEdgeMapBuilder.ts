@@ -17,6 +17,8 @@ import {
 import { summarizeConstructorCapturedLocalToFields } from "./SyntheticInvokeEdgeBuilder";
 import { getMethodBySignature, getMethodBySimpleName } from "../contracts/MethodLookup";
 import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
+import { buildExecutionHandoffSiteKeyFromStmt } from "../handoff/ExecutionHandoffSiteKey";
+import { collectOrdinaryTaintPreservingSourceLocals } from "../ordinary/OrdinaryLanguagePropagation";
 
 export interface CaptureEdgeInfo {
     srcNodeId: number;
@@ -320,10 +322,11 @@ export function buildCaptureEdgeMap(
     scene: Scene,
     cg: CallGraph,
     pag: Pag,
-    log: (msg: string) => void
+    log: (msg: string) => void,
+    excludedDeferredSiteKeys?: ReadonlySet<string>,
 ): Map<number, CaptureEdgeInfo[]> {
     const captureEdgeMap = new Map<number, CaptureEdgeInfo[]>();
-    const lazy = buildCaptureLazyMaterializer(scene, cg, pag);
+    const lazy = buildCaptureLazyMaterializer(scene, cg, pag, excludedDeferredSiteKeys);
     let captureEdgesFound = 0;
 
     for (const site of lazy.sites) {
@@ -337,7 +340,8 @@ export function buildCaptureEdgeMap(
 export function buildCaptureLazyMaterializer(
     scene: Scene,
     cg: CallGraph,
-    pag: Pag
+    pag: Pag,
+    excludedDeferredSiteKeys?: ReadonlySet<string>,
 ): CaptureLazyMaterializer {
     const capturedSummaryCache = new Map<string, Map<string, Set<string>>>();
     const capturedVisiting = new Set<string>();
@@ -355,6 +359,8 @@ export function buildCaptureLazyMaterializer(
             if (!stmt.containsInvokeExpr()) continue;
             const invokeExpr = stmt.getInvokeExpr();
             if (!invokeExpr) continue;
+            const siteKey = buildExecutionHandoffSiteKeyFromStmt(method, stmt);
+            const suppressForwardDeferredCapture = excludedDeferredSiteKeys?.has(siteKey) || false;
 
             const descriptors = collectCaptureDescriptorsForInvokeStmt(
                 scene,
@@ -364,6 +370,7 @@ export function buildCaptureLazyMaterializer(
                 callerLocals,
                 stmt,
                 invokeExpr,
+                suppressForwardDeferredCapture,
                 capturedSummaryCache,
                 capturedVisiting
             );
@@ -401,7 +408,7 @@ export function materializeCaptureSitesForNode(
         lazy.materializedSiteIds.add(siteId);
         const site = lazy.siteById.get(siteId);
         if (!site) continue;
-        added += materializeCaptureSite(pag, edgeMap, site);
+        added += materializeCaptureSite(pag, edgeMap, site, nodeId);
     }
     return added;
 }
@@ -409,7 +416,8 @@ export function materializeCaptureSitesForNode(
 function materializeCaptureSite(
     pag: Pag,
     edgeMap: Map<number, CaptureEdgeInfo[]>,
-    site: CaptureLazySite
+    site: CaptureLazySite,
+    triggerNodeId?: number,
 ): number {
     let count = 0;
     for (const descriptor of site.descriptors) {
@@ -419,17 +427,24 @@ function materializeCaptureSite(
 
         for (const srcNodeId of srcNodes.values()) {
             for (const dstNodeId of dstNodes.values()) {
-                if (!edgeMap.has(srcNodeId)) {
-                    edgeMap.set(srcNodeId, []);
-                }
-                edgeMap.get(srcNodeId)!.push({
+                const edgeInfo: CaptureEdgeInfo = {
                     srcNodeId,
                     dstNodeId,
                     callSiteId: descriptor.callSiteId,
                     callerMethodName: descriptor.callerMethodName,
                     calleeMethodName: descriptor.calleeMethodName,
                     direction: descriptor.direction,
-                });
+                };
+                if (!edgeMap.has(srcNodeId)) {
+                    edgeMap.set(srcNodeId, []);
+                }
+                edgeMap.get(srcNodeId)!.push(edgeInfo);
+                if (triggerNodeId !== undefined && triggerNodeId !== srcNodeId) {
+                    if (!edgeMap.has(triggerNodeId)) {
+                        edgeMap.set(triggerNodeId, []);
+                    }
+                    edgeMap.get(triggerNodeId)!.push(edgeInfo);
+                }
                 count++;
             }
         }
@@ -526,6 +541,10 @@ function collectCaptureTriggerNodeIds(
         if (!srcNodes) continue;
         for (const nodeId of srcNodes.values()) {
             out.add(nodeId);
+            const srcNode = pag.getNode(nodeId) as PagNode;
+            for (const objId of srcNode?.getPointTo?.() || []) {
+                out.add(objId);
+            }
         }
     }
     return out;
@@ -539,6 +558,7 @@ function collectCaptureDescriptorsForInvokeStmt(
     callerLocals: Map<string, Local>,
     stmt: any,
     invokeExpr: any,
+    suppressForwardDeferredCapture: boolean,
     capturedSummaryCache: Map<string, Map<string, Set<string>>>,
     capturedVisiting: Set<string>
 ): CaptureEdgeDescriptor[] {
@@ -575,7 +595,17 @@ function collectCaptureDescriptorsForInvokeStmt(
         const callSiteId = calleeInfo.callSiteId;
         const explicitArgs = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
         const capturedLocalSourceValues = buildCapturedLocalSourceValues(calleeMethod, invokeExpr, explicitArgs);
+        const calleeLocals = calleeMethod.getBody?.()?.getLocals?.() || new Map<string, Local>();
         const captureTargets = collectClosureCaptureTargets(scene, calleeMethod);
+        if (collectDirectCapturedInvokeArgLocals(calleeMethod).size > 0) {
+            const calleeSig = calleeMethod.getSignature?.().toString?.();
+            const alreadyIncluded = captureTargets.some(
+                target => target?.getSignature?.()?.toString?.() === calleeSig,
+            );
+            if (!alreadyIncluded) {
+                captureTargets.push(calleeMethod);
+            }
+        }
 
         for (const targetMethod of captureTargets) {
             const targetCfg = targetMethod.getCfg();
@@ -587,12 +617,39 @@ function collectCaptureDescriptorsForInvokeStmt(
                 capturedSummaryCache,
                 capturedVisiting
             );
+            const closureParamBwds = collectClosuresParamWriteBackDescriptors(
+                pag, targetMethod, callerLocals, stmt, callSiteId, callerName, calleeName
+            );
+            descriptors.push(...closureParamBwds);
+            const directCapturedInvokeArgLocals = collectDirectCapturedInvokeArgLocals(targetMethod);
+            for (const [callerLocalName, directUses] of directCapturedInvokeArgLocals.entries()) {
+                const sourceValues = resolveCapturedLocalSourceValues(
+                    callerLocals,
+                    calleeLocals,
+                    capturedLocalSourceValues,
+                    callerLocalName,
+                );
+                if (sourceValues.length === 0) continue;
+                for (const sourceValue of sourceValues) {
+                    const sourceNodes = getOrCreatePagNodes(pag, sourceValue, stmt);
+                    if (!sourceNodes || sourceNodes.size === 0) continue;
+                    for (const directUse of directUses) {
+                        if (suppressForwardDeferredCapture) continue;
+                        descriptors.push({
+                            srcValue: sourceValue,
+                            srcAnchorStmt: resolvePagAnchorStmtForValue(sourceValue, stmt),
+                            dstValue: directUse.local,
+                            dstAnchorStmt: directUse.anchorStmt || stmt,
+                            callSiteId,
+                            callerMethodName: callerName,
+                            calleeMethodName: calleeName,
+                            direction: "forward",
+                        });
+                    }
+                }
+            }
 
             if (capturedLocalsToFields.size === 0) {
-                const closureParamBwds = collectClosuresParamWriteBackDescriptors(
-                    pag, targetMethod, callerLocals, stmt, callSiteId, callerName, calleeName
-                );
-                descriptors.push(...closureParamBwds);
                 continue;
             }
 
@@ -603,6 +660,7 @@ function collectCaptureDescriptorsForInvokeStmt(
             for (const [callerLocalName, fieldNames] of capturedLocalsToFields.entries()) {
                 const sourceValues = resolveCapturedLocalSourceValues(
                     callerLocals,
+                    calleeLocals,
                     capturedLocalSourceValues,
                     callerLocalName,
                 );
@@ -614,9 +672,10 @@ function collectCaptureDescriptorsForInvokeStmt(
 
                     for (const fieldName of fieldNames) {
                         for (const readAccess of fieldReadLocals.get(fieldName) || []) {
+                            if (suppressForwardDeferredCapture) continue;
                             descriptors.push({
                                 srcValue: sourceValue,
-                                srcAnchorStmt: stmt,
+                                srcAnchorStmt: resolvePagAnchorStmtForValue(sourceValue, stmt),
                                 dstValue: readAccess.local,
                                 dstAnchorStmt: readAccess.anchorStmt || stmt,
                                 callSiteId,
@@ -656,18 +715,41 @@ function collectCaptureDescriptorsForInvokeStmt(
             const arg = args[paramIdx];
             if (!(arg instanceof Local)) continue;
 
-            const closureMethod = resolveLocalToClosureMethod(scene, method, arg);
-            if (!closureMethod || !closureMethod.getCfg()) continue;
+            const closureMethods = resolveCallableToClosureMethods(scene, method, arg);
+            for (const closureMethod of closureMethods) {
+                if (!closureMethod?.getCfg?.()) continue;
 
-            const bwdDescs = collectClosuresParamWriteBackDescriptors(
-                pag, closureMethod, callerLocals, stmt,
-                calleeInfo.callSiteId, method.getName(), closureMethod.getName()
-            );
-            descriptors.push(...bwdDescs);
+                const bwdDescs = collectClosuresParamWriteBackDescriptors(
+                    pag, closureMethod, callerLocals, stmt,
+                    calleeInfo.callSiteId, method.getName(), closureMethod.getName()
+                );
+                descriptors.push(...bwdDescs);
+            }
         }
     }
 
     return descriptors;
+}
+
+function resolveCallableToClosureMethods(scene: Scene, callerMethod: any, argValue: any): any[] {
+    const out: any[] = [];
+    const seen = new Set<string>();
+    const addMethod = (candidate: any | null | undefined): void => {
+        const sig = candidate?.getSignature?.()?.toString?.() || "";
+        if (!sig || seen.has(sig) || !candidate?.getCfg?.()) return;
+        seen.add(sig);
+        out.push(candidate);
+    };
+
+    if (argValue instanceof Local) {
+        addMethod(resolveLocalToClosureMethod(scene, callerMethod, argValue));
+    }
+
+    for (const candidate of resolveMethodsFromCallable(scene, argValue, { maxCandidates: 8 })) {
+        addMethod(candidate);
+    }
+
+    return out;
 }
 
 function resolveLocalToClosureMethod(scene: Scene, callerMethod: any, argLocal: Local): any | null {
@@ -857,7 +939,7 @@ function collectClosuresParamWriteBackDescriptors(
         if (!(stmt instanceof ArkAssignStmt)) continue;
         const left = stmt.getLeftOp();
         const right = stmt.getRightOp();
-        if (!(left instanceof Local) || !(right instanceof Local)) continue;
+        if (!(left instanceof Local)) continue;
 
         const overwrittenField = capturedLocalToField.get(left.getName());
         if (!overwrittenField) continue;
@@ -867,16 +949,19 @@ function collectClosuresParamWriteBackDescriptors(
         const callerNodes = getOrCreatePagNodes(pag, callerLocal, callerStmt);
         if (!callerNodes || callerNodes.size === 0) continue;
 
-        result.push({
-            srcValue: right,
-            srcAnchorStmt: stmt,
-            dstValue: callerLocal,
-            dstAnchorStmt: callerStmt,
-            callSiteId,
-            callerMethodName,
-            calleeMethodName,
-            direction: "backward",
-        });
+        const sourceLocals = collectOrdinaryTaintPreservingSourceLocals(right);
+        for (const sourceLocal of sourceLocals) {
+            result.push({
+                srcValue: sourceLocal,
+                srcAnchorStmt: stmt,
+                dstValue: callerLocal,
+                dstAnchorStmt: callerStmt,
+                callSiteId,
+                callerMethodName,
+                calleeMethodName,
+                direction: "backward",
+            });
+        }
     }
 
     return result;
@@ -997,8 +1082,57 @@ function buildCapturedLocalSourceValues(
     return result;
 }
 
+function collectDirectCapturedInvokeArgLocals(method: any): Map<string, FieldLocalAccess[]> {
+    const result = new Map<string, FieldLocalAccess[]>();
+    const cfg = method?.getCfg?.();
+    if (!cfg) return result;
+
+    const paramLocalNames = new Set<string>();
+    const assignedLocalNames = new Set<string>();
+    for (const stmt of cfg.getStmts()) {
+        if (!(stmt instanceof ArkAssignStmt)) continue;
+        const left = stmt.getLeftOp();
+        const right = stmt.getRightOp();
+        if (left instanceof Local) {
+            assignedLocalNames.add(left.getName());
+            if (right instanceof ArkParameterRef) {
+                paramLocalNames.add(left.getName());
+            }
+        }
+    }
+
+    for (const stmt of cfg.getStmts()) {
+        if (!stmt.containsInvokeExpr || !stmt.containsInvokeExpr()) continue;
+        const invokeExpr = stmt.getInvokeExpr();
+        const args = invokeExpr?.getArgs ? invokeExpr.getArgs() : [];
+        for (const arg of args) {
+            if (!(arg instanceof Local)) continue;
+            const localName = arg.getName?.() || "";
+            if (!isLikelyDirectCapturedLocalName(localName, paramLocalNames, assignedLocalNames)) continue;
+            if (!result.has(localName)) result.set(localName, []);
+            result.get(localName)!.push({ local: arg, anchorStmt: stmt });
+        }
+    }
+
+    return result;
+}
+
+function isLikelyDirectCapturedLocalName(
+    localName: string,
+    paramLocalNames: Set<string>,
+    assignedLocalNames: Set<string>,
+): boolean {
+    if (!localName) return false;
+    if (localName === "this" || localName.endsWith(".this")) return false;
+    if (localName.startsWith("%")) return false;
+    if (paramLocalNames.has(localName)) return false;
+    if (assignedLocalNames.has(localName)) return false;
+    return true;
+}
+
 function resolveCapturedLocalSourceValues(
     callerLocals: Map<string, Local>,
+    calleeLocals: Map<string, Local>,
     calleeCapturedSources: Map<string, any[]>,
     capturedLocalName: string,
 ): any[] {
@@ -1006,7 +1140,15 @@ function resolveCapturedLocalSourceValues(
     if (callerLocal instanceof Local) {
         return [callerLocal];
     }
+    const calleeLocal = calleeLocals.get(capturedLocalName);
+    if (calleeLocal instanceof Local) {
+        return [calleeLocal];
+    }
     return [...(calleeCapturedSources.get(capturedLocalName) || [])];
+}
+
+function resolvePagAnchorStmtForValue(value: any, fallbackStmt: any): any {
+    return value?.getDeclaringStmt?.() || fallbackStmt;
 }
 
 function resolveCapturedLocalAliasedSources(

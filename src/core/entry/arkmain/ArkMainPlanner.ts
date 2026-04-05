@@ -5,14 +5,17 @@ import {
     collectArkMainEntryFacts,
     expandSeedMethodsByDirectCalls,
 } from "./facts/ArkMainFactResolvers";
+import { buildArkMainContracts, buildArkMainSourceRulesFromContracts } from "./facts/ArkMainContractBuilder";
 import { ArkMainBridgePlan, buildArkMainBridgePlan } from "./bridges/ArkMainBridgePlanner";
 import { ArkMainSchedule, buildArkMainSchedule } from "./scheduling/ArkMainScheduler";
 import {
     ARK_MAIN_PHASE_ORDER,
+    ArkMainContract,
     ArkMainEntryFact,
     ArkMainPhaseName,
     ArkMainPhasePlan,
     ArkMainPlanOptions,
+    ArkMainSourceRule,
 } from "./ArkMainTypes";
 
 export type {
@@ -28,6 +31,8 @@ export {
 } from "./facts/ArkMainFactResolvers";
 
 export interface ArkMainPlan {
+    contracts: ArkMainContract[];
+    sourceRules: ArkMainSourceRule[];
     facts: ArkMainEntryFact[];
     activationGraph: ArkMainActivationGraph;
     schedule: ArkMainSchedule;
@@ -46,15 +51,21 @@ export function buildArkMainPlan(scene: Scene, options: ArkMainPlanOptions = {})
     const _t3 = Date.now();
     const schedule = buildArkMainSchedule(activationGraph);
     const _t4 = Date.now();
-    const bridgePlan = buildArkMainBridgePlan(activationGraph, schedule);
+    const contracts = buildArkMainContracts(scene, facts, activationGraph, schedule);
     const _t5 = Date.now();
-    const phases = buildPhasePlansFromSchedule(facts, schedule);
+    const sourceRules = buildArkMainSourceRulesFromContracts(contracts);
     const _t6 = Date.now();
-    if (_t6 - _t0 > 500) {
-        console.log(`[ArkMain profiling] expandSeed=${_t1 - _t0}ms facts=${_t2 - _t1}ms graph=${_t3 - _t2}ms schedule=${_t4 - _t3}ms bridge=${_t5 - _t4}ms phases=${_t6 - _t5}ms total=${_t6 - _t0}ms`);
+    const bridgePlan = buildArkMainBridgePlan(activationGraph, schedule);
+    const _t7 = Date.now();
+    const phases = buildPhasePlansFromSchedule(facts, schedule);
+    const _t8 = Date.now();
+    if (_t8 - _t0 > 500) {
+        console.log(`[ArkMain profiling] expandSeed=${_t1 - _t0}ms facts=${_t2 - _t1}ms graph=${_t3 - _t2}ms schedule=${_t4 - _t3}ms contracts=${_t5 - _t4}ms sources=${_t6 - _t5}ms bridge=${_t7 - _t6}ms phases=${_t8 - _t7}ms total=${_t8 - _t0}ms`);
     }
 
     return {
+        contracts,
+        sourceRules,
         facts,
         activationGraph,
         schedule,

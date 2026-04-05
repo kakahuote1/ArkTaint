@@ -42,7 +42,7 @@ import {
     EntryAnalyzeResult,
     toReportEntry,
 } from "./analyzeTypes";
-import { emptySemanticPackAuditSnapshot } from "../core/kernel/contracts/SemanticPack";
+import { emptyModuleAuditSnapshot } from "../core/kernel/contracts/ModuleContract";
 import {
     buildEntryCacheKey,
     buildIncrementalFingerprint,
@@ -62,7 +62,7 @@ import {
     writeNoCandidateCallsiteClassificationArtifacts,
 } from "./ruleFeedback";
 import { injectArkUiSdk } from "../core/orchestration/ArkUiSdkConfig";
-import { loadSemanticPacks } from "../core/orchestration/packs/PackLoader";
+import { loadModules } from "../core/orchestration/modules/ModuleLoader";
 import { loadEnginePlugins } from "../core/orchestration/plugins/EnginePluginLoader";
 import * as fs from "fs";
 import * as path from "path";
@@ -155,6 +155,25 @@ function dedupFailureEvents<T extends { message: string }>(
         out.push(item);
     }
     return out;
+}
+
+function appendRecentModuleMessages(target: string[], incoming: string[]): string[] {
+    for (const message of incoming) {
+        if (target.includes(message)) continue;
+        target.push(message);
+    }
+    if (target.length > 12) {
+        target.splice(12);
+    }
+    return target;
+}
+
+function appendUniqueStrings(target: string[], incoming: string[]): string[] {
+    for (const value of incoming) {
+        if (target.includes(value)) continue;
+        target.push(value);
+    }
+    return target;
 }
 
 function buildLoadedFileFingerprint(filePaths: string[]): string {
@@ -264,12 +283,14 @@ async function analyzeSourceDir(
     try {
         engine = new TaintPropagationEngine(scene, options.k, {
             transferRules: loadedRules.ruleSet.transfers || [],
-            semanticPackDirs: options.packDirs,
-            disabledSemanticPackIds: options.disabledPackIds,
+            moduleRoots: options.moduleRoots,
+            enabledModuleProjects: options.enabledModuleProjects,
+            disabledModuleProjects: options.disabledModuleProjects,
+            disabledModuleIds: options.disabledModuleIds,
             enginePluginDirs: pluginDirs,
             enginePluginFiles: pluginFiles,
             disabledEnginePluginNames: options.disabledPluginNames,
-            includeBuiltinSemanticPacks: true,
+            includeBuiltinModules: true,
             includeBuiltinEnginePlugins: true,
             pluginDryRun: options.pluginDryRun,
             pluginIsolate: options.pluginIsolate,
@@ -317,7 +338,7 @@ async function analyzeSourceDir(
                 stageProfile,
                 transferNoHitReasons: ["no_source_seed"],
                 pagNodeResolutionAudit: engine.getPagNodeResolutionAuditSnapshot(),
-                semanticPackAudit: engine.getSemanticPackAuditSnapshot(),
+                moduleAudit: engine.getModuleAuditSnapshot(),
                 enginePluginAudit: engine.getEnginePluginAuditSnapshot(),
                 elapsedMs: stageProfile.totalMs
             };
@@ -376,7 +397,7 @@ async function analyzeSourceDir(
             stageProfile,
             transferNoHitReasons,
             pagNodeResolutionAudit: engine.getPagNodeResolutionAuditSnapshot(),
-            semanticPackAudit: engine.getSemanticPackAuditSnapshot(),
+            moduleAudit: engine.getModuleAuditSnapshot(),
             enginePluginAudit: engine.getEnginePluginAuditSnapshot(),
             elapsedMs: stageProfile.totalMs,
         };
@@ -401,7 +422,7 @@ async function analyzeSourceDir(
             stageProfile,
             transferNoHitReasons: ["analyze_exception"],
             pagNodeResolutionAudit: engine?.getPagNodeResolutionAuditSnapshot() || emptyPagNodeResolutionAuditSnapshot(),
-            semanticPackAudit: engine?.getSemanticPackAuditSnapshot() || emptySemanticPackAuditSnapshot(),
+            moduleAudit: engine?.getModuleAuditSnapshot() || emptyModuleAuditSnapshot(),
             enginePluginAudit: engine?.getEnginePluginAuditSnapshot() || emptyEnginePluginAuditSnapshot(),
             elapsedMs: stageProfile.totalMs,
             error: String(err?.message || err),
@@ -423,9 +444,11 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     ConfigBasedTransferExecutor.resetSceneRuleCacheStats();
     const pluginDirs = (options.pluginPaths || []).filter(p => fs.existsSync(p) && fs.statSync(p).isDirectory());
     const pluginFiles = (options.pluginPaths || []).filter(p => fs.existsSync(p) && fs.statSync(p).isFile());
-    const semanticPackResult = loadSemanticPacks({
-        packDirs: options.packDirs || [],
-        disabledPackIds: options.disabledPackIds || [],
+    const moduleResult = loadModules({
+        moduleRoots: options.moduleRoots || [],
+        enabledModuleProjects: options.enabledModuleProjects || [],
+        disabledModuleProjects: options.disabledModuleProjects || [],
+        disabledModuleIds: options.disabledModuleIds || [],
     });
     const enginePluginResult = loadEnginePlugins({
         pluginDirs,
@@ -441,8 +464,8 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     for (const warning of loadedRules.warnings) {
         console.warn(`rule warning: ${warning}`);
     }
-    for (const warning of semanticPackResult.warnings) {
-        console.warn(`semantic pack warning: ${warning}`);
+    for (const warning of moduleResult.warnings) {
+        console.warn(`module warning: ${warning}`);
     }
     for (const warning of enginePluginResult.warnings) {
         console.warn(`engine plugin warning: ${warning}`);
@@ -453,10 +476,12 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     const ruleFingerprint = buildRuleFingerprint(loadedRules);
     const analysisFingerprint = buildIncrementalFingerprint({
         ruleFingerprint,
-        semanticPackFiles: buildLoadedFileFingerprint(semanticPackResult.loadedFiles),
+        moduleFiles: buildLoadedFileFingerprint(moduleResult.loadedFiles),
         enginePluginFiles: buildLoadedFileFingerprint(enginePluginResult.loadedFiles),
-        packDirs: (options.packDirs || []).map(item => path.resolve(item)).sort(),
-        disabledPackIds: [...(options.disabledPackIds || [])].sort(),
+        moduleRoots: (options.moduleRoots || []).map(item => path.resolve(item)).sort(),
+        enabledModuleProjects: [...(options.enabledModuleProjects || [])].sort(),
+        disabledModuleProjects: [...(options.disabledModuleProjects || [])].sort(),
+        disabledModuleIds: [...(options.disabledModuleIds || [])].sort(),
         pluginPaths: (options.pluginPaths || []).map(item => path.resolve(item)).sort(),
         disabledPluginNames: [...(options.disabledPluginNames || [])].sort(),
         pluginIsolate: [...(options.pluginIsolate || [])].sort(),
@@ -594,6 +619,22 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     const noCandidateSummaryMap = new Map<string, AnalyzeReport["summary"]["transferProfile"]["noCandidateCallsites"][number]>();
     const detectProfile = emptyDetectProfile();
     const pagNodeResolutionAudit = emptyPagNodeResolutionAuditSnapshot();
+    const moduleAuditSummary = {
+        loadedModuleIds: [] as string[],
+        failedModuleIds: [] as string[],
+        discoveredModuleProjects: [...moduleResult.discoveredModuleProjects],
+        enabledModuleProjects: [...moduleResult.enabledModuleProjects],
+        modules: {} as Record<string, ReturnType<typeof emptyModuleAuditSnapshot>["moduleStats"][string]>,
+    };
+    const pluginAuditSummary = {
+        loadedPluginNames: [] as string[],
+        failedPluginNames: [] as string[],
+        plugins: {} as Record<string, AnalyzeReport["summary"]["pluginAudit"]["plugins"][string]>,
+    };
+    const loadedModuleIdSet = new Set<string>();
+    const failedModuleIdSet = new Set<string>();
+    const loadedPluginNameSet = new Set<string>();
+    const failedPluginNameSet = new Set<string>();
     const diagnostics = emptyAnalyzeErrorDiagnostics();
     let transferShareCount = 0;
     const transferNoHitReasons: Record<string, number> = {};
@@ -646,18 +687,97 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         detectProfile.traversalMs += e.detectProfile.traversalMs;
         detectProfile.totalMs += e.detectProfile.totalMs;
         accumulatePagNodeResolutionAudit(pagNodeResolutionAudit, e.pagNodeResolutionAudit);
-        diagnostics.semanticPackRuntimeFailures.push(...e.semanticPackAudit.failureEvents);
+        for (const moduleId of e.moduleAudit.loadedModuleIds) {
+            loadedModuleIdSet.add(moduleId);
+        }
+        for (const moduleId of e.moduleAudit.failedModuleIds) {
+            failedModuleIdSet.add(moduleId);
+        }
+        for (const pluginName of e.enginePluginAudit.loadedPluginNames) {
+            loadedPluginNameSet.add(pluginName);
+        }
+        for (const pluginName of e.enginePluginAudit.failedPluginNames) {
+            failedPluginNameSet.add(pluginName);
+        }
+        for (const [moduleId, stats] of Object.entries(e.moduleAudit.moduleStats || {})) {
+            const current = moduleAuditSummary.modules[moduleId];
+            if (!current) {
+                moduleAuditSummary.modules[moduleId] = {
+                    ...stats,
+                    recentDebugMessages: [...stats.recentDebugMessages],
+                };
+                continue;
+            }
+            current.sourcePath = current.sourcePath || stats.sourcePath;
+            current.factHookCalls += stats.factHookCalls;
+            current.invokeHookCalls += stats.invokeHookCalls;
+            current.copyEdgeChecks += stats.copyEdgeChecks;
+            current.factEmissionCount += stats.factEmissionCount;
+            current.invokeEmissionCount += stats.invokeEmissionCount;
+            current.totalEmissionCount += stats.totalEmissionCount;
+            current.skipCopyEdgeCount += stats.skipCopyEdgeCount;
+            current.debugHitCount += stats.debugHitCount;
+            current.debugSkipCount += stats.debugSkipCount;
+            current.debugLogCount += stats.debugLogCount;
+            current.recentDebugMessages = appendRecentModuleMessages(
+                current.recentDebugMessages,
+                stats.recentDebugMessages,
+            );
+        }
+        for (const [pluginName, stats] of Object.entries(e.enginePluginAudit.pluginStats || {})) {
+            const current = pluginAuditSummary.plugins[pluginName];
+            if (!current) {
+                pluginAuditSummary.plugins[pluginName] = {
+                    ...stats,
+                    detectionCheckNames: [...stats.detectionCheckNames],
+                };
+                continue;
+            }
+            current.description = current.description || stats.description;
+            current.sourcePath = current.sourcePath || stats.sourcePath;
+            current.startHookCalls += stats.startHookCalls;
+            current.entryHookCalls += stats.entryHookCalls;
+            current.propagationHookCalls += stats.propagationHookCalls;
+            current.detectionHookCalls += stats.detectionHookCalls;
+            current.resultHookCalls += stats.resultHookCalls;
+            current.finishHookCalls += stats.finishHookCalls;
+            current.sourceRulesAdded += stats.sourceRulesAdded;
+            current.sinkRulesAdded += stats.sinkRulesAdded;
+            current.transferRulesAdded += stats.transferRulesAdded;
+            current.sanitizerRulesAdded += stats.sanitizerRulesAdded;
+            current.optionOverrideCount += stats.optionOverrideCount;
+            current.entryAdds += stats.entryAdds;
+            current.entryReplaceUsed = current.entryReplaceUsed || stats.entryReplaceUsed;
+            current.callEdgeObserverCount += stats.callEdgeObserverCount;
+            current.taintFlowObserverCount += stats.taintFlowObserverCount;
+            current.methodReachedObserverCount += stats.methodReachedObserverCount;
+            current.propagationReplaceUsed = current.propagationReplaceUsed || stats.propagationReplaceUsed;
+            current.addedFlowCount += stats.addedFlowCount;
+            current.addedBridgeCount += stats.addedBridgeCount;
+            current.addedSyntheticEdgeCount += stats.addedSyntheticEdgeCount;
+            current.enqueuedFactCount += stats.enqueuedFactCount;
+            current.detectionCheckNames = appendUniqueStrings(
+                current.detectionCheckNames,
+                stats.detectionCheckNames,
+            );
+            current.detectionCheckRunCount += stats.detectionCheckRunCount;
+            current.detectionReplaceUsed = current.detectionReplaceUsed || stats.detectionReplaceUsed;
+            current.resultFilterCount += stats.resultFilterCount;
+            current.resultTransformCount += stats.resultTransformCount;
+            current.resultAddedFindingCount += stats.resultAddedFindingCount;
+        }
+        diagnostics.moduleRuntimeFailures.push(...e.moduleAudit.failureEvents);
         diagnostics.enginePluginRuntimeFailures.push(...e.enginePluginAudit.failureEvents);
         transferShareCount++;
         for (const reason of e.transferNoHitReasons) {
             transferNoHitReasons[reason] = (transferNoHitReasons[reason] || 0) + 1;
         }
     }
-    diagnostics.semanticPackLoadIssues = semanticPackResult.loadIssues.map(issue => ({ ...issue }));
+    diagnostics.moduleLoadIssues = moduleResult.loadIssues.map(issue => ({ ...issue }));
     diagnostics.enginePluginLoadIssues = enginePluginResult.loadIssues.map(issue => ({ ...issue }));
-    diagnostics.semanticPackRuntimeFailures = dedupFailureEvents(
-        diagnostics.semanticPackRuntimeFailures,
-        item => `${item.packId}|${item.phase}|${item.message}|${item.path || ""}|${item.line || ""}|${item.column || ""}`,
+    diagnostics.moduleRuntimeFailures = dedupFailureEvents(
+        diagnostics.moduleRuntimeFailures,
+        item => `${item.moduleId}|${item.phase}|${item.message}|${item.path || ""}|${item.line || ""}|${item.column || ""}`,
     );
     diagnostics.enginePluginRuntimeFailures = dedupFailureEvents(
         diagnostics.enginePluginRuntimeFailures,
@@ -666,6 +786,10 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     transferProfile.elapsedShareAvg = transferShareCount > 0
         ? Number((transferProfile.elapsedShareAvg / transferShareCount).toFixed(6))
         : 0;
+    moduleAuditSummary.loadedModuleIds = [...loadedModuleIdSet].sort((a, b) => a.localeCompare(b));
+    moduleAuditSummary.failedModuleIds = [...failedModuleIdSet].sort((a, b) => a.localeCompare(b));
+    pluginAuditSummary.loadedPluginNames = [...loadedPluginNameSet].sort((a, b) => a.localeCompare(b));
+    pluginAuditSummary.failedPluginNames = [...failedPluginNameSet].sort((a, b) => a.localeCompare(b));
     const diagnosticItems = normalizeDiagnosticsItems(diagnostics);
     transferProfile.noCandidateCallsites = [...noCandidateSummaryMap.values()]
         .sort((a, b) => b.count - a.count || a.calleeSignature.localeCompare(b.calleeSignature))
@@ -706,6 +830,8 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
             pagNodeResolutionAudit,
             diagnostics,
             diagnosticItems,
+            moduleAudit: moduleAuditSummary,
+            pluginAudit: pluginAuditSummary,
             stageProfile: {
                 ruleLoadMs: Number(stageProfile.ruleLoadMs.toFixed(3)),
                 sceneBuildMs: Number(stageProfile.sceneBuildMs.toFixed(3)),
@@ -759,6 +885,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
             loadedFiles: enginePluginResult.loadedFiles,
             warnings: enginePluginResult.warnings,
             loadIssues: enginePluginResult.loadIssues,
+            summary: report.summary.pluginAudit,
             runtimeFailures: report.summary.diagnostics.enginePluginRuntimeFailures,
             diagnosticItems: report.summary.diagnosticItems.filter(item => item.category === "Plugin"),
         };

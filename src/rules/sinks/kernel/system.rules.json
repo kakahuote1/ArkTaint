@@ -1,0 +1,339 @@
+{
+  "schemaVersion": "2.0",
+  "sources": [],
+  "sinks": [
+    {
+      "id": "sink.harmony.router.pushUrl.arg0.exact",
+      "enabled": true,
+      "match": {
+        "kind": "signature_equals",
+        "value": "@sdk_signature_probe/taint_mock.ts: Router.pushUrl(@sdk_signature_probe/taint_mock.ts: %AC0)"
+      },
+      "category": "router_dispatch",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.router.pushUrl.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "pushUrl"
+      },
+      "category": "router_dispatch",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.router.pushUrl.arg0.sig",
+      "enabled": true,
+      "match": {
+        "kind": "signature_contains",
+        "value": "pushUrl"
+      },
+      "category": "router_dispatch",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.ability.startAbility.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "startAbility"
+      },
+      "category": "intent_injection",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.ability.startAbilityForResult.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "startAbilityForResult"
+      },
+      "category": "intent_injection",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.commonevent.publish.arg1",
+      "enabled": false,
+      "description": "Observation-only: commonEvent publish payload sink (cross-process boundary, disabled by default).",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "publish"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(commonEventManager|CommonEventManager)"
+        }
+      },
+      "category": "cross_process_observation",
+      "severity": "low",
+      "target": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.notification.publish",
+      "description": "Publish notification with data",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "notification",
+        "P1"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "publish"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "notification"
+        }
+      },
+      "target": "arg0",
+      "severity": "medium",
+      "category": "information_leak"
+    },
+    {
+      "id": "sink.harmony.navPathStack.pushPath",
+      "description": "Navigation pushPath parameter injection",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "navigation",
+        "P1"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "pushPath"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "NavPathStack"
+        }
+      },
+      "target": "arg0",
+      "severity": "medium",
+      "category": "router_dispatch"
+    },
+    {
+      "id": "sink.harmony.navPathStack.pushPathByName",
+      "description": "Navigation pushPathByName injection",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "navigation",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "pushPathByName"
+      },
+      "target": "arg0",
+      "severity": "medium",
+      "category": "router_dispatch"
+    },
+    {
+      "id": "sink.harmony.navPathStack.replacePath",
+      "description": "Navigation replacePath injection",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "navigation",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "replacePath"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "NavPathStack"
+        }
+      },
+      "target": "arg0",
+      "severity": "medium",
+      "category": "router_dispatch"
+    },
+    {
+      "id": "sink.harmony.ability.startServiceExtension",
+      "description": "Start service extension with intent",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "ability",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "startServiceExtensionAbility"
+      },
+      "target": "arg0",
+      "severity": "high",
+      "category": "intent_injection"
+    },
+    {
+      "id": "sink.harmony.wantAgent.trigger",
+      "description": "Trigger WantAgent with data",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "ability",
+        "P1"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "trigger"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "wantAgent"
+        }
+      },
+      "target": "arg1",
+      "severity": "high",
+      "category": "intent_injection"
+    },
+    {
+      "id": "sink.harmony.router.replaceUrl",
+      "description": "Router replace URL (similar to pushUrl)",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "router",
+        "P2"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "replaceUrl"
+      },
+      "target": "arg0",
+      "severity": "medium",
+      "category": "router_dispatch"
+    },
+    {
+      "id": "sink.harmony.contact.addContact",
+      "description": "Write contact (sensitive persistence)",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "contact",
+        "P2"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "addContact"
+      },
+      "target": "arg0",
+      "severity": "medium",
+      "category": "sensitive_persistence"
+    },
+    {
+      "id": "sink.harmony.contact.updateContact",
+      "description": "Update contact (sensitive persistence)",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "contact",
+        "P2"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "updateContact"
+      },
+      "target": "arg0",
+      "severity": "medium",
+      "category": "sensitive_persistence"
+    },
+    {
+      "id": "sink.harmony.calendar.addEvent",
+      "description": "Write calendar event (privacy persistence)",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "calendar",
+        "P2"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "addEvent"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "Calendar"
+        }
+      },
+      "target": "arg0",
+      "severity": "low",
+      "category": "sensitive_persistence"
+    },
+    {
+      "id": "sink.harmony.calendar.addEvents",
+      "description": "Write calendar events batch",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "calendar",
+        "P2"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "addEvents"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "Calendar"
+        }
+      },
+      "target": "arg0",
+      "severity": "low",
+      "category": "sensitive_persistence"
+    },
+    {
+      "id": "sink.harmony.print.print",
+      "description": "Print file path leak",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "print",
+        "P2"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "print"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "print"
+        }
+      },
+      "target": "arg0",
+      "severity": "low",
+      "category": "information_leak"
+    }
+  ],
+  "sanitizers": [],
+  "transfers": []
+}

@@ -1,3 +1,5 @@
+import { FlowRuleTrace } from "../../cli/analyzeUtils";
+
 export interface SmokeProjectConfig {
     id: string;
     repoPath: string;
@@ -49,6 +51,10 @@ export interface EntrySmokeResult {
     seedStrategies: string[];
     seedCount: number;
     flowCount: number;
+    flowRuleTraces: FlowRuleTrace[];
+    sinkRuleHits: Record<string, number>;
+    sinkFamilyHits: Record<string, number>;
+    sinkEndpointHits: Record<string, number>;
     sinkFlowByKeyword: Record<string, number>;
     sinkFlowBySignature: Record<string, number>;
     sinkSamples: string[];
@@ -91,6 +97,9 @@ export interface ProjectSmokeResult {
     withSeeds: number;
     withFlows: number;
     totalFlows: number;
+    sinkRuleHits: Record<string, number>;
+    sinkFamilyHits: Record<string, number>;
+    sinkEndpointHits: Record<string, number>;
     sinkFlowByKeyword: Record<string, number>;
     sinkFlowBySignature: Record<string, number>;
     fatalErrors: string[];
@@ -105,6 +114,9 @@ export interface SmokeReport {
     totalEntriesWithSeeds: number;
     totalEntriesWithFlows: number;
     totalFlows: number;
+    sinkRuleHits: Record<string, number>;
+    sinkFamilyHits: Record<string, number>;
+    sinkEndpointHits: Record<string, number>;
     sinkFlowByKeyword: Record<string, number>;
     sinkFlowBySignature: Record<string, number>;
     fatalProjectCount: number;

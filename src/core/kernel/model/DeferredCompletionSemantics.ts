@@ -1,8 +1,8 @@
 import type {
+    ExecutionHandoffActivationToken,
     ExecutionHandoffContinuationRole,
     HandoffActivationLabel,
     HandoffResumeKind,
-    HandoffTriggerToken,
 } from "../handoff/ExecutionHandoffContract";
 
 export type DeferredCompletionContinuationKind = "then" | "catch" | "finally";
@@ -10,9 +10,9 @@ export type DeferredCompletionSettlementHint = "fulfilled" | "rejected" | "unkno
 
 export interface DeferredCompletionSemantics {
     activationLabel: HandoffActivationLabel;
-    activation: HandoffTriggerToken;
+    activation: ExecutionHandoffActivationToken;
     completion: HandoffResumeKind;
-    preserve: HandoffTriggerToken[];
+    preserve: ExecutionHandoffActivationToken[];
     continuationKind: DeferredCompletionContinuationKind;
     continuationRole: ExecutionHandoffContinuationRole;
 }

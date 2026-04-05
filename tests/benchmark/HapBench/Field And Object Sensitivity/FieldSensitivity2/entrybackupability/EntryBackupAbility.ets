@@ -7,6 +7,8 @@ export default class EntryBackupAbility extends BackupExtensionAbility {
   }
 
   async onRestore(bundleVersion: BundleVersion) {
-    hilog.info(0x0000, 'testTag', 'onRestore ok %{public}s', JSON.stringify(bundleVersion));
+    const restoreSnapshot = JSON.stringify(bundleVersion);
+    hilog.info(0x0000, 'testTag', 'onRestore ok');
+    console.info(restoreSnapshot);
   }
 }

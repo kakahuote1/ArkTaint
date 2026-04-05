@@ -7,6 +7,7 @@ import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { ArkMethod } from "../../../../arkanalyzer/out/src/core/model/ArkMethod";
 import { resolveCallbackRegistrationsFromStmt } from "../../substrate/queries/CallbackBindingQuery";
 import { resolveMethodsFromCallable } from "../../substrate/queries/CalleeResolver";
+import { resolveSdkImportScopeCandidates } from "../../substrate/queries/SdkProvenance";
 import { getMethodBySignature } from "../contracts/MethodLookup";
 import { TaintFact } from "../model/TaintFact";
 import {
@@ -81,7 +82,9 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
         }
     };
 
-    for (const rule of args.sourceRules) {
+    const orderedSourceRules = [...args.sourceRules].sort(compareSourceRuleTierAndId);
+
+    for (const rule of orderedSourceRules) {
         if (rule.enabled === false) continue;
         const kind = resolveSourceRuleKind(rule);
         const target = resolveSourceRuleTarget(rule, kind);
@@ -131,7 +134,7 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
 
                     const calleeSignature = invokeExpr.getMethodSignature?.().toString?.() || "";
                     const calleeName = resolveInvokeMethodName(invokeExpr, calleeSignature);
-                    if (!matchesSourceCallRule(rule, calleeSignature, calleeName, invokeExpr)) continue;
+                    if (!matchesSourceCallRule(rule, calleeSignature, calleeName, invokeExpr, method)) continue;
 
                     const targetValue = resolveInvokeTargetValue(stmt, invokeExpr, target.endpoint);
                     if (!targetValue) continue;
@@ -192,7 +195,7 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
                         ({ invokeExpr, explicitArgs, scene, sourceMethod }) => {
                             const calleeSignature = invokeExpr.getMethodSignature?.().toString?.() || "";
                             const calleeName = resolveInvokeMethodName(invokeExpr, calleeSignature);
-                            if (!matchesSourceCallRule(rule, calleeSignature, calleeName, invokeExpr)) {
+                            if (!matchesSourceCallRule(rule, calleeSignature, calleeName, invokeExpr, method)) {
                                 return null;
                             }
 
@@ -298,7 +301,7 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
 
                     const fieldName = right.getFieldSignature().getFieldName();
                     const fieldSignature = right.getFieldSignature().toString();
-                    if (!matchesSourceFieldReadRule(rule, method, left?.toString?.() || "", fieldName, fieldSignature)) {
+                    if (!matchesSourceFieldReadRule(rule, method, right, left?.toString?.() || "", fieldName, fieldSignature)) {
                         continue;
                     }
                     if (target.path && target.path.length > 0 && target.path[0] !== fieldName) {
@@ -479,9 +482,11 @@ function matchesSourceCallRule(
     rule: SourceRule,
     calleeSignature: string,
     calleeName: string,
-    invokeExpr: any
+    invokeExpr: any,
+    sourceMethod?: ArkMethod,
 ): boolean {
     if (!matchesInvokeShape(rule, invokeExpr, calleeSignature)) return false;
+    if (!matchesInvokeCalleeScope(rule.calleeScope, invokeExpr, calleeSignature, calleeName, sourceMethod)) return false;
 
     const value = rule.match.value || "";
     const normalizedCalleeSignature = normalizeInvokeSignatureForRuleMatch(calleeSignature);
@@ -531,13 +536,51 @@ function matchesSourceCallRule(
     }
 }
 
+function compareSourceRuleTierAndId(left: SourceRule, right: SourceRule): number {
+    const tierWeight = (rule: SourceRule): number => {
+        if (rule.tier === "A") return 3;
+        if (rule.tier === "B") return 2;
+        if (rule.tier === "C") return 1;
+        return 0;
+    };
+    const delta = tierWeight(right) - tierWeight(left);
+    if (delta !== 0) return delta;
+    return String(left.id || "").localeCompare(String(right.id || ""));
+}
+
+function matchesInvokeCalleeScope(
+    scope: RuleScopeConstraint | undefined,
+    invokeExpr: any,
+    calleeSignature: string,
+    calleeName: string,
+    sourceMethod?: ArkMethod,
+): boolean {
+    if (!scope) return true;
+    const methodSig = invokeExpr.getMethodSignature?.();
+    const classSig = methodSig?.getDeclaringClassSignature?.();
+    const classText = classSig?.getClassName?.() || classSig?.toString?.() || "";
+    const fileText = classSig?.getDeclaringFileSignature?.()?.toString?.() || extractFilePathFromSignature(calleeSignature);
+    const moduleText = calleeSignature || fileText;
+    if (!matchStringConstraint(scope.methodName, calleeName)) return false;
+
+    const fallback = resolveSdkImportScopeCandidates(sourceMethod, invokeExpr);
+    if (!matchConstraintAgainstCandidates(scope.file, [fileText, ...fallback.fileTexts])) return false;
+    if (!matchConstraintAgainstCandidates(scope.module, [moduleText, ...fallback.moduleTexts])) return false;
+    if (!matchConstraintAgainstCandidates(scope.className, [classText, ...fallback.classTexts])) return false;
+    return true;
+}
+
 function matchesSourceFieldReadRule(
     rule: SourceRule,
     method: ArkMethod,
+    fieldRef: ArkInstanceFieldRef,
     leftText: string,
     fieldName: string,
     fieldSignature: string
 ): boolean {
+    if (!matchesFieldReadCalleeScope(rule.calleeScope, fieldRef, fieldSignature, fieldName, method)) {
+        return false;
+    }
     const value = rule.match.value || "";
     const methodSignature = method.getSignature().toString();
     const classSignature = method.getDeclaringArkClass?.()?.getSignature?.()?.toString?.() || "";
@@ -574,6 +617,31 @@ function matchesSourceFieldReadRule(
         default:
             return false;
     }
+}
+
+function matchesFieldReadCalleeScope(
+    scope: RuleScopeConstraint | undefined,
+    fieldRef: ArkInstanceFieldRef,
+    fieldSignature: string,
+    fieldName: string,
+    sourceMethod?: ArkMethod,
+): boolean {
+    if (!scope) return true;
+    const declaringSig = fieldRef.getFieldSignature?.().getDeclaringSignature?.();
+    const fileText = declaringSig?.getDeclaringFileSignature?.()?.toString?.() || extractFilePathFromSignature(fieldSignature);
+    const classText = (declaringSig as any)?.getClassName?.() || declaringSig?.toString?.() || "";
+    const moduleText = fieldSignature || fileText;
+    if (!matchStringConstraint(scope.methodName, fieldName)) return false;
+
+    const syntheticInvoke = {
+        getBase: () => fieldRef.getBase?.(),
+        getMethodSignature: () => undefined,
+    };
+    const fallback = resolveSdkImportScopeCandidates(sourceMethod, syntheticInvoke);
+    if (!matchConstraintAgainstCandidates(scope.file, [fileText, ...fallback.fileTexts])) return false;
+    if (!matchConstraintAgainstCandidates(scope.module, [moduleText, ...fallback.moduleTexts])) return false;
+    if (!matchConstraintAgainstCandidates(scope.className, [classText, ...fallback.classTexts])) return false;
+    return true;
 }
 
 function matchesInvokeShape(rule: SourceRule, invokeExpr: any, calleeSignature: string): boolean {
@@ -1148,6 +1216,25 @@ function matchStringConstraint(constraint: RuleStringConstraint | undefined, tex
     } catch {
         return false;
     }
+}
+
+function matchConstraintAgainstCandidates(
+    constraint: RuleStringConstraint | undefined,
+    candidates: string[],
+): boolean {
+    if (!constraint) return true;
+    const seen = new Set<string>();
+    for (const candidate of candidates) {
+        const text = String(candidate || "").trim();
+        if (!text || seen.has(text)) {
+            continue;
+        }
+        seen.add(text);
+        if (matchStringConstraint(constraint, text)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function toRecord(map: Map<string, number>): Record<string, number> {

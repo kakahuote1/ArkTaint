@@ -5,6 +5,10 @@ import {
     resolveAbilityLifecycleContract,
     resolveAbilityLifecycleContractFromOverride,
     resolveComponentLifecycleContract,
+    resolveExtensionLifecycleContract,
+    resolveExtensionLifecycleContractFromOverride,
+    resolveStageLifecycleContract,
+    resolveStageLifecycleContractFromOverride,
 } from "./ArkMainLifecycleContracts";
 import { collectSdkOverrideCandidates } from "./ArkMainStructuralDiscovery";
 
@@ -13,12 +17,14 @@ export function collectLifecycleFacts(scene: Scene, context: ArkMainFactCollecti
         collectSdkOverrideCandidates(scene).map(candidate => [candidate.method.getSignature().toString(), candidate]),
     );
     const managedOwners = collectFrameworkManagedOwners(scene, {
-        includeComponentContractShape: context.explicitSeedMethods.length === 0,
+        includeComponentContractShape: true,
     });
 
     for (const cls of scene.getClasses()) {
         const methods = cls.getMethods().filter(method => !method.isStatic());
         const isAbilityOwner = managedOwners.isAbilityOwner(cls);
+        const isStageOwner = managedOwners.isStageOwner(cls);
+        const isExtensionOwner = managedOwners.isExtensionOwner(cls);
         const isComponentLikeOwner = managedOwners.isComponentOwner(cls) || managedOwners.isBuilderOwner(cls);
         const ownerRecognitionLayer = managedOwners.getPrimaryRecognitionLayer(cls);
 
@@ -27,25 +33,33 @@ export function collectLifecycleFacts(scene: Scene, context: ArkMainFactCollecti
             const signature = method.getSignature().toString();
             const sdkOverrideCandidate = sdkOverrideBySignature.get(signature);
 
-            if (isAbilityOwner) {
-                const abilityContract = sdkOverrideCandidate
-                    ? resolveAbilityLifecycleContractFromOverride(methodName)
-                    : resolveAbilityLifecycleContract(methodName);
-                if (!abilityContract) {
+            if (isAbilityOwner || isStageOwner || isExtensionOwner) {
+                const lifecycleContract = isAbilityOwner
+                    ? (sdkOverrideCandidate
+                        ? resolveAbilityLifecycleContractFromOverride(methodName)
+                        : resolveAbilityLifecycleContract(methodName))
+                    : isStageOwner
+                        ? (sdkOverrideCandidate
+                            ? resolveStageLifecycleContractFromOverride(methodName)
+                            : resolveStageLifecycleContract(methodName))
+                        : (sdkOverrideCandidate
+                            ? resolveExtensionLifecycleContractFromOverride(methodName)
+                            : resolveExtensionLifecycleContract(methodName));
+                if (!lifecycleContract) {
                     continue;
                 }
                 context.addFact({
-                    phase: abilityContract.phase,
-                    kind: abilityContract.kind,
+                    phase: lifecycleContract.phase,
+                    kind: lifecycleContract.kind,
                     method,
-                    reason: abilityContract.reason,
-                    entryFamily: abilityContract.entryFamily,
-                    entryShape: abilityContract.entryShape,
+                    reason: lifecycleContract.reason,
+                    entryFamily: lifecycleContract.entryFamily,
+                    entryShape: lifecycleContract.entryShape,
                     recognitionLayer: sdkOverrideCandidate
                         ? sdkOverrideCandidate.discoveryLayer
                         : (ownerRecognitionLayer || "owner_qualified_inheritance"),
                 });
-                context.addPhaseCandidateMethod(abilityContract.phase, method);
+                context.addPhaseCandidateMethod(lifecycleContract.phase, method);
                 continue;
             }
 

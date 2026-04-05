@@ -2,18 +2,22 @@ import { Scene } from "../../../../../arkanalyzer/out/src/Scene";
 import { resolveCallbackRegistrationsFromStmt } from "../../../substrate/queries/CallbackBindingQuery";
 import {
     FrameworkCallbackResolutionPolicy,
-    isKnownSchedulerMethodName,
     resolveKnownChannelCallbackRegistration,
     resolveKnownFrameworkCallbackRegistrationWithPolicy,
 } from "../../shared/FrameworkCallbackClassifier";
 import { ArkMainFactCollectionContext } from "./ArkMainFactContext";
 import { dedupeMethods } from "./ArkMainFactResolverUtils";
+import {
+    resolveArkMainCallbackEntryFamily,
+    shouldArkMainPromoteCallbackBinding,
+    shouldArkMainQueueOpaqueExternalCallback,
+} from "./ArkMainFrameworkCallbackBoundary";
 
 const ARK_MAIN_DECLARATION_CALLBACK_POLICY: FrameworkCallbackResolutionPolicy = {
     enableSdkProvenance: true,
     enableOpaqueExternalCallFallback: true,
-    enableOwnerQualifiedFallback: false,
-    enableEmptyOwnerFallback: false,
+    enableOwnerQualifiedFallback: true,
+    enableEmptyOwnerFallback: true,
     enableStructuralCallableFallback: false,
 };
 
@@ -57,15 +61,12 @@ export function collectCallbackFacts(scene: Scene, context: ArkMainFactCollectio
                 { maxDepth: 2 },
             );
             for (const binding of callbackBindings) {
-                if (isKnownSchedulerMethodName(binding.registrationMethodName)) {
-                    continue;
-                }
                 const sourceSignature = binding.sourceMethod?.getSignature?.()?.toString?.();
                 const sourcePhase = sourceSignature ? context.phaseByMethodSignature.get(sourceSignature) : undefined;
-                const callbackFlavor = binding.callbackFlavor || "channel";
-                if (callbackFlavor === "ui_event" && sourcePhase !== "composition") {
+                if (!shouldArkMainPromoteCallbackBinding(binding, sourcePhase)) {
                     continue;
                 }
+                const callbackFlavor = binding.callbackFlavor || "channel";
                 const callbackSignature = binding.callbackMethod?.getSignature?.()?.toString?.();
                 const factCountBefore = context.facts.length;
                 context.addFact({
@@ -81,17 +82,12 @@ export function collectCallbackFacts(scene: Scene, context: ArkMainFactCollectio
                     callbackRegistrationSignature: binding.registrationSignature,
                     callbackArgIndex: binding.callbackArgIndex,
                     callbackStructuralEvidenceFamily: binding.structuralEvidenceFamily,
-                    entryFamily: resolveOpenCallbackEntryFamily(binding.recognitionLayer, binding.slotFamily),
+                    entryFamily: resolveArkMainCallbackEntryFamily(binding.recognitionLayer, binding.slotFamily),
                     entryShape: binding.registrationShape,
                     recognitionLayer: binding.recognitionLayer,
                 });
                 const addedNewFact = context.facts.length > factCountBefore;
-                if (
-                    addedNewFact
-                    && binding.recognitionLayer === "opaque_external_call_fallback"
-                    && callbackSignature
-                    && !queuedSignatures.has(callbackSignature)
-                ) {
+                if (shouldArkMainQueueOpaqueExternalCallback(binding, addedNewFact, callbackSignature, queuedSignatures)) {
                     queuedSignatures.add(callbackSignature);
                     context.phaseByMethodSignature.set(callbackSignature, "interaction");
                     pendingMethods.push(binding.callbackMethod);
@@ -99,24 +95,5 @@ export function collectCallbackFacts(scene: Scene, context: ArkMainFactCollectio
             }
         }
     }
-}
-
-function resolveOpenCallbackEntryFamily(
-    recognitionLayer: string | undefined,
-    slotFamily: string | undefined,
-): string | undefined {
-    if (slotFamily) {
-        return undefined;
-    }
-    if (recognitionLayer === "sdk_provenance") {
-        return "unknown_sdk_callback";
-    }
-    if (recognitionLayer === "opaque_external_call_fallback") {
-        return "unknown_external_callback";
-    }
-    if (recognitionLayer === "structural_callable_fallback") {
-        return "unknown_structural_callback";
-    }
-    return undefined;
 }
 

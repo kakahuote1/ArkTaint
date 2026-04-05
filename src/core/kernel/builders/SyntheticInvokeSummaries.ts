@@ -6,6 +6,7 @@ import { ArkParameterRef, ArkInstanceFieldRef, ArkStaticFieldRef } from "../../.
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { ArkInstanceInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
 import { getMethodBySignature } from "../contracts/MethodLookup";
+import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
 import type {
     SyntheticConstructorStoreInfo,
     SyntheticFieldBridgeInfo,
@@ -57,7 +58,7 @@ export function buildSyntheticConstructorStoreMap(
             for (const [paramIndex, fieldNames] of summary.entries()) {
                 if (paramIndex < 0 || paramIndex >= args.length) continue;
                 const srcArg = args[paramIndex]!;
-                const srcNodes = pag.getNodesByValue(srcArg);
+                const srcNodes = pag.getNodesByValue(srcArg) || safeGetOrCreatePagNodes(pag, srcArg, stmt);
                 if (!srcNodes || srcNodes.size === 0) continue;
 
                 for (const srcNodeId of srcNodes.values()) {

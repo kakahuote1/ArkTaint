@@ -1,0 +1,177 @@
+{
+  "schemaVersion": "2.0",
+  "sources": [],
+  "sinks": [],
+  "sanitizers": [],
+  "transfers": [
+    {
+      "id": "transfer.harmony.string.concat.arg0_to_result",
+      "description": "String.concat(arg): argument taints concatenation result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "concat",
+        "invokeKind": "instance"
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.string.concat.base_to_result",
+      "description": "String.concat(arg): receiver string taints concatenation result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "concat",
+        "invokeKind": "instance"
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.string.pure_transform.base_to_result",
+      "description": "Pure String transforms conservatively taint their result from the receiver string.",
+      "match": {
+        "kind": "method_name_regex",
+        "value": "^(toString|toLocaleString|valueOf|slice|substring|substr|trim|trimStart|trimEnd|trimLeft|trimRight|toUpperCase|toLowerCase|repeat|charAt|normalize|toLocaleLowerCase|toLocaleUpperCase)$",
+        "invokeKind": "instance"
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.string.at.base_to_result",
+      "description": "String.at(index): receiver string taints indexed result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "at",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "string"
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.string.replace.base_to_result",
+      "description": "String.replace(search, replacement): receiver string taints replacement result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "replace",
+        "invokeKind": "instance"
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.string.replace.arg1_to_result",
+      "description": "String.replace(search, replacement): replacement text taints replacement result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "replace",
+        "invokeKind": "instance"
+      },
+      "from": "arg1",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.string.replaceAll.base_to_result",
+      "description": "String.replaceAll(search, replacement): receiver string taints replacement result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "replaceAll",
+        "invokeKind": "instance"
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.string.replaceAll.arg1_to_result",
+      "description": "String.replaceAll(search, replacement): replacement text taints replacement result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "replaceAll",
+        "invokeKind": "instance"
+      },
+      "from": "arg1",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.string.match.base_to_result",
+      "description": "String.match(regexp): receiver string taints match result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "match",
+        "invokeKind": "instance",
+        "argCount": 1
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.string.matchAll.base_to_result",
+      "description": "String.matchAll(regexp): receiver string taints match iterator result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "matchAll",
+        "invokeKind": "instance",
+        "argCount": 1
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.string.raw.arg0_to_result",
+      "description": "String.raw(template, ...subs): template taints raw string result.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "String.raw",
+        "invokeKind": "static"
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.string.raw.arg1_to_result",
+      "description": "String.raw(template, ...subs): first substitution taints raw string result.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "String.raw",
+        "invokeKind": "static"
+      },
+      "from": "arg1",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.string.padding.base_to_result",
+      "description": "String pad transforms conservatively taint their result from the receiver string.",
+      "match": {
+        "kind": "method_name_regex",
+        "value": "^(padStart|padEnd)$",
+        "invokeKind": "instance"
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.string.padding.arg1_to_result",
+      "description": "String pad transforms propagate taint from the pad string to the result.",
+      "match": {
+        "kind": "method_name_regex",
+        "value": "^(padStart|padEnd)$",
+        "invokeKind": "instance"
+      },
+      "from": "arg1",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.string.split.base_to_result",
+      "description": "String.split(sep): conservatively taint resulting array from the receiver string.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "split",
+        "invokeKind": "instance"
+      },
+      "from": "base",
+      "to": "result"
+    }
+  ]
+}

@@ -49,7 +49,9 @@ export function resolveSinkRuleSignatures(scene: Scene, rule: SinkRule): string[
                 // Fallback for unresolved/framework calls represented as
                 // "@%unk/%unk: .methodName()" in ArkIR where no concrete
                 // method symbol exists in scene.
-                matched.push(`.${value}(`);
+                if (matched.length === 0) {
+                    matched.push(`.${value}(`);
+                }
                 return [...new Set(matched)];
             }
         case "method_name_regex": {

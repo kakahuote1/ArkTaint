@@ -2,7 +2,7 @@ import { CompareReport } from "./TransferCompareTypes";
 
 export function renderTransferCompareMarkdown(report: CompareReport): string {
     const lines: string[] = [];
-    lines.push("# Phase 5.5 Transfer Compare Report (ArkTaint vs Arktan)");
+    lines.push("# Transfer Compare Report (ArkTaint vs Arktan)");
     lines.push("");
     lines.push(`- generatedAt: ${report.generatedAt}`);
     lines.push(`- node: ${report.environment.node}`);
@@ -10,7 +10,7 @@ export function renderTransferCompareMarkdown(report: CompareReport): string {
     lines.push(`- rounds: ${report.options.rounds}`);
     lines.push(`- k: ${report.options.k}`);
     lines.push(`- ruleSchemaVersion: ${report.options.ruleSchemaVersion}`);
-    lines.push(`- defaultRulePath: ${report.options.defaultRulePath}`);
+    lines.push(`- kernelRulePath: ${report.options.kernelRulePath}`);
     lines.push(`- arktanRoot: ${report.options.arktanRoot}`);
     lines.push("");
     lines.push("## Precision");

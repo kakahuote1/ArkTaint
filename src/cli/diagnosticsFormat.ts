@@ -55,9 +55,9 @@ export function buildSystemFailureEvent(
         stackExcerpt: location.stackExcerpt,
         userMessage: `${phase} main flow failed${locationSuffix}: ${message}`,
         code: options.code || `SYSTEM_${normalizeCodeFragment(phase)}_THROW`,
-        summary: options.summary || "分析主流程抛出了未归类异常",
-        advice: options.advice || "这不是规则、语义包或插件自己的已归类错误。请先查看这里附近的代码和上一条栈信息，再决定是修配置、扩展还是引擎主流程。",
-        title: options.title || "分析主流程",
+        summary: options.summary || "The main analysis flow threw an uncategorized error.",
+        advice: options.advice || "Inspect the nearby code and stack frame to determine whether the issue comes from configuration, an extension module, or the engine mainline.",
+        title: options.title || "Analysis Main Flow",
     };
 }
 
@@ -72,13 +72,13 @@ function toLocation(location: DiagnosticLocation): string {
 function categoryLabel(category: NormalizedDiagnosticItem["category"]): string {
     switch (category) {
         case "Rule":
-            return "规则";
-        case "Pack":
-            return "语义包";
+            return "Rule";
+        case "Module":
+            return "Module";
         case "Plugin":
-            return "插件";
+            return "Plugin";
         case "System":
-            return "系统";
+            return "System";
     }
 }
 
@@ -90,12 +90,12 @@ function normalizeCodeFragment(value: string): string {
         .toUpperCase();
 }
 
-function classifyLegacyLoadMessage(prefix: "PACK" | "PLUGIN", message: string): { code: string; advice: string } {
+function classifyLegacyLoadMessage(prefix: "MODULE" | "PLUGIN", message: string): { code: string; advice: string } {
     const lower = message.toLowerCase();
     if (lower.includes("cannot find module")) {
         return {
-            code: `${prefix}_MODULE_LOAD_MODULE_NOT_FOUND`,
-            advice: "检查 import/require 路径是否写对，以及依赖文件是否存在。",
+            code: `${prefix}_LOAD_MODULE_NOT_FOUND`,
+            advice: "Check the import/require path and confirm that the referenced file exists.",
         };
     }
     if (
@@ -106,33 +106,33 @@ function classifyLegacyLoadMessage(prefix: "PACK" | "PLUGIN", message: string): 
         || lower.includes("syntaxerror")
     ) {
         return {
-            code: `${prefix}_MODULE_LOAD_SYNTAX_ERROR`,
-            advice: "检查这个扩展文件附近是否有括号、逗号、字符串或 import 写法错误。",
+            code: `${prefix}_LOAD_SYNTAX_ERROR`,
+            advice: "Check the nearby syntax, especially brackets, commas, string literals, and import/export syntax.",
         };
     }
     if (lower.includes("is not a function")) {
         return {
-            code: `${prefix}_MODULE_LOAD_BAD_EXPORT`,
-            advice: "检查导出的对象是否真的是合法的 pack/plugin 定义，尤其是 default 导出和命名导出。",
+            code: `${prefix}_LOAD_BAD_EXPORT`,
+            advice: "Check whether the exported object is a valid module/plugin definition and whether the intended export is actually exported.",
         };
     }
     return {
-        code: `${prefix}_MODULE_LOAD_UNKNOWN`,
-        advice: "未能自动判断具体错因。请先核对这个扩展文件和相关 import 依赖是否能单独正常执行。",
+        code: `${prefix}_LOAD_UNKNOWN`,
+        advice: "Inspect the module file and its imports directly; the loader could not classify the failure more precisely.",
     };
 }
 
-function fallbackPackRuntimeAdvice(phase: string): { code: string; advice: string } {
+function fallbackModuleRuntimeAdvice(phase: string): { code: string; advice: string } {
     return {
-        code: `PACK_${normalizeCodeFragment(phase)}_THROW`,
-        advice: "这是该 semantic pack 在这个回调里直接抛出的异常。请先检查附近代码、空值访问和 helper 返回值。",
+        code: `MODULE_${normalizeCodeFragment(phase)}_THROW`,
+        advice: "This module threw directly from one of its runtime hooks. Check nearby code, null handling, and helper return values.",
     };
 }
 
 function fallbackPluginRuntimeAdvice(phase: string): { code: string; advice: string } {
     return {
         code: `PLUGIN_${normalizeCodeFragment(phase)}_THROW`,
-        advice: "这是该 plugin 在这个阶段里直接抛出的异常。请先检查附近代码、空值访问和 helper 返回值。",
+        advice: "This plugin threw directly from one of its runtime hooks. Check nearby code, null handling, and helper return values.",
     };
 }
 
@@ -141,48 +141,48 @@ function describeRuleKind(issue: AnalyzeErrorDiagnostics["ruleLoadIssues"][numbe
         case "file_missing":
             return {
                 code: "RULE_FILE_MISSING",
-                summary: "规则文件不存在",
-                advice: "检查路径是否写对，或确认该规则文件已经生成。",
+                summary: "Rule file missing",
+                advice: "Check the configured path or confirm that the rule file has been generated.",
             };
         case "json_parse":
             return {
                 code: "RULE_JSON_PARSE",
-                summary: "规则文件 JSON 语法错误",
-                advice: "先检查这里附近是否缺少逗号、右方括号 ] 或右花括号 }。",
+                summary: "Rule JSON parse error",
+                advice: "Check nearby JSON syntax, especially commas and closing brackets/braces.",
             };
         case "schema_assert":
             return {
                 code: "RULE_SCHEMA_INVALID",
-                summary: "规则结构不合法",
-                advice: "按提示检查这个字段是否写成了系统支持的规则结构。",
+                summary: "Rule schema assertion failed",
+                advice: "Check whether the failing field shape matches the supported rule schema.",
             };
         case "validation":
             return {
                 code: "RULE_FIELD_INVALID",
-                summary: "规则字段不合法",
-                advice: "检查这个字段的取值范围和类型是否符合规则 schema。",
+                summary: "Rule field validation failed",
+                advice: "Check the field type and allowed value range for the reported rule field.",
             };
         case "merged_validation":
             return {
                 code: "RULE_MERGED_INVALID",
-                summary: "合并后的规则集不合法",
-                advice: "检查是否有多个规则文件在合并后产生了冲突或非法组合。",
+                summary: "Merged rule set invalid",
+                advice: "Check whether multiple rule files produce an invalid merged inventory or conflicting fields.",
             };
     }
 }
 
-function describePackPhase(phase: string): string {
+function describeModulePhase(phase: string): string {
     switch (phase) {
         case "setup":
-            return "初始化";
+            return "setup";
         case "onFact":
-            return "传播回调 onFact";
+            return "onFact";
         case "onInvoke":
-            return "调用回调 onInvoke";
+            return "onInvoke";
         case "shouldSkipCopyEdge":
-            return "拷贝边裁剪回调";
+            return "shouldSkipCopyEdge";
         case "module_load":
-            return "模块加载";
+            return "module_load";
         default:
             return phase;
     }
@@ -190,16 +190,16 @@ function describePackPhase(phase: string): string {
 
 function describePluginPhase(phase: string): string {
     const map: Record<string, string> = {
-        onStart: "启动阶段",
-        onEntry: "入口阶段",
-        onPropagation: "传播阶段",
-        onDetection: "检测阶段",
-        onResult: "结果阶段",
-        onFinish: "结束阶段",
-        "result.filter": "结果过滤",
-        "result.transform": "结果转换",
-        "propagation.observer": "传播观察器",
-        module_load: "模块加载",
+        onStart: "onStart",
+        onEntry: "onEntry",
+        onPropagation: "onPropagation",
+        onDetection: "onDetection",
+        onResult: "onResult",
+        onFinish: "onFinish",
+        "result.filter": "result.filter",
+        "result.transform": "result.transform",
+        "propagation.observer": "propagation.observer",
+        module_load: "module_load",
     };
     return map[phase] || phase;
 }
@@ -211,7 +211,7 @@ export function normalizeDiagnosticsItems(diagnostics: AnalyzeErrorDiagnostics):
         out.push({
             category: "Rule",
             code: desc.code,
-            title: `${issue.layerName} 规则`,
+            title: `${issue.layerName} Rules`,
             summary: desc.summary,
             rawMessage: issue.message,
             advice: desc.advice,
@@ -221,15 +221,15 @@ export function normalizeDiagnosticsItems(diagnostics: AnalyzeErrorDiagnostics):
             fieldPath: issue.fieldPath,
         });
     }
-    for (const issue of diagnostics.semanticPackLoadIssues) {
+    for (const issue of diagnostics.moduleLoadIssues) {
         const load = issue.code && issue.advice
             ? { code: issue.code, advice: issue.advice }
-            : classifyLegacyLoadMessage("PACK", issue.message);
+            : classifyLegacyLoadMessage("MODULE", issue.message);
         out.push({
-            category: "Pack",
+            category: "Module",
             code: load.code,
-            title: "模块加载",
-            summary: "语义包模块加载失败",
+            title: "Module Load",
+            summary: "Module load failed",
             rawMessage: issue.message,
             advice: load.advice,
             path: issue.modulePath,
@@ -237,16 +237,16 @@ export function normalizeDiagnosticsItems(diagnostics: AnalyzeErrorDiagnostics):
             column: issue.column,
         });
     }
-    for (const failure of diagnostics.semanticPackRuntimeFailures) {
-        const phaseLabel = describePackPhase(failure.phase);
+    for (const failure of diagnostics.moduleRuntimeFailures) {
+        const phaseLabel = describeModulePhase(failure.phase);
         const runtime = failure.code && failure.advice
             ? { code: failure.code, advice: failure.advice }
-            : fallbackPackRuntimeAdvice(failure.phase);
+            : fallbackModuleRuntimeAdvice(failure.phase);
         out.push({
-            category: "Pack",
+            category: "Module",
             code: runtime.code,
-            title: `${failure.packId} / ${phaseLabel}`,
-            summary: `语义包 ${failure.packId} 在 ${phaseLabel} 中抛出了异常`,
+            title: `${failure.moduleId} / ${phaseLabel}`,
+            summary: `Module ${failure.moduleId} threw during ${phaseLabel}`,
             rawMessage: failure.message,
             advice: runtime.advice,
             path: failure.path,
@@ -261,8 +261,8 @@ export function normalizeDiagnosticsItems(diagnostics: AnalyzeErrorDiagnostics):
         out.push({
             category: "Plugin",
             code: load.code,
-            title: "模块加载",
-            summary: "插件模块加载失败",
+            title: "Plugin Load",
+            summary: "Plugin load failed",
             rawMessage: issue.message,
             advice: load.advice,
             path: issue.modulePath,
@@ -279,7 +279,7 @@ export function normalizeDiagnosticsItems(diagnostics: AnalyzeErrorDiagnostics):
             category: "Plugin",
             code: runtime.code,
             title: `${failure.pluginName} / ${phaseLabel}`,
-            summary: `插件 ${failure.pluginName} 在 ${phaseLabel} 中抛出了异常`,
+            summary: `Plugin ${failure.pluginName} threw during ${phaseLabel}`,
             rawMessage: failure.message,
             advice: runtime.advice,
             path: failure.path,
@@ -291,10 +291,10 @@ export function normalizeDiagnosticsItems(diagnostics: AnalyzeErrorDiagnostics):
         out.push({
             category: "System",
             code: failure.code || `SYSTEM_${normalizeCodeFragment(failure.phase || "analyze")}_THROW`,
-            title: failure.title || "分析主流程",
-            summary: failure.summary || "分析主流程抛出了未归类异常",
+            title: failure.title || "Analysis Main Flow",
+            summary: failure.summary || "The main analysis flow threw an uncategorized error.",
             rawMessage: failure.message,
-            advice: failure.advice || "这是分析主流程直接抛出的异常。请先查看这里附近的代码和上一条栈信息，再决定是修配置、规则还是引擎本身。",
+            advice: failure.advice || "Inspect the nearby code and stack frame to identify whether the issue belongs to configuration, a rule/module/plugin, or the engine mainline.",
             path: failure.path,
             line: failure.line,
             column: failure.column,
@@ -350,13 +350,13 @@ function renderCodeFrame(location: DiagnosticLocation, contextRadius = 2): strin
 
 function describeMissingCodeFrame(location: DiagnosticLocation): string | undefined {
     if (!location.path) {
-        return "未能提取到源码文件位置，因此无法显示代码切片。";
+        return "No source file location is available, so no code frame can be shown.";
     }
     if (!location.line || !location.column) {
-        return "已定位到源码文件，但未能提取到具体行列，因此无法显示代码切片。";
+        return "A source file is known, but no precise line/column was available for a code frame.";
     }
     if (!fs.existsSync(location.path) || !fs.statSync(location.path).isFile()) {
-        return "已定位到源码文件路径，但当前无法读取该文件，因此无法显示代码切片。";
+        return "The source file path is known, but the file is not currently readable.";
     }
     return undefined;
 }
@@ -375,7 +375,7 @@ export function formatDiagnosticsText(
         : items.length;
     const visibleItems = items.slice(0, maxItems);
     if (items.length === 0) {
-        return "ArkTaint diagnostics\n\nNo rule/pack/plugin/system errors were recorded.\n";
+        return "ArkTaint diagnostics\n\nNo rule/module/plugin/system errors were recorded.\n";
     }
 
     const lines: string[] = [];
@@ -386,14 +386,14 @@ export function formatDiagnosticsText(
     for (let i = 0; i < visibleItems.length; i++) {
         const item = visibleItems[i];
         lines.push(`${i + 1}. [${categoryLabel(item.category)}] ${item.title}`);
-        lines.push(`   错误码：${item.code}`);
-        lines.push(`   问题：${item.summary}`);
-        lines.push(`   位置：${toLocation(item)}`);
-        lines.push(`   说明：${item.rawMessage}`);
+        lines.push(`   code: ${item.code}`);
+        lines.push(`   summary: ${item.summary}`);
+        lines.push(`   location: ${toLocation(item)}`);
+        lines.push(`   message: ${item.rawMessage}`);
         if (item.fieldPath) {
-            lines.push(`   字段：${item.fieldPath}`);
+            lines.push(`   field: ${item.fieldPath}`);
         }
-        lines.push(`   建议：${item.advice}`);
+        lines.push(`   advice: ${item.advice}`);
         const frame = renderCodeFrame(item);
         if (frame.length > 0) {
             lines.push("");
@@ -403,7 +403,7 @@ export function formatDiagnosticsText(
         } else {
             const frameNote = describeMissingCodeFrame(item);
             if (frameNote) {
-                lines.push(`   切片：${frameNote}`);
+                lines.push(`   codeFrame: ${frameNote}`);
             }
         }
         if (i !== visibleItems.length - 1) {
@@ -412,7 +412,7 @@ export function formatDiagnosticsText(
     }
     if (items.length > visibleItems.length) {
         lines.push("");
-        lines.push(`... 还有 ${items.length - visibleItems.length} 条诊断，请查看完整 diagnostics.txt。`);
+        lines.push(`... ${items.length - visibleItems.length} more diagnostics are available in diagnostics.txt.`);
     }
     lines.push("");
     return `${lines.join("\n")}\n`;

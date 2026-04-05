@@ -1,0 +1,15 @@
+import geoLocationManager from "@ohos.geoLocationManager";
+import { hilog } from "@kit.PerformanceAnalysisKit";
+
+function invokeNow(callback: () => void): void {
+    callback();
+}
+
+export function class_callback_writeback_geo_018_F(): void {
+    let out = "";
+    invokeNow((): void => {
+        const tmp = JSON.stringify(geoLocationManager.getLastLocation());
+        void tmp;
+    });
+    hilog.info(0x0000, "testTag", "%{public}s", out);
+}

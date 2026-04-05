@@ -15,7 +15,7 @@ export default class EntryAbility extends UIAbility {
         info = '';
       }
     } catch (err) {
-      hilog.info(0x0000, 'testTag', '%{public}s', info); //sink, leak
+      hilog.info(0x0000, 'testTag', '%{public}s', info); //sink, no leak
     }
   }
 }

@@ -52,14 +52,14 @@ import { resolveSinkRuleSignatures as resolveSinkRuleSignaturesByRule } from "..
 import { createDebugCollectors, dumpDebugArtifactsToDir } from "../kernel/debug/DebugArtifactUtils";
 import { WorklistProfiler, WorklistProfileSnapshot } from "../kernel/debug/WorklistProfiler";
 import { PropagationTrace } from "../kernel/debug/PropagationTrace";
-import { expandEntryMethodsByDirectCalls } from "../entry/shared/ExplicitEntryScopeResolver";
+import {
+    expandEntryMethodsByDirectCalls,
+    expandMethodsByDirectCalls,
+} from "../entry/shared/ExplicitEntryScopeResolver";
 import {
     collectKnownKeyedDispatchKeysFromMethod,
     resolveKnownKeyedCallbackRegistrationsFromStmt,
 } from "../entry/shared/FrameworkCallbackClassifier";
-import {
-    HARMONY_LIFECYCLE_SOURCE_RULES,
-} from "../../rules/HarmonyLifecycleSourceRules";
 import {
     collectParameterAssignStmts,
     resolveMethodsFromCallable,
@@ -68,10 +68,15 @@ import { collectFiniteStringCandidatesFromValue } from "../substrate/queries/Fin
 import { buildArkMainPlan } from "../entry/arkmain/ArkMainPlanner";
 import { ArkMainSyntheticRootBuilder } from "../entry/arkmain/ArkMainSyntheticRootBuilder";
 import {
-    emptySemanticPackAuditSnapshot,
-    SemanticPack,
-    SemanticPackAuditSnapshot,
-} from "../kernel/contracts/SemanticPack";
+    shouldArkMainIncludeDeferredContractInReachable,
+} from "../entry/arkmain/facts/ArkMainFrameworkCallbackBoundary";
+import {
+    emptyModuleAuditSnapshot,
+    ModuleAuditSnapshot,
+    ModuleQueryApi,
+    ModuleRuntime,
+    TaintModule,
+} from "../kernel/contracts/ModuleContract";
 import {
     getPagNodeResolutionAuditSnapshot,
     PagNodeResolutionAuditSnapshot,
@@ -85,15 +90,14 @@ import {
     buildExecutionHandoffContracts,
     buildExecutionHandoffSnapshot,
 } from "../kernel/handoff/ExecutionHandoffInference";
-import {
-    DeferredHandoffMode,
-    MainlineDeferredHandoffMode,
-    ResearchDeferredHandoffMode,
-} from "./ExecutionHandoffModes";
+import type { ExecutionHandoffContractRecord } from "../kernel/handoff/ExecutionHandoffContract";
 import { buildExecutionHandoffSyntheticInvokeEdges } from "../kernel/handoff/ExecutionHandoffEdgeEmitter";
-import { filterExecutionHandoffContractsForMode } from "./ExecutionHandoffResearchFilter";
-import { loadSemanticPacks } from "./packs/PackLoader";
-import { createSemanticPackRuntime } from "./packs/PackRuntime";
+import type { ExecutionHandoffEventContractIndex } from "../kernel/handoff/ExecutionHandoffEventActivation";
+import {
+    buildExecutionHandoffSiteKeyFromRecord,
+} from "../kernel/handoff/ExecutionHandoffSiteKey";
+import { loadModules } from "./modules/ModuleLoader";
+import { createModuleRuntime } from "./modules/ModuleRuntime";
 import { EnginePlugin } from "./plugins/EnginePlugin";
 import { loadEnginePlugins } from "./plugins/EnginePluginLoader";
 import {
@@ -113,6 +117,12 @@ import {
     TransferRule,
     normalizeEndpoint,
 } from "../rules/RuleSchema";
+import { normalizeRuleGovernance } from "../rules/RuleGovernance";
+import {
+    orderRulesByFamilyTier,
+    resolveRuleFamily,
+    resolveRuleTierWeight,
+} from "../rules/RulePriority";
 
 export interface DebugOptions {
     enableWorklistProfile?: boolean;
@@ -121,17 +131,17 @@ export interface DebugOptions {
 }
 
 export interface TaintEngineOptions {
-    deferredHandoffMode?: MainlineDeferredHandoffMode;
-    researchDeferredHandoffMode?: ResearchDeferredHandoffMode;
-    allowResearchDeferredHandoffModes?: boolean;
     contextStrategy?: "fixed" | "adaptive";
     adaptiveContext?: AdaptiveContextSelectorOptions;
     transferRules?: TransferRule[];
-    semanticPacks?: SemanticPack[];
-    semanticPackDirs?: string[];
-    semanticPackFiles?: string[];
-    includeBuiltinSemanticPacks?: boolean;
-    disabledSemanticPackIds?: string[];
+    modules?: TaintModule[];
+    moduleRoots?: string[];
+    moduleFiles?: string[];
+    includeBuiltinModules?: boolean;
+    enabledModuleProjects?: string[];
+    disabledModuleProjects?: string[];
+    disabledModuleIds?: string[];
+    disabledAutoSourceRuleIdPrefixes?: string[];
     enginePlugins?: EnginePlugin[];
     enginePluginDirs?: string[];
     enginePluginFiles?: string[];
@@ -140,19 +150,15 @@ export interface TaintEngineOptions {
     pluginDryRun?: boolean;
     pluginIsolate?: string[];
     pluginAudit?: boolean;
-    enableHarmonyAppStorageModeling?: boolean;
-    enableHarmonyStateModeling?: boolean;
-    enableHarmonyRouterModeling?: boolean;
-    enableHarmonyAbilityHandoffModeling?: boolean;
     debug?: DebugOptions;
 }
 
 export interface BuildPAGOptions {
     syntheticEntryMethods?: ArkMethod[];
-    entryModel?: "arkMain";
+    entryModel?: "arkMain" | "explicit";
 }
 
-type EntryModel = "arkMain";
+type EntryModel = "arkMain" | "explicit";
 
 interface SyntheticRootDescriptor {
     fileName: string;
@@ -165,6 +171,11 @@ const SYNTHETIC_ROOTS: Record<EntryModel, SyntheticRootDescriptor> = {
         fileName: "@arkMainFile",
         className: "@arkMainClass",
         methodName: "@arkMain",
+    },
+    explicit: {
+        fileName: "@explicitEntryFile",
+        className: "@explicitEntryClass",
+        methodName: "@explicitEntry",
     },
 };
 
@@ -197,6 +208,9 @@ interface PagBuildCacheEntry {
     captureEdgeMapReady: boolean;
     syntheticInvokeEdgeMapReady: boolean;
     executionHandoffSnapshot?: ExecutionHandoffContractSnapshot;
+    executionHandoffEventContractsBySiteKey?: ExecutionHandoffEventContractIndex;
+    executionHandoffPromiseContractsBySiteKey?: Map<string, ExecutionHandoffContractRecord[]>;
+    executionHandoffDeferredSiteKeys?: Set<string>;
 }
 
 export class TaintPropagationEngine {
@@ -223,10 +237,10 @@ export class TaintPropagationEngine {
     private worklistProfiler?: WorklistProfiler;
     private propagationTrace?: PropagationTrace;
     private options: TaintEngineOptions;
-    private semanticPacks: SemanticPack[];
-    private semanticPackRuntime?: ReturnType<typeof createSemanticPackRuntime>;
-    private semanticPackRuntimeKey?: string;
-    private semanticPackRuntimePag?: Pag;
+    private modules: TaintModule[];
+    private moduleRuntime?: ModuleRuntime;
+    private moduleRuntimeKey?: string;
+    private moduleRuntimePag?: Pag;
     private enginePlugins: EnginePlugin[];
     private enginePluginRuntime: EnginePluginRuntime;
     private enginePluginWarnings: string[] = [];
@@ -243,6 +257,7 @@ export class TaintPropagationEngine {
     };
     private factRuleChains: Map<string, FlowRuleChain> = new Map();
     private activeReachableMethodSignatures?: Set<string>;
+    private activeOrderedMethodSignatures?: string[];
     private explicitEntryScopeMethodSignatures?: Set<string>;
     private autoSourceHintRules: SourceRule[] = [];
     private detectProfile: SinkDetectProfile = createEmptySinkDetectProfile();
@@ -250,6 +265,10 @@ export class TaintPropagationEngine {
     private routePushKeyCache: Map<string, Set<string>> = new Map();
     private activePagCacheEntry?: PagBuildCacheEntry;
     private executionHandoffSnapshot?: ExecutionHandoffContractSnapshot;
+    private executionHandoffEventContractsBySiteKey?: ExecutionHandoffEventContractIndex;
+    private executionHandoffPromiseContractsBySiteKey?: Map<string, ExecutionHandoffContractRecord[]>;
+    private executionHandoffDeferredSiteKeys?: Set<string>;
+    private currentEntryModel: EntryModel = "arkMain";
 
     public verbose: boolean = true;
 
@@ -258,8 +277,8 @@ export class TaintPropagationEngine {
         this.tracker = new TaintTracker();
         this.ctxManager = new TaintContextManager(k);
         this.options = options;
-        this.semanticPacks = this.initializeSemanticPacks(options);
-        const enginePluginState = this.initializeEnginePlugins(k, options, this.semanticPacks);
+        this.modules = this.initializeModules(options);
+        const enginePluginState = this.initializeEnginePlugins(k, options, this.modules);
         this.enginePlugins = enginePluginState.plugins;
         this.enginePluginWarnings = enginePluginState.warnings;
         this.enginePluginRuntime = enginePluginState.runtime;
@@ -269,22 +288,24 @@ export class TaintPropagationEngine {
         }
     }
 
-    private initializeSemanticPacks(options: TaintEngineOptions): SemanticPack[] {
-        const loadedPacks = loadSemanticPacks({
-            includeBuiltinPacks: options.includeBuiltinSemanticPacks,
-            disabledPackIds: this.resolveDisabledSemanticPackIds(options),
-            packDirs: options.semanticPackDirs,
-            packFiles: options.semanticPackFiles,
-            packs: options.semanticPacks,
-            onWarning: (warning) => this.log(`semantic pack warning: ${warning}`),
+    private initializeModules(options: TaintEngineOptions): TaintModule[] {
+        const loadedModules = loadModules({
+            includeBuiltinModules: options.includeBuiltinModules,
+            disabledModuleIds: this.resolveDisabledModuleIds(options),
+            moduleRoots: options.moduleRoots,
+            moduleFiles: options.moduleFiles,
+            modules: options.modules,
+            enabledModuleProjects: options.enabledModuleProjects,
+            disabledModuleProjects: options.disabledModuleProjects,
+            onWarning: (warning) => this.log(`module warning: ${warning}`),
         });
-        return loadedPacks.packs;
+        return loadedModules.modules;
     }
 
     private initializeEnginePlugins(
         k: number,
         options: TaintEngineOptions,
-        semanticPacks: SemanticPack[],
+        modules: TaintModule[],
     ): {
         plugins: EnginePlugin[];
         warnings: string[];
@@ -309,20 +330,17 @@ export class TaintPropagationEngine {
                     verbose: this.verbose,
                     dryRun: options.pluginDryRun === true,
                     isolatedPluginNames: [...(options.pluginIsolate || [])],
-                    semanticPackIds: semanticPacks.map(pack => pack.id),
+                    moduleIds: modules.map(module => module.id),
                 },
                 dryRun: options.pluginDryRun === true,
             }),
         };
     }
 
-    private resolveDisabledSemanticPackIds(options: TaintEngineOptions): string[] {
-        const disabled = new Set<string>(options.disabledSemanticPackIds || []);
-        if (options.enableHarmonyAppStorageModeling === false) disabled.add("harmony.appstorage");
-        if (options.enableHarmonyStateModeling === false) disabled.add("harmony.state");
-        if (options.enableHarmonyRouterModeling === false) disabled.add("harmony.router");
-        if (options.enableHarmonyAbilityHandoffModeling === false) disabled.add("harmony.ability_handoff");
-        return [...disabled.values()];
+    private resolveDisabledModuleIds(options: TaintEngineOptions): string[] {
+        return [...new Set<string>([
+            ...(options.disabledModuleIds || []),
+        ]).values()];
     }
 
     private log(msg: string): void {
@@ -373,11 +391,15 @@ export class TaintPropagationEngine {
         return this.enginePluginRuntime.getAuditSnapshot();
     }
 
-    public getSemanticPackAuditSnapshot(): SemanticPackAuditSnapshot {
-        if (!this.semanticPackRuntime && this.pag) {
-            this.refreshSemanticPackRuntime();
+    public getModuleAuditSnapshot(): ModuleAuditSnapshot {
+        if (!this.moduleRuntime && this.pag) {
+            this.refreshModuleRuntime();
         }
-        return this.semanticPackRuntime?.getAuditSnapshot() || emptySemanticPackAuditSnapshot();
+        const audit = this.moduleRuntime?.getAuditSnapshot();
+        if (!audit) {
+            return emptyModuleAuditSnapshot();
+        }
+        return audit;
     }
 
     public getExecutionHandoffContractSnapshot(): ExecutionHandoffContractSnapshot | undefined {
@@ -408,16 +430,16 @@ export class TaintPropagationEngine {
         };
     }
 
-    private refreshSemanticPackRuntime(): void {
+    private refreshModuleRuntime(): void {
         if (!this.pag) return;
         const reachableKey = this.activeReachableMethodSignatures
             ? [...this.activeReachableMethodSignatures].sort().join("||")
             : "*";
         const nextKey = reachableKey;
-        if (this.semanticPackRuntime && this.semanticPackRuntimePag === this.pag && this.semanticPackRuntimeKey === nextKey) {
+        if (this.moduleRuntime && this.moduleRuntimePag === this.pag && this.moduleRuntimeKey === nextKey) {
             return;
         }
-        this.semanticPackRuntime = createSemanticPackRuntime(this.semanticPacks, {
+        this.moduleRuntime = createModuleRuntime(this.modules, {
             scene: this.scene,
             pag: this.pag,
             allowedMethodSignatures: this.activeReachableMethodSignatures,
@@ -429,8 +451,8 @@ export class TaintPropagationEngine {
             },
             log: this.log.bind(this),
         });
-        this.semanticPackRuntimeKey = nextKey;
-        this.semanticPackRuntimePag = this.pag;
+        this.moduleRuntimeKey = nextKey;
+        this.moduleRuntimePag = this.pag;
     }
 
     public getPagNodeResolutionAuditSnapshot(): PagNodeResolutionAuditSnapshot {
@@ -451,27 +473,6 @@ export class TaintPropagationEngine {
         return getPagNodeResolutionAuditSnapshot(this.pag);
     }
 
-    private resolveDeferredHandoffMode(): DeferredHandoffMode {
-        const researchMode = this.options.researchDeferredHandoffMode;
-        if (researchMode !== undefined) {
-            if (this.options.allowResearchDeferredHandoffModes !== true) {
-                throw new Error(
-                    `Deferred handoff research mode '${researchMode}' is compare-only and requires `
-                    + "allowResearchDeferredHandoffModes=true in dedicated compare/test runs.",
-                );
-            }
-            return researchMode;
-        }
-
-        const mode = this.options.deferredHandoffMode || "contract_active";
-        if (this.options.allowResearchDeferredHandoffModes === true) {
-            throw new Error(
-                "allowResearchDeferredHandoffModes=true requires an explicit researchDeferredHandoffMode.",
-            );
-        }
-        return mode;
-    }
-
     private cloneExecutionHandoffSnapshot(
         snapshot: ExecutionHandoffContractSnapshot,
     ): ExecutionHandoffContractSnapshot {
@@ -480,25 +481,48 @@ export class TaintPropagationEngine {
             contracts: snapshot.contracts.map((item: ExecutionHandoffContractSnapshotItem) => ({
                 ...item,
                 pathLabels: [...item.pathLabels],
-                kernel: { ...item.kernel },
                 ports: { ...item.ports },
             })),
         };
     }
 
     private configureExecutionHandoffLayer(cacheEntry: PagBuildCacheEntry): void {
-        const mode = this.resolveDeferredHandoffMode();
-        const contracts = filterExecutionHandoffContractsForMode(
-            mode,
-            buildExecutionHandoffContracts(this.scene, this.cg),
-        );
+        const contracts = buildExecutionHandoffContracts(this.scene, this.cg);
+        const deferredSiteKeys = new Set<string>();
+        const eventContractsBySiteKey = new Map<string, ExecutionHandoffContractRecord[]>();
+        const promiseContractsBySiteKey = new Map<string, ExecutionHandoffContractRecord[]>();
+        for (const contract of contracts) {
+            const siteKey = buildExecutionHandoffSiteKeyFromRecord(contract);
+            deferredSiteKeys.add(siteKey);
+            if (contract.activation === "event(c)") {
+                if (!eventContractsBySiteKey.has(siteKey)) {
+                    eventContractsBySiteKey.set(siteKey, []);
+                }
+                eventContractsBySiteKey.get(siteKey)!.push(contract);
+            } else {
+                if (!promiseContractsBySiteKey.has(siteKey)) {
+                    promiseContractsBySiteKey.set(siteKey, []);
+                }
+                promiseContractsBySiteKey.get(siteKey)!.push(contract);
+            }
+        }
+
+        this.executionHandoffDeferredSiteKeys = deferredSiteKeys;
+        this.executionHandoffEventContractsBySiteKey = eventContractsBySiteKey;
+        cacheEntry.executionHandoffDeferredSiteKeys = new Set(deferredSiteKeys);
+
         const snapshot = buildExecutionHandoffSnapshot(contracts);
         this.executionHandoffSnapshot = snapshot;
+        this.executionHandoffEventContractsBySiteKey = eventContractsBySiteKey;
+        this.executionHandoffPromiseContractsBySiteKey = promiseContractsBySiteKey;
         cacheEntry.executionHandoffSnapshot = this.cloneExecutionHandoffSnapshot(snapshot);
-        const deferredContracts = snapshot.contracts.filter(item => item.kernel.domain === "deferred").length;
-        this.log(
-            `[ExecutionHandoff] mode=${mode}, contracts=${snapshot.totalContracts}, deferred=${deferredContracts}`,
+        cacheEntry.executionHandoffEventContractsBySiteKey = new Map(
+            [...eventContractsBySiteKey.entries()].map(([siteKey, items]) => [siteKey, [...items]]),
         );
+        cacheEntry.executionHandoffPromiseContractsBySiteKey = new Map(
+            [...promiseContractsBySiteKey.entries()].map(([siteKey, items]) => [siteKey, [...items]]),
+        );
+        this.log(`[ExecutionHandoff] contracts=${snapshot.totalContracts}`);
 
         const contractEdges = buildExecutionHandoffSyntheticInvokeEdges(
             this.scene,
@@ -510,11 +534,13 @@ export class TaintPropagationEngine {
             `[ExecutionHandoff] contract synthetic sites=${contractEdges.stats.siteCount}, callEdges=${contractEdges.stats.callEdges}`,
         );
 
-        this.syntheticInvokeEdgeMap = contractEdges.edgeMap;
-        this.syntheticInvokeLazyMaterializer = undefined;
+        const mergedEdgeMap = new Map<number, SyntheticInvokeEdgeInfo[]>();
+        this.mergeSyntheticInvokeEdgeMaps(mergedEdgeMap, this.syntheticInvokeEdgeMap);
+        this.mergeSyntheticInvokeEdgeMaps(mergedEdgeMap, contractEdges.edgeMap);
+        this.syntheticInvokeEdgeMap = mergedEdgeMap;
         cacheEntry.syntheticInvokeEdgeMap = this.syntheticInvokeEdgeMap;
-        cacheEntry.syntheticInvokeLazyMaterializer = undefined;
-        cacheEntry.syntheticInvokeEdgeMapReady = true;
+        cacheEntry.syntheticInvokeLazyMaterializer = this.syntheticInvokeLazyMaterializer;
+        cacheEntry.syntheticInvokeEdgeMapReady = false;
     }
 
     private mergeSyntheticInvokeEdgeMaps(
@@ -558,28 +584,8 @@ export class TaintPropagationEngine {
         return id.length > 0 ? id : undefined;
     }
 
-    private resolveRuleFamily(rule: BaseRule): string | undefined {
-        const family = typeof rule.family === "string" ? rule.family.trim() : "";
-        return family.length > 0 ? family : undefined;
-    }
-
-    private resolveRuleTierWeight(rule: BaseRule): number {
-        if (rule.tier === "A") return 3;
-        if (rule.tier === "B") return 2;
-        if (rule.tier === "C") return 1;
-        return 0;
-    }
-
     private orderRulesByFamilyTier<T extends BaseRule>(rules: T[]): T[] {
-        return [...rules].sort((a, b) => {
-            const fa = this.resolveRuleFamily(a) || a.id;
-            const fb = this.resolveRuleFamily(b) || b.id;
-            if (fa !== fb) return fa.localeCompare(fb);
-            const ta = this.resolveRuleTierWeight(a);
-            const tb = this.resolveRuleTierWeight(b);
-            if (ta !== tb) return tb - ta;
-            return a.id.localeCompare(b.id);
-        });
+        return orderRulesByFamilyTier(rules);
     }
 
     private cloneFlowRuleChain(chain?: FlowRuleChain): FlowRuleChain {
@@ -598,6 +604,15 @@ export class TaintPropagationEngine {
 
     private clearFactRuleChains(): void {
         this.factRuleChains.clear();
+    }
+
+    public resetPropagationState(): void {
+        this.tracker.clear();
+        this.observedFacts.clear();
+        this.lastEnginePluginFindings = [];
+        this.clearFactRuleChains();
+        this.clearRuleHits();
+        this.resetDetectProfile();
     }
 
     public resetDetectProfile(): void {
@@ -637,32 +652,41 @@ export class TaintPropagationEngine {
     }
 
     public async buildPAG(options: BuildPAGOptions = {}): Promise<void> {
-        this.clearRuleHits();
-        this.clearFactRuleChains();
-        this.semanticPackRuntime = undefined;
-        this.semanticPackRuntimeKey = undefined;
-        this.semanticPackRuntimePag = undefined;
+        this.resetPropagationState();
+        this.moduleRuntime = undefined;
+        this.moduleRuntimeKey = undefined;
+        this.moduleRuntimePag = undefined;
         this.executionHandoffSnapshot = undefined;
 
         const entryModel: EntryModel = options.entryModel || "arkMain";
+        this.currentEntryModel = entryModel;
         const explicitSyntheticEntries = this.normalizeSyntheticEntryMethods(options.syntheticEntryMethods);
         this.explicitEntryScopeMethodSignatures = this.resolveExplicitEntryScope(explicitSyntheticEntries);
-        const arkMainPlan = buildArkMainPlan(this.scene, { seedMethods: explicitSyntheticEntries });
-        this.autoSourceHintRules = this.buildAutoSourceHintRules(arkMainPlan);
+        const arkMainPlan = entryModel === "arkMain"
+            ? buildArkMainPlan(this.scene, { seedMethods: explicitSyntheticEntries })
+            : undefined;
+        this.activeOrderedMethodSignatures = entryModel === "arkMain"
+            ? (arkMainPlan?.orderedMethods || []).map(method => method?.getSignature?.()?.toString?.()).filter((sig): sig is string => !!sig)
+            : undefined;
+        this.autoSourceHintRules = entryModel === "arkMain"
+            ? this.buildAutoSourceHintRules(arkMainPlan)
+            : [];
         if (arkMainPlan?.schedule.convergence.truncated) {
             for (const warning of arkMainPlan.schedule.warnings) {
                 this.log(`[ArkMain] WARNING: ${warning}`);
             }
         }
-        const syntheticEntryMethods = this.resolveSyntheticEntryMethods(
-            explicitSyntheticEntries,
-            entryModel,
-            arkMainPlan,
-        );
+        const syntheticEntryMethods = entryModel === "arkMain"
+            ? this.resolveSyntheticEntryMethods(
+                explicitSyntheticEntries,
+                entryModel,
+                arkMainPlan,
+            )
+            : explicitSyntheticEntries;
         const syntheticKey = syntheticEntryMethods.length > 0
             ? `synthetic|${syntheticEntryMethods.map(method => method.getSignature().toString()).join("||")}`
             : "pure";
-        const cacheKey = `entryModel|${entryModel}|${syntheticKey}|handoff|${this.resolveDeferredHandoffMode()}`;
+        const cacheKey = `entryModel|${entryModel}|${syntheticKey}`;
         const sceneCache = this.getPagBuildCacheForScene();
         const cached = sceneCache.get(cacheKey);
         if (cached) {
@@ -682,6 +706,15 @@ export class TaintPropagationEngine {
             this.executionHandoffSnapshot = cached.executionHandoffSnapshot
                 ? this.cloneExecutionHandoffSnapshot(cached.executionHandoffSnapshot)
                 : undefined;
+            this.executionHandoffEventContractsBySiteKey = cached.executionHandoffEventContractsBySiteKey
+                ? new Map([...cached.executionHandoffEventContractsBySiteKey.entries()].map(([siteKey, items]) => [siteKey, [...items]]))
+                : undefined;
+            this.executionHandoffPromiseContractsBySiteKey = cached.executionHandoffPromiseContractsBySiteKey
+                ? new Map([...cached.executionHandoffPromiseContractsBySiteKey.entries()].map(([siteKey, items]) => [siteKey, [...items]]))
+                : undefined;
+            this.executionHandoffDeferredSiteKeys = cached.executionHandoffDeferredSiteKeys
+                ? new Set(cached.executionHandoffDeferredSiteKeys)
+                : undefined;
             resetPagNodeResolutionAudit(this.pag);
             this.log(`PAG cache hit: ${entryModel}(${syntheticKey})`);
             this.log(`PAG nodes: ${this.pag.getNodeNum()}, edges: ${this.pag.getEdgeNum()}`);
@@ -697,7 +730,7 @@ export class TaintPropagationEngine {
         resetPagNodeResolutionAudit(pag);
         const config = PointerAnalysisConfig.create(0, "./out", false, false, false);
         this.pta = new PointerAnalysis(pag, cg, this.scene, config);
-        const { syntheticRootMethod, cleanup } = this.createSyntheticEntry(syntheticEntryMethods);
+        const { syntheticRootMethod, cleanup } = this.createSyntheticEntry(entryModel, syntheticEntryMethods);
         try {
             cgBuilder.buildDirectCallGraph([syntheticRootMethod]);
             const syntheticRootMethodId = cg.getCallGraphNodeByMethod(syntheticRootMethod.getSignature()).getID();
@@ -718,8 +751,6 @@ export class TaintPropagationEngine {
         this.receiverFieldBridgeMap = buildReceiverFieldBridgeMap(this.scene, this.cg, this.pag, this.log.bind(this));
         this.captureEdgeMap = new Map<number, CaptureEdgeInfo[]>();
         this.syntheticInvokeEdgeMap = new Map<number, SyntheticInvokeEdgeInfo[]>();
-        this.captureLazyMaterializer = buildCaptureLazyMaterializer(this.scene, this.cg, this.pag);
-        this.syntheticInvokeLazyMaterializer = buildSyntheticInvokeLazyMaterializer(this.scene, this.cg, this.pag, this.log.bind(this));
         this.syntheticConstructorStoreMap = buildSyntheticConstructorStoreMap(this.scene, this.cg, this.pag, this.log.bind(this));
         this.syntheticStaticInitStoreMap = buildSyntheticStaticInitStoreMap(this.scene, this.cg, this.pag, this.log.bind(this));
         this.syntheticFieldBridgeMap = buildSyntheticFieldBridgeMap(this.scene, this.cg, this.pag, this.log.bind(this));
@@ -734,14 +765,26 @@ export class TaintPropagationEngine {
             syntheticConstructorStoreMap: this.syntheticConstructorStoreMap,
             syntheticStaticInitStoreMap: this.syntheticStaticInitStoreMap,
             syntheticFieldBridgeMap: this.syntheticFieldBridgeMap,
-            captureLazyMaterializer: this.captureLazyMaterializer,
-            syntheticInvokeLazyMaterializer: this.syntheticInvokeLazyMaterializer,
+            captureLazyMaterializer: undefined,
+            syntheticInvokeLazyMaterializer: undefined,
             captureEdgeMapReady: false,
             syntheticInvokeEdgeMapReady: false,
             executionHandoffSnapshot: undefined,
+            executionHandoffEventContractsBySiteKey: undefined,
+            executionHandoffPromiseContractsBySiteKey: undefined,
+            executionHandoffDeferredSiteKeys: undefined,
         };
         this.activePagCacheEntry = cacheEntry;
         this.configureExecutionHandoffLayer(cacheEntry);
+        this.captureLazyMaterializer = buildCaptureLazyMaterializer(
+            this.scene,
+            this.cg,
+            this.pag,
+            this.executionHandoffDeferredSiteKeys,
+        );
+        this.syntheticInvokeLazyMaterializer = buildSyntheticInvokeLazyMaterializer(this.scene, this.cg, this.pag, this.log.bind(this));
+        cacheEntry.captureLazyMaterializer = this.captureLazyMaterializer;
+        cacheEntry.syntheticInvokeLazyMaterializer = this.syntheticInvokeLazyMaterializer;
         sceneCache.set(cacheKey, cacheEntry);
         this.configureContextStrategy();
     }
@@ -783,18 +826,11 @@ export class TaintPropagationEngine {
         return [...dedup.values()];
     }
 
-    private createSyntheticEntry(entryMethods: ArkMethod[] = []): {
+    private createSyntheticEntry(entryModel: EntryModel, entryMethods: ArkMethod[] = []): {
         syntheticRootMethod: any;
         cleanup: () => void;
     } {
-        return this.createArkMainSyntheticEntry(entryMethods);
-    }
-
-    private createArkMainSyntheticEntry(entryMethods: ArkMethod[] = []): {
-        syntheticRootMethod: any;
-        cleanup: () => void;
-    } {
-        const root = SYNTHETIC_ROOTS.arkMain;
+        const root = SYNTHETIC_ROOTS[entryModel];
         const builder = new ArkMainSyntheticRootBuilder(this.scene);
         const result = builder.build(entryMethods, {
             fileName: root.fileName,
@@ -807,25 +843,29 @@ export class TaintPropagationEngine {
         };
     }
 
-    public setActiveReachableMethodSignatures(methodSignatures?: Set<string>): void {
+    public setActiveReachableMethodSignatures(
+        methodSignatures?: Set<string>,
+        options?: { mergeExplicitEntryScope?: boolean },
+    ): void {
         const merged = new Set<string>();
         if (methodSignatures) {
             for (const signature of methodSignatures) {
                 merged.add(signature);
             }
         }
-        if (this.explicitEntryScopeMethodSignatures) {
+        const mergeExplicitEntryScope = options?.mergeExplicitEntryScope !== false;
+        if (mergeExplicitEntryScope && this.explicitEntryScopeMethodSignatures) {
             for (const signature of this.explicitEntryScopeMethodSignatures) {
                 merged.add(signature);
             }
         }
         if (merged.size === 0) {
             this.activeReachableMethodSignatures = undefined;
-            this.refreshSemanticPackRuntime();
+            this.refreshModuleRuntime();
             return;
         }
         this.activeReachableMethodSignatures = merged;
-        this.refreshSemanticPackRuntime();
+        this.refreshModuleRuntime();
     }
 
     public getActiveReachableMethodSignatures(): Set<string> | undefined {
@@ -845,6 +885,13 @@ export class TaintPropagationEngine {
         const queue: number[] = [syntheticRootFuncId];
         const visited = new Set<number>();
         const reachable = new Set<string>();
+        const promiseContinuationUnits = this.currentEntryModel === "arkMain"
+            ? new Set(
+                (this.executionHandoffSnapshot?.contracts || [])
+                    .filter(contract => !shouldArkMainIncludeDeferredContractInReachable(this.currentEntryModel, contract) && !!contract.unitSignature)
+                    .map(contract => contract.unitSignature as string),
+            )
+            : undefined;
 
         for (let head = 0; head < queue.length; head++) {
             const nodeId = queue[head];
@@ -859,6 +906,14 @@ export class TaintPropagationEngine {
             const node = this.cg.getNode(nodeId);
             if (!node) continue;
             for (const edge of node.getOutgoingEdges()) {
+                const dstSignature = this.cg.getMethodByFuncID(edge.getDstID())?.toString?.();
+                if (
+                    promiseContinuationUnits
+                    && dstSignature
+                    && promiseContinuationUnits.has(dstSignature)
+                ) {
+                    continue;
+                }
                 queue.push(edge.getDstID());
             }
         }
@@ -887,6 +942,43 @@ export class TaintPropagationEngine {
                 reachable.add(callee);
                 syntheticQueue.push(callee);
             }
+        }
+
+        const handoffAdj = new Map<string, Set<string>>();
+        for (const contract of this.executionHandoffSnapshot?.contracts || []) {
+            if (!shouldArkMainIncludeDeferredContractInReachable(this.currentEntryModel, contract)) {
+                continue;
+            }
+            if (!contract.callerSignature || !contract.unitSignature) continue;
+            if (!handoffAdj.has(contract.callerSignature)) {
+                handoffAdj.set(contract.callerSignature, new Set());
+            }
+            handoffAdj.get(contract.callerSignature)!.add(contract.unitSignature);
+        }
+        const handoffQueue = [...reachable];
+        const handoffVisited = new Set<string>(reachable);
+        for (let head = 0; head < handoffQueue.length; head++) {
+            const sig = handoffQueue[head];
+            const callees = handoffAdj.get(sig);
+            if (!callees) continue;
+            for (const callee of callees) {
+                if (handoffVisited.has(callee)) continue;
+                handoffVisited.add(callee);
+                reachable.add(callee);
+                handoffQueue.push(callee);
+            }
+        }
+
+        const reachableMethods = this.scene.getMethods().filter(method => {
+            const signature = method?.getSignature?.()?.toString?.();
+            return !!signature && reachable.has(signature);
+        });
+        for (const method of expandMethodsByDirectCalls(this.scene, reachableMethods, {
+            includeKeyedDispatchCallbacks: false,
+        })) {
+            const signature = method?.getSignature?.()?.toString?.();
+            if (!signature) continue;
+            reachable.add(signature);
         }
 
         return reachable;
@@ -957,8 +1049,7 @@ export class TaintPropagationEngine {
     }
 
     private propagateWithFacts(seedFacts: TaintFact[]): void {
-        this.observedFacts.clear();
-        this.lastEnginePluginFindings = [];
+        this.resetPropagationState();
         const worklist: TaintFact[] = [];
         const visited: Set<string> = new Set();
         for (const fact of seedFacts) {
@@ -977,15 +1068,22 @@ export class TaintPropagationEngine {
         sourceRules: SourceRule[]
     ): { seedCount: number; seededLocals: string[]; sourceRuleHits: Record<string, number> } {
         this.clearRuleHits("source");
-        const pluginSourceRules = this.enginePluginRuntime.getAdditionalSourceRules();
-        const effectiveSourceRules = this.mergeBuiltinSourceRules(
-            this.mergeAutoSourceHintRules([...(sourceRules || []), ...pluginSourceRules])
+        const pluginSourceRules = this.normalizeRuntimeSourceRules(
+            this.enginePluginRuntime.getAdditionalSourceRules(),
+            "plugin_runtime",
         );
+        const effectiveSourceRules = this.mergeAutoSourceHintRules([
+            ...this.normalizeRuntimeSourceRules(sourceRules || [], "runtime_project"),
+            ...pluginSourceRules,
+        ]);
         let ruleSeeds = this.collectSourceRuleSeeds(effectiveSourceRules, this.activeReachableMethodSignatures);
+        const allowUngatedSourceFallback = !this.explicitEntryScopeMethodSignatures
+            || this.explicitEntryScopeMethodSignatures.size === 0;
         if (
             ruleSeeds.facts.length === 0
             && this.activeReachableMethodSignatures
             && this.activeReachableMethodSignatures.size > 0
+            && allowUngatedSourceFallback
         ) {
             // Fallback: when reachable-gated seeding produces nothing (common in
             // callback/watch-only benchmark cases), retry once on full method scope.
@@ -1052,6 +1150,7 @@ export class TaintPropagationEngine {
                 ...rule,
                 tags: rule.tags ? [...rule.tags] : undefined,
                 scope: rule.scope ? { ...rule.scope } : undefined,
+                calleeScope: rule.calleeScope ? { ...rule.calleeScope } : undefined,
                 target,
             };
         });
@@ -1066,14 +1165,14 @@ export class TaintPropagationEngine {
         }
     ): TaintFlow[] {
         this.clearRuleHits("sink");
-        const effectiveSinkRules = [
-            ...(sinkRules || []),
-            ...this.enginePluginRuntime.getAdditionalSinkRules(),
-        ];
-        const effectiveSanitizerRules = [
-            ...(options?.sanitizerRules || []),
-            ...this.enginePluginRuntime.getAdditionalSanitizerRules(),
-        ];
+        const effectiveSinkRules = this.orderRulesByFamilyTier([
+            ...this.normalizeRuntimeSinkRules(sinkRules || [], "runtime_project"),
+            ...this.normalizeRuntimeSinkRules(this.enginePluginRuntime.getAdditionalSinkRules(), "plugin_runtime"),
+        ]);
+        const effectiveSanitizerRules = this.orderRulesByFamilyTier([
+            ...this.normalizeRuntimeSanitizerRules(options?.sanitizerRules || [], "runtime_project"),
+            ...this.normalizeRuntimeSanitizerRules(this.enginePluginRuntime.getAdditionalSanitizerRules(), "plugin_runtime"),
+        ]);
         const detectionInput = {
             sinkRules: effectiveSinkRules,
             sanitizerRules: effectiveSanitizerRules,
@@ -1169,7 +1268,7 @@ export class TaintPropagationEngine {
         };
 
         const orderedSinkRules = this.orderRulesByFamilyTier(sinkRules);
-        const matchedSiteFamily = new Set<string>();
+        const bestTierBySignatureFamily = new Map<string, number>();
         for (const rule of orderedSinkRules) {
             if (reachedFlowLimit()) break;
             const signatures = resolveSinkRuleSignaturesByRule(this.scene, rule);
@@ -1179,12 +1278,19 @@ export class TaintPropagationEngine {
             const sinkPathSuffix = target.targetPath && target.targetPath.length > 0
                 ? `.${target.targetPath.join(".")}`
                 : "";
-            const family = this.resolveRuleFamily(rule);
+            const family = resolveRuleFamily(rule);
+            const tier = resolveRuleTierWeight(rule);
             for (const signature of signatures) {
                 const cacheKey = buildDetectCacheKey(signature, target, signatureMatchMode);
-                const familySiteKey = family ? `${cacheKey}|${family}` : "";
-                if (familySiteKey && matchedSiteFamily.has(familySiteKey)) {
+                const signatureFamilyKey = family ? `${signature}|${family}` : "";
+                const bestTier = signatureFamilyKey
+                    ? (bestTierBySignatureFamily.get(signatureFamilyKey) || 0)
+                    : 0;
+                if (signatureFamilyKey && tier < bestTier) {
                     continue;
+                }
+                if (signatureFamilyKey && tier > bestTier) {
+                    bestTierBySignatureFamily.set(signatureFamilyKey, tier);
                 }
                 let flows: TaintFlow[];
                 const cached = detectCache.get(cacheKey);
@@ -1224,11 +1330,16 @@ export class TaintPropagationEngine {
                     && !this.shouldSuppressSafeOverwriteFlow(flow)
                     && !this.shouldSuppressKeyedRouteCallbackMismatchFlow(flow)
                 );
-                const beforeSize = flowMap.size;
-                addFlows(rule.id, flows);
-                if (familySiteKey && flowMap.size > beforeSize) {
-                    matchedSiteFamily.add(familySiteKey);
+                if (family) {
+                    flows = flows.filter(flow => {
+                        const actualSignature = this.resolveSinkFlowCalleeSignature(flow);
+                        if (!actualSignature) return true;
+                        const actualSignatureFamilyKey = `${actualSignature}|${family}`;
+                        const bestActualTier = bestTierBySignatureFamily.get(actualSignatureFamilyKey) || 0;
+                        return tier >= bestActualTier;
+                    });
                 }
+                addFlows(rule.id, flows);
                 if (reachedFlowLimit()) break;
             }
         }
@@ -1239,8 +1350,8 @@ export class TaintPropagationEngine {
     private runWorkList(worklist: TaintFact[], visited: Set<string>): void {
         this.prepareDebugCollectors();
         const orderedTransferRules = this.orderRulesByFamilyTier([
-            ...(this.options.transferRules || []),
-            ...this.enginePluginRuntime.getAdditionalTransferRules(),
+            ...this.normalizeRuntimeTransferRules(this.options.transferRules || [], "runtime_project"),
+            ...this.normalizeRuntimeTransferRules(this.enginePluginRuntime.getAdditionalTransferRules(), "plugin_runtime"),
         ]);
         const propagationHooks = this.enginePluginRuntime.beginPropagation({
             pag: this.pag,
@@ -1264,21 +1375,21 @@ export class TaintPropagationEngine {
         orderedTransferRules: TransferRule[],
         propagationHooks: ActivePropagationHooks,
     ): WorklistSolverDeps {
-        const semanticPackQueries = {
+        const moduleQueries: ModuleQueryApi = {
             resolveMethodsFromCallable,
             collectParameterAssignStmts,
             collectFiniteStringCandidatesFromValue,
         };
-        this.refreshSemanticPackRuntime();
-        const semanticPackRuntime = this.semanticPackRuntime || createSemanticPackRuntime(this.semanticPacks, {
+        this.refreshModuleRuntime();
+        const moduleRuntime = this.moduleRuntime || createModuleRuntime(this.modules, {
             scene: this.scene,
             pag: this.pag,
             allowedMethodSignatures: this.activeReachableMethodSignatures,
             fieldToVarIndex: this.fieldToVarIndex,
-            queries: semanticPackQueries,
+            queries: moduleQueries,
             log: this.log.bind(this),
         });
-        this.semanticPackRuntime = semanticPackRuntime;
+        this.moduleRuntime = moduleRuntime;
         return {
             scene: this.scene,
             pag: this.pag,
@@ -1301,12 +1412,14 @@ export class TaintPropagationEngine {
             profiler: this.worklistProfiler,
             propagationTrace: this.propagationTrace,
             allowedMethodSignatures: this.activeReachableMethodSignatures,
-            semanticPackRuntime,
-            semanticPackQueries,
+            moduleRuntime,
+            moduleQueries,
             onFactObserved: (fact) => this.recordObservedFact(fact),
             onCallEdge: (event) => propagationHooks.onCallEdge(event),
             onTaintFlow: (event) => propagationHooks.onTaintFlow(event),
             onMethodReached: (event) => propagationHooks.onMethodReached(event),
+            executionHandoffEventContractsBySiteKey: this.executionHandoffEventContractsBySiteKey,
+            executionHandoffPromiseContractsBySiteKey: this.executionHandoffPromiseContractsBySiteKey,
             log: this.log.bind(this),
         };
     }
@@ -1355,7 +1468,7 @@ export class TaintPropagationEngine {
             reachableMethodCount: extra.reachableMethodCount,
             findingCount: this.lastEnginePluginFindings.length,
             taintedFactCount: this.observedFacts.size,
-            loadedSemanticPackIds: this.semanticPacks.map(pack => pack.id),
+            loadedModuleIds: this.modules.map(module => module.id),
             loadedPluginNames: this.enginePluginRuntime.listPluginNames(),
         }, this.lastEnginePluginFindings);
     }
@@ -1389,7 +1502,8 @@ export class TaintPropagationEngine {
                 this.cg,
                 this.pag,
                 this.syntheticInvokeEdgeMap,
-                cacheEntry.syntheticInvokeLazyMaterializer
+                cacheEntry.syntheticInvokeLazyMaterializer,
+                cacheEntry.executionHandoffDeferredSiteKeys,
             );
             materializeSyntheticInvokeSitesForNode(
                 this.scene,
@@ -1397,13 +1511,20 @@ export class TaintPropagationEngine {
                 this.pag,
                 this.syntheticInvokeEdgeMap,
                 cacheEntry.syntheticInvokeLazyMaterializer,
-                nodeId
+                nodeId,
+                cacheEntry.executionHandoffDeferredSiteKeys,
             );
             return this.syntheticInvokeEdgeMap.get(nodeId);
         }
         if (!cacheEntry.syntheticInvokeEdgeMapReady) {
             this.log("[LazyEdges] materializing syntheticInvokeEdgeMap on first demand");
-            cacheEntry.syntheticInvokeEdgeMap = buildSyntheticInvokeEdges(this.scene, this.cg, this.pag, this.log.bind(this));
+            cacheEntry.syntheticInvokeEdgeMap = buildSyntheticInvokeEdges(
+                this.scene,
+                this.cg,
+                this.pag,
+                this.log.bind(this),
+                cacheEntry.executionHandoffDeferredSiteKeys,
+            );
             cacheEntry.syntheticInvokeEdgeMapReady = true;
             this.syntheticInvokeEdgeMap = cacheEntry.syntheticInvokeEdgeMap;
         }
@@ -1419,12 +1540,19 @@ export class TaintPropagationEngine {
                 this.cg,
                 this.pag,
                 this.syntheticInvokeEdgeMap,
-                cacheEntry.syntheticInvokeLazyMaterializer
+                cacheEntry.syntheticInvokeLazyMaterializer,
+                cacheEntry.executionHandoffDeferredSiteKeys,
             );
             return;
         }
         if (!cacheEntry.syntheticInvokeEdgeMapReady) {
-            cacheEntry.syntheticInvokeEdgeMap = buildSyntheticInvokeEdges(this.scene, this.cg, this.pag, this.log.bind(this));
+            cacheEntry.syntheticInvokeEdgeMap = buildSyntheticInvokeEdges(
+                this.scene,
+                this.cg,
+                this.pag,
+                this.log.bind(this),
+                cacheEntry.executionHandoffDeferredSiteKeys,
+            );
             cacheEntry.syntheticInvokeEdgeMapReady = true;
             this.syntheticInvokeEdgeMap = cacheEntry.syntheticInvokeEdgeMap;
         }
@@ -1452,31 +1580,59 @@ export class TaintPropagationEngine {
         if (this.autoSourceHintRules.length === 0) {
             return sourceRules;
         }
-        // Auto callback-param hints are an ArkMain fallback for source-sparse analyses.
-        // When the caller already provides explicit source rules, keep the analysis
-        // rule-driven and avoid mixing entry-model heuristics into propagation benchmarks.
-        if ((sourceRules || []).length > 0) {
-            return sourceRules;
-        }
+        const disabledAutoSourcePrefixes = this.options.disabledAutoSourceRuleIdPrefixes || [];
+        const filteredAutoSourceRules = this.autoSourceHintRules.filter(rule => {
+            const ruleId = rule?.id || "";
+            return !disabledAutoSourcePrefixes.some(prefix => prefix && ruleId.startsWith(prefix));
+        });
+        const contractRules = filteredAutoSourceRules.filter(rule => this.isArkMainContractSourceRule(rule));
+        const fallbackRules = filteredAutoSourceRules.filter(rule => !this.isArkMainContractSourceRule(rule));
+        const baseRules = sourceRules || [];
         const merged = new Map<string, SourceRule>();
-        for (const rule of [...sourceRules, ...this.autoSourceHintRules]) {
+        for (const rule of [...baseRules, ...contractRules]) {
             if (!rule?.id) continue;
             if (!merged.has(rule.id)) {
                 merged.set(rule.id, rule);
+            }
+        }
+        // Unknown callback-param hints remain a fallback only for source-sparse analyses.
+        if ((sourceRules || []).length === 0) {
+            for (const rule of fallbackRules) {
+                if (!rule?.id) continue;
+                if (!merged.has(rule.id)) {
+                    merged.set(rule.id, rule);
+                }
             }
         }
         return [...merged.values()];
     }
 
-    private mergeBuiltinSourceRules(sourceRules: SourceRule[]): SourceRule[] {
-        const merged = new Map<string, SourceRule>();
-        for (const rule of [...sourceRules, ...HARMONY_LIFECYCLE_SOURCE_RULES]) {
-            if (!rule?.id) continue;
-            if (!merged.has(rule.id)) {
-                merged.set(rule.id, rule);
-            }
-        }
-        return [...merged.values()];
+    private normalizeRuntimeSourceRules(
+        sourceRules: SourceRule[],
+        origin: "runtime_project" | "plugin_runtime",
+    ): SourceRule[] {
+        return (sourceRules || []).map(rule => normalizeRuleGovernance(rule, { kind: origin }, "source"));
+    }
+
+    private normalizeRuntimeSinkRules(
+        sinkRules: SinkRule[],
+        origin: "runtime_project" | "plugin_runtime",
+    ): SinkRule[] {
+        return (sinkRules || []).map(rule => normalizeRuleGovernance(rule, { kind: origin }, "sink"));
+    }
+
+    private normalizeRuntimeSanitizerRules(
+        sanitizerRules: SanitizerRule[],
+        origin: "runtime_project" | "plugin_runtime",
+    ): SanitizerRule[] {
+        return (sanitizerRules || []).map(rule => normalizeRuleGovernance(rule, { kind: origin }, "sanitizer"));
+    }
+
+    private normalizeRuntimeTransferRules(
+        transferRules: TransferRule[],
+        origin: "runtime_project" | "plugin_runtime",
+    ): TransferRule[] {
+        return (transferRules || []).map(rule => normalizeRuleGovernance(rule, { kind: origin }, "transfer"));
     }
 
     private recoverMethodSignaturesFromSeedFacts(facts: TaintFact[]): Set<string> {
@@ -1531,54 +1687,17 @@ export class TaintPropagationEngine {
         }
 
         const out = new Map<string, SourceRule>();
-        for (const fact of arkMainPlan.facts) {
-            if (fact.kind !== "callback") continue;
-            if (
-                fact.entryFamily !== "unknown_sdk_callback"
-                && fact.entryFamily !== "unknown_external_callback"
-                && fact.entryFamily !== "unknown_structural_callback"
-            ) {
-                continue;
-            }
-            // Known callback slot families (including keyed dispatch like NavDestination.register/trigger)
-            // should be modeled by their own framework semantics rather than promoted to open-world
-            // auto callback-param sources.
-            if (fact.callbackSlotFamily) {
-                continue;
-            }
-            if (!fact.callbackRegistrationSignature || fact.callbackArgIndex === undefined) {
-                continue;
-            }
-            const callbackRegSig = String(fact.callbackRegistrationSignature || "");
-            if (
-                callbackRegSig.includes("NavDestination.register")
-                || callbackRegSig.includes("NavDestination.setBuilder")
-                || callbackRegSig.includes("NavDestination.setDestinationBuilder")
-            ) {
-                continue;
-            }
-
-            const parameterCount = fact.method.getParameters?.().length || 0;
-            for (let paramIndex = 0; paramIndex < parameterCount; paramIndex++) {
-                const dedupeKey = `${fact.callbackRegistrationSignature}|cbArg:${fact.callbackArgIndex}|param:${paramIndex}`;
-                if (out.has(dedupeKey)) continue;
-                out.set(dedupeKey, {
-                    id: `source.auto.callback_param.${out.size}`,
-                    sourceKind: "callback_param",
-                    family: "arkmain_unknown_callback_hint",
-                    tier: "C",
-                    description: `[auto hint] ${fact.entryFamily} callback param arg${paramIndex}`,
-                    tags: ["auto", "source-hint", "callback_param", fact.entryFamily],
-                    match: {
-                        kind: "signature_equals",
-                        value: fact.callbackRegistrationSignature,
-                    },
-                    target: `arg${paramIndex}`,
-                    callbackArgIndexes: [fact.callbackArgIndex],
-                });
-            }
+        for (const rule of arkMainPlan.sourceRules || []) {
+            if (!rule?.id || out.has(rule.id)) continue;
+            out.set(rule.id, rule);
         }
         return [...out.values()];
+    }
+
+    private isArkMainContractSourceRule(rule: SourceRule): boolean {
+        const tags = rule.tags || [];
+        return tags.includes("contract_source")
+            || String(rule.family || "").startsWith("source.arkmain.contract.");
     }
 
     public detectSinks(
@@ -1605,6 +1724,7 @@ export class TaintPropagationEngine {
                 ...options,
                 fieldToVarIndex: this.fieldToVarIndex,
                 allowedMethodSignatures: this.activeReachableMethodSignatures,
+                orderedMethodSignatures: this.activeOrderedMethodSignatures,
                 onProfile: (profile) => this.mergeDetectProfile(profile),
             }
         );
@@ -1624,6 +1744,7 @@ export class TaintPropagationEngine {
                     ...options,
                     fieldToVarIndex: this.fieldToVarIndex,
                     allowedMethodSignatures: undefined,
+                    orderedMethodSignatures: this.activeOrderedMethodSignatures,
                     onProfile: (profile) => this.mergeDetectProfile(profile),
                 }
             );
@@ -1643,6 +1764,23 @@ export class TaintPropagationEngine {
             default:
                 return "contains";
         }
+    }
+
+    private resolveSinkFlowCalleeSignature(flow: TaintFlow): string | undefined {
+        const sinkStmt: any = flow.sink;
+        if (!sinkStmt?.containsInvokeExpr?.()) {
+            return undefined;
+        }
+        const invokeExpr: any = sinkStmt.getInvokeExpr?.();
+        const signature = invokeExpr?.getMethodSignature?.()?.toString?.();
+        if (typeof signature === "string" && signature.trim().length > 0) {
+            return signature.trim();
+        }
+        const methodName = invokeExpr?.getMethodSignature?.()?.getMethodSubSignature?.()?.getMethodName?.();
+        if (typeof methodName === "string" && methodName.trim().length > 0) {
+            return `.${methodName.trim()}(`;
+        }
+        return undefined;
     }
 
     private resolveSinkRuleTarget(rule: SinkRule): {

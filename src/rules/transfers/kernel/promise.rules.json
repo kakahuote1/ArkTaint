@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "2.0",
+  "sources": [],
+  "sinks": [],
+  "sanitizers": [],
+  "transfers": [
+    {
+      "id": "transfer.promise.resolve.arg0_to_result",
+      "description": "Promise.resolve(x): resolved promise carries taint from x.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "resolve",
+        "invokeKind": "static",
+        "argCount": 1,
+        "typeHint": "promise"
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.promise.reject.arg0_to_result",
+      "description": "Promise.reject(x): rejected promise carries taint from x.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "reject",
+        "invokeKind": "static",
+        "argCount": 1,
+        "typeHint": "promise"
+      },
+      "from": "arg0",
+      "to": "result"
+    }
+  ]
+}

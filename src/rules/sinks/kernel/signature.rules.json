@@ -1,0 +1,136 @@
+{
+  "schemaVersion": "2.0",
+  "sources": [],
+  "sinks": [
+    {
+      "id": "sink.sig.router.pushUrl",
+      "match": {
+        "kind": "signature_contains",
+        "value": "router.pushUrl"
+      },
+      "severity": "medium"
+    },
+    {
+      "id": "sink.sig.router.back",
+      "match": {
+        "kind": "signature_contains",
+        "value": "router.back"
+      },
+      "severity": "low"
+    },
+    {
+      "id": "sink.sig.router.getParams",
+      "match": {
+        "kind": "signature_contains",
+        "value": "router.getParams"
+      },
+      "severity": "low"
+    },
+    {
+      "id": "sink.sig.fetch",
+      "match": {
+        "kind": "signature_contains",
+        "value": "fetch("
+      },
+      "severity": "medium"
+    },
+    {
+      "id": "sink.sig.axios.get",
+      "match": {
+        "kind": "signature_contains",
+        "value": "axios.get"
+      },
+      "severity": "medium"
+    },
+    {
+      "id": "sink.sig.axios.post",
+      "match": {
+        "kind": "signature_contains",
+        "value": "axios.post"
+      },
+      "severity": "medium"
+    },
+    {
+      "id": "sink.sig.relationalStore",
+      "match": {
+        "kind": "signature_contains",
+        "value": "relationalStore"
+      },
+      "severity": "high"
+    },
+    {
+      "id": "sink.sig.getRdbStore",
+      "match": {
+        "kind": "signature_contains",
+        "value": "getRdbStore"
+      },
+      "severity": "high"
+    },
+    {
+      "id": "sink.sig.execDML",
+      "match": {
+        "kind": "signature_contains",
+        "value": "execDML"
+      },
+      "severity": "high"
+    },
+    {
+      "id": "sink.sig.execDQL",
+      "match": {
+        "kind": "signature_contains",
+        "value": "execDQL"
+      },
+      "severity": "high"
+    },
+    {
+      "id": "sink.sig.insertSync",
+      "match": {
+        "kind": "signature_contains",
+        "value": "insertSync"
+      },
+      "severity": "high"
+    },
+    {
+      "id": "sink.sig.querySqlSync",
+      "match": {
+        "kind": "signature_contains",
+        "value": "querySqlSync"
+      },
+      "severity": "high"
+    },
+    {
+      "id": "sink.sig.preferences.getPreferencesSync",
+      "match": {
+        "kind": "signature_contains",
+        "value": "preferences.getPreferencesSync"
+      },
+      "severity": "medium"
+    },
+    {
+      "id": "sink.sig.dataPreferences.putSync",
+      "match": {
+        "kind": "signature_contains",
+        "value": "dataPreferences.putSync"
+      },
+      "severity": "medium"
+    },
+    {
+      "id": "sink.sig.dataPreferences.getSync",
+      "match": {
+        "kind": "signature_contains",
+        "value": "dataPreferences.getSync"
+      },
+      "severity": "medium"
+    },
+    {
+      "id": "sink.sig.dataPreferences.deleteSync",
+      "match": {
+        "kind": "signature_contains",
+        "value": "dataPreferences.deleteSync"
+      },
+      "severity": "medium"
+    }
+  ],
+  "sanitizers": [],
+  "transfers": []
+}

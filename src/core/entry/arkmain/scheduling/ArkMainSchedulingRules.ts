@@ -3,6 +3,7 @@ import { ARK_MAIN_PHASE_ORDER, ArkMainPhaseName } from "../ArkMainTypes";
 
 export interface ArkMainSchedulingRule {
     edgeFamily: ArkMainActivationEdgeFamily;
+    targetPhase: ArkMainPhaseName;
     minRoundGap: number;
     allowedSourcePhases: "any" | ArkMainPhaseName[];
     allowsRootlessActivation?: boolean;
@@ -20,37 +21,44 @@ const ARK_MAIN_PHASE_RANK = new Map<ArkMainPhaseName, number>(
 const ARK_MAIN_SCHEDULING_RULES: Record<ArkMainActivationEdgeFamily, ArkMainSchedulingRule> = {
     baseline_root: {
         edgeFamily: "baseline_root",
+        targetPhase: "bootstrap",
         minRoundGap: 0,
         allowedSourcePhases: "any",
     },
     ui_callback: {
         edgeFamily: "ui_callback",
+        targetPhase: "interaction",
         minRoundGap: 1,
         allowedSourcePhases: ["composition"],
     },
     channel_callback: {
         edgeFamily: "channel_callback",
+        targetPhase: "interaction",
         minRoundGap: 1,
         allowedSourcePhases: "any",
     },
     scheduler_callback: {
         edgeFamily: "scheduler_callback",
+        targetPhase: "interaction",
         minRoundGap: 1,
         allowedSourcePhases: ["bootstrap", "composition", "reactive_handoff"],
     },
     state_watch: {
         edgeFamily: "state_watch",
+        targetPhase: "reactive_handoff",
         minRoundGap: 1,
         allowedSourcePhases: ["bootstrap", "composition", "reactive_handoff"],
     },
     navigation_channel: {
         edgeFamily: "navigation_channel",
+        targetPhase: "reactive_handoff",
         minRoundGap: 1,
         allowedSourcePhases: ["composition"],
         allowsRootlessActivation: true,
     },
     ability_handoff: {
         edgeFamily: "ability_handoff",
+        targetPhase: "reactive_handoff",
         minRoundGap: 1,
         allowedSourcePhases: ["bootstrap"],
     },
@@ -58,6 +66,10 @@ const ARK_MAIN_SCHEDULING_RULES: Record<ArkMainActivationEdgeFamily, ArkMainSche
 
 export function getArkMainSchedulingRule(edgeFamily: ArkMainActivationEdgeFamily): ArkMainSchedulingRule {
     return ARK_MAIN_SCHEDULING_RULES[edgeFamily];
+}
+
+export function getArkMainTargetPhase(edgeFamily: ArkMainActivationEdgeFamily): ArkMainPhaseName {
+    return getArkMainSchedulingRule(edgeFamily).targetPhase;
 }
 
 export function canScheduleArkMainActivationEdge(

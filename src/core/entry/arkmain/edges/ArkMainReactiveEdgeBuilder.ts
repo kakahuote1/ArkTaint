@@ -5,6 +5,7 @@ import {
     matchesWatchTargets,
     reasonFromFact,
 } from "./ArkMainActivationBuilderUtils";
+import { getArkMainTargetPhase } from "../scheduling/ArkMainSchedulingRules";
 
 export function buildStateWatchEdges(facts: ArkMainEntryFact[]): ArkMainActivationEdge[] {
     const edges: ArkMainActivationEdge[] = [];
@@ -17,7 +18,7 @@ export function buildStateWatchEdges(facts: ArkMainEntryFact[]): ArkMainActivati
             edges.push({
                 kind: "state_watch_trigger",
                 edgeFamily: "state_watch",
-                phaseHint: "reactive_handoff",
+                phaseHint: getArkMainTargetPhase("state_watch"),
                 fromMethod: anchor.method,
                 toMethod: watchFact.method,
                 reasons: [reasonFromFact(anchor), reasonFromFact(watchFact)],

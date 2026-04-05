@@ -22,8 +22,8 @@ import { WorklistProfiler } from "../debug/WorklistProfiler";
 import { PropagationTrace } from "../debug/PropagationTrace";
 import { TransferRule } from "../../rules/RuleSchema";
 import { ConfigBasedTransferExecutor, TransferExecutionResult } from "../rules/ConfigBasedTransferExecutor";
-import type { SemanticPackQueryApi } from "../contracts/SemanticPack";
-import { SemanticPackRuntime } from "../contracts/SemanticPack";
+import type { ModuleQueryApi } from "../contracts/ModuleContract";
+import type { ModuleRuntime } from "../contracts/ModuleContract";
 import type {
     BridgeDecl,
     EnqueueFactDecl,
@@ -41,15 +41,21 @@ import type {
 import { fromContainerFieldKey, toContainerFieldKey } from "../model/ContainerSlotKeys";
 import { getMethodBySignature } from "../contracts/MethodLookup";
 import {
-    collectOrdinaryPromiseCallbackFactsFromTaintedArg,
-    collectOrdinaryPromiseCallbackFactsFromTaintedReceiver,
-    collectOrdinaryPromiseFinallyCaptureFactsFromTaintedLocal,
-    shouldPropagateOrdinaryAsyncCallbacks,
-} from "../ordinary/OrdinaryAsyncCompletion";
+    collectExecutionHandoffEventCaptureFactsFromTaintedLocal,
+    ExecutionHandoffEventContractIndex,
+} from "../handoff/ExecutionHandoffEventActivation";
+import {
+    collectExecutionHandoffPromiseCallbackFactsFromTaintedArg,
+    collectExecutionHandoffPromiseCallbackFactsFromTaintedReceiver,
+    collectExecutionHandoffPromiseFinallyCaptureFactsFromTaintedLocal,
+    ExecutionHandoffPromiseContractIndex,
+    shouldPropagateExecutionHandoffPromiseCallbacks,
+} from "../handoff/ExecutionHandoffPromiseCompletion";
 import {
     collectAliasLocalsForCarrier,
     collectCarrierNodeIdsForValueAtStmt,
 } from "../ordinary/OrdinaryAliasPropagation";
+import { isCarrierFieldPathLiveAtStmt } from "../ordinary/OrdinaryObjectInvalidation";
 import {
     collectOrdinaryArrayConstructorEffectsFromTaintedLocal,
     collectOrdinaryArrayFromMapperCallbackParamNodeIdsForObj,
@@ -64,7 +70,10 @@ import {
 } from "../ordinary/OrdinaryArrayPropagation";
 import {
     collectArrayStoreFactsFromTaintedLocal,
+    collectOrdinaryCaughtExceptionFieldLoadFactsFromTaintedObj,
     collectOrdinaryCopyLikeResultFactsFromTaintedObj,
+    collectOrdinaryTaintPreservingDestinationLocals,
+    collectOrdinaryErrorMessageFactsFromTaintedLocal,
     collectOrdinaryRegexArrayResultFactsFromTaintedLocal,
     collectOrdinarySerializedStringResultFactsFromTaintedLocal,
     collectDirectFieldStoreFallbackFactsFromTaintedLocal,
@@ -95,6 +104,7 @@ import {
 import {
     findStoreAnchorStmtForTaintedValue,
     propagateArrayElementLoads,
+    propagateCarrierLoadPrefixesByObj,
     propagateCapturedFieldWrites,
     propagateDirectFieldArgUsesByObj,
     propagateDirectFieldLoadsByLocal,
@@ -103,6 +113,7 @@ import {
     propagateObjectResultContainerStoresByObj,
     propagateObjectResultLoadsByObj,
     propagateReflectGetFieldLoadsByObj,
+    propagateReceiverGetterResultLoadsByObj,
     propagateReflectSetFieldStores,
     propagateRestArrayParam,
 } from "./WorklistFieldPropagation";
@@ -129,12 +140,14 @@ export interface WorklistSolverDeps {
     profiler?: WorklistProfiler;
     propagationTrace?: PropagationTrace;
     allowedMethodSignatures?: Set<string>;
-    semanticPackRuntime: SemanticPackRuntime;
-    semanticPackQueries: SemanticPackQueryApi;
+    moduleRuntime: ModuleRuntime;
+    moduleQueries: ModuleQueryApi;
     onFactObserved?: (fact: TaintFact) => void;
     onCallEdge?: (event: CallEdgeEvent) => PropagationContributionBatch;
     onTaintFlow?: (event: TaintFlowEvent) => PropagationContributionBatch;
     onMethodReached?: (event: MethodReachedEvent) => PropagationContributionBatch;
+    executionHandoffEventContractsBySiteKey?: ExecutionHandoffEventContractIndex;
+    executionHandoffPromiseContractsBySiteKey?: ExecutionHandoffPromiseContractIndex;
     log: (msg: string) => void;
 }
 
@@ -155,6 +168,59 @@ function cloneFactAcrossAbilityHandoffBoundary(
         currentCtx,
         boundary.preservesFieldPath && fact.field ? [...fact.field] : undefined,
     );
+}
+
+function resolveIndexedLoadBaseCarrierNodeIds(
+    pag: Pag,
+    dstNode: PagNode,
+    loadAnchorStmt: any,
+    classBySignature?: Map<string, any>,
+): number[] | undefined {
+    if (!(loadAnchorStmt instanceof ArkAssignStmt)) return undefined;
+    const right = loadAnchorStmt.getRightOp?.();
+    if (right instanceof ArkInstanceFieldRef || right instanceof ArkArrayRef) {
+        return collectCarrierNodeIdsForValueAtStmt(
+            pag,
+            right.getBase?.(),
+            loadAnchorStmt,
+            classBySignature,
+        );
+    }
+    return undefined;
+}
+
+function isOrdinaryFieldCarrierRelayCopy(sourceNode: PagNode, targetNode: PagNode): boolean {
+    if (targetNode instanceof PagArrayNode
+        || targetNode instanceof PagInstanceFieldNode
+        || targetNode instanceof PagStaticFieldNode) {
+        return false;
+    }
+    const sourceValue = sourceNode.getValue?.();
+    const targetValue = targetNode.getValue?.();
+    if (!(targetValue instanceof Local)) {
+        return false;
+    }
+    const declaringStmt = targetValue.getDeclaringStmt?.();
+    if (declaringStmt instanceof ArkAssignStmt && isSameRelaySourceValue(declaringStmt.getRightOp?.(), sourceValue)) {
+        return true;
+    }
+    const relayTargets = collectOrdinaryTaintPreservingDestinationLocals(sourceValue);
+    return relayTargets.some(candidate => candidate === targetValue);
+}
+
+function isSameRelaySourceValue(a: any, b: any): boolean {
+    if (a === b) {
+        return true;
+    }
+    if (a instanceof Local && b instanceof Local) {
+        const aStmt = a.getDeclaringStmt?.()?.toString?.() || "";
+        const bStmt = b.getDeclaringStmt?.()?.toString?.() || "";
+        return (a.getName?.() || "") === (b.getName?.() || "") && aStmt === bStmt;
+    }
+    if (a instanceof ArkParameterRef && b instanceof ArkParameterRef) {
+        return a.getIndex?.() === b.getIndex?.() && String(a) === String(b);
+    }
+    return false;
 }
 
 export class WorklistSolver {
@@ -187,12 +253,14 @@ export class WorklistSolver {
             profiler,
             propagationTrace,
             allowedMethodSignatures,
-            semanticPackRuntime,
-            semanticPackQueries,
+            moduleRuntime,
+            moduleQueries,
             onFactObserved,
             onCallEdge,
             onTaintFlow,
             onMethodReached,
+            executionHandoffEventContractsBySiteKey,
+            executionHandoffPromiseContractsBySiteKey,
             log
         } = this.deps;
         const transferExecutor = new ConfigBasedTransferExecutor(transferRules || [], scene);
@@ -452,17 +520,17 @@ export class WorklistSolver {
                 applyPluginPropagationBatch(methodReachedBatch, fact, currentChain, tryEnqueue);
             }
 
-            const semanticPackEmissions = semanticPackRuntime.emitForFact({
+            const moduleEmissions = moduleRuntime.emitForFact({
                 scene,
                 pag,
                 allowedMethodSignatures,
                 fieldToVarIndex,
-                queries: semanticPackQueries,
+                queries: moduleQueries,
                 log,
                 fact,
                 node,
             });
-            for (const emission of semanticPackEmissions) {
+            for (const emission of moduleEmissions) {
                 const newFact = emission.fact;
                 tryEnqueue(emission.reason, newFact, () => {
                     tracker.markTainted(newFact.node.getID(), newFact.contextID, newFact.source, newFact.field, newFact.id);
@@ -474,12 +542,12 @@ export class WorklistSolver {
             if (stmt?.containsInvokeExpr?.() && stmt.getInvokeExpr) {
                 const invokeExpr = stmt.getInvokeExpr();
                 const methodSig = invokeExpr?.getMethodSignature?.();
-                const invokeEmissions = semanticPackRuntime.emitForInvoke({
+                const invokeEmissions = moduleRuntime.emitForInvoke({
                     scene,
                     pag,
                     allowedMethodSignatures,
                     fieldToVarIndex,
-                    queries: semanticPackQueries,
+                    queries: moduleQueries,
                     log,
                     fact,
                     node,
@@ -550,19 +618,17 @@ export class WorklistSolver {
                 });
             }
 
-            if (fact.field && fact.field.length > 0) {
-                const serializedStringFacts = collectOrdinarySerializedStringResultFactsFromTaintedLocal(
-                    node,
-                    fact.source,
-                    currentCtx,
-                    pag,
-                );
-                for (const newFact of serializedStringFacts) {
-                    tryEnqueue("CopyLike-Stringify", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
-                        log(`    [CopyLike-Stringify] Tainted serialized result node ${newFact.node.getID()} (ctx=${currentCtx})`);
-                    });
-                }
+            const serializedStringFacts = collectOrdinarySerializedStringResultFactsFromTaintedLocal(
+                node,
+                fact.source,
+                currentCtx,
+                pag,
+            );
+            for (const newFact of serializedStringFacts) {
+                tryEnqueue("CopyLike-Stringify", newFact, () => {
+                    tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
+                    log(`    [CopyLike-Stringify] Tainted serialized result node ${newFact.node.getID()} (ctx=${currentCtx})`);
+                });
             }
 
             const transferExec = transferExecutor.executeFromTaintedFactWithStats(
@@ -611,8 +677,11 @@ export class WorklistSolver {
             const captureEdges = ensureCaptureEdgesForNode
                 ? (ensureCaptureEdgesForNode(node.getID()) || captureEdgeMap.get(node.getID()))
                 : captureEdgeMap.get(node.getID());
-            if (captureEdges && (!fact.field || fact.field.length === 0)) {
+            if (captureEdges) {
                 for (const captureEdge of captureEdges) {
+                    if (captureEdge.direction === "backward" && fact.field && fact.field.length > 0) {
+                        continue;
+                    }
                     const targetNode = pag.getNode(captureEdge.dstNodeId) as PagNode;
                     let newCtx = currentCtx;
                     if (captureEdge.direction === "backward") {
@@ -629,13 +698,19 @@ export class WorklistSolver {
                             captureEdge.calleeMethodName
                         );
                     }
-                    const newFact = new TaintFact(targetNode, fact.source, newCtx);
+                    const propagatedFieldPath = captureEdge.direction === "forward" && fact.field && fact.field.length > 0
+                        ? [...fact.field]
+                        : undefined;
+                    const newFact = new TaintFact(targetNode, fact.source, newCtx, propagatedFieldPath);
                     tryEnqueue(captureEdge.direction === "backward" ? "Capture-Backward" : "Capture", newFact, () => {
-                        tracker.markTainted(captureEdge.dstNodeId, newCtx, fact.source, newFact.field, newFact.id);
+                        tracker.markTainted(captureEdge.dstNodeId, newCtx, fact.source, propagatedFieldPath, newFact.id);
                         log(
                             `    [Capture-${captureEdge.direction === "backward" ? "Bwd" : "Fwd"}] `
                             + `${captureEdge.callerMethodName} -> ${captureEdge.calleeMethodName}, `
                             + `node ${node.getID()} -> ${captureEdge.dstNodeId}, ctx: ${currentCtx} -> ${newCtx}`
+                            + (propagatedFieldPath && propagatedFieldPath.length > 0
+                                ? `, field=${propagatedFieldPath.join(".")}`
+                                : "")
                         );
                     });
                 }
@@ -697,16 +772,51 @@ export class WorklistSolver {
                 }
             }
 
-            const shouldPropagatePromiseCallbacks = shouldPropagateOrdinaryAsyncCallbacks(fact.field);
-            if (shouldPropagatePromiseCallbacks) {
+            const shouldPropagateDeferredCallbacks = shouldPropagateExecutionHandoffPromiseCallbacks(fact.field);
+            if (shouldPropagateDeferredCallbacks) {
                 const val = node.getValue();
-                const promiseCallbackFacts = val instanceof Local
-                    ? collectOrdinaryPromiseCallbackFactsFromTaintedReceiver(
-                        scene,
+                const eventCaptureFacts = val instanceof Local
+                    ? collectExecutionHandoffEventCaptureFactsFromTaintedLocal(
                         pag,
                         val,
                         fact.source,
                         currentCtx,
+                        executionHandoffEventContractsBySiteKey,
+                        fact.field,
+                    )
+                    : [];
+                for (const newFact of eventCaptureFacts) {
+                    tryEnqueue("Event-Capture", newFact, () => {
+                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
+                        log(`    [Event-Capture] Tainted event callback capture node ${newFact.node.getID()} (ctx=${newFact.contextID})`);
+                    });
+                }
+            }
+
+            if (!fact.field || fact.field.length === 0) {
+                const errorMessageFacts = collectOrdinaryErrorMessageFactsFromTaintedLocal(
+                    node,
+                    fact.source,
+                    currentCtx,
+                    pag,
+                );
+                for (const newFact of errorMessageFacts) {
+                    tryEnqueue("Error-Message-Store", newFact, () => {
+                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
+                        log(`    [Error-Message-Store] Tainted Error.message on node ${newFact.node.getID()} (ctx=${currentCtx})`);
+                    });
+                }
+            }
+
+            if (shouldPropagateDeferredCallbacks) {
+                const val = node.getValue();
+                const promiseCallbackFacts = val instanceof Local
+                    ? collectExecutionHandoffPromiseCallbackFactsFromTaintedReceiver(
+                        pag,
+                        val,
+                        fact.source,
+                        currentCtx,
+                        executionHandoffPromiseContractsBySiteKey,
                         fact.field,
                     )
                     : [];
@@ -718,15 +828,15 @@ export class WorklistSolver {
                 }
             }
 
-            if (shouldPropagatePromiseCallbacks) {
+            if (shouldPropagateDeferredCallbacks) {
                 const val = node.getValue();
                 const promiseArgFacts = val instanceof Local
-                    ? collectOrdinaryPromiseCallbackFactsFromTaintedArg(
-                        scene,
+                    ? collectExecutionHandoffPromiseCallbackFactsFromTaintedArg(
                         pag,
                         val,
                         fact.source,
                         currentCtx,
+                        executionHandoffPromiseContractsBySiteKey,
                         fact.field,
                     )
                     : [];
@@ -767,15 +877,15 @@ export class WorklistSolver {
                 }
             }
 
-            if (shouldPropagatePromiseCallbacks) {
+            if (shouldPropagateDeferredCallbacks) {
                 const val = node.getValue();
                 const promiseFinallyCaptureFacts = val instanceof Local
-                    ? collectOrdinaryPromiseFinallyCaptureFactsFromTaintedLocal(
-                        scene,
+                    ? collectExecutionHandoffPromiseFinallyCaptureFactsFromTaintedLocal(
                         pag,
                         val,
                         fact.source,
                         currentCtx,
+                        executionHandoffPromiseContractsBySiteKey,
                         fact.field,
                     )
                     : [];
@@ -950,7 +1060,7 @@ export class WorklistSolver {
             const copyEdges = node.getOutgoingCopyEdges();
             if (copyEdges) {
                 for (const edge of copyEdges) {
-                    if (semanticPackRuntime.shouldSkipCopyEdge({
+                    if (moduleRuntime.shouldSkipCopyEdge({
                         scene,
                         pag,
                         node,
@@ -975,7 +1085,7 @@ export class WorklistSolver {
                     }
 
                     const callEdgeInfo = callEdgeMap.get(edgeKey);
-                    if (fact.field && fact.field.length > 0 && !callEdgeInfo) {
+                    if (fact.field && fact.field.length > 0 && !callEdgeInfo && !isOrdinaryFieldCarrierRelayCopy(node, targetNode)) {
                         continue;
                     }
                     let newCtx = currentCtx;
@@ -1043,6 +1153,10 @@ export class WorklistSolver {
                 if (writeEdges) {
                     for (const edge of writeEdges) {
                         const fieldNode = pag.getNode(edge.getDstID());
+                        const currentValue = node.getValue?.();
+                        const fieldNodeStmt = (fieldNode as any)?.getStmt?.();
+                        const rhsMatchesCurrentValue = fieldNodeStmt instanceof ArkAssignStmt
+                            && fieldNodeStmt.getRightOp?.() === currentValue;
                         if (fieldNode instanceof PagStaticFieldNode) {
                             const newFact = new TaintFact(fieldNode as PagNode, fact.source, sharedStateCtx);
                             tryEnqueue("Store-StaticField", newFact, () => {
@@ -1053,6 +1167,7 @@ export class WorklistSolver {
                         }
 
                         if (fieldNode instanceof PagArrayNode) {
+                            if (!rhsMatchesCurrentValue) continue;
                             const arrayRef = fieldNode.getValue() as ArkArrayRef;
                             const slotKey = toContainerFieldKey(resolveOrdinaryArraySlotName(arrayRef.getIndex()));
                             const baseLocal = arrayRef.getBase();
@@ -1078,6 +1193,7 @@ export class WorklistSolver {
                         }
 
                         if (!(fieldNode instanceof PagInstanceFieldNode)) continue;
+                        if (!rhsMatchesCurrentValue) continue;
 
                         const fieldRef = fieldNode.getValue() as ArkInstanceFieldRef;
                         const fieldName = fieldRef.getFieldSignature().getFieldName();
@@ -1197,7 +1313,15 @@ export class WorklistSolver {
                     }
                 }
 
-                const localFieldFacts = propagateDirectFieldLoadsByLocal(pag, node, fact.field, fact.source, currentCtx);
+                const localFieldFacts = propagateDirectFieldLoadsByLocal(
+                    pag,
+                    node,
+                    fact.field,
+                    fact.source,
+                    currentCtx,
+                    tracker,
+                    classBySignature,
+                );
                 for (const newFact of localFieldFacts) {
                     tryEnqueue("Load-LocalField", newFact, () => {
                         tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
@@ -1207,7 +1331,33 @@ export class WorklistSolver {
             }
 
             if (fact.field && fact.field.length > 0) {
-                const reflectFacts = propagateReflectGetFieldLoadsByObj(pag, node.getID(), fact.field, fact.source, currentCtx, classBySignature);
+                const carrierPrefixFacts = propagateCarrierLoadPrefixesByObj(
+                    pag,
+                    node.getID(),
+                    fact.field,
+                    fact.source,
+                    currentCtx,
+                    tracker,
+                    classBySignature,
+                );
+                for (const newFact of carrierPrefixFacts) {
+                    tryEnqueue("Carrier-LoadPrefix", newFact, () => {
+                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
+                        log(`    [Carrier-LoadPrefix] Tainted Obj ${newFact.node.getID()}.${newFact.field?.join(".")} from loaded carrier alias (ctx=${currentCtx})`);
+                    });
+                }
+            }
+
+            if (fact.field && fact.field.length > 0) {
+                const reflectFacts = propagateReflectGetFieldLoadsByObj(
+                    pag,
+                    node.getID(),
+                    fact.field,
+                    fact.source,
+                    currentCtx,
+                    tracker,
+                    classBySignature,
+                );
                 for (const newFact of reflectFacts) {
                     tryEnqueue("Reflect-Load", newFact, () => {
                         tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
@@ -1217,7 +1367,15 @@ export class WorklistSolver {
             }
 
             if (fact.field && fact.field.length > 0) {
-                const directFieldFacts = propagateDirectFieldLoadsByObj(pag, node.getID(), fact.field, fact.source, currentCtx, classBySignature);
+                const directFieldFacts = propagateDirectFieldLoadsByObj(
+                    pag,
+                    node.getID(),
+                    fact.field,
+                    fact.source,
+                    currentCtx,
+                    tracker,
+                    classBySignature,
+                );
                 for (const newFact of directFieldFacts) {
                     tryEnqueue("Load-DirectField", newFact, () => {
                         tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
@@ -1227,11 +1385,38 @@ export class WorklistSolver {
             }
 
             if (fact.field && fact.field.length > 0) {
-                const directFieldArgFacts = propagateDirectFieldArgUsesByObj(pag, node.getID(), fact.field, fact.source, currentCtx, classBySignature);
+                const directFieldArgFacts = propagateDirectFieldArgUsesByObj(
+                    pag,
+                    node.getID(),
+                    fact.field,
+                    fact.source,
+                    currentCtx,
+                    tracker,
+                    classBySignature,
+                );
                 for (const newFact of directFieldArgFacts) {
                     tryEnqueue("Load-DirectField-Arg", newFact, () => {
                         tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
                         log(`    [Load-DirectField-Arg] Tainted node ${newFact.node.getID()} from direct field arg '${fact.field?.[0]}' (ctx=${currentCtx})`);
+                    });
+                }
+            }
+
+            if (fact.field && fact.field.length > 0) {
+                const getterResultFacts = propagateReceiverGetterResultLoadsByObj(
+                    scene,
+                    pag,
+                    node.getID(),
+                    fact.field,
+                    fact.source,
+                    currentCtx,
+                    tracker,
+                    classBySignature,
+                );
+                for (const newFact of getterResultFacts) {
+                    tryEnqueue("Load-ReceiverGetter", newFact, () => {
+                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
+                        log(`    [Load-ReceiverGetter] Tainted node ${newFact.node.getID()} via receiver getter '${fact.field?.join(".")}' (ctx=${currentCtx})`);
                     });
                 }
             }
@@ -1353,6 +1538,22 @@ export class WorklistSolver {
             }
 
             if (fact.field && fact.field.length > 0) {
+                const caughtExceptionFieldFacts = collectOrdinaryCaughtExceptionFieldLoadFactsFromTaintedObj(
+                    node.getID(),
+                    fact.field,
+                    fact.source,
+                    currentCtx,
+                    pag,
+                    classBySignature,
+                );
+                for (const newFact of caughtExceptionFieldFacts) {
+                    tryEnqueue("Exception-Field-Load", newFact, () => {
+                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
+                        const fieldText = fact.field?.join(".") || "<field>";
+                        log(`    [Exception-Field-Load] Tainted node ${newFact.node.getID()} from thrown exception field '${fieldText}' (ctx=${currentCtx})`);
+                    });
+                }
+
                 const copyLikeResultFacts = collectOrdinaryCopyLikeResultFactsFromTaintedObj(
                     node.getID(),
                     fact.field,
@@ -1484,23 +1685,6 @@ export class WorklistSolver {
                     }
                 }
 
-                if (containerSlot === null) {
-                    const sourceClassSig = resolveObjectClassSignatureByNode(node);
-                    const peerObjIds = sourceClassSig ? objectNodeIdsByClassSignature.get(sourceClassSig) : undefined;
-                    if (peerObjIds && peerObjIds.size > 0) {
-                        for (const peerObjId of peerObjIds) {
-                            if (peerObjId === objId) continue;
-                            const peerNode = pag.getNode(peerObjId) as PagNode;
-                            if (!peerNode) continue;
-                            const peerFact = new TaintFact(peerNode, fact.source, currentCtx, [...fact.field]);
-                            tryEnqueue("Class-Field-Broadcast", peerFact, () => {
-                                tracker.markTainted(peerObjId, currentCtx, fact.source, peerFact.field, peerFact.id);
-                                log(`    [Class-Field-Broadcast] Tainted Obj ${peerObjId}.${fieldName} from Obj ${objId}.${fieldName} (ctx=${currentCtx})`);
-                            });
-                        }
-                    }
-                }
-
                 const key = `${objId}-${fieldName}`;
                 let destVarIds: Iterable<number> | undefined = fieldToVarIndex.get(key);
                 if (containerSlot !== null) {
@@ -1520,6 +1704,24 @@ export class WorklistSolver {
                     for (const destVarId of destVarIds) {
                         const dstNode = pag.getNode(destVarId) as PagNode;
                         if (!dstNode) continue;
+                        const loadValue: any = dstNode.getValue?.();
+                        const loadAnchorStmt = dstNode.getStmt?.() || loadValue?.getDeclaringStmt?.();
+                        const indexedLoadBaseCarrierIds = resolveIndexedLoadBaseCarrierNodeIds(
+                            pag,
+                            dstNode,
+                            loadAnchorStmt,
+                            classBySignature,
+                        );
+                        if (
+                            indexedLoadBaseCarrierIds
+                            && indexedLoadBaseCarrierIds.length > 0
+                            && !indexedLoadBaseCarrierIds.includes(objId)
+                        ) {
+                            continue;
+                        }
+                        if (loadAnchorStmt && !isCarrierFieldPathLiveAtStmt(pag, tracker, objId, fact.field, loadAnchorStmt, classBySignature)) {
+                            continue;
+                        }
                         if (fact.field.length > 1) {
                             let hasPointTo = false;
                             for (const nestedObjId of dstNode.getPointTo()) {

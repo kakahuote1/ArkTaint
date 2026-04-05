@@ -1,0 +1,236 @@
+{
+  "version": 1,
+  "name": "execution_handoff_semantic_event_corpus",
+  "sourceDir": "tests/adhoc/execution_handoff_semantic_event",
+  "purpose": "Semantic corpus for event-triggered execution handoff cases and matched control rows.",
+  "globalFactorUniverse": {
+    "carrier": ["direct_callable", "returned_callable", "field_callable", "slot_callable"],
+    "trigger": ["call", "event", "settle_fulfilled", "settle_rejected", "settle_any"],
+    "payload": ["none", "param0", "param1", "multi"],
+    "capture": ["none", "capture_in", "capture_out", "capture_in_out"],
+    "resume": ["none", "promise_chain", "await_site"],
+    "relayDepth": [0, 1, 2],
+    "bindingSite": ["local", "samefile_helper", "crossfile_helper", "field", "slot"],
+    "deferred": [true, false]
+  },
+  "activeSemanticScope": {
+    "name": "event_handoff_delta_core",
+    "outputTag": "event_handoff_delta_core",
+    "activeLayers": ["mechanism_benchmark", "boundary_control"],
+    "rationale": [
+      "Cover the core event-triggered handoff shapes that the execution handoff layer must recognize.",
+      "Keep payload, resume, builtin modules, engine plugins, source shape, and sink shape fixed so the corpus stays semantic rather than benchmark-oriented.",
+      "Use positive/negative twins so each semantic row differs only by whether taint is consumed at the sink."
+    ],
+    "fixedFactors": {
+      "payload": ["none"],
+      "capture": ["capture_in"],
+      "resume": ["none"],
+      "carrier": ["direct_callable", "returned_callable"],
+      "trigger": ["event", "call"]
+    },
+    "deferredFocus": ["event"],
+    "controlRows": ["call"],
+    "excludedForNow": [
+      "Promise/await rows live in the dedicated async semantic corpus because they exercise completion semantics rather than event activation.",
+      "Field/slot callable rows live in the perturbation semantic corpus because they stress carrier variation rather than the base event family."
+    ]
+  },
+  "twinRules": [
+    "Each twin group must contain exactly one positive case and one negative case.",
+    "Twin cases must share the same semantic factors; only taint consumption at the sink may differ.",
+    "Boundary-control rows are allowed, but must still satisfy the twin rule."
+  ],
+  "cases": [
+    {
+      "caseName": "event_direct_capture_001_T",
+      "expected": true,
+      "layer": "mechanism_benchmark",
+      "twinGroup": "event_direct_local",
+      "polarity": "positive",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Direct local event registration with captured source.",
+      "factors": {
+        "carrier": "direct_callable",
+        "trigger": "event",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 0,
+        "bindingSite": "local",
+        "deferred": true
+      }
+    },
+    {
+      "caseName": "event_direct_safe_002_F",
+      "expected": false,
+      "layer": "mechanism_benchmark",
+      "twinGroup": "event_direct_local",
+      "polarity": "negative",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Direct local event registration without consuming captured source at sink.",
+      "factors": {
+        "carrier": "direct_callable",
+        "trigger": "event",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 0,
+        "bindingSite": "local",
+        "deferred": true
+      }
+    },
+    {
+      "caseName": "event_helper_samefile_capture_003_T",
+      "expected": true,
+      "layer": "mechanism_benchmark",
+      "twinGroup": "event_samefile_relay",
+      "polarity": "positive",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Event registration through same-file helper forwarding.",
+      "factors": {
+        "carrier": "direct_callable",
+        "trigger": "event",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 1,
+        "bindingSite": "samefile_helper",
+        "deferred": true
+      }
+    },
+    {
+      "caseName": "event_helper_samefile_safe_004_F",
+      "expected": false,
+      "layer": "mechanism_benchmark",
+      "twinGroup": "event_samefile_relay",
+      "polarity": "negative",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Same-file relay without consuming captured source at sink.",
+      "factors": {
+        "carrier": "direct_callable",
+        "trigger": "event",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 1,
+        "bindingSite": "samefile_helper",
+        "deferred": true
+      }
+    },
+    {
+      "caseName": "event_helper_crossfile_capture_005_T",
+      "expected": true,
+      "layer": "mechanism_benchmark",
+      "twinGroup": "event_crossfile_relay",
+      "polarity": "positive",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Cross-file nested relay before event registration.",
+      "factors": {
+        "carrier": "direct_callable",
+        "trigger": "event",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 2,
+        "bindingSite": "crossfile_helper",
+        "deferred": true
+      }
+    },
+    {
+      "caseName": "event_helper_crossfile_safe_006_F",
+      "expected": false,
+      "layer": "mechanism_benchmark",
+      "twinGroup": "event_crossfile_relay",
+      "polarity": "negative",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Cross-file nested relay without consuming captured source at sink.",
+      "factors": {
+        "carrier": "direct_callable",
+        "trigger": "event",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 2,
+        "bindingSite": "crossfile_helper",
+        "deferred": true
+      }
+    },
+    {
+      "caseName": "event_factory_capture_007_T",
+      "expected": true,
+      "layer": "mechanism_benchmark",
+      "twinGroup": "event_returned_factory",
+      "polarity": "positive",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Returned callable from factory, then registered as event handler.",
+      "factors": {
+        "carrier": "returned_callable",
+        "trigger": "event",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 0,
+        "bindingSite": "local",
+        "deferred": true
+      }
+    },
+    {
+      "caseName": "event_factory_safe_008_F",
+      "expected": false,
+      "layer": "mechanism_benchmark",
+      "twinGroup": "event_returned_factory",
+      "polarity": "negative",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Returned callable twin that preserves capture but ignores source at sink.",
+      "factors": {
+        "carrier": "returned_callable",
+        "trigger": "event",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 0,
+        "bindingSite": "local",
+        "deferred": true
+      }
+    },
+    {
+      "caseName": "direct_call_capture_009_T",
+      "expected": true,
+      "layer": "boundary_control",
+      "twinGroup": "direct_call_control",
+      "polarity": "positive",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Immediate direct call control row; not a deferred handoff.",
+      "factors": {
+        "carrier": "direct_callable",
+        "trigger": "call",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 0,
+        "bindingSite": "local",
+        "deferred": false
+      }
+    },
+    {
+      "caseName": "direct_call_safe_010_F",
+      "expected": false,
+      "layer": "boundary_control",
+      "twinGroup": "direct_call_control",
+      "polarity": "negative",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Immediate direct call control twin without consuming source at sink.",
+      "factors": {
+        "carrier": "direct_callable",
+        "trigger": "call",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 0,
+        "bindingSite": "local",
+        "deferred": false
+      }
+    }
+  ]
+}

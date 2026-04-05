@@ -27,12 +27,7 @@ class Leak extends NoLeak {
 export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     let info = JSON.stringify(geoLocationManager.getLastLocation()); //source
-    let d: NoLeak;
-    if (Math.random() < 1) {
-      d = new NoLeak('');
-    } else {
-      d = new Leak(info);
-    }
+    let d: NoLeak = new Leak(info);
     d.log()
   }
 }

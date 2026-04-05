@@ -18,8 +18,8 @@ struct Index {
           middle: { anchor: '__container__', align: HorizontalAlign.Center }
         })
       Button('press').onClick(() => {
-        hilog.info(0x0000, 'testTag', '%{public}s', this.info); //sink, leak
         this.info = JSON.stringify(geoLocationManager.getLastLocation()); //source
+        hilog.info(0x0000, 'testTag', '%{public}s', this.info); //sink, leak
       });
     }
     .height('100%')

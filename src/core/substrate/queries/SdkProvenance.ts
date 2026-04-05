@@ -7,6 +7,12 @@ export interface SdkMethodProvenanceOptions {
     invokeExpr?: any;
 }
 
+export interface SdkImportScopeCandidates {
+    classTexts: string[];
+    moduleTexts: string[];
+    fileTexts: string[];
+}
+
 export function isSdkBackedMethodSignature(
     scene: Scene,
     methodSig: any,
@@ -154,6 +160,62 @@ export function isExternalImportRooted(
     });
 }
 
+export function resolveSdkImportScopeCandidates(
+    sourceMethod: ArkMethod | undefined,
+    invokeExpr: any,
+): SdkImportScopeCandidates {
+    const classTexts = new Set<string>();
+    const moduleTexts = new Set<string>();
+    const fileTexts = new Set<string>();
+    if (!sourceMethod || !invokeExpr) {
+        return { classTexts: [], moduleTexts: [], fileTexts: [] };
+    }
+
+    const symbols = new Set<string>();
+    const methodSig = invokeExpr.getMethodSignature?.();
+    const className = methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";
+    if (className) {
+        symbols.add(className);
+    }
+
+    const baseName = resolveValueSymbolName(invokeExpr.getBase?.());
+    if (baseName) {
+        symbols.add(baseName);
+    }
+
+    walkInvokeBaseChain(invokeExpr, (rhs) => {
+        const ancestorSig = rhs.getMethodSignature?.();
+        const ancestorClassName = ancestorSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";
+        if (ancestorClassName) {
+            symbols.add(ancestorClassName);
+        }
+        const ancestorBaseName = resolveValueSymbolName(rhs.getBase?.());
+        if (ancestorBaseName) {
+            symbols.add(ancestorBaseName);
+        }
+        return false;
+    });
+
+    const sourceFile = getSourceFile(sourceMethod);
+    for (const symbol of symbols) {
+        if (!symbol) continue;
+        const importFrom = sourceFile?.getImportInfoBy?.(symbol)?.getFrom?.() || "";
+        if (!isSdkImportFrom(importFrom)) {
+            continue;
+        }
+        addClassLikeCandidates(classTexts, symbol);
+        moduleTexts.add(importFrom);
+        fileTexts.add(importFrom);
+        addImportPathCandidates(classTexts, importFrom);
+    }
+
+    return {
+        classTexts: [...classTexts.values()],
+        moduleTexts: [...moduleTexts.values()],
+        fileTexts: [...fileTexts.values()],
+    };
+}
+
 function walkInvokeBaseChain(
     invokeExpr: any,
     visitRhs: (rhs: any) => boolean,
@@ -196,4 +258,56 @@ function getSourceFile(sourceMethod: ArkMethod | undefined): any {
 
 function resolveValueSymbolName(value: any): string {
     return value?.getName?.() || value?.toString?.() || "";
+}
+
+function addClassLikeCandidates(target: Set<string>, raw: string): void {
+    const text = String(raw || "").trim();
+    if (!text) return;
+    target.add(text);
+    if (/^[a-z]/.test(text)) {
+        target.add(text[0].toUpperCase() + text.slice(1));
+    }
+}
+
+function addImportPathCandidates(target: Set<string>, importFrom: string): void {
+    const normalized = String(importFrom || "")
+        .replace(/^@(kit|ohos|system)(?:[./\/])?/, "")
+        .trim();
+    if (!normalized) {
+        return;
+    }
+
+    const segments = normalized
+        .split(/[./\\_-]+/)
+        .map(segment => segment.trim())
+        .filter(Boolean);
+    if (segments.length === 0) {
+        addClassLikeCandidates(target, normalized);
+        return;
+    }
+
+    for (const segment of segments) {
+        addClassLikeCandidates(target, segment);
+    }
+
+    if (segments.length >= 2) {
+        const pair = segments.slice(-2);
+        addClassLikeCandidates(target, toCamelComposite(pair));
+        addClassLikeCandidates(target, toPascalComposite(pair));
+    }
+}
+
+function toCamelComposite(segments: string[]): string {
+    if (segments.length === 0) return "";
+    const [head, ...rest] = segments;
+    return String(head || "").toLowerCase() + rest.map(segment => upperFirst(segment)).join("");
+}
+
+function toPascalComposite(segments: string[]): string {
+    return segments.map(segment => upperFirst(segment)).join("");
+}
+
+function upperFirst(text: string): string {
+    if (!text) return "";
+    return text[0].toUpperCase() + text.slice(1);
 }

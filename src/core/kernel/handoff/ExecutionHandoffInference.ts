@@ -5,11 +5,12 @@ import {
     ExecutionHandoffContractRecord,
     ExecutionHandoffContractSnapshot,
     ExecutionHandoffContractSnapshotItem,
+    isDeferredHandoffActivationToken,
 } from "./ExecutionHandoffContract";
 import { buildExecutionHandoffActivationPaths } from "./ExecutionHandoffProvenance";
 import {
     buildExecutionHandoffPortSummary,
-    buildExecutionHandoffSemanticKernel,
+    projectDeferredActivation,
 } from "./ExecutionHandoffSemanticProjection";
 import { buildExecutionUnitSummary } from "./ExecutionUnitSummary";
 
@@ -18,7 +19,9 @@ export function buildExecutionHandoffContracts(
     cg: CallGraph,
 ): ExecutionHandoffContractRecord[] {
     const activationPaths = buildExecutionHandoffActivationPaths(scene, cg);
-    return activationPaths.map(path => exportExecutionHandoffContract(path));
+    return activationPaths
+        .filter(path => isDeferredHandoffActivationToken(path.semantics.activation))
+        .map(path => exportExecutionHandoffContract(path));
 }
 
 export function buildExecutionHandoffSnapshot(
@@ -36,7 +39,7 @@ export function buildExecutionHandoffSnapshot(
             activationLabel: record.activationLabel,
             pathLabels: [...record.pathLabels],
             hasResumeAnchor: record.hasResumeAnchor,
-            kernel: { ...record.kernel },
+            activation: record.activation,
             ports: { ...record.ports },
         });
     }
@@ -51,11 +54,10 @@ function exportExecutionHandoffContract(
     path: ExecutionHandoffActivationPathRecord,
 ): ExecutionHandoffContractRecord {
     const summary = buildExecutionUnitSummary(path);
-    const kernel = buildExecutionHandoffSemanticKernel(path.semantics);
     const ports = buildExecutionHandoffPortSummary(summary, path.semantics);
     return {
         ...path,
-        kernel,
+        activation: projectDeferredActivation(path.semantics),
         ports,
         summary,
     };
