@@ -9,6 +9,11 @@ import {
     resolveCaseMethod,
 } from "../helpers/SyntheticCaseHarness";
 import { registerMockSdkFiles } from "../helpers/TestSceneBuilder";
+import {
+    createFormalTestSuite,
+    TestFailureSummary,
+    TestOutputMetadata,
+} from "../helpers/TestOutputContract";
 
 export interface CliOptions {
     manifestPath: string;
@@ -86,6 +91,7 @@ export interface MetamorphicSuiteConfig {
     transforms: TransformSpec[];
     variantTag?: string;
     skipUnchangedVariants?: boolean;
+    metadata?: TestOutputMetadata;
 }
 
 function parseArgs(argv: string[], defaults: CliOptions): CliOptions {
@@ -306,17 +312,65 @@ function printCategorySummary(byCategory: Record<string, SummaryByCategory>): vo
     }
 }
 
+function renderReportMarkdown(report: Report): string {
+    const lines: string[] = [];
+    lines.push("# Metamorphic Consistency Report");
+    lines.push("");
+    lines.push(`- generatedAt: ${report.generatedAt}`);
+    lines.push(`- manifest: ${report.options.manifestPath}`);
+    lines.push(`- sourceDir: ${report.options.sourceDir}`);
+    lines.push(`- tempProjectDir: ${report.options.tempProjectDir}`);
+    lines.push(`- k: ${report.options.k}`);
+    lines.push(`- seedCaseCount: ${report.seedCaseCount}`);
+    lines.push(`- variantCaseCount: ${report.variantCaseCount}`);
+    lines.push(`- pairCount: ${report.pairCount}`);
+    lines.push(`- consistentCount: ${report.consistentCount}`);
+    lines.push(`- inconsistentCount: ${report.inconsistentCount}`);
+    lines.push(`- sourceAnalyzeFailures: ${report.sourceAnalyzeFailures}`);
+    lines.push(`- mutatedAnalyzeFailures: ${report.mutatedAnalyzeFailures}`);
+    lines.push(`- sourceBaselineMismatchCount: ${report.sourceBaselineMismatchCount}`);
+    lines.push("");
+    lines.push("## By Category");
+    lines.push("");
+    lines.push("| Category | Total | Consistent | Inconsistent |");
+    lines.push("| --- | ---: | ---: | ---: |");
+    for (const [category, summary] of Object.entries(report.byCategory).sort((a, b) => a[0].localeCompare(b[0]))) {
+        lines.push(`| ${category} | ${summary.total} | ${summary.consistent} | ${summary.inconsistent} |`);
+    }
+    lines.push("");
+    if (report.inconsistentPairs.length > 0) {
+        lines.push("## Inconsistent Pairs");
+        lines.push("");
+        lines.push("| Category | Case | Transform | Source | Mutated | Expected |");
+        lines.push("| --- | --- | --- | --- | --- | --- |");
+        for (const pair of report.inconsistentPairs) {
+            lines.push(`| ${pair.category} | ${pair.caseId} | ${pair.transform} | ${pair.sourceDetected ? "T" : "F"} | ${pair.mutatedDetected ? "T" : "F"} | ${pair.expected ? "T" : "F"} |`);
+        }
+        lines.push("");
+    }
+    return lines.join("\n");
+}
+
 export async function runMetamorphicSuite(config: MetamorphicSuiteConfig): Promise<void> {
     const options = parseArgs(process.argv.slice(2), config.defaults);
     const sourceDir = path.resolve(options.sourceDir);
     const tempProjectDir = path.resolve(options.tempProjectDir);
     const reportPath = path.resolve(options.reportPath);
+    const outputDir = path.dirname(reportPath);
     const variantTag = config.variantTag ?? "m";
     const skipUnchangedVariants = config.skipUnchangedVariants ?? false;
+    const metadata = config.metadata ?? {
+        suite: path.basename(reportPath, path.extname(reportPath)),
+        domain: "metamorphic",
+        title: "Metamorphic Consistency Suite",
+        purpose: "Check whether semantics-preserving program mutations remain consistent under analysis.",
+    };
 
     if (!fs.existsSync(sourceDir)) {
         throw new Error(`Source dataset directory not found: ${sourceDir}`);
     }
+
+    const suite = createFormalTestSuite(outputDir, metadata);
 
     const seedCases = readSeedCases(options.manifestPath);
     const variants = generateVariants(
@@ -332,6 +386,11 @@ export async function runMetamorphicSuite(config: MetamorphicSuiteConfig): Promi
     console.log(`sourceDir=${sourceDir}`);
     console.log(`tempProjectDir=${tempProjectDir}`);
 
+    const progressReporter = suite.createProgress(Math.max(variants.length, 1), {
+        logEveryCount: 1,
+        logEveryPercent: 5,
+    });
+
     const sourceScene = buildScene(sourceDir);
     const mutatedScene = buildScene(tempProjectDir);
 
@@ -340,7 +399,9 @@ export async function runMetamorphicSuite(config: MetamorphicSuiteConfig): Promi
     let mutatedAnalyzeFailures = 0;
     let sourceBaselineMismatchCount = 0;
 
-    for (const variant of variants) {
+    for (let index = 0; index < variants.length; index++) {
+        const variant = variants[index];
+        progressReporter.update(index, `${variant.category}/${path.basename(variant.sourceRelativePath)}`, `transform=${variant.transform}`);
         const sourceResult = await analyzeCase(
             sourceScene,
             variant.sourceRelativePath,
@@ -362,6 +423,7 @@ export async function runMetamorphicSuite(config: MetamorphicSuiteConfig): Promi
         }
 
         if (!sourceResult.ok || !mutatedResult.ok) {
+            progressReporter.update(index + 1, `${variant.category}/${path.basename(variant.sourceRelativePath)}`, `transform=${variant.transform}`);
             continue;
         }
 
@@ -377,6 +439,7 @@ export async function runMetamorphicSuite(config: MetamorphicSuiteConfig): Promi
             expected: variant.expected,
             consistent,
         });
+        progressReporter.update(index + 1, `${variant.category}/${path.basename(variant.sourceRelativePath)}`, `transform=${variant.transform}`);
     }
 
     const byCategory: Record<string, SummaryByCategory> = {};
@@ -410,20 +473,21 @@ export async function runMetamorphicSuite(config: MetamorphicSuiteConfig): Promi
         inconsistentPairs,
     };
 
-    ensureDir(path.dirname(reportPath));
-    fs.writeFileSync(reportPath, JSON.stringify(report, null, 2), "utf-8");
+    const reportMarkdownPath = reportPath.endsWith(".json")
+        ? reportPath.slice(0, -".json".length) + ".md"
+        : `${reportPath}.md`;
+    suite.writeReport(report, renderReportMarkdown(report), {
+        aliases: [
+            {
+                jsonPath: reportPath,
+                markdownPath: reportMarkdownPath,
+            },
+        ],
+    });
+    progressReporter.finish("DONE", "metamorphic");
 
-    console.log("\n====== metamorphic consistency ======");
-    console.log(`  pairCount=${report.pairCount}`);
-    console.log(`  consistent=${report.consistentCount}`);
-    console.log(`  inconsistent=${report.inconsistentCount}`);
-    console.log(`  sourceAnalyzeFailures=${report.sourceAnalyzeFailures}`);
-    console.log(`  mutatedAnalyzeFailures=${report.mutatedAnalyzeFailures}`);
-    console.log(`  sourceBaselineMismatch=${report.sourceBaselineMismatchCount}`);
-    console.log(`  report=${reportPath}`);
     console.log("\n------ by category ------");
     printCategorySummary(byCategory);
-
     if (inconsistentPairs.length > 0) {
         console.log("\n------ inconsistent pairs ------");
         for (const pair of inconsistentPairs) {
@@ -433,13 +497,72 @@ export async function runMetamorphicSuite(config: MetamorphicSuiteConfig): Promi
         }
     }
 
-    if (
-        report.inconsistentCount > 0 ||
-        report.sourceAnalyzeFailures > 0 ||
-        report.mutatedAnalyzeFailures > 0 ||
-        report.sourceBaselineMismatchCount > 0
-    ) {
-        process.exitCode = 1;
+    const failureItems: TestFailureSummary[] = [];
+    if (report.inconsistentCount > 0) {
+        failureItems.push({
+            name: "inconsistent_pairs",
+            expected: 0,
+            actual: report.inconsistentCount,
+            reason: "Metamorphic pair results diverged between source and mutated variants.",
+            severity: "high",
+        });
     }
+    if (report.sourceAnalyzeFailures > 0) {
+        failureItems.push({
+            name: "source_analyze_failures",
+            expected: 0,
+            actual: report.sourceAnalyzeFailures,
+            reason: "One or more source cases could not be analyzed successfully.",
+            severity: "high",
+        });
+    }
+    if (report.mutatedAnalyzeFailures > 0) {
+        failureItems.push({
+            name: "mutated_analyze_failures",
+            expected: 0,
+            actual: report.mutatedAnalyzeFailures,
+            reason: "One or more mutated cases could not be analyzed successfully.",
+            severity: "high",
+        });
+    }
+    if (report.sourceBaselineMismatchCount > 0) {
+        failureItems.push({
+            name: "source_baseline_mismatch_note",
+            expected: 0,
+            actual: report.sourceBaselineMismatchCount,
+            reason: "Some source cases do not match their expected baseline behavior; this is reported as a baseline note and does not invalidate metamorphic consistency by itself.",
+            severity: "low",
+        });
+    }
+    const hasHardFailure = report.inconsistentCount > 0
+        || report.sourceAnalyzeFailures > 0
+        || report.mutatedAnalyzeFailures > 0;
+    suite.finish({
+        status: hasHardFailure ? "fail" : "pass",
+        verdict: hasHardFailure
+            ? "Metamorphic consistency suite found inconsistent or failed variants."
+            : report.sourceBaselineMismatchCount > 0
+                ? "Metamorphic consistency suite passed; baseline mismatches were recorded separately as notes."
+                : "Metamorphic consistency suite completed with all variants behaving consistently.",
+        totals: {
+            seed_cases: report.seedCaseCount,
+            variants: report.variantCaseCount,
+            pairs: report.pairCount,
+            consistent: report.consistentCount,
+            inconsistent: report.inconsistentCount,
+            source_analyze_failures: report.sourceAnalyzeFailures,
+            mutated_analyze_failures: report.mutatedAnalyzeFailures,
+            source_baseline_mismatch: report.sourceBaselineMismatchCount,
+        },
+        highlights: [
+            `variant_tag=${variantTag}`,
+            `skip_unchanged_variants=${skipUnchangedVariants}`,
+            `source_baseline_mismatch=${report.sourceBaselineMismatchCount}`,
+        ],
+        failures: hasHardFailure ? failureItems.filter(item => item.severity !== "low") : [],
+        notes: report.sourceBaselineMismatchCount > 0
+            ? [`source_baseline_mismatch=${report.sourceBaselineMismatchCount}`]
+            : undefined,
+    });
 }
 

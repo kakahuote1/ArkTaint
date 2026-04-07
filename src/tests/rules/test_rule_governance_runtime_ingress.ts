@@ -26,6 +26,26 @@ function findMethodSignature(scene: Scene, methodName: string, signatureHint: st
     return method.getSignature().toString();
 }
 
+function findMethodByName(scene: Scene, methodName: string): any {
+    const method = scene.getMethods().find(m => m.getName() === methodName);
+    assert(method, `method not found: ${methodName}`);
+    return method;
+}
+
+async function buildEngineWithExplicitEntries(
+    scene: Scene,
+    entryMethodNames: string[],
+    options: ConstructorParameters<typeof TaintPropagationEngine>[2] = {},
+): Promise<TaintPropagationEngine> {
+    const engine = new TaintPropagationEngine(scene, 1, options);
+    engine.verbose = false;
+    await engine.buildPAG({
+        entryModel: "explicit",
+        syntheticEntryMethods: entryMethodNames.map(name => findMethodByName(scene, name)),
+    });
+    return engine;
+}
+
 function flowSinkInCaseMethod(scene: Scene, sinkStmt: any, caseMethodName: string): boolean {
     const method = scene.getMethods().find(m => m.getName() === caseMethodName);
     if (!method) return false;
@@ -60,9 +80,7 @@ async function runSourceGovernanceProbe(): Promise<void> {
         },
     ];
 
-    const engine = new TaintPropagationEngine(scene, 1);
-    engine.verbose = false;
-    await engine.buildPAG();
+    const engine = await buildEngineWithExplicitEntries(scene, ["source_call_return_001_T"]);
     const seedInfo = engine.propagateWithSourceRules(sourceRules);
     const flows = engine.detectSinksByRules(sinkRules);
     const detected = flows.some(flow => flowSinkInCaseMethod(scene, flow.sink, "source_call_return_001_T"));
@@ -105,11 +123,9 @@ async function runTransferGovernanceProbe(): Promise<void> {
         to: "result",
     };
 
-    const engine = new TaintPropagationEngine(scene, 1, {
+    const engine = await buildEngineWithExplicitEntries(scene, ["transfer_priority_002_T"], {
         transferRules: [weakTransfer, strongTransfer],
     });
-    engine.verbose = false;
-    await engine.buildPAG();
     engine.propagateWithSourceRules(sourceRules);
     const flows = engine.detectSinksByRules(sinkRules);
     const detected = flows.some(flow => flowSinkInCaseMethod(scene, flow.sink, "transfer_priority_002_T"));
@@ -147,9 +163,7 @@ async function runSinkGovernanceProbe(): Promise<void> {
         },
     ];
 
-    const engine = new TaintPropagationEngine(scene, 1);
-    engine.verbose = false;
-    await engine.buildPAG();
+    const engine = await buildEngineWithExplicitEntries(scene, ["sink_target_arg0_001_T"]);
     engine.propagateWithSourceRules(sourceRules);
     const flows = engine.detectSinksByRules(sinkRules);
     const detected = flows.some(flow => flowSinkInCaseMethod(scene, flow.sink, "sink_target_arg0_001_T"));
@@ -195,9 +209,10 @@ async function runSanitizerGovernanceProbe(): Promise<void> {
         },
     ];
 
-    const engine = new TaintPropagationEngine(scene, 1);
-    engine.verbose = false;
-    await engine.buildPAG();
+    const engine = await buildEngineWithExplicitEntries(scene, [
+        "sanitize_result_001_F",
+        "sanitize_result_002_T",
+    ]);
     engine.propagateWithSourceRules(sourceRules);
     const flows = engine.detectSinksByRules(sinkRules, { sanitizerRules });
     const sanitizedNegative = flows.some(flow => flowSinkInCaseMethod(scene, flow.sink, "sanitize_result_001_F"));

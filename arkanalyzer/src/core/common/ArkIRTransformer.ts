@@ -36,18 +36,15 @@ import { AliasTypeSignature, ClassSignature, FieldSignature, MethodSignature, Me
 
 import { IRUtils } from './IRUtils';
 import { ArkMethod } from '../model/ArkMethod';
-import { buildArkMethodFromArkClass } from '../model/builder/ArkMethodBuilder';
 import { ArkSignatureBuilder } from '../model/builder/ArkSignatureBuilder';
 import { COMPONENT_BRANCH_FUNCTION, COMPONENT_CREATE_FUNCTION, COMPONENT_IF, COMPONENT_POP_FUNCTION, COMPONENT_REPEAT } from './EtsConst';
 import { FullPosition, LineColPosition } from '../base/Position';
 import { ModelUtils } from './ModelUtils';
 import { Builtin } from './Builtin';
 import { CONSTRUCTOR_NAME, DEFAULT, PROMISE } from './TSConst';
-import { buildGenericType, buildModifiers, buildTypeParameters } from '../model/builder/builderUtils';
 import { ArkValueTransformer } from './ArkValueTransformer';
 import { ImportInfo } from '../model/ArkImport';
 import { AbstractTypeExpr } from '../base/TypeExpr';
-import { buildNormalArkClassFromArkMethod } from '../model/builder/ArkClassBuilder';
 import { ArkClass } from '../model/ArkClass';
 import { ModifierType } from '../model/ArkBaseModel';
 
@@ -56,6 +53,24 @@ export type ValueAndStmts = {
     valueOriginalPositions: FullPosition[]; // original positions of value and its uses
     stmts: Stmt[];
 };
+
+declare const require: (id: string) => any;
+
+type ArkMethodBuilderModule = typeof import('../model/builder/ArkMethodBuilder');
+type ArkClassBuilderModule = typeof import('../model/builder/ArkClassBuilder');
+type BuilderUtilsModule = typeof import('../model/builder/builderUtils');
+
+function loadArkMethodBuilder(): ArkMethodBuilderModule {
+    return require('../model/builder/ArkMethodBuilder');
+}
+
+function loadArkClassBuilder(): ArkClassBuilderModule {
+    return require('../model/builder/ArkClassBuilder');
+}
+
+function loadBuilderUtils(): BuilderUtilsModule {
+    return require('../model/builder/builderUtils');
+}
 
 export class DummyStmt extends Stmt {
     constructor(text: string) {
@@ -179,7 +194,7 @@ export class ArkIRTransformer {
         if (this.builderMethodContextFlag) {
             ModelUtils.implicitArkUIBuilderMethods.add(arkMethod);
         }
-        buildArkMethodFromArkClass(functionDeclarationNode, declaringClass, arkMethod, this.sourceFile, this.declaringMethod);
+        loadArkMethodBuilder().buildArkMethodFromArkClass(functionDeclarationNode, declaringClass, arkMethod, this.sourceFile, this.declaringMethod);
         return [];
     }
 
@@ -190,7 +205,7 @@ export class ArkIRTransformer {
             cls.setDeclaringArkNamespace(declaringArkNamespace);
         }
         cls.setDeclaringArkFile(this.declaringMethod.getDeclaringArkFile());
-        buildNormalArkClassFromArkMethod(node, cls, this.sourceFile, this.declaringMethod);
+        loadArkClassBuilder().buildNormalArkClassFromArkMethod(node, cls, this.sourceFile, this.declaringMethod);
         return [];
     }
 
@@ -408,9 +423,10 @@ export class ArkIRTransformer {
 
         const aliasType = new AliasType(aliasName, rightType, new AliasTypeSignature(aliasName, this.declaringMethod.getSignature()));
         if (typeAliasDeclaration.typeParameters) {
-            const genericTypes = buildTypeParameters(typeAliasDeclaration.typeParameters, this.sourceFile, this.declaringMethod);
+            const builderUtils = loadBuilderUtils();
+            const genericTypes = builderUtils.buildTypeParameters(typeAliasDeclaration.typeParameters, this.sourceFile, this.declaringMethod);
             aliasType.setGenericTypes(genericTypes);
-            aliasType.setOriginalType(buildGenericType(rightType, aliasType));
+            aliasType.setOriginalType(builderUtils.buildGenericType(rightType, aliasType));
             rightType = aliasType.getOriginalType();
         }
 
@@ -424,7 +440,7 @@ export class ArkIRTransformer {
             expr.setRealGenericTypes(realGenericTypes);
         }
 
-        const modifiers = typeAliasDeclaration.modifiers ? buildModifiers(typeAliasDeclaration) : 0;
+        const modifiers = typeAliasDeclaration.modifiers ? loadBuilderUtils().buildModifiers(typeAliasDeclaration) : 0;
         aliasType.setModifiers(modifiers);
 
         const aliasTypeDefineStmt = new ArkAliasTypeDefineStmt(aliasType, expr);

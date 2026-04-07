@@ -29,6 +29,7 @@ export type {
     ModuleFailureEvent,
     ModuleInvokeEvent,
     ModuleInvokeMatchApi,
+    ModuleKeyedNodeRelay,
     ModuleInvokeScanFilter,
     ModuleParameterBindingScanFilter,
     ModuleNodeRelay,

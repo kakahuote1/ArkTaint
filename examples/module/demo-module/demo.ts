@@ -7,13 +7,7 @@ export default defineModule({
         const relay = ctx.bridge.nodeRelay();
 
         for (const call of ctx.scan.invokes({ methodName: "register", minArgs: 2 })) {
-            const callback = call.arg(1);
-            if (!callback) continue;
-            for (const sourceNodeId of call.argNodeIds(0)) {
-                for (const targetNodeId of ctx.callbacks.paramNodeIds(callback, 0, { maxCandidates: 8 })) {
-                    relay.connect(sourceNodeId, targetNodeId);
-                }
-            }
+            relay.connectInvokeArgToCallbackParam(call, 0, 1, 0, { maxCandidates: 8 });
         }
 
         ctx.debug.summary("Example-DemoModule", {
@@ -22,7 +16,7 @@ export default defineModule({
 
         return {
             onFact(event) {
-                return relay.emitPreserve(event, "Example-DemoModule");
+                return relay.emitPreserve(event, "Example-DemoModule", { allowUnreachableTarget: true });
             },
         };
     },

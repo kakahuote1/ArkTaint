@@ -108,9 +108,9 @@ function sinkRule() {
 async function main(): Promise<void> {
     const projectDir = path.resolve("tests/fixtures/engine_plugin_runtime/project");
     const pluginDir = path.resolve("tests/fixtures/engine_plugin_runtime/external_plugins");
-    const buildMethodName = "build";
+    const baselineEntryMethodName = "onCreate";
     const pluginOnlyEntryName = "pluginOnlyEntry";
-    const buildMethodSignatureIncludes = ".build(";
+    const baselineEntryMethodSignatureIncludes = ".onCreate(";
     const pluginOnlyMethodSignatureIncludes = ".pluginOnlyEntry(";
 
     const loadedPluginResult = loadEnginePlugins({
@@ -171,8 +171,8 @@ async function main(): Promise<void> {
         await engine.buildPAG({ entryModel: "arkMain" });
         const reachable = engine.computeReachableMethodSignatures();
         assert(
-            [...reachable].some(sig => sig.includes(buildMethodSignatureIncludes)),
-            "default arkMain should still discover build()",
+            [...reachable].some(sig => sig.includes(baselineEntryMethodSignatureIncludes)),
+            "default arkMain should discover the formal lifecycle baseline entry",
         );
         assert(
             ![...reachable].some(sig => sig.includes(pluginOnlyMethodSignatureIncludes)),
@@ -223,7 +223,7 @@ async function main(): Promise<void> {
 
     {
         const scene = buildTestScene(projectDir);
-        const buildMethod = findMethodByName(scene, buildMethodName);
+        const buildMethod = findMethodByName(scene, baselineEntryMethodName);
         const brokenStartPlugin = defineEnginePlugin({
             name: "fixture.broken_start",
             onStart() {
@@ -257,7 +257,7 @@ async function main(): Promise<void> {
 
     {
         const scene = buildTestScene(projectDir);
-        const buildMethod = findMethodByName(scene, buildMethodName);
+        const buildMethod = findMethodByName(scene, baselineEntryMethodName);
         const events = {
             callEdges: 0,
             taintFlows: 0,
@@ -293,7 +293,7 @@ async function main(): Promise<void> {
 
     {
         const scene = buildTestScene(projectDir);
-        const buildMethod = findMethodByName(scene, buildMethodName);
+        const buildMethod = findMethodByName(scene, baselineEntryMethodName);
         let failureCount = 0;
         const brokenObserverPlugin = defineEnginePlugin({
             name: "fixture.broken_observer",
@@ -331,7 +331,7 @@ async function main(): Promise<void> {
 
     {
         const scene = buildTestScene(projectDir);
-        const buildMethod = findMethodByName(scene, buildMethodName);
+        const buildMethod = findMethodByName(scene, baselineEntryMethodName);
         const extraSinkStmt = findSinkStmtByMethod(scene, "extraCheckEntry");
         assert(extraSinkStmt, "expected extraCheckEntry sink stmt");
         const addCheckPlugin = defineEnginePlugin({
@@ -357,7 +357,7 @@ async function main(): Promise<void> {
 
     {
         const scene = buildTestScene(projectDir);
-        const buildMethod = findMethodByName(scene, buildMethodName);
+        const buildMethod = findMethodByName(scene, baselineEntryMethodName);
         const filterPlugin = defineEnginePlugin({
             name: "fixture.filter_all",
             onResult(api) {
@@ -521,7 +521,7 @@ async function main(): Promise<void> {
 
     {
         const scene = buildTestScene(projectDir);
-        const buildMethod = findMethodByName(scene, buildMethodName);
+        const buildMethod = findMethodByName(scene, baselineEntryMethodName);
         const replaceA = defineEnginePlugin({
             name: "fixture.replace.a",
             onPropagation(api) {

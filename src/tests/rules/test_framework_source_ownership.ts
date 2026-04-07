@@ -48,17 +48,17 @@ async function main(): Promise<void> {
         "ArkMain plan should export lifecycle contract source rules.",
     );
     assert(
-        [...planSourceIds].some(id => id.startsWith("source.arkmain.contract.router.trigger.")),
-        "ArkMain plan should export router contract source rules.",
+        ![...planSourceIds].some(id => id.startsWith("source.arkmain.contract.router.trigger.")),
+        "ArkMain plan should not export router contract source rules.",
     );
     assert(
-        [...planSourceIds].some(id => id.startsWith("source.arkmain.contract.stage.context.")),
-        "ArkMain plan should export stage context contract source rules.",
+        ![...planSourceIds].some(id => id.startsWith("source.arkmain.contract.stage.context.")),
+        "ArkMain plan should not export stage context contract source rules.",
     );
 
     const engine = new TaintPropagationEngine(scene, 1);
     await engine.buildPAG({ entryModel: "arkMain" });
-    const runtimeSourceIds = new Set(engine.getAutoSourceHintRules().map(rule => String(rule.id || "")));
+    const runtimeSourceIds = new Set(engine.getAutoEntrySourceRules().map(rule => String(rule.id || "")));
     for (const id of runtimeSourceIds) {
         assert(!isLegacyCompatSourceId(id), `ArkMain runtime auto sources should not contain legacy compat source: ${id}`);
     }

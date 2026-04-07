@@ -175,7 +175,7 @@ function collectDirectCallbackRegistrations<TMatch extends CallbackRegistrationM
                 ...metadata,
                 callbackMethod,
                 sourceMethod,
-                registrationMethod: sourceMethod,
+                registrationMethod: carrierMethod,
                 registrationInvokeExpr: invokeExpr,
                 registrationMethodName: methodName,
                 registrationOwnerName: ownerName,

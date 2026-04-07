@@ -19,9 +19,7 @@ export const harmonyEmitterModule: TaintModule = defineModule({
     id: "harmony.emitter",
     description: "Built-in Harmony event emitter bridges.",
     setup(ctx) {
-        const relay = ctx.bridge.nodeRelay();
-        const callbackTargetsByEventKey = new Map<string, Set<number>>();
-        const payloadSourcesByEventKey = new Map<string, Set<number>>();
+        const relay = ctx.bridge.keyedNodeRelay();
         let onRegistrationCount = 0;
         let emitCount = 0;
         let dynamicEventSkipCount = 0;
@@ -55,27 +53,17 @@ export const harmonyEmitterModule: TaintModule = defineModule({
                 const callbackParamNodeIds = new Set<number>(call.callbackParamNodeIds(1, 0, { maxCandidates: 8 }));
                 if (callbackParamNodeIds.size === 0) continue;
                 onRegistrationCount++;
-                for (const nodeId of callbackParamNodeIds) {
-                    addMapSetValue(callbackTargetsByEventKey, eventKey, nodeId);
-                }
+                relay.addTargets(eventKey, callbackParamNodeIds);
                 continue;
             }
 
             const payloadNodeIds = new Set<number>(call.argNodeIds(1));
             if (payloadNodeIds.size === 0) continue;
             emitCount++;
-            for (const nodeId of payloadNodeIds) {
-                addMapSetValue(payloadSourcesByEventKey, eventKey, nodeId);
-            }
+            relay.addSources(eventKey, payloadNodeIds);
         }
 
-        let bridgeCount = 0;
-        for (const [eventKey, sourceNodeIds] of payloadSourcesByEventKey.entries()) {
-            const targetNodeIds = callbackTargetsByEventKey.get(eventKey);
-            if (!targetNodeIds || targetNodeIds.size === 0) continue;
-            bridgeCount += sourceNodeIds.size * targetNodeIds.size;
-            relay.connectMany(sourceNodeIds, targetNodeIds);
-        }
+        const bridgeCount = relay.materialize();
 
         ctx.debug.summary("Harmony-Emitter", {
             on_registrations: onRegistrationCount,
@@ -91,15 +79,6 @@ export const harmonyEmitterModule: TaintModule = defineModule({
         };
     },
 });
-
-function addMapSetValue<K, V>(map: Map<K, Set<V>>, key: K, value: V): void {
-    let set = map.get(key);
-    if (!set) {
-        set = new Set<V>();
-        map.set(key, set);
-    }
-    set.add(value);
-}
 
 function resolveClassKeyFromMethodSig(methodSig: any): string {
     const className = methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";

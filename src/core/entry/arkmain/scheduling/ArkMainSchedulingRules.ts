@@ -6,7 +6,6 @@ export interface ArkMainSchedulingRule {
     targetPhase: ArkMainPhaseName;
     minRoundGap: number;
     allowedSourcePhases: "any" | ArkMainPhaseName[];
-    allowsRootlessActivation?: boolean;
 }
 
 interface ArkMainSchedulingActivationLike {
@@ -25,42 +24,23 @@ const ARK_MAIN_SCHEDULING_RULES: Record<ArkMainActivationEdgeFamily, ArkMainSche
         minRoundGap: 0,
         allowedSourcePhases: "any",
     },
-    ui_callback: {
-        edgeFamily: "ui_callback",
-        targetPhase: "interaction",
-        minRoundGap: 1,
-        allowedSourcePhases: ["composition"],
-    },
-    channel_callback: {
-        edgeFamily: "channel_callback",
-        targetPhase: "interaction",
-        minRoundGap: 1,
-        allowedSourcePhases: "any",
-    },
-    scheduler_callback: {
-        edgeFamily: "scheduler_callback",
-        targetPhase: "interaction",
-        minRoundGap: 1,
-        allowedSourcePhases: ["bootstrap", "composition", "reactive_handoff"],
-    },
-    state_watch: {
-        edgeFamily: "state_watch",
-        targetPhase: "reactive_handoff",
-        minRoundGap: 1,
-        allowedSourcePhases: ["bootstrap", "composition", "reactive_handoff"],
-    },
-    navigation_channel: {
-        edgeFamily: "navigation_channel",
-        targetPhase: "reactive_handoff",
-        minRoundGap: 1,
-        allowedSourcePhases: ["composition"],
-        allowsRootlessActivation: true,
-    },
-    ability_handoff: {
-        edgeFamily: "ability_handoff",
-        targetPhase: "reactive_handoff",
+    composition_lifecycle: {
+        edgeFamily: "composition_lifecycle",
+        targetPhase: "composition",
         minRoundGap: 1,
         allowedSourcePhases: ["bootstrap"],
+    },
+    interaction_lifecycle: {
+        edgeFamily: "interaction_lifecycle",
+        targetPhase: "interaction",
+        minRoundGap: 1,
+        allowedSourcePhases: ["bootstrap", "composition"],
+    },
+    teardown_lifecycle: {
+        edgeFamily: "teardown_lifecycle",
+        targetPhase: "teardown",
+        minRoundGap: 1,
+        allowedSourcePhases: ["bootstrap", "composition", "interaction"],
     },
 };
 
@@ -82,7 +62,7 @@ export function canScheduleArkMainActivationEdge(
     }
     const rule = getArkMainSchedulingRule(edge.edgeFamily);
     if (!sourceActivation) {
-        return Boolean(rule.allowsRootlessActivation) && round >= rule.minRoundGap;
+        return false;
     }
     if (sourceActivation.round > round - rule.minRoundGap) {
         return false;

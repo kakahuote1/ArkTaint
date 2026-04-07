@@ -48,7 +48,7 @@ function buildScene(projectDir: string): Scene {
 }
 
 async function runCase(projectDir: string): Promise<{
-    autoSourceHintCount: number;
+    autoEntrySourceCount: number;
     seedCount: number;
     flowCount: number;
 }> {
@@ -65,15 +65,15 @@ async function runCase(projectDir: string): Promise<{
     }];
     const flows = engine.detectSinksByRules(sinkRules);
     return {
-        autoSourceHintCount: engine.getAutoSourceHintRules().length,
+        autoEntrySourceCount: engine.getAutoEntrySourceRules().length,
         seedCount: seedInfo.seedCount,
         flowCount: flows.length,
     };
 }
 
 async function main(): Promise<void> {
-    const sourceDir = path.resolve("tests/demo/sdk_structural_fallback_realworld");
-    const outputRoot = path.resolve("tmp/test_runs/entry_model/unknown_callback_source_hints/latest");
+    const sourceDir = path.resolve("tests/demo/sdk_unknown_callback_boundary_realworld");
+    const outputRoot = path.resolve("tmp/test_runs/entry_model/no_unknown_callback_sources/latest");
     ensureDir(outputRoot);
 
     const cases: CaseSpec[] = [
@@ -84,16 +84,16 @@ async function main(): Promise<void> {
     for (const { caseName } of cases) {
         const projectDir = createCaseView(sourceDir, caseName, outputRoot);
         const ark = await runCase(projectDir);
-        assert(ark.autoSourceHintCount > 0, `${caseName}: arkMain should produce auto source hints for unknown callbacks`);
-        assert(ark.seedCount > 0, `${caseName}: arkMain should seed callback params via auto source hints`);
-        assert(ark.flowCount > 0, `${caseName}: arkMain should detect sink flow via auto callback source hint`);
+        assert(ark.autoEntrySourceCount === 0, `${caseName}: official-declaration ArkMain must not emit unknown callback entry sources`);
+        assert(ark.seedCount === 0, `${caseName}: official-declaration ArkMain must not seed unknown callback params`);
+        assert(ark.flowCount === 0, `${caseName}: official-declaration ArkMain must not detect flow via unknown callback entry source`);
     }
 
-    console.log("PASS test_entry_model_unknown_callback_source_hints");
+    console.log("PASS test_entry_model_no_unknown_callback_sources");
 }
 
 main().catch(error => {
-    console.error("FAIL test_entry_model_unknown_callback_source_hints");
+    console.error("FAIL test_entry_model_no_unknown_callback_sources");
     console.error(error);
     process.exit(1);
 });

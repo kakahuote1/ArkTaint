@@ -24,46 +24,6 @@ const HYGIENE_TARGETS: HygieneTarget[] = [
         ],
     },
     {
-        path: "src/core/entry/arkmain/facts/ArkMainCallbackFactResolver.ts",
-        forbiddenPatterns: [
-            /includes\(\s*["'`](Ability|Extension|Stage|Want|want|router|Router)["'`]\s*\)/,
-            /indexOf\(\s*["'`](Ability|Extension|Stage|Want|want|router|Router)["'`]\s*\)/,
-            /\.toLowerCase\s*\(/,
-        ],
-    },
-    {
-        path: "src/core/entry/arkmain/facts/ArkMainChannelFactResolver.ts",
-        forbiddenPatterns: [
-            /includes\(\s*["'`](Ability|Extension|Stage|Want|want|router|Router)["'`]\s*\)/,
-            /indexOf\(\s*["'`](Ability|Extension|Stage|Want|want|router|Router)["'`]\s*\)/,
-            /\.toLowerCase\s*\(/,
-        ],
-    },
-    {
-        path: "src/core/entry/arkmain/facts/ArkMainChannelHandoffFactResolver.ts",
-        forbiddenPatterns: [
-            /includes\(\s*["'`](Ability|Extension|Stage|Want|want|router|Router)["'`]\s*\)/,
-            /indexOf\(\s*["'`](Ability|Extension|Stage|Want|want|router|Router)["'`]\s*\)/,
-            /\.toLowerCase\s*\(/,
-        ],
-    },
-    {
-        path: "src/core/entry/arkmain/facts/ArkMainReactiveFactResolver.ts",
-        forbiddenPatterns: [
-            /includes\(\s*["'`](Ability|Extension|Stage|Want|want|router|Router)["'`]\s*\)/,
-            /indexOf\(\s*["'`](Ability|Extension|Stage|Want|want|router|Router)["'`]\s*\)/,
-            /\.toLowerCase\s*\(/,
-        ],
-    },
-    {
-        path: "src/core/entry/arkmain/facts/ArkMainSchedulerFactResolver.ts",
-        forbiddenPatterns: [
-            /includes\(\s*["'`](Ability|Extension|Stage|Want|want|router|Router)["'`]\s*\)/,
-            /indexOf\(\s*["'`](Ability|Extension|Stage|Want|want|router|Router)["'`]\s*\)/,
-            /\.toLowerCase\s*\(/,
-        ],
-    },
-    {
         path: "src/tests/helpers/PureEntryOracle.ts",
         forbiddenPatterns: [
             /includes\(\s*["'`](Ability|Extension|Stage|Want|want|router|Router)["'`]\s*\)/,

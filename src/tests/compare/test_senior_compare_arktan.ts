@@ -8,6 +8,11 @@ import { ArktanCaseSpec, ensureArktanRunnerScript, runArktanCaseSetRound } from 
 import * as fs from "fs";
 import * as path from "path";
 import { registerMockSdkFiles } from "../helpers/TestSceneBuilder";
+import {
+    createFormalTestSuite,
+    TestFailureSummary,
+    TestOutputMetadata,
+} from "../helpers/TestOutputContract";
 
 type CompareMode = "strict" | "default";
 
@@ -416,11 +421,23 @@ async function main(): Promise<void> {
     }
 
     fs.mkdirSync(args.outputDir, { recursive: true });
+    const metadata: TestOutputMetadata = {
+        suite: "senior_compare_arktan",
+        domain: "compare",
+        title: "Senior Compare (ArkTaint vs Arktan)",
+        purpose: "Compare ArkTaint and Arktan across senior_full scenarios and summarize per-scenario precision outcomes.",
+    };
+    const suite = createFormalTestSuite(args.outputDir, metadata);
     const runnerPath = ensureArktanRunnerScript(args.outputDir);
     const scenarios = loadScenarioSpecs(args.sourceRoot, args.includeRegex, args.maxScenarios);
     if (scenarios.length === 0) {
         throw new Error(`no scenarios found under ${args.sourceRoot}`);
     }
+    const totalSteps = scenarios.length * 2;
+    const progressReporter = suite.createProgress(totalSteps, {
+        logEveryCount: 1,
+        logEveryPercent: 10,
+    });
 
     const reports: ScenarioReport[] = [];
     let totalCases = 0;
@@ -432,7 +449,9 @@ async function main(): Promise<void> {
     let arktanFn = 0;
 
     for (const scenario of scenarios) {
+        progressReporter.update(reports.length * 2, `${scenario.sourceDirRel}/arktaint`, "tool=arktaint");
         const arktaintDetections = await runArkTaintScenario(scenario, args.rounds, args.k, args.mode);
+        progressReporter.update((reports.length * 2) + 1, `${scenario.sourceDirRel}/arktaint`, "tool=arktaint");
         const arktanCases: ArktanCaseSpec[] = scenario.cases.map(item => ({
             caseId: item.caseId,
             caseMethodName: item.caseMethodName,
@@ -440,6 +459,7 @@ async function main(): Promise<void> {
         let arktanDetectedSet = new Set<string>();
         let arktanMissingCaseMethods: string[] = [];
         let arktanError: string | undefined;
+        progressReporter.update((reports.length * 2) + 1, `${scenario.sourceDirRel}/arktan`, "tool=arktan");
         try {
             const arktanResult = runArktanCaseSetRound(
                 scenario.id,
@@ -459,6 +479,7 @@ async function main(): Promise<void> {
             arktanError = err?.message || String(err);
             console.error(`arktan_scenario_error scenario=${scenario.sourceDirRel}: ${arktanError}`);
         }
+        progressReporter.update((reports.length * 2) + 2, `${scenario.sourceDirRel}/arktan`, "tool=arktan");
 
         const caseResults: CaseResult[] = scenario.cases.map(item => {
             const arktaintDetected = arktaintDetections.get(item.caseId) || false;
@@ -527,22 +548,53 @@ async function main(): Promise<void> {
 
     const jsonPath = path.join(args.outputDir, "senior_compare_report.json");
     const mdPath = path.join(args.outputDir, "senior_compare_report.md");
-    fs.writeFileSync(jsonPath, JSON.stringify(summary, null, 2), "utf-8");
-    fs.writeFileSync(mdPath, buildMarkdown(summary), "utf-8");
+    suite.writeReport(summary, buildMarkdown(summary), {
+        aliases: [
+            {
+                jsonPath,
+                markdownPath: mdPath,
+            },
+        ],
+    });
+    progressReporter.finish("DONE", "compare=senior_compare_arktan");
 
-    console.log("====== Senior Compare (ArkTaint vs Arktan) ======");
-    console.log(`mode=${args.mode}`);
-    console.log(`source_root=${args.sourceRoot}`);
-    console.log(`scenario_count=${reports.length}`);
-    console.log(`total_cases=${totalCases}`);
-    console.log(`arktaint_pass=${arktaintPassCases}`);
-    console.log(`arktaint_fp=${arktaintFp}`);
-    console.log(`arktaint_fn=${arktaintFn}`);
-    console.log(`arktan_pass=${arktanPassCases}`);
-    console.log(`arktan_fp=${arktanFp}`);
-    console.log(`arktan_fn=${arktanFn}`);
-    console.log(`report_json=${jsonPath}`);
-    console.log(`report_md=${mdPath}`);
+    const scenarioFailures = reports.filter(item => item.arktaintError || item.arktanError);
+    const failureItems: TestFailureSummary[] = scenarioFailures.map(item => ({
+        name: item.scenarioId,
+        reason: item.arktaintError
+            ? `ArkTaint scenario error: ${item.arktaintError}`
+            : `Arktan scenario error: ${item.arktanError}`,
+        severity: "high",
+    }));
+    suite.finish({
+        status: scenarioFailures.length > 0 ? "fail" : "pass",
+        verdict: scenarioFailures.length > 0
+            ? "Senior compare completed with scenario execution errors."
+            : "Senior compare completed and wrote the comparison report.",
+        totals: {
+            mode: args.mode,
+            rounds: args.rounds,
+            k: args.k,
+            scenario_count: reports.length,
+            total_cases: totalCases,
+            arktaint_pass: arktaintPassCases,
+            arktaint_fp: arktaintFp,
+            arktaint_fn: arktaintFn,
+            arktan_pass: arktanPassCases,
+            arktan_fp: arktanFp,
+            arktan_fn: arktanFn,
+        },
+        highlights: [
+            `arktaint_pass=${arktaintPassCases}`,
+            `arktan_pass=${arktanPassCases}`,
+            `arktaint_fp_fn=${arktaintFp}/${arktaintFn}`,
+            `arktan_fp_fn=${arktanFp}/${arktanFn}`,
+        ],
+        failures: failureItems,
+        notes: args.includeRegex
+            ? [`include_regex=${args.includeRegex.source}`]
+            : undefined,
+    });
 }
 
 main().catch(err => {

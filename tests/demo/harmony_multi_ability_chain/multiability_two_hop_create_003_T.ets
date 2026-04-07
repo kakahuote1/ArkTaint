@@ -19,7 +19,8 @@ class EntryPage003 {
 }
 
 export function multiability_two_hop_create_003_T(): void {
+    const entry = new EntryPage003();
+    entry.build();
     void FinalAbility003;
     void MidAbility003;
-    void EntryPage003;
 }

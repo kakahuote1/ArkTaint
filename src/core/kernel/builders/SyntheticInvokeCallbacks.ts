@@ -18,7 +18,6 @@ import {
     isReflectDispatchInvoke,
     mapInvokeArgsToParamAssigns,
     resolveCalleeCandidates,
-    resolveInvokeMethodName,
     resolveMethodsFromAnonymousObjectCarrier,
     resolveMethodsFromAnonymousObjectCarrierByField,
     resolveMethodsFromCallable
@@ -47,24 +46,6 @@ export interface AsyncCallbackBinding {
     method: any;
     sourceMethod: any;
     reason: "direct" | "one_hop" | "name_fallback";
-}
-
-export function collectAsyncCallbackBindingsForStmt(
-    scene: Scene,
-    cg: CallGraph,
-    caller: any,
-    stmt: any,
-    invokeExpr: any,
-    lookupContext: SyntheticInvokeLookupContext
-): AsyncCallbackBinding[] {
-    const invokeName = resolveInvokeMethodName(invokeExpr);
-    const asyncNames = new Set(["setTimeout", "setInterval", "queueMicrotask", "requestAnimationFrame"]);
-    if (!asyncNames.has(invokeName)) return [];
-    const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
-    if (args.length === 0) return [];
-    const callbackArg = args[0];
-    const callsiteLine = stmt.getOriginPositionInfo?.()?.getLineNo?.() || 0;
-    return resolveAsyncCallbackBindings(scene, cg, caller, callbackArg, callsiteLine, lookupContext);
 }
 
 export function collectResolvedCallbackBindingsForStmt(
@@ -223,35 +204,6 @@ export function injectResolvedCallbackParameterEdges(
                 }
             }
         }
-    }
-
-    return count;
-}
-
-export function injectAsyncCallbackCaptureEdges(
-    scene: Scene,
-    cg: CallGraph,
-    pag: Pag,
-    caller: any,
-    stmt: any,
-    invokeExpr: any,
-    edgeMap: Map<number, SyntheticInvokeEdgeInfo[]>,
-    context?: SyntheticInvokeLookupContext
-): number {
-    const invokeName = resolveInvokeMethodName(invokeExpr);
-    const asyncNames = new Set(["setTimeout", "setInterval", "queueMicrotask", "requestAnimationFrame"]);
-    if (!asyncNames.has(invokeName)) return 0;
-
-    const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
-    if (args.length === 0) return 0;
-    const callbackArg = args[0];
-    const callsiteLine = stmt.getOriginPositionInfo?.()?.getLineNo?.() || 0;
-    const callbackBindings = resolveAsyncCallbackBindings(scene, cg, caller, callbackArg, callsiteLine, context);
-    if (callbackBindings.length === 0) return 0;
-
-    let count = 0;
-    for (const binding of callbackBindings) {
-        count += injectCallbackBindingEdges(pag, caller, stmt, edgeMap, binding.method, binding.sourceMethod || caller);
     }
 
     return count;
@@ -616,102 +568,6 @@ function findAnyPagNodeForMethod(pag: Pag, method: any): number | undefined {
     return undefined;
 }
 
-function resolveAsyncCallbackBindings(
-    scene: Scene,
-    cg: CallGraph,
-    callerMethod: any,
-    callbackArg: any,
-    callsiteLine: number = 0,
-    context?: SyntheticInvokeLookupContext
-): AsyncCallbackBinding[] {
-    const LINE_NEARBY_WARNING_THRESHOLD = 50;
-    const methods = resolveMethodsFromCallable(scene, callbackArg, { maxCandidates: 8 })
-        .filter(m => (m.getName?.() || "").startsWith("%AM"));
-    if (methods.length > 0) {
-        return methods.map(method => ({
-            method,
-            sourceMethod: callerMethod,
-            reason: "direct" as const,
-        }));
-    }
-
-    const callbackParamIndex = resolveCallbackParameterIndexInCurrentMethod(callerMethod, callbackArg);
-    if (callbackParamIndex !== undefined && callbackParamIndex >= 0) {
-        return resolveAsyncCallbackBindingsFromOneHopCallers(scene, cg, callerMethod, callbackParamIndex, context);
-    }
-
-    const callerSig = callerMethod?.getSignature?.().toString?.() || "";
-    const callerFile = extractFilePathFromSignature(callerSig);
-    if (!callerFile) return [];
-    const callerName = callerMethod?.getName?.() || "";
-    const callbackCandidateNames = new Set<string>();
-    const callbackArgName = callbackArg?.getName?.();
-    if (callbackArgName) callbackCandidateNames.add(String(callbackArgName));
-    const callbackArgText = callbackArg?.toString?.();
-    if (callbackArgText) callbackCandidateNames.add(String(callbackArgText));
-
-    const candidates = scene.getMethods().filter(m => {
-        const name = m.getName?.() || "";
-        if (!name.startsWith("%AM")) return false;
-        const sig = m.getSignature?.().toString?.() || "";
-        if (!sig) return false;
-        return extractFilePathFromSignature(sig) === callerFile;
-    });
-
-    const strictMatches = candidates.filter(m => {
-        const name = m.getName?.() || "";
-        if (callerName && name.includes(`$${callerName}`)) return true;
-        if (callbackCandidateNames.has(name)) return true;
-        return false;
-    });
-    if (strictMatches.length > 0) {
-        return strictMatches.slice(0, 8).map(method => ({
-            method,
-            sourceMethod: callerMethod,
-            reason: "name_fallback" as const,
-        }));
-    }
-
-    if (callsiteLine > 0) {
-        const sorted = [...candidates].sort((a, b) => {
-            const da = Math.abs(extractLineNoFromSignature(a.getSignature?.().toString?.() || "") - callsiteLine);
-            const db = Math.abs(extractLineNoFromSignature(b.getSignature?.().toString?.() || "") - callsiteLine);
-            return da - db;
-        });
-        const nearest = sorted[0];
-        if (nearest) {
-            const nearestLine = extractLineNoFromSignature(nearest.getSignature?.().toString?.() || "");
-            if (nearestLine !== Number.MAX_SAFE_INTEGER) {
-                const nearestDelta = Math.abs(nearestLine - callsiteLine);
-                if (nearestDelta > LINE_NEARBY_WARNING_THRESHOLD) {
-                    const callerSigText = callerMethod?.getSignature?.().toString?.() || "<unknown-caller>";
-                    console.warn(`[arktaint][async-fallback] line-distance=${nearestDelta} (> ${LINE_NEARBY_WARNING_THRESHOLD}), caller=${callerSigText}, callbackArg=${String(callbackArg?.toString?.() || "")}`);
-                }
-            }
-        }
-        return sorted.slice(0, 8).map(method => ({
-            method,
-            sourceMethod: callerMethod,
-            reason: "name_fallback" as const,
-        }));
-    }
-
-    return candidates.slice(0, 8).map(method => ({
-        method,
-        sourceMethod: callerMethod,
-        reason: "name_fallback" as const,
-    }));
-}
-
-function resolveAsyncCallbackBindingsFromOneHopCallers(
-    scene: Scene,
-    cg: CallGraph,
-    callerMethod: any,
-    callbackParamIndex: number,
-    context?: SyntheticInvokeLookupContext
-): AsyncCallbackBinding[] {
-    return resolveOneHopCallbackBindingsFromParamIndex(scene, cg, callerMethod, callbackParamIndex, 8, context);
-}
 
 function resolveOneHopCallbackBindingsFromParamIndex(
     scene: Scene,

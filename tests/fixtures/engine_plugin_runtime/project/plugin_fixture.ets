@@ -1,11 +1,11 @@
-import { taint } from "./taint_mock";
+import { UIAbility, taint } from "./taint_mock";
 
 class BridgeBox {
     b: string = "";
 }
 
-export class PluginRuntimeFixture {
-    build(): void {
+export class PluginRuntimeFixture extends UIAbility {
+    onCreate(): void {
         const value = taint.Source();
         const alias = value;
         taint.Sink(alias);

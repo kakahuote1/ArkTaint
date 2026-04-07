@@ -18,6 +18,10 @@ export function ObjectLink(_key?: string): any {
     return function (_target: any, _propertyKey: string): void {};
 }
 
+export function Component<T extends { new (...args: any[]): {} }>(constructor: T): T {
+    return constructor;
+}
+
 export function Watch(_key?: string): any {
     return function (_target: any, _propertyKey: string, _descriptor: PropertyDescriptor): void {};
 }

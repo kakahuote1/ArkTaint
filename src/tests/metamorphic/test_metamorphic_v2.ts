@@ -51,6 +51,12 @@ runMetamorphicSuite({
         reportPath: "tmp/test_runs/metamorphic/seed_v2/latest/metamorphic_report.json",
         k: 1,
     },
+    metadata: {
+        suite: "metamorphic_seed_v2",
+        domain: "metamorphic",
+        title: "Metamorphic Seed V2",
+        purpose: "Verify higher-order equivalent mutations remain consistent on the metamorphic seed v2 dataset.",
+    },
     transforms,
     variantTag: "m",
 }).catch(err => {

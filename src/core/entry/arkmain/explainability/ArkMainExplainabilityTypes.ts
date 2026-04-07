@@ -23,8 +23,6 @@ export interface ArkMainReasonRecord {
     evidenceMethodName?: string;
     entryFamily?: string;
     recognitionLayer?: string;
-    callbackShape?: string;
-    callbackSlotFamily?: string;
 }
 
 export interface ArkMainSupportingEdgeRecord {
@@ -38,6 +36,7 @@ export interface ArkMainSupportingEdgeRecord {
 }
 
 export interface ArkMainActivationExplanation {
+    activationId: string;
     signature: string;
     methodName: string;
     declaringClass: string;
@@ -50,7 +49,7 @@ export interface ArkMainActivationExplanation {
 }
 
 export interface ArkMainExplainabilityReport {
-    schemaVersion: "arkmain.explainability.v2";
+    schemaVersion: "arkmain.explainability.v3";
     summary: ArkMainExplainabilitySummary;
     activations: ArkMainActivationExplanation[];
 }

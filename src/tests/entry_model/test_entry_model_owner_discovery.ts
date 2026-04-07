@@ -73,12 +73,7 @@ async function main(): Promise<void> {
     );
 
     assert(!owners.isFrameworkManagedOwner(localDerived), "LocalDerivedLifecycle should not be recognized as framework-managed.");
-    assert(owners.isComponentOwner(plainCarrier), "PlainDecoratorCarrier should be recognized as component owner by contract shape.");
-    assert(owners.isFrameworkManagedOwner(plainCarrier), "PlainDecoratorCarrier should be recognized as framework-managed.");
-    assert(
-        owners.getPrimaryRecognitionLayer(plainCarrier) === "component_contract_shape",
-        `PlainDecoratorCarrier recognition layer mismatch: ${owners.getPrimaryRecognitionLayer(plainCarrier)}`,
-    );
+    assert(!owners.isFrameworkManagedOwner(plainCarrier), "PlainDecoratorCarrier should not be recognized without official owner declaration.");
 
     const plan = buildArkMainPlan(scene);
     const hasAbilityLifecycleOnManagedOwner = plan.facts.some(fact =>
@@ -104,7 +99,7 @@ async function main(): Promise<void> {
     assert(hasAbilityLifecycleOnManagedOwner, "Managed ability owner should produce lifecycle contract fact.");
     assert(!hasAbilityLifecycleOnPlainOwner, "Non-managed plain owner should not produce lifecycle contract fact.");
     assert(hasPageBuildOnManagedOwner, "Managed component owner should produce page build contract fact.");
-    assert(hasPageBuildOnPlainOwner, "Plain component contract owner should produce page build contract fact.");
+    assert(!hasPageBuildOnPlainOwner, "Plain component-like class without official declaration should not produce page build contract fact.");
 
     const reportDir = path.resolve("tmp/test_runs/entry_model/owner_discovery_probe/latest");
     fs.mkdirSync(reportDir, { recursive: true });

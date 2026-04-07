@@ -14,6 +14,8 @@ class ReactivePage001 {
 }
 
 export function reactive_state_watch_001_T(): void {
-    void ReactivePage001;
+    const page = new ReactivePage001();
+    page.aboutToAppear();
+    page.onTokenWatch();
 }
 

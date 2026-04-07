@@ -1,14 +1,7 @@
 import { ArkMethod } from "../../../../arkanalyzer/out/src/core/model/ArkMethod";
-import type {
-    CallbackRegistrationFlavor,
-    CallbackRegistrationRecognitionLayer,
-    CallbackRegistrationShape,
-    CallbackRegistrationSlotFamily,
-    StructuralCallbackEvidenceFamily,
-} from "../shared/FrameworkCallbackClassifier";
 
 export type ArkMainRuleEndpoint = "base" | "result" | "matched_param" | `arg${number}`;
-export type ArkMainSourceRuleKind = "seed_local_name" | "entry_param" | "call_return" | "call_arg" | "field_read" | "callback_param";
+export type ArkMainSourceRuleKind = "entry_param";
 
 export interface ArkMainRuleStringConstraint {
     mode: "equals" | "contains" | "regex";
@@ -45,7 +38,6 @@ export interface ArkMainSourceRule {
     scope?: ArkMainRuleScopeConstraint;
     sourceKind: ArkMainSourceRuleKind;
     target: ArkMainRuleEndpointOrRef;
-    callbackArgIndexes?: number[];
 }
 
 export type ArkMainPhaseName =
@@ -60,43 +52,20 @@ export type ArkMainFactKind =
     | "stage_lifecycle"
     | "extension_lifecycle"
     | "page_build"
-    | "page_lifecycle"
-    | "callback"
-    | "scheduler_callback"
-    | "watch_handler"
-    | "watch_source"
-    | "want_handoff"
-    | "router_source"
-    | "router_trigger";
+    | "page_lifecycle";
 
-export type ArkMainFactOwnership =
-    | "root_entry"
-    | "activation_support"
-    | "propagation_modeling";
+export type ArkMainFactOwnership = "root_entry";
 
 export type ArkMainOwnerKind =
     | "ability_owner"
     | "stage_owner"
     | "extension_owner"
     | "component_owner"
-    | "builder_owner"
     | "unknown_owner";
 
-export type ArkMainSurfaceKind =
-    | "lifecycle"
-    | "callback"
-    | "scheduler"
-    | "watch"
-    | "router"
-    | "handoff";
+export type ArkMainSurfaceKind = "lifecycle";
 
-export type ArkMainTriggerKind =
-    | "root"
-    | "callback"
-    | "scheduler"
-    | "state_watch"
-    | "navigation_channel"
-    | "ability_handoff";
+export type ArkMainTriggerKind = "root";
 
 export interface ArkMainContractSourceSchema {
     id: string;
@@ -109,7 +78,6 @@ export interface ArkMainContractSourceSchema {
     target: ArkMainRuleEndpointOrRef;
     scopeClassName?: string;
     scopeMethodName?: string;
-    callbackArgIndexes?: number[];
 }
 
 export interface ArkMainContract {
@@ -125,13 +93,6 @@ export interface ArkMainContract {
     entryFamily?: string;
     entryShape?: string;
     recognitionLayer?: string;
-    callbackFlavor?: CallbackRegistrationFlavor;
-    callbackShape?: CallbackRegistrationShape;
-    callbackSlotFamily?: CallbackRegistrationSlotFamily;
-    callbackRecognitionLayer?: CallbackRegistrationRecognitionLayer;
-    callbackRegistrationSignature?: string;
-    callbackArgIndex?: number;
-    callbackStructuralEvidenceFamily?: StructuralCallbackEvidenceFamily;
     sourceSchemas: ArkMainContractSourceSchema[];
 }
 
@@ -149,19 +110,7 @@ export const ARK_MAIN_ROOT_ENTRY_FACT_KINDS: ReadonlySet<ArkMainFactKind> = new 
     "extension_lifecycle",
     "page_build",
     "page_lifecycle",
-    "callback",
-    "scheduler_callback",
-    "watch_handler",
-    "want_handoff",
 ]);
-
-export const ARK_MAIN_ACTIVATION_SUPPORT_FACT_KINDS: ReadonlySet<ArkMainFactKind> = new Set([
-    "watch_source",
-    "router_source",
-    "router_trigger",
-]);
-
-export const ARK_MAIN_PROPAGATION_MODELING_FACT_KINDS: ReadonlySet<ArkMainFactKind> = new Set<ArkMainFactKind>();
 
 export interface ArkMainEntryFact {
     phase: ArkMainPhaseName;
@@ -171,15 +120,6 @@ export interface ArkMainEntryFact {
     reason: string;
     schedule?: boolean;
     sourceMethod?: ArkMethod;
-    reactiveFieldNames?: string[];
-    watchTargets?: string[];
-    callbackFlavor?: CallbackRegistrationFlavor;
-    callbackShape?: CallbackRegistrationShape;
-    callbackSlotFamily?: CallbackRegistrationSlotFamily;
-    callbackRecognitionLayer?: CallbackRegistrationRecognitionLayer;
-    callbackRegistrationSignature?: string;
-    callbackArgIndex?: number;
-    callbackStructuralEvidenceFamily?: StructuralCallbackEvidenceFamily;
     entryFamily?: string;
     entryShape?: string;
     recognitionLayer?: string;
@@ -212,25 +152,11 @@ export const ARK_MAIN_PHASE_ORDER: ArkMainPhaseName[] = [
 export function classifyArkMainFactOwnership(
     fact: Pick<ArkMainEntryFact, "kind" | "entryFamily">,
 ): ArkMainFactOwnership {
-    if (ARK_MAIN_ROOT_ENTRY_FACT_KINDS.has(fact.kind)) {
-        return "root_entry";
-    }
-    if (ARK_MAIN_PROPAGATION_MODELING_FACT_KINDS.has(fact.kind)) {
-        return "propagation_modeling";
-    }
-    if (fact.kind === "watch_source") {
-        return "activation_support";
-    }
-    if (fact.kind === "router_source" || fact.kind === "router_trigger") {
-        return fact.entryFamily?.startsWith("navigation_")
-            ? "activation_support"
-            : "propagation_modeling";
-    }
-    return "activation_support";
+    return "root_entry";
 }
 
 export function isArkMainEntryLayerFact(
     fact: Pick<ArkMainEntryFact, "kind" | "entryFamily">,
 ): boolean {
-    return classifyArkMainFactOwnership(fact) !== "propagation_modeling";
+    return classifyArkMainFactOwnership(fact) === "root_entry";
 }

@@ -18,6 +18,8 @@ class TargetPage002 {
 }
 
 export function route_stack_pop_show_002_T(): void {
-    void SourcePage002;
-    void TargetPage002;
+    const source = new SourcePage002();
+    source.build();
+    const target = new TargetPage002();
+    target.aboutToAppear();
 }

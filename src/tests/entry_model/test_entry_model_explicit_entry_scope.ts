@@ -85,31 +85,24 @@ async function main(): Promise<void> {
     const probes: ProbeSpec[] = [
         {
             sourceDir: "tests/demo/harmony_lifecycle",
-            caseName: "lifecycle_abilitystage_oncreate_015_T",
+            caseName: "lifecycle_want_direct_001_T",
             projectRulePath: "tests/rules/harmony_lifecycle_sink_only.rules.json",
             ruleCatalogPath: "src/rules",
-            expectedMethodRef: "DemoAbilityStage015.onCreate",
+            expectedMethodRef: "AbilityWantDirect001.onCreate",
         },
         {
             sourceDir: "tests/demo/harmony_lifecycle",
-            caseName: "lifecycle_router_getparams_009_T",
+            caseName: "lifecycle_extension_formbinding_013_T",
             projectRulePath: "tests/rules/harmony_lifecycle_sink_only.rules.json",
             ruleCatalogPath: "src/rules",
-            expectedMethodRef: "ParamsPage009.build",
+            expectedMethodRef: "DemoFormExtension013.onUpdateForm",
         },
         {
-            sourceDir: "tests/demo/harmony_router_dynamic",
-            caseName: "router_getparams_direct_001_T",
-            projectRulePath: "tests/rules/harmony_router_dynamic.rules.json",
+            sourceDir: "tests/demo/harmony_lifecycle",
+            caseName: "lifecycle_extension_addform_011_T",
+            projectRulePath: "tests/rules/harmony_lifecycle_sink_only.rules.json",
             ruleCatalogPath: "src/rules",
-            expectedMethodRef: "RouterPage001.build",
-        },
-        {
-            sourceDir: "tests/demo/harmony_router_bridge",
-            caseName: "navigation_destination_callback_010_T",
-            projectRulePath: "tests/rules/harmony_router_bridge.rules.json",
-            ruleCatalogPath: "src/rules",
-            expectedMethodRef: "%dflt.navDetailBuilder010",
+            expectedMethodRef: "DemoFormExtension011.onAddForm",
         },
     ];
 

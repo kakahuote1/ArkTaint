@@ -3,13 +3,14 @@ import { CallGraph } from "../../../../arkanalyzer/out/src/callgraph/model/CallG
 import { Pag, PagInstanceFieldNode, PagNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { ArkAssignStmt, ArkInvokeStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
 import { ArkArrayRef, ArkInstanceFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
-import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
+import { ArkInstanceInvokeExpr, ArkNewArrayExpr, ArkNewExpr, ArkPtrInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { Constant } from "../../../../arkanalyzer/out/src/core/base/Constant";
 import { TaintTracker } from "../model/TaintTracker";
 import { TaintFlow } from "../model/TaintFlow";
 import { isCarrierFieldPathLiveAtStmt } from "../ordinary/OrdinaryObjectInvalidation";
 import { collectAliasLocalsForCarrier, collectCarrierNodeIdsForValueAtStmt } from "../ordinary/OrdinaryAliasPropagation";
+import { resolveOrdinaryArraySlotName } from "../ordinary/OrdinaryLanguagePropagation";
 import {
     normalizeEndpoint,
     RuleEndpoint,
@@ -292,7 +293,7 @@ export function detectSinks(
                             const fieldPathResult = detectFieldPathSource(
                                 rightOp,
                                 [fieldName],
-                                stmt,
+                                declStmt,
                                 pag,
                                 tracker,
                                 fallbackFieldToVarIndex
@@ -318,6 +319,40 @@ export function detectSinks(
                                     sinkEndpoint: candidate.endpoint,
                                     sinkNodeId: fieldPathResult.nodeId,
                                     sinkFieldPath: fieldPathResult.fieldPath,
+                                }));
+                                sinkDetected = true;
+                                break;
+                            }
+                        }
+                        if (rightOp instanceof ArkArrayRef) {
+                            const slotName = resolveOrdinaryArraySlotName(rightOp.getIndex());
+                            const carrierFieldResult = detectLoadedLocalCarrierFieldSource(
+                                rightOp.getBase?.(),
+                                [slotName],
+                                declStmt,
+                                pag,
+                                tracker,
+                            );
+                            if (carrierFieldResult) {
+                                profile.sanitizerGuardCheckCount++;
+                                const sanitizerT0 = process.hrtime.bigint();
+                                const sanitizerResult = isSinkCandidateSanitizedByRules(
+                                    method,
+                                    stmt,
+                                    candidate,
+                                    options.sanitizerRules || [],
+                                    log
+                                );
+                                profile.sanitizerGuardMs += elapsedMsSince(sanitizerT0);
+                                if (sanitizerResult.sanitized) {
+                                    profile.sanitizerGuardHitCount++;
+                                    continue;
+                                }
+                                log(`    *** TAINT FLOW DETECTED! Source: ${carrierFieldResult.source} (local-from-array fallback: ${slotName}) ***`);
+                                flows.push(new TaintFlow(carrierFieldResult.source, stmt, {
+                                    sinkEndpoint: candidate.endpoint,
+                                    sinkNodeId: carrierFieldResult.nodeId,
+                                    sinkFieldPath: carrierFieldResult.fieldPath,
                                 }));
                                 sinkDetected = true;
                                 break;
@@ -368,6 +403,81 @@ export function detectSinks(
                 continue;
             }
 
+            if (candidate.value instanceof Local) {
+                const declStmt = candidate.value.getDeclaringStmt?.();
+                if (declStmt instanceof ArkAssignStmt && declStmt.getLeftOp() === candidate.value) {
+                    const rightOp = declStmt.getRightOp();
+                    if (rightOp instanceof ArkInstanceFieldRef) {
+                        const fieldName = rightOp.getFieldSignature().getFieldName();
+                        const carrierFieldResult = detectLoadedLocalCarrierFieldSource(
+                            rightOp.getBase?.(),
+                            [fieldName],
+                            declStmt,
+                            pag,
+                            tracker,
+                        );
+                        if (carrierFieldResult) {
+                            profile.sanitizerGuardCheckCount++;
+                            const sanitizerT0 = process.hrtime.bigint();
+                            const sanitizerResult = isSinkCandidateSanitizedByRules(
+                                method,
+                                stmt,
+                                candidate,
+                                options.sanitizerRules || [],
+                                log
+                            );
+                            profile.sanitizerGuardMs += elapsedMsSince(sanitizerT0);
+                            if (sanitizerResult.sanitized) {
+                                profile.sanitizerGuardHitCount++;
+                                continue;
+                            }
+                            log(`    *** TAINT FLOW DETECTED! Source: ${carrierFieldResult.source} (loaded-field carrier fallback: ${fieldName}) ***`);
+                            flows.push(new TaintFlow(carrierFieldResult.source, stmt, {
+                                sinkEndpoint: candidate.endpoint,
+                                sinkNodeId: carrierFieldResult.nodeId,
+                                sinkFieldPath: carrierFieldResult.fieldPath,
+                            }));
+                            sinkDetected = true;
+                            break;
+                        }
+                    }
+                    if (rightOp instanceof ArkArrayRef) {
+                        const slotName = resolveOrdinaryArraySlotName(rightOp.getIndex());
+                        const carrierFieldResult = detectLoadedLocalCarrierFieldSource(
+                            rightOp.getBase?.(),
+                            [slotName],
+                            declStmt,
+                            pag,
+                            tracker,
+                        );
+                        if (carrierFieldResult) {
+                            profile.sanitizerGuardCheckCount++;
+                            const sanitizerT0 = process.hrtime.bigint();
+                            const sanitizerResult = isSinkCandidateSanitizedByRules(
+                                method,
+                                stmt,
+                                candidate,
+                                options.sanitizerRules || [],
+                                log
+                            );
+                            profile.sanitizerGuardMs += elapsedMsSince(sanitizerT0);
+                            if (sanitizerResult.sanitized) {
+                                profile.sanitizerGuardHitCount++;
+                                continue;
+                            }
+                            log(`    *** TAINT FLOW DETECTED! Source: ${carrierFieldResult.source} (loaded-array carrier fallback: ${slotName}) ***`);
+                            flows.push(new TaintFlow(carrierFieldResult.source, stmt, {
+                                sinkEndpoint: candidate.endpoint,
+                                sinkNodeId: carrierFieldResult.nodeId,
+                                sinkFieldPath: carrierFieldResult.fieldPath,
+                            }));
+                            sinkDetected = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
             const checkedNodeIds = new Set<number>();
             for (const nodeId of pagNodes.values()) {
                 checkedNodeIds.add(nodeId);
@@ -402,43 +512,45 @@ export function detectSinks(
                 break;
             }
             if (!sinkDetected && candidate.value instanceof Local) {
-                const carrierNodeIds = collectCarrierNodeIdsForValueAtStmt(
-                    pag,
-                    candidate.value,
-                    stmt,
-                );
-                for (const carrierNodeId of carrierNodeIds) {
-                    if (checkedNodeIds.has(carrierNodeId)) continue;
-                    profile.taintCheckCount++;
-                    const taintCheckT0 = process.hrtime.bigint();
-                    const isTainted = tracker.isTaintedAnyContext(carrierNodeId);
-                    profile.taintEvalMs += elapsedMsSince(taintCheckT0);
-                    log(`    Checking ${candidate.endpoint} carrier, node ${carrierNodeId}, tainted: ${isTainted}`);
-                    if (!isTainted) continue;
-                    const source = tracker.getSourceAnyContext(carrierNodeId);
-                    if (!source) continue;
-
-                    profile.sanitizerGuardCheckCount++;
-                    const sanitizerT0 = process.hrtime.bigint();
-                    const sanitizerResult = isSinkCandidateSanitizedByRules(
-                        method,
+                if (!isLoadedFieldOrArrayLocal(candidate.value)) {
+                    const carrierNodeIds = collectCarrierNodeIdsForValueAtStmt(
+                        pag,
+                        candidate.value,
                         stmt,
-                        candidate,
-                        options.sanitizerRules || [],
-                        log
                     );
-                    profile.sanitizerGuardMs += elapsedMsSince(sanitizerT0);
-                    if (sanitizerResult.sanitized) {
-                        profile.sanitizerGuardHitCount++;
-                        continue;
+                    for (const carrierNodeId of carrierNodeIds) {
+                        if (checkedNodeIds.has(carrierNodeId)) continue;
+                        profile.taintCheckCount++;
+                        const taintCheckT0 = process.hrtime.bigint();
+                        const isTainted = tracker.isTaintedAnyContext(carrierNodeId);
+                        profile.taintEvalMs += elapsedMsSince(taintCheckT0);
+                        log(`    Checking ${candidate.endpoint} carrier, node ${carrierNodeId}, tainted: ${isTainted}`);
+                        if (!isTainted) continue;
+                        const source = tracker.getSourceAnyContext(carrierNodeId);
+                        if (!source) continue;
+
+                        profile.sanitizerGuardCheckCount++;
+                        const sanitizerT0 = process.hrtime.bigint();
+                        const sanitizerResult = isSinkCandidateSanitizedByRules(
+                            method,
+                            stmt,
+                            candidate,
+                            options.sanitizerRules || [],
+                            log
+                        );
+                        profile.sanitizerGuardMs += elapsedMsSince(sanitizerT0);
+                        if (sanitizerResult.sanitized) {
+                            profile.sanitizerGuardHitCount++;
+                            continue;
+                        }
+                        log(`    *** TAINT FLOW DETECTED! Source: ${source} (local carrier fallback) ***`);
+                        flows.push(new TaintFlow(source, stmt, {
+                            sinkEndpoint: candidate.endpoint,
+                            sinkNodeId: carrierNodeId,
+                        }));
+                        sinkDetected = true;
+                        break;
                     }
-                    log(`    *** TAINT FLOW DETECTED! Source: ${source} (local carrier fallback) ***`);
-                    flows.push(new TaintFlow(source, stmt, {
-                        sinkEndpoint: candidate.endpoint,
-                        sinkNodeId: carrierNodeId,
-                    }));
-                    sinkDetected = true;
-                    break;
                 }
             }
             if (!sinkDetected && candidate.value instanceof ArkInstanceFieldRef) {
@@ -525,6 +637,40 @@ function elapsedMsSince(t0: bigint): number {
     return Number(process.hrtime.bigint() - t0) / 1_000_000;
 }
 
+function detectLoadedLocalCarrierFieldSource(
+    baseValue: any,
+    fieldPath: string[],
+    anchorStmt: any,
+    pag: Pag,
+    tracker: TaintTracker,
+): FieldPathDetectResult | undefined {
+    if (!baseValue || !fieldPath.length) return undefined;
+    const carrierNodeIds = collectCarrierNodeIdsForValueAtStmt(pag, baseValue, anchorStmt);
+    for (const carrierNodeId of carrierNodeIds) {
+        if (!isCarrierFieldPathLiveAtStmt(pag, tracker, carrierNodeId, fieldPath, anchorStmt)) {
+            continue;
+        }
+        const source = tracker.getSourceAnyContext(carrierNodeId, fieldPath);
+        if (!source) continue;
+        return {
+            source,
+            nodeId: carrierNodeId,
+            fieldPath: [...fieldPath],
+        };
+    }
+    return undefined;
+}
+
+function isLoadedFieldOrArrayLocal(value: any): boolean {
+    if (!(value instanceof Local)) return false;
+    const declStmt = value.getDeclaringStmt?.();
+    if (!(declStmt instanceof ArkAssignStmt) || declStmt.getLeftOp() !== value) {
+        return false;
+    }
+    const rightOp = declStmt.getRightOp();
+    return rightOp instanceof ArkInstanceFieldRef || rightOp instanceof ArkArrayRef;
+}
+
 interface PreciseCandidateDetectResult {
     result?: FieldPathDetectResult;
     blockGenericNodeTaint: boolean;
@@ -593,11 +739,9 @@ function detectPreciseCandidateSource(
     const rightOp = latestAssign.getRightOp();
     if (rightOp instanceof Constant || rightOp === undefined || rightOp === null) {
         return {
-            // Treat constant latest-assign as overwrite-kill only when the same local
-            // already had an earlier assignment in this method. A lone constant
-            // assignment is often the original source materialization in focused
-            // probes and should remain eligible for generic node taint.
-            blockGenericNodeTaint: hasEarlierAssignBefore(method, value, latestAssign) && !hasNonConstantReachingAssign,
+            // A later constant assignment in the same method is a strong local kill.
+            // Keep lone constant initialization eligible so source probes can still seed it.
+            blockGenericNodeTaint: hasEarlierAssignBefore(method, value, latestAssign),
             fallbackFieldToVarIndex,
         };
     }
@@ -623,7 +767,19 @@ function detectPreciseCandidateSource(
         if (fieldName) {
             hasPriorStore = hasObservedReceiverFieldStoreBeforeStmt(pag, method, receiverBase, fieldName, sinkStmt);
             hasFutureStore = hasObservedReceiverFieldStoreAfterStmt(pag, method, receiverBase, fieldName, sinkStmt);
-            if (!hasPriorStore && (hasFutureStore || orderedSafeOverwrite?.kind === "constant")) {
+            if (!hasPriorStore && orderedSafeOverwrite?.kind === "constant") {
+                return {
+                    blockGenericNodeTaint: true,
+                    fallbackFieldToVarIndex,
+                };
+            }
+            if (!hasPriorStore && hasFutureStore && isFreshAllocatedReceiverAtStmt(receiverBase, sinkStmt)) {
+                return {
+                    blockGenericNodeTaint: true,
+                    fallbackFieldToVarIndex,
+                };
+            }
+            if (!hasPriorStore && hasFutureStore) {
                 if (!fallbackFieldToVarIndex) {
                     fallbackFieldToVarIndex = buildFieldToVarIndexFromPag(pag);
                 }
@@ -667,6 +823,16 @@ function detectPreciseCandidateSource(
                 fallbackFieldToVarIndex,
             };
         }
+        const allDead = carrierIds.length > 0
+            && carrierIds.every(carrierId => !isCarrierFieldPathLiveAtStmt(pag, tracker, carrierId, getterFieldPath, sinkStmt));
+        if (allDead) {
+            return {
+                // Field-path fallback must not revive a carrier path that was already
+                // proven dead at the sink due to delete/overwrite invalidation.
+                blockGenericNodeTaint: hasPriorStore || orderedSafeOverwrite?.kind === "constant",
+                fallbackFieldToVarIndex,
+            };
+        }
         if (!fallbackFieldToVarIndex) {
             fallbackFieldToVarIndex = buildFieldToVarIndexFromPag(pag);
         }
@@ -685,8 +851,6 @@ function detectPreciseCandidateSource(
                 fallbackFieldToVarIndex,
             };
         }
-        const allDead = carrierIds.length > 0
-            && carrierIds.every(carrierId => !isCarrierFieldPathLiveAtStmt(pag, tracker, carrierId, getterFieldPath, sinkStmt));
         return {
             // Only suppress generic node taint when this method itself establishes
             // a prior store for the same receiver field and the field path is now dead.
@@ -714,7 +878,19 @@ function detectPreciseCandidateSource(
         );
         const hasPriorStore = hasObservedReceiverFieldStoreBeforeStmt(pag, method, receiverBase, fieldName, sinkStmt);
         const hasFutureStore = hasObservedReceiverFieldStoreAfterStmt(pag, method, receiverBase, fieldName, sinkStmt);
-        if (!hasPriorStore && (hasFutureStore || orderedSafeOverwrite?.kind === "constant")) {
+        if (!hasPriorStore && orderedSafeOverwrite?.kind === "constant") {
+            return {
+                blockGenericNodeTaint: true,
+                fallbackFieldToVarIndex,
+            };
+        }
+        if (!hasPriorStore && hasFutureStore && isFreshAllocatedReceiverAtStmt(receiverBase, sinkStmt)) {
+            return {
+                blockGenericNodeTaint: true,
+                fallbackFieldToVarIndex,
+            };
+        }
+        if (!hasPriorStore && hasFutureStore) {
             if (!fallbackFieldToVarIndex) {
                 fallbackFieldToVarIndex = buildFieldToVarIndexFromPag(pag);
             }
@@ -757,6 +933,14 @@ function detectPreciseCandidateSource(
                 fallbackFieldToVarIndex,
             };
         }
+        const allDead = carrierIds.length > 0
+            && carrierIds.every(carrierId => !isCarrierFieldPathLiveAtStmt(pag, tracker, carrierId, [fieldName], sinkStmt));
+        if (allDead) {
+            return {
+                blockGenericNodeTaint: hasPriorStore || orderedSafeOverwrite?.kind === "constant",
+                fallbackFieldToVarIndex,
+            };
+        }
         if (!fallbackFieldToVarIndex) {
             fallbackFieldToVarIndex = buildFieldToVarIndexFromPag(pag);
         }
@@ -775,8 +959,6 @@ function detectPreciseCandidateSource(
                 fallbackFieldToVarIndex,
             };
         }
-        const allDead = carrierIds.length > 0
-            && carrierIds.every(carrierId => !isCarrierFieldPathLiveAtStmt(pag, tracker, carrierId, [fieldName], sinkStmt));
         return {
             blockGenericNodeTaint: allDead && (hasPriorStore || orderedSafeOverwrite?.kind === "constant"),
             fallbackFieldToVarIndex,
@@ -815,7 +997,19 @@ function detectReceiverFieldCandidateSource(
     if (fieldName) {
         hasPriorStore = hasObservedReceiverFieldStoreBeforeStmt(pag, method, receiverBase, fieldName, sinkStmt);
         hasFutureStore = hasObservedReceiverFieldStoreAfterStmt(pag, method, receiverBase, fieldName, sinkStmt);
-        if (!hasPriorStore && (hasFutureStore || orderedSafeOverwrite?.kind === "constant")) {
+        if (!hasPriorStore && orderedSafeOverwrite?.kind === "constant") {
+            return {
+                blockGenericNodeTaint: true,
+                fallbackFieldToVarIndex,
+            };
+        }
+        if (!hasPriorStore && hasFutureStore && isFreshAllocatedReceiverAtStmt(receiverBase, sinkStmt)) {
+            return {
+                blockGenericNodeTaint: true,
+                fallbackFieldToVarIndex,
+            };
+        }
+        if (!hasPriorStore && hasFutureStore) {
             if (!fallbackFieldToVarIndex) {
                 fallbackFieldToVarIndex = buildFieldToVarIndexFromPag(pag);
             }
@@ -860,6 +1054,14 @@ function detectReceiverFieldCandidateSource(
             fallbackFieldToVarIndex,
         };
     }
+    const allDead = carrierIds.length > 0
+        && carrierIds.every(carrierId => !isCarrierFieldPathLiveAtStmt(pag, tracker, carrierId, fieldPath, sinkStmt));
+    if (allDead) {
+        return {
+            blockGenericNodeTaint: hasPriorStore || orderedSafeOverwrite?.kind === "constant",
+            fallbackFieldToVarIndex,
+        };
+    }
 
     if (!fallbackFieldToVarIndex) {
         fallbackFieldToVarIndex = buildFieldToVarIndexFromPag(pag);
@@ -880,8 +1082,6 @@ function detectReceiverFieldCandidateSource(
         };
     }
 
-    const allDead = carrierIds.length > 0
-        && carrierIds.every(carrierId => !isCarrierFieldPathLiveAtStmt(pag, tracker, carrierId, fieldPath, sinkStmt));
     return {
         blockGenericNodeTaint: allDead && (hasPriorStore || orderedSafeOverwrite?.kind === "constant"),
         fallbackFieldToVarIndex,
@@ -916,6 +1116,31 @@ function hasEarlierAssignBefore(method: any, local: Local, anchorStmt: any): boo
         if (!(stmt instanceof ArkAssignStmt)) continue;
         if (stmt.getLeftOp() !== local) continue;
         return true;
+    }
+    return false;
+}
+
+function isFreshAllocatedReceiverAtStmt(receiverBase: any, anchorStmt: any, visiting: Set<string> = new Set<string>()): boolean {
+    if (!(receiverBase instanceof Local)) return false;
+    const key = `${receiverBase.getName?.() || ""}@${anchorStmt?.toString?.() || ""}`;
+    if (visiting.has(key)) return false;
+    visiting.add(key);
+
+    const latestAssign = findLatestAssignStmtForLocalBefore(undefined, receiverBase, anchorStmt);
+    if (!(latestAssign instanceof ArkAssignStmt)) return false;
+    const rightOp = latestAssign.getRightOp?.();
+    if (rightOp instanceof ArkNewExpr || rightOp instanceof ArkNewArrayExpr) {
+        return true;
+    }
+    if (rightOp instanceof Local) {
+        return isFreshAllocatedReceiverAtStmt(rightOp, latestAssign, visiting);
+    }
+    if (rightOp instanceof ArkInstanceInvokeExpr) {
+        const methodName = rightOp.getMethodSignature?.()?.getMethodSubSignature?.()?.getMethodName?.()
+            || extractMethodNameFromSignature(rightOp.getMethodSignature?.().toString?.() || "");
+        if (methodName === "constructor") {
+            return isFreshAllocatedReceiverAtStmt(rightOp.getBase?.(), latestAssign, visiting);
+        }
     }
     return false;
 }
@@ -1548,17 +1773,42 @@ function detectFieldPathSource(
 ) : FieldPathDetectResult | undefined {
     if (fieldPath.length === 0) return undefined;
 
-    const rootNodes = pag.getNodesByValue(rootValue);
-    if (!rootNodes || rootNodes.size === 0) return undefined;
-
     const rootCarrierIds = new Set<number>();
     const rootObjIds = new Set<number>();
-    for (const rootNodeId of rootNodes.values()) {
-        const rootNode = pag.getNode(rootNodeId) as PagNode;
-        rootCarrierIds.add(rootNodeId);
-        for (const objId of rootNode.getPointTo()) {
-            rootCarrierIds.add(objId);
-            rootObjIds.add(objId);
+    if (rootValue instanceof Local) {
+        const preciseCarrierIds = collectCarrierNodeIdsForValueAtStmt(
+            pag,
+            rootValue,
+            anchorStmt,
+        );
+        for (const carrierId of preciseCarrierIds) {
+            rootCarrierIds.add(carrierId);
+            const carrierNode = pag.getNode(carrierId) as PagNode;
+            let hasPointTo = false;
+            if (carrierNode && carrierNode.getPointTo) {
+                for (const objId of carrierNode.getPointTo()) {
+                    hasPointTo = true;
+                    rootCarrierIds.add(objId);
+                    rootObjIds.add(objId);
+                }
+            }
+            if (hasPointTo) {
+                continue;
+            }
+            rootObjIds.add(carrierId);
+        }
+    }
+
+    if (rootCarrierIds.size === 0) {
+        const rootNodes = pag.getNodesByValue(rootValue);
+        if (!rootNodes || rootNodes.size === 0) return undefined;
+        for (const rootNodeId of rootNodes.values()) {
+            const rootNode = pag.getNode(rootNodeId) as PagNode;
+            rootCarrierIds.add(rootNodeId);
+            for (const objId of rootNode.getPointTo()) {
+                rootCarrierIds.add(objId);
+                rootObjIds.add(objId);
+            }
         }
     }
     if (rootCarrierIds.size === 0) return undefined;
@@ -1674,6 +1924,14 @@ function detectArrayContainerCarrierSource(
         const rootNode = pag.getNode(rootNodeId) as PagNode;
         if (!rootNode) continue;
         for (const objId of rootNode.getPointTo()) {
+            const directFieldCarrier = tracker.getAnyFieldSourceAnyContext(objId);
+            if (directFieldCarrier) {
+                return {
+                    source: directFieldCarrier.source,
+                    nodeId: objId,
+                    fieldPath: directFieldCarrier.fieldPath,
+                };
+            }
             const objectPaths = collectArrayCarrierPathKeys(pag, objId);
             if (!hasStringIntersection(candidatePaths, objectPaths)) continue;
             const fieldCarrier = tracker.getAnyFieldSourceAnyContext(objId);

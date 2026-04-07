@@ -17,10 +17,12 @@ class ParentPage003 {
 
     build(): void {
         this.token = taint.Source();
+        const child = new ChildView003();
+        child.onTokenWatch();
     }
 }
 
 export function reactive_provide_consume_watch_003_T(): void {
-    void ChildView003;
-    void ParentPage003;
+    const parent = new ParentPage003();
+    parent.build();
 }

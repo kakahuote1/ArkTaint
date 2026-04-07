@@ -6,6 +6,7 @@ import { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import { ArkMethod } from "../../../../arkanalyzer/out/src/core/model/ArkMethod";
 import { TaintContextManager } from "../context/TaintContext";
 import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
+import { resolveQualifiedDeclarativeFieldTriggerToken } from "../model/DeclarativeFieldTriggerSemantics";
 
 const ANY_CLASS_SIG = "__ANY_CLASS__";
 
@@ -192,32 +193,5 @@ export function buildUnresolvedThisFieldLoadNodeIdsByFieldAndFile(
 }
 
 export function resolveWatchLikeTargetField(method: ArkMethod): string | undefined {
-    const decorators = method.getDecorators?.() || [];
-    for (const decorator of decorators) {
-        const kind = String(decorator?.getKind?.() || "").replace(/^@+/, "").trim();
-        if (kind !== "Watch" && kind !== "Monitor") continue;
-        const fromParam = normalizeDecoratorFieldToken(decorator?.getParam?.());
-        if (fromParam !== undefined) return fromParam;
-        const fromContent = extractDecoratorFieldTokenFromContent(decorator?.getContent?.());
-        if (fromContent !== undefined) return fromContent;
-        return "";
-    }
-    return undefined;
-}
-
-export function normalizeDecoratorFieldToken(raw: any): string | undefined {
-    if (raw === undefined || raw === null) return undefined;
-    const text = String(raw).trim();
-    if (!text) return undefined;
-    const m = text.match(/^["'`](.+)["'`]$/);
-    return m ? m[1] : text;
-}
-
-export function extractDecoratorFieldTokenFromContent(content: any): string | undefined {
-    if (content === undefined || content === null) return undefined;
-    const text = String(content).trim();
-    if (!text) return undefined;
-    const m = text.match(/["'`](.+?)["'`]/);
-    if (!m) return undefined;
-    return normalizeDecoratorFieldToken(m[1]);
+    return resolveQualifiedDeclarativeFieldTriggerToken(method);
 }

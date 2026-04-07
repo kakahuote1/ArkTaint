@@ -17,6 +17,8 @@ class ParentPage005 {
 }
 
 export function reactive_non_watched_deep_005_T(): void {
-    void ChildView005;
-    void ParentPage005;
+    const parent = new ParentPage005();
+    parent.build();
+    const child = new ChildView005({ token: parent.token });
+    child.helper();
 }

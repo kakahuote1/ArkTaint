@@ -18,6 +18,8 @@ class TargetPage003 {
 }
 
 export function route_stack_back_hide_003_T(): void {
-    void SourcePage003;
-    void TargetPage003;
+    const source = new SourcePage003();
+    source.build();
+    const target = new TargetPage003();
+    target.onPageHide();
 }

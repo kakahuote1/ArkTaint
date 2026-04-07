@@ -10,22 +10,20 @@ import {
     resolveStageLifecycleContract,
     resolveStageLifecycleContractFromOverride,
 } from "./ArkMainLifecycleContracts";
-import { collectSdkOverrideCandidates } from "./ArkMainStructuralDiscovery";
+import { collectSdkOverrideCandidates } from "./ArkMainSdkDeclarationDiscovery";
 
 export function collectLifecycleFacts(scene: Scene, context: ArkMainFactCollectionContext): void {
     const sdkOverrideBySignature = new Map(
         collectSdkOverrideCandidates(scene).map(candidate => [candidate.method.getSignature().toString(), candidate]),
     );
-    const managedOwners = collectFrameworkManagedOwners(scene, {
-        includeComponentContractShape: true,
-    });
+    const managedOwners = collectFrameworkManagedOwners(scene);
 
     for (const cls of scene.getClasses()) {
         const methods = cls.getMethods().filter(method => !method.isStatic());
         const isAbilityOwner = managedOwners.isAbilityOwner(cls);
         const isStageOwner = managedOwners.isStageOwner(cls);
         const isExtensionOwner = managedOwners.isExtensionOwner(cls);
-        const isComponentLikeOwner = managedOwners.isComponentOwner(cls) || managedOwners.isBuilderOwner(cls);
+        const isComponentLikeOwner = managedOwners.isComponentOwner(cls);
         const ownerRecognitionLayer = managedOwners.getPrimaryRecognitionLayer(cls);
 
         for (const method of methods) {

@@ -14,6 +14,8 @@ class TargetPage006 {
 }
 
 export function route_stack_safe_006_T(): void {
-    void SourcePage006;
-    void TargetPage006;
+    const source = new SourcePage006();
+    source.build();
+    const target = new TargetPage006();
+    target.onPageShow();
 }

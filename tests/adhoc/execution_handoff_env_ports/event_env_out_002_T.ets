@@ -5,7 +5,7 @@ class PageOut002 {
 
     build(): void {
         const button = new ButtonValue();
-        button.onValue((payload: string) => {
+        button.onChange((payload: string) => {
             this.mirrored = payload;
         });
         taint.Sink(this.mirrored);

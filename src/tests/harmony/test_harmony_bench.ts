@@ -7,6 +7,11 @@ import * as fs from "fs";
 import * as path from "path";
 import { registerMockSdkFiles } from "../helpers/TestSceneBuilder";
 import { resolveExpectedSinkRuleIds, summarizeSinkInventoryFlows } from "../helpers/SinkInventoryScoring";
+import {
+    createFormalTestSuite,
+    TestFailureSummary,
+    TestOutputMetadata,
+} from "../helpers/TestOutputContract";
 
 interface HarmonyBenchCase {
     case_id: string;
@@ -526,6 +531,18 @@ async function main(): Promise<void> {
     const options = parseArgs(process.argv.slice(2));
     const manifest = readManifest(options.manifestPath);
     ensureRequiredPaths(options.manifestPath, manifest);
+    const metadata: TestOutputMetadata = {
+        suite: "harmony_bench",
+        domain: "benchmark",
+        title: "HarmonyBench",
+        purpose: "Run the full HarmonyBench benchmark and summarize supported-category precision and recall together with unsupported observations.",
+    };
+    const suite = createFormalTestSuite(options.outputDir, metadata);
+    const totalCases = manifest.categories.reduce((sum, category) => sum + category.cases.length, 0);
+    const progressReporter = suite.createProgress(totalCases, {
+        logEveryCount: 1,
+        logEveryPercent: 5,
+    });
 
     const sceneCache = new Map<string, Scene>();
     const caseResults: CaseRunResult[] = [];
@@ -539,6 +556,7 @@ async function main(): Promise<void> {
         file: string;
         limitationNote: string;
     }> = [];
+    let completedCases = 0;
 
     for (const category of manifest.categories) {
         const sourceDirAbs = path.resolve(process.cwd(), category.sourceDir);
@@ -565,9 +583,12 @@ async function main(): Promise<void> {
         const catStart = Date.now();
         const categoryResults: CaseRunResult[] = [];
         for (const caseInfo of category.cases) {
+            progressReporter.update(completedCases, `${category.id}/${caseInfo.case_id}`, `category=${category.id}`);
             const result = await runCase(scene, category, caseInfo, options.k, loadedRules, expectedSinkRuleIds);
             categoryResults.push(result);
             caseResults.push(result);
+            completedCases++;
+            progressReporter.update(completedCases, `${category.id}/${caseInfo.case_id}`, `category=${category.id}`);
 
             if (!category.supported && result.scored && result.detectedAny) {
                 unexpectedHits.push({
@@ -667,30 +688,56 @@ async function main(): Promise<void> {
         failures,
     };
 
-    ensureDir(options.outputDir);
     const reportJsonPath = path.resolve(options.outputDir, "report.json");
     const reportMdPath = path.resolve(options.outputDir, "report.md");
-    fs.writeFileSync(reportJsonPath, JSON.stringify(report, null, 2), "utf-8");
-    fs.writeFileSync(reportMdPath, renderMarkdownReport(report), "utf-8");
+    suite.writeReport(report, renderMarkdownReport(report), {
+        aliases: [
+            {
+                jsonPath: reportJsonPath,
+                markdownPath: reportMdPath,
+            },
+        ],
+    });
+    progressReporter.finish("DONE", "benchmark=harmony_bench");
 
-    console.log("====== HarmonyBench Summary ======");
-    console.log(`manifest=${options.manifestPath}`);
-    console.log(`k=${options.k}`);
-    console.log(`categories=${report.categoryCount}`);
-    console.log(`cases=${report.caseCount}`);
-    console.log(`supported_tp=${supportedMetrics.tp}`);
-    console.log(`supported_fp=${supportedMetrics.fp}`);
-    console.log(`supported_tn=${supportedMetrics.tn}`);
-    console.log(`supported_fn=${supportedMetrics.fn}`);
-    console.log(`supported_recall=${fmtPercent(supportedMetrics.recall)}`);
-    console.log(`supported_precision=${fmtPercent(supportedMetrics.precision)}`);
-    console.log(`unsupported_unexpected_hits=${unexpectedHits.length}`);
-    console.log(`report_json=${reportJsonPath}`);
-    console.log(`report_md=${reportMdPath}`);
-
-    if (failures.length > 0) {
-        process.exitCode = 1;
-    }
+    const failureItems: TestFailureSummary[] = failures.map(item => ({
+        name: `${item.categoryId}/${item.caseId}`,
+        expected: item.expectedFlow ? "flow" : "no_flow",
+        actual: item.detectedTarget ? "flow" : "no_flow",
+        reason: item.error
+            ? `Benchmark case execution failed: ${item.error}`
+            : "Supported HarmonyBench case did not match expected sink behavior.",
+        severity: "high",
+    }));
+    suite.finish({
+        status: failures.length > 0 ? "fail" : "pass",
+        verdict: failures.length > 0
+            ? "HarmonyBench completed with supported-category mismatches; inspect the report for failing cases."
+            : "HarmonyBench completed with supported categories matching expected precision and recall behavior.",
+        totals: {
+            manifest: options.manifestPath,
+            k: options.k,
+            categories: report.categoryCount,
+            cases: report.caseCount,
+            supported_tp: supportedMetrics.tp,
+            supported_fp: supportedMetrics.fp,
+            supported_tn: supportedMetrics.tn,
+            supported_fn: supportedMetrics.fn,
+            supported_recall: fmtPercent(supportedMetrics.recall),
+            supported_precision: fmtPercent(supportedMetrics.precision),
+            unsupported_unexpected_hits: unexpectedHits.length,
+        },
+        highlights: [
+            `supported_tp=${supportedMetrics.tp}`,
+            `supported_fp=${supportedMetrics.fp}`,
+            `supported_tn=${supportedMetrics.tn}`,
+            `supported_fn=${supportedMetrics.fn}`,
+        ],
+        failures: failureItems,
+        notes: unsupportedFnNotes.length > 0
+            ? [`unsupported_fn_notes=${unsupportedFnNotes.length}`]
+            : undefined,
+    });
 }
 
 main().catch(err => {

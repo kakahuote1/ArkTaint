@@ -1,18 +1,18 @@
 import type { Pag, PagNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import type { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import { fromContainerFieldKey, toContainerFieldKey } from "../model/ContainerSlotKeys";
+import type {
+    DeferredBindingActivation,
+    DeferredBindingCarrierKind,
+    DeferredBindingCompletion,
+    DeferredBindingContinuationRole,
+    ModuleExplicitDeferredBindingRecord,
+} from "../model/DeferredBindingDeclaration";
 import type { TaintFact } from "../model/TaintFact";
-import type { CallableResolveOptions } from "../../substrate/queries/CalleeResolver";
 
 export interface ModuleRuleChain {
     sourceRuleId?: string;
     transferRuleIds: string[];
-}
-
-export interface ModuleQueryApi {
-    resolveMethodsFromCallable(scene: Scene, value: any, options?: CallableResolveOptions): any[];
-    collectParameterAssignStmts(calleeMethod: any): any[];
-    collectFiniteStringCandidatesFromValue(scene: Scene, value: any, maxDepth?: number): string[];
 }
 
 export interface ModuleMethodsApi {
@@ -215,7 +215,6 @@ export interface RawModuleSetupContext {
     pag: Pag;
     allowedMethodSignatures?: Set<string>;
     fieldToVarIndex: Map<string, Set<number>>;
-    queries: ModuleQueryApi;
     log: (msg: string) => void;
 }
 
@@ -258,6 +257,7 @@ export interface ModuleSetupContext {
     methods: ModuleMethodsApi;
     scan: ModuleScanApi;
     bridge: ModuleBridgeApi;
+    deferred: ModuleDeferredBindingApi;
     callbacks: ModuleSetupCallbackApi;
     analysis: ModuleAnalysisApi;
     log: (msg: string) => void;
@@ -302,6 +302,27 @@ export interface ModuleEmitCollector {
 export interface ModuleNodeRelay {
     connect(sourceNodeId: number, targetNodeId: number): void;
     connectMany(sourceNodeIds: Iterable<number>, targetNodeIds: Iterable<number>): void;
+    connectInvokeArgToCallbackParam(
+        call: ModuleScannedInvoke,
+        sourceArgIndex: number,
+        callbackArgIndex: number,
+        paramIndex: number,
+        options?: {
+            sourceKind?: "node" | "carrier" | "object";
+            maxCandidates?: number;
+        },
+    ): number;
+    emit(event: ModuleFactEvent, reason: string, options?: ModuleEmitOptions): ModuleEmission[] | undefined;
+    emitPreserve(event: ModuleFactEvent, reason: string, options?: ModuleEmitOptions): ModuleEmission[] | undefined;
+    emitCurrentFieldTail(event: ModuleFactEvent, reason: string, options?: ModuleEmitOptions): ModuleEmission[] | undefined;
+}
+
+export interface ModuleKeyedNodeRelay {
+    addSource(key: string, sourceNodeId: number): void;
+    addSources(key: string, sourceNodeIds: Iterable<number>): void;
+    addTarget(key: string, targetNodeId: number): void;
+    addTargets(key: string, targetNodeIds: Iterable<number>): void;
+    materialize(): number;
     emit(event: ModuleFactEvent, reason: string, options?: ModuleEmitOptions): ModuleEmission[] | undefined;
     emitPreserve(event: ModuleFactEvent, reason: string, options?: ModuleEmitOptions): ModuleEmission[] | undefined;
     emitCurrentFieldTail(event: ModuleFactEvent, reason: string, options?: ModuleEmitOptions): ModuleEmission[] | undefined;
@@ -340,7 +361,43 @@ export interface ModuleFieldRelay {
 
 export interface ModuleBridgeApi {
     nodeRelay(): ModuleNodeRelay;
+    keyedNodeRelay(): ModuleKeyedNodeRelay;
     fieldRelay(): ModuleFieldRelay;
+}
+
+export interface ModuleDeferredBindingSemanticsOptions {
+    activation?: DeferredBindingActivation;
+    completion?: DeferredBindingCompletion;
+    preserve?: DeferredBindingActivation[];
+    continuationRole?: DeferredBindingContinuationRole;
+}
+
+export interface ModuleDeclarativeDeferredBindingDeclaration {
+    sourceMethod?: any;
+    sourceMethodSignature?: string;
+    handlerMethod?: any;
+    handlerMethodSignature?: string;
+    anchorStmt: any;
+    triggerLabel: string;
+    carrierKind?: DeferredBindingCarrierKind;
+    reason?: string;
+    semantics?: ModuleDeferredBindingSemanticsOptions;
+}
+
+export interface ModuleDeferredBindingApi {
+    imperativeFromInvoke(
+        invoke: ModuleScannedInvoke,
+        callbackArgIndex: number,
+        options?: {
+            carrierKind?: DeferredBindingCarrierKind;
+            reason?: string;
+            maxCandidates?: number;
+            semantics?: ModuleDeferredBindingSemanticsOptions;
+        },
+    ): number;
+    declarative(
+        declaration: ModuleDeclarativeDeferredBindingDeclaration,
+    ): void;
 }
 
 export interface ModuleEmitApi {
@@ -523,6 +580,7 @@ export interface TaintModule {
 export interface ModuleRuntime {
     listModuleIds(): string[];
     getAuditSnapshot(): ModuleAuditSnapshot;
+    getDeferredBindingDeclarations(): ModuleExplicitDeferredBindingRecord[];
     emitForFact(event: RawModuleFactEvent): ModuleEmission[];
     emitForInvoke(event: RawModuleInvokeEvent): ModuleEmission[];
     shouldSkipCopyEdge(event: RawModuleCopyEdgeEvent): boolean;
@@ -539,21 +597,6 @@ export function emptyModuleAuditSnapshot(): ModuleAuditSnapshot {
 
 export function defineModule<T extends TaintModule>(module: T): T {
     return module;
-}
-
-export function resolveMethodsFromCallable(scene: Scene, value: any, options?: CallableResolveOptions): any[] {
-    const mod = require("../../substrate/queries/CalleeResolver") as typeof import("../../substrate/queries/CalleeResolver");
-    return mod.resolveMethodsFromCallable(scene, value, options);
-}
-
-export function collectParameterAssignStmts(calleeMethod: any): any[] {
-    const mod = require("../../substrate/queries/CalleeResolver") as typeof import("../../substrate/queries/CalleeResolver");
-    return mod.collectParameterAssignStmts(calleeMethod);
-}
-
-export function collectFiniteStringCandidatesFromValue(scene: Scene, value: any, maxDepth?: number): string[] {
-    const mod = require("../../substrate/queries/FiniteStringCandidateResolver") as typeof import("../../substrate/queries/FiniteStringCandidateResolver");
-    return mod.collectFiniteStringCandidatesFromValue(scene, value, maxDepth);
 }
 
 export {

@@ -1,5 +1,5 @@
 export class ButtonValue {
-    onValue(_callback: (value: string) => void): void {}
+    onChange(_callback: (value: string) => void): void {}
 }
 
 export namespace taint {

@@ -2,6 +2,11 @@ import * as fs from "fs";
 import * as path from "path";
 import { spawnSync } from "child_process";
 import { getAnalyzeSummaryJsonPath } from "../helpers/AnalyzeCliRunner";
+import {
+    createFormalTestSuite,
+    TestFailureSummary,
+    TestOutputMetadata,
+} from "../helpers/TestOutputContract";
 
 interface CliOptions {
     repo: string;
@@ -295,14 +300,29 @@ async function main(): Promise<void> {
     const options = parseArgs(process.argv.slice(2));
     const outputDir = path.resolve(options.outputDir);
     ensureDir(outputDir);
+    const metadata: TestOutputMetadata = {
+        suite: "project_rule_unknown_reduction",
+        domain: "real_projects",
+        title: "Project Rule Unknown Reduction",
+        purpose: "Measure whether project rules reduce unknown analyze entries on a real-project fixture.",
+    };
+    const suite = createFormalTestSuite(outputDir, metadata);
+    const progressReporter = suite.createProgress(2, {
+        logEveryCount: 1,
+        logEveryPercent: 50,
+    });
 
     const baselineDir = path.resolve(outputDir, "baseline");
     const withProjectDir = path.resolve(outputDir, "with_project");
     ensureDir(baselineDir);
     ensureDir(withProjectDir);
 
+    progressReporter.update(0, "baseline", "with_project=false");
     runAnalyze(options, baselineDir, false);
+    progressReporter.update(1, "baseline", "with_project=false");
+    progressReporter.update(1, "with_project", "with_project=true");
     runAnalyze(options, withProjectDir, true);
+    progressReporter.update(2, "with_project", "with_project=true");
 
     const baselineSummaryPath = getAnalyzeSummaryJsonPath(baselineDir);
     const withProjectSummaryPath = getAnalyzeSummaryJsonPath(withProjectDir);
@@ -367,22 +387,41 @@ async function main(): Promise<void> {
         },
     };
 
-    fs.writeFileSync(jsonPath, JSON.stringify(report, null, 2), "utf-8");
-    fs.writeFileSync(markdownPath, renderMarkdown(report), "utf-8");
+    suite.writeReport(report, renderMarkdown(report), {
+        aliases: [
+            {
+                jsonPath,
+                markdownPath,
+            },
+        ],
+    });
+    progressReporter.finish("DONE", "unknown_reduction");
 
-    console.log("\n===== UNKNOWN REDUCTION SUMMARY =====");
-    console.log(`baseline_unknown=${baselineUnknown}`);
-    console.log(`with_project_unknown=${withProjectUnknown}`);
-    console.log(`unknown_relative_reduction=${pct(unknownRelativeReduction)}`);
-    console.log(`with_flows_delta=${withFlowsDelta}`);
-    console.log(`threshold=${pct(options.threshold)}`);
-    console.log(`pass=${pass}`);
-    console.log(`report_json=${jsonPath}`);
-    console.log(`report_md=${markdownPath}`);
-
-    if (!pass) {
-        process.exitCode = 1;
-    }
+    const failureItems: TestFailureSummary[] = pass ? [] : [{
+        name: "unknown_relative_reduction",
+        expected: `>=${options.threshold}`,
+        actual: unknownRelativeReduction,
+        reason: "Project rules did not reduce unknown entries enough to meet the configured threshold.",
+        severity: "high",
+    }];
+    suite.finish({
+        status: pass ? "pass" : "fail",
+        verdict: pass
+            ? "Project rules achieved the expected unknown-entry reduction."
+            : "Project rules did not meet the configured unknown-entry reduction threshold.",
+        totals: {
+            baseline_unknown: baselineUnknown,
+            with_project_unknown: withProjectUnknown,
+            unknown_relative_reduction: unknownRelativeReduction.toFixed(4),
+            with_flows_delta: withFlowsDelta,
+            threshold: options.threshold,
+        },
+        highlights: [
+            `baseline_unknown_rate=${pct(baselineUnknownRate)}`,
+            `with_project_unknown_rate=${pct(withProjectUnknownRate)}`,
+        ],
+        failures: failureItems,
+    });
 }
 
 main().catch(err => {

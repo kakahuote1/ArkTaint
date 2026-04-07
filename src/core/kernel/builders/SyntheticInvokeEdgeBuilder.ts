@@ -24,11 +24,9 @@ import {
 import { getMethodBySignature } from "../contracts/MethodLookup";
 import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
 import {
-    collectAsyncCallbackBindingsForStmt,
     collectCallbackBindingTriggerNodeIds,
     collectResolvedInvokeTargets,
     collectResolvedCallbackBindingsForStmt,
-    injectAsyncCallbackCaptureEdges,
     injectResolvedCallbackParameterEdges,
     resolveDynamicPropertyOneHopFallbackCallees,
     resolveReflectDispatchOneHopFallbackCallees,
@@ -99,6 +97,8 @@ export function buildSyntheticInvokeEdges(
     log: (msg: string) => void,
     excludedDeferredSiteKeys?: ReadonlySet<string>,
 ): Map<number, SyntheticInvokeEdgeInfo[]> {
+    // Deferred/future execution edges are emitted by algorithm D.
+    // This builder only materializes synthetic invoke edges for synchronous invoke recovery.
     const buildStartMs = Date.now();
     const edgeMap = new Map<number, SyntheticInvokeEdgeInfo[]>();
     let syntheticCallCount = 0;
@@ -165,7 +165,6 @@ export function buildSyntheticInvokeLazyMaterializer(
 
             const site: SyntheticInvokeLazySite = { id: siteId++, caller, stmt, invokeExpr };
             sites.push(site);
-            const asyncBindings = collectAsyncCallbackBindingsForStmt(scene, cg, caller, stmt, invokeExpr, lookupContext);
             const resolvedBindings = collectResolvedCallbackBindingsForStmt(
                 scene,
                 cg,
@@ -183,8 +182,7 @@ export function buildSyntheticInvokeLazyMaterializer(
                     invokeExpr,
                 invokedParamCache,
                 lookupContext,
-                asyncBindings,
-                resolvedBindings
+                resolvedBindings,
             );
             for (const nodeId of triggerNodeIds) {
                 if (!siteIdsByTriggerNodeId.has(nodeId)) {
@@ -192,7 +190,7 @@ export function buildSyntheticInvokeLazyMaterializer(
                 }
                 siteIdsByTriggerNodeId.get(nodeId)!.push(site.id);
             }
-            if (triggerNodeIds.size === 0 || asyncBindings.length > 0 || resolvedBindings.length > 0) {
+            if (triggerNodeIds.size === 0 || resolvedBindings.length > 0) {
                 eagerSiteIds.add(site.id);
             }
         }
@@ -311,8 +309,7 @@ function collectSyntheticInvokeTriggerNodeIds(
     invokeExpr: any,
     invokedParamCache: Map<string, Set<number>>,
     lookupContext: SyntheticInvokeLookupContext,
-    asyncBindings?: AsyncCallbackBinding[],
-    resolvedBindings?: AsyncCallbackBinding[]
+    resolvedBindings?: AsyncCallbackBinding[],
 ): Set<number> {
     const triggerNodeIds = new Set<number>();
     const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
@@ -324,13 +321,6 @@ function collectSyntheticInvokeTriggerNodeIds(
     const base = invokeExpr.getBase?.();
     if (base) {
         for (const nodeId of safeGetOrCreatePagNodes(pag, base, stmt)?.values?.() || []) {
-            triggerNodeIds.add(nodeId);
-        }
-    }
-
-    const asyncResolvedBindings = asyncBindings || collectAsyncCallbackBindingsForStmt(scene, cg, caller, stmt, invokeExpr, lookupContext);
-    for (const binding of asyncResolvedBindings) {
-        for (const nodeId of collectCallbackBindingTriggerNodeIds(pag, stmt, binding.method, binding.sourceMethod || caller)) {
             triggerNodeIds.add(nodeId);
         }
     }
@@ -377,16 +367,7 @@ function materializeSyntheticInvokeSite(
     const skipDeferredCallbacks = excludedDeferredSiteKeys?.has(siteKey) || false;
     const callCount = skipDeferredCallbacks
         ? 0
-        : injectAsyncCallbackCaptureEdges(
-            scene,
-            cg,
-            pag,
-            caller,
-            stmt,
-            invokeExpr,
-            edgeMap,
-            lazy.lookupContext
-        ) + injectResolvedCallbackParameterEdges(
+        : injectResolvedCallbackParameterEdges(
             scene,
             cg,
             pag,

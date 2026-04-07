@@ -10,6 +10,7 @@ import { resolveMethodsFromCallable } from "../../substrate/queries/CalleeResolv
 import { resolveSdkImportScopeCandidates } from "../../substrate/queries/SdkProvenance";
 import { getMethodBySignature } from "../contracts/MethodLookup";
 import { TaintFact } from "../model/TaintFact";
+import { resolveQualifiedDeclarativeFieldTriggerToken } from "../model/DeclarativeFieldTriggerSemantics";
 import {
     normalizeEndpoint,
     RuleEndpoint,
@@ -1064,32 +1065,8 @@ function seedThisFieldLoadFactsInClass(
 }
 
 function isWatchLikeMethodForField(method: ArkMethod, fieldName: string): boolean {
-    const decorators = method.getDecorators?.() || [];
-    for (const decorator of decorators) {
-        const kind = String(decorator?.getKind?.() || "").replace(/^@+/, "").trim();
-        if (kind !== "Watch" && kind !== "Monitor") continue;
-        const fromParam = normalizeDecoratorFieldKey(decorator?.getParam?.());
-        if (fromParam && fromParam === fieldName) return true;
-        const fromContent = extractDecoratorFieldKeyFromContent(decorator?.getContent?.());
-        if (fromContent && fromContent === fieldName) return true;
-    }
-    return false;
-}
-
-function normalizeDecoratorFieldKey(raw: any): string | undefined {
-    if (raw === undefined || raw === null) return undefined;
-    const text = String(raw).trim();
-    if (!text) return undefined;
-    const unquoted = text.replace(/^['"`]/, "").replace(/['"`]$/, "").trim();
-    return unquoted || undefined;
-}
-
-function extractDecoratorFieldKeyFromContent(content: any): string | undefined {
-    const text = String(content || "");
-    if (!text) return undefined;
-    const m = text.match(/\(\s*['"`]([^'"`]+)['"`]\s*\)/);
-    if (!m) return undefined;
-    return normalizeDecoratorFieldKey(m[1]);
+    const targetField = resolveQualifiedDeclarativeFieldTriggerToken(method);
+    return targetField !== undefined && targetField === fieldName;
 }
 
 function seedLocalStoredThisFieldLoadFactsInClass(

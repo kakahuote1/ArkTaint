@@ -8,7 +8,6 @@ import {
     getArkMainTargetPhase,
 } from "../../core/entry/arkmain/scheduling/ArkMainSchedulingRules";
 import { registerMockSdkFiles } from "../helpers/TestSceneBuilder";
-import { findCaseMethod, resolveCaseMethod } from "../helpers/SyntheticCaseHarness";
 
 function buildScene(projectDir: string): Scene {
     const config = new SceneConfig();
@@ -32,7 +31,6 @@ function assertOrderingContract(
         targetPhase: string;
         minRoundGap: number;
         allowedSourcePhases: "any" | string[];
-        allowsRootlessActivation?: boolean;
     },
 ): void {
     const contract = getArkMainSchedulingRule(edgeFamily);
@@ -47,7 +45,6 @@ function assertOrderingContract(
             `${edgeFamily} allowedSourcePhases mismatch`,
         );
     }
-    assert(Boolean(contract.allowsRootlessActivation) === Boolean(expected.allowsRootlessActivation), `${edgeFamily} rootless flag mismatch`);
     assert(getArkMainTargetPhase(edgeFamily) === expected.targetPhase, `${edgeFamily} target phase helper mismatch`);
 }
 
@@ -70,53 +67,41 @@ function assertPlanEdgePhases(
 }
 
 async function main(): Promise<void> {
-    assertOrderingContract("ui_callback", {
-        targetPhase: "interaction",
-        minRoundGap: 1,
-        allowedSourcePhases: ["composition"],
-    });
-    assertOrderingContract("channel_callback", {
-        targetPhase: "interaction",
-        minRoundGap: 1,
+    assertOrderingContract("baseline_root", {
+        targetPhase: "bootstrap",
+        minRoundGap: 0,
         allowedSourcePhases: "any",
     });
-    assertOrderingContract("scheduler_callback", {
-        targetPhase: "interaction",
-        minRoundGap: 1,
-        allowedSourcePhases: ["bootstrap", "composition", "reactive_handoff"],
-    });
-    assertOrderingContract("state_watch", {
-        targetPhase: "reactive_handoff",
-        minRoundGap: 1,
-        allowedSourcePhases: ["bootstrap", "composition", "reactive_handoff"],
-    });
-    assertOrderingContract("navigation_channel", {
-        targetPhase: "reactive_handoff",
-        minRoundGap: 1,
-        allowedSourcePhases: ["composition"],
-        allowsRootlessActivation: true,
-    });
-    assertOrderingContract("ability_handoff", {
-        targetPhase: "reactive_handoff",
+    assertOrderingContract("composition_lifecycle", {
+        targetPhase: "composition",
         minRoundGap: 1,
         allowedSourcePhases: ["bootstrap"],
     });
+    assertOrderingContract("interaction_lifecycle", {
+        targetPhase: "interaction",
+        minRoundGap: 1,
+        allowedSourcePhases: ["bootstrap", "composition"],
+    });
+    assertOrderingContract("teardown_lifecycle", {
+        targetPhase: "teardown",
+        minRoundGap: 1,
+        allowedSourcePhases: ["bootstrap", "composition", "interaction"],
+    });
 
     const phasesPlan = buildArkMainPlan(buildScene(path.resolve("tests/demo/arkmain_entry_phases")));
-    assertPlanEdgePhases(phasesPlan, "ui_callback");
-    assertPlanEdgePhases(phasesPlan, "state_watch");
-    assertPlanEdgePhases(phasesPlan, "navigation_channel");
-    assertPlanEdgePhases(phasesPlan, "ability_handoff");
+    const rootPhaseHints = new Set(
+        phasesPlan.activationGraph.edges
+            .filter(edge => edge.edgeFamily === "baseline_root")
+            .map(edge => edge.phaseHint),
+    );
+    assert(rootPhaseHints.has("bootstrap"), "baseline_root should preserve bootstrap entry phases");
+    assert(rootPhaseHints.has("composition"), "baseline_root should preserve composition entry phases");
+    assert(rootPhaseHints.has("reactive_handoff"), "baseline_root should preserve reactive_handoff entry phases");
+    assert(rootPhaseHints.has("teardown"), "baseline_root should preserve teardown entry phases");
+    assertPlanEdgePhases(phasesPlan, "teardown_lifecycle");
 
-    const schedulerPlan = buildArkMainPlan(buildScene(path.resolve("tests/demo/arkmain_scheduler_entry")));
-    assertPlanEdgePhases(schedulerPlan, "scheduler_callback");
-
-    const workerScene = buildScene(path.resolve("tests/demo/harmony_worker"));
-    const workerEntry = resolveCaseMethod(workerScene, "worker_postmessage_001_T.ets", "worker_postmessage_001_T");
-    const workerCaseMethod = findCaseMethod(workerScene, workerEntry);
-    assert(!!workerCaseMethod, "Failed to resolve harmony_worker seed case");
-    const workerPlan = buildArkMainPlan(workerScene, { seedMethods: workerCaseMethod ? [workerCaseMethod] : [] });
-    assertPlanEdgePhases(workerPlan, "channel_callback");
+    const stagePlan = buildArkMainPlan(buildScene(path.resolve("tests/demo/pure_entry_realworld")));
+    assertPlanEdgePhases(stagePlan, "interaction_lifecycle");
 
     console.log("PASS test_entry_model_ordering_contract");
 }

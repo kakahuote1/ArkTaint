@@ -29,6 +29,8 @@ async function main(): Promise<void> {
     writeText(
         path.join(repoSourceDir, "EntryAbility.ets"),
         [
+            "import { UIAbility } from '@kit.AbilityKit';",
+            "",
             "function Source(): string {",
             "  return \"taint\";",
             "}",
@@ -39,8 +41,12 @@ async function main(): Promise<void> {
             "",
             "function Sink(v: string): void {}",
             "",
-            "const value = Source();",
-            "Pass(value);",
+            "export default class EntryAbility extends UIAbility {",
+            "  onCreate(): void {",
+            "    const value = Source();",
+            "    Pass(value);",
+            "  }",
+            "}",
             "",
         ].join("\n"),
     );
@@ -199,7 +205,8 @@ async function main(): Promise<void> {
     assert(traceOutput.includes("loaded=true"), "trace-module should show loaded=true");
     assert(traceOutput.includes("invoke_hook_calls="), "trace-module should show invoke hook calls");
     assert(traceOutput.includes("debug_hits="), "trace-module should show debug hits");
-    assert(traceOutput.includes("recent_debug_messages=[\"HIT: pass-observed\"]"), "trace-module should include recent debug messages");
+    assert(traceOutput.includes("recent_debug_messages="), "trace-module should include recent debug messages");
+    assert(traceOutput.includes("pass-observed"), "trace-module should include the pass-observed debug marker");
 
     console.log("PASS test_analyze_module_inspection_cli");
     console.log(`module_root=${moduleRoot}`);

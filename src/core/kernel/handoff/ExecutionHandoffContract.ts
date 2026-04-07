@@ -22,6 +22,7 @@ export type ExecutionHandoffPreserveClass =
 export type HandoffActivationLabel =
     | "invoke"
     | "register"
+    | "declare"
     | "settle_f"
     | "settle_r"
     | "settle_a";
@@ -32,6 +33,7 @@ export type HandoffPathLabel =
     | "store"
     | "load"
     | "register"
+    | "declare"
     | "invoke"
     | "settle_f"
     | "settle_r"
@@ -39,6 +41,7 @@ export type HandoffPathLabel =
     | "resume";
 
 export type HandoffCarrierKind = "direct" | "returned" | "relay" | "field" | "slot" | "unknown";
+export type HandoffBindingKind = "imperative" | "declarative";
 
 export type HandoffReturnKind = "none" | "payload" | "capture" | "value";
 export type ExecutionHandoffContinuationRole = "none" | "value" | "error" | "observe";
@@ -62,6 +65,7 @@ export interface ExecutionHandoffFeatures {
     invokeName: string | null;
     matchingArgIndexes: number[];
     callableArgIndexes: number[];
+    bindingKind: HandoffBindingKind;
     localRegistration: boolean;
     registrationReachabilityDepth: number | null;
     usesPtrInvoke: boolean;

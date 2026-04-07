@@ -6,7 +6,6 @@ import {
     ArkMainActivationGraph,
     ArkMainActivationReason,
 } from "../edges/ArkMainActivationTypes";
-import { matchesWatchTargets } from "../edges/ArkMainActivationBuilderUtils";
 import {
     canScheduleArkMainActivationEdge,
     compareArkMainPhases,
@@ -34,6 +33,12 @@ export interface ArkMainSchedulerOptions {
     maxRounds?: number;
 }
 
+interface ArkMainActivationMutation {
+    activation?: ArkMainScheduledMethod;
+    created: boolean;
+    changed: boolean;
+}
+
 export interface ArkMainScheduleConvergence {
     maxRounds: number;
     roundsExecuted: number;
@@ -48,6 +53,7 @@ export function buildArkMainSchedule(
 ): ArkMainSchedule {
     const maxRounds = options.maxRounds ?? 4;
     const active = new Map<string, ArkMainScheduledMethod>();
+    const activeByMethod = new Map<string, ArkMainScheduledMethod[]>();
     let roundsExecuted = 0;
     let lastChangedRound = 0;
     let converged = true;
@@ -56,7 +62,7 @@ export function buildArkMainSchedule(
 
     const rootEdges = graph.edges.filter(edge => edge.kind === "baseline_root");
     for (const edge of rootEdges) {
-        activateMethod(active, edge.toMethod, edge.phaseHint, 0, edge);
+        activateMethod(active, activeByMethod, edge.toMethod, edge.phaseHint, 0, edge);
     }
 
     const nonRootEdges = graph.edges.filter(edge => edge.kind !== "baseline_root");
@@ -64,19 +70,19 @@ export function buildArkMainSchedule(
         roundsExecuted = round;
         let changed = false;
         for (const edge of nonRootEdges) {
-            const fromSignature = signatureOf(edge.fromMethod);
-            const sourceActivation = fromSignature ? active.get(fromSignature) : undefined;
-            if (!canScheduleArkMainActivationEdge(edge, sourceActivation, round)) {
+            const sourceActivations = collectSourceActivations(activeByMethod, edge.fromMethod);
+            if (!sourceActivations.some(sourceActivation => canScheduleArkMainActivationEdge(edge, sourceActivation, round))) {
                 continue;
             }
-            const before = active.size;
-            activateMethod(active, edge.toMethod, getArkMainTargetPhase(edge.edgeFamily), round, edge);
-            if (active.size > before) {
-                changed = true;
-                continue;
-            }
-            const targetActivation = active.get(signatureOf(edge.toMethod)!);
-            if (targetActivation && mergeSupportingEdge(targetActivation, edge)) {
+            const mutation = activateMethod(
+                active,
+                activeByMethod,
+                edge.toMethod,
+                getArkMainTargetPhase(edge.edgeFamily),
+                round,
+                edge,
+            );
+            if (mutation.created || mutation.changed) {
                 changed = true;
             }
         }
@@ -91,41 +97,6 @@ export function buildArkMainSchedule(
         }
     }
 
-    // Post-scheduling promotion: watch_handler facts whose owning class is
-    // active but whose own method never got scheduled (e.g. watch_source methods
-    // are closures not reachable through the activation graph).
-    const promotionRound = roundsExecuted + 1;
-    for (const fact of graph.facts) {
-        if (fact.kind !== "watch_handler" || fact.schedule === false) continue;
-        const sig = signatureOf(fact.method);
-        if (!sig || active.has(sig)) continue;
-        const hasMatchingWatchSource = graph.facts.some(candidate =>
-            candidate.kind === "watch_source"
-            && matchesWatchTargets(candidate, fact),
-        );
-        if (!hasMatchingWatchSource) {
-            continue;
-        }
-        activateMethod(active, fact.method, "reactive_handoff", promotionRound, {
-            kind: "state_watch_trigger",
-            edgeFamily: "state_watch",
-            phaseHint: getArkMainTargetPhase("state_watch"),
-            toMethod: fact.method,
-            reasons: [{
-                kind: "entry_fact",
-                summary: fact.reason,
-                evidenceFactKind: fact.kind,
-                evidenceMethod: fact.method,
-                entryFamily: fact.entryFamily,
-                recognitionLayer: fact.recognitionLayer,
-            }],
-        });
-        const activation = active.get(sig);
-        if (activation) {
-            activation.phase = getArkMainTargetPhase("state_watch");
-        }
-    }
-
     const activations = [...active.values()].sort((a, b) => {
         if (a.round !== b.round) return a.round - b.round;
         const phaseCmp = compareArkMainPhases(a.phase, b.phase);
@@ -135,7 +106,7 @@ export function buildArkMainSchedule(
 
     return {
         activations,
-        orderedMethods: activations.map(item => item.method),
+        orderedMethods: dedupeMethods(activations.map(item => item.method)),
         convergence: {
             maxRounds,
             roundsExecuted,
@@ -151,19 +122,28 @@ export function buildArkMainSchedule(
 
 function activateMethod(
     active: Map<string, ArkMainScheduledMethod>,
+    activeByMethod: Map<string, ArkMainScheduledMethod[]>,
     method: ArkMethod,
     phase: ArkMainPhaseName,
     round: number,
     viaEdge: ArkMainActivationEdge,
-): void {
-    const signature = signatureOf(method);
-    if (!signature) return;
-    const existing = active.get(signature);
-    if (existing) {
-        mergeSupportingEdge(existing, viaEdge);
-        return;
+): ArkMainActivationMutation {
+    const activationKey = activationKeyOf(method, phase, viaEdge.edgeFamily);
+    if (!activationKey) {
+        return {
+            created: false,
+            changed: false,
+        };
     }
-    active.set(signature, {
+    const existing = active.get(activationKey);
+    if (existing) {
+        return {
+            activation: existing,
+            created: false,
+            changed: mergeSupportingEdge(existing, viaEdge),
+        };
+    }
+    const activation: ArkMainScheduledMethod = {
         method,
         phase,
         round,
@@ -171,7 +151,26 @@ function activateMethod(
         activationEdgeFamilies: [viaEdge.edgeFamily],
         reasons: [...viaEdge.reasons],
         supportingEdges: [viaEdge],
-    });
+    };
+    active.set(activationKey, activation);
+
+    const methodSignature = signatureOf(method);
+    if (methodSignature) {
+        const existingByMethod = activeByMethod.get(methodSignature) || [];
+        existingByMethod.push(activation);
+        existingByMethod.sort((left, right) => {
+            if (left.round !== right.round) return left.round - right.round;
+            const phaseCmp = compareArkMainPhases(left.phase, right.phase);
+            if (phaseCmp !== 0) return phaseCmp;
+            return 0;
+        });
+        activeByMethod.set(methodSignature, existingByMethod);
+    }
+    return {
+        activation,
+        created: true,
+        changed: true,
+    };
 }
 
 function mergeSupportingEdge(
@@ -203,8 +202,6 @@ function mergeSupportingEdge(
             signatureOf(reason.evidenceMethod) || "",
             reason.entryFamily || "",
             reason.recognitionLayer || "",
-            reason.callbackShape || "",
-            reason.callbackSlotFamily || "",
         ].join("|");
         const exists = activation.reasons.some(existing =>
             [
@@ -214,8 +211,6 @@ function mergeSupportingEdge(
                 signatureOf(existing.evidenceMethod) || "",
                 existing.entryFamily || "",
                 existing.recognitionLayer || "",
-                existing.callbackShape || "",
-                existing.callbackSlotFamily || "",
             ].join("|") === reasonKey,
         );
         if (!exists) {
@@ -238,6 +233,35 @@ function supportingEdgeKey(edge: ArkMainActivationEdge): string {
 
 function signatureOf(method?: ArkMethod): string | undefined {
     return method?.getSignature?.()?.toString?.();
+}
+
+function activationKeyOf(
+    method: ArkMethod | undefined,
+    phase: ArkMainPhaseName,
+    edgeFamily: ArkMainActivationEdgeFamily,
+): string | undefined {
+    const signature = signatureOf(method);
+    if (!signature) return undefined;
+    return `${signature}|${phase}|${edgeFamily}`;
+}
+
+function collectSourceActivations(
+    activeByMethod: Map<string, ArkMainScheduledMethod[]>,
+    method: ArkMethod | undefined,
+): ArkMainScheduledMethod[] {
+    const signature = signatureOf(method);
+    if (!signature) return [];
+    return activeByMethod.get(signature) || [];
+}
+
+function dedupeMethods(methods: ArkMethod[]): ArkMethod[] {
+    const out = new Map<string, ArkMethod>();
+    for (const method of methods) {
+        const signature = signatureOf(method);
+        if (!signature || out.has(signature)) continue;
+        out.set(signature, method);
+    }
+    return [...out.values()];
 }
 
 

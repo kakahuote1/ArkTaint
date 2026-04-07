@@ -1,7 +1,12 @@
-import { Link, Router, State, Watch, taint } from "./taint_mock";
+import { Component, Link, Router, State, Watch, taint } from "./taint_mock";
 
+@Component
 class ChildView002 {
     @Link token: string = "";
+
+    update(token: string): void {
+        this.token = token;
+    }
 
     @Watch("token")
     onTokenWatch(): void {
@@ -9,6 +14,7 @@ class ChildView002 {
     }
 }
 
+@Component
 class ParentPage002 {
     @State token: string = "";
 
@@ -19,6 +25,8 @@ class ParentPage002 {
 }
 
 export function reactive_route_link_watch_002_T(): void {
-    void ChildView002;
-    void ParentPage002;
+    const parent = new ParentPage002();
+    parent.build();
+    const child = new ChildView002({ token: parent.token });
+    child.onTokenWatch();
 }

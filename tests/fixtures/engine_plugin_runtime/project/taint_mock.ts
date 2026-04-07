@@ -7,3 +7,6 @@ export class taint {
         // sink marker for tests
     }
 }
+
+export class UIAbility {
+}

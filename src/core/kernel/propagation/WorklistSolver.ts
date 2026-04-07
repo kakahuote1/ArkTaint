@@ -22,8 +22,12 @@ import { WorklistProfiler } from "../debug/WorklistProfiler";
 import { PropagationTrace } from "../debug/PropagationTrace";
 import { TransferRule } from "../../rules/RuleSchema";
 import { ConfigBasedTransferExecutor, TransferExecutionResult } from "../rules/ConfigBasedTransferExecutor";
-import type { ModuleQueryApi } from "../contracts/ModuleContract";
 import type { ModuleRuntime } from "../contracts/ModuleContract";
+import type {
+    InternalModuleQueryApi,
+    InternalRawModuleFactEvent,
+    InternalRawModuleInvokeEvent,
+} from "../contracts/ModuleInternal";
 import type {
     BridgeDecl,
     EnqueueFactDecl,
@@ -141,7 +145,7 @@ export interface WorklistSolverDeps {
     propagationTrace?: PropagationTrace;
     allowedMethodSignatures?: Set<string>;
     moduleRuntime: ModuleRuntime;
-    moduleQueries: ModuleQueryApi;
+    moduleQueries: InternalModuleQueryApi;
     onFactObserved?: (fact: TaintFact) => void;
     onCallEdge?: (event: CallEdgeEvent) => PropagationContributionBatch;
     onTaintFlow?: (event: TaintFlowEvent) => PropagationContributionBatch;
@@ -529,7 +533,7 @@ export class WorklistSolver {
                 log,
                 fact,
                 node,
-            });
+            } as InternalRawModuleFactEvent);
             for (const emission of moduleEmissions) {
                 const newFact = emission.fact;
                 tryEnqueue(emission.reason, newFact, () => {
@@ -559,7 +563,7 @@ export class WorklistSolver {
                     args: invokeExpr?.getArgs ? invokeExpr.getArgs() : [],
                     baseValue: invokeExpr?.getBase ? invokeExpr.getBase() : undefined,
                     resultValue: stmt instanceof ArkAssignStmt ? stmt.getLeftOp?.() : undefined,
-                });
+                } as InternalRawModuleInvokeEvent);
                 for (const emission of invokeEmissions) {
                     const newFact = emission.fact;
                     tryEnqueue(emission.reason, newFact, () => {

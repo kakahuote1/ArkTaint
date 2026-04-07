@@ -54,13 +54,6 @@ export function resolveSdkOverrideCandidate(
         }
         superClass = superClass.getSuperClass?.() || null;
     }
-    if (explicitOverride && hasSdkImportedSuperclassReference(method.getDeclaringArkClass?.())) {
-        return {
-            method,
-            discoveryLayer: "sdk_override_first_layer",
-            explicitOverride,
-        };
-    }
     return undefined;
 }
 
@@ -135,20 +128,6 @@ function findSdkBaseMethod(superClass: ArkClass, methodName: string): ArkMethod 
     return superClass
         .getAllMethodsWithName(methodName)
         .find(method => !method.isStatic() && !method.isPrivate() && method.getName() !== CONSTRUCTOR_NAME);
-}
-
-function hasSdkImportedSuperclassReference(arkClass: ArkClass | null | undefined): boolean {
-    const superClassName = arkClass?.getSuperClassName?.() || "";
-    if (!arkClass || !superClassName) {
-        return false;
-    }
-    const importInfo = arkClass.getDeclaringArkFile?.()?.getImportInfoBy?.(superClassName);
-    const importFrom = importInfo?.getFrom?.() || "";
-    return isSdkImportFrom(importFrom);
-}
-
-function isSdkImportFrom(importFrom: string): boolean {
-    return /^@(kit|ohos|system)(\.|\/|$)/.test(importFrom || "");
 }
 
 function normalizeDecoratorKinds(decorators: any[]): string[] {

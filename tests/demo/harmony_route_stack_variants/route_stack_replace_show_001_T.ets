@@ -15,6 +15,8 @@ class TargetPage001 {
 }
 
 export function route_stack_replace_show_001_T(): void {
-    void SourcePage001;
-    void TargetPage001;
+    const source = new SourcePage001();
+    source.build();
+    const target = new TargetPage001();
+    target.onPageShow();
 }

@@ -65,18 +65,17 @@ import {
     resolveMethodsFromCallable,
 } from "../substrate/queries/CalleeResolver";
 import { collectFiniteStringCandidatesFromValue } from "../substrate/queries/FiniteStringCandidateResolver";
+import { collectOrdinaryHigherOrderCallbackMethodSignaturesFromMethod } from "../kernel/ordinary/OrdinaryArrayPropagation";
 import { buildArkMainPlan } from "../entry/arkmain/ArkMainPlanner";
 import { ArkMainSyntheticRootBuilder } from "../entry/arkmain/ArkMainSyntheticRootBuilder";
-import {
-    shouldArkMainIncludeDeferredContractInReachable,
-} from "../entry/arkmain/facts/ArkMainFrameworkCallbackBoundary";
+import { shouldIncludeDeferredContractInReachable } from "./EntryModelDeferredReachability";
 import {
     emptyModuleAuditSnapshot,
     ModuleAuditSnapshot,
-    ModuleQueryApi,
     ModuleRuntime,
     TaintModule,
 } from "../kernel/contracts/ModuleContract";
+import type { InternalModuleQueryApi } from "../kernel/contracts/ModuleInternal";
 import {
     getPagNodeResolutionAuditSnapshot,
     PagNodeResolutionAuditSnapshot,
@@ -96,6 +95,7 @@ import type { ExecutionHandoffEventContractIndex } from "../kernel/handoff/Execu
 import {
     buildExecutionHandoffSiteKeyFromRecord,
 } from "../kernel/handoff/ExecutionHandoffSiteKey";
+import { resolveQualifiedDeclarativeFieldTriggerToken } from "../kernel/model/DeclarativeFieldTriggerSemantics";
 import { loadModules } from "./modules/ModuleLoader";
 import { createModuleRuntime } from "./modules/ModuleRuntime";
 import { EnginePlugin } from "./plugins/EnginePlugin";
@@ -259,7 +259,7 @@ export class TaintPropagationEngine {
     private activeReachableMethodSignatures?: Set<string>;
     private activeOrderedMethodSignatures?: string[];
     private explicitEntryScopeMethodSignatures?: Set<string>;
-    private autoSourceHintRules: SourceRule[] = [];
+    private autoEntrySourceRules: SourceRule[] = [];
     private detectProfile: SinkDetectProfile = createEmptySinkDetectProfile();
     private keyedRouteMismatchCache: Map<string, boolean> = new Map();
     private routePushKeyCache: Map<string, Set<string>> = new Map();
@@ -487,7 +487,12 @@ export class TaintPropagationEngine {
     }
 
     private configureExecutionHandoffLayer(cacheEntry: PagBuildCacheEntry): void {
-        const contracts = buildExecutionHandoffContracts(this.scene, this.cg);
+        this.refreshModuleRuntime();
+        const contracts = buildExecutionHandoffContracts(
+            this.scene,
+            this.cg,
+            this.moduleRuntime?.getDeferredBindingDeclarations() || [],
+        );
         const deferredSiteKeys = new Set<string>();
         const eventContractsBySiteKey = new Map<string, ExecutionHandoffContractRecord[]>();
         const promiseContractsBySiteKey = new Map<string, ExecutionHandoffContractRecord[]>();
@@ -668,8 +673,8 @@ export class TaintPropagationEngine {
         this.activeOrderedMethodSignatures = entryModel === "arkMain"
             ? (arkMainPlan?.orderedMethods || []).map(method => method?.getSignature?.()?.toString?.()).filter((sig): sig is string => !!sig)
             : undefined;
-        this.autoSourceHintRules = entryModel === "arkMain"
-            ? this.buildAutoSourceHintRules(arkMainPlan)
+        this.autoEntrySourceRules = entryModel === "arkMain"
+            ? this.buildAutoEntrySourceRules(arkMainPlan)
             : [];
         if (arkMainPlan?.schedule.convergence.truncated) {
             for (const warning of arkMainPlan.schedule.warnings) {
@@ -686,7 +691,7 @@ export class TaintPropagationEngine {
         const syntheticKey = syntheticEntryMethods.length > 0
             ? `synthetic|${syntheticEntryMethods.map(method => method.getSignature().toString()).join("||")}`
             : "pure";
-        const cacheKey = `entryModel|${entryModel}|${syntheticKey}`;
+        const cacheKey = `entryModel|${entryModel}|${syntheticKey}|modules|${this.buildModulePlanCacheKey()}`;
         const sceneCache = this.getPagBuildCacheForScene();
         const cached = sceneCache.get(cacheKey);
         if (cached) {
@@ -720,6 +725,7 @@ export class TaintPropagationEngine {
             this.log(`PAG nodes: ${this.pag.getNodeNum()}, edges: ${this.pag.getEdgeNum()}`);
             this.log(`CG nodes: ${this.cg.getNodeNum()}, edges: ${this.cg.getEdgeNum()}`);
             this.configureContextStrategy();
+            this.setActiveReachableMethodSignatures(this.computeReachableMethodSignatures());
             return;
         }
 
@@ -787,6 +793,7 @@ export class TaintPropagationEngine {
         cacheEntry.syntheticInvokeLazyMaterializer = this.syntheticInvokeLazyMaterializer;
         sceneCache.set(cacheKey, cacheEntry);
         this.configureContextStrategy();
+        this.setActiveReachableMethodSignatures(this.computeReachableMethodSignatures());
     }
 
     private resolveSyntheticEntryMethods(
@@ -888,7 +895,7 @@ export class TaintPropagationEngine {
         const promiseContinuationUnits = this.currentEntryModel === "arkMain"
             ? new Set(
                 (this.executionHandoffSnapshot?.contracts || [])
-                    .filter(contract => !shouldArkMainIncludeDeferredContractInReachable(this.currentEntryModel, contract) && !!contract.unitSignature)
+                    .filter(contract => !shouldIncludeDeferredContractInReachable(this.currentEntryModel, contract) && !!contract.unitSignature)
                     .map(contract => contract.unitSignature as string),
             )
             : undefined;
@@ -946,7 +953,7 @@ export class TaintPropagationEngine {
 
         const handoffAdj = new Map<string, Set<string>>();
         for (const contract of this.executionHandoffSnapshot?.contracts || []) {
-            if (!shouldArkMainIncludeDeferredContractInReachable(this.currentEntryModel, contract)) {
+            if (!shouldIncludeDeferredContractInReachable(this.currentEntryModel, contract)) {
                 continue;
             }
             if (!contract.callerSignature || !contract.unitSignature) continue;
@@ -979,6 +986,26 @@ export class TaintPropagationEngine {
             const signature = method?.getSignature?.()?.toString?.();
             if (!signature) continue;
             reachable.add(signature);
+        }
+
+        const methodsBySig = new Map<string, ArkMethod>();
+        for (const method of this.scene.getMethods()) {
+            const signature = method?.getSignature?.()?.toString?.();
+            if (!signature) continue;
+            methodsBySig.set(signature, method);
+        }
+        const ordinaryCallbackQueue = [...reachable];
+        const ordinaryCallbackVisited = new Set<string>(reachable);
+        for (let head = 0; head < ordinaryCallbackQueue.length; head++) {
+            const signature = ordinaryCallbackQueue[head];
+            const method = methodsBySig.get(signature);
+            if (!method) continue;
+            for (const callbackSignature of collectOrdinaryHigherOrderCallbackMethodSignaturesFromMethod(this.scene, method)) {
+                if (ordinaryCallbackVisited.has(callbackSignature)) continue;
+                ordinaryCallbackVisited.add(callbackSignature);
+                reachable.add(callbackSignature);
+                ordinaryCallbackQueue.push(callbackSignature);
+            }
         }
 
         return reachable;
@@ -1072,35 +1099,11 @@ export class TaintPropagationEngine {
             this.enginePluginRuntime.getAdditionalSourceRules(),
             "plugin_runtime",
         );
-        const effectiveSourceRules = this.mergeAutoSourceHintRules([
+        const effectiveSourceRules = this.mergeAutoEntrySourceRules([
             ...this.normalizeRuntimeSourceRules(sourceRules || [], "runtime_project"),
             ...pluginSourceRules,
         ]);
         let ruleSeeds = this.collectSourceRuleSeeds(effectiveSourceRules, this.activeReachableMethodSignatures);
-        const allowUngatedSourceFallback = !this.explicitEntryScopeMethodSignatures
-            || this.explicitEntryScopeMethodSignatures.size === 0;
-        if (
-            ruleSeeds.facts.length === 0
-            && this.activeReachableMethodSignatures
-            && this.activeReachableMethodSignatures.size > 0
-            && allowUngatedSourceFallback
-        ) {
-            // Fallback: when reachable-gated seeding produces nothing (common in
-            // callback/watch-only benchmark cases), retry once on full method scope.
-            const ungatedSeeds = this.collectSourceRuleSeeds(effectiveSourceRules);
-            if (ungatedSeeds.facts.length > 0) {
-                this.log(`[SourceSeeds] reachable-gated seeds=0; fallback ungated seeds=${ungatedSeeds.facts.length}`);
-                ruleSeeds = ungatedSeeds;
-                const recoveredReachable = this.recoverMethodSignaturesFromSeedFacts(ungatedSeeds.facts);
-                if (recoveredReachable.size > 0) {
-                    const merged = new Set<string>(this.activeReachableMethodSignatures);
-                    for (const sig of recoveredReachable) {
-                        merged.add(sig);
-                    }
-                    this.setActiveReachableMethodSignatures(merged);
-                }
-            }
-        }
         if (ruleSeeds.activatedMethodSignatures.length > 0) {
             const mergedReachable = new Set<string>(this.activeReachableMethodSignatures || []);
             for (const sig of ruleSeeds.activatedMethodSignatures) {
@@ -1131,7 +1134,11 @@ export class TaintPropagationEngine {
         }
 
         this.log(`Initialized WorkList with ${mergedFacts.size} source-rule seeds.`);
+        const sourceHitEntries = Object.entries(ruleSeeds.sourceRuleHits);
         this.propagateWithFacts(Array.from(mergedFacts.values()));
+        for (const [ruleId, hitCount] of sourceHitEntries) {
+            this.markRuleHit("source", ruleId, Number(hitCount) || 0);
+        }
         return {
             seedCount: mergedFacts.size,
             seededLocals: [...seededLocals].sort(),
@@ -1139,8 +1146,8 @@ export class TaintPropagationEngine {
         };
     }
 
-    public getAutoSourceHintRules(): SourceRule[] {
-        return this.autoSourceHintRules.map(rule => {
+    public getAutoEntrySourceRules(): SourceRule[] {
+        return this.autoEntrySourceRules.map(rule => {
             const ref = normalizeEndpoint(rule.target);
             const target: RuleEndpointOrRef =
                 ref.path === undefined && ref.pathFrom === undefined && ref.slotKind === undefined
@@ -1375,7 +1382,7 @@ export class TaintPropagationEngine {
         orderedTransferRules: TransferRule[],
         propagationHooks: ActivePropagationHooks,
     ): WorklistSolverDeps {
-        const moduleQueries: ModuleQueryApi = {
+        const moduleQueries: InternalModuleQueryApi = {
             resolveMethodsFromCallable,
             collectParameterAssignStmts,
             collectFiniteStringCandidatesFromValue,
@@ -1576,32 +1583,21 @@ export class TaintPropagationEngine {
         });
     }
 
-    private mergeAutoSourceHintRules(sourceRules: SourceRule[]): SourceRule[] {
-        if (this.autoSourceHintRules.length === 0) {
+    private mergeAutoEntrySourceRules(sourceRules: SourceRule[]): SourceRule[] {
+        if (this.autoEntrySourceRules.length === 0) {
             return sourceRules;
         }
         const disabledAutoSourcePrefixes = this.options.disabledAutoSourceRuleIdPrefixes || [];
-        const filteredAutoSourceRules = this.autoSourceHintRules.filter(rule => {
+        const filteredAutoEntrySourceRules = this.autoEntrySourceRules.filter(rule => {
             const ruleId = rule?.id || "";
             return !disabledAutoSourcePrefixes.some(prefix => prefix && ruleId.startsWith(prefix));
         });
-        const contractRules = filteredAutoSourceRules.filter(rule => this.isArkMainContractSourceRule(rule));
-        const fallbackRules = filteredAutoSourceRules.filter(rule => !this.isArkMainContractSourceRule(rule));
         const baseRules = sourceRules || [];
         const merged = new Map<string, SourceRule>();
-        for (const rule of [...baseRules, ...contractRules]) {
+        for (const rule of [...baseRules, ...filteredAutoEntrySourceRules]) {
             if (!rule?.id) continue;
             if (!merged.has(rule.id)) {
                 merged.set(rule.id, rule);
-            }
-        }
-        // Unknown callback-param hints remain a fallback only for source-sparse analyses.
-        if ((sourceRules || []).length === 0) {
-            for (const rule of fallbackRules) {
-                if (!rule?.id) continue;
-                if (!merged.has(rule.id)) {
-                    merged.set(rule.id, rule);
-                }
             }
         }
         return [...merged.values()];
@@ -1679,7 +1675,7 @@ export class TaintPropagationEngine {
         return recovered;
     }
 
-    private buildAutoSourceHintRules(
+    private buildAutoEntrySourceRules(
         arkMainPlan?: ReturnType<typeof buildArkMainPlan>,
     ): SourceRule[] {
         if (!arkMainPlan) {
@@ -1692,12 +1688,6 @@ export class TaintPropagationEngine {
             out.set(rule.id, rule);
         }
         return [...out.values()];
-    }
-
-    private isArkMainContractSourceRule(rule: SourceRule): boolean {
-        const tags = rule.tags || [];
-        return tags.includes("contract_source")
-            || String(rule.family || "").startsWith("source.arkmain.contract.");
     }
 
     public detectSinks(
@@ -1728,30 +1718,6 @@ export class TaintPropagationEngine {
                 onProfile: (profile) => this.mergeDetectProfile(profile),
             }
         );
-        if (
-            scoped.length === 0
-            && this.activeReachableMethodSignatures
-            && this.activeReachableMethodSignatures.size > 0
-        ) {
-            const ungated = runSinkDetector(
-                this.scene,
-                this.cg,
-                this.pag,
-                this.tracker,
-                sinkSignature,
-                this.log.bind(this),
-                {
-                    ...options,
-                    fieldToVarIndex: this.fieldToVarIndex,
-                    allowedMethodSignatures: undefined,
-                    orderedMethodSignatures: this.activeOrderedMethodSignatures,
-                    onProfile: (profile) => this.mergeDetectProfile(profile),
-                }
-            );
-            if (ungated.length > 0) {
-                return ungated;
-            }
-        }
         return scoped;
     }
 
@@ -1804,7 +1770,7 @@ export class TaintPropagationEngine {
         const sinkStmt: any = flow.sink;
         const sinkMethod = sinkStmt?.getCfg?.()?.getDeclaringMethod?.();
         if (!sinkMethod) return false;
-        const watchTarget = this.extractWatchLikeTargetField(sinkMethod.getDecorators?.() || []);
+        const watchTarget = this.extractWatchLikeTargetField(sinkMethod);
         if (!watchTarget) return false;
 
         if (flow.sinkNodeId === undefined || flow.sinkNodeId === null) return false;
@@ -1977,38 +1943,14 @@ export class TaintPropagationEngine {
         return false;
     }
 
-    private extractWatchLikeTargetField(decorators: any[]): string | undefined {
-        for (const decorator of decorators) {
-            const kind = String(decorator?.getKind?.() || "").replace(/^@+/, "").trim();
-            if (kind !== "Watch" && kind !== "Monitor") continue;
-            const fromParam = this.normalizeDecoratorFieldToken(decorator?.getParam?.());
-            if (fromParam) return fromParam;
-            const fromContent = this.extractDecoratorFieldTokenFromContent(decorator?.getContent?.());
-            if (fromContent) return fromContent;
-            return undefined;
-        }
-        return undefined;
-    }
-
-    private normalizeDecoratorFieldToken(raw: any): string | undefined {
-        if (raw === undefined || raw === null) return undefined;
-        const text = String(raw).trim();
-        if (!text) return undefined;
-        return text.replace(/^['"`]/, "").replace(/['"`]$/, "").trim() || undefined;
+    private extractWatchLikeTargetField(method: any): string | undefined {
+        return resolveQualifiedDeclarativeFieldTriggerToken(method);
     }
 
     private normalizeQuotedLiteral(text: string): string | undefined {
         const m = String(text || "").match(/^['"`]((?:\\.|[^'"`])+)['"`]$/);
         if (!m) return undefined;
         return m[1];
-    }
-
-    private extractDecoratorFieldTokenFromContent(content: any): string | undefined {
-        const text = String(content || "");
-        if (!text) return undefined;
-        const m = text.match(/\(\s*['"`]([^'"`]+)['"`]\s*\)/);
-        if (!m) return undefined;
-        return this.normalizeDecoratorFieldToken(m[1]);
     }
 
     public getAdaptiveContextSelector(): AdaptiveContextSelector | undefined {
@@ -2081,6 +2023,21 @@ export class TaintPropagationEngine {
             TaintPropagationEngine.pagBuildCacheByScene.set(this.scene, cache);
         }
         return cache;
+    }
+
+    private buildModulePlanCacheKey(): string {
+        if (!this.modules || this.modules.length === 0) {
+            return "none";
+        }
+        return this.modules
+            .map(module => {
+                const setupText = typeof module.setup === "function"
+                    ? module.setup.toString()
+                    : "";
+                return `${module.id}|${module.description}|${setupText}`;
+            })
+            .sort((left, right) => left.localeCompare(right))
+            .join("||");
     }
 
 }

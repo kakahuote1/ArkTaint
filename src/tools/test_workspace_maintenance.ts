@@ -58,7 +58,6 @@ const STALE_ROOT_PATTERNS: RegExp[] = [
     /^telegram_entry_compare$/i,
     /^entry_compare$/i,
     /^layer4_realworld_validation$/i,
-    /^structural_fallback_probe$/i,
     /^harmonychat_comparison$/i,
     /^harmony_.*\.log$/i,
     /^.*\.log$/i,

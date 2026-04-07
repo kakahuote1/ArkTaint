@@ -421,6 +421,49 @@ export function collectOrdinaryArrayFromMapperCallbackParamNodeIdsForObj(
     return results;
 }
 
+export function collectOrdinaryHigherOrderCallbackMethodSignaturesFromMethod(
+    scene: Scene,
+    method: any,
+): string[] {
+    const cfg = method?.getCfg?.();
+    if (!cfg) return [];
+
+    const out = new Set<string>();
+    for (const stmt of cfg.getStmts()) {
+        const invokeExpr = stmt instanceof ArkAssignStmt
+            ? stmt.getRightOp()
+            : stmt instanceof ArkInvokeStmt
+                ? stmt.getInvokeExpr()
+                : undefined;
+        if (!(invokeExpr instanceof ArkStaticInvokeExpr) && !(invokeExpr instanceof ArkInstanceInvokeExpr)) {
+            continue;
+        }
+
+        const methodName = resolveMethodName(invokeExpr);
+        const sig = invokeExpr.getMethodSignature()?.toString() || "";
+        if (isArrayStaticCall(sig, methodName) && methodName === "from") {
+            const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
+            if (args.length < 2) continue;
+            for (const callbackMethod of resolveCallbackMethods(scene, args[1])) {
+                const signature = callbackMethod?.getSignature?.()?.toString?.();
+                if (signature) out.add(signature);
+            }
+            continue;
+        }
+
+        const callbackParamIndexes = resolveArrayHigherOrderCallbackParamIndexes(methodName);
+        if (!callbackParamIndexes) continue;
+        const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
+        if (args.length === 0) continue;
+        for (const callbackMethod of resolveCallbackMethods(scene, args[0])) {
+            const signature = callbackMethod?.getSignature?.()?.toString?.();
+            if (signature) out.add(signature);
+        }
+    }
+
+    return [...out];
+}
+
 function collectOrdinaryArrayHigherOrderEffectsForObj(
     objId: number,
     slot: string,

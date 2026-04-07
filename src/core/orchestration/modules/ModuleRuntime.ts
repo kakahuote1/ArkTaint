@@ -11,6 +11,8 @@ import {
     ModuleCopyEdgeEvent,
     ModuleCurrentFactView,
     ModuleCurrentNodeView,
+    ModuleDeclarativeDeferredBindingDeclaration,
+    ModuleDeferredBindingApi,
     ModuleDebugApi,
     ModuleEmission,
     ModuleEmitCollector,
@@ -40,17 +42,28 @@ import {
     ModuleSetupContext,
     ModuleSetupCallbackApi,
     ModuleScanApi,
+    ModuleKeyedNodeRelay,
     ModuleNodeRelay,
     ModuleFieldRelay,
-    RawModuleCopyEdgeEvent,
-    RawModuleFactEvent,
-    RawModuleInvokeEvent,
     RawModuleSetupContext,
     TaintModule,
     ModuleValueEmitOptions,
 } from "../../kernel/contracts/ModuleContract";
+import type {
+    InternalModuleQueryApi,
+    InternalRawModuleCopyEdgeEvent,
+    InternalRawModuleFactEvent,
+    InternalRawModuleInvokeEvent,
+    InternalRawModuleSetupContext,
+} from "../../kernel/contracts/ModuleInternal";
 import { collectNodeIdsFromValue, collectObjectNodeIdsFromValue } from "../../kernel/contracts/HarmonyModuleUtils";
 import { getMethodBySignature } from "../../kernel/contracts/MethodLookup";
+import { resolveCallbackMethodsFromValueWithReturns } from "../../substrate/queries/CallbackBindingQuery";
+import type {
+    ModuleExplicitDeclarativeDeferredBindingRecord,
+    ModuleExplicitDeferredBindingRecord,
+    ModuleExplicitImperativeDeferredBindingRecord,
+} from "../../kernel/model/DeferredBindingDeclaration";
 import { TaintFact } from "../../kernel/model/TaintFact";
 import { safeGetOrCreatePagNodes } from "../../kernel/contracts/PagNodeResolution";
 import {
@@ -63,6 +76,11 @@ interface RegisteredSession {
     moduleId: string;
     session: ModuleSession;
     sourcePath?: string;
+}
+
+interface DeferredBindingCollector {
+    add(binding: ModuleExplicitDeferredBindingRecord): void;
+    all(): ModuleExplicitDeferredBindingRecord[];
 }
 
 class ModuleRuntimeDiagnosticError extends Error {
@@ -107,7 +125,7 @@ function cloneFieldPath(field?: string[]): string[] | undefined {
 }
 
 function resolveTargetNode(
-    event: RawModuleFactEvent,
+    event: InternalRawModuleFactEvent,
     target: number | PagNode | null | undefined,
 ): PagNode | undefined {
     if (target === undefined || target === null) return undefined;
@@ -123,7 +141,7 @@ function resolveTargetNode(
 type EmitFieldMode = "generic" | "preserve_current" | "current_field_tail" | "explicit";
 
 function resolveEmitFieldPath(
-    event: RawModuleFactEvent,
+    event: InternalRawModuleFactEvent,
     mode: EmitFieldMode,
     explicitField?: string[],
 ): string[] | undefined {
@@ -208,7 +226,30 @@ function buildSetupDebugApi(log: (msg: string) => void): ModuleSetupContext["deb
     };
 }
 
-function createAnalysisApi(raw: RawModuleSetupContext): ModuleAnalysisApi {
+function createDeferredBindingCollector(): DeferredBindingCollector {
+    const bindings: ModuleExplicitDeferredBindingRecord[] = [];
+    const seen = new Set<string>();
+    return {
+        add(binding: ModuleExplicitDeferredBindingRecord): void {
+            const key = [
+                binding.moduleId,
+                binding.bindingKind,
+                binding.sourceMethod?.getSignature?.()?.toString?.() || "",
+                binding.unit?.getSignature?.()?.toString?.() || "",
+                binding.anchorStmt?.getOriginPositionInfo?.()?.getLineNo?.() || 0,
+                binding.reason,
+            ].join("|");
+            if (seen.has(key)) return;
+            seen.add(key);
+            bindings.push(binding);
+        },
+        all(): ModuleExplicitDeferredBindingRecord[] {
+            return [...bindings];
+        },
+    };
+}
+
+function createAnalysisApi(raw: InternalRawModuleSetupContext): ModuleAnalysisApi {
     const nodeIdsForValue = (value: any, anchorStmt?: any): number[] => {
         if (!raw.pag) return [];
         const direct = collectNodeIdsFromValue(raw.pag, value);
@@ -243,7 +284,7 @@ function createAnalysisApi(raw: RawModuleSetupContext): ModuleAnalysisApi {
     };
 }
 
-function resolveActiveModuleMethods(raw: RawModuleSetupContext): any[] {
+function resolveActiveModuleMethods(raw: InternalRawModuleSetupContext): any[] {
     if (!raw.scene) {
         return [];
     }
@@ -254,7 +295,7 @@ function resolveActiveModuleMethods(raw: RawModuleSetupContext): any[] {
     return allMethods.filter(method => raw.allowedMethodSignatures!.has(method.getSignature().toString()));
 }
 
-function createMethodsApi(raw: RawModuleSetupContext): ModuleMethodsApi {
+function createMethodsApi(raw: InternalRawModuleSetupContext): ModuleMethodsApi {
     const methods = resolveActiveModuleMethods(raw);
     return {
         all(): any[] {
@@ -436,7 +477,7 @@ function matchesDecoratedFieldScanFilter(
     return true;
 }
 
-function createScanApi(raw: RawModuleSetupContext): ModuleScanApi {
+function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
     const methods = resolveActiveModuleMethods(raw);
     const analysis = createAnalysisApi(raw);
     return {
@@ -850,44 +891,161 @@ function normalizeFieldPathInput(fieldPath: string | string[]): string[] {
 }
 
 function createBridgeApi(): ModuleBridgeApi {
-    return {
-        nodeRelay(): ModuleNodeRelay {
-            const targetsBySourceNodeId = new Map<number, Set<number>>();
-            const ensureTargets = (sourceNodeId: number): Set<number> => {
-                let targets = targetsBySourceNodeId.get(sourceNodeId);
-                if (!targets) {
-                    targets = new Set<number>();
-                    targetsBySourceNodeId.set(sourceNodeId, targets);
+    const createNodeRelayImpl = (): ModuleNodeRelay => {
+        const targetsBySourceNodeId = new Map<number, Set<number>>();
+        const ensureTargets = (sourceNodeId: number): Set<number> => {
+            let targets = targetsBySourceNodeId.get(sourceNodeId);
+            if (!targets) {
+                targets = new Set<number>();
+                targetsBySourceNodeId.set(sourceNodeId, targets);
+            }
+            return targets;
+        };
+        const connectPair = (sourceNodeId: number, targetNodeId: number): boolean => {
+            const targets = ensureTargets(sourceNodeId);
+            const before = targets.size;
+            targets.add(targetNodeId);
+            return targets.size !== before;
+        };
+        const resolveInvokeSourceNodeIds = (
+            call: ModuleScannedInvoke,
+            sourceArgIndex: number,
+            sourceKind: "node" | "carrier" | "object",
+        ): number[] => {
+            if (sourceKind === "carrier") {
+                return call.argCarrierNodeIds(sourceArgIndex);
+            }
+            if (sourceKind === "object") {
+                return call.argObjectNodeIds(sourceArgIndex);
+            }
+            return call.argNodeIds(sourceArgIndex);
+        };
+        return {
+            connect(sourceNodeId: number, targetNodeId: number): void {
+                connectPair(sourceNodeId, targetNodeId);
+            },
+            connectMany(sourceNodeIds: Iterable<number>, targetNodeIds: Iterable<number>): void {
+                const targetList = [...targetNodeIds];
+                for (const sourceNodeId of sourceNodeIds) {
+                    for (const targetNodeId of targetList) {
+                        connectPair(sourceNodeId, targetNodeId);
+                    }
                 }
-                return targets;
-            };
-            return {
-                connect(sourceNodeId: number, targetNodeId: number): void {
-                    ensureTargets(sourceNodeId).add(targetNodeId);
-                },
-                connectMany(sourceNodeIds: Iterable<number>, targetNodeIds: Iterable<number>): void {
-                    const targetList = [...targetNodeIds];
-                    for (const sourceNodeId of sourceNodeIds) {
-                        const targets = ensureTargets(sourceNodeId);
-                        for (const targetNodeId of targetList) {
-                            targets.add(targetNodeId);
+            },
+            connectInvokeArgToCallbackParam(
+                call: ModuleScannedInvoke,
+                sourceArgIndex: number,
+                callbackArgIndex: number,
+                paramIndex: number,
+                options = {},
+            ): number {
+                const sourceNodeIds = resolveInvokeSourceNodeIds(
+                    call,
+                    sourceArgIndex,
+                    options.sourceKind || "node",
+                );
+                const targetNodeIds = call.callbackParamNodeIds(
+                    callbackArgIndex,
+                    paramIndex,
+                    { maxCandidates: options.maxCandidates },
+                );
+                let added = 0;
+                for (const sourceNodeId of sourceNodeIds) {
+                    for (const targetNodeId of targetNodeIds) {
+                        if (connectPair(sourceNodeId, targetNodeId)) {
+                            added++;
                         }
                     }
+                }
+                return added;
+            },
+            emit(event: ModuleFactEvent, reason: string, options = {}): ModuleEmission[] | undefined {
+                const targets = targetsBySourceNodeId.get(event.current.nodeId);
+                if (!targets || targets.size === 0) return undefined;
+                return event.emit.toNodes(targets, reason, options);
+            },
+            emitPreserve(event: ModuleFactEvent, reason: string, options = {}): ModuleEmission[] | undefined {
+                const targets = targetsBySourceNodeId.get(event.current.nodeId);
+                if (!targets || targets.size === 0) return undefined;
+                return event.emit.preserveToNodes(targets, reason, options);
+            },
+            emitCurrentFieldTail(event: ModuleFactEvent, reason: string, options = {}): ModuleEmission[] | undefined {
+                const targets = targetsBySourceNodeId.get(event.current.nodeId);
+                if (!targets || targets.size === 0) return undefined;
+                return event.emit.toCurrentFieldTailNodes(targets, reason, options);
+            },
+        };
+    };
+
+    return {
+        nodeRelay(): ModuleNodeRelay {
+            return createNodeRelayImpl();
+        },
+        keyedNodeRelay(): ModuleKeyedNodeRelay {
+            const relay = createNodeRelayImpl();
+            const sourceNodeIdsByKey = new Map<string, Set<number>>();
+            const targetNodeIdsByKey = new Map<string, Set<number>>();
+            const materializedEdges = new Set<string>();
+            const ensureSourceSet = (key: string): Set<number> => {
+                let nodeIds = sourceNodeIdsByKey.get(key);
+                if (!nodeIds) {
+                    nodeIds = new Set<number>();
+                    sourceNodeIdsByKey.set(key, nodeIds);
+                }
+                return nodeIds;
+            };
+            const ensureTargetSet = (key: string): Set<number> => {
+                let nodeIds = targetNodeIdsByKey.get(key);
+                if (!nodeIds) {
+                    nodeIds = new Set<number>();
+                    targetNodeIdsByKey.set(key, nodeIds);
+                }
+                return nodeIds;
+            };
+            return {
+                addSource(key: string, sourceNodeId: number): void {
+                    ensureSourceSet(key).add(sourceNodeId);
+                },
+                addSources(key: string, sourceNodeIds: Iterable<number>): void {
+                    const sources = ensureSourceSet(key);
+                    for (const sourceNodeId of sourceNodeIds) {
+                        sources.add(sourceNodeId);
+                    }
+                },
+                addTarget(key: string, targetNodeId: number): void {
+                    ensureTargetSet(key).add(targetNodeId);
+                },
+                addTargets(key: string, targetNodeIds: Iterable<number>): void {
+                    const targets = ensureTargetSet(key);
+                    for (const targetNodeId of targetNodeIds) {
+                        targets.add(targetNodeId);
+                    }
+                },
+                materialize(): number {
+                    let added = 0;
+                    for (const [key, sourceNodeIds] of sourceNodeIdsByKey.entries()) {
+                        const targetNodeIds = targetNodeIdsByKey.get(key);
+                        if (!targetNodeIds || targetNodeIds.size === 0) continue;
+                        for (const sourceNodeId of sourceNodeIds) {
+                            for (const targetNodeId of targetNodeIds) {
+                                const edgeKey = `${key}:${sourceNodeId}->${targetNodeId}`;
+                                if (materializedEdges.has(edgeKey)) continue;
+                                materializedEdges.add(edgeKey);
+                                relay.connect(sourceNodeId, targetNodeId);
+                                added++;
+                            }
+                        }
+                    }
+                    return added;
                 },
                 emit(event: ModuleFactEvent, reason: string, options = {}): ModuleEmission[] | undefined {
-                    const targets = targetsBySourceNodeId.get(event.current.nodeId);
-                    if (!targets || targets.size === 0) return undefined;
-                    return event.emit.toNodes(targets, reason, options);
+                    return relay.emit(event, reason, options);
                 },
                 emitPreserve(event: ModuleFactEvent, reason: string, options = {}): ModuleEmission[] | undefined {
-                    const targets = targetsBySourceNodeId.get(event.current.nodeId);
-                    if (!targets || targets.size === 0) return undefined;
-                    return event.emit.preserveToNodes(targets, reason, options);
+                    return relay.emitPreserve(event, reason, options);
                 },
                 emitCurrentFieldTail(event: ModuleFactEvent, reason: string, options = {}): ModuleEmission[] | undefined {
-                    const targets = targetsBySourceNodeId.get(event.current.nodeId);
-                    if (!targets || targets.size === 0) return undefined;
-                    return event.emit.toCurrentFieldTailNodes(targets, reason, options);
+                    return relay.emitCurrentFieldTail(event, reason, options);
                 },
             };
         },
@@ -963,7 +1121,7 @@ function createBridgeApi(): ModuleBridgeApi {
 
 function collectCallbackMethodsWithQueries(
     scene: any,
-    queries: RawModuleSetupContext["queries"],
+    queries: InternalModuleQueryApi,
     callbackValue: any,
     options: ModuleCallbackResolveOptions = {},
 ): ModuleResolvedCallbackMethod[] {
@@ -978,7 +1136,20 @@ function collectCallbackMethodsWithQueries(
         methods.set(meta.ownerMethodSignature, method);
     };
 
-    for (const method of queries.resolveMethodsFromCallable(scene, callbackValue, { maxCandidates: options.maxCandidates })) {
+    for (const method of resolveCallbackMethodsFromValueWithReturns(
+        scene,
+        callbackValue,
+        { maxDepth: options.maxCandidates ?? 4 },
+    )) {
+        addMethod(method);
+    }
+
+    for (const method of queries.resolveMethodsFromCallable(scene, callbackValue, {
+        maxCandidates: options.maxCandidates,
+        enableLocalBacktrace: true,
+        maxBacktraceSteps: 5,
+        maxVisitedDefs: 16,
+    })) {
         addMethod(method);
     }
 
@@ -1020,6 +1191,136 @@ function collectCallbackMethodsWithQueries(
     return out;
 }
 
+function resolveDeferredBindingMethod(
+    scene: any,
+    source: any,
+): any | undefined {
+    if (!source) return undefined;
+    if (typeof source?.getSignature === "function") {
+        return source;
+    }
+    const signature = String(source || "").trim();
+    if (!signature) return undefined;
+    return getMethodBySignature(scene, signature);
+}
+
+function normalizeExplicitDeferredBindingSemantics(
+    semantics?: {
+        activation?: ModuleExplicitDeferredBindingRecord["semantics"]["activation"];
+        completion?: ModuleExplicitDeferredBindingRecord["semantics"]["completion"];
+        preserve?: ModuleExplicitDeferredBindingRecord["semantics"]["preserve"];
+        continuationRole?: ModuleExplicitDeferredBindingRecord["semantics"]["continuationRole"];
+    },
+): ModuleExplicitDeferredBindingRecord["semantics"] {
+    return {
+        activation: semantics?.activation || "event(c)",
+        completion: semantics?.completion || "none",
+        preserve: [...(semantics?.preserve || [])],
+        continuationRole: semantics?.continuationRole || "none",
+    };
+}
+
+function createDeferredBindingApi(
+    raw: InternalRawModuleSetupContext,
+    moduleId: string,
+    collector?: DeferredBindingCollector,
+): ModuleDeferredBindingApi {
+    const assertSetupPhase = (): DeferredBindingCollector => {
+        if (collector) {
+            return collector;
+        }
+        throw new ModuleRuntimeDiagnosticError(
+            `module ${moduleId} attempted to declare deferred bindings outside setup`,
+            "MODULE_DEFERRED_BINDING_OUTSIDE_SETUP",
+            "Declare deferred bindings only from module.setup(ctx). Runtime hooks must emit taint facts, not mutate the deferred binding model.",
+        );
+    };
+
+    return {
+        imperativeFromInvoke(invoke, callbackArgIndex, options = {}) {
+            const bindingCollector = assertSetupPhase();
+            const sourceMethod = getMethodBySignature(raw.scene, invoke.ownerMethodSignature)
+                || invoke.stmt?.getCfg?.()?.getDeclaringMethod?.();
+            if (!sourceMethod?.getCfg?.()) {
+                throw new ModuleRuntimeDiagnosticError(
+                    `module ${moduleId} declared an imperative deferred binding without a resolvable source method`,
+                    "MODULE_INVALID_DEFERRED_BINDING",
+                    "Use a scanned invoke that belongs to a concrete source method. The module runtime could not resolve invoke.ownerMethodSignature back to a method body.",
+                );
+            }
+            const callbackValue = invoke.arg(callbackArgIndex);
+            const callbackMethods = collectCallbackMethodsWithQueries(
+                raw.scene,
+                raw.queries,
+                callbackValue,
+                { maxCandidates: options.maxCandidates },
+            );
+            if (callbackMethods.length === 0) {
+                return 0;
+            }
+
+            let added = 0;
+            for (const resolved of callbackMethods) {
+                const unit = resolved.method;
+                if (!unit?.getCfg?.()) continue;
+                const binding: ModuleExplicitImperativeDeferredBindingRecord = {
+                    moduleId,
+                    bindingKind: "imperative",
+                    sourceMethod,
+                    unit,
+                    anchorStmt: invoke.stmt,
+                    carrierKind: options.carrierKind || "direct",
+                    reason: options.reason
+                        || `Module ${moduleId} declared an imperative deferred binding from ${invoke.call.signature}`,
+                    semantics: normalizeExplicitDeferredBindingSemantics(options.semantics),
+                    invokeText: invoke.stmt?.toString?.() || invoke.call.signature,
+                };
+                bindingCollector.add(binding);
+                added += 1;
+            }
+            return added;
+        },
+        declarative(declaration: ModuleDeclarativeDeferredBindingDeclaration): void {
+            const bindingCollector = assertSetupPhase();
+            const sourceMethod = resolveDeferredBindingMethod(
+                raw.scene,
+                declaration.sourceMethod || declaration.sourceMethodSignature,
+            );
+            const handlerMethod = resolveDeferredBindingMethod(
+                raw.scene,
+                declaration.handlerMethod || declaration.handlerMethodSignature,
+            );
+            if (!sourceMethod?.getCfg?.() || !handlerMethod?.getCfg?.()) {
+                throw new ModuleRuntimeDiagnosticError(
+                    `module ${moduleId} declared a declarative deferred binding with unresolved source or handler method`,
+                    "MODULE_INVALID_DEFERRED_BINDING",
+                    "Provide a concrete source method and handler method, either as method objects or exact method signatures, when declaring a deferred binding.",
+                );
+            }
+            if (!declaration.anchorStmt) {
+                throw new ModuleRuntimeDiagnosticError(
+                    `module ${moduleId} declared a declarative deferred binding without an anchor statement`,
+                    "MODULE_INVALID_DEFERRED_BINDING",
+                    "Declarative deferred bindings require an anchorStmt so the engine can attach the binding to a stable site key.",
+                );
+            }
+            const binding: ModuleExplicitDeclarativeDeferredBindingRecord = {
+                moduleId,
+                bindingKind: "declarative",
+                sourceMethod,
+                unit: handlerMethod,
+                anchorStmt: declaration.anchorStmt,
+                carrierKind: declaration.carrierKind || "field",
+                triggerLabel: declaration.triggerLabel,
+                reason: declaration.reason
+                    || `Module ${moduleId} declared a declarative deferred binding for ${declaration.triggerLabel}`,
+                semantics: normalizeExplicitDeferredBindingSemantics(declaration.semantics),
+            };
+            bindingCollector.add(binding);
+        },
+    };
+}
+
 function collectCallableNameHints(...texts: string[]): string[] {
     const out = new Set<string>();
     const add = (name: string): void => {
@@ -1055,7 +1356,7 @@ function collectCallableNameHints(...texts: string[]): string[] {
 function collectCallbackParamBindingsWithQueries(
     scene: any,
     pag: any,
-    queries: RawModuleSetupContext["queries"],
+    queries: InternalModuleQueryApi,
     callbackValue: any,
     paramIndex: number,
     options: ModuleCallbackResolveOptions = {},
@@ -1105,7 +1406,7 @@ function collectCallbackParamBindingsWithQueries(
 function collectCallbackParamNodeIdsWithQueries(
     scene: any,
     pag: any,
-    queries: RawModuleSetupContext["queries"],
+    queries: InternalModuleQueryApi,
     callbackValue: any,
     paramIndex: number,
     options: ModuleCallbackResolveOptions = {},
@@ -1119,7 +1420,7 @@ function collectCallbackParamNodeIdsWithQueries(
     return [...out.values()];
 }
 
-function createSetupCallbackApi(raw: RawModuleSetupContext): ModuleSetupCallbackApi {
+function createSetupCallbackApi(raw: InternalRawModuleSetupContext): ModuleSetupCallbackApi {
     return {
         methods(callbackValue: any, options = {}): ModuleResolvedCallbackMethod[] {
             return collectCallbackMethodsWithQueries(raw.scene, raw.queries, callbackValue, options);
@@ -1150,13 +1451,52 @@ function createSetupCallbackApi(raw: RawModuleSetupContext): ModuleSetupCallback
     };
 }
 
-function createSetupContext(raw: RawModuleSetupContext): ModuleSetupContext {
+function toPublicRawSetupContext(raw: InternalRawModuleSetupContext): RawModuleSetupContext {
+    return {
+        scene: raw.scene,
+        pag: raw.pag,
+        allowedMethodSignatures: raw.allowedMethodSignatures,
+        fieldToVarIndex: raw.fieldToVarIndex,
+        log: raw.log,
+    };
+}
+
+function toPublicRawFactEvent(raw: InternalRawModuleFactEvent) {
+    return {
+        ...toPublicRawSetupContext(raw),
+        fact: raw.fact,
+        node: raw.node,
+    };
+}
+
+function toPublicRawInvokeEvent(raw: InternalRawModuleInvokeEvent) {
+    return {
+        ...toPublicRawFactEvent(raw),
+        stmt: raw.stmt,
+        invokeExpr: raw.invokeExpr,
+        callSignature: raw.callSignature,
+        methodName: raw.methodName,
+        declaringClassName: raw.declaringClassName,
+        args: raw.args,
+        baseValue: raw.baseValue,
+        resultValue: raw.resultValue,
+    };
+}
+
+function createSetupContext(
+    raw: InternalRawModuleSetupContext,
+    options: {
+        moduleId?: string;
+        deferredBindings?: DeferredBindingCollector;
+    } = {},
+): ModuleSetupContext {
     const analysis = createAnalysisApi(raw);
     return {
-        raw,
+        raw: toPublicRawSetupContext(raw),
         methods: createMethodsApi(raw),
         scan: createScanApi(raw),
         bridge: createBridgeApi(),
+        deferred: createDeferredBindingApi(raw, options.moduleId || "<unknown-module>", options.deferredBindings),
         callbacks: createSetupCallbackApi(raw),
         analysis,
         log: raw.log,
@@ -1164,7 +1504,7 @@ function createSetupContext(raw: RawModuleSetupContext): ModuleSetupContext {
     };
 }
 
-function createCurrentFactView(event: RawModuleFactEvent): ModuleCurrentFactView {
+function createCurrentFactView(event: InternalRawModuleFactEvent): ModuleCurrentFactView {
     return {
         nodeId: event.node.getID(),
         source: event.fact.source,
@@ -1188,7 +1528,7 @@ function createCurrentFactView(event: RawModuleFactEvent): ModuleCurrentFactView
     };
 }
 
-function createCurrentNodeView(event: RawModuleCopyEdgeEvent): ModuleCurrentNodeView {
+function createCurrentNodeView(event: InternalRawModuleCopyEdgeEvent): ModuleCurrentNodeView {
     return {
         nodeId: event.node.getID(),
         contextId: event.contextId,
@@ -1197,7 +1537,7 @@ function createCurrentNodeView(event: RawModuleCopyEdgeEvent): ModuleCurrentNode
 }
 
 function createEmitApi(
-    event: RawModuleFactEvent,
+    event: InternalRawModuleFactEvent,
 ): ModuleEmitApi {
     const buildEmission = (
         reason: string,
@@ -1299,7 +1639,7 @@ function createEmitApi(
             return [...directNodeIds.values()];
         }
         const anchorStmt = options?.anchorStmt
-            ?? ((event as RawModuleInvokeEvent).stmt);
+            ?? ((event as InternalRawModuleInvokeEvent).stmt);
         if (!anchorStmt) {
             return [];
         }
@@ -1440,7 +1780,7 @@ function createEmitApi(
     };
 }
 
-function createCallView(event: RawModuleInvokeEvent) {
+function createCallView(event: InternalRawModuleInvokeEvent) {
     return {
         signature: event.callSignature,
         methodName: event.methodName,
@@ -1458,7 +1798,7 @@ function createCallView(event: RawModuleInvokeEvent) {
     };
 }
 
-function createValuesView(event: RawModuleInvokeEvent) {
+function createValuesView(event: InternalRawModuleInvokeEvent) {
     return {
         arg(index: number): any | undefined {
             return index >= 0 && index < event.args.length ? event.args[index] : undefined;
@@ -1482,7 +1822,7 @@ function createValuesView(event: RawModuleInvokeEvent) {
     };
 }
 
-function matchesCurrentFactValue(event: RawModuleInvokeEvent, value: any): boolean {
+function matchesCurrentFactValue(event: InternalRawModuleInvokeEvent, value: any): boolean {
     const analysis = createAnalysisApi(event);
     const candidateNodeIds = new Set<number>([
         ...analysis.nodeIdsForValue(value, event.stmt),
@@ -1491,7 +1831,7 @@ function matchesCurrentFactValue(event: RawModuleInvokeEvent, value: any): boole
     return candidateNodeIds.has(event.node.getID());
 }
 
-function createInvokeMatchApi(event: RawModuleInvokeEvent): ModuleInvokeMatchApi {
+function createInvokeMatchApi(event: InternalRawModuleInvokeEvent): ModuleInvokeMatchApi {
     return {
         value(value: any): boolean {
             return matchesCurrentFactValue(event, value);
@@ -1510,7 +1850,7 @@ function createInvokeMatchApi(event: RawModuleInvokeEvent): ModuleInvokeMatchApi
 }
 
 function collectCallbackParamNodeIds(
-    event: RawModuleInvokeEvent,
+    event: InternalRawModuleInvokeEvent,
     callbackValue: any,
     paramIndex: number,
     options: ModuleCallbackResolveOptions = {},
@@ -1525,7 +1865,7 @@ function collectCallbackParamNodeIds(
     );
 }
 
-function createCallbackApi(event: RawModuleInvokeEvent): ModuleCallbackApi {
+function createCallbackApi(event: InternalRawModuleInvokeEvent): ModuleCallbackApi {
     const emit = createEmitApi(event);
     return {
         methods(callbackValue: any, options = {}): ModuleResolvedCallbackMethod[] {
@@ -1559,21 +1899,21 @@ function createCallbackApi(event: RawModuleInvokeEvent): ModuleCallbackApi {
     };
 }
 
-function createFactEvent(moduleId: string, raw: RawModuleFactEvent): ModuleFactEvent {
+function createFactEvent(moduleId: string, raw: InternalRawModuleFactEvent): ModuleFactEvent {
     const entry = (raw as any).__moduleAuditEntry as ModuleAuditEntry;
     return {
-        ...createSetupContext(raw),
-        raw,
+        ...createSetupContext(raw, { moduleId }),
+        raw: toPublicRawFactEvent(raw),
         current: createCurrentFactView(raw),
         emit: createEmitApi(raw),
         debug: buildDebugApi(moduleId, entry, raw.log),
     };
 }
 
-function createInvokeEvent(moduleId: string, raw: RawModuleInvokeEvent): ModuleInvokeEvent {
+function createInvokeEvent(moduleId: string, raw: InternalRawModuleInvokeEvent): ModuleInvokeEvent {
     return {
         ...createFactEvent(moduleId, raw),
-        raw,
+        raw: toPublicRawInvokeEvent(raw),
         call: createCallView(raw),
         values: createValuesView(raw),
         callbacks: createCallbackApi(raw),
@@ -1581,7 +1921,7 @@ function createInvokeEvent(moduleId: string, raw: RawModuleInvokeEvent): ModuleI
     };
 }
 
-function createCopyEdgeEvent(moduleId: string, raw: RawModuleCopyEdgeEvent): ModuleCopyEdgeEvent {
+function createCopyEdgeEvent(moduleId: string, raw: InternalRawModuleCopyEdgeEvent): ModuleCopyEdgeEvent {
     const entry = (raw as any).__moduleAuditEntry as ModuleAuditEntry;
     return {
         raw,
@@ -1615,6 +1955,7 @@ class DefaultModuleRuntime implements ModuleRuntime {
     constructor(
         private readonly modules: TaintModule[],
         private readonly sessions: RegisteredSession[],
+        private readonly deferredBindingCollector: DeferredBindingCollector,
     ) {
         this.audit = emptyModuleAuditSnapshot();
         this.audit.loadedModuleIds = modules.map(module => module.id);
@@ -1647,17 +1988,22 @@ class DefaultModuleRuntime implements ModuleRuntime {
         };
     }
 
-    emitForFact(event: RawModuleFactEvent): ModuleEmission[] {
+    getDeferredBindingDeclarations(): ModuleExplicitDeferredBindingRecord[] {
+        return this.deferredBindingCollector.all();
+    }
+
+    emitForFact(event: ModuleRuntime["emitForFact"] extends (event: infer E) => any ? E : never): ModuleEmission[] {
         return this.collectEmissions("onFact", event);
     }
 
-    emitForInvoke(event: RawModuleInvokeEvent): ModuleEmission[] {
+    emitForInvoke(event: ModuleRuntime["emitForInvoke"] extends (event: infer E) => any ? E : never): ModuleEmission[] {
         return this.collectEmissions("onInvoke", event);
     }
 
     private collectEmissions(
         hook: "onFact" | "onInvoke",
-        event: RawModuleFactEvent | RawModuleInvokeEvent,
+        event: (ModuleRuntime["emitForFact"] extends (event: infer E) => any ? E : never)
+            | (ModuleRuntime["emitForInvoke"] extends (event: infer E) => any ? E : never),
     ): ModuleEmission[] {
         const out: ModuleEmission[] = [];
         for (const { moduleId, session, sourcePath } of this.sessions) {
@@ -1674,8 +2020,8 @@ class DefaultModuleRuntime implements ModuleRuntime {
             try {
                 (event as any).__moduleAuditEntry = auditEntry;
                 const authorEvent = hook === "onInvoke"
-                    ? createInvokeEvent(moduleId, event as RawModuleInvokeEvent)
-                    : createFactEvent(moduleId, event as RawModuleFactEvent);
+                    ? createInvokeEvent(moduleId, event as InternalRawModuleInvokeEvent)
+                    : createFactEvent(moduleId, event as InternalRawModuleFactEvent);
                 const emitted = callback(authorEvent as any);
                 if (!emitted || emitted.length === 0) continue;
                 for (const item of emitted) {
@@ -1705,7 +2051,7 @@ class DefaultModuleRuntime implements ModuleRuntime {
         return out;
     }
 
-    shouldSkipCopyEdge(event: RawModuleCopyEdgeEvent): boolean {
+    shouldSkipCopyEdge(event: ModuleRuntime["shouldSkipCopyEdge"] extends (event: infer E) => any ? E : never): boolean {
         for (const { moduleId, session, sourcePath } of this.sessions) {
             if (this.failedModuleIds.has(moduleId)) continue;
             const auditEntry = this.audit.moduleStats[moduleId];
@@ -1758,21 +2104,30 @@ class DefaultModuleRuntime implements ModuleRuntime {
 
 export function createModuleRuntime(
     modules: TaintModule[],
-    ctx: RawModuleSetupContext,
+    ctx: InternalRawModuleSetupContext,
 ): ModuleRuntime {
     const sessions: RegisteredSession[] = [];
+    const deferredBindingCollector = createDeferredBindingCollector();
     const runtime = new DefaultModuleRuntime(
         modules,
         sessions,
+        deferredBindingCollector,
     );
 
     for (const module of modules) {
         let session: ModuleSession | void;
+        const moduleDeferredBindings = createDeferredBindingCollector();
         try {
-            session = module.setup?.(createSetupContext(ctx));
+            session = module.setup?.(createSetupContext(ctx, {
+                moduleId: module.id,
+                deferredBindings: moduleDeferredBindings,
+            }));
         } catch (error) {
             runtime.disableModule(module.id, "setup", error, getExtensionSourceModulePath(module));
             continue;
+        }
+        for (const binding of moduleDeferredBindings.all()) {
+            deferredBindingCollector.add(binding);
         }
         if (!session) continue;
         sessions.push({

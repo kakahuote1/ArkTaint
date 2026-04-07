@@ -50,10 +50,6 @@ function assertFactMetadata(
     kind: string,
     methodName: string,
     expected: Partial<{
-        callbackShape: string;
-        callbackSlotFamily: string;
-        callbackRecognitionLayer: string;
-        callbackFlavor: string;
         entryFamily: string;
         entryShape: string;
         recognitionLayer: string;
@@ -71,35 +67,10 @@ function assertFactMetadata(
     }
 }
 
-function assertBridgeHasMethod(
-    plan: ReturnType<typeof buildArkMainPlan>,
-    group: "triggers" | "channels" | "handoffs",
-    kind: string,
-    methodName: string,
-): void {
-    const bridge = (plan.bridgePlan[group] || []).find((item: any) => item.kind === kind);
-    if (!bridge) {
-        throw new Error(`ArkMain missing bridge group=${group}, kind=${kind}`);
-    }
-    const names = bridge.methods.map((method: any) => method.getName());
-    if (!names.includes(methodName)) {
-        throw new Error(`ArkMain bridge group=${group}, kind=${kind} missing method=${methodName}. actual=${names.join(", ")}`);
-    }
-}
-
-function assertHasFactOnClass(
-    plan: ReturnType<typeof buildArkMainPlan>,
-    kind: string,
-    className: string,
-    methodName: string,
-): void {
-    const matched = plan.facts.some(f =>
-        f.kind === kind
-        && f.method.getName() === methodName
-        && f.method.getDeclaringArkClass?.().getName?.() === className,
-    );
-    if (!matched) {
-        throw new Error(`ArkMain missing fact kind=${kind}, class=${className}, method=${methodName}`);
+function assertNoFact(plan: ReturnType<typeof buildArkMainPlan>, kind: string): void {
+    const fact = plan.facts.find(item => item.kind === kind);
+    if (fact) {
+        throw new Error(`ArkMain should not retain fact kind=${kind}. first=${fact.method.getName()}`);
     }
 }
 
@@ -139,49 +110,22 @@ async function main(): Promise<void> {
 
     assertIncludes(phaseMethodNames(plan, "bootstrap"), ["onCreate", "onWindowStageCreate", "onForeground"], "bootstrap");
     assertIncludes(phaseMethodNames(plan, "composition"), ["build", "aboutToAppear", "onPageShow"], "composition");
-    assertIncludes(phaseMethodNames(plan, "interaction"), ["cbOnClick", "cbOnChange"], "interaction");
-    assertIncludes(phaseMethodNames(plan, "reactive_handoff"), ["onNewWant", "onTokenWatch", "hydrateFromRoute"], "reactive_handoff");
+    assertIncludes(phaseMethodNames(plan, "reactive_handoff"), ["onNewWant"], "reactive_handoff");
     assertIncludes(phaseMethodNames(plan, "teardown"), ["onPageHide", "onBackground", "onWindowStageDestroy", "onDestroy"], "teardown");
-    assertFactMetadata(plan, "callback", "cbOnClick", {
-        callbackFlavor: "ui_event",
-        callbackShape: "direct_callback_slot",
-        callbackSlotFamily: "ui_direct_slot",
-        callbackRecognitionLayer: "sdk_provenance",
-        entryFamily: "ui_direct_slot",
-        entryShape: "direct_callback_slot",
-    });
-    assertHasFact(plan, "want_handoff", "onNewWant");
-    assertFactMetadata(plan, "want_handoff", "onNewWant", {
-        entryFamily: "ability_handoff",
-        entryShape: "lifecycle_slot",
+
+    assertHasFact(plan, "ability_lifecycle", "onNewWant");
+    assertFactMetadata(plan, "ability_lifecycle", "onNewWant", {
+        entryFamily: "ability_lifecycle",
+        entryShape: "override_slot",
         recognitionLayer: "owner_qualified_inheritance",
     });
-    assertHasFact(plan, "watch_handler", "onTokenWatch");
-    assertHasFact(plan, "router_trigger", "hydrateFromRoute");
-    assertFactMetadata(plan, "router_trigger", "hydrateFromRoute", {
-        entryFamily: "navigation_trigger",
-        entryShape: "direct_trigger_call",
-        recognitionLayer: "sdk_provenance_first_layer",
-    });
-    assertBridgeHasMethod(plan, "triggers", "watch", "onTokenWatch");
-    assertBridgeHasMethod(plan, "channels", "router", "hydrateFromRoute");
-    assertBridgeHasMethod(plan, "handoffs", "want", "onCreate");
-    assertBridgeHasMethod(plan, "handoffs", "want", "onNewWant");
-    const wantHandoff = plan.bridgePlan.handoffs.find(item => item.kind === "want");
-    if (!wantHandoff) {
-        throw new Error("ArkMain missing want handoff plan.");
-    }
-    if (wantHandoff.boundary.kind !== "serialized_copy" || wantHandoff.boundary.preservesObjectIdentity) {
-        throw new Error(`ArkMain want handoff boundary mismatch: ${JSON.stringify(wantHandoff.boundary)}`);
-    }
-    if (!wantHandoff.boundary.preservesFieldPath) {
-        throw new Error("ArkMain want handoff boundary should preserve field path across serialized copy.");
-    }
-    const wantSourceNames = wantHandoff.sourceMethods.map(method => method.getName());
-    const wantTargetNames = wantHandoff.targetMethods.map(method => method.getName());
-    if (!wantSourceNames.includes("onCreate") || !wantTargetNames.includes("onNewWant")) {
-        throw new Error(`ArkMain want handoff source/target mismatch: source=${wantSourceNames.join(", ")}, target=${wantTargetNames.join(", ")}`);
-    }
+
+    assertNoFact(plan, "router_source");
+    assertNoFact(plan, "router_trigger");
+    assertNoFact(plan, "watch_source");
+    assertNoFact(plan, "watch_handler");
+    assertNoFact(plan, "callback");
+    assertNoFact(plan, "scheduler_callback");
 
     const engine = new TaintPropagationEngine(scene, 1);
     engine.verbose = false;
@@ -202,14 +146,8 @@ async function main(): Promise<void> {
 
     const routerScene = buildScene(path.resolve("tests/demo/harmony_router_bridge"));
     const routerPlan = buildArkMainPlan(routerScene);
-    assertHasFact(routerPlan, "router_source", "router_replaceUrl_005_T");
-    assertFactMetadata(routerPlan, "router_source", "router_replaceUrl_005_T", {
-        entryFamily: "navigation_source",
-        entryShape: "direct_source_call",
-        recognitionLayer: "sdk_provenance_first_layer",
-    });
-    assertHasFactOnClass(routerPlan, "router_trigger", "ReplacePage", "render");
-    assertHasFactOnClass(routerPlan, "router_trigger", "%dflt", "navDetailBuilder010");
+    assertNoFact(routerPlan, "router_source");
+    assertNoFact(routerPlan, "router_trigger");
 
     const reachable = engine.computeReachableMethodSignatures();
     for (const methodName of [
@@ -219,13 +157,7 @@ async function main(): Promise<void> {
         "build",
         "aboutToAppear",
         "onPageShow",
-        "cbOnClick",
-        "cbOnChange",
-        "build",
         "onNewWant",
-        "onTokenWatch",
-        "onPhaseWatch",
-        "hydrateFromRoute",
         "onPageHide",
         "onBackground",
         "onWindowStageDestroy",
@@ -235,20 +167,10 @@ async function main(): Promise<void> {
             throw new Error(`ArkMain reachable set missing "${methodName}".`);
         }
     }
-    const routerEngine = new TaintPropagationEngine(routerScene, 1);
-    routerEngine.verbose = false;
-    await routerEngine.buildPAG({ entryModel: "arkMain" });
-    const routerReachable = routerEngine.computeReachableMethodSignatures();
-    if (!hasReachableMethodOnClass(routerReachable, "ReplacePage", "render")) {
-        throw new Error("ArkMain reachable set missing ReplacePage.render under navigation activation.");
-    }
-    if (!hasReachableMethodOnClass(routerReachable, "%dflt", "navDetailBuilder010")) {
-        throw new Error("ArkMain reachable set missing navDetailBuilder010 under navigation activation.");
-    }
 
     const extensionScene = buildScene(path.resolve("tests/demo/harmony_extension_composition"));
     const extensionPlan = buildArkMainPlan(extensionScene);
-    assertHasFactOnClass(extensionPlan, "extension_lifecycle", "ProbeWorkScheduler004", "onWorkStop");
+    assertHasFact(extensionPlan, "extension_lifecycle", "onWorkStop");
     const extensionEngine = new TaintPropagationEngine(extensionScene, 1);
     extensionEngine.verbose = false;
     await extensionEngine.buildPAG({ entryModel: "arkMain" });
@@ -265,4 +187,3 @@ main().catch(error => {
     console.error(error);
     process.exit(1);
 });
-

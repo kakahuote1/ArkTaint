@@ -66,8 +66,43 @@ export interface TestProgressReporter {
     finish(currentLabel?: string, detail?: string): void;
 }
 
+export type FormalTestSummaryInput = Omit<TestSummaryData, "startedAt" | "finishedAt" | "durationMs">;
+
+export interface TestReportAliasPaths {
+    jsonPath?: string;
+    markdownPath?: string;
+}
+
+export interface WriteFormalTestReportOptions {
+    aliases?: TestReportAliasPaths[];
+}
+
+export interface FormalTestSuiteController {
+    metadata: TestOutputMetadata;
+    layout: TestOutputLayout;
+    startedAt: string;
+    startedAtMs: number;
+    createProgress(totalSteps: number, options?: TestProgressReporterOptions): TestProgressReporter;
+    writeReport(reportJson: unknown, reportMarkdown: string, options?: WriteFormalTestReportOptions): void;
+    finish(summary: FormalTestSummaryInput, options?: { setExitCodeOnFailure?: boolean }): TestSummaryData;
+}
+
 function toRelative(rootDir: string, targetPath: string): string {
     return path.relative(rootDir, targetPath).replace(/\\/g, "/");
+}
+
+function ensureParentDir(filePath: string): void {
+    fs.mkdirSync(path.dirname(path.resolve(filePath)), { recursive: true });
+}
+
+function writeJsonArtifact(filePath: string, payload: unknown): void {
+    ensureParentDir(filePath);
+    fs.writeFileSync(path.resolve(filePath), `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+}
+
+function writeMarkdownArtifact(filePath: string, markdown: string): void {
+    ensureParentDir(filePath);
+    fs.writeFileSync(path.resolve(filePath), `${markdown}\n`, "utf8");
 }
 
 function clampProgressValue(currentStep: number, totalSteps: number): number {
@@ -191,6 +226,57 @@ export function writeTestSummary(
         paths: payload.artifacts,
         summaryJson: toRelative(layout.rootDir, layout.summaryJsonPath),
     }, null, 2)}\n`, "utf8");
+}
+
+export function createFormalTestSuite(
+    outputDir: string,
+    metadata: TestOutputMetadata,
+): FormalTestSuiteController {
+    const layout = resolveTestOutputLayout(outputDir);
+    ensureTestOutputLayout(layout);
+    const startedAtMs = Date.now();
+    const startedAt = new Date(startedAtMs).toISOString();
+
+    return {
+        metadata,
+        layout,
+        startedAt,
+        startedAtMs,
+        createProgress(totalSteps: number, options: TestProgressReporterOptions = {}): TestProgressReporter {
+            return createTestProgressReporter(layout, metadata, totalSteps, options);
+        },
+        writeReport(reportJson: unknown, reportMarkdown: string, options: WriteFormalTestReportOptions = {}): void {
+            writeJsonArtifact(layout.reportJsonPath, reportJson);
+            writeMarkdownArtifact(layout.reportMarkdownPath, reportMarkdown);
+            for (const alias of options.aliases || []) {
+                if (alias.jsonPath) {
+                    writeJsonArtifact(alias.jsonPath, reportJson);
+                }
+                if (alias.markdownPath) {
+                    writeMarkdownArtifact(alias.markdownPath, reportMarkdown);
+                }
+            }
+        },
+        finish(
+            summary: FormalTestSummaryInput,
+            options: { setExitCodeOnFailure?: boolean } = {},
+        ): TestSummaryData {
+            const finishedAt = new Date().toISOString();
+            const durationMs = Date.now() - startedAtMs;
+            const completeSummary: TestSummaryData = {
+                ...summary,
+                startedAt,
+                finishedAt,
+                durationMs,
+            };
+            writeTestSummary(layout, metadata, completeSummary);
+            printTestConsoleSummary(metadata, layout, completeSummary);
+            if ((options.setExitCodeOnFailure ?? true) && completeSummary.status === "fail") {
+                process.exitCode = 1;
+            }
+            return completeSummary;
+        },
+    };
 }
 
 export function formatTestProgressLine(

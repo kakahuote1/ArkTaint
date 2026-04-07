@@ -110,6 +110,7 @@ struct DemoPage {
         const linkCard = new ChildLinkCard();
         const linkWatchCard = new ChildLinkWatchCard();
         const objectLinkCard = new GrandChildObjectLinkCard();
+        Router.pushUrl({ url: "pages/demo", params: this.token });
         propCard.title = this.token;
         linkCard.token = this.token;
         linkWatchCard.token = this.token;

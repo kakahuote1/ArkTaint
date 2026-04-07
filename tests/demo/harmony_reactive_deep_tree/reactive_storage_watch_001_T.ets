@@ -15,5 +15,7 @@ class StorageWatchPage001 {
 }
 
 export function reactive_storage_watch_001_T(): void {
-    void StorageWatchPage001;
+    const page = new StorageWatchPage001();
+    page.build();
+    page.onTokenWatch();
 }

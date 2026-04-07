@@ -1,7 +1,7 @@
 import { ArkMethod } from "../../../../../arkanalyzer/out/src/core/model/ArkMethod";
 import { ArkMainActivationEdge } from "./ArkMainActivationTypes";
 import { ArkMainEntryFact } from "../ArkMainTypes";
-import { ARK_MAIN_LIFECYCLE_FACT_KINDS } from "../ArkMainTypes";
+import { ARK_MAIN_ROOT_ENTRY_FACT_KINDS } from "../ArkMainTypes";
 import { dedupeMethods, reasonFromFact, reasonFromScenarioSeed } from "./ArkMainActivationBuilderUtils";
 
 export function buildBaselineRootEdges(
@@ -21,7 +21,7 @@ export function buildBaselineRootEdges(
     );
     const baselineFacts = facts.filter(f =>
         f.schedule !== false
-        && ARK_MAIN_LIFECYCLE_FACT_KINDS.has(f.kind),
+        && ARK_MAIN_ROOT_ENTRY_FACT_KINDS.has(f.kind),
     );
     const hasManagedSeedMethod = baselineFacts.some(fact => {
         const signature = fact.method.getSignature?.()?.toString?.();

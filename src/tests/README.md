@@ -15,7 +15,7 @@
 - `datasets/`
   - inherited synthetic dataset runners such as `test_context` and `test_full_dataset`
 - `entry_model/`
-  - ArkMain, entry recovery, provenance, structural probes, and explainability
+  - ArkMain core recovery, provenance, and explainability
 - `execution_handoff/`
   - execution handoff contracts, audits, proofs, and semantic checks
 - `harmony/`
@@ -60,6 +60,15 @@ They are not historical trash and must remain runnable as a stable comparison la
 
 Formal test suites must write their runtime output under `tmp/test_runs/...` and should use the shared test output helper in `helpers/TestOutputContract.ts`.
 
+The preferred entrypoint for new formal suites is `createFormalTestSuite(...)`.
+It wraps the common boilerplate for:
+
+- resolving the standard output layout
+- creating progress reporters
+- writing `report.json` and `report.md`
+- emitting `summary.json` and `run.json`
+- printing the final console summary
+
 Every formal suite should produce:
 
 - `run.json`
@@ -85,6 +94,30 @@ Long-running or multi-step suites must also produce:
 - failures with reason and next hint when possible
 
 Do not emit bare counters without context. A reader should be able to understand the test result from `summary.json` and `report.md` alone.
+
+Minimal pattern:
+
+```ts
+const suite = createFormalTestSuite(outputDir, {
+  suite: "example_suite",
+  domain: "benchmark",
+  title: "Example Suite",
+  purpose: "Explain what this suite validates.",
+});
+
+const progress = suite.createProgress(totalSteps);
+progress.update(0, "prepare");
+
+suite.writeReport(report, renderMarkdown(report));
+progress.finish("DONE");
+
+suite.finish({
+  status: failures.length > 0 ? "fail" : "pass",
+  verdict: failures.length > 0 ? "Suite completed with failures." : "Suite passed.",
+  totals: { totalSteps, failures: failures.length },
+  failures,
+});
+```
 
 ## Progress Requirement
 
