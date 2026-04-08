@@ -8,6 +8,5 @@ class NavPage {
 }
 
 export function navpathstack_getparams_003_T(): void {
-    const page = new NavPage();
-    page.aboutToAppear();
+    void NavPage;
 }

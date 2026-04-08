@@ -16,12 +16,10 @@ class ParentPage004 {
 
     build(): void {
         this.model.token = taint.Source();
-        const child = new GrandChild004({ model: this.model });
-        child.onModelWatch();
     }
 }
 
 export function reactive_objectlink_tree_004_T(): void {
-    const parent = new ParentPage004();
-    parent.build();
+    void GrandChild004;
+    void ParentPage004;
 }

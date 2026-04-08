@@ -664,6 +664,9 @@ class PagBuilder {
                 let base = ivkExpr.getBase();
                 // TODO: remove this after multiple this local fixed
                 base = this.getRealThisLocal(base, cs.callerFuncID);
+                if (!base) {
+                    return;
+                }
                 // Get PAG nodes for this base's local
                 let ctx2NdMap = this.pag.getNodesByValue(base);
                 if (!ctx2NdMap) {
@@ -683,7 +686,13 @@ class PagBuilder {
         }
         let thisRefNode = this.pag.getNode(thisRefNodeID);
         let srcBaseLocal = baseLocal;
+        if (!srcBaseLocal) {
+            return -1;
+        }
         srcBaseLocal = this.getRealThisLocal(srcBaseLocal, callerFunID);
+        if (!srcBaseLocal) {
+            return -1;
+        }
         let srcNodeId = this.pag.hasCtxNode(cid, srcBaseLocal);
         if (!srcNodeId) {
             // this check is for export local and closure use
@@ -1078,6 +1087,9 @@ class PagBuilder {
     }
     getRealThisLocal(input, funcId) {
         var _a;
+        if (!input) {
+            return undefined;
+        }
         if (input.getName() !== 'this') {
             return input;
         }

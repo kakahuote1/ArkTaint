@@ -174,6 +174,9 @@ export class FunctionPlugin implements IPagPlugin {
         }
 
         let thisInstanceLocal = this.pagBuilder.getRealThisLocal(thisLocal, staticCS.callerFuncID);
+        if (!thisInstanceLocal) {
+            return;
+        }
         let baseThisNode = this.pag.getOrNewNode(cid, thisInstanceLocal);
 
         for (let pt of baseThisNode.getPointTo()) {

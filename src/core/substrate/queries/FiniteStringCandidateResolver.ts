@@ -1,8 +1,8 @@
-import { Scene } from "../../../../arkanalyzer/out/src/Scene";
-import { ArkAssignStmt, ArkReturnStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
-import { Constant } from "../../../../arkanalyzer/out/src/core/base/Constant";
-import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
+import { Scene } from "../../../../arkanalyzer/lib/Scene";
+import { ArkAssignStmt, ArkReturnStmt } from "../../../../arkanalyzer/lib/core/base/Stmt";
+import { ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/lib/core/base/Expr";
+import { Constant } from "../../../../arkanalyzer/lib/core/base/Constant";
+import { Local } from "../../../../arkanalyzer/lib/core/base/Local";
 import { collectParameterAssignStmts } from "./CalleeResolver";
 
 const MAX_STRING_CANDIDATES = 6;

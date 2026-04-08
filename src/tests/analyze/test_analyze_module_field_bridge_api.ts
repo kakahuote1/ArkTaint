@@ -34,8 +34,6 @@ async function main(): Promise<void> {
     writeText(
         path.join(repoSourceDir, "EntryAbility.ets"),
         [
-            "import { UIAbility } from '@kit.AbilityKit';",
-            "",
             "class Vault {",
             "  saved: string = \"\";",
             "}",
@@ -48,13 +46,9 @@ async function main(): Promise<void> {
             "",
             "function Sink(v: string): void {}",
             "",
-            "export default class EntryAbility extends UIAbility {",
-            "  onCreate(): void {",
-            "    const box = new Vault();",
-            "    Remember(box, Source());",
-            "    Sink(box.saved);",
-            "  }",
-            "}",
+            "const box = new Vault();",
+            "Remember(box, Source());",
+            "Sink(box.saved);",
             "",
         ].join("\n"),
     );

@@ -1,7 +1,7 @@
-import { CallGraph } from "../../../../arkanalyzer/out/src/callgraph/model/CallGraph";
-import { Pag } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
-import { Scene } from "../../../../arkanalyzer/out/src/Scene";
-import { ArkMethod } from "../../../../arkanalyzer/out/src/core/model/ArkMethod";
+import { CallGraph } from "../../../../arkanalyzer/lib/callgraph/model/CallGraph";
+import { Pag } from "../../../../arkanalyzer/lib/callgraph/pointerAnalysis/Pag";
+import { Scene } from "../../../../arkanalyzer/lib/Scene";
+import { ArkMethod } from "../../../../arkanalyzer/lib/core/model/ArkMethod";
 import type {
     BridgeDecl,
     EnqueueFactDecl,

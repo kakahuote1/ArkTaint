@@ -1,4 +1,4 @@
-﻿import * as fs from "fs";
+import * as fs from "fs";
 import * as path from "path";
 import { loadModules } from "../../core/orchestration/modules/ModuleLoader";
 import { loadEnginePlugins } from "../../core/orchestration/plugins/EnginePluginLoader";

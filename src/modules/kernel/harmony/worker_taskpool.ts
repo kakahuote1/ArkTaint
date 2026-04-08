@@ -55,16 +55,13 @@ export const harmonyWorkerTaskPoolModule: TaintModule = defineModule({
             declaringClassIncludes: "taskpool",
             minArgs: 2,
         })) {
-            const added = relay.connectInvokeArgToCallbackParam(
-                call,
-                1,
-                0,
-                0,
-                { maxCandidates: 8 },
-            );
-            if (added === 0) continue;
+            const callbackParamNodeIds = new Set<number>(call.callbackParamNodeIds(0, 0, { maxCandidates: 8 }));
+            if (callbackParamNodeIds.size === 0) continue;
+            const payloadNodeIds = new Set<number>(call.argNodeIds(1));
+            if (payloadNodeIds.size === 0) continue;
             taskpoolExecuteCount++;
-            bridgeEdgeCount += added;
+            bridgeEdgeCount += payloadNodeIds.size * callbackParamNodeIds.size;
+            relay.connectMany(payloadNodeIds, callbackParamNodeIds);
         }
 
         for (const send of workerSends) {

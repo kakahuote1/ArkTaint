@@ -6,7 +6,7 @@ import {
     resolveCaseMethod,
 } from "../helpers/SyntheticCaseHarness";
 import { resolveMethodsFromCallable } from "../../core/substrate/queries/CalleeResolver";
-import { resolveKnownFrameworkCallbackRegistration } from "../../core/substrate/semantics/ApprovedImperativeDeferredBindingSemantics";
+import { resolveKnownFrameworkCallbackRegistration } from "../../core/entry/shared/FrameworkCallbackClassifier";
 import { buildSyntheticInvokeEdges } from "../../core/kernel/builders/SyntheticInvokeEdgeBuilder";
 import { buildCaptureEdgeMap } from "../../core/kernel/builders/CallEdgeMapBuilder";
 import { CallEdgeType } from "../../core/kernel/context/TaintContext";
@@ -235,3 +235,4 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+

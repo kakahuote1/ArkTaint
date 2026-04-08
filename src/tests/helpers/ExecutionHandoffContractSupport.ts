@@ -88,6 +88,13 @@ export function ensureDir(dir: string): void {
     fs.mkdirSync(dir, { recursive: true });
 }
 
+let isolatedCaseViewCounter = 0;
+
+function buildUniqueSuffix(): string {
+    const counter = isolatedCaseViewCounter++;
+    return `${process.pid}_${Date.now()}_${counter}`;
+}
+
 export function meaningfulFutureUnits(scene: SceneLike, fileNeedle?: string): MethodLike[] {
     return scene.getMethods().filter((method: MethodLike) => {
         const signature = methodSignature(method);
@@ -110,8 +117,7 @@ function isSemanticCaseFile(fileName: string): boolean {
 }
 
 export function createIsolatedCaseView(sourceDir: string, caseName: string, outputRoot: string): string {
-    const caseDir = path.join(outputRoot, caseName);
-    fs.rmSync(caseDir, { recursive: true, force: true });
+    const caseDir = path.join(outputRoot, `${caseName}__${buildUniqueSuffix()}`);
     ensureDir(caseDir);
 
     for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
@@ -125,4 +131,10 @@ export function createIsolatedCaseView(sourceDir: string, caseName: string, outp
     }
 
     return caseDir;
+}
+
+export function createIsolatedRunDir(outputRoot: string, name: string): string {
+    const dir = path.join(outputRoot, `${name}__${buildUniqueSuffix()}`);
+    ensureDir(dir);
+    return dir;
 }

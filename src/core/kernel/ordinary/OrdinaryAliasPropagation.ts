@@ -1,7 +1,7 @@
-import { Pag, PagNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
-import { ArkAssignStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
-import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
-import { ArkInstanceFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
+import { Pag, PagNode } from "../../../../arkanalyzer/lib/callgraph/pointerAnalysis/Pag";
+import { ArkAssignStmt } from "../../../../arkanalyzer/lib/core/base/Stmt";
+import { Local } from "../../../../arkanalyzer/lib/core/base/Local";
+import { ArkInstanceFieldRef } from "../../../../arkanalyzer/lib/core/base/Ref";
 import {
     ArkAwaitExpr,
     ArkCastExpr,
@@ -10,7 +10,7 @@ import {
     ArkNewArrayExpr,
     ArkNewExpr,
     ArkPhiExpr,
-} from "../../../../arkanalyzer/out/src/core/base/Expr";
+} from "../../../../arkanalyzer/lib/core/base/Expr";
 import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
 
 const MAX_ALIAS_RESOLUTION_DEPTH = 8;

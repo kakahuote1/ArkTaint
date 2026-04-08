@@ -1,10 +1,10 @@
-import { ArkAssignStmt, ArkInvokeStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkNormalBinopExpr, ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
-import { ArkArrayRef, ArkInstanceFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
-import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
-import { Constant } from "../../../../arkanalyzer/out/src/core/base/Constant";
-import { ArrayType } from "../../../../arkanalyzer/out/src/core/base/Type";
-import { Pag, PagNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
+import { ArkAssignStmt, ArkInvokeStmt } from "../../../../arkanalyzer/lib/core/base/Stmt";
+import { ArkNormalBinopExpr, ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/lib/core/base/Expr";
+import { ArkArrayRef, ArkInstanceFieldRef } from "../../../../arkanalyzer/lib/core/base/Ref";
+import { Local } from "../../../../arkanalyzer/lib/core/base/Local";
+import { Constant } from "../../../../arkanalyzer/lib/core/base/Constant";
+import { ArrayType } from "../../../../arkanalyzer/lib/core/base/Type";
+import { Pag, PagNode } from "../../../../arkanalyzer/lib/callgraph/pointerAnalysis/Pag";
 import {
     defineModule,
     fromContainerFieldKey,

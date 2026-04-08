@@ -1,4 +1,4 @@
-import { ArkMethod } from "../../arkanalyzer/out/src/core/model/ArkMethod";
+import { ArkMethod } from "../../arkanalyzer/lib/core/model/ArkMethod";
 import { defineEnginePlugin } from "../core/orchestration/plugins/EnginePlugin";
 
 const DEMO_ENTRY_NAME = "builtinPluginDemoEntry";

@@ -1,11 +1,10 @@
-import { Pag, PagNode, PagStaticFieldNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
-import { ArkAssignStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
-import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
-import { Scene } from "../../../../arkanalyzer/out/src/Scene";
-import { ModelUtils } from "../../../../arkanalyzer/out/src/core/common/ModelUtils";
-import { ArkInstanceFieldRef, ArkParameterRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
+import { Pag, PagNode, PagStaticFieldNode } from "../../../../arkanalyzer/lib/callgraph/pointerAnalysis/Pag";
+import { ArkAssignStmt } from "../../../../arkanalyzer/lib/core/base/Stmt";
+import { Local } from "../../../../arkanalyzer/lib/core/base/Local";
+import { Scene } from "../../../../arkanalyzer/lib/Scene";
+import { ModelUtils } from "../../../../arkanalyzer/lib/core/common/ModelUtils";
+import { ArkParameterRef } from "../../../../arkanalyzer/lib/core/base/Ref";
 import { TaintFact } from "../model/TaintFact";
-import { collectAliasLocalsForCarrier } from "./OrdinaryAliasPropagation";
 
 export interface OrdinarySharedStateIndex {
     moduleStateNamesByFile: Map<string, Set<string>>;
@@ -39,27 +38,31 @@ export function collectOrdinaryModuleStateFactsFromTaintedLocal(
     fieldPath?: string[],
 ): TaintFact[] {
     const results: TaintFact[] = [];
-    for (const sourceLocal of collectCandidateSharedStateLocals(taintedNode, pag)) {
-        for (const stmt of collectCandidateAssignStmts(sourceLocal, taintedNode)) {
-            const left = stmt.getLeftOp();
-            const right = stmt.getRightOp();
-            if (!(right instanceof Local) || !isSameLocal(right, sourceLocal)) continue;
+    const value = taintedNode.getValue?.();
+    if (!(value instanceof Local)) return results;
 
-            if (left instanceof Local) {
-                const stateKey = resolveModuleStateKeyForLocal(left, stmt, index);
-                if (!stateKey) continue;
-                pushModuleStateFacts(results, pag, index.moduleStateConsumerNodeIdsByKey.get(stateKey), source, contextId, fieldPath);
-                continue;
-            }
+    for (const stmt of collectCandidateAssignStmts(value, taintedNode)) {
+        const left = stmt.getLeftOp();
+        const right = stmt.getRightOp();
+        if (!(left instanceof Local) || !(right instanceof Local)) continue;
+        if (!isSameLocal(right, value)) continue;
 
-            if (left instanceof ArkInstanceFieldRef) {
-                const stateKey = resolveModuleStateKeyForBase(left.getBase?.(), stmt, index);
-                if (!stateKey) continue;
-                const fieldName = left.getFieldSignature?.().getFieldName?.() || left.getFieldName?.();
-                if (!fieldName) continue;
-                const nextFieldPath = fieldPath ? [fieldName, ...fieldPath] : [fieldName];
-                pushModuleStateFacts(results, pag, index.moduleStateConsumerNodeIdsByKey.get(stateKey), source, contextId, nextFieldPath);
-            }
+        const filePath = extractFilePathFromStmt(stmt);
+        if (!filePath) continue;
+        const moduleStateNames = index.moduleStateNamesByFile.get(filePath);
+        if (!moduleStateNames?.has(left.getName())) continue;
+
+        const consumerNodeIds = index.moduleStateConsumerNodeIdsByKey.get(toModuleStateKey(filePath, left.getName()));
+        if (!consumerNodeIds || consumerNodeIds.size === 0) continue;
+        for (const nodeId of consumerNodeIds.values()) {
+            const targetNode = pag.getNode(nodeId) as PagNode;
+            if (!targetNode) continue;
+            results.push(new TaintFact(
+                targetNode,
+                source,
+                contextId,
+                fieldPath ? [...fieldPath] : undefined,
+            ));
         }
     }
 
@@ -76,42 +79,38 @@ export function collectOrdinaryModuleImportBindingFactsFromTaintedLocal(
     fieldPath?: string[],
 ): TaintFact[] {
     const results: TaintFact[] = [];
-    for (const sourceLocal of collectCandidateSharedStateLocals(taintedNode, pag)) {
-        for (const stmt of collectCandidateAssignStmts(sourceLocal, taintedNode)) {
-            const left = stmt.getLeftOp();
-            const right = stmt.getRightOp();
-            if (!(right instanceof Local) || !isSameLocal(right, sourceLocal)) continue;
+    const value = taintedNode.getValue?.();
+    if (!(value instanceof Local)) return results;
 
-            if (left instanceof Local) {
-                const stateKey = resolveModuleStateKeyForLocal(left, stmt, index);
-                if (!stateKey) continue;
-                pushModuleImportBindingFacts(
-                    results,
-                    pag,
-                    index.moduleImportBindingConsumerNodeIdsByKey.get(stateKey),
+    for (const stmt of collectCandidateAssignStmts(value, taintedNode)) {
+        const left = stmt.getLeftOp();
+        const right = stmt.getRightOp();
+        if (!(left instanceof Local) || !(right instanceof Local)) continue;
+        if (!isSameLocal(right, value)) continue;
+
+        const filePath = extractFilePathFromStmt(stmt);
+        if (!filePath) continue;
+        const moduleStateNames = index.moduleStateNamesByFile.get(filePath);
+        if (!moduleStateNames?.has(left.getName())) continue;
+
+        const consumerNodeIds = index.moduleImportBindingConsumerNodeIdsByKey.get(toModuleStateKey(filePath, left.getName()));
+        if (!consumerNodeIds || consumerNodeIds.size === 0) continue;
+        for (const nodeId of consumerNodeIds.values()) {
+            const targetNode = pag.getNode(nodeId) as PagNode;
+            if (!targetNode) continue;
+            results.push(new TaintFact(
+                targetNode,
+                source,
+                sharedContextId,
+                fieldPath ? [...fieldPath] : undefined,
+            ));
+            if (currentContextId !== sharedContextId) {
+                results.push(new TaintFact(
+                    targetNode,
                     source,
                     currentContextId,
-                    sharedContextId,
-                    fieldPath,
-                );
-                continue;
-            }
-
-            if (left instanceof ArkInstanceFieldRef) {
-                const stateKey = resolveModuleStateKeyForBase(left.getBase?.(), stmt, index);
-                if (!stateKey) continue;
-                const fieldName = left.getFieldSignature?.().getFieldName?.() || left.getFieldName?.();
-                if (!fieldName) continue;
-                const nextFieldPath = fieldPath ? [fieldName, ...fieldPath] : [fieldName];
-                pushModuleImportBindingFacts(
-                    results,
-                    pag,
-                    index.moduleImportBindingConsumerNodeIdsByKey.get(stateKey),
-                    source,
-                    currentContextId,
-                    sharedContextId,
-                    nextFieldPath,
-                );
+                    fieldPath ? [...fieldPath] : undefined,
+                ));
             }
         }
     }
@@ -169,100 +168,6 @@ function collectModuleStateNames(scene: Scene): Map<string, Set<string>> {
         }
     }
     return out;
-}
-
-function collectCandidateSharedStateLocals(
-    taintedNode: PagNode,
-    pag: Pag,
-): Local[] {
-    const out: Local[] = [];
-    const seen = new Set<string>();
-    const pushLocal = (value: any): void => {
-        if (!(value instanceof Local)) return;
-        const key = `${value.getName?.() || ""}#${value.getDeclaringStmt?.()?.toString?.() || ""}`;
-        if (seen.has(key)) return;
-        seen.add(key);
-        out.push(value);
-    };
-
-    pushLocal(taintedNode.getValue?.());
-    for (const local of collectAliasLocalsForCarrier(pag, taintedNode.getID())) {
-        pushLocal(local);
-    }
-    return out;
-}
-
-function resolveModuleStateKeyForLocal(
-    local: Local,
-    stmt: any,
-    index: OrdinarySharedStateIndex,
-): string | undefined {
-    const filePath = extractFilePathFromStmt(stmt);
-    if (!filePath) return undefined;
-    const moduleStateNames = index.moduleStateNamesByFile.get(filePath);
-    const localName = local.getName?.() || "";
-    if (!localName || !moduleStateNames?.has(localName)) return undefined;
-    return toModuleStateKey(filePath, localName);
-}
-
-function resolveModuleStateKeyForBase(
-    base: any,
-    stmt: any,
-    index: OrdinarySharedStateIndex,
-): string | undefined {
-    if (!(base instanceof Local)) return undefined;
-    return resolveModuleStateKeyForLocal(base, stmt, index);
-}
-
-function pushModuleStateFacts(
-    results: TaintFact[],
-    pag: Pag,
-    consumerNodeIds: Set<number> | undefined,
-    source: string,
-    contextId: number,
-    fieldPath?: string[],
-): void {
-    if (!consumerNodeIds || consumerNodeIds.size === 0) return;
-    for (const nodeId of consumerNodeIds.values()) {
-        const targetNode = pag.getNode(nodeId) as PagNode;
-        if (!targetNode) continue;
-        results.push(new TaintFact(
-            targetNode,
-            source,
-            contextId,
-            fieldPath ? [...fieldPath] : undefined,
-        ));
-    }
-}
-
-function pushModuleImportBindingFacts(
-    results: TaintFact[],
-    pag: Pag,
-    consumerNodeIds: Set<number> | undefined,
-    source: string,
-    currentContextId: number,
-    sharedContextId: number,
-    fieldPath?: string[],
-): void {
-    if (!consumerNodeIds || consumerNodeIds.size === 0) return;
-    for (const nodeId of consumerNodeIds.values()) {
-        const targetNode = pag.getNode(nodeId) as PagNode;
-        if (!targetNode) continue;
-        results.push(new TaintFact(
-            targetNode,
-            source,
-            sharedContextId,
-            fieldPath ? [...fieldPath] : undefined,
-        ));
-        if (currentContextId !== sharedContextId) {
-            results.push(new TaintFact(
-                targetNode,
-                source,
-                currentContextId,
-                fieldPath ? [...fieldPath] : undefined,
-            ));
-        }
-    }
 }
 
 function collectModuleStateConsumerNodeIds(

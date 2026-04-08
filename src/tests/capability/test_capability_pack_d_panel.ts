@@ -26,15 +26,8 @@ const SUITES: SuiteSpec[] = [
 function runSuite(suite: SuiteSpec): SuiteResult {
     const scriptPath = path.resolve(__dirname, suite.script);
     const result = spawnSync(process.execPath, [scriptPath], {
-        encoding: "utf8",
+        stdio: "inherit",
     });
-
-    if (result.stdout) {
-        process.stdout.write(result.stdout);
-    }
-    if (result.stderr) {
-        process.stderr.write(result.stderr);
-    }
 
     return {
         id: suite.id,

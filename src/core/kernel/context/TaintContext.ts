@@ -1,37 +1,37 @@
 /**
- * TaintContext - ArkTaint 的调用点上下文管理器
+ * TaintContext - ArkTaint 鐨勮皟鐢ㄧ偣涓婁笅鏂囩鐞嗗櫒
  * 
- * �?ArkTaint 污点传播层管理上下文信息，复�?Arkanalyzer �?Context 数据结构�?
- * PAG 层保�?k=0 不变，上下文敏感仅在 TaintFact 层实现�?
+ * 锟?ArkTaint 姹＄偣浼犳挱灞傜鐞嗕笂涓嬫枃淇℃伅锛屽锟?Arkanalyzer 锟?Context 鏁版嵁缁撴瀯锟?
+ * PAG 灞備繚锟?k=0 涓嶅彉锛屼笂涓嬫枃鏁忔劅浠呭湪 TaintFact 灞傚疄鐜帮拷?
  */
 
-import { CallSiteContext, Context, ContextCache, ContextID, DUMMY_CID } from '../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/context/Context';
-import { ContextItemManager } from '../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/context/ContextItem';
+import { CallSiteContext, Context, ContextCache, ContextID, DUMMY_CID } from '../../../../arkanalyzer/lib/callgraph/pointerAnalysis/context/Context';
+import { ContextItemManager } from '../../../../arkanalyzer/lib/callgraph/pointerAnalysis/context/ContextItem';
 
 export type ContextKSelector = (callerMethodName: string, calleeMethodName: string, defaultK: number) => number;
 
 /**
- * 调用边信息：记录 PAG 中一�?Copy 边是参数传递（Call）还是返回值传递（Return�?
+ * 璋冪敤杈逛俊鎭細璁板綍 PAG 涓竴锟?Copy 杈规槸鍙傛暟浼犻€掞紙Call锛夎繕鏄繑鍥炲€间紶閫掞紙Return锟?
  */
 export enum CallEdgeType {
-    CALL,    // 参数传递：caller arg �?callee param
-    RETURN,  // 返回值传递：callee ret �?caller dst
+    CALL,    // 鍙傛暟浼犻€掞細caller arg 锟?callee param
+    RETURN,  // 杩斿洖鍊间紶閫掞細callee ret 锟?caller dst
 }
 
 /**
- * 记录一条跨函数 Copy 边的上下文信�?
- * srcNodeId �?dstNodeId �?Copy 边，类型�?CALL �?RETURN
+ * 璁板綍涓€鏉¤法鍑芥暟 Copy 杈圭殑涓婁笅鏂囦俊锟?
+ * srcNodeId 锟?dstNodeId 锟?Copy 杈癸紝绫诲瀷锟?CALL 锟?RETURN
  */
 export interface CallEdgeInfo {
     type: CallEdgeType;
-    callSiteId: number;      // 用于生成上下文的 CallSite 标识
-    callerMethodName: string; // caller 方法名（用于调试�?
-    calleeMethodName: string; // callee 方法名（用于调试�?
+    callSiteId: number;      // 鐢ㄤ簬鐢熸垚涓婁笅鏂囩殑 CallSite 鏍囪瘑
+    callerMethodName: string; // caller 鏂规硶鍚嶏紙鐢ㄤ簬璋冭瘯锟?
+    calleeMethodName: string; // callee 鏂规硶鍚嶏紙鐢ㄤ簬璋冭瘯锟?
 }
 
 /**
- * ArkTaint 的上下文管理�?
- * 基于 CallSite �?k-limited 上下�?
+ * ArkTaint 鐨勪笂涓嬫枃绠＄悊锟?
+ * 鍩轰簬 CallSite 锟?k-limited 涓婁笅锟?
  */
 export class TaintContextManager {
     private contextCache: ContextCache;
@@ -39,7 +39,7 @@ export class TaintContextManager {
     private k: number;
     private contextKSelector?: ContextKSelector;
 
-    // 空上下文�?ID（缓存）
+    // 绌轰笂涓嬫枃锟?ID锛堢紦瀛橈級
     private emptyCID: ContextID;
 
     constructor(k: number = 1) {
@@ -47,7 +47,7 @@ export class TaintContextManager {
         this.contextCache = new ContextCache();
         this.ctxItemManager = new ContextItemManager();
 
-        // 创建并缓存空上下�?
+        // 鍒涘缓骞剁紦瀛樼┖涓婁笅锟?
         let emptyCtx = CallSiteContext.newEmpty();
         this.emptyCID = this.contextCache.getOrNewContextID(emptyCtx);
     }
@@ -57,18 +57,18 @@ export class TaintContextManager {
     }
 
     /**
-     * 获取空上下文 ID（入口函数和初始种子使用�?
+     * 鑾峰彇绌轰笂涓嬫枃 ID锛堝叆鍙ｅ嚱鏁板拰鍒濆绉嶅瓙浣跨敤锟?
      */
     public getEmptyContextID(): ContextID {
         return this.emptyCID;
     }
 
     /**
-     * 创建 callee 上下�?
-     * �?Call 边传播时调用：将 callSiteId 追加�?caller 上下文中
-     * @param callerCtxID caller 的上下文 ID
-     * @param callSiteId 调用点标识（使用 PAG �?src 节点 ID 作为唯一标识�?
-     * @returns callee 的上下文 ID
+     * 鍒涘缓 callee 涓婁笅锟?
+     * 锟?Call 杈逛紶鎾椂璋冪敤锛氬皢 callSiteId 杩藉姞锟?caller 涓婁笅鏂囦腑
+     * @param callerCtxID caller 鐨勪笂涓嬫枃 ID
+     * @param callSiteId 璋冪敤鐐规爣璇嗭紙浣跨敤 PAG 锟?src 鑺傜偣 ID 浣滀负鍞竴鏍囪瘑锟?
+     * @returns callee 鐨勪笂涓嬫枃 ID
      */
     public createCalleeContext(
         callerCtxID: ContextID,
@@ -87,12 +87,12 @@ export class TaintContextManager {
 
         let callerCtx = this.contextCache.getContext(callerCtxID);
 
-        // 直接构�?k-limited 上下文：�?callSiteId 压入栈顶
-        // 不使�?Context.append()，因为它会通过 ContextItemManager 分配自增 ID
+        // 鐩存帴鏋勶拷?k-limited 涓婁笅鏂囷細锟?callSiteId 鍘嬪叆鏍堥《
+        // 涓嶄娇锟?Context.append()锛屽洜涓哄畠浼氶€氳繃 ContextItemManager 鍒嗛厤鑷 ID
         let newElems: number[] = [callSiteId];
 
         if (callerCtx && callerCtx.length() > 0) {
-            // 取前 k-1 个元素（k-limited 策略�?
+            // 鍙栧墠 k-1 涓厓绱狅紙k-limited 绛栫暐锟?
             let oldLen = Math.min(callerCtx.length(), effectiveK - 1);
             for (let i = 0; i < oldLen; i++) {
                 newElems.push(callerCtx.get(i));
@@ -104,12 +104,12 @@ export class TaintContextManager {
     }
 
     /**
-     * 恢复 caller 上下�?
-     * �?Return 边传播时调用：从 callee 上下文中提取 caller 上下�?
-     * 对于 k-limited 上下文，callee 上下�?= [cs_n, cs_n-1, ..., cs_1]
-     * caller 上下�?= [cs_n-1, ..., cs_1]（弹出最近的 callsite�?
-     * @param calleeCtxID callee 的上下文 ID  
-     * @returns caller 的上下文 ID
+     * 鎭㈠ caller 涓婁笅锟?
+     * 锟?Return 杈逛紶鎾椂璋冪敤锛氫粠 callee 涓婁笅鏂囦腑鎻愬彇 caller 涓婁笅锟?
+     * 瀵逛簬 k-limited 涓婁笅鏂囷紝callee 涓婁笅锟?= [cs_n, cs_n-1, ..., cs_1]
+     * caller 涓婁笅锟?= [cs_n-1, ..., cs_1]锛堝脊鍑烘渶杩戠殑 callsite锟?
+     * @param calleeCtxID callee 鐨勪笂涓嬫枃 ID  
+     * @returns caller 鐨勪笂涓嬫枃 ID
      */
     public restoreCallerContext(calleeCtxID: ContextID): ContextID {
         if (this.k === 0) {
@@ -121,7 +121,7 @@ export class TaintContextManager {
             return this.emptyCID;
         }
 
-        // 弹出最近的 callsite 元素，构�?caller 上下�?
+        // 寮瑰嚭鏈€杩戠殑 callsite 鍏冪礌锛屾瀯锟?caller 涓婁笅锟?
         let callerElems: number[] = [];
         for (let i = 1; i < calleeCtx.length(); i++) {
             callerElems.push(calleeCtx.get(i));
@@ -132,9 +132,9 @@ export class TaintContextManager {
     }
 
     /**
-     * 获取上下文的栈顶元素（最近的 callsite ID�?
-     * 用于 Return 边的上下文匹�?
-     * @returns 栈顶 callSiteId，如果上下文为空则返�?-1
+     * 鑾峰彇涓婁笅鏂囩殑鏍堥《鍏冪礌锛堟渶杩戠殑 callsite ID锟?
+     * 鐢ㄤ簬 Return 杈圭殑涓婁笅鏂囧尮锟?
+     * @returns 鏍堥《 callSiteId锛屽鏋滀笂涓嬫枃涓虹┖鍒欒繑锟?-1
      */
     public getTopElement(ctxID: ContextID): number {
         let ctx = this.contextCache.getContext(ctxID);
@@ -143,7 +143,7 @@ export class TaintContextManager {
     }
 
     /**
-     * 获取上下文字符串（用�?TaintFact ID 计算�?
+     * 鑾峰彇涓婁笅鏂囧瓧绗︿覆锛堢敤锟?TaintFact ID 璁＄畻锟?
      */
     public getContextString(ctxID: ContextID): string {
         let ctx = this.contextCache.getContext(ctxID);
@@ -152,7 +152,7 @@ export class TaintContextManager {
     }
 
     /**
-     * 获取 k �?
+     * 鑾峰彇 k 锟?
      */
     public getK(): number {
         return this.k;

@@ -1,6 +1,6 @@
-﻿
-import { Scene } from "../../../arkanalyzer/out/src/Scene";
-import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
+
+import { Scene } from "../../../arkanalyzer/lib/Scene";
+import { SceneConfig } from "../../../arkanalyzer/lib/Config";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import * as path from 'path';
 

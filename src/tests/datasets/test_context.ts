@@ -1,6 +1,6 @@
 
-import { Scene } from "../../../arkanalyzer/out/src/Scene";
-import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
+import { Scene } from "../../../arkanalyzer/lib/Scene";
+import { SceneConfig } from "../../../arkanalyzer/lib/Config";
 import * as fs from 'fs';
 import * as path from 'path';
 import {
@@ -44,7 +44,7 @@ async function runTest() {
                 const entry = resolveCaseMethod(scene, file, testName);
                 let entryMethod = findCaseMethod(scene, entry);
                 if (!entryMethod) {
-                    console.error(`  ❌ Method ${testName} not found in scene.`);
+                    console.error(`  鉂?Method ${testName} not found in scene.`);
                     kStats.failed++;
                     kStats.total++;
                     continue;
@@ -57,7 +57,7 @@ async function runTest() {
                 // Find seeds (taint_src parameter)
                 let methodBody = entryMethod.getBody();
                 if (!methodBody) {
-                    console.error(`  ❌ Method ${testName} has no body.`);
+                    console.error(`  鉂?Method ${testName} has no body.`);
                     kStats.failed++;
                     kStats.total++;
                     continue;
@@ -66,7 +66,7 @@ async function runTest() {
                 let seeds = collectCaseSeedNodes(engine, entryMethod);
 
                 if (seeds.length === 0) {
-                    console.error(`  ⚠️ No seeds found.`);
+                    console.error(`  鈿狅笍 No seeds found.`);
                     kStats.failed++;
                     kStats.total++;
                     continue;
@@ -79,10 +79,10 @@ async function runTest() {
                 let detected = flows.length > 0;
 
                 if (detected === expected) {
-                    console.log(`  ✅ PASSED. (Detected: ${detected}, Expected: ${expected})`);
+                    console.log(`  鉁?PASSED. (Detected: ${detected}, Expected: ${expected})`);
                     kStats.passed++;
                 } else {
-                    console.log(`  ❌ FAILED. (Detected: ${detected}, Expected: ${expected})`);
+                    console.log(`  鉂?FAILED. (Detected: ${detected}, Expected: ${expected})`);
                     if (detected) {
                         console.log("     Unexpected flow:");
                         flows.forEach(f => console.log(`       ${f.toString()}`));
@@ -90,7 +90,7 @@ async function runTest() {
                     kStats.failed++;
                 }
             } catch (e) {
-                console.error(`  ❌ Error: ${e}`);
+                console.error(`  鉂?Error: ${e}`);
                 kStats.failed++;
             }
             kStats.total++;

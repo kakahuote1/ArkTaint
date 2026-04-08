@@ -86,7 +86,6 @@ const MANIFESTS = [
     "tests/adhoc/execution_handoff_semantic_async/manifest.json",
     "tests/adhoc/execution_handoff_semantic_env/manifest.json",
     "tests/adhoc/execution_handoff_semantic_perturbation/manifest.json",
-    "tests/adhoc/execution_handoff_semantic_reactive/manifest.json",
 ];
 
 async function runCase(

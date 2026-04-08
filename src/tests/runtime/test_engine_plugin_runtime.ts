@@ -1,6 +1,6 @@
 import * as path from "path";
-import { Scene } from "../../../arkanalyzer/out/src/Scene";
-import { Pag } from "../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
+import { Scene } from "../../../arkanalyzer/lib/Scene";
+import { Pag } from "../../../arkanalyzer/lib/callgraph/pointerAnalysis/Pag";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { TaintFlow } from "../../core/kernel/model/TaintFlow";
 import { loadEnginePlugins } from "../../core/orchestration/plugins/EnginePluginLoader";
@@ -108,9 +108,9 @@ function sinkRule() {
 async function main(): Promise<void> {
     const projectDir = path.resolve("tests/fixtures/engine_plugin_runtime/project");
     const pluginDir = path.resolve("tests/fixtures/engine_plugin_runtime/external_plugins");
-    const baselineEntryMethodName = "onCreate";
+    const buildMethodName = "build";
     const pluginOnlyEntryName = "pluginOnlyEntry";
-    const baselineEntryMethodSignatureIncludes = ".onCreate(";
+    const buildMethodSignatureIncludes = ".build(";
     const pluginOnlyMethodSignatureIncludes = ".pluginOnlyEntry(";
 
     const loadedPluginResult = loadEnginePlugins({
@@ -171,8 +171,8 @@ async function main(): Promise<void> {
         await engine.buildPAG({ entryModel: "arkMain" });
         const reachable = engine.computeReachableMethodSignatures();
         assert(
-            [...reachable].some(sig => sig.includes(baselineEntryMethodSignatureIncludes)),
-            "default arkMain should discover the formal lifecycle baseline entry",
+            [...reachable].some(sig => sig.includes(buildMethodSignatureIncludes)),
+            "default arkMain should still discover build()",
         );
         assert(
             ![...reachable].some(sig => sig.includes(pluginOnlyMethodSignatureIncludes)),
@@ -223,7 +223,7 @@ async function main(): Promise<void> {
 
     {
         const scene = buildTestScene(projectDir);
-        const buildMethod = findMethodByName(scene, baselineEntryMethodName);
+        const buildMethod = findMethodByName(scene, buildMethodName);
         const brokenStartPlugin = defineEnginePlugin({
             name: "fixture.broken_start",
             onStart() {
@@ -257,7 +257,7 @@ async function main(): Promise<void> {
 
     {
         const scene = buildTestScene(projectDir);
-        const buildMethod = findMethodByName(scene, baselineEntryMethodName);
+        const buildMethod = findMethodByName(scene, buildMethodName);
         const events = {
             callEdges: 0,
             taintFlows: 0,
@@ -293,7 +293,7 @@ async function main(): Promise<void> {
 
     {
         const scene = buildTestScene(projectDir);
-        const buildMethod = findMethodByName(scene, baselineEntryMethodName);
+        const buildMethod = findMethodByName(scene, buildMethodName);
         let failureCount = 0;
         const brokenObserverPlugin = defineEnginePlugin({
             name: "fixture.broken_observer",
@@ -331,7 +331,7 @@ async function main(): Promise<void> {
 
     {
         const scene = buildTestScene(projectDir);
-        const buildMethod = findMethodByName(scene, baselineEntryMethodName);
+        const buildMethod = findMethodByName(scene, buildMethodName);
         const extraSinkStmt = findSinkStmtByMethod(scene, "extraCheckEntry");
         assert(extraSinkStmt, "expected extraCheckEntry sink stmt");
         const addCheckPlugin = defineEnginePlugin({
@@ -357,7 +357,7 @@ async function main(): Promise<void> {
 
     {
         const scene = buildTestScene(projectDir);
-        const buildMethod = findMethodByName(scene, baselineEntryMethodName);
+        const buildMethod = findMethodByName(scene, buildMethodName);
         const filterPlugin = defineEnginePlugin({
             name: "fixture.filter_all",
             onResult(api) {
@@ -521,7 +521,7 @@ async function main(): Promise<void> {
 
     {
         const scene = buildTestScene(projectDir);
-        const buildMethod = findMethodByName(scene, baselineEntryMethodName);
+        const buildMethod = findMethodByName(scene, buildMethodName);
         const replaceA = defineEnginePlugin({
             name: "fixture.replace.a",
             onPropagation(api) {

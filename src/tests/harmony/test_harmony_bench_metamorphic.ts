@@ -1,5 +1,5 @@
-import { Scene } from "../../../arkanalyzer/out/src/Scene";
-import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
+import { Scene } from "../../../arkanalyzer/lib/Scene";
+import { SceneConfig } from "../../../arkanalyzer/lib/Config";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { LoadedRuleSet, loadRuleSet } from "../../core/rules/RuleLoader";
 import { TaintFlow } from "../../core/kernel/model/TaintFlow";
@@ -13,11 +13,6 @@ import * as fs from "fs";
 import * as path from "path";
 import { registerMockSdkFiles } from "../helpers/TestSceneBuilder";
 import { resolveExpectedSinkRuleIds, summarizeSinkInventoryFlows } from "../helpers/SinkInventoryScoring";
-import {
-    createFormalTestSuite,
-    TestFailureSummary,
-    TestOutputMetadata,
-} from "../helpers/TestOutputContract";
 
 interface CliOptions {
     manifestPath: string;
@@ -270,42 +265,6 @@ function buildScene(projectDir: string): Scene {
 function classify(expectedFlow: boolean, detectedTarget: boolean, detectedAny: boolean): "TP" | "FP" | "TN" | "FN" {
     if (expectedFlow) return detectedTarget ? "TP" : "FN";
     return detectedAny ? "FP" : "TN";
-}
-
-interface HarmonyMetamorphicSuiteReport {
-    generatedAt: string;
-    manifestPath: string;
-    k: number;
-    groups: HarmonyMutatorGroup[];
-    datasetManifestPath: string;
-    eq: {
-        total: number;
-        consistent: number;
-        inconsistent: number;
-        baselineAnalyzeFailures: number;
-        mutatedAnalyzeFailures: number;
-    };
-    challenge: {
-        total: number;
-        tp: number;
-        fp: number;
-        tn: number;
-        fn: number;
-        recall: number | null;
-        precision: number | null;
-        fpSafeControl: number;
-        safeControlTotal: number;
-        unrelatedSinkHits: number;
-        spilloverRatio: number | null;
-    };
-    artifacts: {
-        eqJson: string;
-        eqMd: string;
-        challengeJson: string;
-        challengeMd: string;
-        gapBacklogMd: string;
-        docsMd: string;
-    };
 }
 
 function calcRecall(tp: number, fn: number): number | null {
@@ -726,13 +685,6 @@ async function main(): Promise<void> {
     const options = parseArgs(process.argv.slice(2));
     const generatedRoot = path.join(options.outputDir, "generated");
     ensureDir(options.outputDir);
-    const metadata: TestOutputMetadata = {
-        suite: "harmony_bench_metamorphic",
-        domain: "benchmark",
-        title: "Harmony Bench Metamorphic",
-        purpose: "Run harmony metamorphic mutations, track consistency and challenge classifications, and emit the standard benchmark output contract.",
-    };
-    const suite = createFormalTestSuite(options.outputDir, metadata);
 
     const dataset = generateHarmonyMutationDataset({
         manifestPath: options.manifestPath,
@@ -753,18 +705,10 @@ async function main(): Promise<void> {
     let baselineAnalyzeFailures = 0;
     let mutatedAnalyzeFailures = 0;
     const totalMutations = dataset.mutations.length;
-    const progressReporter = suite.createProgress(Math.max(totalMutations, 1), {
-        logEveryCount: 1,
-        logEveryPercent: 5,
-    });
     let processedMutations = 0;
+    const progressStartMs = Date.now();
 
     for (const mutation of dataset.mutations) {
-        progressReporter.update(
-            processedMutations,
-            `${mutation.categoryId}/${mutation.sourceCase.case_id}`,
-            `group=${mutation.group},transform=${mutation.transform}`,
-        );
         const baselineSceneKey = mutation.sourceDirOriginal;
         let baselineScene = baselineSceneCache.get(baselineSceneKey);
         if (!baselineScene) {
@@ -867,11 +811,18 @@ async function main(): Promise<void> {
         }
 
         processedMutations++;
-        progressReporter.update(
-            processedMutations,
-            `${mutation.categoryId}/${mutation.sourceCase.case_id}`,
-            `group=${mutation.group},transform=${mutation.transform}`,
-        );
+        if (processedMutations === 1 || processedMutations % 25 === 0 || processedMutations === totalMutations) {
+            const elapsed = (Date.now() - progressStartMs) / 1000;
+            const rate = processedMutations > 0 ? elapsed / processedMutations : 0;
+            const remain = Math.max(0, totalMutations - processedMutations);
+            const eta = rate * remain;
+            console.log(
+                `[metamorphic-progress] ${processedMutations}/${totalMutations} `
+                + `(${((processedMutations / totalMutations) * 100).toFixed(1)}%) `
+                + `elapsed=${elapsed.toFixed(1)}s eta=${eta.toFixed(1)}s `
+                + `case=${mutation.categoryId}/${mutation.sourceCase.case_id}/${mutation.transform}`
+            );
+        }
     }
 
     const eqByTransform: Record<string, { total: number; consistent: number; inconsistent: number }> = {};
@@ -962,102 +913,29 @@ async function main(): Promise<void> {
     fs.writeFileSync(challengeMdPath, renderChallengeMarkdown(challengeReport), "utf-8");
     fs.writeFileSync(gapBacklogPath, renderGapBacklog(eqReport, challengeReport), "utf-8");
     fs.writeFileSync(options.docsPath, renderSummaryMarkdown(eqReport, challengeReport, options), "utf-8");
-    const suiteReport: HarmonyMetamorphicSuiteReport = {
-        generatedAt: new Date().toISOString(),
-        manifestPath: options.manifestPath,
-        k: options.k,
-        groups: options.groups,
-        datasetManifestPath: path.join(generatedRoot, "generated_manifest.json"),
-        eq: {
-            total: eqReport.total,
-            consistent: eqReport.consistent,
-            inconsistent: eqReport.inconsistent,
-            baselineAnalyzeFailures: eqReport.baselineAnalyzeFailures,
-            mutatedAnalyzeFailures: eqReport.mutatedAnalyzeFailures,
-        },
-        challenge: {
-            total: challengeReport.total,
-            tp: challengeReport.tp,
-            fp: challengeReport.fp,
-            tn: challengeReport.tn,
-            fn: challengeReport.fn,
-            recall: challengeReport.recall,
-            precision: challengeReport.precision,
-            fpSafeControl: challengeReport.fpSafeControl,
-            safeControlTotal: challengeReport.safeControlTotal,
-            unrelatedSinkHits: challengeReport.unrelatedSinkHits,
-            spilloverRatio: challengeReport.spilloverRatio,
-        },
-        artifacts: {
-            eqJson: eqPath,
-            eqMd: eqMdPath,
-            challengeJson: challengePath,
-            challengeMd: challengeMdPath,
-            gapBacklogMd: gapBacklogPath,
-            docsMd: options.docsPath,
-        },
-    };
-    suite.writeReport(suiteReport, renderSummaryMarkdown(eqReport, challengeReport, options));
-    progressReporter.finish("DONE", "benchmark=harmony_bench_metamorphic");
 
-    const failureItems: TestFailureSummary[] = [];
-    if (eqReport.inconsistent > 0) {
-        failureItems.push({
-            name: "group_a_inconsistency",
-            expected: 0,
-            actual: eqReport.inconsistent,
-            reason: "Group A strict-equivalence mutations were inconsistent.",
-            severity: "high",
-        });
+    console.log("====== Harmony Metamorphic (7.7.3) ======");
+    console.log(`dataset_manifest=${path.join(generatedRoot, "generated_manifest.json")}`);
+    console.log(`report_eq=${eqPath}`);
+    console.log(`report_eq_md=${eqMdPath}`);
+    console.log(`report_challenge=${challengePath}`);
+    console.log(`report_challenge_md=${challengeMdPath}`);
+    console.log(`gap_backlog=${gapBacklogPath}`);
+    console.log(`docs=${options.docsPath}`);
+    console.log(`A_total=${eqReport.total}`);
+    console.log(`A_consistent=${eqReport.consistent}`);
+    console.log(`A_inconsistent=${eqReport.inconsistent}`);
+    console.log(`B_total=${challengeReport.total}`);
+    console.log(`B_tp=${challengeReport.tp}`);
+    console.log(`B_fp=${challengeReport.fp}`);
+    console.log(`B_tn=${challengeReport.tn}`);
+    console.log(`B_fn=${challengeReport.fn}`);
+    console.log(`B_fp_safe_control=${challengeReport.fpSafeControl}/${challengeReport.safeControlTotal}`);
+    console.log(`B_unrelated_sink_hits=${challengeReport.unrelatedSinkHits}`);
+
+    if (eqReport.inconsistent > 0 || baselineAnalyzeFailures > 0 || mutatedAnalyzeFailures > 0) {
+        process.exitCode = 1;
     }
-    if (baselineAnalyzeFailures > 0) {
-        failureItems.push({
-            name: "baseline_analyze_failures",
-            expected: 0,
-            actual: baselineAnalyzeFailures,
-            reason: "Some baseline harmony benchmark mutations could not be analyzed.",
-            severity: "high",
-        });
-    }
-    if (mutatedAnalyzeFailures > 0) {
-        failureItems.push({
-            name: "mutated_analyze_failures",
-            expected: 0,
-            actual: mutatedAnalyzeFailures,
-            reason: "Some mutated harmony benchmark cases could not be analyzed.",
-            severity: "high",
-        });
-    }
-    suite.finish({
-        status: (eqReport.inconsistent > 0 || baselineAnalyzeFailures > 0 || mutatedAnalyzeFailures > 0)
-            ? "fail"
-            : "pass",
-        verdict: (eqReport.inconsistent > 0 || baselineAnalyzeFailures > 0 || mutatedAnalyzeFailures > 0)
-            ? "Harmony metamorphic benchmark completed with strict-equivalence failures."
-            : "Harmony metamorphic benchmark completed and produced the expected challenge reports.",
-        totals: {
-            mutations: totalMutations,
-            group_a_total: eqReport.total,
-            group_a_consistent: eqReport.consistent,
-            group_a_inconsistent: eqReport.inconsistent,
-            group_b_total: challengeReport.total,
-            group_b_tp: challengeReport.tp,
-            group_b_fp: challengeReport.fp,
-            group_b_tn: challengeReport.tn,
-            group_b_fn: challengeReport.fn,
-            group_b_fp_safe_control: `${challengeReport.fpSafeControl}/${challengeReport.safeControlTotal}`,
-        },
-        highlights: [
-            `dataset_manifest=${path.join(generatedRoot, "generated_manifest.json")}`,
-            `group_b_recall=${challengeReport.recall === null ? "N/A" : challengeReport.recall.toFixed(4)}`,
-            `group_b_precision=${challengeReport.precision === null ? "N/A" : challengeReport.precision.toFixed(4)}`,
-        ],
-        failures: failureItems,
-        notes: [
-            `gap_backlog=${gapBacklogPath}`,
-            `docs=${options.docsPath}`,
-        ],
-    });
 }
 
 main().catch(err => {

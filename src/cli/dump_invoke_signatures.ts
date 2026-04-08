@@ -1,7 +1,7 @@
-import { Scene } from "../../arkanalyzer/out/src/Scene";
-import { SceneConfig } from "../../arkanalyzer/out/src/Config";
-import { ArkAssignStmt } from "../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../arkanalyzer/out/src/core/base/Expr";
+import { Scene } from "../../arkanalyzer/lib/Scene";
+import { SceneConfig } from "../../arkanalyzer/lib/Config";
+import { ArkAssignStmt } from "../../arkanalyzer/lib/core/base/Stmt";
+import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../arkanalyzer/lib/core/base/Expr";
 import * as fs from "fs";
 import * as path from "path";
 

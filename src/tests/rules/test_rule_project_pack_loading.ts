@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { RuleLoadError, loadRuleSet } from "../../core/rules/RuleLoader";
+import { createIsolatedRunDir } from "../helpers/ExecutionHandoffContractSupport";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -30,8 +31,10 @@ function makeEmptyRuleSet(kind: "sources" | "sinks" | "sanitizers" | "transfers"
 }
 
 async function main(): Promise<void> {
-    const root = path.resolve("tmp/test_runs/rule_project_pack_loading/latest/rules");
-    fs.rmSync(path.dirname(root), { recursive: true, force: true });
+    const root = path.join(
+        createIsolatedRunDir(path.resolve("tmp/test_runs/rule_project_pack_loading/latest"), "ruleset"),
+        "rules",
+    );
 
     writeRuleFile(
         path.join(root, "sources", "kernel", "seed.rules.json"),

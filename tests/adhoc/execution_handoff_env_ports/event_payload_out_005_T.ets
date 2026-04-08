@@ -4,7 +4,7 @@ class PagePayloadOut005 {
     private mirrored = "";
 
     build(taint_src: ButtonValue): void {
-        taint_src.onChange((payload: string) => {
+        taint_src.onValue((payload: string) => {
             this.mirrored = payload;
         });
         taint.Sink(this.mirrored);

@@ -225,7 +225,6 @@ setup 阶段高层扫描 API：
 setup 阶段 bridge 原语：
 
 - `nodeRelay()`
-- `keyedNodeRelay()`
 - `fieldRelay()`
 
 适合：
@@ -475,17 +474,14 @@ export default defineModule({
     const relay = ctx.bridge.nodeRelay();
 
     for (const call of ctx.scan.invokes({ methodName: "register" })) {
-      relay.connectInvokeArgToCallbackParam(call, 0, 1, 0, {
-        sourceKind: "carrier",
-        maxCandidates: 8,
-      });
+      const fromNodeIds = call.argCarrierNodeIds(0);
+      const callbackParamNodeIds = call.callbackParamNodeIds(1, 0);
+      relay.connectMany(fromNodeIds, callbackParamNodeIds);
     }
 
     return {
       onFact(event) {
-        return relay.emitPreserve(event, "Acme-PrecomputedBridge", {
-          allowUnreachableTarget: true,
-        });
+        return relay.emitPreserve(event, "Acme-PrecomputedBridge");
       },
     };
   },

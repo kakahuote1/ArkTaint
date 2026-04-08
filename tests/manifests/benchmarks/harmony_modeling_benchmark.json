@@ -43,9 +43,6 @@
       "kernelRulePath": "tests/rules/minimal.rules.json",
       "ruleCatalogPath": "src/rules",
       "projectRulePath": "tests/rules/harmony_reactive_deep_tree.rules.json",
-      "caseExcludePatterns": [
-        "^reactive_route_link_watch_002_T$"
-      ],
       "modelingCapabilities": ["state"]
     },
     {
@@ -162,9 +159,6 @@
       "sourceDir": "tests/demo/harmony_multi_ability_chain",
       "kernelRulePath": "tests/rules/minimal.rules.json",
       "projectRulePath": "tests/rules/harmony_multi_ability_chain.rules.json",
-      "caseExcludePatterns": [
-        "^multiability_newwant_build_002_T$"
-      ],
       "modelingCapabilities": ["handoff"],
       "disabledAutoSourceRuleIdPrefixes": [
         "source.arkmain.contract.lifecycle.param.",

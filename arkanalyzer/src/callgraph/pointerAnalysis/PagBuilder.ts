@@ -770,9 +770,12 @@ export class PagBuilder {
                     return;
                 }
                 // Get local of base class
-                let base = ivkExpr.getBase();
+                let base: Local | undefined = ivkExpr.getBase();
                 // TODO: remove this after multiple this local fixed
                 base = this.getRealThisLocal(base, cs.callerFuncID);
+                if (!base) {
+                    return;
+                }
                 // Get PAG nodes for this base's local
                 let ctx2NdMap = this.pag.getNodesByValue(base);
                 if (!ctx2NdMap) {
@@ -790,7 +793,7 @@ export class PagBuilder {
 
     public addThisRefCallEdge(
         cid: ContextID,
-        baseLocal: Local,
+        baseLocal: Local | undefined,
         callee: ArkMethod,
         calleeCid: ContextID,
         callerFunID: FuncID
@@ -802,7 +805,13 @@ export class PagBuilder {
 
         let thisRefNode = this.pag.getNode(thisRefNodeID) as PagThisRefNode;
         let srcBaseLocal = baseLocal;
+        if (!srcBaseLocal) {
+            return -1;
+        }
         srcBaseLocal = this.getRealThisLocal(srcBaseLocal, callerFunID);
+        if (!srcBaseLocal) {
+            return -1;
+        }
         let srcNodeId = this.pag.hasCtxNode(cid, srcBaseLocal);
         if (!srcNodeId) {
             // this check is for export local and closure use
@@ -1272,7 +1281,10 @@ export class PagBuilder {
         (this.pag.getNode(node) as PagNode).setPointTo(pts);
     }
 
-    public getRealThisLocal(input: Local, funcId: FuncID): Local {
+    public getRealThisLocal(input: Local | undefined, funcId: FuncID): Local | undefined {
+        if (!input) {
+            return undefined;
+        }
         if (input.getName() !== 'this') {
             return input;
         }

@@ -1,6 +1,6 @@
 import * as path from "path";
-import { Scene } from "../../../arkanalyzer/out/src/Scene";
-import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
+import { Scene } from "../../../arkanalyzer/lib/Scene";
+import { SceneConfig } from "../../../arkanalyzer/lib/Config";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { loadRuleSet } from "../../core/rules/RuleLoader";
 import { SinkRule, SourceRule, TransferRule } from "../../core/rules/RuleSchema";
@@ -85,24 +85,31 @@ async function main(): Promise<void> {
     const probes: ProbeSpec[] = [
         {
             sourceDir: "tests/demo/harmony_lifecycle",
-            caseName: "lifecycle_want_direct_001_T",
+            caseName: "lifecycle_abilitystage_oncreate_015_T",
             projectRulePath: "tests/rules/harmony_lifecycle_sink_only.rules.json",
             ruleCatalogPath: "src/rules",
-            expectedMethodRef: "AbilityWantDirect001.onCreate",
+            expectedMethodRef: "DemoAbilityStage015.onCreate",
         },
         {
             sourceDir: "tests/demo/harmony_lifecycle",
-            caseName: "lifecycle_extension_formbinding_013_T",
+            caseName: "lifecycle_router_getparams_009_T",
             projectRulePath: "tests/rules/harmony_lifecycle_sink_only.rules.json",
             ruleCatalogPath: "src/rules",
-            expectedMethodRef: "DemoFormExtension013.onUpdateForm",
+            expectedMethodRef: "ParamsPage009.build",
         },
         {
-            sourceDir: "tests/demo/harmony_lifecycle",
-            caseName: "lifecycle_extension_addform_011_T",
-            projectRulePath: "tests/rules/harmony_lifecycle_sink_only.rules.json",
+            sourceDir: "tests/demo/harmony_router_dynamic",
+            caseName: "router_getparams_direct_001_T",
+            projectRulePath: "tests/rules/harmony_router_dynamic.rules.json",
             ruleCatalogPath: "src/rules",
-            expectedMethodRef: "DemoFormExtension011.onAddForm",
+            expectedMethodRef: "RouterPage001.build",
+        },
+        {
+            sourceDir: "tests/demo/harmony_router_bridge",
+            caseName: "navigation_destination_callback_010_T",
+            projectRulePath: "tests/rules/harmony_router_bridge.rules.json",
+            ruleCatalogPath: "src/rules",
+            expectedMethodRef: "%dflt.navDetailBuilder010",
         },
     ];
 

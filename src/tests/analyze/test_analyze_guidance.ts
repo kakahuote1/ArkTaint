@@ -1,4 +1,4 @@
-﻿import * as fs from "fs";
+import * as fs from "fs";
 import { getAnalyzeSummaryMarkdownPath, runAnalyzeCli } from "../helpers/AnalyzeCliRunner";
 import { resolveTestRunDir } from "../helpers/TestWorkspaceLayout";
 

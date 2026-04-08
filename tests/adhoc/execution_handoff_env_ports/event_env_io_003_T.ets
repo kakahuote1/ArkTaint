@@ -5,7 +5,7 @@ class PageIo003 {
 
     build(): void {
         const button = new ButtonValue();
-        button.onChange((payload: string) => {
+        button.onValue((payload: string) => {
             this.mirrored = this.mirrored + payload;
         });
         taint.Sink(this.mirrored);

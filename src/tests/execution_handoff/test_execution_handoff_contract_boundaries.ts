@@ -1,9 +1,9 @@
 import * as fs from "fs";
 import * as path from "path";
-import { Scene } from "../../../arkanalyzer/out/src/Scene";
-import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
-import { ArkMethod } from "../../../arkanalyzer/out/src/core/model/ArkMethod";
-import { resolveKnownFrameworkCallbackRegistration } from "../../core/substrate/semantics/ApprovedImperativeDeferredBindingSemantics";
+import { Scene } from "../../../arkanalyzer/lib/Scene";
+import { SceneConfig } from "../../../arkanalyzer/lib/Config";
+import { ArkMethod } from "../../../arkanalyzer/lib/core/model/ArkMethod";
+import { resolveKnownFrameworkCallbackRegistrationWithPolicy } from "../../core/entry/shared/FrameworkCallbackClassifier";
 import { resolveMethodsFromCallable } from "../../core/substrate/queries/CalleeResolver";
 import { registerMockSdkFiles } from "../helpers/TestSceneBuilder";
 import {
@@ -24,14 +24,14 @@ interface CallableSiteProbe {
     ownerName: string;
     methodName: string;
     callableArgIndexes: number[];
-    recognized: boolean;
+    structuralRecognized: boolean;
 }
 
 interface BoundaryCaseReport {
     caseName: string;
     expectedKind: "direct_only";
     callableSiteCount: number;
-    recognizedSiteCount: number;
+    structuralRecognizedSiteCount: number;
     recognizedOwners: string[];
     recognizedMethods: string[];
 }
@@ -42,6 +42,14 @@ const CALLBACK_RESOLVE_OPTIONS = {
     maxBacktraceSteps: 5,
     maxVisitedDefs: 16,
 };
+
+const STRUCTURAL_ONLY_POLICY = {
+    enableSdkProvenance: false,
+    enableOwnerQualifiedFallback: false,
+    enableEmptyOwnerFallback: false,
+    enableStructuralCallableFallback: true,
+    suppressCatalogSlotFamilyInference: true,
+} as const;
 
 const CASES = [
     { caseName: "layer4_sync_hof_sort_001_F", expectedKind: "direct_only" as const },
@@ -95,15 +103,16 @@ function collectCallableSiteProbes(scene: SceneLike): CallableSiteProbe[] {
             const callableArgIndexes = findCallableArgIndexes(scene, explicitArgs);
             if (callableArgIndexes.length === 0) continue;
             const methodSig = invokeExpr.getMethodSignature?.();
-            const match = resolveKnownFrameworkCallbackRegistration(
+            const match = resolveKnownFrameworkCallbackRegistrationWithPolicy(
                 { invokeExpr, explicitArgs, scene, sourceMethod: method },
+                STRUCTURAL_ONLY_POLICY,
             );
             probes.push({
                 sourceMethod: methodRef(method),
                 ownerName: methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "",
                 methodName: methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "",
                 callableArgIndexes,
-                recognized: !!match,
+                structuralRecognized: !!match,
             });
         }
     }
@@ -114,13 +123,13 @@ function analyzeBoundaryCase(projectDir: string, caseName: string, expectedKind:
     const scene = buildScene(projectDir);
     const probes = collectCallableSiteProbes(scene);
     resolveSeedMethod(scene, caseName);
-    const recognized = probes.filter(probe => probe.recognized);
+    const recognized = probes.filter(probe => probe.structuralRecognized);
 
     return {
         caseName,
         expectedKind,
         callableSiteCount: probes.length,
-        recognizedSiteCount: recognized.length,
+        structuralRecognizedSiteCount: recognized.length,
         recognizedOwners: [...new Set(recognized.map(probe => probe.ownerName).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
         recognizedMethods: [...new Set(recognized.map(probe => probe.methodName).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
     };
@@ -130,16 +139,16 @@ function assertBoundaryReports(reports: BoundaryCaseReport[]): void {
     for (const report of reports) {
         assert(report.callableSiteCount > 0, `${report.caseName} should contain at least one callable site`);
         assert(
-            report.recognizedSiteCount === 0,
+            report.structuralRecognizedSiteCount === 0,
             `${report.caseName} should not instantiate framework/event handoff contracts`,
         );
     }
 }
 
-function assertDirectPositiveEventControl(): { callableSiteCount: number; recognizedSiteCount: number; recognizedMethods: string[] } {
+function assertDirectPositiveEventControl(): { callableSiteCount: number; structuralRecognizedSiteCount: number; recognizedMethods: string[] } {
     const scene = buildScene(path.resolve("tests/demo/harmony_callback_registration"));
     const probes = collectCallableSiteProbes(scene).filter(probe => probe.sourceMethod.includes("CallbackPage001.build"));
-    const recognized = probes.filter(probe => probe.recognized);
+    const recognized = probes.filter(probe => probe.structuralRecognized);
 
     assert(probes.length > 0, "direct onClick positive control should contain callable sites");
     assert(recognized.length > 0, "direct onClick positive control should instantiate an event handoff contract");
@@ -149,7 +158,7 @@ function assertDirectPositiveEventControl(): { callableSiteCount: number; recogn
 
     return {
         callableSiteCount: probes.length,
-        recognizedSiteCount: recognized.length,
+        structuralRecognizedSiteCount: recognized.length,
         recognizedMethods,
     };
 }

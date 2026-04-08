@@ -1,7 +1,7 @@
-import { Pag } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
-import { ArkAssignStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkInstanceFieldRef, ArkParameterRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
-import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
+import { Pag } from "../../../../arkanalyzer/lib/callgraph/pointerAnalysis/Pag";
+import { ArkAssignStmt } from "../../../../arkanalyzer/lib/core/base/Stmt";
+import { ArkInstanceFieldRef, ArkParameterRef } from "../../../../arkanalyzer/lib/core/base/Ref";
+import { Local } from "../../../../arkanalyzer/lib/core/base/Local";
 import {
     defineModule,
     type ModuleSetupContext,

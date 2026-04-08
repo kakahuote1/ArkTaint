@@ -1,5 +1,5 @@
-import type { Scene } from "../../../../arkanalyzer/out/src/Scene";
-import type { Pag, PagNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
+import type { Scene } from "../../../../arkanalyzer/lib/Scene";
+import type { Pag, PagNode } from "../../../../arkanalyzer/lib/callgraph/pointerAnalysis/Pag";
 import type { TaintFact } from "../model/TaintFact";
 
 export interface PropagationContext {

@@ -1,5 +1,5 @@
-import { Scene } from "../../../../arkanalyzer/out/src/Scene";
-import { Pag } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
+import { Scene } from "../../../../arkanalyzer/lib/Scene";
+import { Pag } from "../../../../arkanalyzer/lib/callgraph/pointerAnalysis/Pag";
 
 export function resolveHarmonyMethods(scene: Scene, allowedMethodSignatures?: Set<string>): any[] {
     const allMethods = scene.getMethods().filter(m => m.getName() !== "%dflt");

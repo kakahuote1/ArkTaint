@@ -3,7 +3,7 @@ import { Link, State, taint } from "./taint_mock";
 class Child003 {
     @Link token: string = "";
 
-    build(): void {
+    render(): void {
         taint.Sink(this.token);
     }
 }
@@ -13,13 +13,11 @@ class Parent003 {
 
     build(): void {
         this.token = taint.Source();
-        const child = new Child003({ token: this.token });
-        child.build();
     }
 }
 
 export function reactive_link_child_003_T(): void {
-    const parent = new Parent003();
-    parent.build();
+    void Parent003;
+    void Child003;
 }
 

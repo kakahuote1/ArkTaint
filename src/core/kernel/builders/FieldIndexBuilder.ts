@@ -1,5 +1,5 @@
-import { Pag, PagInstanceFieldNode, PagNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
-import { ArkInstanceFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
+import { Pag, PagInstanceFieldNode, PagNode } from "../../../../arkanalyzer/lib/callgraph/pointerAnalysis/Pag";
+import { ArkInstanceFieldRef } from "../../../../arkanalyzer/lib/core/base/Ref";
 import { appendOrdinaryArrayLoadIndices } from "../ordinary/OrdinaryLanguagePropagation";
 
 export function buildFieldToVarIndex(

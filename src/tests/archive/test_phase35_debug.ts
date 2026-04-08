@@ -1,8 +1,8 @@
-﻿import { Scene } from "../../../arkanalyzer/out/src/Scene";
-import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
-import { ArkAssignStmt } from "../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkParameterRef } from "../../../arkanalyzer/out/src/core/base/Ref";
-import { Local } from "../../../arkanalyzer/out/src/core/base/Local";
+import { Scene } from "../../../arkanalyzer/lib/Scene";
+import { SceneConfig } from "../../../arkanalyzer/lib/Config";
+import { ArkAssignStmt } from "../../../arkanalyzer/lib/core/base/Stmt";
+import { ArkParameterRef } from "../../../arkanalyzer/lib/core/base/Ref";
+import { Local } from "../../../arkanalyzer/lib/core/base/Local";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import * as path from "path";
 

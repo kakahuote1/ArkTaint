@@ -1,16 +1,19 @@
 import * as fs from "fs";
 import * as path from "path";
-import { Scene } from "../../../arkanalyzer/out/src/Scene";
-import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
+import { Scene } from "../../../arkanalyzer/lib/Scene";
+import { SceneConfig } from "../../../arkanalyzer/lib/Config";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { loadRuleSet } from "../../core/rules/RuleLoader";
 import { SinkRule, SourceRule } from "../../core/rules/RuleSchema";
 import { findCaseMethod, resolveCaseMethod } from "../helpers/SyntheticCaseHarness";
 import { registerMockSdkFiles } from "../helpers/TestSceneBuilder";
 import {
-    createFormalTestSuite,
+    createTestProgressReporter,
+    printTestConsoleSummary,
+    resolveTestOutputLayout,
     TestFailureSummary,
     TestOutputMetadata,
+    writeTestSummary,
 } from "../helpers/TestOutputContract";
 
 type ModelingCapability = "state" | "storage" | "router" | "handoff" | "emitter" | "worker_taskpool";
@@ -344,17 +347,20 @@ async function main(): Promise<void> {
     const manifest = loadManifest();
     const expectations = loadExpectations();
     const outputRoot = path.resolve("tmp/test_runs/modeling/harmony_modeling_benchmark/latest");
+    const outputLayout = resolveTestOutputLayout(outputRoot);
     const caseViewRoot = path.join(outputRoot, "cases");
+    ensureDir(outputLayout.rootDir);
+    ensureDir(caseViewRoot);
     const metadata: TestOutputMetadata = {
         suite: "harmony_modeling",
         domain: "benchmark",
         title: "Harmony Modeling Benchmark",
         purpose: "Measure whether built-in Harmony modules recover expected propagation semantics beyond the baseline engine behavior.",
     };
-    const suite = createFormalTestSuite(outputRoot, metadata);
-    ensureDir(caseViewRoot);
+    const startedAtMs = Date.now();
+    const startedAt = new Date(startedAtMs).toISOString();
     const totalCases = Object.keys(expectations.cases).length;
-    const progressReporter = suite.createProgress(totalCases, {
+    const progressReporter = createTestProgressReporter(outputLayout, metadata, totalCases, {
         logEveryCount: 1,
         logEveryPercent: 5,
     });
@@ -476,9 +482,9 @@ async function main(): Promise<void> {
     };
 
     const reportPath = path.join(outputRoot, "harmony_modeling_benchmark_report.json");
-    suite.writeReport(report, renderMarkdownReport(report), {
-        aliases: [{ jsonPath: reportPath }],
-    });
+    fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+    fs.writeFileSync(outputLayout.reportJsonPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+    fs.writeFileSync(outputLayout.reportMarkdownPath, `${renderMarkdownReport(report)}\n`, "utf8");
     progressReporter.finish("DONE", "benchmark=harmony_modeling");
 
     const remainingFailures = report.suites.flatMap(suite => suite.remainingFailures.map(item => `${suite.suite}/${item}`));
@@ -487,11 +493,16 @@ async function main(): Promise<void> {
         reason: "Modeled benchmark case still does not match expected result.",
         severity: "high",
     }));
-    suite.finish({
+    const finishedAt = new Date().toISOString();
+    const durationMs = Date.now() - startedAtMs;
+    writeTestSummary(outputLayout, metadata, {
         status: failureItems.length > 0 ? "fail" : "pass",
         verdict: failureItems.length > 0
             ? "Harmony modeling benchmark completed with remaining modeled-case failures."
             : "Harmony modeling benchmark completed with all modeled cases passing.",
+        startedAt,
+        finishedAt,
+        durationMs,
         totals: {
             manifest: path.relative(process.cwd(), manifestPath),
             expectations: path.relative(process.cwd(), expectationPath),
@@ -508,6 +519,31 @@ async function main(): Promise<void> {
         ],
         failures: failureItems,
     });
+    printTestConsoleSummary(metadata, outputLayout, {
+        status: failureItems.length > 0 ? "fail" : "pass",
+        verdict: failureItems.length > 0
+            ? "Harmony modeling benchmark completed with remaining failures; inspect report artifacts."
+            : "Harmony modeling benchmark completed with all modeled cases passing.",
+        startedAt,
+        finishedAt,
+        durationMs,
+        totals: {
+            manifest: path.relative(process.cwd(), manifestPath),
+            expectations: path.relative(process.cwd(), expectationPath),
+            suite_count: report.suiteCount,
+            total_cases: report.totalCases,
+            baseline_pass: `${report.summaries.baseline.passCases}/${report.summaries.baseline.totalCases}`,
+            modeling_pass: `${report.summaries.modeling.passCases}/${report.summaries.modeling.totalCases}`,
+            modeling_solved_vs_baseline: report.modelingSolvedCases.length,
+            modeling_prevented_false_positives_vs_baseline: report.modelingPreventedFalsePositiveCases.length,
+        },
+        highlights: [],
+        failures: failureItems,
+    });
+
+    if (report.summaries.modeling.failCases > 0) {
+        process.exitCode = 1;
+    }
 }
 
 main().catch(err => {

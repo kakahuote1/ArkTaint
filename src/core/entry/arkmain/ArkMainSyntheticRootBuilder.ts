@@ -1,18 +1,18 @@
-import { Scene } from "../../../../arkanalyzer/out/src/Scene";
-import { ArkMethod } from "../../../../arkanalyzer/out/src/core/model/ArkMethod";
-import { ArkFile, Language } from "../../../../arkanalyzer/out/src/core/model/ArkFile";
-import { ArkClass } from "../../../../arkanalyzer/out/src/core/model/ArkClass";
-import { ArkBody } from "../../../../arkanalyzer/out/src/core/model/ArkBody";
-import { FileSignature, ClassSignature, MethodSignature } from "../../../../arkanalyzer/out/src/core/model/ArkSignature";
-import { ArkSignatureBuilder } from "../../../../arkanalyzer/out/src/core/model/builder/ArkSignatureBuilder";
-import { checkAndUpdateMethod } from "../../../../arkanalyzer/out/src/core/model/builder/ArkMethodBuilder";
-import { Cfg } from "../../../../arkanalyzer/out/src/core/graph/Cfg";
-import { BasicBlock } from "../../../../arkanalyzer/out/src/core/graph/BasicBlock";
-import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
-import { ClassType, Type } from "../../../../arkanalyzer/out/src/core/base/Type";
-import { ArkAssignStmt, ArkInvokeStmt, ArkReturnVoidStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkInstanceInvokeExpr, ArkNewExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
-import { CONSTRUCTOR_NAME } from "../../../../arkanalyzer/out/src/core/common/TSConst";
+import { Scene } from "../../../../arkanalyzer/lib/Scene";
+import { ArkMethod } from "../../../../arkanalyzer/lib/core/model/ArkMethod";
+import { ArkFile, Language } from "../../../../arkanalyzer/lib/core/model/ArkFile";
+import { ArkClass } from "../../../../arkanalyzer/lib/core/model/ArkClass";
+import { ArkBody } from "../../../../arkanalyzer/lib/core/model/ArkBody";
+import { FileSignature, ClassSignature, MethodSignature } from "../../../../arkanalyzer/lib/core/model/ArkSignature";
+import { ArkSignatureBuilder } from "../../../../arkanalyzer/lib/core/model/builder/ArkSignatureBuilder";
+import { checkAndUpdateMethod } from "../../../../arkanalyzer/lib/core/model/builder/ArkMethodBuilder";
+import { Cfg } from "../../../../arkanalyzer/lib/core/graph/Cfg";
+import { BasicBlock } from "../../../../arkanalyzer/lib/core/graph/BasicBlock";
+import { Local } from "../../../../arkanalyzer/lib/core/base/Local";
+import { ClassType, Type } from "../../../../arkanalyzer/lib/core/base/Type";
+import { ArkAssignStmt, ArkInvokeStmt, ArkReturnVoidStmt } from "../../../../arkanalyzer/lib/core/base/Stmt";
+import { ArkInstanceInvokeExpr, ArkNewExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/lib/core/base/Expr";
+import { CONSTRUCTOR_NAME } from "../../../../arkanalyzer/lib/core/common/TSConst";
 
 export interface ArkMainSyntheticRootDescriptor {
     fileName: string;

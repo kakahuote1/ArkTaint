@@ -1,5 +1,5 @@
-import { Stmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
-import { CallSite } from "../../../../arkanalyzer/out/src/callgraph/model/CallSite";
+import { Stmt } from "../../../../arkanalyzer/lib/core/base/Stmt";
+import { CallSite } from "../../../../arkanalyzer/lib/callgraph/model/CallSite";
 
 export interface TaintFlowMeta {
     sourceRuleId?: string;

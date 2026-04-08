@@ -1,5 +1,5 @@
-import { Pag, PagArrayNode, PagNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
-import { Constant } from "../../../../arkanalyzer/out/src/core/base/Constant";
+import { Pag, PagArrayNode, PagNode } from "../../../../arkanalyzer/lib/callgraph/pointerAnalysis/Pag";
+import { Constant } from "../../../../arkanalyzer/lib/core/base/Constant";
 import {
     AbstractExpr,
     ArkAwaitExpr,
@@ -11,11 +11,11 @@ import {
     ArkPtrInvokeExpr,
     ArkStaticInvokeExpr,
     ArkUnopExpr,
-} from "../../../../arkanalyzer/out/src/core/base/Expr";
-import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
-import { ArrayType } from "../../../../arkanalyzer/out/src/core/base/Type";
-import { ArkAssignStmt, ArkThrowStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkArrayRef, ArkCaughtExceptionRef, ArkInstanceFieldRef, ArkParameterRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
+} from "../../../../arkanalyzer/lib/core/base/Expr";
+import { Local } from "../../../../arkanalyzer/lib/core/base/Local";
+import { ArrayType } from "../../../../arkanalyzer/lib/core/base/Type";
+import { ArkAssignStmt, ArkThrowStmt } from "../../../../arkanalyzer/lib/core/base/Stmt";
+import { ArkArrayRef, ArkCaughtExceptionRef, ArkInstanceFieldRef, ArkParameterRef } from "../../../../arkanalyzer/lib/core/base/Ref";
 import { TaintFact } from "../model/TaintFact";
 import { TaintTracker } from "../model/TaintTracker";
 import { toContainerFieldKey } from "../model/ContainerSlotKeys";

@@ -1,8 +1,8 @@
-import { Pag, PagNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
-import { ArkAssignStmt, ArkReturnStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
-import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
-import { ArkInstanceFieldRef, ArkParameterRef, ClosureFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
-import { ArkMethod } from "../../../../arkanalyzer/out/src/core/model/ArkMethod";
+import { Pag, PagNode } from "../../../../arkanalyzer/lib/callgraph/pointerAnalysis/Pag";
+import { ArkAssignStmt, ArkReturnStmt } from "../../../../arkanalyzer/lib/core/base/Stmt";
+import { Local } from "../../../../arkanalyzer/lib/core/base/Local";
+import { ArkInstanceFieldRef, ArkParameterRef, ClosureFieldRef } from "../../../../arkanalyzer/lib/core/base/Ref";
+import { ArkMethod } from "../../../../arkanalyzer/lib/core/model/ArkMethod";
 import { fromContainerFieldKey } from "../model/ContainerSlotKeys";
 import { TaintFact } from "../model/TaintFact";
 import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";

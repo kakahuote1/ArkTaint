@@ -1,12 +1,12 @@
-import { ArkArrayRef, ArkInstanceFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
-import { Pag, PagArrayNode, PagInstanceFieldNode, PagNode, PagStaticFieldNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
-import { ArkAssignStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
-import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
-import { Constant } from "../../../../arkanalyzer/out/src/core/base/Constant";
-import { Scene } from "../../../../arkanalyzer/out/src/Scene";
-import { ArkMethod } from "../../../../arkanalyzer/out/src/core/model/ArkMethod";
-import { ArkParameterRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
-import { ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
+import { ArkArrayRef, ArkInstanceFieldRef } from "../../../../arkanalyzer/lib/core/base/Ref";
+import { Pag, PagArrayNode, PagInstanceFieldNode, PagNode, PagStaticFieldNode } from "../../../../arkanalyzer/lib/callgraph/pointerAnalysis/Pag";
+import { ArkAssignStmt } from "../../../../arkanalyzer/lib/core/base/Stmt";
+import { Local } from "../../../../arkanalyzer/lib/core/base/Local";
+import { Constant } from "../../../../arkanalyzer/lib/core/base/Constant";
+import { Scene } from "../../../../arkanalyzer/lib/Scene";
+import { ArkMethod } from "../../../../arkanalyzer/lib/core/model/ArkMethod";
+import { ArkParameterRef } from "../../../../arkanalyzer/lib/core/base/Ref";
+import { ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/lib/core/base/Expr";
 import { TaintFact } from "../model/TaintFact";
 import { TaintTracker } from "../model/TaintTracker";
 import { TaintContextManager, CallEdgeInfo, CallEdgeType } from "../context/TaintContext";
@@ -22,12 +22,8 @@ import { WorklistProfiler } from "../debug/WorklistProfiler";
 import { PropagationTrace } from "../debug/PropagationTrace";
 import { TransferRule } from "../../rules/RuleSchema";
 import { ConfigBasedTransferExecutor, TransferExecutionResult } from "../rules/ConfigBasedTransferExecutor";
+import type { ModuleQueryApi } from "../contracts/ModuleContract";
 import type { ModuleRuntime } from "../contracts/ModuleContract";
-import type {
-    InternalModuleQueryApi,
-    InternalRawModuleFactEvent,
-    InternalRawModuleInvokeEvent,
-} from "../contracts/ModuleInternal";
 import type {
     BridgeDecl,
     EnqueueFactDecl,
@@ -145,7 +141,7 @@ export interface WorklistSolverDeps {
     propagationTrace?: PropagationTrace;
     allowedMethodSignatures?: Set<string>;
     moduleRuntime: ModuleRuntime;
-    moduleQueries: InternalModuleQueryApi;
+    moduleQueries: ModuleQueryApi;
     onFactObserved?: (fact: TaintFact) => void;
     onCallEdge?: (event: CallEdgeEvent) => PropagationContributionBatch;
     onTaintFlow?: (event: TaintFlowEvent) => PropagationContributionBatch;
@@ -533,7 +529,7 @@ export class WorklistSolver {
                 log,
                 fact,
                 node,
-            } as InternalRawModuleFactEvent);
+            });
             for (const emission of moduleEmissions) {
                 const newFact = emission.fact;
                 tryEnqueue(emission.reason, newFact, () => {
@@ -563,7 +559,7 @@ export class WorklistSolver {
                     args: invokeExpr?.getArgs ? invokeExpr.getArgs() : [],
                     baseValue: invokeExpr?.getBase ? invokeExpr.getBase() : undefined,
                     resultValue: stmt instanceof ArkAssignStmt ? stmt.getLeftOp?.() : undefined,
-                } as InternalRawModuleInvokeEvent);
+                });
                 for (const emission of invokeEmissions) {
                     const newFact = emission.fact;
                     tryEnqueue(emission.reason, newFact, () => {

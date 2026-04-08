@@ -23,7 +23,6 @@ class EntryPage004 {
 }
 
 export function multiability_background_foreground_004_T(): void {
-    const entry = new EntryPage004();
-    entry.build();
     void TargetAbility004;
+    void EntryPage004;
 }

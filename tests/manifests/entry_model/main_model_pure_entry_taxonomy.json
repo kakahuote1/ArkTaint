@@ -1,7 +1,7 @@
 {
   "name": "main-model-pure-entry-taxonomy",
-  "version": "3.0.0",
-  "description": "Pure entry discovery benchmark for the strict official-declaration ArkMain surface. This manifest only keeps suites whose entry validity is determined by official owner and lifecycle declarations. Callback, event, and open-world probes remain covered by provenance and boundary suites instead of this taxonomy benchmark.",
+  "version": "2.0.0",
+  "description": "Pure entry discovery benchmark: only suites that test whether methods are correctly discovered as entry points. Suites that primarily test data-flow modeling (Router channel, @State/@Prop/@Link bridge, Want handoff, Storage channel) are excluded — those belong to the harmony-modeling benchmark.",
   "suites": [
     {
       "id": "harmony_lifecycle",
@@ -17,6 +17,46 @@
       "sourceDir": "tests/demo/harmony_stage_window_variants"
     },
     {
+      "id": "harmony_event_activation",
+      "category": "ui_event_callback",
+      "sourceDir": "tests/demo/harmony_event_activation"
+    },
+    {
+      "id": "harmony_callback_registration",
+      "category": "ui_event_callback",
+      "sourceDir": "tests/demo/harmony_callback_registration"
+    },
+    {
+      "id": "harmony_system_callback_variants",
+      "category": "event_async",
+      "sourceDir": "tests/demo/harmony_system_callback_variants"
+    },
+    {
+      "id": "pure_entry_watch",
+      "category": "reactive_watch",
+      "sourceDir": "tests/demo/pure_entry_watch"
+    },
+    {
+      "id": "harmony_page_visibility",
+      "category": "page_visibility",
+      "sourceDir": "tests/demo/harmony_page_visibility"
+    },
+    {
+      "id": "pure_entry_worker",
+      "category": "event_async",
+      "sourceDir": "tests/demo/pure_entry_worker"
+    },
+    {
+      "id": "pure_entry_emitter",
+      "category": "event_async",
+      "sourceDir": "tests/demo/pure_entry_emitter"
+    },
+    {
+      "id": "harmony_timer_scheduler",
+      "category": "event_async",
+      "sourceDir": "tests/demo/harmony_timer_scheduler"
+    },
+    {
       "id": "harmony_framework_backup_restore",
       "category": "ability_lifecycle",
       "sourceDir": "tests/demo/harmony_framework_entry_probe",
@@ -25,11 +65,27 @@
       ]
     },
     {
+      "id": "harmony_framework_onclick",
+      "category": "ui_event_callback",
+      "sourceDir": "tests/demo/harmony_framework_entry_probe",
+      "caseIncludePatterns": [
+        "^onclick_(build_009_T|factory_011_T|helper_crossfile_010_T)$"
+      ]
+    },
+    {
       "id": "harmony_framework_uiextension",
       "category": "ability_lifecycle",
       "sourceDir": "tests/demo/harmony_framework_entry_probe",
       "caseIncludePatterns": [
         "^uiextension_(oncreate_014_T|onnewwant_015_T|sessioncreate_016_T|sessioncreate_017_F)$"
+      ]
+    },
+    {
+      "id": "harmony_framework_system_callbacks",
+      "category": "event_async",
+      "sourceDir": "tests/demo/harmony_framework_entry_probe",
+      "caseIncludePatterns": [
+        "^(webview_onmessage_008_T|windowstage_loadcontent_006_F|windowstage_loadcontent_007_F)$"
       ]
     },
     {

@@ -14,7 +14,6 @@ class ReactivePage005 {
 }
 
 export function reactive_non_watched_005_T(): void {
-    const page = new ReactivePage005();
-    page.aboutToAppear();
+    void ReactivePage005;
 }
 

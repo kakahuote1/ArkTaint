@@ -1,9 +1,9 @@
-import { ArkParameterRef, ArkInstanceFieldRef } from "../../../arkanalyzer/out/src/core/base/Ref";
-import { ArkAssignStmt, ArkInvokeStmt } from "../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkInstanceInvokeExpr } from "../../../arkanalyzer/out/src/core/base/Expr";
-import { Local } from "../../../arkanalyzer/out/src/core/base/Local";
-import { UnknownType } from "../../../arkanalyzer/out/src/core/base/Type";
-import { ClassSignature, FieldSignature, FileSignature, MethodSignature, MethodSubSignature } from "../../../arkanalyzer/out/src/core/model/ArkSignature";
+import { ArkParameterRef, ArkInstanceFieldRef } from "../../../arkanalyzer/lib/core/base/Ref";
+import { ArkAssignStmt, ArkInvokeStmt } from "../../../arkanalyzer/lib/core/base/Stmt";
+import { ArkInstanceInvokeExpr } from "../../../arkanalyzer/lib/core/base/Expr";
+import { Local } from "../../../arkanalyzer/lib/core/base/Local";
+import { UnknownType } from "../../../arkanalyzer/lib/core/base/Type";
+import { ClassSignature, FieldSignature, FileSignature, MethodSignature, MethodSubSignature } from "../../../arkanalyzer/lib/core/model/ArkSignature";
 import {
     analyzeInvokedParams,
     mapInvokeArgsToParamAssigns,

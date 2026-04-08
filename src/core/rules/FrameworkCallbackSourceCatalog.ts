@@ -16,10 +16,10 @@ interface FrameworkCallbackSourceFamilyContract {
     family: string;
     tier: RuleTier;
     description: string;
-    tags: string[];
+    tags: readonly string[];
     match: RuleMatch;
-    callbackArgIndexes: number[];
-    schemas: FrameworkCallbackSourceSchema[];
+    callbackArgIndexes: readonly number[];
+    schemas: readonly FrameworkCallbackSourceSchema[];
 }
 
 const CALLBACK_SOURCE_TAGS = ["harmony", "framework_callback_source", "callback_param"];
@@ -291,7 +291,7 @@ export function buildFrameworkCallbackSourceRules(): SourceRule[] {
                 id: schema.id,
                 enabled: schema.enabled ?? true,
                 description: schema.description,
-                tags: contract.tags,
+                tags: [...contract.tags],
                 family: contract.family,
                 tier: contract.tier,
                 match: contract.match,

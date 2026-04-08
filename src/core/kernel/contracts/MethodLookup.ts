@@ -1,5 +1,5 @@
-import { Scene } from "../../../../arkanalyzer/out/src/Scene";
-import { ArkMethod } from "../../../../arkanalyzer/out/src/core/model/ArkMethod";
+import { Scene } from "../../../../arkanalyzer/lib/Scene";
+import { ArkMethod } from "../../../../arkanalyzer/lib/core/model/ArkMethod";
 
 const methodSignatureIndexCache: WeakMap<Scene, Map<string, ArkMethod>> = new WeakMap();
 const methodSimpleNameIndexCache: WeakMap<Scene, Map<string, ArkMethod>> = new WeakMap();

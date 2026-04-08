@@ -1,4 +1,4 @@
-import { Scene } from "../../../arkanalyzer/out/src/Scene";
+import { Scene } from "../../../arkanalyzer/lib/Scene";
 import { SinkRule, SourceRule, TransferRule } from "../../core/rules/RuleSchema";
 
 export type PerfMode = "arktaint" | "arktan";

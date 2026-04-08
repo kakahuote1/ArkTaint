@@ -1,19 +1,19 @@
-import { Pag } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
+import { Pag } from "../../../../arkanalyzer/lib/callgraph/pointerAnalysis/Pag";
 import {
     ArkArrayRef,
     ArkInstanceFieldRef,
     ArkParameterRef,
     ArkStaticFieldRef,
     ArkThisRef,
-} from "../../../../arkanalyzer/out/src/core/base/Ref";
-import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
-import { Constant } from "../../../../arkanalyzer/out/src/core/base/Constant";
+} from "../../../../arkanalyzer/lib/core/base/Ref";
+import { Local } from "../../../../arkanalyzer/lib/core/base/Local";
+import { Constant } from "../../../../arkanalyzer/lib/core/base/Constant";
 import {
     AbstractExpr,
     ArkAwaitExpr,
     ArkNewArrayExpr,
     ArkNewExpr,
-} from "../../../../arkanalyzer/out/src/core/base/Expr";
+} from "../../../../arkanalyzer/lib/core/base/Expr";
 
 export interface PagNodeResolutionAuditSnapshot {
     requestCount: number;

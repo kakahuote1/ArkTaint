@@ -81,7 +81,7 @@ function classifyExtensionModuleLoadFailure(
     if (lower.includes("cannot find module")) {
         return {
             code: `${prefix}_MODULE_LOAD_MODULE_NOT_FOUND`,
-            advice: "检查 import/require 路径是否写对，以及依赖文件是否存在。",
+            advice: "Check whether the import/require path is correct and whether the referenced file exists.",
         };
     }
     if (
@@ -93,18 +93,18 @@ function classifyExtensionModuleLoadFailure(
     ) {
         return {
             code: `${prefix}_MODULE_LOAD_SYNTAX_ERROR`,
-            advice: "检查这个扩展文件附近是否有括号、逗号、字符串或 import 写法错误。",
+            advice: "Check the extension file for syntax issues such as missing brackets, commas, string delimiters, or malformed import statements.",
         };
     }
     if (lower.includes("is not a function")) {
         return {
             code: `${prefix}_MODULE_LOAD_BAD_EXPORT`,
-            advice: "检查导出的对象是否真的是合法的扩展定义，尤其是 default 导出和命名导出。",
+            advice: "Check whether the exported object is a valid extension definition, especially default exports and named exports.",
         };
     }
     return {
         code: `${prefix}_MODULE_LOAD_UNKNOWN`,
-        advice: "未能自动判断具体错因。请先核对这个扩展文件和相关 import 依赖是否能单独正常执行。",
+        advice: "Unable to classify the exact failure automatically. Verify that the extension file and its related imports can be loaded on their own.",
     };
 }
 

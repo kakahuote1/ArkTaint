@@ -1,4 +1,4 @@
-import { Pag, PagNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
+import { Pag, PagNode } from "../../../../arkanalyzer/lib/callgraph/pointerAnalysis/Pag";
 import { TaintFact } from "../model/TaintFact";
 import { ModuleEmission } from "./ModuleContract";
 

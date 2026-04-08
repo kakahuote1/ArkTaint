@@ -14,6 +14,5 @@ class NavPage {
 }
 
 export function navpathstack_fake_013_F(): void {
-    const page = new NavPage();
-    page.aboutToAppear();
+    void NavPage;
 }

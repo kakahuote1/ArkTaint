@@ -15,8 +15,6 @@ class ReactivePage002 {
 }
 
 export function reactive_route_watch_002_T(): void {
-    const page = new ReactivePage002();
-    page.build();
-    page.onTokenWatch();
+    void ReactivePage002;
 }
 

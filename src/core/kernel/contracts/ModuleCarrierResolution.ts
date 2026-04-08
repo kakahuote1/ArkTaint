@@ -1,5 +1,5 @@
-import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
-import { Pag } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
+import { Local } from "../../../../arkanalyzer/lib/core/base/Local";
+import { Pag } from "../../../../arkanalyzer/lib/callgraph/pointerAnalysis/Pag";
 import { collectAliasLocalsForCarrier as collectAliasLocalsForCarrierFromOrdinary } from "../ordinary/OrdinaryAliasPropagation";
 
 export function collectAliasLocalsForCarrier(

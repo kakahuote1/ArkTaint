@@ -81,6 +81,34 @@ node out/cli/analyze.js \
   --plugin-audit
 ```
 
+### 3.5 Enable LLM-based external entry recognition
+
+Use this when the app may expose framework-managed callbacks or lifecycle-like entry methods that ArkMain cannot prove from official entry contracts alone.
+
+```bash
+node out/cli/analyze.js \
+  --repo D:\projects\MyArkApp \
+  --sourceDir entry/src/main/ets \
+  --ruleCatalog src/rules \
+  --enableExternalEntryRecognition \
+  --externalEntryModel gpt-4.1-mini \
+  --externalEntryCachePath tmp\external_entry_cache.json \
+  --enableExternalEntryFacts
+```
+
+Environment variables used by the hosted LLM client:
+
+- `ARKTAINT_EXTERNAL_ENTRY_API_KEY`
+  - falls back to `OPENAI_API_KEY`
+- `ARKTAINT_EXTERNAL_ENTRY_BASE_URL`
+  - falls back to `OPENAI_BASE_URL`, default `https://api.openai.com/v1`
+- `ARKTAINT_EXTERNAL_ENTRY_MODEL`
+  - falls back to `OPENAI_MODEL`
+- `ARKTAINT_EXTERNAL_ENTRY_API_STYLE`
+  - `auto`, `responses`, or `chat_completions`
+- `ARKTAINT_EXTERNAL_ENTRY_HEADERS`
+  - optional JSON object of extra HTTP headers
+
 ## 4. Output Layout
 
 If `--outputDir` is omitted, ArkTaint writes to:
@@ -194,6 +222,16 @@ Only one inspection mode may be used at a time:
 - `--trace-plugin`
 
 Inspection modes still require `--repo`.
+
+### 5.8 External Entry Recognition
+
+- `--enableExternalEntryRecognition`
+- `--externalEntryModel <model>`
+- `--externalEntryMinConfidence <0..1>`
+- `--externalEntryBatchSize <n>`
+- `--externalEntryMaxCandidates <n>`
+- `--externalEntryCachePath <path>`
+- `--enableExternalEntryFacts`
 
 ## 6. Inspection Examples
 

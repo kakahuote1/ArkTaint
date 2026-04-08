@@ -1,8 +1,8 @@
-﻿import { Scene } from "../../../arkanalyzer/out/src/Scene";
-import { ArkAssignStmt } from "../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkParameterRef } from "../../../arkanalyzer/out/src/core/base/Ref";
-import { Local } from "../../../arkanalyzer/out/src/core/base/Local";
-import { ArkMethod } from "../../../arkanalyzer/out/src/core/model/ArkMethod";
+import { Scene } from "../../../arkanalyzer/lib/Scene";
+import { ArkAssignStmt } from "../../../arkanalyzer/lib/core/base/Stmt";
+import { ArkParameterRef } from "../../../arkanalyzer/lib/core/base/Ref";
+import { Local } from "../../../arkanalyzer/lib/core/base/Local";
+import { ArkMethod } from "../../../arkanalyzer/lib/core/model/ArkMethod";
 import { TaintPropagationEngine, TaintEngineOptions } from "../../core/orchestration/TaintPropagationEngine";
 
 export interface ResolvedCaseMethod {

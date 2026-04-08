@@ -1,9 +1,9 @@
-import { Pag } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
-import { ArkAssignStmt, ArkReturnStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
-import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
-import { ArkParameterRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
-import { CallGraph } from "../../../../arkanalyzer/out/src/callgraph/model/CallGraph";
-import { Scene } from "../../../../arkanalyzer/out/src/Scene";
+import { Pag } from "../../../../arkanalyzer/lib/callgraph/pointerAnalysis/Pag";
+import { ArkAssignStmt, ArkReturnStmt } from "../../../../arkanalyzer/lib/core/base/Stmt";
+import { Local } from "../../../../arkanalyzer/lib/core/base/Local";
+import { ArkParameterRef } from "../../../../arkanalyzer/lib/core/base/Ref";
+import { CallGraph } from "../../../../arkanalyzer/lib/callgraph/model/CallGraph";
+import { Scene } from "../../../../arkanalyzer/lib/Scene";
 import { CallEdgeType } from "../context/TaintContext";
 import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
 import { collectParameterAssignStmts } from "../../substrate/queries/CalleeResolver";

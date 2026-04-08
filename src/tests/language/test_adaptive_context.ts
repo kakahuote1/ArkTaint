@@ -1,5 +1,5 @@
-import { Scene } from "../../../arkanalyzer/out/src/Scene";
-import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
+import { Scene } from "../../../arkanalyzer/lib/Scene";
+import { SceneConfig } from "../../../arkanalyzer/lib/Config";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { AdaptiveContextSelectorOptions } from "../../core/kernel/context/AdaptiveContextSelector";
 import * as fs from "fs";

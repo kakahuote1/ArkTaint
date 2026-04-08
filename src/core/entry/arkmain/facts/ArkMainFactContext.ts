@@ -1,4 +1,4 @@
-import { ArkMethod } from "../../../../../arkanalyzer/out/src/core/model/ArkMethod";
+import { ArkMethod } from "../../../../../arkanalyzer/lib/core/model/ArkMethod";
 import {
     ARK_MAIN_PHASE_ORDER,
     ArkMainEntryFact,

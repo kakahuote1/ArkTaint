@@ -1,6 +1,6 @@
 import * as path from "path";
-import { Scene } from "../../../arkanalyzer/out/src/Scene";
-import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
+import { Scene } from "../../../arkanalyzer/lib/Scene";
+import { SceneConfig } from "../../../arkanalyzer/lib/Config";
 import { expandEntryMethodsByDirectCalls } from "../../core/entry/shared/ExplicitEntryScopeResolver";
 import { findCaseMethod, resolveCaseMethod } from "../helpers/SyntheticCaseHarness";
 

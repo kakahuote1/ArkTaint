@@ -21,8 +21,8 @@ interface FrameworkApiSourceFamilyContract {
     family: string;
     tier: RuleTier;
     description: string;
-    tags: string[];
-    schemas: FrameworkApiSourceSchema[];
+    tags: readonly string[];
+    schemas: readonly FrameworkApiSourceSchema[];
 }
 
 const API_SOURCE_TAGS = ["harmony", "framework_api_source"];
@@ -636,7 +636,7 @@ export function buildFrameworkApiSourceRules(): SourceRule[] {
                 id: schema.id,
                 enabled: schema.enabled ?? true,
                 description: schema.description,
-                tags: contract.tags,
+                tags: [...contract.tags],
                 family: contract.family,
                 tier: contract.tier,
                 match: schema.match,

@@ -1,8 +1,8 @@
-import { Scene } from "../../../../arkanalyzer/out/src/Scene";
-import { ArkAssignStmt, ArkReturnStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkArrayRef, ArkInstanceFieldRef, ArkParameterRef, ArkStaticFieldRef, ClosureFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
-import { ArkAwaitExpr, ArkCastExpr, ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
-import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
+import { Scene } from "../../../../arkanalyzer/lib/Scene";
+import { ArkAssignStmt, ArkReturnStmt } from "../../../../arkanalyzer/lib/core/base/Stmt";
+import { ArkArrayRef, ArkInstanceFieldRef, ArkParameterRef, ArkStaticFieldRef, ClosureFieldRef } from "../../../../arkanalyzer/lib/core/base/Ref";
+import { ArkAwaitExpr, ArkCastExpr, ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/lib/core/base/Expr";
+import { Local } from "../../../../arkanalyzer/lib/core/base/Local";
 
 export interface ResolvedCallee {
     method: any;

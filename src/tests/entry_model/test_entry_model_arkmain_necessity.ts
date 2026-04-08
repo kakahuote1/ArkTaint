@@ -17,12 +17,12 @@ interface NecessityCaseSpec {
     sourceDir: string;
     caseName: string;
     relativePath: string;
-    expectsAutoSources: "lifecycle";
+    expectsAutoSources: "lifecycle" | "router" | "unknown_callback";
 }
 
 interface NecessityModeResult {
     entryModel: "arkMain" | "explicit";
-    autoEntrySourceCount: number;
+    autoSourceHintCount: number;
     seedCount: number;
     flowCount: number;
 }
@@ -49,9 +49,27 @@ const CASES: NecessityCaseSpec[] = [
     },
     {
         sourceDir: "tests/demo/harmony_lifecycle",
-        caseName: "lifecycle_extension_addform_011_T",
-        relativePath: "lifecycle_extension_addform_011_T.ets",
+        caseName: "lifecycle_abilitystage_oncreate_015_T",
+        relativePath: "lifecycle_abilitystage_oncreate_015_T.ets",
         expectsAutoSources: "lifecycle",
+    },
+    {
+        sourceDir: "tests/demo/harmony_lifecycle",
+        caseName: "lifecycle_router_getparams_009_T",
+        relativePath: "lifecycle_router_getparams_009_T.ets",
+        expectsAutoSources: "router",
+    },
+    {
+        sourceDir: "tests/demo/sdk_structural_fallback_realworld",
+        caseName: "push_sdk_callback_001_T",
+        relativePath: "push_sdk_callback_001_T.ets",
+        expectsAutoSources: "unknown_callback",
+    },
+    {
+        sourceDir: "tests/demo/sdk_structural_fallback_realworld",
+        caseName: "payment_sdk_callback_002_T",
+        relativePath: "payment_sdk_callback_002_T.ets",
+        expectsAutoSources: "unknown_callback",
     },
 ];
 
@@ -87,7 +105,7 @@ async function runMode(
     const flows = engine.detectSinksByRules(SINK_RULES);
     return {
         entryModel,
-        autoEntrySourceCount: engine.getAutoEntrySourceRules().length,
+        autoSourceHintCount: engine.getAutoSourceHintRules().length,
         seedCount: seedInfo.seedCount,
         flowCount: flows.length,
     };
@@ -99,8 +117,8 @@ async function analyzeCase(spec: NecessityCaseSpec, caseViewRoot: string): Promi
     const withoutArkMain = await runMode(projectDir, spec, "explicit");
 
     assert(
-        withArkMain.autoEntrySourceCount > 0,
-        `${spec.caseName}: expected arkMain to export contract-driven entry sources`,
+        withArkMain.autoSourceHintCount > 0,
+        `${spec.caseName}: expected arkMain to export auto source hints`,
     );
     assert(
         withArkMain.seedCount > 0,
@@ -112,8 +130,8 @@ async function analyzeCase(spec: NecessityCaseSpec, caseViewRoot: string): Promi
     );
 
     assert(
-        withoutArkMain.autoEntrySourceCount === 0,
-        `${spec.caseName}: explicit mode should not export arkMain entry sources`,
+        withoutArkMain.autoSourceHintCount === 0,
+        `${spec.caseName}: explicit mode should not export arkMain auto source hints`,
     );
     assert(
         withoutArkMain.seedCount === 0,

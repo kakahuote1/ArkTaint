@@ -1,4 +1,4 @@
-﻿import {
+import {
     runMetamorphicSuite,
     TransformOutput,
     TransformSpec,
@@ -79,12 +79,6 @@ runMetamorphicSuite({
         tempProjectDir: "tmp/test_runs/metamorphic/seed_v3/latest/metamorphic_project",
         reportPath: "tmp/test_runs/metamorphic/seed_v3/latest/metamorphic_report.json",
         k: 1,
-    },
-    metadata: {
-        suite: "metamorphic_seed_v3",
-        domain: "metamorphic",
-        title: "Metamorphic Seed V3",
-        purpose: "Verify additional control-flow and container-preserving mutations remain consistent on the metamorphic seed v3 suite.",
     },
     transforms,
     variantTag: "m3",

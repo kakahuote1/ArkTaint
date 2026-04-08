@@ -35,7 +35,7 @@ import {
     tsNode2Type
 } from './builderUtils';
 import { buildIndexSignature2ArkField, buildProperty2ArkField } from './ArkFieldBuilder';
-import type { ArkIRTransformer } from '../../common/ArkIRTransformer';
+import { ArkIRTransformer } from '../../common/ArkIRTransformer';
 import { ArkAssignStmt, ArkInvokeStmt, Stmt } from '../../base/Stmt';
 import { ArkInstanceFieldRef } from '../../base/Ref';
 import {
@@ -61,14 +61,6 @@ import { Local } from '../../base/Local';
 import { ArkMetadataKind, EnumInitTypeUserMetadata } from '../ArkMetadata';
 
 const logger = Logger.getLogger(LOG_MODULE_TYPE.ARKANALYZER, 'ArkClassBuilder');
-
-declare const require: (id: string) => any;
-
-type ArkIRTransformerModule = typeof import('../../common/ArkIRTransformer');
-
-function loadArkIRTransformer(): ArkIRTransformerModule {
-    return require('../../common/ArkIRTransformer');
-}
 
 export type ClassLikeNode =
     | ts.ClassDeclaration
@@ -348,7 +340,7 @@ function buildObjectLiteralExpression2ArkClass(
     let arkMethods: ArkMethod[] = [];
 
     init4InstanceInitMethod(cls);
-    const instanceIRTransformer = new (loadArkIRTransformer().ArkIRTransformer)(sourceFile, cls.getInstanceInitMethod());
+    const instanceIRTransformer = new ArkIRTransformer(sourceFile, cls.getInstanceInitMethod());
     const instanceFieldInitializerStmts: Stmt[] = [];
     clsNode.properties.forEach(property => {
         if (ts.isPropertyAssignment(property) || ts.isShorthandPropertyAssignment(property) || ts.isSpreadAssignment(property)) {
@@ -389,11 +381,11 @@ function buildArkClassMembers(clsNode: ClassLikeNode, cls: ArkClass, sourceFile:
     let instanceIRTransformer: ArkIRTransformer;
     let staticIRTransformer: ArkIRTransformer;
     if (ts.isClassDeclaration(clsNode) || ts.isClassExpression(clsNode) || ts.isStructDeclaration(clsNode)) {
-        instanceIRTransformer = new (loadArkIRTransformer().ArkIRTransformer)(sourceFile, cls.getInstanceInitMethod());
-        staticIRTransformer = new (loadArkIRTransformer().ArkIRTransformer)(sourceFile, cls.getStaticInitMethod());
+        instanceIRTransformer = new ArkIRTransformer(sourceFile, cls.getInstanceInitMethod());
+        staticIRTransformer = new ArkIRTransformer(sourceFile, cls.getStaticInitMethod());
     }
     if (ts.isEnumDeclaration(clsNode)) {
-        staticIRTransformer = new (loadArkIRTransformer().ArkIRTransformer)(sourceFile, cls.getStaticInitMethod());
+        staticIRTransformer = new ArkIRTransformer(sourceFile, cls.getStaticInitMethod());
     }
     const staticInitStmts: Stmt[] = [];
     const instanceInitStmts: Stmt[] = [];

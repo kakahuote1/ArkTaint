@@ -1,5 +1,5 @@
-import { Scene } from "../../../arkanalyzer/out/src/Scene";
-import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
+﻿import { Scene } from "../../../arkanalyzer/lib/Scene";
+import { SceneConfig } from "../../../arkanalyzer/lib/Config";
 import * as fs from "fs";
 import * as path from "path";
 import {
@@ -119,9 +119,9 @@ async function main(): Promise<void> {
     const passed = results.filter(r => r.pass).length;
     const failed = total - passed;
 
-    console.log("╔═══════════════════════════════════════════════════════════════╗");
-    console.log("║       Algorithm A + B  Validation Test Suite                 ║");
-    console.log("╚═══════════════════════════════════════════════════════════════╝");
+    console.log("================================================================");
+    console.log("      Algorithm A + B Validation Test Suite");
+    console.log("================================================================");
     console.log();
     console.log(`total_cases=${total}  passed=${passed}  failed=${failed}`);
     console.log();
@@ -130,24 +130,24 @@ async function main(): Promise<void> {
     for (const grp of groups) {
         const grpResults = results.filter(r => r.group === grp);
         const grpPassed = grpResults.filter(r => r.pass).length;
-        console.log(`── ${grp} (${grpPassed}/${grpResults.length}) ──`);
+        console.log(`== ${grp} (${grpPassed}/${grpResults.length}) ==`);
 
         for (const r of grpResults) {
             const status = r.pass ? "PASS" : "FAIL";
-            const mark = r.pass ? "✓" : "✗";
+            const mark = r.pass ? "[PASS]" : "[FAIL]";
             const suffix = r.error ? ` [ERROR: ${r.error}]` : "";
             console.log(
-                `  ${mark} ${status}  ${r.name}  ` +
-                `expected=${r.expected ? "T" : "F"} detected=${r.detected}` +
-                `  (${r.feature})${suffix}`
+                `  ${mark} ${status}  ${r.name}  `
+                + `expected=${r.expected ? "T" : "F"} detected=${r.detected}`
+                + `  (${r.feature})${suffix}`,
             );
         }
         console.log();
     }
 
-    console.log("═══════════════════════════════════════════════════════════════");
+    console.log("================================================================");
     console.log(`RESULT: ${failed === 0 ? "ALL PASSED" : `${failed} FAILED`}`);
-    console.log("═══════════════════════════════════════════════════════════════");
+    console.log("================================================================");
 
     if (failed > 0) {
         process.exitCode = 1;

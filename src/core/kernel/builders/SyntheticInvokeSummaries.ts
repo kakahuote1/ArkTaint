@@ -1,10 +1,10 @@
-import { Scene } from "../../../../arkanalyzer/out/src/Scene";
-import { CallGraph } from "../../../../arkanalyzer/out/src/callgraph/model/CallGraph";
-import { Pag, PagNode, PagStaticFieldNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
-import { ArkAssignStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkParameterRef, ArkInstanceFieldRef, ArkStaticFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
-import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
-import { ArkInstanceInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
+import { Scene } from "../../../../arkanalyzer/lib/Scene";
+import { CallGraph } from "../../../../arkanalyzer/lib/callgraph/model/CallGraph";
+import { Pag, PagNode, PagStaticFieldNode } from "../../../../arkanalyzer/lib/callgraph/pointerAnalysis/Pag";
+import { ArkAssignStmt } from "../../../../arkanalyzer/lib/core/base/Stmt";
+import { ArkParameterRef, ArkInstanceFieldRef, ArkStaticFieldRef } from "../../../../arkanalyzer/lib/core/base/Ref";
+import { Local } from "../../../../arkanalyzer/lib/core/base/Local";
+import { ArkInstanceInvokeExpr } from "../../../../arkanalyzer/lib/core/base/Expr";
 import { getMethodBySignature } from "../contracts/MethodLookup";
 import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
 import type {

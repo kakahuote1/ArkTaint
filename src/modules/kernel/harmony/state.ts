@@ -1,10 +1,10 @@
-import { Scene } from "../../../../arkanalyzer/out/src/Scene";
-import { Pag, PagNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
-import { ArkAssignStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkInstanceFieldRef, ArkParameterRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
-import { ArkInstanceInvokeExpr, ArkNewExpr, ArkPtrInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
-import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
-import { Decorator } from "../../../../arkanalyzer/out/src/core/base/Decorator";
+import { Scene } from "../../../../arkanalyzer/lib/Scene";
+import { Pag, PagNode } from "../../../../arkanalyzer/lib/callgraph/pointerAnalysis/Pag";
+import { ArkAssignStmt } from "../../../../arkanalyzer/lib/core/base/Stmt";
+import { ArkInstanceFieldRef, ArkParameterRef } from "../../../../arkanalyzer/lib/core/base/Ref";
+import { ArkInstanceInvokeExpr, ArkNewExpr, ArkPtrInvokeExpr } from "../../../../arkanalyzer/lib/core/base/Expr";
+import { Local } from "../../../../arkanalyzer/lib/core/base/Local";
+import { Decorator } from "../../../../arkanalyzer/lib/core/base/Decorator";
 import {
     defineModule,
     type TaintModule,

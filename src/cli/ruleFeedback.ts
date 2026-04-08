@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
-import { Scene } from "../../arkanalyzer/out/src/Scene";
-import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../arkanalyzer/out/src/core/base/Expr";
+import { Scene } from "../../arkanalyzer/lib/Scene";
+import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../arkanalyzer/lib/core/base/Expr";
 import { LoadedRuleSet } from "../core/rules/RuleLoader";
 import {
     normalizeEndpoint,

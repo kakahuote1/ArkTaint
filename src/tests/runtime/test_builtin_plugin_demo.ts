@@ -1,5 +1,5 @@
 import * as path from "path";
-import { Scene } from "../../../arkanalyzer/out/src/Scene";
+import { Scene } from "../../../arkanalyzer/lib/Scene";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { buildTestScene } from "../helpers/TestSceneBuilder";
 

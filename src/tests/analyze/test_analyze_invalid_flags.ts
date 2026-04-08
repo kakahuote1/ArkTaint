@@ -1,4 +1,4 @@
-﻿import * as path from "path";
+import * as path from "path";
 import { runShell } from "../helpers/ProcessRunner";
 import { resolveTestRunDir } from "../helpers/TestWorkspaceLayout";
 

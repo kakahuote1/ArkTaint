@@ -22,10 +22,7 @@ class TargetPage004 {
 }
 
 export function route_stack_multi_page_004_T(): void {
-    const source = new SourcePage004();
-    source.build();
-    const middle = new MiddlePage004();
-    middle.onPageShow();
-    const target = new TargetPage004();
-    target.onPageShow();
+    void SourcePage004;
+    void MiddlePage004;
+    void TargetPage004;
 }

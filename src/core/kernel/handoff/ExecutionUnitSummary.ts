@@ -1,6 +1,6 @@
-import { ArkAssignStmt, ArkReturnStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
-import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
-import { ArkInstanceFieldRef, ClosureFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
+import { ArkAssignStmt, ArkReturnStmt } from "../../../../arkanalyzer/lib/core/base/Stmt";
+import { Local } from "../../../../arkanalyzer/lib/core/base/Local";
+import { ArkInstanceFieldRef, ClosureFieldRef } from "../../../../arkanalyzer/lib/core/base/Ref";
 import { collectParameterAssignStmts } from "../../substrate/queries/CalleeResolver";
 import {
     ExecutionHandoffActivationPathRecord,

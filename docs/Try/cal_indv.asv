@@ -1,0 +1,28 @@
+function shield_time =cal_indv(indv)
+Missile1 = Missile([18000, -600, 1900]);
+UAV_coords = [6000, −3000, 700];
+UAV1 = UAV(UAV_coords,indv(2),indv(1));
+t = indv(3);
+[Missile1,~] = Missile1.update_coord(t);
+[UAV1,~] = UAV1.update_coord(t);
+[SmokeShell1,UAV1] = SmokeShell(UAV1);
+t = t+indv(4);
+[SmokeShell1,~] = SmokeShell1.detonate(indv(4));
+[Missile1,~] = Missile1.update_coord(t);
+[UAV1,~] = UAV1.update_coord(t);
+syms tt theta;
+coord_m = Missile1.cal_coord(tt+t);
+coord_s = SmokeShell1.cal_sink_coord(tt);
+distant = sqrt(sum((coord_s-coord_m).^2));
+ans1 = double(solve(distant==10,tt));  % 分类讨论
+
+coord_m = Missile1.cal_coord(tt+t);
+coord_s = SmokeShell1.cal_sink_coord(tt);
+coord_o = sym([0,200,10])+[7*cos(theta),7*sin(theta),0];
+MO = coord_o-coord_m; MS = coord_s-coord_m;
+beta1 = acos(sum(MO.*MS)/sqrt(sum(MO.^2))/sqrt(sum(MS.^2)));  % 上顶面
+coord_o = sym([0,200,0])+[7*cos(theta),7*sin(theta),0];
+MO = coord_o-coord_m; MS = coord_s-coord_m;
+beta2 = acos(sum(MO.*MS)/sqrt(sum(MO.^2))/sqrt(sum(MS.^2)));  % 下底面
+alpha = asin(10/sqrt(sum(MS.^2)));
+shield_time = cal_shield_time(alpha,beta1,beta2,ans1,MS);

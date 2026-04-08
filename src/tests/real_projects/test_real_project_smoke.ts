@@ -1,4 +1,4 @@
-﻿import {
+import {
     AnalyzeReport,
     EntryAnalyzeResult,
     emptyAnalyzeErrorDiagnostics,

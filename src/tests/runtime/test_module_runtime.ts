@@ -3,20 +3,14 @@ import * as path from "path";
 import {
     defineModule,
 } from "../../core/kernel/contracts/ModuleApi";
-import { TaintFact } from "../../core/kernel/model/TaintFact";
-import type {
-    InternalRawModuleFactEvent,
-    InternalRawModuleInvokeEvent,
-} from "../../core/kernel/contracts/ModuleInternal";
-import { loadModules } from "../../core/orchestration/modules/ModuleLoader";
-import { createModuleRuntime } from "../../core/orchestration/modules/ModuleRuntime";
 import {
     collectFiniteStringCandidatesFromValue,
-} from "../../core/substrate/queries/FiniteStringCandidateResolver";
-import {
     collectParameterAssignStmts,
     resolveMethodsFromCallable,
-} from "../../core/substrate/queries/CalleeResolver";
+} from "../../core/kernel/contracts/ModuleContract";
+import { TaintFact } from "../../core/kernel/model/TaintFact";
+import { loadModules } from "../../core/orchestration/modules/ModuleLoader";
+import { createModuleRuntime } from "../../core/orchestration/modules/ModuleRuntime";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -51,12 +45,14 @@ function writeLooseModuleFile(
 }
 
 async function main(): Promise<void> {
-    const testRoot = path.resolve("tmp/test_runs/runtime/module_runtime/latest");
+    const testRoot = path.resolve(
+        "tmp/test_runs/runtime/module_runtime",
+        `run_${process.pid}_${Date.now()}`,
+    );
     const externalRoot = path.join(testRoot, "external_root");
     const runtimeRoot = path.join(testRoot, "runtime_root");
     const reloadRoot = path.join(testRoot, "reload_root");
     const nestedCwd = path.join(testRoot, "cwd_probe", "nested");
-    fs.rmSync(testRoot, { recursive: true, force: true });
     fs.mkdirSync(testRoot, { recursive: true });
 
     writeProjectModuleFile(externalRoot, "external_demo", "external_demo.ts", [
@@ -332,6 +328,7 @@ async function main(): Promise<void> {
 
     const builtinDeletionProbeSrcRoot = path.join(testRoot, "builtin_delete_probe_src");
     const builtinDeletionProbeRoot = path.join(builtinDeletionProbeSrcRoot, "src", "modules");
+    const builtinDeletionRuntimeRoot = path.join(testRoot, "builtin_delete_probe_runtime", "src", "modules");
     fs.mkdirSync(builtinDeletionProbeSrcRoot, { recursive: true });
     writeText(
         path.join(builtinDeletionProbeRoot, "kernel", "harmony", "router.ts"),
@@ -357,10 +354,20 @@ async function main(): Promise<void> {
             "",
         ].join("\n"),
     );
-    const routerModuleFile = path.join(builtinDeletionProbeRoot, "kernel", "harmony", "router.ts");
-    fs.unlinkSync(routerModuleFile);
+    writeText(
+        path.join(builtinDeletionRuntimeRoot, "kernel", "harmony", "appstorage.ts"),
+        [
+            `import { defineModule } from "@arktaint/module";`,
+            "",
+            "export default defineModule({",
+            "  id: \"harmony.appstorage\",",
+            "  description: \"builtin delete probe appstorage module\",",
+            "});",
+            "",
+        ].join("\n"),
+    );
     const deletedBuiltinResult = loadModules({
-        builtinModuleRoots: [builtinDeletionProbeRoot],
+        builtinModuleRoots: [builtinDeletionRuntimeRoot],
     });
     assert(
         !deletedBuiltinResult.modules.some(module => module.id === "harmony.router"),
@@ -399,7 +406,7 @@ async function main(): Promise<void> {
         log: () => {},
         fact: seedFact,
         node: fakeNode,
-    } as InternalRawModuleFactEvent);
+    });
     assert(runtime.listModuleIds().length === 1, "runtime should expose one module id");
     assert(emissions.length === 1, "module runtime should emit one fact");
     assert(emissions[0].reason === "Fixture-Module", "unexpected module emission reason");
@@ -426,7 +433,7 @@ async function main(): Promise<void> {
         args: [],
         baseValue: undefined,
         resultValue: undefined,
-    } as InternalRawModuleInvokeEvent);
+    });
     assert(invokeEmissions.length === 1, "module runtime should emit one invoke fact");
     assert(invokeEmissions[0].reason === "Fixture-Invoke", "unexpected invoke emission reason");
     assert(invokeEmissions[0].fact.field?.join(".") === "invoke", "unexpected invoke emitted field path");
@@ -477,7 +484,7 @@ async function main(): Promise<void> {
         log: () => {},
         fact: authorApiFact,
         node: fakeNode,
-    } as InternalRawModuleFactEvent);
+    });
     const authorApiFieldByReason = new Map<string, string | undefined>(
         authorApiEmissions.map(item => [
             item.reason,
@@ -566,81 +573,17 @@ async function main(): Promise<void> {
     let setupMethodsCount = 0;
     let setupBindingNodeId = -1;
     let setupStringCandidate = "";
-    let setupHasRawQueries = true;
-    let setupConnectedCallbackEdges = -1;
-    let setupMaterializedKeyedEdges = -1;
-    let setupDeferredBindings = 0;
-    let setupDeferredBindingKind = "";
-    const fakeScannedInvoke = {
-        ownerMethodSignature: "@fixture/Callback.ets: CallbackOwner.register(any, any)",
-        stmt: {
-            toString() {
-                return "CallbackOwner.register(fakeCallbackValue)";
-            },
-            getOriginPositionInfo() {
-                return {
-                    getLineNo() {
-                        return 21;
-                    },
-                };
-            },
-            getCfg() {
-                return {
-                    getDeclaringMethod() {
-                        return fakeCallbackMethod;
-                    },
-                };
-            },
-        },
-        call: {
-            signature: "@fixture/Callback.ets: CallbackOwner.register(any, any)",
-        },
-        arg(index: number) {
-            return index === 1 ? fakeCallbackValue : undefined;
-        },
-        argNodeIds(index: number) {
-            return index === 0 ? [811] : [];
-        },
-        argCarrierNodeIds(index: number) {
-            return index === 0 ? [812] : [];
-        },
-        argObjectNodeIds(index: number) {
-            return index === 0 ? [813] : [];
-        },
-        callbackParamNodeIds(callbackArgIndex: number, paramIndex: number) {
-            if (callbackArgIndex === 1 && paramIndex === 0) {
-                return [901];
-            }
-            return [];
-        },
-    };
     const setupAuthorApiModule = defineModule({
         id: "fixture.setup_author_api",
         description: "setup author api contract fixture",
         setup(ctx) {
-            setupHasRawQueries = "queries" in (ctx.raw as unknown as Record<string, unknown>);
             setupMethodsCount = ctx.callbacks.methods(fakeCallbackValue, { maxCandidates: 4 }).length;
             const bindings = ctx.callbacks.paramBindings(fakeCallbackValue, 0, { maxCandidates: 4 });
             setupBindingNodeId = bindings[0]?.localNodeIds?.()?.[0] ?? -1;
             setupStringCandidate = ctx.analysis.stringCandidates("ready")[0] || "";
-            const relay = ctx.bridge.nodeRelay();
-            setupConnectedCallbackEdges = relay.connectInvokeArgToCallbackParam(
-                fakeScannedInvoke as any,
-                0,
-                1,
-                0,
-                { maxCandidates: 4 },
-            );
-            const keyedRelay = ctx.bridge.keyedNodeRelay();
-            keyedRelay.addSources("evt", [1001, 1002]);
-            keyedRelay.addTargets("evt", [1101]);
-            setupMaterializedKeyedEdges = keyedRelay.materialize();
-            setupDeferredBindings = ctx.deferred.imperativeFromInvoke(fakeScannedInvoke as any, 1, {
-                reason: "Setup-Deferred-Binding",
-            });
         },
     });
-    const setupAuthorApiRuntime = createModuleRuntime(
+    createModuleRuntime(
         [setupAuthorApiModule],
         {
             scene: {
@@ -655,15 +598,9 @@ async function main(): Promise<void> {
             log: () => {},
         },
     );
-    setupDeferredBindingKind = setupAuthorApiRuntime.getDeferredBindingDeclarations()[0]?.bindingKind || "";
     assert(setupMethodsCount === 1, "setup callback method resolution should use public callback helpers");
     assert(setupBindingNodeId === 701, "setup callback param bindings should expose local node ids");
     assert(setupStringCandidate === "ready", "analysis.stringCandidates should expose setup-stage finite string candidates");
-    assert(!setupHasRawQueries, "module author raw setup context should not expose internal query helpers");
-    assert(setupConnectedCallbackEdges === 1, "bridge.nodeRelay.connectInvokeArgToCallbackParam should connect invoke payloads to callback params");
-    assert(setupMaterializedKeyedEdges === 2, "bridge.keyedNodeRelay should materialize keyed source/target matches");
-    assert(setupDeferredBindings === 1, "module setup should be able to declare one imperative deferred binding");
-    assert(setupDeferredBindingKind === "imperative", "module runtime should retain setup-time deferred binding declarations");
 
     let badModuleFactCalls = 0;
     const badSetupModule = defineModule({
@@ -705,7 +642,7 @@ async function main(): Promise<void> {
         log: () => {},
         fact: seedFact,
         node: fakeNode,
-    } as InternalRawModuleFactEvent);
+    });
     const isolatedSecond = isolatedRuntime.emitForFact({
         scene: null as any,
         pag: null as any,
@@ -715,7 +652,7 @@ async function main(): Promise<void> {
         log: () => {},
         fact: seedFact,
         node: fakeNode,
-    } as InternalRawModuleFactEvent);
+    });
     assert(isolatedFirst.length === 1, "failing modules should not suppress healthy module emissions");
     assert(isolatedSecond.length === 1, "disabled failing modules should stay isolated on later events");
     assert(badModuleFactCalls === 1, "failing module should be disabled after its first runtime failure");

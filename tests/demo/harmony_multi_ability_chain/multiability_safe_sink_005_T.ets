@@ -13,7 +13,6 @@ class EntryPage005 {
 }
 
 export function multiability_safe_sink_005_T(): void {
-    const entry = new EntryPage005();
-    entry.build();
     void TargetAbility005;
+    void EntryPage005;
 }

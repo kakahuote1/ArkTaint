@@ -1,5 +1,5 @@
-import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
-import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
+import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/lib/core/base/Expr";
+import { Local } from "../../../../arkanalyzer/lib/core/base/Local";
 import { TaintFact } from "../model/TaintFact";
 import type {
     RuleEndpoint,

@@ -134,6 +134,9 @@ class FunctionPlugin {
             return;
         }
         let thisInstanceLocal = this.pagBuilder.getRealThisLocal(thisLocal, staticCS.callerFuncID);
+        if (!thisInstanceLocal) {
+            return;
+        }
         let baseThisNode = this.pag.getOrNewNode(cid, thisInstanceLocal);
         for (let pt of baseThisNode.getPointTo()) {
             srcNode.setThisPt(pt);

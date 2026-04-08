@@ -1,11 +1,11 @@
-import { Scene } from "../../../../arkanalyzer/out/src/Scene";
-import { ArkMethod } from "../../../../arkanalyzer/out/src/core/model/ArkMethod";
+import { Scene } from "../../../../arkanalyzer/lib/Scene";
 import { ArkMainActivationGraph, buildArkMainActivationGraph } from "./edges/ArkMainActivationGraph";
 import {
     collectArkMainEntryFacts,
     expandSeedMethodsByDirectCalls,
 } from "./facts/ArkMainFactResolvers";
 import { buildArkMainContracts, buildArkMainSourceRulesFromContracts } from "./facts/ArkMainContractBuilder";
+import { ArkMainBridgePlan, buildArkMainBridgePlan } from "./bridges/ArkMainBridgePlanner";
 import { ArkMainSchedule, buildArkMainSchedule } from "./scheduling/ArkMainScheduler";
 import {
     ARK_MAIN_PHASE_ORDER,
@@ -36,14 +36,21 @@ export interface ArkMainPlan {
     activationGraph: ArkMainActivationGraph;
     schedule: ArkMainSchedule;
     phases: ArkMainPhasePlan[];
-    orderedMethods: ArkMethod[];
+    bridgePlan: ArkMainBridgePlan;
+    orderedMethods: ArkMainPlanOptions["seedMethods"] extends Array<infer T> ? T[] : never[];
 }
 
 export function buildArkMainPlan(scene: Scene, options: ArkMainPlanOptions = {}): ArkMainPlan {
     const _t0 = Date.now();
-    const expandedSeedMethods = expandSeedMethodsByDirectCalls(scene, options.seedMethods || []);
+    const initialSeedMethods = dedupeMethods([
+        ...(options.seedMethods || []),
+        ...(options.externalEntryCandidates || []),
+    ]);
+    const expandedSeedMethods = expandSeedMethodsByDirectCalls(scene, initialSeedMethods);
     const _t1 = Date.now();
-    const facts = collectArkMainEntryFacts(scene, expandedSeedMethods);
+    const facts = collectArkMainEntryFacts(scene, expandedSeedMethods, {
+        externalFacts: options.externalEntryFacts || [],
+    });
     const _t2 = Date.now();
     const activationGraph = buildArkMainActivationGraph(facts, expandedSeedMethods);
     const _t3 = Date.now();
@@ -53,10 +60,12 @@ export function buildArkMainPlan(scene: Scene, options: ArkMainPlanOptions = {})
     const _t5 = Date.now();
     const sourceRules = buildArkMainSourceRulesFromContracts(contracts);
     const _t6 = Date.now();
-    const phases = buildPhasePlansFromSchedule(facts, schedule);
+    const bridgePlan = buildArkMainBridgePlan(activationGraph, schedule);
     const _t7 = Date.now();
-    if (_t7 - _t0 > 500) {
-        console.log(`[ArkMain profiling] expandSeed=${_t1 - _t0}ms facts=${_t2 - _t1}ms graph=${_t3 - _t2}ms schedule=${_t4 - _t3}ms contracts=${_t5 - _t4}ms sources=${_t6 - _t5}ms phases=${_t7 - _t6}ms total=${_t7 - _t0}ms`);
+    const phases = buildPhasePlansFromSchedule(facts, schedule);
+    const _t8 = Date.now();
+    if (_t8 - _t0 > 500) {
+        console.log(`[ArkMain profiling] expandSeed=${_t1 - _t0}ms facts=${_t2 - _t1}ms graph=${_t3 - _t2}ms schedule=${_t4 - _t3}ms contracts=${_t5 - _t4}ms sources=${_t6 - _t5}ms bridge=${_t7 - _t6}ms phases=${_t8 - _t7}ms total=${_t8 - _t0}ms`);
     }
 
     return {
@@ -66,6 +75,7 @@ export function buildArkMainPlan(scene: Scene, options: ArkMainPlanOptions = {})
         activationGraph,
         schedule,
         phases,
+        bridgePlan,
         orderedMethods: dedupeMethods(schedule.orderedMethods),
     };
 }
@@ -87,8 +97,10 @@ function buildPhasePlansFromSchedule(
     });
 }
 
-function dedupeMethods(methods: ArkMethod[]): ArkMethod[] {
-    const out = new Map<string, ArkMethod>();
+function dedupeMethods(
+    methods: NonNullable<ArkMainPlanOptions["seedMethods"]>,
+): NonNullable<ArkMainPlanOptions["seedMethods"]> {
+    const out = new Map<string, NonNullable<ArkMainPlanOptions["seedMethods"]>[number]>();
     for (const method of methods) {
         const signature = method?.getSignature?.()?.toString?.();
         if (!signature || out.has(signature)) continue;

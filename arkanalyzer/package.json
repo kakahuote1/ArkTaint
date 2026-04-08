@@ -8,7 +8,7 @@
   ],
   "main": "lib/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p ./tsconfig.prod.json",
     "prepack": "tsc -p ./tsconfig.prod.json",
     "test": "vitest",
     "testonce": "vitest --no-color run",

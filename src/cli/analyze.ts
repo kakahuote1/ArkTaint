@@ -267,6 +267,9 @@ async function main(): Promise<void> {
     console.log(`detect_profile=${JSON.stringify(report.summary.detectProfile)}`);
     console.log(`stage_profile=${JSON.stringify(report.summary.stageProfile)}`);
     console.log(`transfer_no_hit_reasons=${JSON.stringify(report.summary.transferNoHitReasons)}`);
+    if (report.summary.externalEntryRecognition) {
+        console.log(`external_entry_recognition=${JSON.stringify(report.summary.externalEntryRecognition)}`);
+    }
     console.log(`rule_layers=${report.ruleLayers.join(" -> ")}`);
     console.log(`summary_json=${jsonPath}`);
     console.log(`summary_md=${mdPath}`);
@@ -309,9 +312,9 @@ main().catch(err => {
     diagnostics.systemFailures.push(buildSystemFailureEvent(err, {
         phase: "analyze",
         code: "SYSTEM_ANALYZE_THROW",
-        title: "分析主流程",
-        summary: "分析主流程抛出了未归类异常",
-        advice: "这不是规则、语义包或插件自身的已归类错误。请先检查这里附近的代码和上一条栈信息，再决定是修配置、扩展还是引擎主流程。",
+        title: "Analyze execution failed",
+        summary: "ArkTaint threw an unexpected error while running analysis.",
+        advice: "Inspect the diagnostics output and the failing repo configuration, then rerun after fixing the underlying runtime or rule issue.",
     }));
     const { jsonPath, textPath } = writeDiagnosticsArtifacts(outputLayout.diagnosticsDir, diagnostics);
     writeAnalyzeFailureRunManifest(outputLayout, {

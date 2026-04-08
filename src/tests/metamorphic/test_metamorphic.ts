@@ -1,4 +1,4 @@
-﻿import {
+import {
     runMetamorphicSuite,
     TransformOutput,
     TransformSpec,
@@ -37,12 +37,6 @@ runMetamorphicSuite({
         tempProjectDir: "tmp/test_runs/metamorphic/seed_v1/latest/metamorphic_project",
         reportPath: "tmp/test_runs/metamorphic/seed_v1/latest/metamorphic_report.json",
         k: 1,
-    },
-    metadata: {
-        suite: "metamorphic_seed_v1",
-        domain: "metamorphic",
-        title: "Metamorphic Seed V1",
-        purpose: "Verify semantics-preserving source mutations remain consistent on the senior_full seed suite.",
     },
     transforms,
     variantTag: "m",

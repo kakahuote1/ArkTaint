@@ -1,9 +1,9 @@
-import { Scene } from "../../../arkanalyzer/out/src/Scene";
-import { ArkAssignStmt, ArkReturnStmt } from "../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkArrayRef, ArkParameterRef } from "../../../arkanalyzer/out/src/core/base/Ref";
-import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../../arkanalyzer/out/src/core/base/Expr";
-import { Local } from "../../../arkanalyzer/out/src/core/base/Local";
-import { ArkMethod } from "../../../arkanalyzer/out/src/core/model/ArkMethod";
+import { Scene } from "../../../arkanalyzer/lib/Scene";
+import { ArkAssignStmt, ArkReturnStmt } from "../../../arkanalyzer/lib/core/base/Stmt";
+import { ArkArrayRef, ArkParameterRef } from "../../../arkanalyzer/lib/core/base/Ref";
+import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../../arkanalyzer/lib/core/base/Expr";
+import { Local } from "../../../arkanalyzer/lib/core/base/Local";
+import { ArkMethod } from "../../../arkanalyzer/lib/core/model/ArkMethod";
 
 export interface PureEntryCallbackRegistrationMatchArgs {
     invokeExpr: any;

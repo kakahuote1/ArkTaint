@@ -1,6 +1,6 @@
-import { Scene } from "../../../../arkanalyzer/out/src/Scene";
-import { ArkMethod } from "../../../../arkanalyzer/out/src/core/model/ArkMethod";
-import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
+import { Scene } from "../../../../arkanalyzer/lib/Scene";
+import { ArkMethod } from "../../../../arkanalyzer/lib/core/model/ArkMethod";
+import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr } from "../../../../arkanalyzer/lib/core/base/Expr";
 import { resolveCalleeCandidates, resolveMethodsFromCallable } from "../../substrate/queries/CalleeResolver";
 import {
     collectKnownKeyedDispatchKeysFromMethod,
@@ -11,6 +11,7 @@ import {
 interface DirectCallExpansionOptions {
     includeKeyedDispatchCallbacks?: boolean;
     allowedDeclaringClassNames?: Set<string>;
+    includeDeferredCallbacks?: boolean;
 }
 
 const KNOWN_ORDINARY_CALLBACK_ARG_INDEXES = new Map<string, number[]>([
@@ -69,6 +70,7 @@ export function expandMethodsByDirectCalls(
     const out = new Map<string, ArkMethod>();
     const includeKeyedDispatchCallbacks = options.includeKeyedDispatchCallbacks ?? false;
     const allowedDeclaringClassNames = options.allowedDeclaringClassNames;
+    const includeDeferredCallbacks = options.includeDeferredCallbacks ?? true;
 
     while (true) {
         for (let head = 0; head < queue.length; head++) {
@@ -94,7 +96,7 @@ export function expandMethodsByDirectCalls(
                     queue.push(calleeMethod);
                 }
 
-                for (const calleeMethod of collectCallableExpansionTargets(scene, invokeExpr)) {
+                for (const calleeMethod of collectCallableExpansionTargets(scene, invokeExpr, includeDeferredCallbacks)) {
                     const calleeSignature = calleeMethod?.getSignature?.()?.toString?.();
                     if (!calleeSignature || out.has(calleeSignature)) continue;
                     if (!isAllowedDeclaringClass(calleeMethod, allowedDeclaringClassNames)) continue;
@@ -119,7 +121,7 @@ export function expandMethodsByDirectCalls(
     return [...out.values()];
 }
 
-function collectCallableExpansionTargets(scene: Scene, invokeExpr: any): ArkMethod[] {
+function collectCallableExpansionTargets(scene: Scene, invokeExpr: any, includeDeferredCallbacks: boolean): ArkMethod[] {
     const out: ArkMethod[] = [];
     const seen = new Set<string>();
 
@@ -146,7 +148,7 @@ function collectCallableExpansionTargets(scene: Scene, invokeExpr: any): ArkMeth
 
     const args = invokeExpr?.getArgs ? invokeExpr.getArgs() : [];
     const methodName = invokeExpr?.getMethodSignature?.()?.getMethodSubSignature?.()?.getMethodName?.() || "";
-    for (const argIndex of resolveKnownCallableArgIndexes(methodName)) {
+    for (const argIndex of resolveKnownCallableArgIndexes(methodName, includeDeferredCallbacks)) {
         if (argIndex < 0 || argIndex >= args.length) continue;
         addCallableTargetsFromValue(args[argIndex]);
     }
@@ -154,10 +156,12 @@ function collectCallableExpansionTargets(scene: Scene, invokeExpr: any): ArkMeth
     return out;
 }
 
-function resolveKnownCallableArgIndexes(methodName: string): number[] {
+function resolveKnownCallableArgIndexes(methodName: string, includeDeferredCallbacks: boolean): number[] {
     if (!methodName) return [];
     const ordinary = KNOWN_ORDINARY_CALLBACK_ARG_INDEXES.get(methodName) || [];
-    const deferred = KNOWN_DEFERRED_CALLBACK_ARG_INDEXES.get(methodName) || [];
+    const deferred = includeDeferredCallbacks
+        ? (KNOWN_DEFERRED_CALLBACK_ARG_INDEXES.get(methodName) || [])
+        : [];
     return ordinary.length === 0
         ? deferred
         : deferred.length === 0

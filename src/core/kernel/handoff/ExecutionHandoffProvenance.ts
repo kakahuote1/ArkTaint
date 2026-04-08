@@ -1,14 +1,9 @@
-import { Scene } from "../../../../arkanalyzer/out/src/Scene";
-import { CallGraph } from "../../../../arkanalyzer/out/src/callgraph/model/CallGraph";
-import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
+import { Scene } from "../../../../arkanalyzer/lib/Scene";
+import { CallGraph } from "../../../../arkanalyzer/lib/callgraph/model/CallGraph";
+import { Local } from "../../../../arkanalyzer/lib/core/base/Local";
 import { collectParameterAssignStmts, isCallableValue, resolveMethodsFromCallable } from "../../substrate/queries/CalleeResolver";
+import { recoverEventRegistrationSemantics } from "../model/EventRegistrationSemantics";
 import { recoverDeferredCompletionSemantics } from "../model/DeferredCompletionSemantics";
-import type { ModuleExplicitDeferredBindingRecord } from "../model/DeferredBindingDeclaration";
-import {
-    resolveKnownChannelCallbackRegistration,
-    resolveKnownFrameworkCallbackRegistration,
-    resolveKnownSchedulerCallbackRegistration,
-} from "../../substrate/semantics/ApprovedImperativeDeferredBindingSemantics";
 import {
     resolveCallbackMethodsFromValueWithReturns,
     resolveCallbackRegistrationsFromStmt,
@@ -25,10 +20,6 @@ import {
     HandoffResumeKind,
     HandoffTriggerToken,
 } from "./ExecutionHandoffContract";
-import {
-    collectDeclarativeDeferredBindings,
-    type DeclarativeDeferredBindingRecord,
-} from "./ExecutionHandoffDeclarativeBinding";
 
 const CALLBACK_RESOLVE_OPTIONS = {
     maxCandidates: 8,
@@ -66,7 +57,6 @@ interface RecoveredExecutionHandoffSemantics {
 export function buildExecutionHandoffActivationPaths(
     scene: Scene,
     cg: CallGraph,
-    explicitBindings: ModuleExplicitDeferredBindingRecord[] = [],
 ): ExecutionHandoffActivationPathRecord[] {
     const context: ExecutionHandoffProvenanceContext = {
         incomingCallsiteIndexByCalleeSig: buildIncomingCallsiteIndex(scene, cg),
@@ -85,16 +75,6 @@ export function buildExecutionHandoffActivationPaths(
                 records.set(record.id, record);
             }
         }
-    }
-    for (const binding of collectDeclarativeDeferredBindings(scene)) {
-        const record = buildDeclarativeExecutionHandoffActivationPathRecord(binding);
-        if (!record) continue;
-        records.set(record.id, record);
-    }
-    for (const binding of explicitBindings) {
-        const record = buildExplicitExecutionHandoffActivationPathRecord(binding);
-        if (!record) continue;
-        records.set(record.id, record);
     }
 
     return [...records.values()].sort((a, b) => a.id.localeCompare(b.id));
@@ -139,80 +119,6 @@ function buildExecutionHandoffActivationPathRecord(
     };
 }
 
-function buildDeclarativeExecutionHandoffActivationPathRecord(
-    binding: DeclarativeDeferredBindingRecord,
-): ExecutionHandoffActivationPathRecord | undefined {
-    const caller = binding.sourceMethod;
-    const stmt = binding.anchorStmt;
-    const unit = binding.unit;
-    const features = collectDeclarativeExecutionHandoffFeatures(binding);
-    const recovered = deriveRecoveredSemantics(features);
-    const activationLabel = recovered.activationLabel;
-    const carrierKind = deriveCarrierKind(features, new Set<HandoffCarrierKind>(["field"]));
-    const pathLabels = buildPathLabels(features, activationLabel, carrierKind);
-    const callerSignature = methodSignature(caller);
-    const unitSignature = methodSignature(unit);
-    const lineNo = stmt?.getOriginPositionInfo?.()?.getLineNo?.() || 0;
-
-    return {
-        id: `${callerSignature}#${lineNo}#${unitSignature}`,
-        caller,
-        stmt,
-        invokeExpr: undefined,
-        unit,
-        sourceMethods: [caller],
-        callerSignature,
-        unitSignature,
-        lineNo,
-        carrierKind,
-        activationLabel,
-        pathLabels,
-        hasResumeAnchor: features.hasAwaitResume,
-        semantics: recovered.semantics,
-        ...features,
-    };
-}
-
-function buildExplicitExecutionHandoffActivationPathRecord(
-    binding: ModuleExplicitDeferredBindingRecord,
-): ExecutionHandoffActivationPathRecord | undefined {
-    const caller = binding.sourceMethod;
-    const stmt = binding.anchorStmt;
-    const unit = binding.unit;
-    if (!caller?.getCfg?.() || !unit?.getCfg?.() || !stmt) {
-        return undefined;
-    }
-
-    const features = collectExplicitExecutionHandoffFeatures(binding);
-    const recovered = recoverSemanticsFromExplicitBinding(binding);
-    const activationLabel = recovered.activationLabel;
-    const carrierKind = binding.carrierKind as HandoffCarrierKind;
-    const pathLabels = buildPathLabels(features, activationLabel, carrierKind);
-    const callerSignature = methodSignature(caller);
-    const unitSignature = methodSignature(unit);
-    const lineNo = stmt?.getOriginPositionInfo?.()?.getLineNo?.() || 0;
-
-    return {
-        id: `${callerSignature}#${lineNo}#${unitSignature}`,
-        caller,
-        stmt,
-        invokeExpr: binding.bindingKind === "imperative"
-            ? stmt?.getInvokeExpr?.()
-            : undefined,
-        unit,
-        sourceMethods: [caller],
-        callerSignature,
-        unitSignature,
-        lineNo,
-        carrierKind,
-        activationLabel,
-        pathLabels,
-        hasResumeAnchor: features.hasAwaitResume,
-        semantics: recovered.semantics,
-        ...features,
-    };
-}
-
 function collectExecutionHandoffFeatures(
     scene: Scene,
     caller: any,
@@ -224,9 +130,16 @@ function collectExecutionHandoffFeatures(
     const explicitArgs = invokeExpr?.getArgs ? invokeExpr.getArgs() : [];
     const { callableArgIndexes, matchingArgIndexes } = collectArgMatchIndexes(scene, stmt, unit);
     const registrationMatch = invokeExpr
-        ? resolveApprovedImperativeRegistrationMatch(scene, caller, invokeExpr, explicitArgs)
+        ? resolveStructuralRegistrationMatch(scene, caller, invokeExpr, explicitArgs)
         : undefined;
-    const callbackArgIndexes = registrationMatch?.callbackArgIndexes || [];
+    const callbackArgIndexes = inferRegistrationArgIndexes(
+        scene,
+        caller,
+        invokeExpr,
+        explicitArgs,
+        callableArgIndexes,
+        registrationMatch?.callbackArgIndexes || [],
+    );
     const localRegistration = callbackArgIndexes.some(index => matchingArgIndexes.includes(index));
 
     let registrationReachabilityDepth: number | null = localRegistration ? 0 : null;
@@ -240,63 +153,18 @@ function collectExecutionHandoffFeatures(
             }
         }
     }
+
     return {
         invokeText: stmt.toString?.() || "",
         invokeName: invokeMethodName(stmt),
         matchingArgIndexes,
         callableArgIndexes,
-        bindingKind: "imperative",
         localRegistration,
         registrationReachabilityDepth,
         usesPtrInvoke: String(stmt.toString?.() || "").includes("ptrinvoke "),
         hasAwaitResume: methodStmtTexts(caller).some(text => text.includes("await ")),
         payloadPorts: countPayloadPorts(unit),
         capturePorts: countCapturePorts(unit),
-    };
-}
-
-function collectDeclarativeExecutionHandoffFeatures(
-    binding: DeclarativeDeferredBindingRecord,
-): ExecutionHandoffFeatures {
-    const bindingText = `${binding.decoratorKind}(${binding.targetField})`;
-    return {
-        invokeText: bindingText,
-        invokeName: binding.decoratorKind,
-        matchingArgIndexes: [],
-        callableArgIndexes: [],
-        bindingKind: "declarative",
-        localRegistration: false,
-        registrationReachabilityDepth: null,
-        usesPtrInvoke: false,
-        hasAwaitResume: false,
-        payloadPorts: countPayloadPorts(binding.unit),
-        capturePorts: countCapturePorts(binding.unit),
-    };
-}
-
-function collectExplicitExecutionHandoffFeatures(
-    binding: ModuleExplicitDeferredBindingRecord,
-): ExecutionHandoffFeatures {
-    const bindingText = binding.bindingKind === "imperative"
-        ? (binding.invokeText || binding.anchorStmt?.toString?.() || binding.reason)
-        : binding.triggerLabel;
-    const completion = binding.semantics.completion || "none";
-    return {
-        invokeText: bindingText,
-        invokeName: binding.bindingKind === "imperative"
-            ? binding.anchorStmt?.getInvokeExpr?.()?.getMethodSignature?.()?.getMethodSubSignature?.()?.getMethodName?.() || null
-            : bindingText,
-        matchingArgIndexes: [],
-        callableArgIndexes: [],
-        bindingKind: binding.bindingKind,
-        localRegistration: binding.bindingKind === "imperative" && binding.semantics.activation === "event(c)",
-        registrationReachabilityDepth: binding.bindingKind === "imperative" && binding.semantics.activation === "event(c)"
-            ? 0
-            : null,
-        usesPtrInvoke: false,
-        hasAwaitResume: completion === "await_site",
-        payloadPorts: countPayloadPorts(binding.unit),
-        capturePorts: countCapturePorts(binding.unit),
     };
 }
 
@@ -350,19 +218,32 @@ function collectFutureUnitCandidates(
         stmt,
         scene,
         caller,
-        args => resolveApprovedImperativeRegistrationMatch(args.scene, args.sourceMethod, args.invokeExpr, args.explicitArgs),
+        args => resolveStructuralRegistrationMatch(args.scene, args.sourceMethod, args.invokeExpr, args.explicitArgs),
         { maxDepth: 4 },
     );
     for (const registration of registrations) {
         addMethod(
             registration.callbackMethod,
             registration.sourceMethod || caller,
-            methodSignature(registration.registrationMethod) !== methodSignature(caller) ? "relay" : "direct",
+            registration.sourceMethod && methodSignature(registration.sourceMethod) !== methodSignature(caller) ? "relay" : "direct",
         );
     }
 
-    const registrationMatch = resolveApprovedImperativeRegistrationMatch(scene, caller, invokeExpr, explicitArgs);
-    const callbackArgIndexes = registrationMatch?.callbackArgIndexes || [];
+    const registrationMatch = resolveStructuralRegistrationMatch(scene, caller, invokeExpr, explicitArgs);
+    const callbackArgIndexes = inferRegistrationArgIndexes(
+        scene,
+        caller,
+        invokeExpr,
+        explicitArgs,
+        explicitArgs
+            .map((arg, index) => ({ arg, index }))
+            .filter(item => {
+                const methods = resolveMethodsFromCallable(scene, item.arg, CALLBACK_RESOLVE_OPTIONS);
+                return methods.length > 0 || isCallableValue(item.arg);
+            })
+            .map(item => item.index),
+        registrationMatch?.callbackArgIndexes || [],
+    );
     for (const callbackArgIndex of callbackArgIndexes) {
         const callbackValue = explicitArgs[callbackArgIndex];
         for (const origin of resolveRelayCallbackOrigins(scene, caller, callbackValue, context)) {
@@ -452,32 +333,70 @@ function collectArgMatchIndexes(scene: Scene, stmt: any, unit: any): { callableA
     return { callableArgIndexes, matchingArgIndexes };
 }
 
-function resolveApprovedImperativeRegistrationMatch(
+function inferRegistrationArgIndexes(
     scene: Scene,
     sourceMethod: any,
     invokeExpr: any,
     explicitArgs: any[],
-): { callbackArgIndexes: number[]; reason?: string } | null {
-    const isDeferredCompletion = !!recoverDeferredCompletionSemantics({
-        invokeName: invokeExpr?.getMethodSignature?.()?.getMethodSubSignature?.()?.getMethodName?.() || null,
-        matchingArgIndexes: [],
-        payloadPorts: 0,
-        hasResumeAnchor: false,
-    });
-    if (isDeferredCompletion) {
-        return null;
+    callableArgIndexes: number[],
+    classifiedIndexes: number[],
+): number[] {
+    if (classifiedIndexes.length > 0) {
+        return classifiedIndexes;
     }
-
-    const matcherArgs = {
+    return recoverEventRegistrationSemantics({
         scene,
         sourceMethod,
         invokeExpr,
         explicitArgs,
-    };
+        callableArgIndexes,
+        isDeferredCompletion: !!recoverDeferredCompletionSemantics({
+            invokeName: invokeExpr?.getMethodSignature?.()?.getMethodSubSignature?.()?.getMethodName?.() || null,
+            matchingArgIndexes: callableArgIndexes,
+            payloadPorts: 0,
+            hasResumeAnchor: false,
+        }),
+    })?.callbackArgIndexes || [];
+}
 
-    return resolveKnownSchedulerCallbackRegistration(matcherArgs)
-        || resolveKnownChannelCallbackRegistration(matcherArgs)
-        || resolveKnownFrameworkCallbackRegistration(matcherArgs);
+function resolveStructuralRegistrationMatch(
+    scene: Scene,
+    sourceMethod: any,
+    invokeExpr: any,
+    explicitArgs: any[],
+): { callbackArgIndexes: number[]; reason: string } | null {
+    const callableArgIndexes = explicitArgs
+        .map((arg, index) => ({ arg, index }))
+        .filter(item => {
+            if (isCallableValue(item.arg)) {
+                return true;
+            }
+            const callbackMethods = resolveCallbackMethodsFromValueWithReturns(scene, item.arg, { maxDepth: 6 });
+            if (callbackMethods.length > 0) {
+                return true;
+            }
+            return resolveMethodsFromCallable(scene, item.arg, CALLBACK_RESOLVE_OPTIONS).length > 0;
+        })
+        .map(item => item.index);
+
+    const registration = recoverEventRegistrationSemantics({
+        scene,
+        sourceMethod,
+        invokeExpr,
+        explicitArgs,
+        callableArgIndexes,
+        isDeferredCompletion: !!recoverDeferredCompletionSemantics({
+            invokeName: invokeExpr?.getMethodSignature?.()?.getMethodSubSignature?.()?.getMethodName?.() || null,
+            matchingArgIndexes: callableArgIndexes,
+            payloadPorts: 0,
+            hasResumeAnchor: false,
+        }),
+    });
+    if (!registration || registration.callbackArgIndexes.length === 0) {
+        return null;
+    }
+
+    return registration;
 }
 
 function resolveParameterIndexForActualArg(method: any, value: any): number | null {
@@ -643,9 +562,6 @@ function methodStmtTexts(method: any): string[] {
 }
 
 function deriveRecoveredSemantics(features: ExecutionHandoffFeatures): RecoveredExecutionHandoffSemantics {
-    if (features.bindingKind === "declarative") {
-        return buildRecoveredSemantics("declare", "event(c)", "none", [], "none");
-    }
     if (features.registrationReachabilityDepth !== null) {
         return buildRecoveredSemantics("register", "event(c)", "none", [], "none");
     }
@@ -665,31 +581,6 @@ function deriveRecoveredSemantics(features: ExecutionHandoffFeatures): Recovered
         );
     }
     return buildRecoveredSemantics("invoke", "call(c)", "none", [], "none");
-}
-
-function recoverSemanticsFromExplicitBinding(
-    binding: ModuleExplicitDeferredBindingRecord,
-): RecoveredExecutionHandoffSemantics {
-    const activation = binding.semantics.activation;
-    const completion = binding.semantics.completion || "none";
-    const preserve = [...(binding.semantics.preserve || [])];
-    const continuationRole = binding.semantics.continuationRole || "none";
-    if (activation === "settle(fulfilled)") {
-        return buildRecoveredSemantics("settle_f", activation, completion, preserve, continuationRole);
-    }
-    if (activation === "settle(rejected)") {
-        return buildRecoveredSemantics("settle_r", activation, completion, preserve, continuationRole);
-    }
-    if (activation === "settle(any)") {
-        return buildRecoveredSemantics("settle_a", activation, completion, preserve, continuationRole);
-    }
-    return buildRecoveredSemantics(
-        binding.bindingKind === "declarative" ? "declare" : "register",
-        activation,
-        completion,
-        preserve,
-        continuationRole,
-    );
 }
 
 function buildRecoveredSemantics(
@@ -756,9 +647,6 @@ function buildPathLabels(
     switch (activationLabel) {
         case "register":
             labels.push("register");
-            break;
-        case "declare":
-            labels.push("declare");
             break;
         case "invoke":
             labels.push("invoke");

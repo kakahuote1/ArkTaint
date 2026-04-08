@@ -8,6 +8,5 @@ class FakeTargetPage005 {
 }
 
 export function route_stack_fake_005_F(): void {
-    const target = new FakeTargetPage005();
-    target.onPageShow();
+    void FakeTargetPage005;
 }

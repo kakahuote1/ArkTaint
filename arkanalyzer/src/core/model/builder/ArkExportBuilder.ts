@@ -16,25 +16,14 @@
 import ts from 'ohos-typescript';
 import { LineColPosition } from '../../base/Position';
 import { ArkExport, ExportInfo, ExportType, FromInfo } from '../ArkExport';
+import { buildModifiers } from './builderUtils';
 import { ArkFile } from '../ArkFile';
 import { ALL, DEFAULT, TEMP_EXPORT_ALL_PREFIX } from '../../common/TSConst';
 import { ArkBaseModel, ModifierType } from '../ArkBaseModel';
 import { IRUtils } from '../../common/IRUtils';
 import { ArkClass } from '../ArkClass';
+import { buildNormalArkClassFromArkFile } from './ArkClassBuilder';
 import { ArkNamespace } from '../ArkNamespace';
-
-declare const require: (id: string) => any;
-
-type BuilderUtilsModule = typeof import('./builderUtils');
-type ArkClassBuilderModule = typeof import('./ArkClassBuilder');
-
-function loadBuilderUtils(): BuilderUtilsModule {
-    return require('./builderUtils');
-}
-
-function loadArkClassBuilder(): ArkClassBuilderModule {
-    return require('./ArkClassBuilder');
-}
 
 export { buildExportInfo, buildExportAssignment, buildExportDeclaration };
 
@@ -128,7 +117,7 @@ function buildExportAssignment(node: ts.ExportAssignment, sourceFile: ts.SourceF
     }
     const originTsPosition = LineColPosition.buildFromNode(node, sourceFile);
     const tsSourceCode = node.getText(sourceFile);
-    let modifiers = loadBuilderUtils().buildModifiers(node);
+    let modifiers = buildModifiers(node);
 
     if (isKeyword(node.getChildren(sourceFile), ts.SyntaxKind.DefaultKeyword) || node.isExportEquals) {
         modifiers |= ModifierType.DEFAULT;
@@ -146,7 +135,7 @@ function buildExportAssignment(node: ts.ExportAssignment, sourceFile: ts.SourceF
 
     if (ts.isNewExpression(node.expression) && ts.isClassExpression(node.expression.expression)) {
         let cls: ArkClass = new ArkClass();
-        loadArkClassBuilder().buildNormalArkClassFromArkFile(node.expression.expression, arkFile, cls, sourceFile);
+        buildNormalArkClassFromArkFile(node.expression.expression, arkFile, cls, sourceFile);
     }
 
     if (ts.isIdentifier(node.expression)) {
@@ -170,7 +159,7 @@ function buildExportAssignment(node: ts.ExportAssignment, sourceFile: ts.SourceF
 export function buildExportVariableStatement(node: ts.VariableStatement, sourceFile: ts.SourceFile, arkFile: ArkFile, namespace?: ArkNamespace): ExportInfo[] {
     let exportInfos: ExportInfo[] = [];
     const originTsPosition = LineColPosition.buildFromNode(node, sourceFile);
-    const modifiers = node.modifiers ? loadBuilderUtils().buildModifiers(node) : 0;
+    const modifiers = node.modifiers ? buildModifiers(node) : 0;
     const tsSourceCode = node.getText(sourceFile);
     node.declarationList.declarations.forEach(dec => {
         const exportInfoBuilder = new ExportInfo.Builder()
@@ -197,7 +186,7 @@ export function buildExportVariableStatement(node: ts.VariableStatement, sourceF
 export function buildExportTypeAliasDeclaration(node: ts.TypeAliasDeclaration, sourceFile: ts.SourceFile, arkFile: ArkFile): ExportInfo[] {
     let exportInfos: ExportInfo[] = [];
     const originTsPosition = LineColPosition.buildFromNode(node, sourceFile);
-    let modifiers = node.modifiers ? loadBuilderUtils().buildModifiers(node) : 0;
+    let modifiers = node.modifiers ? buildModifiers(node) : 0;
     modifiers |= ModifierType.TYPE;
     const tsSourceCode = node.getText(sourceFile);
     const exportInfo = new ExportInfo.Builder()

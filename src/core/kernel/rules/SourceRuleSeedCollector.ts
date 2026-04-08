@@ -1,16 +1,15 @@
-import { Scene } from "../../../../arkanalyzer/out/src/Scene";
-import { Pag } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
-import { ArkAssignStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkInstanceFieldRef, ArkParameterRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
-import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
-import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
-import { ArkMethod } from "../../../../arkanalyzer/out/src/core/model/ArkMethod";
+import { Scene } from "../../../../arkanalyzer/lib/Scene";
+import { Pag } from "../../../../arkanalyzer/lib/callgraph/pointerAnalysis/Pag";
+import { ArkAssignStmt } from "../../../../arkanalyzer/lib/core/base/Stmt";
+import { ArkInstanceFieldRef, ArkParameterRef } from "../../../../arkanalyzer/lib/core/base/Ref";
+import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr } from "../../../../arkanalyzer/lib/core/base/Expr";
+import { Local } from "../../../../arkanalyzer/lib/core/base/Local";
+import { ArkMethod } from "../../../../arkanalyzer/lib/core/model/ArkMethod";
 import { resolveCallbackRegistrationsFromStmt } from "../../substrate/queries/CallbackBindingQuery";
 import { resolveMethodsFromCallable } from "../../substrate/queries/CalleeResolver";
 import { resolveSdkImportScopeCandidates } from "../../substrate/queries/SdkProvenance";
 import { getMethodBySignature } from "../contracts/MethodLookup";
 import { TaintFact } from "../model/TaintFact";
-import { resolveQualifiedDeclarativeFieldTriggerToken } from "../model/DeclarativeFieldTriggerSemantics";
 import {
     normalizeEndpoint,
     RuleEndpoint,
@@ -1065,8 +1064,32 @@ function seedThisFieldLoadFactsInClass(
 }
 
 function isWatchLikeMethodForField(method: ArkMethod, fieldName: string): boolean {
-    const targetField = resolveQualifiedDeclarativeFieldTriggerToken(method);
-    return targetField !== undefined && targetField === fieldName;
+    const decorators = method.getDecorators?.() || [];
+    for (const decorator of decorators) {
+        const kind = String(decorator?.getKind?.() || "").replace(/^@+/, "").trim();
+        if (kind !== "Watch" && kind !== "Monitor") continue;
+        const fromParam = normalizeDecoratorFieldKey(decorator?.getParam?.());
+        if (fromParam && fromParam === fieldName) return true;
+        const fromContent = extractDecoratorFieldKeyFromContent(decorator?.getContent?.());
+        if (fromContent && fromContent === fieldName) return true;
+    }
+    return false;
+}
+
+function normalizeDecoratorFieldKey(raw: any): string | undefined {
+    if (raw === undefined || raw === null) return undefined;
+    const text = String(raw).trim();
+    if (!text) return undefined;
+    const unquoted = text.replace(/^['"`]/, "").replace(/['"`]$/, "").trim();
+    return unquoted || undefined;
+}
+
+function extractDecoratorFieldKeyFromContent(content: any): string | undefined {
+    const text = String(content || "");
+    if (!text) return undefined;
+    const m = text.match(/\(\s*['"`]([^'"`]+)['"`]\s*\)/);
+    if (!m) return undefined;
+    return normalizeDecoratorFieldKey(m[1]);
 }
 
 function seedLocalStoredThisFieldLoadFactsInClass(

@@ -1,7 +1,7 @@
-import { Scene } from "../../../arkanalyzer/out/src/Scene";
-import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
-import { Local } from "../../../arkanalyzer/out/src/core/base/Local";
-import { resolveKnownFrameworkCallbackRegistration } from "../../core/substrate/semantics/ApprovedImperativeDeferredBindingSemantics";
+import { Scene } from "../../../arkanalyzer/lib/Scene";
+import { SceneConfig } from "../../../arkanalyzer/lib/Config";
+import { Local } from "../../../arkanalyzer/lib/core/base/Local";
+import { resolveKnownFrameworkCallbackRegistrationWithPolicy } from "../../core/entry/shared/FrameworkCallbackClassifier";
 import { isCallableValue, resolveMethodsFromCallable } from "../../core/substrate/queries/CalleeResolver";
 import { registerMockSdkFiles } from "./TestSceneBuilder";
 import {
@@ -38,6 +38,14 @@ export const CALLBACK_RESOLVE_OPTIONS = {
     maxBacktraceSteps: 5,
     maxVisitedDefs: 16,
 };
+
+export const STRUCTURAL_ONLY_POLICY = {
+    enableSdkProvenance: false,
+    enableOwnerQualifiedFallback: false,
+    enableEmptyOwnerFallback: false,
+    enableStructuralCallableFallback: true,
+    suppressCatalogSlotFamilyInference: true,
+} as const;
 
 export function buildInferenceScene(projectDir: string): Scene {
     const config = new SceneConfig();
@@ -96,8 +104,9 @@ export function collectFeatures(scene: SceneLike, outer: MethodLike, unit: Metho
     const explicitArgs = invokeExpr?.getArgs ? invokeExpr.getArgs() : [];
     const { callableArgIndexes, matchingArgIndexes } = collectArgMatchIndexes(scene, stmt, unit);
     const registrationMatch = invokeExpr
-        ? resolveKnownFrameworkCallbackRegistration(
+        ? resolveKnownFrameworkCallbackRegistrationWithPolicy(
             { scene, invokeExpr, explicitArgs, sourceMethod: outer },
+            STRUCTURAL_ONLY_POLICY,
         )
         : undefined;
     const callbackArgIndexes = inferRegistrationArgIndexes(stmt, explicitArgs, callableArgIndexes, registrationMatch?.callbackArgIndexes || []);

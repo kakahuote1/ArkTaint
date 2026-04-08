@@ -1,6 +1,6 @@
-import { Constant } from "../../../../arkanalyzer/out/src/core/base/Constant";
-import { ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
-import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
+import { Constant } from "../../../../arkanalyzer/lib/core/base/Constant";
+import { ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/lib/core/base/Expr";
+import { Local } from "../../../../arkanalyzer/lib/core/base/Local";
 import { defineModule, TaintModule } from "../../../core/kernel/contracts/ModuleApi";
 
 const ON_METHOD_NAME = "on";
@@ -19,7 +19,9 @@ export const harmonyEmitterModule: TaintModule = defineModule({
     id: "harmony.emitter",
     description: "Built-in Harmony event emitter bridges.",
     setup(ctx) {
-        const relay = ctx.bridge.keyedNodeRelay();
+        const relay = ctx.bridge.nodeRelay();
+        const callbackTargetsByEventKey = new Map<string, Set<number>>();
+        const payloadSourcesByEventKey = new Map<string, Set<number>>();
         let onRegistrationCount = 0;
         let emitCount = 0;
         let dynamicEventSkipCount = 0;
@@ -53,17 +55,27 @@ export const harmonyEmitterModule: TaintModule = defineModule({
                 const callbackParamNodeIds = new Set<number>(call.callbackParamNodeIds(1, 0, { maxCandidates: 8 }));
                 if (callbackParamNodeIds.size === 0) continue;
                 onRegistrationCount++;
-                relay.addTargets(eventKey, callbackParamNodeIds);
+                for (const nodeId of callbackParamNodeIds) {
+                    addMapSetValue(callbackTargetsByEventKey, eventKey, nodeId);
+                }
                 continue;
             }
 
             const payloadNodeIds = new Set<number>(call.argNodeIds(1));
             if (payloadNodeIds.size === 0) continue;
             emitCount++;
-            relay.addSources(eventKey, payloadNodeIds);
+            for (const nodeId of payloadNodeIds) {
+                addMapSetValue(payloadSourcesByEventKey, eventKey, nodeId);
+            }
         }
 
-        const bridgeCount = relay.materialize();
+        let bridgeCount = 0;
+        for (const [eventKey, sourceNodeIds] of payloadSourcesByEventKey.entries()) {
+            const targetNodeIds = callbackTargetsByEventKey.get(eventKey);
+            if (!targetNodeIds || targetNodeIds.size === 0) continue;
+            bridgeCount += sourceNodeIds.size * targetNodeIds.size;
+            relay.connectMany(sourceNodeIds, targetNodeIds);
+        }
 
         ctx.debug.summary("Harmony-Emitter", {
             on_registrations: onRegistrationCount,
@@ -79,6 +91,15 @@ export const harmonyEmitterModule: TaintModule = defineModule({
         };
     },
 });
+
+function addMapSetValue<K, V>(map: Map<K, Set<V>>, key: K, value: V): void {
+    let set = map.get(key);
+    if (!set) {
+        set = new Set<V>();
+        map.set(key, set);
+    }
+    set.add(value);
+}
 
 function resolveClassKeyFromMethodSig(methodSig: any): string {
     const className = methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";

@@ -1,8 +1,8 @@
-import { Scene } from "../../../arkanalyzer/out/src/Scene";
-import { ArkAssignStmt } from "../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkInstanceFieldRef } from "../../../arkanalyzer/out/src/core/base/Ref";
-import { ArkClass } from "../../../arkanalyzer/out/src/core/model/ArkClass";
-import { ArkMethod } from "../../../arkanalyzer/out/src/core/model/ArkMethod";
+import { Scene } from "../../../arkanalyzer/lib/Scene";
+import { ArkAssignStmt } from "../../../arkanalyzer/lib/core/base/Stmt";
+import { ArkInstanceFieldRef } from "../../../arkanalyzer/lib/core/base/Ref";
+import { ArkClass } from "../../../arkanalyzer/lib/core/model/ArkClass";
+import { ArkMethod } from "../../../arkanalyzer/lib/core/model/ArkMethod";
 import {
     expandPureEntryMethodsByDirectCalls,
     resolvePureEntryCallbackRegistrationsFromStmt,

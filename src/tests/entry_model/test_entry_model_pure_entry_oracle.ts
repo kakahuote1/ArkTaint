@@ -1,9 +1,10 @@
-﻿import * as fs from "fs";
+import * as fs from "fs";
 import * as path from "path";
-import { Scene } from "../../../arkanalyzer/out/src/Scene";
-import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
+import { Scene } from "../../../arkanalyzer/lib/Scene";
+import { SceneConfig } from "../../../arkanalyzer/lib/Config";
 import { buildPureEntryExpectationLookup, loadPureEntryExpectationSuites } from "../helpers/PureEntryExpectations";
 import { buildPureEntryOracle, PureEntrySuiteCategory } from "../helpers/PureEntryOracle";
+import { createIsolatedCaseView } from "../helpers/ExecutionHandoffContractSupport";
 import { registerMockSdkFiles } from "../helpers/TestSceneBuilder";
 
 interface OracleProbeSpec {
@@ -33,21 +34,7 @@ function isSemanticCaseFile(fileName: string): boolean {
 }
 
 function createCaseView(sourceDir: string, caseName: string, outputRoot: string): string {
-    const caseDir = path.join(outputRoot, caseName);
-    fs.rmSync(caseDir, { recursive: true, force: true });
-    ensureDir(caseDir);
-
-    for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
-        if (!entry.isFile()) continue;
-        const fileName = entry.name;
-        const isCaseFile = fileName === `${caseName}.ets` || fileName === `${caseName}.ts`;
-        if (!isCaseFile && isSemanticCaseFile(fileName)) {
-            continue;
-        }
-        fs.copyFileSync(path.join(sourceDir, fileName), path.join(caseDir, fileName));
-    }
-
-    return caseDir;
+    return createIsolatedCaseView(sourceDir, caseName, outputRoot);
 }
 
 function buildScene(projectDir: string): Scene {
@@ -120,36 +107,180 @@ function main(): void {
 
     const probes: OracleProbeSpec[] = [
         {
-            sourceDir: "tests/demo/harmony_lifecycle",
-            category: "ability_lifecycle",
-            caseName: "lifecycle_want_direct_001_T",
+            sourceDir: "tests/demo/harmony_handoff_multihop",
+            category: "cross_component_handoff",
+            caseName: "handoff_startability_onnewwant_001_T",
             entryExpectation: true,
             expectedClassification: "positive",
-            expectedValidTargets: ["AbilityWantDirect001.onCreate"],
+            expectedValidTargets: ["Target001.onNewWant"],
         },
         {
-            sourceDir: "tests/demo/harmony_lifecycle",
-            category: "ability_lifecycle",
-            caseName: "lifecycle_extension_addform_011_T",
+            sourceDir: "tests/demo/harmony_handoff_multihop",
+            category: "cross_component_handoff",
+            caseName: "handoff_startability_for_result_002_T",
             entryExpectation: true,
             expectedClassification: "positive",
-            expectedValidTargets: ["DemoFormExtension011.onAddForm"],
+            expectedValidTargets: ["Target002.onCreate"],
         },
         {
-            sourceDir: "tests/demo/harmony_lifecycle",
-            category: "ability_lifecycle",
-            caseName: "param_type_mismatch_007_F",
+            sourceDir: "tests/demo/harmony_handoff_multihop",
+            category: "cross_component_handoff",
+            caseName: "handoff_safe_sink_004_T",
+            entryExpectation: true,
+            expectedClassification: "positive",
+            expectedValidTargets: ["Target004.onNewWant"],
+        },
+        {
+            sourceDir: "tests/demo/harmony_handoff_multihop",
+            category: "cross_component_handoff",
+            caseName: "handoff_unrelated_method_005_F",
+            entryExpectation: false,
+            expectedClassification: "negative",
+            expectedValidTargets: [],
+        },
+        {
+            sourceDir: "tests/demo/harmony_multi_ability_chain",
+            category: "cross_component_handoff",
+            caseName: "multiability_create_foreground_001_T",
+            entryExpectation: true,
+            expectedClassification: "positive",
+            expectedValidTargets: ["TargetAbility001.onCreate", "TargetAbility001.onForeground"],
+        },
+        {
+            sourceDir: "tests/demo/harmony_multi_ability_chain",
+            category: "cross_component_handoff",
+            caseName: "multiability_newwant_build_002_T",
+            entryExpectation: true,
+            expectedClassification: "positive",
+            expectedValidTargets: ["TargetAbility002.onNewWant", "TargetAbility002.build"],
+        },
+        {
+            sourceDir: "tests/demo/harmony_system_callback_variants",
+            category: "event_async",
+            caseName: "system_fake_webview_008_F",
+            entryExpectation: false,
+            expectedClassification: "negative",
+            expectedValidTargets: [],
+        },
+        {
+            sourceDir: "tests/demo/harmony_system_callback_variants",
+            category: "event_async",
+            caseName: "system_fake_window_007_F",
+            entryExpectation: false,
+            expectedClassification: "negative",
+            expectedValidTargets: [],
+        },
+        {
+            sourceDir: "tests/demo/harmony_event_activation",
+            category: "ui_event_callback",
+            caseName: "event_onchange_outside_build_005_F",
+            entryExpectation: false,
+            expectedClassification: "negative",
+            expectedValidTargets: [],
+        },
+        {
+            sourceDir: "tests/demo/harmony_event_activation",
+            category: "ui_event_callback",
+            caseName: "event_onclick_build_004_F",
+            entryExpectation: true,
+            expectedClassification: "positive",
+            expectedValidTargets: ["%dflt.cbOnClick"],
+        },
+        {
+            sourceDir: "tests/demo/harmony_callback_registration",
+            category: "ui_event_callback",
+            caseName: "callback_constant_sink_006_T",
+            entryExpectation: true,
+            expectedClassification: "positive",
+            expectedValidTargets: [],
+        },
+        {
+            sourceDir: "tests/demo/harmony_route_stack_variants",
+            category: "route_handoff",
+            caseName: "route_stack_fake_005_F",
             entryExpectation: false,
             expectedClassification: "negative",
             expectedValidTargets: [],
         },
         {
             sourceDir: "tests/demo/harmony_framework_entry_probe",
-            category: "ability_lifecycle",
-            caseName: "uiextension_onnewwant_015_T",
+            category: "route_handoff",
+            caseName: "navpathstack_fake_013_F",
+            entryExpectation: false,
+            expectedClassification: "negative",
+            expectedValidTargets: [],
+        },
+        {
+            sourceDir: "tests/demo/harmony_reactive_deep_tree",
+            category: "reactive_composition",
+            caseName: "reactive_link_constant_006_F",
+            entryExpectation: false,
+            expectedClassification: "negative",
+            expectedValidTargets: [],
+        },
+        {
+            sourceDir: "tests/demo/harmony_timer_scheduler",
+            category: "event_async",
+            caseName: "timer_outside_build_006_F",
+            entryExpectation: false,
+            expectedClassification: "negative",
+            expectedValidTargets: [],
+        },
+        {
+            sourceDir: "tests/demo/pure_entry_watch",
+            category: "reactive_watch",
+            caseName: "watch_build_trigger_001_T",
             entryExpectation: true,
             expectedClassification: "positive",
-            expectedValidTargets: ["ProbeUiExtension.onNewWant"],
+            expectedValidTargets: ["WatchPage001.onTokenChanged"],
+        },
+        {
+            sourceDir: "tests/demo/pure_entry_watch",
+            category: "reactive_watch",
+            caseName: "watch_no_trigger_003_F",
+            entryExpectation: false,
+            expectedClassification: "negative",
+            expectedValidTargets: [],
+        },
+        {
+            sourceDir: "tests/demo/pure_entry_worker",
+            category: "event_async",
+            caseName: "worker_onmessage_build_001_T",
+            entryExpectation: true,
+            expectedClassification: "positive",
+            expectedValidTargets: ["WorkerPage001.%AM0$build"],
+        },
+        {
+            sourceDir: "tests/demo/pure_entry_worker",
+            category: "event_async",
+            caseName: "worker_fake_owner_003_F",
+            entryExpectation: false,
+            expectedClassification: "negative",
+            expectedValidTargets: [],
+        },
+        {
+            sourceDir: "tests/demo/pure_entry_worker",
+            category: "event_async",
+            caseName: "worker_taskpool_build_002_T",
+            entryExpectation: true,
+            expectedClassification: "positive",
+            expectedValidTargets: ["%dflt.taskJob"],
+        },
+        {
+            sourceDir: "tests/demo/pure_entry_emitter",
+            category: "event_async",
+            caseName: "emitter_on_build_001_T",
+            entryExpectation: true,
+            expectedClassification: "positive",
+            expectedValidTargets: ["EmitterPage001.%AM0$build"],
+        },
+        {
+            sourceDir: "tests/demo/pure_entry_emitter",
+            category: "event_async",
+            caseName: "emitter_fake_owner_003_F",
+            entryExpectation: false,
+            expectedClassification: "negative",
+            expectedValidTargets: [],
         },
     ];
 
@@ -161,5 +292,4 @@ function main(): void {
 }
 
 main();
-
 

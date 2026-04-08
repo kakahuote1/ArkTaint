@@ -1,10 +1,10 @@
 
-import { PagNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
-import { ContextID } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/context/Context";
+import { PagNode } from "../../../../arkanalyzer/lib/callgraph/pointerAnalysis/Pag";
+import { ContextID } from "../../../../arkanalyzer/lib/callgraph/pointerAnalysis/context/Context";
 
 export class TaintFact {
     public node: PagNode;
-    public contextID: ContextID;  // 上下�?ID�? = 空上下文�?
+    public contextID: ContextID;  // 涓婁笅锟?ID锟? = 绌轰笂涓嬫枃锟?
     public field?: string[];
     public source: string;
 

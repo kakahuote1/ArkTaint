@@ -1,11 +1,11 @@
-import { Scene } from "../../../../arkanalyzer/out/src/Scene";
-import { ArkAssignStmt, ArkInvokeStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkNormalBinopExpr, ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
-import { ArkArrayRef, ArkInstanceFieldRef, ArkParameterRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
-import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
-import { Constant } from "../../../../arkanalyzer/out/src/core/base/Constant";
-import { ArrayType } from "../../../../arkanalyzer/out/src/core/base/Type";
-import { Pag, PagNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
+import { Scene } from "../../../../arkanalyzer/lib/Scene";
+import { ArkAssignStmt, ArkInvokeStmt } from "../../../../arkanalyzer/lib/core/base/Stmt";
+import { ArkNormalBinopExpr, ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/lib/core/base/Expr";
+import { ArkArrayRef, ArkInstanceFieldRef, ArkParameterRef } from "../../../../arkanalyzer/lib/core/base/Ref";
+import { Local } from "../../../../arkanalyzer/lib/core/base/Local";
+import { Constant } from "../../../../arkanalyzer/lib/core/base/Constant";
+import { ArrayType } from "../../../../arkanalyzer/lib/core/base/Type";
+import { Pag, PagNode } from "../../../../arkanalyzer/lib/callgraph/pointerAnalysis/Pag";
 import { resolveMethodsFromCallable } from "../../substrate/queries/CalleeResolver";
 import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
 
@@ -419,49 +419,6 @@ export function collectOrdinaryArrayFromMapperCallbackParamNodeIdsForObj(
     }
 
     return results;
-}
-
-export function collectOrdinaryHigherOrderCallbackMethodSignaturesFromMethod(
-    scene: Scene,
-    method: any,
-): string[] {
-    const cfg = method?.getCfg?.();
-    if (!cfg) return [];
-
-    const out = new Set<string>();
-    for (const stmt of cfg.getStmts()) {
-        const invokeExpr = stmt instanceof ArkAssignStmt
-            ? stmt.getRightOp()
-            : stmt instanceof ArkInvokeStmt
-                ? stmt.getInvokeExpr()
-                : undefined;
-        if (!(invokeExpr instanceof ArkStaticInvokeExpr) && !(invokeExpr instanceof ArkInstanceInvokeExpr)) {
-            continue;
-        }
-
-        const methodName = resolveMethodName(invokeExpr);
-        const sig = invokeExpr.getMethodSignature()?.toString() || "";
-        if (isArrayStaticCall(sig, methodName) && methodName === "from") {
-            const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
-            if (args.length < 2) continue;
-            for (const callbackMethod of resolveCallbackMethods(scene, args[1])) {
-                const signature = callbackMethod?.getSignature?.()?.toString?.();
-                if (signature) out.add(signature);
-            }
-            continue;
-        }
-
-        const callbackParamIndexes = resolveArrayHigherOrderCallbackParamIndexes(methodName);
-        if (!callbackParamIndexes) continue;
-        const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
-        if (args.length === 0) continue;
-        for (const callbackMethod of resolveCallbackMethods(scene, args[0])) {
-            const signature = callbackMethod?.getSignature?.()?.toString?.();
-            if (signature) out.add(signature);
-        }
-    }
-
-    return [...out];
 }
 
 function collectOrdinaryArrayHigherOrderEffectsForObj(

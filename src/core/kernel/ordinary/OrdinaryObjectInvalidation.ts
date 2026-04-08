@@ -1,9 +1,9 @@
-import { Pag } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
-import { ArkAssignStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
-import { Constant } from "../../../../arkanalyzer/out/src/core/base/Constant";
-import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
-import { ArkArrayRef, ArkInstanceFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
-import { ArkAwaitExpr, ArkCastExpr, ArkDeleteExpr, ArkPhiExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
+import { Pag } from "../../../../arkanalyzer/lib/callgraph/pointerAnalysis/Pag";
+import { ArkAssignStmt } from "../../../../arkanalyzer/lib/core/base/Stmt";
+import { Constant } from "../../../../arkanalyzer/lib/core/base/Constant";
+import { Local } from "../../../../arkanalyzer/lib/core/base/Local";
+import { ArkArrayRef, ArkInstanceFieldRef } from "../../../../arkanalyzer/lib/core/base/Ref";
+import { ArkAwaitExpr, ArkCastExpr, ArkDeleteExpr, ArkPhiExpr } from "../../../../arkanalyzer/lib/core/base/Expr";
 import { TaintTracker } from "../model/TaintTracker";
 import { collectAliasLocalsForCarrier, collectCarrierNodeIdsForValueAtStmt } from "./OrdinaryAliasPropagation";
 import { resolveOrdinaryArraySlotName } from "./OrdinaryLanguagePropagation";

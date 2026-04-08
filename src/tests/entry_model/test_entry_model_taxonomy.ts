@@ -1,10 +1,11 @@
-﻿import * as fs from "fs";
+import * as fs from "fs";
 import * as path from "path";
-import { Scene } from "../../../arkanalyzer/out/src/Scene";
-import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
+import { Scene } from "../../../arkanalyzer/lib/Scene";
+import { SceneConfig } from "../../../arkanalyzer/lib/Config";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { buildPureEntryExpectationLookup, loadPureEntryExpectationSuites } from "../helpers/PureEntryExpectations";
 import { buildPureEntryOracle, PureEntrySuiteCategory } from "../helpers/PureEntryOracle";
+import { createIsolatedCaseView } from "../helpers/ExecutionHandoffContractSupport";
 import { registerMockSdkFiles } from "../helpers/TestSceneBuilder";
 
 interface SuiteSpec {
@@ -75,18 +76,7 @@ function isSemanticCaseFile(fileName: string): boolean {
 }
 
 function createCaseView(sourceDir: string, caseName: string, outputRoot: string): string {
-    const caseDir = path.join(outputRoot, caseName);
-    fs.rmSync(caseDir, { recursive: true, force: true });
-    ensureDir(caseDir);
-
-    for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
-        if (!entry.isFile()) continue;
-        const fileName = entry.name;
-        const isCaseFile = fileName === `${caseName}.ets` || fileName === `${caseName}.ts`;
-        if (!isCaseFile && isSemanticCaseFile(fileName)) continue;
-        fs.copyFileSync(path.join(sourceDir, fileName), path.join(caseDir, fileName));
-    }
-    return caseDir;
+    return createIsolatedCaseView(sourceDir, caseName, outputRoot);
 }
 
 function listCases(sourceDir: string, spec: SuiteSpec): string[] {
@@ -269,5 +259,4 @@ main().catch(error => {
     console.error(error);
     process.exit(1);
 });
-
 

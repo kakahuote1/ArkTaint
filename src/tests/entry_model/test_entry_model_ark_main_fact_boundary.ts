@@ -1,7 +1,9 @@
 import * as path from "path";
-import { Scene } from "../../../arkanalyzer/out/src/Scene";
-import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
+import { Scene } from "../../../arkanalyzer/lib/Scene";
+import { SceneConfig } from "../../../arkanalyzer/lib/Config";
 import {
+    ARK_MAIN_ACTIVATION_SUPPORT_FACT_KINDS,
+    ARK_MAIN_PROPAGATION_MODELING_FACT_KINDS,
     ARK_MAIN_ROOT_ENTRY_FACT_KINDS,
     classifyArkMainFactOwnership,
     isArkMainEntryLayerFact,
@@ -56,9 +58,27 @@ async function main(): Promise<void> {
         "extension_lifecycle",
         "page_build",
         "page_lifecycle",
+        "callback",
+        "scheduler_callback",
+        "watch_handler",
+        "want_handoff",
     ];
     for (const kind of expectedRootKinds) {
         assert(ARK_MAIN_ROOT_ENTRY_FACT_KINDS.has(kind as any), `missing root-entry kind guard for ${kind}`);
+    }
+
+    assert(
+        ARK_MAIN_PROPAGATION_MODELING_FACT_KINDS.size === 0,
+        "ArkMain should no longer retain propagation-modeling fact kinds in its planner contract",
+    );
+
+    const expectedActivationKinds = [
+        "watch_source",
+        "router_source",
+        "router_trigger",
+    ];
+    for (const kind of expectedActivationKinds) {
+        assert(ARK_MAIN_ACTIVATION_SUPPORT_FACT_KINDS.has(kind as any), `missing activation-support kind guard for ${kind}`);
     }
 
     const stateFact = findFact(entryPlan, "state_trigger", "DemoPage", "build");
@@ -74,32 +94,39 @@ async function main(): Promise<void> {
     assert(!storageFact, "storage_trigger must not remain in ArkMain planner facts");
 
     const watchSourceFact = findFact(entryPlan, "watch_source", "DemoPage", "hydrateFromRoute");
-    assert(!watchSourceFact, "watch_source must not remain in ArkMain planner facts");
+    assert(watchSourceFact, "missing DemoPage.hydrateFromRoute watch_source fact");
+    assert(classifyArkMainFactOwnership(watchSourceFact!) === "activation_support", "watch_source must be activation support");
+    assert(isArkMainEntryLayerFact(watchSourceFact!), "watch_source must remain inside ArkMain entry layer");
 
     const watchHandlerFact = findFact(entryPlan, "watch_handler", "DemoPage", "onTokenWatch");
-    assert(!watchHandlerFact, "watch_handler must not remain in ArkMain planner facts");
+    assert(watchHandlerFact, "missing DemoPage.onTokenWatch watch_handler fact");
+    assert(classifyArkMainFactOwnership(watchHandlerFact!) === "root_entry", "watch_handler must be root entry");
 
     const callbackFact = findFactByMethod(entryPlan, "callback", "cbOnClick");
-    assert(!callbackFact, "callback must not remain in ArkMain planner facts");
+    assert(callbackFact, "missing DemoPage.cbOnClick callback fact");
+    assert(classifyArkMainFactOwnership(callbackFact!) === "root_entry", "callback must be root entry");
 
-    const handoffFact = findFact(entryPlan, "ability_lifecycle", "EntryAbility", "onNewWant");
-    assert(handoffFact, "missing EntryAbility.onNewWant ability_lifecycle fact");
-    assert(classifyArkMainFactOwnership(handoffFact!) === "root_entry", "ability_lifecycle must remain root entry");
-    assert(isArkMainEntryLayerFact(handoffFact!), "ability_lifecycle must remain inside ArkMain entry layer");
+    const handoffFact = findFact(entryPlan, "want_handoff", "EntryAbility", "onNewWant");
+    assert(handoffFact, "missing EntryAbility.onNewWant want_handoff fact");
+    assert(classifyArkMainFactOwnership(handoffFact!) === "root_entry", "want_handoff must remain root entry");
 
     const routerScene = buildScene(path.resolve("tests/demo/harmony_router_bridge"));
     const routerPlan = buildArkMainPlan(routerScene);
 
     const routerSourceFact = findFact(routerPlan, "router_source", "%dflt", "router_replaceUrl_005_T");
-    assert(!routerSourceFact, "navigation router_source must not remain in ArkMain");
+    assert(routerSourceFact, "missing router_source fact in router bridge fixture");
+    assert(classifyArkMainFactOwnership(routerSourceFact!) === "activation_support", "navigation router_source must remain activation support");
 
     const routerTriggerFact = findFact(routerPlan, "router_trigger", "ReplacePage", "render");
-    assert(!routerTriggerFact, "navigation router_trigger must not remain in ArkMain");
+    assert(routerTriggerFact, "missing ReplacePage.render router_trigger fact");
+    assert(classifyArkMainFactOwnership(routerTriggerFact!) === "activation_support", "navigation router_trigger must remain activation support");
 
     for (const fact of entryPlan.facts) {
         const ownership = classifyArkMainFactOwnership(fact);
-        assert(ownership === "root_entry", `unexpected fact ownership for ${fact.kind}`);
-        assert(isArkMainEntryLayerFact(fact), `fact should remain in ArkMain entry layer: ${fact.kind}`);
+        assert(
+            ownership === "root_entry" || ownership === "activation_support" || ownership === "propagation_modeling",
+            `unexpected fact ownership for ${fact.kind}`,
+        );
     }
 
     console.log("PASS test_entry_model_ark_main_fact_boundary");

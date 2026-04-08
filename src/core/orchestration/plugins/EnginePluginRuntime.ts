@@ -1,7 +1,7 @@
 import * as fs from "fs";
-import { Scene } from "../../../../arkanalyzer/out/src/Scene";
-import { Pag } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
-import { ArkMethod } from "../../../../arkanalyzer/out/src/core/model/ArkMethod";
+import { Scene } from "../../../../arkanalyzer/lib/Scene";
+import { Pag } from "../../../../arkanalyzer/lib/callgraph/pointerAnalysis/Pag";
+import { ArkMethod } from "../../../../arkanalyzer/lib/core/model/ArkMethod";
 import { TaintFlow } from "../../kernel/model/TaintFlow";
 import type {
     BridgeDecl,

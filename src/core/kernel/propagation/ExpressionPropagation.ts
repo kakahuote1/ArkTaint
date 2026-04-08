@@ -1,4 +1,4 @@
-import { Pag } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
+import { Pag } from "../../../../arkanalyzer/lib/callgraph/pointerAnalysis/Pag";
 import { TaintTracker } from "../model/TaintTracker";
 import { propagateOrdinaryExpressionTaint } from "../ordinary/OrdinaryLanguagePropagation";
 

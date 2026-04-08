@@ -1,5 +1,5 @@
-import { Scene } from "../../../arkanalyzer/out/src/Scene";
-import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
+import { Scene } from "../../../arkanalyzer/lib/Scene";
+import { SceneConfig } from "../../../arkanalyzer/lib/Config";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { loadRuleSet } from "../../core/rules/RuleLoader";
 import { SinkRule, SourceRule, TransferRule, normalizeEndpoint } from "../../core/rules/RuleSchema";
@@ -23,11 +23,6 @@ import {
 } from "../helpers/TransferCompareTypes";
 import { ensureArktanRunnerScript, runArktanScenarioRound } from "../helpers/ArktanRunnerBridge";
 import { buildTransferCompareDecision, renderTransferCompareMarkdown } from "../helpers/TransferCompareReport";
-import {
-    createFormalTestSuite,
-    TestFailureSummary,
-    TestOutputMetadata,
-} from "../helpers/TestOutputContract";
 
 interface ParsedArgs {
     options: CliOptions;
@@ -273,12 +268,7 @@ function loadScenario(config: ScenarioConfig, options: CliOptions): ScenarioStat
 
 async function runArkTaintTool(
     scenarios: ScenarioStaticData[],
-    options: CliOptions,
-    progress?: {
-        step: number;
-        total: number;
-        update(step: number, label: string, detail?: string): void;
-    }
+    options: CliOptions
 ): Promise<ToolReport> {
     const perScenario: ScenarioRunReport[] = [];
     const allRoundWall: number[] = [];
@@ -292,9 +282,6 @@ async function runArkTaintTool(
         const detections = new Map<string, boolean>();
         const rounds: RoundTiming[] = [];
         for (let round = 1; round <= options.rounds; round++) {
-            if (progress) {
-                progress.update(progress.step, `arktaint/${scenario.config.id}/round_${round}`, "tool=arktaint");
-            }
             let roundWallMs = 0;
             let roundTransferMs = 0;
             for (const caseName of scenario.caseNames) {
@@ -329,10 +316,6 @@ async function runArkTaintTool(
             });
             allRoundWall.push(roundWallMs);
             allRoundTransfer.push(roundTransferMs);
-            if (progress) {
-                progress.step += 1;
-                progress.update(progress.step, `arktaint/${scenario.config.id}/round_${round}`, "tool=arktaint");
-            }
         }
 
         const caseResults: CaseResult[] = scenario.caseNames.map(caseName => {
@@ -377,12 +360,7 @@ async function runArkTaintTool(
 
 async function runArktanTool(
     scenarios: ScenarioStaticData[],
-    options: CliOptions,
-    progress?: {
-        step: number;
-        total: number;
-        update(step: number, label: string, detail?: string): void;
-    }
+    options: CliOptions
 ): Promise<ToolReport> {
     const perScenario: ScenarioRunReport[] = [];
     const allRoundWall: number[] = [];
@@ -397,9 +375,6 @@ async function runArktanTool(
         const rounds: RoundTiming[] = [];
         let lastMetadata: Record<string, unknown> = {};
         for (let round = 1; round <= options.rounds; round++) {
-            if (progress) {
-                progress.update(progress.step, `arktan/${scenario.config.id}/round_${round}`, "tool=arktan");
-            }
             const result = runArktanScenarioRound(scenario, options, runnerPath);
             const detectedSet = new Set(result.detectedCases);
             for (const caseName of scenario.caseNames) {
@@ -422,10 +397,6 @@ async function runArktanTool(
                 missingCaseMethods: result.missingCaseMethods,
                 droppedTransferRules: scenario.droppedTransferRules.length,
             };
-            if (progress) {
-                progress.step += 1;
-                progress.update(progress.step, `arktan/${scenario.config.id}/round_${round}`, "tool=arktan");
-            }
         }
 
         const caseResults: CaseResult[] = scenario.caseNames.map(caseName => {
@@ -465,48 +436,30 @@ async function runArktanTool(
     };
 }
 
-function runStabilityChecks(
-    options: CliOptions,
-    progress?: {
-        step: number;
-        total: number;
-        update(step: number, label: string, detail?: string): void;
-    }
-): StabilityCheck[] {
+function runStabilityChecks(options: CliOptions): StabilityCheck[] {
     const checks: Array<{ name: string; script: string }> = [
         { name: "verify", script: "verify" },
         { name: "smoke", script: "test:smoke" },
         { name: "generalization", script: "verify:generalization" },
     ];
     if (!options.runStability) {
-        const skipped = checks.map(c => {
-            if (progress) {
-                progress.update(progress.step, `stability/${c.name}`, "status=skipped");
-                progress.step += 1;
-                progress.update(progress.step, `stability/${c.name}`, "status=skipped");
-            }
-            return {
-                name: c.name,
-                command: `npm run ${c.script}`,
-                status: "skipped" as const,
-                elapsedMs: 0,
-                code: null,
-            };
-        });
-        return skipped;
+        return checks.map(c => ({
+            name: c.name,
+            command: `npm run ${c.script}`,
+            status: "skipped",
+            elapsedMs: 0,
+            code: null,
+        }));
     }
 
     const out: StabilityCheck[] = [];
     for (const check of checks) {
-        if (progress) {
-            progress.update(progress.step, `stability/${check.name}`, `command=npm run ${check.script}`);
-        }
         const t0 = process.hrtime.bigint();
+        const dtNs = process.hrtime.bigint() - t0;
         const cmd = runShell(`npm run ${check.script}`, {
             cwd: process.cwd(),
             maxBuffer: 32 * 1024 * 1024,
         });
-        const dtNs = process.hrtime.bigint() - t0;
         const status = (!cmd.errorMessage && cmd.status === 0)
             ? "pass"
             : "fail";
@@ -517,10 +470,6 @@ function runStabilityChecks(
             elapsedMs: Number(dtNs) / 1_000_000,
             code: cmd.status,
         });
-        if (progress) {
-            progress.step += 1;
-            progress.update(progress.step, `stability/${check.name}`, `status=${status}`);
-        }
     }
     return out;
 }
@@ -539,30 +488,11 @@ async function main(): Promise<void> {
     }
 
     fs.mkdirSync(options.outputDir, { recursive: true });
-    const metadata: TestOutputMetadata = {
-        suite: "transfer_compare_arktan",
-        domain: "compare",
-        title: "Transfer Compare (ArkTaint vs Arktan)",
-        purpose: "Compare ArkTaint and Arktan on transfer precision, performance, integration usability, and stability checks.",
-    };
-    const suite = createFormalTestSuite(options.outputDir, metadata);
     const scenarioConfigs = loadScenarioConfigs(parsed.scenarioManifestPath);
     const scenarios = scenarioConfigs.map(cfg => loadScenario(cfg, options));
-    const totalSteps = (scenarios.length * options.rounds * 2) + 3;
-    const progressState = {
-        step: 0,
-        total: totalSteps,
-        update(step: number, label: string, detail?: string): void {
-            progressReporter.update(step, label, detail);
-        },
-    };
-    const progressReporter = suite.createProgress(totalSteps, {
-        logEveryCount: 1,
-        logEveryPercent: 5,
-    });
 
-    const arktaintReport = await runArkTaintTool(scenarios, options, progressState);
-    const arktanReport = await runArktanTool(scenarios, options, progressState);
+    const arktaintReport = await runArkTaintTool(scenarios, options);
+    const arktanReport = await runArktanTool(scenarios, options);
 
     const precisionPass = arktaintReport.fp <= arktanReport.fp && arktaintReport.fn <= arktanReport.fn;
     const precisionReason = precisionPass
@@ -578,7 +508,7 @@ async function main(): Promise<void> {
     const usabilityPass = integrationSteps.length <= 3;
     const usabilityReason = usabilityPass ? "ok" : "integration_steps_exceeds_3";
 
-    const stabilityChecks = runStabilityChecks(options, progressState);
+    const stabilityChecks = runStabilityChecks(options);
     const stabilityPass = stabilityChecks.every(c => c.status === "pass");
     const stabilityReason = stabilityPass
         ? "ok"
@@ -645,73 +575,34 @@ async function main(): Promise<void> {
     };
     report.finalDecision = buildTransferCompareDecision(report);
 
-    suite.writeReport(report, renderTransferCompareMarkdown(report), {
-        aliases: [
-            {
-                jsonPath: report.artifacts.jsonPath,
-                markdownPath: report.artifacts.markdownPath,
-            },
-        ],
-    });
-    progressReporter.finish("DONE", "compare=transfer_compare_arktan");
+    fs.writeFileSync(report.artifacts.jsonPath, JSON.stringify(report, null, 2), "utf-8");
+    fs.writeFileSync(report.artifacts.markdownPath, renderTransferCompareMarkdown(report), "utf-8");
 
-    const failureItems: TestFailureSummary[] = [];
-    if (!precisionPass) {
-        failureItems.push({
-            name: "precision_compare",
-            expected: "ArkTaint fp/fn <= Arktan fp/fn",
-            actual: `arktaint(fp=${arktaintReport.fp},fn=${arktaintReport.fn}) vs arktan(fp=${arktanReport.fp},fn=${arktanReport.fn})`,
-            reason: precisionReason,
-            severity: "high",
-        });
+    console.log("====== Transfer Compare (ArkTaint vs Arktan) ======");
+    console.log(`rounds=${options.rounds}`);
+    console.log(`k=${options.k}`);
+    if (parsed.scenarioManifestPath) {
+        console.log(`scenario_manifest=${parsed.scenarioManifestPath}`);
     }
-    if (!perfPass) {
-        failureItems.push({
-            name: "performance_compare",
-            expected: "arktaint_median_transfer_ms <= arktan_median_wall_ms",
-            actual: `arktaint=${(arktaintReport.medianTransferMs || 0).toFixed(3)},arktan=${arktanReport.medianWallMs.toFixed(3)}`,
-            reason: perfReason,
-            severity: "medium",
-        });
+    console.log(`arktaint_fp=${arktaintReport.fp}`);
+    console.log(`arktaint_fn=${arktaintReport.fn}`);
+    console.log(`arktan_fp=${arktanReport.fp}`);
+    console.log(`arktan_fn=${arktanReport.fn}`);
+    console.log(`precision_pass=${precisionPass}`);
+    console.log(`arktaint_median_transfer_ms=${(arktaintReport.medianTransferMs || 0).toFixed(3)}`);
+    console.log(`arktaint_median_wall_ms=${arktaintReport.medianWallMs.toFixed(3)}`);
+    console.log(`arktan_median_wall_ms=${arktanReport.medianWallMs.toFixed(3)}`);
+    console.log(`performance_pass=${perfPass}`);
+    console.log(`usability_pass=${usabilityPass}`);
+    console.log(`stability_pass=${stabilityPass}`);
+    console.log(`final_pass=${report.finalDecision.pass}`);
+    console.log(`final_reason=${report.finalDecision.reason}`);
+    console.log(`report_json=${report.artifacts.jsonPath}`);
+    console.log(`report_md=${report.artifacts.markdownPath}`);
+
+    if (!report.finalDecision.pass) {
+        process.exitCode = 1;
     }
-    if (!stabilityPass) {
-        failureItems.push({
-            name: "stability_checks",
-            expected: "all stability checks pass",
-            actual: stabilityReason,
-            reason: "One or more stability checks failed or were skipped.",
-            severity: "medium",
-        });
-    }
-    suite.finish({
-        status: report.finalDecision.pass ? "pass" : "fail",
-        verdict: report.finalDecision.pass
-            ? "Transfer compare completed with ArkTaint meeting the current comparison gates."
-            : `Transfer compare failed: ${report.finalDecision.reason}.`,
-        totals: {
-            rounds: options.rounds,
-            k: options.k,
-            scenarios: scenarios.length,
-            arktaint_fp: arktaintReport.fp,
-            arktaint_fn: arktaintReport.fn,
-            arktan_fp: arktanReport.fp,
-            arktan_fn: arktanReport.fn,
-            precision_pass: precisionPass,
-            performance_pass: perfPass,
-            usability_pass: usabilityPass,
-            stability_pass: stabilityPass,
-            final_pass: report.finalDecision.pass,
-        },
-        highlights: [
-            `arktaint_median_transfer_ms=${(arktaintReport.medianTransferMs || 0).toFixed(3)}`,
-            `arktan_median_wall_ms=${arktanReport.medianWallMs.toFixed(3)}`,
-            `final_reason=${report.finalDecision.reason}`,
-        ],
-        failures: failureItems,
-        notes: parsed.scenarioManifestPath
-            ? [`scenario_manifest=${parsed.scenarioManifestPath}`]
-            : undefined,
-    });
 }
 
 main().catch(err => {

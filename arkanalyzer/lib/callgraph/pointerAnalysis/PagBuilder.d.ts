@@ -72,7 +72,7 @@ export declare class PagBuilder {
     processNormalMethodPagCallEdge(staticCS: CallSite, cid: ContextID, baseClassPTNode: NodeID): NodeID[];
     handleUnkownDynamicCall(cs: DynCallSite, cid: ContextID): NodeID[];
     handleUnprocessedCallSites(processedCallSites: Set<DynCallSite>): NodeID[];
-    addThisRefCallEdge(cid: ContextID, baseLocal: Local, callee: ArkMethod, calleeCid: ContextID, callerFunID: FuncID): NodeID;
+    addThisRefCallEdge(cid: ContextID, baseLocal: Local | undefined, callee: ArkMethod, calleeCid: ContextID, callerFunID: FuncID): NodeID;
     private recordThisRefNode;
     addStaticPagCallEdge(cs: CallSite, callerCid: ContextID, calleeCid?: ContextID, ptNode?: PagNode): NodeID[];
     /**
@@ -109,7 +109,7 @@ export declare class PagBuilder {
     private stmtIsReadKind;
     addToDynamicCallSite(funcPag: FuncPag, cs: DynCallSite): void;
     setPtForNode(node: NodeID, pts: IPtsCollection<NodeID> | undefined): void;
-    getRealThisLocal(input: Local, funcId: FuncID): Local;
+    getRealThisLocal(input: Local | undefined, funcId: FuncID): Local | undefined;
     doStat(): void;
     printStat(): void;
     getStat(): string;

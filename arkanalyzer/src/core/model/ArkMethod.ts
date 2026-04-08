@@ -22,7 +22,7 @@ import { ViewTree } from '../graph/ViewTree';
 import { ArkBody } from './ArkBody';
 import { ArkClass, ClassCategory } from './ArkClass';
 import { MethodSignature, MethodSubSignature } from './ArkSignature';
-import type { BodyBuilder } from './builder/BodyBuilder';
+import { BodyBuilder } from './builder/BodyBuilder';
 import { ArkExport, ExportType } from './ArkExport';
 import { ANONYMOUS_METHOD_PREFIX, DEFAULT_ARK_METHOD_NAME } from '../common/Const';
 import { getColNo, getLineNo, LineCol, setCol, setLine } from '../base/Position';
@@ -31,7 +31,7 @@ import { ArkError, ArkErrorCode } from '../common/ArkError';
 import { Local } from '../base/Local';
 import { ArkFile, Language } from './ArkFile';
 import { CONSTRUCTOR_NAME } from '../common/TSConst';
-import type { MethodParameter } from './builder/ArkMethodBuilder';
+import { MethodParameter } from './builder/ArkMethodBuilder';
 import { ModelUtils } from '../common/ModelUtils';
 
 export const arkMethodNodeKind = [

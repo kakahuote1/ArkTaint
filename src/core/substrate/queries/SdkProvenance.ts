@@ -1,6 +1,6 @@
-import { Scene } from "../../../../arkanalyzer/out/src/Scene";
-import { ArkClass } from "../../../../arkanalyzer/out/src/core/model/ArkClass";
-import { ArkMethod } from "../../../../arkanalyzer/out/src/core/model/ArkMethod";
+import { Scene } from "../../../../arkanalyzer/lib/Scene";
+import { ArkClass } from "../../../../arkanalyzer/lib/core/model/ArkClass";
+import { ArkMethod } from "../../../../arkanalyzer/lib/core/model/ArkMethod";
 
 export interface SdkMethodProvenanceOptions {
     sourceMethod?: ArkMethod;
@@ -108,7 +108,7 @@ const CHAIN_ANCESTRY_MAX_DEPTH = 20;
 /**
  * Layer 5: Trace the SSA definition chain of the invoke's base variable.
  * In ArkUI chain calls like `Button().width().height().onClick(cb)`,
- * intermediate styling methods may lack declarations (type → unknown),
+ * intermediate styling methods may lack declarations (type 鈫?unknown),
  * but the chain root (`Button()`) is SDK-backed. Walking back through
  * `Local.getDeclaringStmt()` recovers this ancestry.
  */

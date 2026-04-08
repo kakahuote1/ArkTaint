@@ -1,4 +1,4 @@
-import { Scene } from "../../../../arkanalyzer/out/src/Scene";
+import { Scene } from "../../../../arkanalyzer/lib/Scene";
 import { RuleMatchKind, SinkRule } from "../../rules/RuleSchema";
 
 export function resolveSinkRuleSignatures(scene: Scene, rule: SinkRule): string[] {

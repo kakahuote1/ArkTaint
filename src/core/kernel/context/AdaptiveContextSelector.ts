@@ -1,6 +1,6 @@
-import { Scene } from "../../../../arkanalyzer/out/src/Scene";
-import { CallGraph } from "../../../../arkanalyzer/out/src/callgraph/model/CallGraph";
-import { ArkAssignStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
+import { Scene } from "../../../../arkanalyzer/lib/Scene";
+import { CallGraph } from "../../../../arkanalyzer/lib/callgraph/model/CallGraph";
+import { ArkAssignStmt } from "../../../../arkanalyzer/lib/core/base/Stmt";
 
 export interface AdaptiveContextSelectorOptions {
     lowK?: number;
@@ -25,7 +25,7 @@ interface SelectorStats {
 }
 
 /**
- * v1: 基于调用图扇入度的自适应 k 选择器�? * 说明：当前阶段仅启用 {1,2} 分层，避免破�?return 上下文匹配语义�? */
+ * v1: 鍩轰簬璋冪敤鍥炬墖鍏ュ害鐨勮嚜閫傚簲 k 閫夋嫨鍣拷? * 璇存槑锛氬綋鍓嶉樁娈典粎鍚敤 {1,2} 鍒嗗眰锛岄伩鍏嶇牬锟?return 涓婁笅鏂囧尮閰嶈涔夛拷? */
 export class AdaptiveContextSelector {
     private readonly opts: Required<AdaptiveContextSelectorOptions>;
     private readonly fanInByMethodName: Map<string, number> = new Map();

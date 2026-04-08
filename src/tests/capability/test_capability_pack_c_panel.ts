@@ -15,25 +15,21 @@ interface SuiteResult {
 const SUITES: SuiteSpec[] = [
     { id: "necessity", script: "../entry_model/test_entry_model_arkmain_necessity.js" },
     { id: "contract_core", script: "../entry_model/test_entry_model_contract_core.js" },
+    { id: "callback_family_catalog", script: "../entry_model/test_entry_model_callback_family_catalog.js" },
+    { id: "callback_provenance_coverage", script: "../entry_model/test_entry_model_callback_provenance_coverage.js" },
     { id: "owner_discovery", script: "../entry_model/test_entry_model_owner_discovery.js" },
     { id: "owner_family_contract_plane", script: "../entry_model/test_entry_model_owner_family_contract_plane.js" },
-    { id: "override_decorator", script: "../entry_model/test_entry_model_override_decorator_probe.js" },
+    { id: "lifecycle_contract_driven", script: "../harmony/test_harmony_lifecycle.js" },
     { id: "ordering_contract", script: "../entry_model/test_entry_model_ordering_contract.js" },
     { id: "framework_callback_boundary", script: "../entry_model/test_entry_model_framework_callback_boundary.js" },
+    { id: "unknown_callback_source_hints", script: "../entry_model/test_entry_model_unknown_callback_source_hints.js" },
 ];
 
 function runSuite(suite: SuiteSpec): SuiteResult {
     const scriptPath = path.resolve(__dirname, suite.script);
     const result = spawnSync(process.execPath, [scriptPath], {
-        encoding: "utf8",
+        stdio: "inherit",
     });
-
-    if (result.stdout) {
-        process.stdout.write(result.stdout);
-    }
-    if (result.stderr) {
-        process.stderr.write(result.stderr);
-    }
 
     return {
         id: suite.id,

@@ -278,7 +278,7 @@ class PointerAnalysis extends AbstractAnalysis_1.AbstractAnalysis {
             this.ptaStat.numProcessedWrite++;
             for (let pt of diffPts) {
                 let ptNode = this.pag.getNode(pt);
-                if (ptNode instanceof Pag_1.PagFuncNode) {
+                if (this.isFunctionLikePagNode(ptNode)) {
                     continue;
                 }
                 let dstNode;
@@ -308,7 +308,7 @@ class PointerAnalysis extends AbstractAnalysis_1.AbstractAnalysis {
             this.ptaStat.numProcessedLoad++;
             for (let pt of diffPts) {
                 let ptNode = this.pag.getNode(pt);
-                if (ptNode instanceof Pag_1.PagFuncNode) {
+                if (this.isFunctionLikePagNode(ptNode)) {
                     continue;
                 }
                 let srcNode;
@@ -329,6 +329,13 @@ class PointerAnalysis extends AbstractAnalysis_1.AbstractAnalysis {
                 }
             }
         });
+    }
+    isFunctionLikePagNode(node) {
+        if (node instanceof Pag_1.PagFuncNode) {
+            return true;
+        }
+        const value = node.getValue();
+        return value.getType() instanceof Type_1.FunctionType;
     }
     /**
      * If current node is a base of a called method, pointer in this node will be transfered into `this` Local in method

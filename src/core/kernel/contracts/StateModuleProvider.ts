@@ -1,5 +1,5 @@
-import type { Scene } from "../../../../arkanalyzer/out/src/Scene";
-import type { Pag } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
+import type { Scene } from "../../../../arkanalyzer/lib/Scene";
+import type { Pag } from "../../../../arkanalyzer/lib/callgraph/pointerAnalysis/Pag";
 import type { FrameworkModuleProvider } from "./FrameworkModuleProvider";
 import type { ModuleSetupCallbackApi } from "./ModuleContract";
 

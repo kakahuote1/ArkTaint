@@ -1,6 +1,5 @@
-import { Scene } from "../../../../arkanalyzer/out/src/Scene";
-import { CallGraph } from "../../../../arkanalyzer/out/src/callgraph/model/CallGraph";
-import type { ModuleExplicitDeferredBindingRecord } from "../model/DeferredBindingDeclaration";
+import { Scene } from "../../../../arkanalyzer/lib/Scene";
+import { CallGraph } from "../../../../arkanalyzer/lib/callgraph/model/CallGraph";
 import {
     ExecutionHandoffActivationPathRecord,
     ExecutionHandoffContractRecord,
@@ -18,9 +17,8 @@ import { buildExecutionUnitSummary } from "./ExecutionUnitSummary";
 export function buildExecutionHandoffContracts(
     scene: Scene,
     cg: CallGraph,
-    explicitBindings: ModuleExplicitDeferredBindingRecord[] = [],
 ): ExecutionHandoffContractRecord[] {
-    const activationPaths = buildExecutionHandoffActivationPaths(scene, cg, explicitBindings);
+    const activationPaths = buildExecutionHandoffActivationPaths(scene, cg);
     return activationPaths
         .filter(path => isDeferredHandoffActivationToken(path.semantics.activation))
         .map(path => exportExecutionHandoffContract(path));

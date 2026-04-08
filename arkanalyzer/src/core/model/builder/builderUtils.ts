@@ -33,13 +33,16 @@ import Logger, { LOG_MODULE_TYPE } from '../../../utils/logger';
 import { ArkClass } from '../ArkClass';
 import { ArkMethod } from '../ArkMethod';
 import { Decorator } from '../../base/Decorator';
-import type {
+import {
     ArrayBindingPatternParameter,
+    buildArkMethodFromArkClass,
     MethodParameter,
     ObjectBindingPatternParameter,
 } from './ArkMethodBuilder';
+import { buildNormalArkClassFromArkMethod } from './ArkClassBuilder';
 import { Builtin } from '../../common/Builtin';
 import { modifierKind2Enum } from '../ArkBaseModel';
+import { ArkValueTransformer } from '../../common/ArkValueTransformer';
 import { KeyofTypeExpr, TypeQueryExpr } from '../../base/TypeExpr';
 import {
     ANY_KEYWORD,
@@ -60,24 +63,6 @@ import { Value } from '../../base/Value';
 import { FullPosition } from '../../base/Position';
 
 const logger = Logger.getLogger(LOG_MODULE_TYPE.ARKANALYZER, 'builderUtils');
-
-declare const require: (id: string) => any;
-
-type ArkMethodBuilderModule = typeof import('./ArkMethodBuilder');
-type ArkClassBuilderModule = typeof import('./ArkClassBuilder');
-type ArkValueTransformerModule = typeof import('../../common/ArkValueTransformer');
-
-function loadArkMethodBuilder(): ArkMethodBuilderModule {
-    return require('./ArkMethodBuilder');
-}
-
-function loadArkClassBuilder(): ArkClassBuilderModule {
-    return require('./ArkClassBuilder');
-}
-
-function loadArkValueTransformer(): ArkValueTransformerModule {
-    return require('../../common/ArkValueTransformer');
-}
 
 export function handleQualifiedName(node: ts.QualifiedName): string {
     let right = (node.right as ts.Identifier).text;
@@ -209,7 +194,7 @@ function buildObjectBindingPatternParam(methodParameter: MethodParameter, paramN
     methodParameter.setName('ObjectBindingPattern');
     let elements: ObjectBindingPatternParameter[] = [];
     paramNameNode.elements.forEach(element => {
-        let paraElement: ObjectBindingPatternParameter = new (loadArkMethodBuilder().ObjectBindingPatternParameter)();
+        let paraElement = new ObjectBindingPatternParameter();
         if (element.propertyName) {
             if (ts.isIdentifier(element.propertyName)) {
                 paraElement.setPropertyName(element.propertyName.text);
@@ -268,7 +253,7 @@ function buildArrayBindingPatternParam(methodParameter: MethodParameter, paramNa
     methodParameter.setName('ArrayBindingPattern');
     let elements: ArrayBindingPatternParameter[] = [];
     paramNameNode.elements.forEach(element => {
-        let paraElement: ArrayBindingPatternParameter = new (loadArkMethodBuilder().ArrayBindingPatternParameter)();
+        let paraElement = new ArrayBindingPatternParameter();
         if (ts.isBindingElement(element)) {
             buildBindingElementOfBindingPatternParam(element, paraElement);
         } else if (ts.isOmittedExpression(element)) {
@@ -283,7 +268,7 @@ export function buildParameters(params: ts.NodeArray<ParameterDeclaration>, arkI
                                 paramsPosition: Map<string, FullPosition>): MethodParameter[] {
     let parameters: MethodParameter[] = [];
     params.forEach(parameter => {
-        let methodParameter: MethodParameter = new (loadArkMethodBuilder().MethodParameter)();
+        let methodParameter = new MethodParameter();
 
         // name
         if (ts.isIdentifier(parameter.name)) {
@@ -430,7 +415,7 @@ export function tsNode2Type(
             return new IntersectionType(multipleTypePara);
         }
     } else if (ts.isLiteralTypeNode(typeNode)) {
-        return loadArkValueTransformer().ArkValueTransformer.resolveLiteralTypeNode(typeNode, sourceFile);
+        return ArkValueTransformer.resolveLiteralTypeNode(typeNode, sourceFile);
     } else if (ts.isTypeLiteralNode(typeNode)) {
         let cls: ArkClass = new ArkClass();
         let declaringClass: ArkClass;
@@ -448,7 +433,7 @@ export function tsNode2Type(
         } else {
             cls.setDeclaringArkFile(declaringClass.getDeclaringArkFile());
         }
-        loadArkClassBuilder().buildNormalArkClassFromArkMethod(typeNode, cls, sourceFile);
+        buildNormalArkClassFromArkMethod(typeNode, cls, sourceFile);
 
         return new ClassType(cls.getSignature());
     } else if (ts.isFunctionTypeNode(typeNode)) {
@@ -461,7 +446,7 @@ export function tsNode2Type(
         } else {
             cls = arkInstance.getDeclaringArkClass();
         }
-        loadArkMethodBuilder().buildArkMethodFromArkClass(typeNode, cls, mtd, sourceFile);
+        buildArkMethodFromArkClass(typeNode, cls, mtd, sourceFile);
         return new FunctionType(mtd.getSignature());
     } else if (ts.isTypeParameterDeclaration(typeNode)) {
         const name = typeNode.name.text;

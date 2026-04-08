@@ -1,6 +1,6 @@
 
-import { PagNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
-import { ContextID } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/context/Context";
+import { PagNode } from "../../../../arkanalyzer/lib/callgraph/pointerAnalysis/Pag";
+import { ContextID } from "../../../../arkanalyzer/lib/callgraph/pointerAnalysis/context/Context";
 
 export class TaintTracker {
     // Key = "nodeId@contextId", Value = source signature
@@ -90,7 +90,7 @@ export class TaintTracker {
     }
 
     /**
-     * 检查节点在任意上下文下是否被污染（用于 Sink 检测）
+     * 妫€鏌ヨ妭鐐瑰湪浠绘剰涓婁笅鏂囦笅鏄惁琚薄鏌擄紙鐢ㄤ簬 Sink 妫€娴嬶級
      */
     public isTaintedAnyContext(nodeId: number, fieldPath?: string[]): boolean {
         const prefix = `${nodeId}@`;
@@ -110,7 +110,7 @@ export class TaintTracker {
     }
 
     /**
-     * 获取节点在任意上下文下的 source（用�?Sink 检测）
+     * 鑾峰彇鑺傜偣鍦ㄤ换鎰忎笂涓嬫枃涓嬬殑 source锛堢敤锟?Sink 妫€娴嬶級
      */
     public getSourceAnyContext(nodeId: number, fieldPath?: string[]): string | undefined {
         if (fieldPath && fieldPath.length > 0) {

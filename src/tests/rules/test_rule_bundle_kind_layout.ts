@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { loadRuleSet } from "../../core/rules/RuleLoader";
 import { TaintRuleSet } from "../../core/rules/RuleSchema";
+import { createIsolatedRunDir } from "../helpers/ExecutionHandoffContractSupport";
 
 type RuleBundleKind = "sources" | "sinks" | "sanitizers" | "transfers";
 
@@ -58,8 +59,10 @@ function main(): void {
     verifyKindFirstRoot("sanitizers");
     verifyKindFirstRoot("transfers");
 
-    const probeRoot = path.resolve("tmp/test_runs/rule_bundle_kind_layout/latest/rules");
-    fs.rmSync(path.dirname(probeRoot), { recursive: true, force: true });
+    const probeRoot = path.join(
+        createIsolatedRunDir(path.resolve("tmp/test_runs/rule_bundle_kind_layout/latest"), "ruleset"),
+        "rules",
+    );
     writeRuleFile(path.join(probeRoot, "sources", "kernel", "alpha.rules.json"), {
         schemaVersion: "2.0",
         sources: [
