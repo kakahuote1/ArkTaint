@@ -1,3 +1,7 @@
+.DS_Store
+**/.DS_Store
+/--input
+
 node_modules
 out
 output
