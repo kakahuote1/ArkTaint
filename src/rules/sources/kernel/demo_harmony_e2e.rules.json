@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "2.0",
+  "sources": [
+    {
+      "id": "source.demo.harmony_e2e.taint_mock.Source.result",
+      "enabled": true,
+      "description": "Demo-only source: taint.Source() return value in tests/demo/harmony_e2e.",
+      "tags": [
+        "demo"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "Source",
+        "invokeKind": "static",
+        "argCount": 0
+      },
+      "scope": {
+        "file": {
+          "mode": "contains",
+          "value": "tests/demo/harmony_e2e/taint_mock.ts"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": {
+        "endpoint": "result"
+      }
+    }
+  ],
+  "sinks": [],
+  "transfers": [],
+  "sanitizers": []
+}
