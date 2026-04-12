@@ -68,13 +68,13 @@ import { collectFiniteStringCandidatesFromValue } from "../substrate/queries/Fin
 import { collectOrdinaryHigherOrderCallbackMethodSignaturesFromMethod } from "../kernel/ordinary/OrdinaryArrayPropagation";
 import { buildArkMainPlan } from "../entry/arkmain/ArkMainPlanner";
 import { ArkMainSyntheticRootBuilder } from "../entry/arkmain/ArkMainSyntheticRootBuilder";
-import { shouldIncludeDeferredContractInReachable } from "./EntryModelDeferredReachability";
 import {
     emptyModuleAuditSnapshot,
     ModuleAuditSnapshot,
     ModuleRuntime,
     TaintModule,
 } from "../kernel/contracts/ModuleContract";
+import type { ModuleSpec } from "../kernel/contracts/ModuleSpec";
 import type { InternalModuleQueryApi } from "../kernel/contracts/ModuleInternal";
 import {
     getPagNodeResolutionAuditSnapshot,
@@ -89,13 +89,10 @@ import {
     buildExecutionHandoffContracts,
     buildExecutionHandoffSnapshot,
 } from "../kernel/handoff/ExecutionHandoffInference";
-import type { ExecutionHandoffContractRecord } from "../kernel/handoff/ExecutionHandoffContract";
 import { buildExecutionHandoffSyntheticInvokeEdges } from "../kernel/handoff/ExecutionHandoffEdgeEmitter";
-import type { ExecutionHandoffEventContractIndex } from "../kernel/handoff/ExecutionHandoffEventActivation";
 import {
     buildExecutionHandoffSiteKeyFromRecord,
 } from "../kernel/handoff/ExecutionHandoffSiteKey";
-import { resolveQualifiedDeclarativeFieldTriggerToken } from "../kernel/model/DeclarativeFieldTriggerSemantics";
 import { loadModules } from "./modules/ModuleLoader";
 import { createModuleRuntime } from "./modules/ModuleRuntime";
 import { EnginePlugin } from "./plugins/EnginePlugin";
@@ -134,6 +131,8 @@ export interface TaintEngineOptions {
     contextStrategy?: "fixed" | "adaptive";
     adaptiveContext?: AdaptiveContextSelectorOptions;
     transferRules?: TransferRule[];
+    moduleSpecFiles?: string[];
+    moduleSpecs?: ModuleSpec[];
     modules?: TaintModule[];
     moduleRoots?: string[];
     moduleFiles?: string[];
@@ -208,8 +207,6 @@ interface PagBuildCacheEntry {
     captureEdgeMapReady: boolean;
     syntheticInvokeEdgeMapReady: boolean;
     executionHandoffSnapshot?: ExecutionHandoffContractSnapshot;
-    executionHandoffEventContractsBySiteKey?: ExecutionHandoffEventContractIndex;
-    executionHandoffPromiseContractsBySiteKey?: Map<string, ExecutionHandoffContractRecord[]>;
     executionHandoffDeferredSiteKeys?: Set<string>;
 }
 
@@ -260,13 +257,12 @@ export class TaintPropagationEngine {
     private activeOrderedMethodSignatures?: string[];
     private explicitEntryScopeMethodSignatures?: Set<string>;
     private autoEntrySourceRules: SourceRule[] = [];
+    private autoAmbientSourceRules: SourceRule[] = [];
     private detectProfile: SinkDetectProfile = createEmptySinkDetectProfile();
     private keyedRouteMismatchCache: Map<string, boolean> = new Map();
     private routePushKeyCache: Map<string, Set<string>> = new Map();
     private activePagCacheEntry?: PagBuildCacheEntry;
     private executionHandoffSnapshot?: ExecutionHandoffContractSnapshot;
-    private executionHandoffEventContractsBySiteKey?: ExecutionHandoffEventContractIndex;
-    private executionHandoffPromiseContractsBySiteKey?: Map<string, ExecutionHandoffContractRecord[]>;
     private executionHandoffDeferredSiteKeys?: Set<string>;
     private currentEntryModel: EntryModel = "arkMain";
 
@@ -294,6 +290,8 @@ export class TaintPropagationEngine {
             disabledModuleIds: this.resolveDisabledModuleIds(options),
             moduleRoots: options.moduleRoots,
             moduleFiles: options.moduleFiles,
+            moduleSpecFiles: options.moduleSpecFiles,
+            moduleSpecs: options.moduleSpecs,
             modules: options.modules,
             enabledModuleProjects: options.enabledModuleProjects,
             disabledModuleProjects: options.disabledModuleProjects,
@@ -453,6 +451,9 @@ export class TaintPropagationEngine {
         });
         this.moduleRuntimeKey = nextKey;
         this.moduleRuntimePag = this.pag;
+        if (this.activePagCacheEntry && this.cg && this.pag) {
+            this.rebuildExecutionHandoffLayer(this.activePagCacheEntry);
+        }
     }
 
     public getPagNodeResolutionAuditSnapshot(): PagNodeResolutionAuditSnapshot {
@@ -488,51 +489,31 @@ export class TaintPropagationEngine {
 
     private configureExecutionHandoffLayer(cacheEntry: PagBuildCacheEntry): void {
         this.refreshModuleRuntime();
+        this.rebuildExecutionHandoffLayer(cacheEntry);
+    }
+
+    private rebuildExecutionHandoffLayer(cacheEntry: PagBuildCacheEntry): void {
         const contracts = buildExecutionHandoffContracts(
             this.scene,
             this.cg,
+            this.pag,
             this.moduleRuntime?.getDeferredBindingDeclarations() || [],
         );
         const deferredSiteKeys = new Set<string>();
-        const eventContractsBySiteKey = new Map<string, ExecutionHandoffContractRecord[]>();
-        const promiseContractsBySiteKey = new Map<string, ExecutionHandoffContractRecord[]>();
         for (const contract of contracts) {
             const siteKey = buildExecutionHandoffSiteKeyFromRecord(contract);
             deferredSiteKeys.add(siteKey);
-            if (contract.activation === "event(c)") {
-                if (!eventContractsBySiteKey.has(siteKey)) {
-                    eventContractsBySiteKey.set(siteKey, []);
-                }
-                eventContractsBySiteKey.get(siteKey)!.push(contract);
-            } else {
-                if (!promiseContractsBySiteKey.has(siteKey)) {
-                    promiseContractsBySiteKey.set(siteKey, []);
-                }
-                promiseContractsBySiteKey.get(siteKey)!.push(contract);
-            }
         }
 
         this.executionHandoffDeferredSiteKeys = deferredSiteKeys;
-        this.executionHandoffEventContractsBySiteKey = eventContractsBySiteKey;
         cacheEntry.executionHandoffDeferredSiteKeys = new Set(deferredSiteKeys);
 
         const snapshot = buildExecutionHandoffSnapshot(contracts);
         this.executionHandoffSnapshot = snapshot;
-        this.executionHandoffEventContractsBySiteKey = eventContractsBySiteKey;
-        this.executionHandoffPromiseContractsBySiteKey = promiseContractsBySiteKey;
         cacheEntry.executionHandoffSnapshot = this.cloneExecutionHandoffSnapshot(snapshot);
-        cacheEntry.executionHandoffEventContractsBySiteKey = new Map(
-            [...eventContractsBySiteKey.entries()].map(([siteKey, items]) => [siteKey, [...items]]),
-        );
-        cacheEntry.executionHandoffPromiseContractsBySiteKey = new Map(
-            [...promiseContractsBySiteKey.entries()].map(([siteKey, items]) => [siteKey, [...items]]),
-        );
         this.log(`[ExecutionHandoff] contracts=${snapshot.totalContracts}`);
 
         const contractEdges = buildExecutionHandoffSyntheticInvokeEdges(
-            this.scene,
-            this.cg,
-            this.pag,
             contracts,
         );
         this.log(
@@ -676,6 +657,7 @@ export class TaintPropagationEngine {
         this.autoEntrySourceRules = entryModel === "arkMain"
             ? this.buildAutoEntrySourceRules(arkMainPlan)
             : [];
+        this.autoAmbientSourceRules = this.buildAmbientFrameworkSourceRules(arkMainPlan);
         if (arkMainPlan?.schedule.convergence.truncated) {
             for (const warning of arkMainPlan.schedule.warnings) {
                 this.log(`[ArkMain] WARNING: ${warning}`);
@@ -710,12 +692,6 @@ export class TaintPropagationEngine {
             this.syntheticInvokeLazyMaterializer = cached.syntheticInvokeLazyMaterializer;
             this.executionHandoffSnapshot = cached.executionHandoffSnapshot
                 ? this.cloneExecutionHandoffSnapshot(cached.executionHandoffSnapshot)
-                : undefined;
-            this.executionHandoffEventContractsBySiteKey = cached.executionHandoffEventContractsBySiteKey
-                ? new Map([...cached.executionHandoffEventContractsBySiteKey.entries()].map(([siteKey, items]) => [siteKey, [...items]]))
-                : undefined;
-            this.executionHandoffPromiseContractsBySiteKey = cached.executionHandoffPromiseContractsBySiteKey
-                ? new Map([...cached.executionHandoffPromiseContractsBySiteKey.entries()].map(([siteKey, items]) => [siteKey, [...items]]))
                 : undefined;
             this.executionHandoffDeferredSiteKeys = cached.executionHandoffDeferredSiteKeys
                 ? new Set(cached.executionHandoffDeferredSiteKeys)
@@ -776,8 +752,6 @@ export class TaintPropagationEngine {
             captureEdgeMapReady: false,
             syntheticInvokeEdgeMapReady: false,
             executionHandoffSnapshot: undefined,
-            executionHandoffEventContractsBySiteKey: undefined,
-            executionHandoffPromiseContractsBySiteKey: undefined,
             executionHandoffDeferredSiteKeys: undefined,
         };
         this.activePagCacheEntry = cacheEntry;
@@ -892,13 +866,11 @@ export class TaintPropagationEngine {
         const queue: number[] = [syntheticRootFuncId];
         const visited = new Set<number>();
         const reachable = new Set<string>();
-        const promiseContinuationUnits = this.currentEntryModel === "arkMain"
-            ? new Set(
-                (this.executionHandoffSnapshot?.contracts || [])
-                    .filter(contract => !shouldIncludeDeferredContractInReachable(this.currentEntryModel, contract) && !!contract.unitSignature)
-                    .map(contract => contract.unitSignature as string),
-            )
-            : undefined;
+        const deferredUnitSignatures = new Set(
+            (this.executionHandoffSnapshot?.contracts || [])
+                .filter(contract => !!contract.unitSignature)
+                .map(contract => contract.unitSignature as string),
+        );
 
         for (let head = 0; head < queue.length; head++) {
             const nodeId = queue[head];
@@ -914,11 +886,7 @@ export class TaintPropagationEngine {
             if (!node) continue;
             for (const edge of node.getOutgoingEdges()) {
                 const dstSignature = this.cg.getMethodByFuncID(edge.getDstID())?.toString?.();
-                if (
-                    promiseContinuationUnits
-                    && dstSignature
-                    && promiseContinuationUnits.has(dstSignature)
-                ) {
+                if (dstSignature && deferredUnitSignatures.has(dstSignature)) {
                     continue;
                 }
                 queue.push(edge.getDstID());
@@ -948,31 +916,6 @@ export class TaintPropagationEngine {
                 syntheticVisited.add(callee);
                 reachable.add(callee);
                 syntheticQueue.push(callee);
-            }
-        }
-
-        const handoffAdj = new Map<string, Set<string>>();
-        for (const contract of this.executionHandoffSnapshot?.contracts || []) {
-            if (!shouldIncludeDeferredContractInReachable(this.currentEntryModel, contract)) {
-                continue;
-            }
-            if (!contract.callerSignature || !contract.unitSignature) continue;
-            if (!handoffAdj.has(contract.callerSignature)) {
-                handoffAdj.set(contract.callerSignature, new Set());
-            }
-            handoffAdj.get(contract.callerSignature)!.add(contract.unitSignature);
-        }
-        const handoffQueue = [...reachable];
-        const handoffVisited = new Set<string>(reachable);
-        for (let head = 0; head < handoffQueue.length; head++) {
-            const sig = handoffQueue[head];
-            const callees = handoffAdj.get(sig);
-            if (!callees) continue;
-            for (const callee of callees) {
-                if (handoffVisited.has(callee)) continue;
-                handoffVisited.add(callee);
-                reachable.add(callee);
-                handoffQueue.push(callee);
             }
         }
 
@@ -1333,8 +1276,7 @@ export class TaintPropagationEngine {
                     }
                 }
                 flows = flows.filter(flow =>
-                    !this.shouldSuppressWatchLikeMismatchFlow(flow)
-                    && !this.shouldSuppressSafeOverwriteFlow(flow)
+                    !this.shouldSuppressSafeOverwriteFlow(flow)
                     && !this.shouldSuppressKeyedRouteCallbackMismatchFlow(flow)
                 );
                 if (family) {
@@ -1425,8 +1367,6 @@ export class TaintPropagationEngine {
             onCallEdge: (event) => propagationHooks.onCallEdge(event),
             onTaintFlow: (event) => propagationHooks.onTaintFlow(event),
             onMethodReached: (event) => propagationHooks.onMethodReached(event),
-            executionHandoffEventContractsBySiteKey: this.executionHandoffEventContractsBySiteKey,
-            executionHandoffPromiseContractsBySiteKey: this.executionHandoffPromiseContractsBySiteKey,
             log: this.log.bind(this),
         };
     }
@@ -1500,6 +1440,7 @@ export class TaintPropagationEngine {
 
     private ensureLazySyntheticInvokeEdgesForNode(nodeId: number): SyntheticInvokeEdgeInfo[] | undefined {
         const cacheEntry = this.activePagCacheEntry;
+        const forcedDirectCallerSignatures = this.getDeferredUnitSignatures();
         if (!cacheEntry) {
             return this.syntheticInvokeEdgeMap.get(nodeId);
         }
@@ -1511,6 +1452,7 @@ export class TaintPropagationEngine {
                 this.syntheticInvokeEdgeMap,
                 cacheEntry.syntheticInvokeLazyMaterializer,
                 cacheEntry.executionHandoffDeferredSiteKeys,
+                forcedDirectCallerSignatures,
             );
             materializeSyntheticInvokeSitesForNode(
                 this.scene,
@@ -1520,6 +1462,7 @@ export class TaintPropagationEngine {
                 cacheEntry.syntheticInvokeLazyMaterializer,
                 nodeId,
                 cacheEntry.executionHandoffDeferredSiteKeys,
+                forcedDirectCallerSignatures,
             );
             return this.syntheticInvokeEdgeMap.get(nodeId);
         }
@@ -1531,6 +1474,7 @@ export class TaintPropagationEngine {
                 this.pag,
                 this.log.bind(this),
                 cacheEntry.executionHandoffDeferredSiteKeys,
+                forcedDirectCallerSignatures,
             );
             cacheEntry.syntheticInvokeEdgeMapReady = true;
             this.syntheticInvokeEdgeMap = cacheEntry.syntheticInvokeEdgeMap;
@@ -1540,6 +1484,7 @@ export class TaintPropagationEngine {
 
     private ensureAllSyntheticInvokeEdgesMaterialized(): void {
         const cacheEntry = this.activePagCacheEntry;
+        const forcedDirectCallerSignatures = this.getDeferredUnitSignatures();
         if (!cacheEntry) return;
         if (cacheEntry.syntheticInvokeLazyMaterializer) {
             materializeAllSyntheticInvokeSites(
@@ -1549,6 +1494,7 @@ export class TaintPropagationEngine {
                 this.syntheticInvokeEdgeMap,
                 cacheEntry.syntheticInvokeLazyMaterializer,
                 cacheEntry.executionHandoffDeferredSiteKeys,
+                forcedDirectCallerSignatures,
             );
             return;
         }
@@ -1559,10 +1505,21 @@ export class TaintPropagationEngine {
                 this.pag,
                 this.log.bind(this),
                 cacheEntry.executionHandoffDeferredSiteKeys,
+                forcedDirectCallerSignatures,
             );
             cacheEntry.syntheticInvokeEdgeMapReady = true;
             this.syntheticInvokeEdgeMap = cacheEntry.syntheticInvokeEdgeMap;
         }
+    }
+
+    private getDeferredUnitSignatures(): Set<string> {
+        const out = new Set<string>();
+        for (const contract of this.executionHandoffSnapshot?.contracts || []) {
+            if (contract?.unitSignature) {
+                out.add(contract.unitSignature);
+            }
+        }
+        return out;
     }
 
     private collectSourceRuleSeeds(
@@ -1584,17 +1541,17 @@ export class TaintPropagationEngine {
     }
 
     private mergeAutoEntrySourceRules(sourceRules: SourceRule[]): SourceRule[] {
-        if (this.autoEntrySourceRules.length === 0) {
+        if (this.autoEntrySourceRules.length === 0 && this.autoAmbientSourceRules.length === 0) {
             return sourceRules;
         }
         const disabledAutoSourcePrefixes = this.options.disabledAutoSourceRuleIdPrefixes || [];
-        const filteredAutoEntrySourceRules = this.autoEntrySourceRules.filter(rule => {
+        const filteredAutoSourceRules = [...this.autoEntrySourceRules, ...this.autoAmbientSourceRules].filter(rule => {
             const ruleId = rule?.id || "";
             return !disabledAutoSourcePrefixes.some(prefix => prefix && ruleId.startsWith(prefix));
         });
         const baseRules = sourceRules || [];
         const merged = new Map<string, SourceRule>();
-        for (const rule of [...baseRules, ...filteredAutoEntrySourceRules]) {
+        for (const rule of [...baseRules, ...filteredAutoSourceRules]) {
             if (!rule?.id) continue;
             if (!merged.has(rule.id)) {
                 merged.set(rule.id, rule);
@@ -1690,6 +1647,103 @@ export class TaintPropagationEngine {
         return [...out.values()];
     }
 
+    private buildAmbientFrameworkSourceRules(
+        arkMainPlan?: ReturnType<typeof buildArkMainPlan>,
+    ): SourceRule[] {
+        const out = new Map<string, SourceRule>();
+        const allMethods = this.scene.getMethods().filter(method => method.getName() !== "%dflt");
+
+        const addRule = (rule: SourceRule): void => {
+            if (!rule?.id || out.has(rule.id)) return;
+            out.set(rule.id, rule);
+        };
+
+        const addGlobalCallReturnRule = (
+            family: string,
+            description: string,
+            methodSignature: string,
+        ): void => {
+            addRule({
+                id: `source.auto.framework.${family}.${methodSignature}`,
+                enabled: true,
+                family: `source.auto.framework.${family}`,
+                tier: "A",
+                description,
+                tags: ["framework_source", "auto", family],
+                match: {
+                    kind: "signature_equals",
+                    value: methodSignature,
+                },
+                sourceKind: "call_return",
+                target: {
+                    endpoint: "result",
+                },
+            });
+        };
+
+        const navigationGetterSignatures = allMethods
+            .filter(method => {
+                const signature = method.getSignature?.();
+                const methodName = signature?.getMethodSubSignature?.()?.getMethodName?.() || method.getName?.() || "";
+                const className = signature?.getDeclaringClassSignature?.()?.getClassName?.() || "";
+                return methodName === "getParams" && (className === "Router" || className === "NavPathStack");
+            })
+            .map(method => method.getSignature().toString());
+        for (const signature of navigationGetterSignatures) {
+            addGlobalCallReturnRule(
+                "navigation_context",
+                `[auto framework] ambient navigation context from ${signature}`,
+                signature,
+            );
+        }
+
+        const lifecycleFacts = arkMainPlan?.facts || [];
+        const lifecycleOwnerMethods = new Map<string, { className: string; methodName: string }>();
+        for (const fact of lifecycleFacts) {
+            const methodSignature = fact.method.getSignature?.()?.toString?.();
+            const className = fact.method.getDeclaringArkClass?.()?.getName?.() || "";
+            const methodName = fact.method.getName?.() || "";
+            if (!methodSignature || !className || !methodName) continue;
+            lifecycleOwnerMethods.set(methodSignature, { className, methodName });
+        }
+
+        const systemContextGetterSignatures = allMethods
+            .filter(method => {
+                const signature = method.getSignature?.();
+                const methodName = signature?.getMethodSubSignature?.()?.getMethodName?.() || method.getName?.() || "";
+                const className = signature?.getDeclaringClassSignature?.()?.getClassName?.() || "";
+                return methodName === "getContext" && className === "SystemEnv";
+            })
+            .map(method => method.getSignature().toString());
+        for (const getterSignature of systemContextGetterSignatures) {
+            for (const [ownerSignature, ownerMeta] of lifecycleOwnerMethods.entries()) {
+                if (ownerMeta.methodName !== "onCreate") continue;
+                addRule({
+                    id: `source.auto.framework.system_context.${ownerSignature}.${getterSignature}`,
+                    enabled: true,
+                    family: "source.auto.framework.system_context",
+                    tier: "A",
+                    description: `[auto framework] system context in ${ownerSignature}`,
+                    tags: ["framework_source", "auto", "system_context", "lifecycle"],
+                    match: {
+                        kind: "signature_equals",
+                        value: getterSignature,
+                    },
+                    scope: {
+                        className: { mode: "equals", value: ownerMeta.className },
+                        methodName: { mode: "equals", value: ownerMeta.methodName },
+                    },
+                    sourceKind: "call_return",
+                    target: {
+                        endpoint: "result",
+                    },
+                });
+            }
+        }
+
+        return [...out.values()];
+    }
+
     public detectSinks(
         sinkSignature: string,
         options?: {
@@ -1764,29 +1818,6 @@ export class TaintPropagationEngine {
             argCount: rule.match.argCount,
             typeHint: rule.match.typeHint,
         };
-    }
-
-    private shouldSuppressWatchLikeMismatchFlow(flow: TaintFlow): boolean {
-        const sinkStmt: any = flow.sink;
-        const sinkMethod = sinkStmt?.getCfg?.()?.getDeclaringMethod?.();
-        if (!sinkMethod) return false;
-        const watchTarget = this.extractWatchLikeTargetField(sinkMethod);
-        if (!watchTarget) return false;
-
-        if (flow.sinkNodeId === undefined || flow.sinkNodeId === null) return false;
-        const sinkNode: any = this.pag?.getNode?.(flow.sinkNodeId);
-        const sinkValue: any = sinkNode?.getValue?.();
-        if (!sinkValue) return false;
-
-        const declStmt: any = sinkValue.getDeclaringStmt?.();
-        if (!(declStmt instanceof ArkAssignStmt)) return false;
-        const right = declStmt.getRightOp?.();
-        if (!(right instanceof ArkInstanceFieldRef)) return false;
-        const base = right.getBase?.();
-        if (!(base instanceof Local) || base.getName?.() !== "this") return false;
-        const fieldName = right.getFieldSignature?.().getFieldName?.() || right.getFieldName?.();
-        if (!fieldName) return false;
-        return fieldName !== watchTarget;
     }
 
     private shouldSuppressSafeOverwriteFlow(flow: TaintFlow): boolean {
@@ -1941,10 +1972,6 @@ export class TaintPropagationEngine {
             if (right.has(value)) return true;
         }
         return false;
-    }
-
-    private extractWatchLikeTargetField(method: any): string | undefined {
-        return resolveQualifiedDeclarativeFieldTriggerToken(method);
     }
 
     private normalizeQuotedLiteral(text: string): string | undefined {

@@ -22,6 +22,29 @@ interface DeclarativeBindingCaseSpec {
     expectedFlow: boolean;
 }
 
+function contractHasSyntheticEdge(engine: any, contract: any): boolean {
+    const expectedCaller = contract.callerSignature || "";
+    const expectedUnitName = extractUnitName(contract.unitSignature || "");
+    for (const edges of engine.syntheticInvokeEdgeMap?.values?.() || []) {
+        for (const edge of edges) {
+            if (edge.callerSignature !== expectedCaller) continue;
+            if ((edge.calleeMethodName || "") === expectedUnitName) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+function extractUnitName(unitSignature: string): string {
+    const lastDot = unitSignature.lastIndexOf(".");
+    const paren = unitSignature.indexOf("(", Math.max(lastDot, 0));
+    if (lastDot < 0 || paren < 0 || paren <= lastDot + 1) {
+        return unitSignature;
+    }
+    return unitSignature.slice(lastDot + 1, paren);
+}
+
 const CASES: DeclarativeBindingCaseSpec[] = [
     {
         caseName: "reactive_watch_capture_001_T",
@@ -96,6 +119,10 @@ async function main(): Promise<void> {
             assert(handlerContract!.carrierKind === spec.carrierKind, `${spec.caseName} should project field carrier kind`);
             assert(handlerContract!.ports.payload === "payload0", `${spec.caseName} declarative handler should expose no payload ports`);
             assert(handlerContract!.ports.env === spec.env, `${spec.caseName} should expose envIn from this-field reads`);
+            assert(
+                contractHasSyntheticEdge(engine as any, handlerContract),
+                `${spec.caseName} should emit at least one D-owned synthetic edge for ${spec.unitName}`,
+            );
         } else {
             assert(!handlerContract, `${spec.caseName} should not export a declarative contract for ${spec.unitName}`);
         }

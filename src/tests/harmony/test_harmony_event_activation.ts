@@ -3,6 +3,7 @@ import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { loadRuleSet } from "../../core/rules/RuleLoader";
 import { SinkRule, SourceRule } from "../../core/rules/RuleSchema";
+import { resolveSuiteCaseExpectation } from "../helpers/SuiteExpectationResolver";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -117,7 +118,7 @@ async function main(): Promise<void> {
     let passCount = 0;
 
     for (const caseName of cases) {
-        const expected = caseName.endsWith("_T");
+        const expected = resolveSuiteCaseExpectation("harmony_event_activation", caseName);
         const engine = new TaintPropagationEngine(scene, options.k);
         engine.verbose = false;
         await engine.buildPAG();

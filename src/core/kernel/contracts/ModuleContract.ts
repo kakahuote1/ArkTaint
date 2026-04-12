@@ -6,6 +6,7 @@ import type {
     DeferredBindingCarrierKind,
     DeferredBindingCompletion,
     DeferredBindingContinuationRole,
+    DeferredBindingSourceSelector,
     ModuleExplicitDeferredBindingRecord,
 } from "../model/DeferredBindingDeclaration";
 import type { TaintFact } from "../model/TaintFact";
@@ -113,6 +114,7 @@ export interface ModuleFieldLoadScanFilter {
     declaringClassName?: string;
     declaringClassIncludes?: string;
     fieldName?: string;
+    fieldSignature?: string;
     baseLocalName?: string;
     baseLocalNames?: string[];
     baseThisOnly?: boolean;
@@ -124,6 +126,7 @@ export interface ModuleScannedFieldLoad {
     readonly declaringClassName: string;
     readonly stmt: any;
     readonly fieldName: string;
+    readonly fieldSignature: string;
     base(): any | undefined;
     baseIsThis(): boolean;
     baseLocalName(): string | undefined;
@@ -143,6 +146,7 @@ export interface ModuleFieldStoreScanFilter {
     declaringClassName?: string;
     declaringClassIncludes?: string;
     fieldName?: string;
+    fieldSignature?: string;
     baseThisOnly?: boolean;
     sourceLocalName?: string;
     sourceLocalNames?: string[];
@@ -154,6 +158,7 @@ export interface ModuleScannedFieldStore {
     readonly declaringClassName: string;
     readonly stmt: any;
     readonly fieldName: string;
+    readonly fieldSignature: string;
     base(): any | undefined;
     baseIsThis(): boolean;
     baseLocalName(): string | undefined;
@@ -171,8 +176,11 @@ export interface ModuleDecoratedFieldScanFilter {
     className?: string;
     classNameIncludes?: string;
     fieldName?: string;
+    fieldSignature?: string;
     decoratorKind?: string;
     decoratorKinds?: string[];
+    decoratorParam?: string;
+    decoratorParams?: string[];
 }
 
 export interface ModuleScannedDecorator {
@@ -315,6 +323,8 @@ export interface ModuleNodeRelay {
     emit(event: ModuleFactEvent, reason: string, options?: ModuleEmitOptions): ModuleEmission[] | undefined;
     emitPreserve(event: ModuleFactEvent, reason: string, options?: ModuleEmitOptions): ModuleEmission[] | undefined;
     emitCurrentFieldTail(event: ModuleFactEvent, reason: string, options?: ModuleEmitOptions): ModuleEmission[] | undefined;
+    emitLoadLike(event: ModuleFactEvent, reason: string, options?: ModuleEmitOptions): ModuleEmission[] | undefined;
+    emitLoadLikeCurrentFieldTail(event: ModuleFactEvent, reason: string, options?: ModuleEmitOptions): ModuleEmission[] | undefined;
 }
 
 export interface ModuleKeyedNodeRelay {
@@ -326,6 +336,8 @@ export interface ModuleKeyedNodeRelay {
     emit(event: ModuleFactEvent, reason: string, options?: ModuleEmitOptions): ModuleEmission[] | undefined;
     emitPreserve(event: ModuleFactEvent, reason: string, options?: ModuleEmitOptions): ModuleEmission[] | undefined;
     emitCurrentFieldTail(event: ModuleFactEvent, reason: string, options?: ModuleEmitOptions): ModuleEmission[] | undefined;
+    emitLoadLike(event: ModuleFactEvent, reason: string, options?: ModuleEmitOptions): ModuleEmission[] | undefined;
+    emitLoadLikeCurrentFieldTail(event: ModuleFactEvent, reason: string, options?: ModuleEmitOptions): ModuleEmission[] | undefined;
 }
 
 export interface ModuleFieldRelay {
@@ -341,6 +353,18 @@ export interface ModuleFieldRelay {
         targetNodeIds: Iterable<number>,
         fieldPath: string | string[],
     ): void;
+    connectFieldPath(
+        sourceNodeId: number,
+        sourceFieldPath: string | string[],
+        targetNodeId: number,
+        targetFieldPath: string | string[],
+    ): void;
+    connectFieldPaths(
+        sourceNodeIds: Iterable<number>,
+        sourceFieldPath: string | string[],
+        targetNodeIds: Iterable<number>,
+        targetFieldPath: string | string[],
+    ): void;
     connectLoadCurrentFieldTail(
         sourceNodeId: number,
         sourceFieldName: string,
@@ -349,6 +373,16 @@ export interface ModuleFieldRelay {
     connectLoadCurrentFieldTails(
         sourceNodeIds: Iterable<number>,
         sourceFieldName: string,
+        targetNodeIds: Iterable<number>,
+    ): void;
+    connectLoadFieldTail(
+        sourceNodeId: number,
+        sourceFieldPath: string | string[],
+        targetNodeId: number,
+    ): void;
+    connectLoadFieldTails(
+        sourceNodeIds: Iterable<number>,
+        sourceFieldPath: string | string[],
         targetNodeIds: Iterable<number>,
     ): void;
     emit(
@@ -382,6 +416,8 @@ export interface ModuleDeclarativeDeferredBindingDeclaration {
     carrierKind?: DeferredBindingCarrierKind;
     reason?: string;
     semantics?: ModuleDeferredBindingSemanticsOptions;
+    activationSource?: DeferredBindingSourceSelector;
+    payloadSource?: DeferredBindingSourceSelector;
 }
 
 export interface ModuleDeferredBindingApi {
@@ -458,6 +494,8 @@ export interface ModuleCallbackApi {
     preserveToParam(callbackValue: any, paramIndex: number, reason: string, options?: ModuleEmitOptions): ModuleEmission[];
     toCurrentFieldTailParam(callbackValue: any, paramIndex: number, reason: string, options?: ModuleEmitOptions): ModuleEmission[];
     toFieldParam(callbackValue: any, paramIndex: number, fieldPath: string | string[], reason: string, options?: ModuleEmitOptions): ModuleEmission[];
+    loadLikeToParam(callbackValue: any, paramIndex: number, reason: string, fieldPath?: string[], options?: ModuleEmitOptions): ModuleEmission[];
+    loadLikeCurrentFieldTailToParam(callbackValue: any, paramIndex: number, reason: string, options?: ModuleEmitOptions): ModuleEmission[];
 }
 
 export interface ModuleCallView {

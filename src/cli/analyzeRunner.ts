@@ -284,6 +284,7 @@ async function analyzeSourceDir(
         engine = new TaintPropagationEngine(scene, options.k, {
             transferRules: loadedRules.ruleSet.transfers || [],
             moduleRoots: options.moduleRoots,
+            moduleSpecFiles: options.moduleSpecFiles,
             enabledModuleProjects: options.enabledModuleProjects,
             disabledModuleProjects: options.disabledModuleProjects,
             disabledModuleIds: options.disabledModuleIds,
@@ -446,6 +447,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     const pluginFiles = (options.pluginPaths || []).filter(p => fs.existsSync(p) && fs.statSync(p).isFile());
     const moduleResult = loadModules({
         moduleRoots: options.moduleRoots || [],
+        moduleSpecFiles: options.moduleSpecFiles || [],
         enabledModuleProjects: options.enabledModuleProjects || [],
         disabledModuleProjects: options.disabledModuleProjects || [],
         disabledModuleIds: options.disabledModuleIds || [],
@@ -479,6 +481,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         moduleFiles: buildLoadedFileFingerprint(moduleResult.loadedFiles),
         enginePluginFiles: buildLoadedFileFingerprint(enginePluginResult.loadedFiles),
         moduleRoots: (options.moduleRoots || []).map(item => path.resolve(item)).sort(),
+        moduleSpecFiles: (options.moduleSpecFiles || []).map(item => path.resolve(item)).sort(),
         enabledModuleProjects: [...(options.enabledModuleProjects || [])].sort(),
         disabledModuleProjects: [...(options.disabledModuleProjects || [])].sort(),
         disabledModuleIds: [...(options.disabledModuleIds || [])].sort(),

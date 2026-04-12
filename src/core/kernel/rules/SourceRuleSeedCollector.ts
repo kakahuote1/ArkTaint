@@ -10,7 +10,6 @@ import { resolveMethodsFromCallable } from "../../substrate/queries/CalleeResolv
 import { resolveSdkImportScopeCandidates } from "../../substrate/queries/SdkProvenance";
 import { getMethodBySignature } from "../contracts/MethodLookup";
 import { TaintFact } from "../model/TaintFact";
-import { resolveQualifiedDeclarativeFieldTriggerToken } from "../model/DeclarativeFieldTriggerSemantics";
 import {
     normalizeEndpoint,
     RuleEndpoint,
@@ -141,38 +140,12 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
                     if (!targetValue) continue;
 
                     const callFacts = seedFactsFromValue(args.pag, targetValue, sourceTag, args.emptyContextId, target.path);
-                    const thisFieldLoadFacts = seedThisFieldLoadFactsInClass(
-                        args.pag,
-                        method,
-                        targetValue,
-                        sourceTag,
-                        args.emptyContextId,
-                        target.path
-                    );
-                    const localStoredThisFieldLoadFacts = seedLocalStoredThisFieldLoadFactsInClass(
-                        args.pag,
-                        method,
-                        targetValue,
-                        sourceTag,
-                        args.emptyContextId,
-                        target.path
-                    );
                     let applied = false;
                     const line = stmt.getOriginPositionInfo?.().getLineNo?.() ?? -1;
                     const siteKey = `${method.getSignature().toString()}|call:${calleeSignature}|line:${line}`;
                     if (!canApplyRuleAtSite(rule, siteKey)) continue;
                     for (const fact of callFacts) {
                         if (pushFact(fact, `${method.getName()}:line${line}`, rule.id)) {
-                            applied = true;
-                        }
-                    }
-                    for (const fact of thisFieldLoadFacts) {
-                        if (pushFact(fact, `${method.getName()}:line${line}->this-field-load`, rule.id)) {
-                            applied = true;
-                        }
-                    }
-                    for (const fact of localStoredThisFieldLoadFacts) {
-                        if (pushFact(fact, `${method.getName()}:line${line}->local-store-this-field-load`, rule.id)) {
                             applied = true;
                         }
                     }
@@ -1020,95 +993,6 @@ function seedForwardedCallbackParamFacts(
     return out;
 }
 
-function seedThisFieldLoadFactsInClass(
-    pag: Pag,
-    ownerMethod: ArkMethod,
-    targetValue: any,
-    sourceTag: string,
-    contextId: number,
-    targetPath?: string[]
-): TaintFact[] {
-    if (!(targetValue instanceof ArkInstanceFieldRef)) return [];
-    const base = targetValue.getBase?.();
-    if (!(base instanceof Local) || base.getName?.() !== "this") return [];
-    const fieldName = targetValue.getFieldSignature?.().getFieldName?.() || targetValue.getFieldName?.();
-    if (!fieldName) return [];
-    const ownerClass = ownerMethod.getDeclaringArkClass?.();
-    if (!ownerClass) return [];
-
-    const out: TaintFact[] = [];
-    const seen = new Set<string>();
-    const add = (fact: TaintFact): void => {
-        if (seen.has(fact.id)) return;
-        seen.add(fact.id);
-        out.push(fact);
-    };
-
-    for (const method of ownerClass.getMethods?.() || []) {
-        if (!isWatchLikeMethodForField(method, fieldName)) continue;
-        const cfg = method.getCfg?.();
-        if (!cfg) continue;
-        for (const stmt of cfg.getStmts()) {
-            if (!(stmt instanceof ArkAssignStmt)) continue;
-            const left = stmt.getLeftOp();
-            const right = stmt.getRightOp();
-            if (!(left instanceof Local) || !(right instanceof ArkInstanceFieldRef)) continue;
-            const rightBase = right.getBase?.();
-            if (!(rightBase instanceof Local) || rightBase.getName?.() !== "this") continue;
-            const rightFieldName = right.getFieldSignature?.().getFieldName?.() || right.getFieldName?.();
-            if (rightFieldName !== fieldName) continue;
-            const facts = seedFactsFromValue(pag, left, sourceTag, contextId, targetPath);
-            for (const fact of facts) add(fact);
-        }
-    }
-    return out;
-}
-
-function isWatchLikeMethodForField(method: ArkMethod, fieldName: string): boolean {
-    const targetField = resolveQualifiedDeclarativeFieldTriggerToken(method);
-    return targetField !== undefined && targetField === fieldName;
-}
-
-function seedLocalStoredThisFieldLoadFactsInClass(
-    pag: Pag,
-    ownerMethod: ArkMethod,
-    targetValue: any,
-    sourceTag: string,
-    contextId: number,
-    targetPath?: string[]
-): TaintFact[] {
-    if (!(targetValue instanceof Local)) return [];
-    const cfg = ownerMethod.getCfg?.();
-    if (!cfg) return [];
-
-    const out: TaintFact[] = [];
-    const seen = new Set<string>();
-    const add = (fact: TaintFact): void => {
-        if (seen.has(fact.id)) return;
-        seen.add(fact.id);
-        out.push(fact);
-    };
-
-    for (const stmt of cfg.getStmts()) {
-        if (!(stmt instanceof ArkAssignStmt)) continue;
-        const left = stmt.getLeftOp();
-        const right = stmt.getRightOp();
-        if (!(left instanceof ArkInstanceFieldRef) || !(right instanceof Local)) continue;
-        if (right !== targetValue && right.getName?.() !== targetValue.getName?.()) continue;
-        const leftBase = left.getBase?.();
-        if (!(leftBase instanceof Local) || leftBase.getName?.() !== "this") continue;
-        const thisFieldLoadFacts = seedThisFieldLoadFactsInClass(
-            pag,
-            ownerMethod,
-            left,
-            sourceTag,
-            contextId,
-            targetPath
-        );
-        for (const fact of thisFieldLoadFacts) add(fact);
-    }
-    return out;
-}
 
 function collectAliasLocalNames(stmts: any[], seedLocal: Local): Set<string> {
     const aliases = new Set<string>([seedLocal.getName()]);

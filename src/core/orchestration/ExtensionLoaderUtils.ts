@@ -25,6 +25,11 @@ export interface LoadExtensionCandidatesResult<T> {
     loadIssue?: ExtensionModuleLoadIssue;
 }
 
+export interface LoadExtensionModuleExportsResult {
+    exports?: any;
+    loadIssue?: ExtensionModuleLoadIssue;
+}
+
 interface ExtensionSourceMeta {
     modulePath: string;
 }
@@ -278,7 +283,19 @@ export function loadExtensionCandidatesFromModule<T>(
         isEnabled,
     } = options;
     try {
-        const mod = loadFreshTypeScriptModule(modulePath);
+        const exportsResult = loadExtensionModuleExports({
+            modulePath,
+            kindLabel,
+            warnings,
+            onWarning,
+        });
+        if (exportsResult.loadIssue) {
+            return {
+                candidates: [],
+                loadIssue: exportsResult.loadIssue,
+            };
+        }
+        const mod = exportsResult.exports;
         const candidates = collectExportCandidates(mod, exportAliases);
         const valuesById = new Map<string, LoadedExtensionCandidate<T>>();
         for (const candidate of candidates) {
@@ -331,6 +348,57 @@ export function loadExtensionCandidatesFromModule<T>(
             },
         };
     }
+}
+
+export function loadExtensionModuleExports(options: {
+    modulePath: string;
+    kindLabel: string;
+    warnings: string[];
+    onWarning?: (warning: string) => void;
+}): LoadExtensionModuleExportsResult {
+    const {
+        modulePath,
+        kindLabel,
+        warnings,
+        onWarning,
+    } = options;
+    try {
+        return {
+            exports: loadFreshTypeScriptModule(modulePath),
+        };
+    } catch (error) {
+        const message = String(error);
+        const classification = classifyExtensionModuleLoadFailure(kindLabel, error);
+        const location = extractErrorLocation(error, [modulePath]);
+        pushLoaderWarning(
+            warnings,
+            onWarning,
+            `failed to load ${kindLabel} module ${modulePath}: ${message}`,
+        );
+        const locationSuffix = location.path
+            ? location.line && location.column
+                ? ` @ ${location.path}:${location.line}:${location.column}`
+                : ` @ ${location.path}`
+            : "";
+        return {
+            loadIssue: {
+                kindLabel,
+                modulePath,
+                phase: "module_load",
+                message,
+                code: classification.code,
+                advice: classification.advice,
+                line: location.line,
+                column: location.column,
+                stackExcerpt: location.stackExcerpt,
+                userMessage: `${kindLabel} module load failed${locationSuffix}: ${message}`,
+            },
+        };
+    }
+}
+
+export function collectExtensionExportCandidates(mod: any, exportAliases?: string[]): any[] {
+    return collectExportCandidates(mod, exportAliases);
 }
 
 export function pushLoaderWarning(

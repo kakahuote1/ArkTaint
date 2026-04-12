@@ -442,8 +442,10 @@ function matchesSourceLocalFilter(
 function normalizeDecoratorEntry(decorator: any): ModuleScannedDecorator | undefined {
     const kind = String(decorator?.getKind?.() || "").trim();
     if (!kind) return undefined;
-    const param = String(decorator?.getParam?.() || "").trim();
     const content = String(decorator?.getContent?.() || "").trim();
+    const rawParam = String(decorator?.getParam?.() || "").trim();
+    const contentParam = content.match(/\(\s*['"`]([^'"`]+)['"`]\s*\)/)?.[1]?.trim() || "";
+    const param = rawParam || contentParam;
     return {
         kind,
         param: param || undefined,
@@ -454,6 +456,7 @@ function normalizeDecoratorEntry(decorator: any): ModuleScannedDecorator | undef
 function matchesDecoratedFieldScanFilter(
     className: string,
     fieldName: string,
+    fieldSignature: string,
     decorators: ModuleScannedDecorator[],
     filter?: ModuleDecoratedFieldScanFilter,
 ): boolean {
@@ -461,6 +464,7 @@ function matchesDecoratedFieldScanFilter(
     if (filter.className && filter.className !== className) return false;
     if (filter.classNameIncludes && !className.includes(filter.classNameIncludes)) return false;
     if (filter.fieldName && filter.fieldName !== fieldName) return false;
+    if (filter.fieldSignature && filter.fieldSignature !== fieldSignature) return false;
     if (filter.decoratorKind && !decorators.some(decorator => decorator.kind === filter.decoratorKind)) return false;
     if (filter.decoratorKinds && filter.decoratorKinds.length > 0) {
         const required = new Set(filter.decoratorKinds);
@@ -468,6 +472,18 @@ function matchesDecoratedFieldScanFilter(
         let hasAny = false;
         for (const kind of required) {
             if (observed.has(kind)) {
+                hasAny = true;
+                break;
+            }
+        }
+        if (!hasAny) return false;
+    }
+    if (filter.decoratorParam && !decorators.some(decorator => decorator.param === filter.decoratorParam)) return false;
+    if (filter.decoratorParams && filter.decoratorParams.length > 0) {
+        const requiredParams = new Set(filter.decoratorParams);
+        let hasAny = false;
+        for (const decorator of decorators) {
+            if (decorator.param && requiredParams.has(decorator.param)) {
                 hasAny = true;
                 break;
             }
@@ -735,13 +751,16 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
                     if (!isFieldRefLike(right)) continue;
                     const base = right.getBase();
                     const fieldName = resolveFieldName(right);
+                    const fieldSignature = right.getFieldSignature?.()?.toString?.() || "";
                     if (!fieldName) continue;
                     if (filter?.fieldName && filter.fieldName !== fieldName) continue;
+                    if (filter?.fieldSignature && filter.fieldSignature !== fieldSignature) continue;
                     if (!matchesBaseLocalFilter(base, filter)) continue;
                     out.push({
                         ...meta,
                         stmt,
                         fieldName,
+                        fieldSignature,
                         base(): any | undefined {
                             return base;
                         },
@@ -801,14 +820,17 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
                     if (!isFieldRefLike(left)) continue;
                     const base = left.getBase();
                     const fieldName = resolveFieldName(left);
+                    const fieldSignature = left.getFieldSignature?.()?.toString?.() || "";
                     if (!fieldName) continue;
                     if (filter?.fieldName && filter.fieldName !== fieldName) continue;
+                    if (filter?.fieldSignature && filter.fieldSignature !== fieldSignature) continue;
                     if (!matchesBaseLocalFilter(base, filter)) continue;
                     if (!matchesSourceLocalFilter(right, filter)) continue;
                     out.push({
                         ...meta,
                         stmt,
                         fieldName,
+                        fieldSignature,
                         base(): any | undefined {
                             return base;
                         },
@@ -858,7 +880,7 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
                         .map((decorator: any) => normalizeDecoratorEntry(decorator))
                         .filter((decorator: ModuleScannedDecorator | undefined): decorator is ModuleScannedDecorator => Boolean(decorator));
                     if (decorators.length === 0) continue;
-                    if (!matchesDecoratedFieldScanFilter(className, fieldName, decorators, filter)) continue;
+                    if (!matchesDecoratedFieldScanFilter(className, fieldName, fieldSignature, decorators, filter)) continue;
                     out.push({
                         className,
                         fieldName,
@@ -974,6 +996,16 @@ function createBridgeApi(): ModuleBridgeApi {
                 if (!targets || targets.size === 0) return undefined;
                 return event.emit.toCurrentFieldTailNodes(targets, reason, options);
             },
+            emitLoadLike(event: ModuleFactEvent, reason: string, options = {}): ModuleEmission[] | undefined {
+                const targets = targetsBySourceNodeId.get(event.current.nodeId);
+                if (!targets || targets.size === 0) return undefined;
+                return event.emit.loadLikeToNodes(targets, reason, event.current.cloneField(), options);
+            },
+            emitLoadLikeCurrentFieldTail(event: ModuleFactEvent, reason: string, options = {}): ModuleEmission[] | undefined {
+                const targets = targetsBySourceNodeId.get(event.current.nodeId);
+                if (!targets || targets.size === 0) return undefined;
+                return event.emit.loadLikeCurrentFieldTailToNodes(targets, reason, options);
+            },
         };
     };
 
@@ -1047,70 +1079,141 @@ function createBridgeApi(): ModuleBridgeApi {
                 emitCurrentFieldTail(event: ModuleFactEvent, reason: string, options = {}): ModuleEmission[] | undefined {
                     return relay.emitCurrentFieldTail(event, reason, options);
                 },
+                emitLoadLike(event: ModuleFactEvent, reason: string, options = {}): ModuleEmission[] | undefined {
+                    return relay.emitLoadLike(event, reason, options);
+                },
+                emitLoadLikeCurrentFieldTail(event: ModuleFactEvent, reason: string, options = {}): ModuleEmission[] | undefined {
+                    return relay.emitLoadLikeCurrentFieldTail(event, reason, options);
+                },
             };
         },
         fieldRelay(): ModuleFieldRelay {
-            const fieldTargetsBySourceFieldKey = new Map<string, Array<{ targetNodeId: number; fieldPath: string[] }>>();
-            const loadTargetsBySourceFieldKey = new Map<string, Set<number>>();
+            const fieldTargetsBySourceFieldKey = new Map<string, Array<{
+                sourceFieldPath: string[];
+                targetNodeId: number;
+                targetFieldPath: string[];
+            }>>();
+            const loadTargetsBySourceFieldKey = new Map<string, Array<{
+                sourceFieldPath: string[];
+                targetNodeId: number;
+            }>>();
             const fieldDedup = new Set<string>();
+            const normalizeFieldPathPrefix = (value: string | string[]): string[] => {
+                const normalized = normalizeFieldPathInput(value);
+                if (normalized.length === 0) {
+                    throw new ModuleRuntimeDiagnosticError(
+                        "module field relay sourceFieldPath must be non-empty",
+                        "MODULE_INVALID_FIELD_RELAY_PATH",
+                        "Provide a non-empty sourceFieldPath when connecting field relay prefixes.",
+                    );
+                }
+                return normalized;
+            };
+            const ensureFieldTargetList = (sourceFieldPath: string[], sourceNodeId: number) => {
+                const key = `${sourceNodeId}#${sourceFieldPath[0]}`;
+                let items = fieldTargetsBySourceFieldKey.get(key);
+                if (!items) {
+                    items = [];
+                    fieldTargetsBySourceFieldKey.set(key, items);
+                }
+                return { key, items };
+            };
+            const ensureLoadTargetList = (sourceFieldPath: string[], sourceNodeId: number) => {
+                const key = `${sourceNodeId}#${sourceFieldPath[0]}`;
+                let items = loadTargetsBySourceFieldKey.get(key);
+                if (!items) {
+                    items = [];
+                    loadTargetsBySourceFieldKey.set(key, items);
+                }
+                return { key, items };
+            };
+            const startsWithFieldPath = (fieldPath: string[], prefix: string[]): boolean => {
+                if (fieldPath.length < prefix.length) return false;
+                for (let i = 0; i < prefix.length; i++) {
+                    if (fieldPath[i] !== prefix[i]) return false;
+                }
+                return true;
+            };
             return {
                 connectField(sourceNodeId, sourceFieldName, targetNodeId, fieldPath): void {
-                    const key = `${sourceNodeId}#${sourceFieldName}`;
-                    const normalizedFieldPath = normalizeFieldPathInput(fieldPath);
-                    const dedupKey = `${key}->${targetNodeId}#${normalizedFieldPath.join(".")}`;
-                    if (fieldDedup.has(dedupKey)) return;
-                    fieldDedup.add(dedupKey);
-                    let items = fieldTargetsBySourceFieldKey.get(key);
-                    if (!items) {
-                        items = [];
-                        fieldTargetsBySourceFieldKey.set(key, items);
-                    }
-                    items.push({
-                        targetNodeId,
-                        fieldPath: normalizedFieldPath,
-                    });
+                    this.connectFieldPath(sourceNodeId, [sourceFieldName], targetNodeId, fieldPath);
                 },
                 connectFields(sourceNodeIds, sourceFieldName, targetNodeIds, fieldPath): void {
+                    this.connectFieldPaths(sourceNodeIds, [sourceFieldName], targetNodeIds, fieldPath);
+                },
+                connectFieldPath(sourceNodeId, sourceFieldPath, targetNodeId, targetFieldPath): void {
+                    const normalizedSourceFieldPath = normalizeFieldPathPrefix(sourceFieldPath);
+                    const normalizedTargetFieldPath = normalizeFieldPathInput(targetFieldPath);
+                    const { key, items } = ensureFieldTargetList(normalizedSourceFieldPath, sourceNodeId);
+                    const dedupKey = `${key}:${normalizedSourceFieldPath.join(".")}->${targetNodeId}#${normalizedTargetFieldPath.join(".")}`;
+                    if (fieldDedup.has(dedupKey)) return;
+                    fieldDedup.add(dedupKey);
+                    items.push({
+                        sourceFieldPath: normalizedSourceFieldPath,
+                        targetNodeId,
+                        targetFieldPath: normalizedTargetFieldPath,
+                    });
+                },
+                connectFieldPaths(sourceNodeIds, sourceFieldPath, targetNodeIds, targetFieldPath): void {
                     const targetList = [...targetNodeIds];
                     for (const sourceNodeId of sourceNodeIds) {
                         for (const targetNodeId of targetList) {
-                            this.connectField(sourceNodeId, sourceFieldName, targetNodeId, fieldPath);
+                            this.connectFieldPath(sourceNodeId, sourceFieldPath, targetNodeId, targetFieldPath);
                         }
                     }
                 },
                 connectLoadCurrentFieldTail(sourceNodeId, sourceFieldName, targetNodeId): void {
-                    const key = `${sourceNodeId}#${sourceFieldName}`;
-                    let targets = loadTargetsBySourceFieldKey.get(key);
-                    if (!targets) {
-                        targets = new Set<number>();
-                        loadTargetsBySourceFieldKey.set(key, targets);
-                    }
-                    targets.add(targetNodeId);
+                    this.connectLoadFieldTail(sourceNodeId, [sourceFieldName], targetNodeId);
                 },
                 connectLoadCurrentFieldTails(sourceNodeIds, sourceFieldName, targetNodeIds): void {
+                    this.connectLoadFieldTails(sourceNodeIds, [sourceFieldName], targetNodeIds);
+                },
+                connectLoadFieldTail(sourceNodeId, sourceFieldPath, targetNodeId): void {
+                    const normalizedSourceFieldPath = normalizeFieldPathPrefix(sourceFieldPath);
+                    const { key, items } = ensureLoadTargetList(normalizedSourceFieldPath, sourceNodeId);
+                    const dedupKey = `${key}:${normalizedSourceFieldPath.join(".")}=>${targetNodeId}`;
+                    if (fieldDedup.has(dedupKey)) return;
+                    fieldDedup.add(dedupKey);
+                    items.push({
+                        sourceFieldPath: normalizedSourceFieldPath,
+                        targetNodeId,
+                    });
+                },
+                connectLoadFieldTails(sourceNodeIds, sourceFieldPath, targetNodeIds): void {
                     const targetList = [...targetNodeIds];
                     for (const sourceNodeId of sourceNodeIds) {
                         for (const targetNodeId of targetList) {
-                            this.connectLoadCurrentFieldTail(sourceNodeId, sourceFieldName, targetNodeId);
+                            this.connectLoadFieldTail(sourceNodeId, sourceFieldPath, targetNodeId);
                         }
                     }
                 },
                 emit(event, fieldReason, loadReason = fieldReason, options = {}): ModuleEmission[] | undefined {
-                    const fieldHead = event.current.fieldHead();
-                    if (!fieldHead) return undefined;
+                    const currentFieldPath = event.current.cloneField();
+                    const fieldHead = currentFieldPath?.[0];
+                    if (!fieldHead || !currentFieldPath) return undefined;
                     const key = `${event.current.nodeId}#${fieldHead}`;
                     const collector = event.emit.collector();
                     const fieldTargets = fieldTargetsBySourceFieldKey.get(key) || [];
-                    const fieldTail = event.current.fieldTail();
                     for (const target of fieldTargets) {
-                        const targetFieldPath = fieldTail && fieldTail.length > 0
-                            ? [...target.fieldPath, ...fieldTail]
-                            : [...target.fieldPath];
+                        if (!startsWithFieldPath(currentFieldPath, target.sourceFieldPath)) continue;
+                        const fieldTail = currentFieldPath.slice(target.sourceFieldPath.length);
+                        const targetFieldPath = fieldTail.length > 0
+                            ? [...target.targetFieldPath, ...fieldTail]
+                            : [...target.targetFieldPath];
                         collector.push(event.emit.toField(target.targetNodeId, targetFieldPath, fieldReason, options));
                     }
                     const loadTargets = loadTargetsBySourceFieldKey.get(key);
-                    if (loadTargets && loadTargets.size > 0) {
-                        collector.push(event.emit.toCurrentFieldTailNodes(loadTargets, loadReason, options));
+                    if (loadTargets && loadTargets.length > 0) {
+                        for (const target of loadTargets) {
+                            if (!startsWithFieldPath(currentFieldPath, target.sourceFieldPath)) continue;
+                            const fieldTail = currentFieldPath.slice(target.sourceFieldPath.length);
+                            collector.push(event.emit.loadLikeToNode(
+                                target.targetNodeId,
+                                loadReason,
+                                fieldTail.length > 0 ? fieldTail : undefined,
+                                options,
+                            ));
+                        }
                     }
                     return collector.done();
                 },
@@ -1315,6 +1418,8 @@ function createDeferredBindingApi(
                 reason: declaration.reason
                     || `Module ${moduleId} declared a declarative deferred binding for ${declaration.triggerLabel}`,
                 semantics: normalizeExplicitDeferredBindingSemantics(declaration.semantics),
+                activationSource: declaration.activationSource,
+                payloadSource: declaration.payloadSource,
             };
             bindingCollector.add(binding);
         },
@@ -1895,6 +2000,12 @@ function createCallbackApi(event: InternalRawModuleInvokeEvent): ModuleCallbackA
         },
         toFieldParam(callbackValue: any, paramIndex: number, fieldPath: string | string[], reason: string, options = {}): ModuleEmission[] {
             return emit.toFields(collectCallbackParamNodeIds(event, callbackValue, paramIndex), fieldPath, reason, options);
+        },
+        loadLikeToParam(callbackValue: any, paramIndex: number, reason: string, fieldPath, options = {}): ModuleEmission[] {
+            return emit.loadLikeToNodes(collectCallbackParamNodeIds(event, callbackValue, paramIndex), reason, cloneFieldPath(fieldPath), options);
+        },
+        loadLikeCurrentFieldTailToParam(callbackValue: any, paramIndex: number, reason: string, options = {}): ModuleEmission[] {
+            return emit.loadLikeCurrentFieldTailToNodes(collectCallbackParamNodeIds(event, callbackValue, paramIndex), reason, options);
         },
     };
 }

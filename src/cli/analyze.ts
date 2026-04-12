@@ -24,6 +24,8 @@ function formatModuleSource(entry: ModuleCatalogEntry): string {
     }
     if (entry.source === "builtin_kernel") return "kernel";
     if (entry.source === "explicit_file") return "explicit_file";
+    if (entry.source === "explicit_spec_file") return "explicit_spec_file";
+    if (entry.source === "explicit_spec") return "explicit_spec";
     return "explicit_object";
 }
 
@@ -198,6 +200,7 @@ async function main(): Promise<void> {
     if (options.listModules || options.listModuleProjects || options.explainModuleId) {
         const inspection = inspectModules({
             moduleRoots: options.moduleRoots || [],
+            moduleSpecFiles: options.moduleSpecFiles || [],
             enabledModuleProjects: options.enabledModuleProjects || [],
             disabledModuleProjects: options.disabledModuleProjects || [],
             disabledModuleIds: options.disabledModuleIds || [],

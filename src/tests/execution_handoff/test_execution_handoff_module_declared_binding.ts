@@ -4,6 +4,29 @@ import { assert } from "../helpers/ExecutionHandoffContractSupport";
 import { buildInferenceScene } from "../helpers/ExecutionHandoffInferenceSupport";
 import { buildEngineForCase, findCaseMethod, resolveCaseMethod } from "../helpers/SyntheticCaseHarness";
 
+function contractHasSyntheticEdge(engine: any, contract: any): boolean {
+    const expectedCaller = contract.callerSignature || "";
+    const expectedUnitName = extractUnitName(contract.unitSignature || "");
+    for (const edges of engine.syntheticInvokeEdgeMap?.values?.() || []) {
+        for (const edge of edges) {
+            if (edge.callerSignature !== expectedCaller) continue;
+            if ((edge.calleeMethodName || "") === expectedUnitName) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+function extractUnitName(unitSignature: string): string {
+    const lastDot = unitSignature.lastIndexOf(".");
+    const paren = unitSignature.indexOf("(", Math.max(lastDot, 0));
+    if (lastDot < 0 || paren < 0 || paren <= lastDot + 1) {
+        return unitSignature;
+    }
+    return unitSignature.slice(lastDot + 1, paren);
+}
+
 async function main(): Promise<void> {
     const projectDir = path.resolve("tests/adhoc/execution_handoff_semantic_module_declared");
     const scene = buildInferenceScene(projectDir);
@@ -55,6 +78,10 @@ async function main(): Promise<void> {
     assert(declaredContract!.activation === "event(c)", "module-declared binding should recover event(c)");
     assert(declaredContract!.activationLabel === "register", "module-declared imperative binding should project register activation label");
     assert(declaredContract!.carrierKind === "direct", "module-declared imperative binding should default to direct carrier kind");
+    assert(
+        contractHasSyntheticEdge(withModule as any, declaredContract),
+        "module-declared deferred contract should emit at least one D-owned synthetic edge",
+    );
 
     console.log("execution_handoff_module_declared_binding=PASS");
 }

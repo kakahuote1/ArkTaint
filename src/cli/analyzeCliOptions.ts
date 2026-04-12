@@ -16,6 +16,7 @@ export interface CliOptions {
     explainPluginName?: string;
     tracePluginName?: string;
     moduleRoots?: string[];
+    moduleSpecFiles?: string[];
     enabledModuleProjects?: string[];
     disabledModuleProjects?: string[];
     disabledModuleIds?: string[];
@@ -54,6 +55,7 @@ export function parseArgs(argv: string[]): CliOptions {
     let explainPluginName: string | undefined;
     let tracePluginName: string | undefined;
     let moduleRoots: string[] = [];
+    let moduleSpecFiles: string[] = [];
     let enabledModuleProjects: string[] = [];
     let disabledModuleProjects: string[] = [];
     let disabledModuleIds: string[] = [];
@@ -136,6 +138,12 @@ export function parseArgs(argv: string[]): CliOptions {
         if (moduleRootArg !== undefined) {
             moduleRoots.push(...splitCsv(moduleRootArg));
             if (arg === "--module-root") i++;
+            continue;
+        }
+        const moduleSpecArg = readValue("--module-spec");
+        if (moduleSpecArg !== undefined) {
+            moduleSpecFiles.push(...splitCsv(moduleSpecArg));
+            if (arg === "--module-spec") i++;
             continue;
         }
         const enableModuleProjectArg = readValue("--enable-module-project");
@@ -334,6 +342,7 @@ export function parseArgs(argv: string[]): CliOptions {
     if (sourceDirs.length === 0) throw new Error("no sourceDir found. pass --sourceDir");
     sourceDirs = [...new Set(sourceDirs.map(d => d.replace(/\\/g, "/")))];
     moduleRoots = [...new Set(moduleRoots.map(d => path.isAbsolute(d) ? d : path.resolve(d)))];
+    moduleSpecFiles = [...new Set(moduleSpecFiles.map(d => path.isAbsolute(d) ? d : path.resolve(d)))];
     enabledModuleProjects = [...new Set(enabledModuleProjects.map(id => id.trim()).filter(Boolean))];
     disabledModuleProjects = [...new Set(disabledModuleProjects.map(id => id.trim()).filter(Boolean))];
     disabledModuleIds = [...new Set(disabledModuleIds.map(id => id.trim()).filter(Boolean))];
@@ -394,6 +403,7 @@ export function parseArgs(argv: string[]): CliOptions {
         explainPluginName,
         tracePluginName,
         moduleRoots,
+        moduleSpecFiles,
         enabledModuleProjects,
         disabledModuleProjects,
         disabledModuleIds,

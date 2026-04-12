@@ -4,6 +4,7 @@ import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagatio
 import { loadRuleSet } from "../../core/rules/RuleLoader";
 import { SinkRule, SourceRule } from "../../core/rules/RuleSchema";
 import { buildEngineForCase, findCaseMethod, resolveCaseMethod } from "../helpers/SyntheticCaseHarness";
+import { resolveSuiteCaseExpectation } from "../helpers/SuiteExpectationResolver";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -117,7 +118,7 @@ async function main(): Promise<void> {
     let passCount = 0;
 
     for (const caseName of cases) {
-        const expected = caseName.endsWith("_T");
+        const expected = resolveSuiteCaseExpectation("harmony_e2e", caseName);
         const entry = resolveCaseMethod(scene, `${caseName}.ets`, caseName);
         const entryMethod = findCaseMethod(scene, entry);
         if (!entryMethod) {

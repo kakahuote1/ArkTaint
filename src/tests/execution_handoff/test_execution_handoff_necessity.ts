@@ -110,8 +110,6 @@ const CASES: NecessityCaseSpec[] = [
 
 function ablateExecutionHandoff(engine: any): void {
     engine.executionHandoffSnapshot = undefined;
-    engine.executionHandoffEventContractsBySiteKey = undefined;
-    engine.executionHandoffPromiseContractsBySiteKey = undefined;
     engine.executionHandoffDeferredSiteKeys = undefined;
     engine.syntheticInvokeEdgeMap = new Map();
     engine.syntheticInvokeLazyMaterializer = undefined;
@@ -119,12 +117,33 @@ function ablateExecutionHandoff(engine: any): void {
     const cacheEntry = engine.activePagCacheEntry;
     if (!cacheEntry) return;
     cacheEntry.executionHandoffSnapshot = undefined;
-    cacheEntry.executionHandoffEventContractsBySiteKey = undefined;
-    cacheEntry.executionHandoffPromiseContractsBySiteKey = undefined;
     cacheEntry.executionHandoffDeferredSiteKeys = undefined;
     cacheEntry.syntheticInvokeEdgeMap = new Map();
     cacheEntry.syntheticInvokeLazyMaterializer = undefined;
     cacheEntry.syntheticInvokeEdgeMapReady = true;
+}
+
+function contractHasSyntheticEdge(engine: any, contract: any): boolean {
+    const expectedCaller = contract.callerSignature || "";
+    const expectedUnitName = extractUnitName(contract.unitSignature || "");
+    for (const edges of engine.syntheticInvokeEdgeMap?.values?.() || []) {
+        for (const edge of edges) {
+            if (!edge.callerSignature || edge.callerSignature !== expectedCaller) continue;
+            if ((edge.calleeMethodName || "") === expectedUnitName) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+function extractUnitName(unitSignature: string): string {
+    const lastDot = unitSignature.lastIndexOf(".");
+    const paren = unitSignature.indexOf("(", Math.max(lastDot, 0));
+    if (lastDot < 0 || paren < 0 || paren <= lastDot + 1) {
+        return unitSignature;
+    }
+    return unitSignature.slice(lastDot + 1, paren);
 }
 
 function computeStrictReachableMethodSignatures(engine: any): Set<string> {
@@ -140,22 +159,13 @@ function computeStrictReachableMethodSignatures(engine: any): Set<string> {
             syntheticAdj.get(edge.callerSignature)!.add(edge.calleeSignature);
         }
     }
-    const contractAdj = new Map<string, Set<string>>();
-    for (const contract of engine.executionHandoffSnapshot?.contracts || []) {
-        if (!contract.callerSignature || !contract.unitSignature) continue;
-        if (!contractAdj.has(contract.callerSignature)) {
-            contractAdj.set(contract.callerSignature, new Set<string>());
-        }
-        contractAdj.get(contract.callerSignature)!.add(contract.unitSignature);
-    }
 
     const queue = [...reachable];
     const visited = new Set<string>(reachable);
     for (let head = 0; head < queue.length; head++) {
         const sig = queue[head];
         const syntheticCallees = syntheticAdj.get(sig) || new Set<string>();
-        const contractCallees = contractAdj.get(sig) || new Set<string>();
-        for (const callee of [...syntheticCallees, ...contractCallees]) {
+        for (const callee of syntheticCallees) {
             if (visited.has(callee)) continue;
             visited.add(callee);
             reachable.add(callee);
@@ -253,6 +263,10 @@ async function analyzeCase(spec: NecessityCaseSpec, caseViewRoot: string): Promi
     assert(
         JSON.stringify(contractWithD.ports) === JSON.stringify(spec.expectedContract.ports),
         `${spec.caseName}: expected ports=${JSON.stringify(spec.expectedContract.ports)}, got ${JSON.stringify(contractWithD.ports)}`,
+    );
+    assert(
+        contractHasSyntheticEdge(engineWithD as any, contractWithD),
+        `${spec.caseName}: expected at least one D-owned synthetic edge for exported contract ${contractWithD.unitSignature}`,
     );
 
     return {

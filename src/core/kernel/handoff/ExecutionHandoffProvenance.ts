@@ -1,7 +1,14 @@
 import { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import { CallGraph } from "../../../../arkanalyzer/out/src/callgraph/model/CallGraph";
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
-import { collectParameterAssignStmts, isCallableValue, resolveMethodsFromCallable } from "../../substrate/queries/CalleeResolver";
+import { ArkAssignStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
+import { ArkInstanceFieldRef, ClosureFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
+import {
+    collectParameterAssignStmts,
+    isCallableValue,
+    resolveMethodsFromAnonymousObjectCarrierByField,
+    resolveMethodsFromCallable,
+} from "../../substrate/queries/CalleeResolver";
 import { recoverDeferredCompletionSemantics } from "../model/DeferredCompletionSemantics";
 import type { ModuleExplicitDeferredBindingRecord } from "../model/DeferredBindingDeclaration";
 import {
@@ -13,6 +20,7 @@ import {
     resolveCallbackMethodsFromValueWithReturns,
     resolveCallbackRegistrationsFromStmt,
 } from "../../substrate/queries/CallbackBindingQuery";
+import { collectResolvedCallbackBindingsForStmt } from "../builders/SyntheticInvokeCallbacks";
 import {
     ExecutionHandoffActivationToken,
     ExecutionHandoffContinuationRole,
@@ -79,7 +87,7 @@ export function buildExecutionHandoffActivationPaths(
         for (const stmt of cfg.getStmts()) {
             const invokeExpr = stmt?.getInvokeExpr?.();
             if (!invokeExpr) continue;
-            for (const candidate of collectFutureUnitCandidates(scene, caller, stmt, context)) {
+            for (const candidate of collectFutureUnitCandidates(scene, cg, caller, stmt, context)) {
                 const record = buildExecutionHandoffActivationPathRecord(scene, caller, stmt, candidate, context);
                 if (!record) continue;
                 records.set(record.id, record);
@@ -196,9 +204,7 @@ function buildExplicitExecutionHandoffActivationPathRecord(
         id: `${callerSignature}#${lineNo}#${unitSignature}`,
         caller,
         stmt,
-        invokeExpr: binding.bindingKind === "imperative"
-            ? stmt?.getInvokeExpr?.()
-            : undefined,
+        invokeExpr: stmt?.getInvokeExpr?.(),
         unit,
         sourceMethods: [caller],
         callerSignature,
@@ -209,6 +215,8 @@ function buildExplicitExecutionHandoffActivationPathRecord(
         pathLabels,
         hasResumeAnchor: features.hasAwaitResume,
         semantics: recovered.semantics,
+        activationSource: binding.bindingKind === "declarative" ? binding.activationSource : undefined,
+        payloadSource: binding.bindingKind === "declarative" ? binding.payloadSource : undefined,
         ...features,
     };
 }
@@ -302,6 +310,7 @@ function collectExplicitExecutionHandoffFeatures(
 
 function collectFutureUnitCandidates(
     scene: Scene,
+    cg: CallGraph,
     caller: any,
     stmt: any,
     context: ExecutionHandoffProvenanceContext,
@@ -312,7 +321,7 @@ function collectFutureUnitCandidates(
     const out = new Map<string, ExecutionHandoffCandidate>();
     const addMethod = (method: any, sourceMethod: any, carrierKind: HandoffCarrierKind): void => {
         const signature = methodSignature(method);
-        if (!signature || !method?.getCfg?.()) return;
+        if (!signature || !method?.getCfg?.() || !isValidDeferredUnitSignature(signature)) return;
         if (!out.has(signature)) {
             out.set(signature, {
                 unit: method,
@@ -330,6 +339,12 @@ function collectFutureUnitCandidates(
         if (!value) return;
         for (const method of resolveCallbackMethodsFromValueWithReturns(scene, value, { maxDepth: 6 })) {
             addMethod(method, caller, "returned");
+        }
+        for (const { baseValue, fieldName } of collectAnonymousCarrierFieldLookups(value)) {
+            if (!fieldName || !baseValue) continue;
+            for (const method of resolveMethodsFromAnonymousObjectCarrierByField(scene, baseValue, fieldName, CALLBACK_RESOLVE_OPTIONS)) {
+                addMethod(method, caller, "field");
+            }
         }
         for (const method of resolveMethodsFromCallable(scene, value, CALLBACK_RESOLVE_OPTIONS)) {
             addMethod(method, caller, "direct");
@@ -358,6 +373,22 @@ function collectFutureUnitCandidates(
             registration.callbackMethod,
             registration.sourceMethod || caller,
             methodSignature(registration.registrationMethod) !== methodSignature(caller) ? "relay" : "direct",
+        );
+    }
+
+    const resolvedBindings = collectResolvedCallbackBindingsForStmt(
+        scene,
+        cg,
+        caller,
+        stmt,
+        invokeExpr,
+        new Map<string, Set<number>>(),
+    );
+    for (const binding of resolvedBindings) {
+        addMethod(
+            binding.method,
+            binding.sourceMethod || caller,
+            binding.reason === "one_hop" ? "relay" : "direct",
         );
     }
 
@@ -636,10 +667,52 @@ function methodSignature(method: any): string {
     return method?.getSignature?.()?.toString?.() || method?.getName?.() || "";
 }
 
+function isValidDeferredUnitSignature(signature: string): boolean {
+    if (!signature) return false;
+    return !signature.includes(".constructor(") && !signature.includes(".%instInit(");
+}
+
 function methodStmtTexts(method: any): string[] {
     const cfg = method?.getCfg?.();
     if (!cfg) return [];
     return cfg.getStmts().map((stmt: any) => stmt.toString());
+}
+
+function collectAnonymousCarrierFieldLookups(
+    value: any,
+): Array<{ baseValue: any; fieldName: string }> {
+    const out: Array<{ baseValue: any; fieldName: string }> = [];
+    const seen = new Set<string>();
+    const addFieldLookup = (baseValue: any, fieldName: string | undefined): void => {
+        if (!baseValue || !fieldName) return;
+        const key = `${String(baseValue)}::${fieldName}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        out.push({ baseValue, fieldName });
+    };
+
+    if (value instanceof ArkInstanceFieldRef || value instanceof ClosureFieldRef) {
+        const fieldName = value instanceof ClosureFieldRef
+            ? value.getFieldName?.()
+            : value.getFieldSignature?.().getFieldName?.() || value.getFieldName?.();
+        addFieldLookup(value.getBase?.(), fieldName);
+        return out;
+    }
+
+    if (value instanceof Local) {
+        const declStmt = value.getDeclaringStmt?.();
+        if (declStmt instanceof ArkAssignStmt && declStmt.getLeftOp?.() === value) {
+            const right = declStmt.getRightOp?.();
+            if (right instanceof ArkInstanceFieldRef || right instanceof ClosureFieldRef) {
+                const fieldName = right instanceof ClosureFieldRef
+                    ? right.getFieldName?.()
+                    : right.getFieldSignature?.().getFieldName?.() || right.getFieldName?.();
+                addFieldLookup(right.getBase?.(), fieldName);
+            }
+        }
+    }
+
+    return out;
 }
 
 function deriveRecoveredSemantics(features: ExecutionHandoffFeatures): RecoveredExecutionHandoffSemantics {

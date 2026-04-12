@@ -45,17 +45,6 @@ import type {
 import { fromContainerFieldKey, toContainerFieldKey } from "../model/ContainerSlotKeys";
 import { getMethodBySignature } from "../contracts/MethodLookup";
 import {
-    collectExecutionHandoffEventCaptureFactsFromTaintedLocal,
-    ExecutionHandoffEventContractIndex,
-} from "../handoff/ExecutionHandoffEventActivation";
-import {
-    collectExecutionHandoffPromiseCallbackFactsFromTaintedArg,
-    collectExecutionHandoffPromiseCallbackFactsFromTaintedReceiver,
-    collectExecutionHandoffPromiseFinallyCaptureFactsFromTaintedLocal,
-    ExecutionHandoffPromiseContractIndex,
-    shouldPropagateExecutionHandoffPromiseCallbacks,
-} from "../handoff/ExecutionHandoffPromiseCompletion";
-import {
     collectAliasLocalsForCarrier,
     collectCarrierNodeIdsForValueAtStmt,
 } from "../ordinary/OrdinaryAliasPropagation";
@@ -150,8 +139,6 @@ export interface WorklistSolverDeps {
     onCallEdge?: (event: CallEdgeEvent) => PropagationContributionBatch;
     onTaintFlow?: (event: TaintFlowEvent) => PropagationContributionBatch;
     onMethodReached?: (event: MethodReachedEvent) => PropagationContributionBatch;
-    executionHandoffEventContractsBySiteKey?: ExecutionHandoffEventContractIndex;
-    executionHandoffPromiseContractsBySiteKey?: ExecutionHandoffPromiseContractIndex;
     log: (msg: string) => void;
 }
 
@@ -263,8 +250,6 @@ export class WorklistSolver {
             onCallEdge,
             onTaintFlow,
             onMethodReached,
-            executionHandoffEventContractsBySiteKey,
-            executionHandoffPromiseContractsBySiteKey,
             log
         } = this.deps;
         const transferExecutor = new ConfigBasedTransferExecutor(transferRules || [], scene);
@@ -776,27 +761,6 @@ export class WorklistSolver {
                 }
             }
 
-            const shouldPropagateDeferredCallbacks = shouldPropagateExecutionHandoffPromiseCallbacks(fact.field);
-            if (shouldPropagateDeferredCallbacks) {
-                const val = node.getValue();
-                const eventCaptureFacts = val instanceof Local
-                    ? collectExecutionHandoffEventCaptureFactsFromTaintedLocal(
-                        pag,
-                        val,
-                        fact.source,
-                        currentCtx,
-                        executionHandoffEventContractsBySiteKey,
-                        fact.field,
-                    )
-                    : [];
-                for (const newFact of eventCaptureFacts) {
-                    tryEnqueue("Event-Capture", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
-                        log(`    [Event-Capture] Tainted event callback capture node ${newFact.node.getID()} (ctx=${newFact.contextID})`);
-                    });
-                }
-            }
-
             if (!fact.field || fact.field.length === 0) {
                 const errorMessageFacts = collectOrdinaryErrorMessageFactsFromTaintedLocal(
                     node,
@@ -808,46 +772,6 @@ export class WorklistSolver {
                     tryEnqueue("Error-Message-Store", newFact, () => {
                         tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
                         log(`    [Error-Message-Store] Tainted Error.message on node ${newFact.node.getID()} (ctx=${currentCtx})`);
-                    });
-                }
-            }
-
-            if (shouldPropagateDeferredCallbacks) {
-                const val = node.getValue();
-                const promiseCallbackFacts = val instanceof Local
-                    ? collectExecutionHandoffPromiseCallbackFactsFromTaintedReceiver(
-                        pag,
-                        val,
-                        fact.source,
-                        currentCtx,
-                        executionHandoffPromiseContractsBySiteKey,
-                        fact.field,
-                    )
-                    : [];
-                for (const newFact of promiseCallbackFacts) {
-                    tryEnqueue("Promise-CB", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
-                        log(`    [Promise-CB] Tainted callback param node ${newFact.node.getID()} (ctx=${newFact.contextID})`);
-                    });
-                }
-            }
-
-            if (shouldPropagateDeferredCallbacks) {
-                const val = node.getValue();
-                const promiseArgFacts = val instanceof Local
-                    ? collectExecutionHandoffPromiseCallbackFactsFromTaintedArg(
-                        pag,
-                        val,
-                        fact.source,
-                        currentCtx,
-                        executionHandoffPromiseContractsBySiteKey,
-                        fact.field,
-                    )
-                    : [];
-                for (const newFact of promiseArgFacts) {
-                    tryEnqueue("Promise-Arg", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
-                        log(`    [Promise-Arg] Tainted callback param node ${newFact.node.getID()} (ctx=${newFact.contextID})`);
                     });
                 }
             }
@@ -877,26 +801,6 @@ export class WorklistSolver {
                     tryEnqueue("Synthetic-StaticInitStore", newFact, () => {
                         tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
                         log(`    [Synthetic-StaticInitStore] local ${info.srcNodeId} -> static field ${info.staticFieldNodeId} (ctx=${sharedStateCtx})`);
-                    });
-                }
-            }
-
-            if (shouldPropagateDeferredCallbacks) {
-                const val = node.getValue();
-                const promiseFinallyCaptureFacts = val instanceof Local
-                    ? collectExecutionHandoffPromiseFinallyCaptureFactsFromTaintedLocal(
-                        pag,
-                        val,
-                        fact.source,
-                        currentCtx,
-                        executionHandoffPromiseContractsBySiteKey,
-                        fact.field,
-                    )
-                    : [];
-                for (const newFact of promiseFinallyCaptureFacts) {
-                    tryEnqueue("Promise-Finally-Capture", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
-                        log(`    [Promise-Finally-Capture] Tainted finally capture node ${newFact.node.getID()} (ctx=${newFact.contextID})`);
                     });
                 }
             }

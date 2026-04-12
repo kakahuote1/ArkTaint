@@ -6,7 +6,6 @@ import { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import { ArkMethod } from "../../../../arkanalyzer/out/src/core/model/ArkMethod";
 import { TaintContextManager } from "../context/TaintContext";
 import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
-import { resolveQualifiedDeclarativeFieldTriggerToken } from "../model/DeclarativeFieldTriggerSemantics";
 
 const ANY_CLASS_SIG = "__ANY_CLASS__";
 
@@ -154,8 +153,6 @@ export function buildUnresolvedThisFieldLoadNodeIdsByFieldAndFile(
         }
         const cfg = method.getCfg();
         if (!cfg) continue;
-        const watchTargetField = resolveWatchLikeTargetField(method);
-
         for (const stmt of cfg.getStmts()) {
             if (!(stmt instanceof ArkAssignStmt)) continue;
             const left = stmt.getLeftOp();
@@ -169,9 +166,6 @@ export function buildUnresolvedThisFieldLoadNodeIdsByFieldAndFile(
             if (!leftNodes || leftNodes.size === 0) continue;
 
             const fieldName = right.getFieldSignature().getFieldName();
-            if (watchTargetField !== undefined && watchTargetField.length > 0 && watchTargetField !== fieldName) {
-                continue;
-            }
             const sourceFilePath = extractFilePathFromMethodSignature(methodSig);
             if (sourceFilePath.length === 0) continue;
             const sourceClassSig = right.getFieldSignature?.().getDeclaringSignature?.()?.toString?.()
@@ -190,8 +184,4 @@ export function buildUnresolvedThisFieldLoadNodeIdsByFieldAndFile(
         }
     }
     return out;
-}
-
-export function resolveWatchLikeTargetField(method: ArkMethod): string | undefined {
-    return resolveQualifiedDeclarativeFieldTriggerToken(method);
 }

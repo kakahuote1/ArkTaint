@@ -1,108 +1,90 @@
-import { defineModule, TaintModule } from "../../../core/kernel/contracts/ModuleApi";
+import type { ModuleSpec } from "../../../core/kernel/contracts/ModuleSpec";
 
-interface WorkerRegistration {
-    workerObjectNodeIds: Set<number>;
-    callbackParamNodeIds: Set<number>;
-}
-
-interface WorkerSend {
-    workerObjectNodeIds: Set<number>;
-    payloadNodeIds: Set<number>;
-}
-
-export const harmonyWorkerTaskPoolModule: TaintModule = defineModule({
+const harmonyWorkerTaskPoolModuleSpec: ModuleSpec = {
     id: "harmony.worker_taskpool",
     description: "Built-in Harmony Worker/TaskPool forward bridges.",
-    setup(ctx) {
-        const relay = ctx.bridge.nodeRelay();
-        const workerRegistrations: WorkerRegistration[] = [];
-        const workerSends: WorkerSend[] = [];
-        const allWorkerCallbackParamNodeIds = new Set<number>();
-        let workerRegistrationCount = 0;
-        let workerSendCount = 0;
-        let taskpoolExecuteCount = 0;
-        let bridgeEdgeCount = 0;
-
-        for (const call of ctx.scan.invokes({ methodName: "onMessage", instanceOnly: true, minArgs: 1 })) {
-            const callbackParamNodeIds = new Set<number>(call.callbackParamNodeIds(0, 0, { maxCandidates: 8 }));
-            if (callbackParamNodeIds.size === 0) continue;
-            const workerObjectNodeIds = new Set<number>(call.baseCarrierNodeIds());
-            if (workerObjectNodeIds.size === 0) continue;
-            workerRegistrationCount++;
-            workerRegistrations.push({
-                workerObjectNodeIds,
-                callbackParamNodeIds,
-            });
-            for (const nodeId of callbackParamNodeIds) {
-                allWorkerCallbackParamNodeIds.add(nodeId);
-            }
-        }
-
-        for (const call of ctx.scan.invokes({ methodName: "postMessage", instanceOnly: true, minArgs: 1 })) {
-            const payloadNodeIds = new Set<number>(call.argNodeIds(0));
-            if (payloadNodeIds.size === 0) continue;
-            const workerObjectNodeIds = new Set<number>(call.baseCarrierNodeIds());
-            if (workerObjectNodeIds.size === 0) continue;
-            workerSendCount++;
-            workerSends.push({
-                workerObjectNodeIds,
-                payloadNodeIds,
-            });
-        }
-
-        for (const call of ctx.scan.invokes({
-            methodName: "execute",
-            declaringClassIncludes: "taskpool",
-            minArgs: 2,
-        })) {
-            const added = relay.connectInvokeArgToCallbackParam(
-                call,
-                1,
-                0,
-                0,
-                { maxCandidates: 8 },
-            );
-            if (added === 0) continue;
-            taskpoolExecuteCount++;
-            bridgeEdgeCount += added;
-        }
-
-        for (const send of workerSends) {
-            const matchedTargets = new Set<number>();
-            for (const registration of workerRegistrations) {
-                if (!hasIntersection(send.workerObjectNodeIds, registration.workerObjectNodeIds)) continue;
-                for (const targetNodeId of registration.callbackParamNodeIds) {
-                    matchedTargets.add(targetNodeId);
-                }
-            }
-            const finalTargets = matchedTargets.size > 0
-                ? matchedTargets
-                : allWorkerCallbackParamNodeIds;
-            bridgeEdgeCount += send.payloadNodeIds.size * finalTargets.size;
-            relay.connectMany(send.payloadNodeIds, finalTargets);
-        }
-
-        ctx.debug.summary("Harmony-WorkerTaskPool", {
-            bridge_edges: bridgeEdgeCount,
-            worker_registrations: workerRegistrationCount,
-            worker_sends: workerSendCount,
-            taskpool_executes: taskpoolExecuteCount,
-        });
-
-        return {
-            onFact(event) {
-                return relay.emitPreserve(event, "Harmony-WorkerTaskPool");
+    semantics: [
+        {
+            id: "worker_message_channel",
+            kind: "bridge",
+            from: {
+                surface: {
+                    kind: "invoke",
+                    selector: {
+                        methodName: "postMessage",
+                        minArgs: 1,
+                        instanceOnly: true,
+                    },
+                },
+                slot: "arg",
+                index: 0,
             },
-        };
-    },
-});
+            to: {
+                surface: {
+                    kind: "invoke",
+                    selector: {
+                        methodName: "onMessage",
+                        minArgs: 1,
+                        instanceOnly: true,
+                    },
+                },
+                slot: "callback_param",
+                callbackArgIndex: 0,
+                paramIndex: 0,
+            },
+            constraints: [
+                {
+                    kind: "same_receiver",
+                    fallbackMode: "all_targets_if_unmatched",
+                },
+            ],
+            emit: {
+                reason: "Harmony-WorkerTaskPool",
+                allowUnreachableTarget: true,
+            },
+            dispatch: {
+                reason: "Harmony-WorkerTaskPool",
+                preset: "callback_event",
+            },
+        },
+        {
+            id: "taskpool_execute_payload",
+            kind: "bridge",
+            from: {
+                surface: {
+                    kind: "invoke",
+                    selector: {
+                        methodName: "execute",
+                        declaringClassIncludes: "taskpool",
+                        minArgs: 2,
+                    },
+                },
+                slot: "arg",
+                index: 1,
+            },
+            to: {
+                surface: {
+                    kind: "invoke",
+                    selector: {
+                        methodName: "execute",
+                        declaringClassIncludes: "taskpool",
+                        minArgs: 2,
+                    },
+                },
+                slot: "callback_param",
+                callbackArgIndex: 0,
+                paramIndex: 0,
+            },
+            emit: {
+                reason: "Harmony-WorkerTaskPool",
+                allowUnreachableTarget: true,
+            },
+            dispatch: {
+                reason: "Harmony-WorkerTaskPool",
+                preset: "callback_sync",
+            },
+        },
+    ],
+};
 
-function hasIntersection(a: Set<number>, b: Set<number>): boolean {
-    const [small, large] = a.size <= b.size ? [a, b] : [b, a];
-    for (const value of small) {
-        if (large.has(value)) return true;
-    }
-    return false;
-}
-
-export default harmonyWorkerTaskPoolModule;
+export default harmonyWorkerTaskPoolModuleSpec;

@@ -1,18 +1,21 @@
 import * as fs from "fs";
 import * as path from "path";
-import { TaintModule } from "../../kernel/contracts/ModuleContract";
+import { ModuleSession, TaintModule } from "../../kernel/contracts/ModuleContract";
+import { ModuleSpec, ModuleSpecDocument } from "../../kernel/contracts/ModuleSpec";
 import {
     auditExtensionDirectoryFiles,
+    collectExtensionExportCandidates,
     collectTypeScriptImportRecords,
     collectTypeScriptSourceFiles,
     ExtensionModuleLoadIssue,
     getExtensionSourceModulePath,
-    loadExtensionCandidatesFromModule,
+    loadExtensionModuleExports,
     pushLoaderWarning,
     resolveExistingDirectories,
     resolveLoadableTypeScriptModule,
     resolvePublicModuleApiPath,
 } from "../ExtensionLoaderUtils";
+import { compileModuleSpec, compileModuleSpecs } from "./ModuleSpecCompiler";
 
 export interface ModuleLoaderOptions {
     includeBuiltinModules?: boolean;
@@ -20,6 +23,8 @@ export interface ModuleLoaderOptions {
     builtinModuleRoots?: string[];
     moduleRoots?: string[];
     moduleFiles?: string[];
+    moduleSpecFiles?: string[];
+    moduleSpecs?: ModuleSpec[];
     modules?: TaintModule[];
     enabledModuleProjects?: string[];
     disabledModuleProjects?: string[];
@@ -69,7 +74,7 @@ interface ProjectModuleSpec {
     files: string[];
 }
 
-type ModuleSelectionSource = "builtin_kernel" | "project_module" | "explicit_file" | "explicit_object";
+type ModuleSelectionSource = "builtin_kernel" | "project_module" | "explicit_file" | "explicit_spec_file" | "explicit_spec" | "explicit_object";
 
 const PUBLIC_PROJECT_MODULE_API_FILES = new Set<string>([
     resolvePublicModuleApiPath(),
@@ -166,6 +171,23 @@ export function loadModules(options: ModuleLoaderOptions = {}): ModuleLoadResult
                 onWarning: options.onWarning,
             },
         );
+    }
+
+    const moduleSpecFileResult = loadModuleSpecFiles(options.moduleSpecFiles || [], warnings, options.onWarning);
+    loadIssues.push(...moduleSpecFileResult.loadIssues);
+    for (const loadedFile of moduleSpecFileResult.loadedFiles) {
+        loadedFiles.add(loadedFile);
+    }
+    for (const module of moduleSpecFileResult.modules) {
+        if (!module?.id) continue;
+        if (disabledModuleIds.has(module.id)) continue;
+        registerModule(selectedModules, module, "explicit_spec_file", warnings, options.onWarning);
+    }
+
+    for (const module of compileModuleSpecs(options.moduleSpecs)) {
+        if (!module?.id) continue;
+        if (disabledModuleIds.has(module.id)) continue;
+        registerModule(selectedModules, module, "explicit_spec", warnings, options.onWarning);
     }
 
     for (const module of options.modules || []) {
@@ -268,6 +290,18 @@ export function inspectModules(options: ModuleLoaderOptions = {}): ModuleInspect
 
     for (const file of options.moduleFiles || []) {
         inspectFile(path.resolve(file), "explicit_file");
+    }
+
+    const moduleSpecFileResult = loadModuleSpecFiles(options.moduleSpecFiles || [], warnings, options.onWarning);
+    loadIssues.push(...moduleSpecFileResult.loadIssues);
+    for (const module of moduleSpecFileResult.modules) {
+        if (!module?.id) continue;
+        pushCandidate(module, module.enabled !== false, "explicit_spec_file");
+    }
+
+    for (const module of compileModuleSpecs(options.moduleSpecs)) {
+        if (!module?.id) continue;
+        pushCandidate(module, module.enabled !== false, "explicit_spec");
     }
 
     for (const module of options.modules || []) {
@@ -424,22 +458,56 @@ function loadModulesFromModule(
     warnings: string[],
     onWarning?: (warning: string) => void,
 ): LoadedModuleResult {
-    const result = loadExtensionCandidatesFromModule<TaintModule>({
+    const exportsResult = loadExtensionModuleExports({
         modulePath,
         kindLabel: "module",
         warnings,
         onWarning,
-        exportAliases: ["module"],
-        isCandidate: isModule,
-        getId: candidate => candidate.id,
-        isEnabled: candidate => candidate.enabled !== false,
     });
+    if (exportsResult.loadIssue) {
+        return {
+            candidates: [],
+            loadIssue: exportsResult.loadIssue,
+        };
+    }
+    const exportCandidates = collectExtensionExportCandidates(exportsResult.exports, ["module", "moduleSpec", "modules"]);
+    const byId = new Map<string, LoadedModuleCandidate>();
+    for (const candidate of exportCandidates) {
+        if (isModule(candidate)) {
+            if (byId.has(candidate.id)) {
+                pushLoaderWarning(
+                    warnings,
+                    onWarning,
+                    `module module exports duplicate id ${candidate.id}; keeping first export: ${modulePath}`,
+                );
+                continue;
+            }
+            byId.set(candidate.id, {
+                module: candidate,
+                enabled: candidate.enabled !== false,
+            });
+        }
+    }
+    const exportedSpecs = collectExportedModuleSpecs(exportCandidates, modulePath, warnings, onWarning);
+    if (exportedSpecs.length > 0) {
+        const bundled = exportedSpecs.map(spec => bundleModuleSpec(spec, modulePath));
+        for (const module of bundled) {
+            if (byId.has(module.id)) {
+                pushLoaderWarning(
+                    warnings,
+                    onWarning,
+                    `module spec export overrides duplicate runtime module id ${module.id}; keeping first export: ${modulePath}`,
+                );
+                continue;
+            }
+            byId.set(module.id, {
+                module,
+                enabled: module.enabled !== false,
+            });
+        }
+    }
     return {
-        candidates: result.candidates.map(candidate => ({
-            module: candidate.value,
-            enabled: candidate.enabled,
-        })),
-        loadIssue: result.loadIssue,
+        candidates: [...byId.values()],
     };
 }
 
@@ -447,7 +515,111 @@ function isModule(value: any): value is TaintModule {
     return !!value
         && typeof value.id === "string"
         && value.id.trim().length > 0
-        && typeof value.description === "string";
+        && typeof value.description === "string"
+        && !isModuleSpec(value);
+}
+
+function isModuleSpec(value: any): value is ModuleSpec {
+    return !!value
+        && typeof value.id === "string"
+        && value.id.trim().length > 0
+        && (value.description === undefined || typeof value.description === "string")
+        && Array.isArray(value.semantics);
+}
+
+function collectExportedModuleSpecs(
+    exportCandidates: any[],
+    modulePath: string,
+    warnings: string[],
+    onWarning?: (warning: string) => void,
+): ModuleSpec[] {
+    const byId = new Map<string, ModuleSpec>();
+    const acceptSpec = (spec: ModuleSpec): void => {
+        if (byId.has(spec.id)) {
+            pushLoaderWarning(
+                warnings,
+                onWarning,
+                `module spec export duplicate id ${spec.id}; keeping first export: ${modulePath}`,
+            );
+            return;
+        }
+        byId.set(spec.id, spec);
+    };
+    for (const candidate of exportCandidates) {
+        if (isModuleSpec(candidate)) {
+            acceptSpec(candidate);
+            continue;
+        }
+        if (Array.isArray(candidate)) {
+            for (const item of candidate) {
+                if (isModuleSpec(item)) {
+                    acceptSpec(item);
+                }
+            }
+            continue;
+        }
+        if (candidate && typeof candidate === "object" && Array.isArray((candidate as ModuleSpecDocument).modules)) {
+            for (const item of (candidate as ModuleSpecDocument).modules) {
+                if (isModuleSpec(item)) {
+                    acceptSpec(item);
+                }
+            }
+        }
+    }
+    return [...byId.values()];
+}
+
+function bundleModuleSpec(spec: ModuleSpec, modulePath: string): TaintModule {
+    const compiledChildren = compileModuleSpec(spec);
+    const bundled: TaintModule = {
+        id: spec.id,
+        description: spec.description || spec.id,
+        enabled: spec.enabled,
+        setup(ctx) {
+            const childSessions: ModuleSession[] = [];
+            for (const module of compiledChildren) {
+                const session = module.setup?.(ctx);
+                if (session) {
+                    childSessions.push(session);
+                }
+            }
+            if (childSessions.length === 0) {
+                return;
+            }
+            return {
+                onFact(event) {
+                    const out = [];
+                    for (const session of childSessions) {
+                        const emitted = session.onFact?.(event);
+                        if (emitted && emitted.length > 0) {
+                            out.push(...emitted);
+                        }
+                    }
+                    return out;
+                },
+                onInvoke(event) {
+                    const out = [];
+                    for (const session of childSessions) {
+                        const emitted = session.onInvoke?.(event);
+                        if (emitted && emitted.length > 0) {
+                            out.push(...emitted);
+                        }
+                    }
+                    return out;
+                },
+                shouldSkipCopyEdge(event) {
+                    for (const session of childSessions) {
+                        if (session.shouldSkipCopyEdge?.(event)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                },
+            };
+        },
+    };
+    attachModuleSpecSourceMeta([bundled], modulePath);
+    return bundled;
 }
 
 function registerModule(
@@ -476,6 +648,10 @@ function describeModuleSource(source: ModuleSelectionSource): string {
             return "project module";
         case "explicit_file":
             return "explicit module file";
+        case "explicit_spec_file":
+            return "explicit module spec file";
+        case "explicit_spec":
+            return "explicit module spec";
         case "explicit_object":
             return "explicit module object";
     }
@@ -494,6 +670,91 @@ function resolveModuleImportAuditRoot(
         return path.dirname(path.resolve(filePath));
     }
     return undefined;
+}
+
+function loadModuleSpecFiles(
+    files: string[],
+    warnings: string[],
+    onWarning?: (warning: string) => void,
+): {
+    modules: TaintModule[];
+    loadedFiles: string[];
+    loadIssues: ExtensionModuleLoadIssue[];
+} {
+    const modules: TaintModule[] = [];
+    const loadedFiles: string[] = [];
+    const loadIssues: ExtensionModuleLoadIssue[] = [];
+    for (const file of files) {
+        const modulePath = path.resolve(file);
+        if (!fs.existsSync(modulePath) || !fs.statSync(modulePath).isFile()) {
+            pushLoaderWarning(warnings, onWarning, `module spec file not found: ${modulePath}`);
+            loadIssues.push({
+                kindLabel: "module_spec",
+                modulePath,
+                phase: "module_load",
+                message: `module spec file not found: ${modulePath}`,
+                code: "MODULE_SPEC_FILE_NOT_FOUND",
+                advice: "Provide an existing JSON file that contains a ModuleSpec object, a ModuleSpec array, or { modules: [...] }.",
+                userMessage: `module spec file missing: ${modulePath}`,
+            });
+            continue;
+        }
+        try {
+            const parsed = JSON.parse(fs.readFileSync(modulePath, "utf-8"));
+            const specs = normalizeParsedModuleSpecs(parsed, modulePath);
+            const compiled = compileModuleSpecs(specs);
+            attachModuleSpecSourceMeta(compiled, modulePath);
+            modules.push(...compiled);
+            loadedFiles.push(modulePath);
+        } catch (error) {
+            const message = String((error as any)?.message || error);
+            pushLoaderWarning(warnings, onWarning, `failed to load module spec file ${modulePath}: ${message}`);
+            loadIssues.push({
+                kindLabel: "module_spec",
+                modulePath,
+                phase: "module_load",
+                message,
+                code: "MODULE_SPEC_LOAD_FAILED",
+                advice: "Ensure the JSON is valid and every ModuleSpec has supported surfaces, ports, transfers, and triggers.",
+                userMessage: `module spec load failed: ${modulePath}: ${message}`,
+            });
+        }
+    }
+    return {
+        modules,
+        loadedFiles,
+        loadIssues,
+    };
+}
+
+function normalizeParsedModuleSpecs(parsed: unknown, modulePath: string): ModuleSpec[] {
+    if (Array.isArray(parsed)) {
+        return parsed as ModuleSpec[];
+    }
+    if (parsed && typeof parsed === "object" && Array.isArray((parsed as ModuleSpecDocument).modules)) {
+        return (parsed as ModuleSpecDocument).modules;
+    }
+    if (parsed && typeof parsed === "object" && Array.isArray((parsed as ModuleSpec).semantics)) {
+        return [parsed as ModuleSpec];
+    }
+    throw new Error(`unsupported module spec document shape: ${modulePath}`);
+}
+
+function attachModuleSpecSourceMeta(modules: TaintModule[], modulePath: string): void {
+    const metaKey = Symbol.for("arktaint.extension_source_meta");
+    for (const module of modules) {
+        if (!module || (typeof module !== "object" && typeof module !== "function")) continue;
+        try {
+            Object.defineProperty(module as object, metaKey, {
+                value: { modulePath: path.resolve(modulePath) },
+                enumerable: false,
+                configurable: false,
+                writable: false,
+            });
+        } catch {
+            // Best-effort only.
+        }
+    }
 }
 
 function auditProjectModuleImports(

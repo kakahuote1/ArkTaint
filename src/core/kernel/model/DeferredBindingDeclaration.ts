@@ -7,6 +7,11 @@ export type DeferredBindingActivation =
 export type DeferredBindingCompletion = "none" | "promise_chain" | "await_site";
 export type DeferredBindingCarrierKind = "direct" | "returned" | "relay" | "field" | "slot";
 export type DeferredBindingContinuationRole = "none" | "value" | "error" | "observe";
+export type DeferredBindingSourceSelector =
+    | { kind: "base" }
+    | { kind: "arg"; index: number }
+    | { kind: "result" }
+    | { kind: "caller_this" };
 
 export interface DeferredBindingSemantics {
     activation: DeferredBindingActivation;
@@ -33,6 +38,8 @@ export interface ModuleExplicitImperativeDeferredBindingRecord extends ModuleExp
 export interface ModuleExplicitDeclarativeDeferredBindingRecord extends ModuleExplicitDeferredBindingBase {
     bindingKind: "declarative";
     triggerLabel: string;
+    activationSource?: DeferredBindingSourceSelector;
+    payloadSource?: DeferredBindingSourceSelector;
 }
 
 export type ModuleExplicitDeferredBindingRecord =

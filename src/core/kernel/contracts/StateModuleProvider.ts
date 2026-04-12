@@ -19,6 +19,12 @@ export interface StateManagementSemanticModel {
     stateCaptureAssignCount: number;
     eventInvokeBridges: Map<number, Set<number>>;
     eventInvokeBridgeCount: number;
+    eventDeferredBindings: Array<{
+        sourceMethod: any;
+        handlerMethod: any;
+        anchorStmt: any;
+        triggerLabel: string;
+    }>;
 }
 
 export interface BuildStateManagementSemanticModelArgs {
@@ -42,5 +48,6 @@ export function createEmptyStateManagementSemanticModel(): StateManagementSemant
         stateCaptureAssignCount: 0,
         eventInvokeBridges: new Map(),
         eventInvokeBridgeCount: 0,
+        eventDeferredBindings: [],
     };
 }

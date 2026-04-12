@@ -12,12 +12,74 @@ import {
     type TaintModule,
     toContainerFieldKey,
 } from "../../../core/kernel/contracts/ModuleApi";
+import type {
+    ModuleContainerCapability,
+    ModuleContainerFamilyKind,
+} from "../../../core/kernel/contracts/ModuleSpec";
 import { safeGetOrCreatePagNodes } from "../../../core/kernel/contracts/PagNodeResolution";
 
-export const tsjsContainerModule: TaintModule = defineModule({
-    id: "tsjs.container",
-    description: "Built-in TS/JS container and collection semantics.",
-    setup() {
+export interface TsjsContainerSemanticModuleOptions {
+    id: string;
+    description: string;
+    families?: ModuleContainerFamilyKind[];
+    capabilities?: ModuleContainerCapability[];
+}
+
+const ALL_CONTAINER_FAMILIES: ModuleContainerFamilyKind[] = [
+    "array",
+    "map",
+    "weakmap",
+    "set",
+    "weakset",
+    "list",
+    "queue",
+    "stack",
+    "resultset",
+];
+
+const ALL_CONTAINER_CAPABILITIES: ModuleContainerCapability[] = [
+    "store",
+    "nested_store",
+    "mutation_base",
+    "load",
+    "view",
+    "object_from_entries",
+    "promise_aggregate",
+    "resultset",
+];
+
+function isContainerKindAllowed(
+    kind: ModuleContainerFamilyKind | undefined,
+    allowedFamilies: ReadonlySet<ModuleContainerFamilyKind>,
+): boolean {
+    return !!kind && allowedFamilies.has(kind);
+}
+
+function isContainerSlotFamilyAllowed(
+    slot: string,
+    allowedFamilies: ReadonlySet<ModuleContainerFamilyKind>,
+): boolean {
+    if (slot.startsWith("arr:")) return allowedFamilies.has("array");
+    if (slot.startsWith("map:") || slot.startsWith("mapkey:")) return allowedFamilies.has("map");
+    if (slot.startsWith("weakmap:")) return allowedFamilies.has("weakmap");
+    if (slot.startsWith("set:")) return allowedFamilies.has("set");
+    if (slot.startsWith("weakset:")) return allowedFamilies.has("weakset");
+    if (slot.startsWith("list:")) return allowedFamilies.has("list");
+    if (slot.startsWith("queue:")) return allowedFamilies.has("queue");
+    if (slot.startsWith("stack:")) return allowedFamilies.has("stack");
+    if (slot.startsWith("rs:")) return allowedFamilies.has("resultset");
+    return false;
+}
+
+export function createTsjsContainerSemanticModule(
+    options?: Partial<TsjsContainerSemanticModuleOptions>,
+): TaintModule {
+    const families = new Set<ModuleContainerFamilyKind>(options?.families || ALL_CONTAINER_FAMILIES);
+    const capabilities = new Set<ModuleContainerCapability>(options?.capabilities || ALL_CONTAINER_CAPABILITIES);
+    return defineModule({
+        id: options?.id || "tsjs.container",
+        description: options?.description || "Built-in TS/JS container and collection semantics.",
+        setup() {
         const collectResultContainerEmissions = (
             event: ModuleFactEvent,
             reason: string,
@@ -47,48 +109,58 @@ export const tsjsContainerModule: TaintModule = defineModule({
                 if (!fact.field || fact.field.length === 0) {
                     const value = node.getValue?.();
                     if (value instanceof Local) {
-                        for (const info of collectContainerSlotStoresFromTaintedLocal(value, pag)) {
-                            if (info.slot.startsWith("arr:")) continue;
-                            emissions.push(event.emit.toField(
-                                info.objId,
-                                [toContainerFieldKey(info.slot)],
-                                "Container-Store",
+                        if (capabilities.has("store")) {
+                            for (const info of collectContainerSlotStoresFromTaintedLocal(value, pag, families)) {
+                                if (info.slot.startsWith("arr:")) continue;
+                                emissions.push(event.emit.toField(
+                                    info.objId,
+                                    [toContainerFieldKey(info.slot)],
+                                    "Container-Store",
+                                ));
+                            }
+                        }
+
+                        if (capabilities.has("mutation_base")) {
+                            emissions.push(event.emit.toNodes(
+                                collectContainerMutationBaseNodeIdsFromTaintedLocal(value, pag, families)
+                                    .filter(nodeId => !isNativeArrayBaseNode(pag, nodeId)),
+                                "Container-Mutation-Base",
                             ));
                         }
 
-                        emissions.push(event.emit.toNodes(
-                            collectContainerMutationBaseNodeIdsFromTaintedLocal(value, pag)
-                                .filter(nodeId => !isNativeArrayBaseNode(pag, nodeId)),
-                            "Container-Mutation-Base",
-                        ));
-
-                        const objectFromEntries = collectObjectFromEntriesEffectsFromTaintedLocal(value, pag);
-                        emissions.push(event.emit.loadLikeToNodes(
-                            objectFromEntries.resultLoadNodeIds,
-                            "Object-FromEntries-Load",
-                            event.current.cloneField(),
-                        ));
-                        for (const store of objectFromEntries.resultFieldStores) {
-                            emissions.push(event.emit.toField(
-                                store.objId,
-                                [store.field, ...(event.current.cloneField() || [])],
-                                "Object-FromEntries-Store",
+                        if (capabilities.has("object_from_entries")) {
+                            const objectFromEntries = collectObjectFromEntriesEffectsFromTaintedLocal(value, pag);
+                            emissions.push(event.emit.loadLikeToNodes(
+                                objectFromEntries.resultLoadNodeIds,
+                                "Object-FromEntries-Load",
+                                event.current.cloneField(),
                             ));
+                            for (const store of objectFromEntries.resultFieldStores) {
+                                emissions.push(event.emit.toField(
+                                    store.objId,
+                                    [store.field, ...(event.current.cloneField() || [])],
+                                    "Object-FromEntries-Store",
+                                ));
+                            }
                         }
 
-                        const promiseAggregate = collectPromiseAggregateEffectsFromTaintedLocal(value, pag);
-                        emissions.push(collectResultContainerEmissions(event, "Promise-Aggregate", promiseAggregate.resultNodeIds, promiseAggregate.resultSlotStores));
+                        if (capabilities.has("promise_aggregate")) {
+                            const promiseAggregate = collectPromiseAggregateEffectsFromTaintedLocal(value, pag);
+                            emissions.push(collectResultContainerEmissions(event, "Promise-Aggregate", promiseAggregate.resultNodeIds, promiseAggregate.resultSlotStores));
+                        }
 
-                        const resultSetProducer = collectResultSetProducerEffectsFromTaintedLocal(value, pag);
-                        emissions.push(collectResultContainerEmissions(event, "ResultSet-Producer", resultSetProducer.resultNodeIds, resultSetProducer.resultSlotStores));
+                        if (capabilities.has("resultset") && families.has("resultset")) {
+                            const resultSetProducer = collectResultSetProducerEffectsFromTaintedLocal(value, pag);
+                            emissions.push(collectResultContainerEmissions(event, "ResultSet-Producer", resultSetProducer.resultNodeIds, resultSetProducer.resultSlotStores));
+                        }
                     }
                 }
 
-                if (fact.field && fact.field.length > 0) {
+                if (capabilities.has("nested_store") && fact.field && fact.field.length > 0) {
                     const slot = fromContainerFieldKey(fact.field[0]);
                     if (slot === null) {
                         for (const aliasLocal of event.analysis.aliasLocalsForCarrier(node.getID())) {
-                            for (const info of collectContainerSlotStoresFromTaintedLocal(aliasLocal, pag)) {
+                            for (const info of collectContainerSlotStoresFromTaintedLocal(aliasLocal, pag, families)) {
                                 emissions.push(event.emit.toField(
                                     info.objId,
                                     [toContainerFieldKey(info.slot), ...fact.field],
@@ -96,13 +168,15 @@ export const tsjsContainerModule: TaintModule = defineModule({
                                 ));
                             }
 
-                            const resultSetSlot = fact.field.length > 0 ? `rs:${fact.field[0]}` : "rs:*";
-                            for (const info of collectResultSetProducerEffectsFromTaintedLocal(aliasLocal, pag, resultSetSlot).resultSlotStores) {
-                                emissions.push(event.emit.toField(
-                                    info.objId,
-                                    [toContainerFieldKey(info.slot), ...(fact.field.slice(1) || [])],
-                                    "ResultSet-Nested-Producer",
-                                ));
+                            if (capabilities.has("resultset") && families.has("resultset")) {
+                                const resultSetSlot = fact.field.length > 0 ? `rs:${fact.field[0]}` : "rs:*";
+                                for (const info of collectResultSetProducerEffectsFromTaintedLocal(aliasLocal, pag, resultSetSlot).resultSlotStores) {
+                                    emissions.push(event.emit.toField(
+                                        info.objId,
+                                        [toContainerFieldKey(info.slot), ...(fact.field.slice(1) || [])],
+                                        "ResultSet-Nested-Producer",
+                                    ));
+                                }
                             }
                         }
                     }
@@ -110,28 +184,38 @@ export const tsjsContainerModule: TaintModule = defineModule({
 
                 if (fact.field && fact.field.length > 0) {
                     const slot = fromContainerFieldKey(fact.field[0]);
-                    if (slot !== null && !slot.startsWith("arr:")) {
+                    if (slot !== null && isContainerSlotFamilyAllowed(slot, families)) {
                         const remaining = fact.field.length > 1 ? fact.field.slice(1) : undefined;
-                        emissions.push(event.emit.loadLikeToNodes(
-                            collectContainerSlotLoadNodeIds(node.getID(), slot, pag, event.callbacks),
-                            "Container-Load",
-                            remaining,
-                        ));
-                        const viewEffects = collectContainerViewEffectsBySlot(node.getID(), slot, pag);
-                        emissions.push(collectResultContainerEmissions(
-                            event,
-                            "Container-View",
-                            viewEffects.resultNodeIds,
-                            viewEffects.resultSlotStores,
-                            slot.startsWith("rs:"),
-                        ));
+                        if (capabilities.has("load")) {
+                            emissions.push(event.emit.loadLikeToNodes(
+                                collectContainerSlotLoadNodeIds(node.getID(), slot, pag, event.callbacks),
+                                "Container-Load",
+                                remaining,
+                            ));
+                        }
+                        if (capabilities.has("view")) {
+                            const viewEffects = collectContainerViewEffectsBySlot(node.getID(), slot, pag);
+                            emissions.push(collectResultContainerEmissions(
+                                event,
+                                "Container-View",
+                                viewEffects.resultNodeIds,
+                                viewEffects.resultSlotStores,
+                                slot.startsWith("rs:"),
+                            ));
+                        }
                     }
                 }
 
                 return emissions.done();
             },
         };
-    },
+        },
+    });
+}
+
+export const tsjsContainerModule: TaintModule = createTsjsContainerSemanticModule({
+    id: "tsjs.container",
+    description: "Built-in TS/JS container and collection semantics.",
 });
 
 function isNativeArrayBaseNode(pag: any, nodeId: number): boolean {
@@ -167,7 +251,11 @@ export interface ResultContainerEffects {
     resultSlotStores: ContainerSlotStoreInfo[];
 }
 
-export function collectContainerSlotStoresFromTaintedLocal(local: Local, pag: Pag): ContainerSlotStoreInfo[] {
+export function collectContainerSlotStoresFromTaintedLocal(
+    local: Local,
+    pag: Pag,
+    allowedFamilies?: ReadonlySet<ModuleContainerFamilyKind>,
+): ContainerSlotStoreInfo[] {
     const results: ContainerSlotStoreInfo[] = [];
     const dedup = new Set<string>();
 
@@ -176,6 +264,9 @@ export function collectContainerSlotStoresFromTaintedLocal(local: Local, pag: Pa
             const left = stmt.getLeftOp();
             const right = stmt.getRightOp();
             if (left instanceof ArkArrayRef && right === local) {
+                if (allowedFamilies && !allowedFamilies.has("array")) {
+                    continue;
+                }
                 const base = left.getBase();
                 const idxKey = resolveValueKey(left.getIndex());
                 if (idxKey !== undefined) {
@@ -199,6 +290,9 @@ export function collectContainerSlotStoresFromTaintedLocal(local: Local, pag: Pa
         const methodName = resolveMethodName(invokeExpr);
         const sig = invokeExpr.getMethodSignature()?.toString() || "";
         const containerKind = resolveContainerKind(base, sig);
+        if (allowedFamilies && containerKind && !isContainerKindAllowed(containerKind, allowedFamilies)) {
+            continue;
+        }
 
         if (isMapLikeStoreMethod(methodName) && (containerKind === "map" || containerKind === "weakmap") && args.length >= 2 && args[1] === local) {
             const key = resolveValueKey(args[0]);
@@ -275,7 +369,11 @@ export function collectContainerSlotStoresFromTaintedLocal(local: Local, pag: Pa
     return results;
 }
 
-export function collectContainerMutationBaseNodeIdsFromTaintedLocal(local: Local, pag: Pag): number[] {
+export function collectContainerMutationBaseNodeIdsFromTaintedLocal(
+    local: Local,
+    pag: Pag,
+    allowedFamilies?: ReadonlySet<ModuleContainerFamilyKind>,
+): number[] {
     const results: number[] = [];
     const dedup = new Set<number>();
 
@@ -291,6 +389,7 @@ export function collectContainerMutationBaseNodeIdsFromTaintedLocal(local: Local
         const methodName = resolveMethodName(invokeExpr);
         const sig = invokeExpr.getMethodSignature()?.toString() || "";
         const containerKind = resolveContainerKind(base, sig);
+        if (allowedFamilies && containerKind && !isContainerKindAllowed(containerKind, allowedFamilies)) continue;
         if (!isContainerMutationForBase(methodName, containerKind)) continue;
         if (!isMutationInputAffectingBase(methodName, containerKind, base, args, local)) continue;
 

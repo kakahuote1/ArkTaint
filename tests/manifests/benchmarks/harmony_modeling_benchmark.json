@@ -55,7 +55,7 @@
       "kernelRulePath": "tests/rules/minimal.rules.json",
       "projectRulePath": "tests/rules/harmony_router_bridge.rules.json",
       "modelingCapabilities": ["router"],
-      "disabledAutoSourceRuleIdPrefixes": ["source.arkmain.contract.router.trigger."]
+      "disabledAutoSourceRuleIdPrefixes": ["source.arkmain.contract.router.trigger.", "source.auto.framework.navigation_context."]
     },
     {
       "id": "harmony_router_crossfile",
@@ -64,7 +64,7 @@
       "kernelRulePath": "tests/rules/minimal.rules.json",
       "projectRulePath": "tests/rules/harmony_router_crossfile.rules.json",
       "modelingCapabilities": ["router"],
-      "disabledAutoSourceRuleIdPrefixes": ["source.arkmain.contract.router.trigger."]
+      "disabledAutoSourceRuleIdPrefixes": ["source.arkmain.contract.router.trigger.", "source.auto.framework.navigation_context."]
     },
     {
       "id": "harmony_router_dynamic",
@@ -73,7 +73,7 @@
       "kernelRulePath": "tests/rules/minimal.rules.json",
       "projectRulePath": "tests/rules/harmony_router_dynamic.rules.json",
       "modelingCapabilities": ["router"],
-      "disabledAutoSourceRuleIdPrefixes": ["source.arkmain.contract.router.trigger."]
+      "disabledAutoSourceRuleIdPrefixes": ["source.arkmain.contract.router.trigger.", "source.auto.framework.navigation_context."]
     },
     {
       "id": "harmony_route_stack_variants",
@@ -82,7 +82,7 @@
       "kernelRulePath": "tests/rules/minimal.rules.json",
       "projectRulePath": "tests/rules/harmony_route_stack_variants.rules.json",
       "modelingCapabilities": ["router"],
-      "disabledAutoSourceRuleIdPrefixes": ["source.arkmain.contract.router.trigger."]
+      "disabledAutoSourceRuleIdPrefixes": ["source.arkmain.contract.router.trigger.", "source.auto.framework.navigation_context."]
     },
     {
       "id": "harmony_framework_navpathstack",
@@ -94,7 +94,7 @@
         "^navpathstack_(getparams_003_T|fake_013_F)$"
       ],
       "modelingCapabilities": ["router"],
-      "disabledAutoSourceRuleIdPrefixes": ["source.arkmain.contract.router.trigger."]
+      "disabledAutoSourceRuleIdPrefixes": ["source.arkmain.contract.router.trigger.", "source.auto.framework.navigation_context."]
     },
     {
       "id": "harmony_emitter",

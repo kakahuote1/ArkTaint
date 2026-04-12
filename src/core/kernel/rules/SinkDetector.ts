@@ -761,18 +761,14 @@ function detectPreciseCandidateSource(
         const fieldName = getterFieldPath.length === 1 ? getterFieldPath[0] : undefined;
         let hasPriorStore = false;
         let hasFutureStore = false;
+        let hasOrderedConstantOverwrite = false;
         const orderedSafeOverwrite = fieldName
             ? findLatestOrderedThisFieldStoreBeforeMethod(scene, orderedMethodSignatures, method, fieldName)
             : undefined;
         if (fieldName) {
             hasPriorStore = hasObservedReceiverFieldStoreBeforeStmt(pag, method, receiverBase, fieldName, sinkStmt);
             hasFutureStore = hasObservedReceiverFieldStoreAfterStmt(pag, method, receiverBase, fieldName, sinkStmt);
-            if (!hasPriorStore && orderedSafeOverwrite?.kind === "constant") {
-                return {
-                    blockGenericNodeTaint: true,
-                    fallbackFieldToVarIndex,
-                };
-            }
+            hasOrderedConstantOverwrite = !hasPriorStore && orderedSafeOverwrite?.kind === "constant";
             if (!hasPriorStore && hasFutureStore && isFreshAllocatedReceiverAtStmt(receiverBase, sinkStmt)) {
                 return {
                     blockGenericNodeTaint: true,
@@ -829,7 +825,7 @@ function detectPreciseCandidateSource(
             return {
                 // Field-path fallback must not revive a carrier path that was already
                 // proven dead at the sink due to delete/overwrite invalidation.
-                blockGenericNodeTaint: hasPriorStore || orderedSafeOverwrite?.kind === "constant",
+                blockGenericNodeTaint: hasPriorStore || hasOrderedConstantOverwrite,
                 fallbackFieldToVarIndex,
             };
         }
@@ -856,7 +852,7 @@ function detectPreciseCandidateSource(
             // a prior store for the same receiver field and the field path is now dead.
             // If there is no local store evidence, the value may come from cross-method
             // object state that ordinary propagation already modeled correctly.
-            blockGenericNodeTaint: allDead && (hasPriorStore || orderedSafeOverwrite?.kind === "constant"),
+            blockGenericNodeTaint: hasOrderedConstantOverwrite || (allDead && hasPriorStore),
             fallbackFieldToVarIndex,
         };
     }
@@ -878,12 +874,7 @@ function detectPreciseCandidateSource(
         );
         const hasPriorStore = hasObservedReceiverFieldStoreBeforeStmt(pag, method, receiverBase, fieldName, sinkStmt);
         const hasFutureStore = hasObservedReceiverFieldStoreAfterStmt(pag, method, receiverBase, fieldName, sinkStmt);
-        if (!hasPriorStore && orderedSafeOverwrite?.kind === "constant") {
-            return {
-                blockGenericNodeTaint: true,
-                fallbackFieldToVarIndex,
-            };
-        }
+        const hasOrderedConstantOverwrite = !hasPriorStore && orderedSafeOverwrite?.kind === "constant";
         if (!hasPriorStore && hasFutureStore && isFreshAllocatedReceiverAtStmt(receiverBase, sinkStmt)) {
             return {
                 blockGenericNodeTaint: true,
@@ -937,7 +928,7 @@ function detectPreciseCandidateSource(
             && carrierIds.every(carrierId => !isCarrierFieldPathLiveAtStmt(pag, tracker, carrierId, [fieldName], sinkStmt));
         if (allDead) {
             return {
-                blockGenericNodeTaint: hasPriorStore || orderedSafeOverwrite?.kind === "constant",
+                blockGenericNodeTaint: hasPriorStore || hasOrderedConstantOverwrite,
                 fallbackFieldToVarIndex,
             };
         }
@@ -960,7 +951,7 @@ function detectPreciseCandidateSource(
             };
         }
         return {
-            blockGenericNodeTaint: allDead && (hasPriorStore || orderedSafeOverwrite?.kind === "constant"),
+            blockGenericNodeTaint: hasOrderedConstantOverwrite || (allDead && hasPriorStore),
             fallbackFieldToVarIndex,
         };
     }
@@ -991,18 +982,14 @@ function detectReceiverFieldCandidateSource(
     const fieldName = fieldPath.length === 1 ? fieldPath[0] : undefined;
     let hasPriorStore = false;
     let hasFutureStore = false;
+    let hasOrderedConstantOverwrite = false;
     const orderedSafeOverwrite = fieldName
         ? findLatestOrderedThisFieldStoreBeforeMethod(scene, orderedMethodSignatures, method, fieldName)
         : undefined;
     if (fieldName) {
         hasPriorStore = hasObservedReceiverFieldStoreBeforeStmt(pag, method, receiverBase, fieldName, sinkStmt);
         hasFutureStore = hasObservedReceiverFieldStoreAfterStmt(pag, method, receiverBase, fieldName, sinkStmt);
-        if (!hasPriorStore && orderedSafeOverwrite?.kind === "constant") {
-            return {
-                blockGenericNodeTaint: true,
-                fallbackFieldToVarIndex,
-            };
-        }
+        hasOrderedConstantOverwrite = !hasPriorStore && orderedSafeOverwrite?.kind === "constant";
         if (!hasPriorStore && hasFutureStore && isFreshAllocatedReceiverAtStmt(receiverBase, sinkStmt)) {
             return {
                 blockGenericNodeTaint: true,
@@ -1058,7 +1045,7 @@ function detectReceiverFieldCandidateSource(
         && carrierIds.every(carrierId => !isCarrierFieldPathLiveAtStmt(pag, tracker, carrierId, fieldPath, sinkStmt));
     if (allDead) {
         return {
-            blockGenericNodeTaint: hasPriorStore || orderedSafeOverwrite?.kind === "constant",
+            blockGenericNodeTaint: hasPriorStore || hasOrderedConstantOverwrite,
             fallbackFieldToVarIndex,
         };
     }
@@ -1083,7 +1070,7 @@ function detectReceiverFieldCandidateSource(
     }
 
     return {
-        blockGenericNodeTaint: allDead && (hasPriorStore || orderedSafeOverwrite?.kind === "constant"),
+        blockGenericNodeTaint: hasOrderedConstantOverwrite || (allDead && hasPriorStore),
         fallbackFieldToVarIndex,
     };
 }

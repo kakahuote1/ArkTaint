@@ -1,5 +1,8 @@
 import { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import { CALLBACK_METHOD_NAME } from "../../../../arkanalyzer/out/src/utils/entryMethodUtils";
+import { ArkAssignStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
+import { ArkInstanceFieldRef, ClosureFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
+import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { isSdkBackedMethodSignature } from "../queries/SdkProvenance";
 import {
     CallbackRegistrationMatchArgs,
@@ -7,6 +10,8 @@ import {
     ResolvedCallbackRegistration,
     resolveCallbackMethodsFromValueWithReturns,
 } from "../queries/CallbackBindingQuery";
+import { isCallableValue } from "../queries/CalleeResolver";
+import { resolveMethodsFromAnonymousObjectCarrierByField } from "../queries/CalleeResolver";
 
 export type CallbackRegistrationFlavor = "ui_event" | "channel";
 
@@ -240,11 +245,67 @@ function inferCallableArgIndexes(scene: Scene, explicitArgs: any[]): number[] {
         const methods = resolveCallbackMethodsFromValueWithReturns(scene, arg, {
             maxDepth: DEFAULT_MAX_CALLBACK_HELPER_DEPTH,
         });
-        if (methods.length > 0) {
+        const anonymousCarrierMethods = collectAnonymousCarrierFieldMethods(scene, arg);
+        if (methods.length > 0 || anonymousCarrierMethods.length > 0 || isCallableValue(arg)) {
             callbackArgIndexes.push(index);
         }
     });
     return callbackArgIndexes;
+}
+
+function collectAnonymousCarrierFieldMethods(scene: Scene, value: any): any[] {
+    const lookups = collectAnonymousCarrierFieldLookups(value);
+    const out: any[] = [];
+    const seen = new Set<string>();
+    for (const lookup of lookups) {
+        for (const method of resolveMethodsFromAnonymousObjectCarrierByField(
+            scene,
+            lookup.baseValue,
+            lookup.fieldName,
+            { maxCandidates: DEFAULT_MAX_CALLBACK_HELPER_DEPTH },
+        )) {
+            const sig = method?.getSignature?.().toString?.();
+            if (!sig || seen.has(sig)) continue;
+            seen.add(sig);
+            out.push(method);
+        }
+    }
+    return out;
+}
+
+function collectAnonymousCarrierFieldLookups(
+    value: any,
+): Array<{ baseValue: any; fieldName: string }> {
+    const out: Array<{ baseValue: any; fieldName: string }> = [];
+    const seen = new Set<string>();
+    const addLookup = (baseValue: any, fieldName: string | undefined): void => {
+        if (!baseValue || !fieldName) return;
+        const key = `${String(baseValue)}::${fieldName}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        out.push({ baseValue, fieldName });
+    };
+
+    if (value instanceof ArkInstanceFieldRef || value instanceof ClosureFieldRef) {
+        const fieldName = value instanceof ClosureFieldRef
+            ? value.getFieldName?.()
+            : value.getFieldSignature?.().getFieldName?.() || value.getFieldName?.();
+        addLookup(value.getBase?.(), fieldName);
+        return out;
+    }
+
+    const declStmt = value?.getDeclaringStmt?.();
+    if (value instanceof Local && declStmt instanceof ArkAssignStmt && declStmt.getLeftOp?.() === value) {
+        const right = declStmt.getRightOp?.();
+        if (right instanceof ArkInstanceFieldRef || right instanceof ClosureFieldRef) {
+            const fieldName = right instanceof ClosureFieldRef
+                ? right.getFieldName?.()
+                : right.getFieldSignature?.().getFieldName?.() || right.getFieldName?.();
+            addLookup(right.getBase?.(), fieldName);
+        }
+    }
+
+    return out;
 }
 
 function inferRegistrationShape(

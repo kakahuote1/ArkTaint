@@ -1,8 +1,9 @@
 import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
-import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { loadRuleSet } from "../../core/rules/RuleLoader";
 import { SinkRule, SourceRule } from "../../core/rules/RuleSchema";
+import { buildEngineForCase, findCaseMethod, resolveCaseMethod } from "../helpers/SyntheticCaseHarness";
+import { resolveSuiteCaseExpectation } from "../helpers/SuiteExpectationResolver";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -90,10 +91,27 @@ async function runCase(
     sourceRules: SourceRule[],
     sinkRules: SinkRule[]
 ): Promise<CaseResult> {
-    const expected = caseName.endsWith("_T");
-    const engine = new TaintPropagationEngine(scene, options.k);
-    engine.verbose = false;
-    await engine.buildPAG();
+    const expected = resolveSuiteCaseExpectation("harmony_router_bridge", caseName);
+    const entry = resolveCaseMethod(scene, `${caseName}.ets`, caseName);
+    const entryMethod = findCaseMethod(scene, entry);
+    if (!entryMethod) {
+        return {
+            name: caseName,
+            expected,
+            detected: false,
+            seedCount: 0,
+            pass: !expected,
+        };
+    }
+    const engine = await buildEngineForCase(scene, options.k, entryMethod, {
+        engineOptions: {
+            disabledAutoSourceRuleIdPrefixes: [
+                "source.arkmain.contract.router.trigger.",
+                "source.auto.framework.navigation_context.",
+            ],
+        },
+        verbose: false,
+    });
     try {
         const reachable = engine.computeReachableMethodSignatures();
         engine.setActiveReachableMethodSignatures(reachable);

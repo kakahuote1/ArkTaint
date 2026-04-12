@@ -96,6 +96,7 @@ export function buildSyntheticInvokeEdges(
     pag: Pag,
     log: (msg: string) => void,
     excludedDeferredSiteKeys?: ReadonlySet<string>,
+    forceDirectCallerSignatures?: ReadonlySet<string>,
 ): Map<number, SyntheticInvokeEdgeInfo[]> {
     // Deferred/future execution edges are emitted by algorithm D.
     // This builder only materializes synthetic invoke edges for synchronous invoke recovery.
@@ -107,7 +108,7 @@ export function buildSyntheticInvokeEdges(
     const lazy = buildSyntheticInvokeLazyMaterializer(scene, cg, pag, log);
 
     for (const site of lazy.sites) {
-        const stats = materializeSyntheticInvokeSite(scene, cg, pag, edgeMap, lazy, site, excludedDeferredSiteKeys);
+        const stats = materializeSyntheticInvokeSite(scene, cg, pag, edgeMap, lazy, site, excludedDeferredSiteKeys, forceDirectCallerSignatures);
         syntheticCallCount += stats.callCount;
         syntheticReturnCount += stats.returnCount;
         fallbackCalleeCount += stats.fallbackCalleeCount;
@@ -216,6 +217,7 @@ export function materializeSyntheticInvokeSitesForNode(
     lazy: SyntheticInvokeLazyMaterializer,
     nodeId: number,
     excludedDeferredSiteKeys?: ReadonlySet<string>,
+    forceDirectCallerSignatures?: ReadonlySet<string>,
 ): { callCount: number; returnCount: number; fallbackCalleeCount: number } {
     const siteIds = lazy.siteIdsByTriggerNodeId.get(nodeId) || [];
     let callCount = 0;
@@ -227,7 +229,7 @@ export function materializeSyntheticInvokeSitesForNode(
         lazy.materializedSiteIds.add(siteId);
         const site = lazy.siteById.get(siteId);
         if (!site) continue;
-        const stats = materializeSyntheticInvokeSite(scene, cg, pag, edgeMap, lazy, site, excludedDeferredSiteKeys);
+        const stats = materializeSyntheticInvokeSite(scene, cg, pag, edgeMap, lazy, site, excludedDeferredSiteKeys, forceDirectCallerSignatures);
         callCount += stats.callCount;
         returnCount += stats.returnCount;
         fallbackCalleeCount += stats.fallbackCalleeCount;
@@ -243,6 +245,7 @@ export function materializeEagerSyntheticInvokeSites(
     edgeMap: Map<number, SyntheticInvokeEdgeInfo[]>,
     lazy: SyntheticInvokeLazyMaterializer,
     excludedDeferredSiteKeys?: ReadonlySet<string>,
+    forceDirectCallerSignatures?: ReadonlySet<string>,
 ): { callCount: number; returnCount: number; fallbackCalleeCount: number } {
     if (lazy.eagerSitesMaterialized) {
         return { callCount: 0, returnCount: 0, fallbackCalleeCount: 0 };
@@ -257,7 +260,7 @@ export function materializeEagerSyntheticInvokeSites(
         lazy.materializedSiteIds.add(siteId);
         const site = lazy.siteById.get(siteId);
         if (!site) continue;
-        const stats = materializeSyntheticInvokeSite(scene, cg, pag, edgeMap, lazy, site, excludedDeferredSiteKeys);
+        const stats = materializeSyntheticInvokeSite(scene, cg, pag, edgeMap, lazy, site, excludedDeferredSiteKeys, forceDirectCallerSignatures);
         callCount += stats.callCount;
         returnCount += stats.returnCount;
         fallbackCalleeCount += stats.fallbackCalleeCount;
@@ -272,12 +275,13 @@ export function materializeAllSyntheticInvokeSites(
     edgeMap: Map<number, SyntheticInvokeEdgeInfo[]>,
     lazy: SyntheticInvokeLazyMaterializer,
     excludedDeferredSiteKeys?: ReadonlySet<string>,
+    forceDirectCallerSignatures?: ReadonlySet<string>,
 ): void {
     lazy.eagerSitesMaterialized = true;
     for (const site of lazy.sites) {
         if (lazy.materializedSiteIds.has(site.id)) continue;
         lazy.materializedSiteIds.add(site.id);
-        materializeSyntheticInvokeSite(scene, cg, pag, edgeMap, lazy, site, excludedDeferredSiteKeys);
+        materializeSyntheticInvokeSite(scene, cg, pag, edgeMap, lazy, site, excludedDeferredSiteKeys, forceDirectCallerSignatures);
     }
 }
 
@@ -361,6 +365,7 @@ function materializeSyntheticInvokeSite(
     lazy: SyntheticInvokeLazyMaterializer,
     site: SyntheticInvokeLazySite,
     excludedDeferredSiteKeys?: ReadonlySet<string>,
+    forceDirectCallerSignatures?: ReadonlySet<string>,
 ): { callCount: number; returnCount: number; fallbackCalleeCount: number } {
     const { caller, stmt, invokeExpr } = site;
     const siteKey = buildExecutionHandoffSiteKeyFromStmt(caller, stmt);
@@ -388,7 +393,8 @@ function materializeSyntheticInvokeSite(
             stmt,
             invokeExpr,
             edgeMap,
-            lazy.lookupContext
+            lazy.lookupContext,
+            forceDirectCallerSignatures,
         );
 
     return {
@@ -406,7 +412,8 @@ function materializeDirectSyntheticInvokeEdges(
     stmt: any,
     invokeExpr: any,
     edgeMap: Map<number, SyntheticInvokeEdgeInfo[]>,
-    lookupContext: SyntheticInvokeLookupContext
+    lookupContext: SyntheticInvokeLookupContext,
+    forceDirectCallerSignatures?: ReadonlySet<string>,
 ): { callCount: number; returnCount: number; fallbackCalleeCount: number } {
     let callCount = 0;
     let returnCount = 0;
@@ -415,7 +422,9 @@ function materializeDirectSyntheticInvokeEdges(
     const callSites = cg.getCallSiteByStmt(stmt) || [];
     const forceFallback = isReflectDispatchInvoke(invokeExpr);
     const allowUnknownInvokeFallback = isUnknownInvokeSignature(invokeExpr);
-    if (callSites.length > 0 && !forceFallback && !allowUnknownInvokeFallback) {
+    const callerSignature = caller?.getSignature?.()?.toString?.() || "";
+    const forceDirectFallback = !!callerSignature && !!forceDirectCallerSignatures?.has(callerSignature);
+    if (callSites.length > 0 && !forceFallback && !allowUnknownInvokeFallback && !forceDirectFallback) {
         return { callCount, returnCount, fallbackCalleeCount };
     }
 

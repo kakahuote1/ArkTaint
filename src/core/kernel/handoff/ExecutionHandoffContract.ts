@@ -1,4 +1,6 @@
+import { CallEdgeType } from "../context/TaintContext";
 import type { SyntheticInvokeEdgeInfo } from "../builders/SyntheticInvokeEdgeBuilder";
+import type { DeferredBindingSourceSelector } from "../model/DeferredBindingDeclaration";
 
 export type HandoffTriggerToken =
     | "call(c)"
@@ -53,6 +55,14 @@ export interface ExecutionHandoffPortSummaryClassRecord {
     preserve: ExecutionHandoffPreserveClass;
 }
 
+export interface ExecutionHandoffResolvedEdgeBinding {
+    edgeType: CallEdgeType;
+    sourceNodeIds: number[];
+    targetNodeIds: number[];
+    calleeSignatureOverride?: string;
+    calleeMethodNameOverride?: string;
+}
+
 export interface ExecutionHandoffRecoveredSemanticsRecord {
     activation: HandoffTriggerToken;
     completion: HandoffResumeKind;
@@ -89,6 +99,8 @@ export interface ExecutionHandoffActivationPathRecord extends ExecutionHandoffFe
     pathLabels: HandoffPathLabel[];
     hasResumeAnchor: boolean;
     semantics: ExecutionHandoffRecoveredSemanticsRecord;
+    activationSource?: DeferredBindingSourceSelector;
+    payloadSource?: DeferredBindingSourceSelector;
 }
 
 export interface ExecutionUnitSummaryRecord {
@@ -104,6 +116,7 @@ export interface ExecutionHandoffContractRecord extends ExecutionHandoffActivati
     activation: ExecutionHandoffActivationToken;
     ports: ExecutionHandoffPortSummaryClassRecord;
     summary: ExecutionUnitSummaryRecord;
+    edgeBindings: ExecutionHandoffResolvedEdgeBinding[];
 }
 
 export interface ExecutionHandoffContractSnapshotItem {
