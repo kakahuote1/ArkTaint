@@ -1,7 +1,5 @@
 import { ArkMethod } from "../../../../../arkanalyzer/out/src/core/model/ArkMethod";
-import type { ArkMainPhaseName } from "../ArkMainTypes";
 import { ArkMainActivationReason } from "../edges/ArkMainActivationTypes";
-import { compareArkMainPhases } from "../scheduling/ArkMainSchedulingRules";
 import { ArkMainSchedule, ArkMainScheduledMethod } from "../scheduling/ArkMainScheduler";
 import {
     ArkMainActivationExplanation,
@@ -16,7 +14,6 @@ export function buildArkMainExplainabilityReport(schedule: ArkMainSchedule): Ark
 
 export function buildArkMainExplainabilityBundle(schedule: ArkMainSchedule): ArkMainExplainabilityReport {
     const activations = schedule.activations.map(activation => ({
-        activationId: activationIdOf(activation),
         signature: signatureOf(activation.method)!,
         methodName: activation.method.getName?.() || "@unknown",
         declaringClass: activation.method.getDeclaringArkClass?.()?.getName?.() || "@global",
@@ -26,12 +23,7 @@ export function buildArkMainExplainabilityBundle(schedule: ArkMainSchedule): Ark
         activationEdgeFamilies: [...activation.activationEdgeFamilies].sort(),
         reasons: normalizeReasons(activation.reasons),
         supportingEdges: normalizeSupportingEdges(activation),
-    })).sort((a, b) => {
-        if (a.round !== b.round) return a.round - b.round;
-        const phaseCmp = compareArkMainPhases(a.phase as ArkMainPhaseName, b.phase as ArkMainPhaseName);
-        if (phaseCmp !== 0) return phaseCmp;
-        return a.signature.localeCompare(b.signature);
-    });
+    })).sort((a, b) => a.signature.localeCompare(b.signature));
 
     return {
         schemaVersion: "arkmain.explainability.v3",
@@ -82,6 +74,8 @@ function normalizeReasons(reasons: ArkMainActivationReason[]): ArkMainReasonReco
             evidenceSignature || "",
             reason.entryFamily || "",
             reason.recognitionLayer || "",
+            reason.callbackShape || "",
+            reason.callbackSlotFamily || "",
         ].join("|");
         if (seen.has(key)) continue;
         seen.add(key);
@@ -93,6 +87,8 @@ function normalizeReasons(reasons: ArkMainActivationReason[]): ArkMainReasonReco
             evidenceMethodName: reason.evidenceMethod?.getName?.(),
             entryFamily: reason.entryFamily,
             recognitionLayer: reason.recognitionLayer,
+            callbackShape: reason.callbackShape,
+            callbackSlotFamily: reason.callbackSlotFamily,
         });
     }
     return out.sort((left, right) => {
@@ -103,6 +99,8 @@ function normalizeReasons(reasons: ArkMainActivationReason[]): ArkMainReasonReco
             left.evidenceMethodSignature || "",
             left.entryFamily || "",
             left.recognitionLayer || "",
+            left.callbackShape || "",
+            left.callbackSlotFamily || "",
         ].join("|");
         const rightKey = [
             right.kind,
@@ -111,6 +109,8 @@ function normalizeReasons(reasons: ArkMainActivationReason[]): ArkMainReasonReco
             right.evidenceMethodSignature || "",
             right.entryFamily || "",
             right.recognitionLayer || "",
+            right.callbackShape || "",
+            right.callbackSlotFamily || "",
         ].join("|");
         return leftKey.localeCompare(rightKey);
     });
@@ -154,10 +154,6 @@ function sortRecord(input: Record<string, number>): Record<string, number> {
 
 function signatureOf(method?: ArkMethod): string | undefined {
     return method?.getSignature?.()?.toString?.();
-}
-
-function activationIdOf(activation: ArkMainScheduledMethod): string {
-    return `${signatureOf(activation.method) || "@unknown"}|${activation.phase}|${activation.round}`;
 }
 
 

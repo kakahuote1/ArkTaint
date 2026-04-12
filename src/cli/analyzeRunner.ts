@@ -23,6 +23,7 @@ import {
     normalizeDiagnosticsItems,
     writeDiagnosticsArtifacts,
 } from "./diagnosticsFormat";
+import { createExternalEntryModelInvokerFromEnv } from "./externalEntryLlmClient";
 import {
     ensureAnalyzeOutputLayout,
     resolveAnalyzeOutputLayout,
@@ -280,6 +281,10 @@ async function analyzeSourceDir(
     const stageProfile = emptyEntryStageProfile();
     const arkMainEntryName = "@arkMain";
     let engine: TaintPropagationEngine | undefined;
+    const externalEntryModelInvoker = createExternalEntryModelInvokerFromEnv({
+        enabled: options.enableExternalEntryRecognition,
+        model: options.externalEntryModel,
+    });
     try {
         engine = new TaintPropagationEngine(scene, options.k, {
             transferRules: loadedRules.ruleSet.transfers || [],
@@ -295,6 +300,19 @@ async function analyzeSourceDir(
             includeBuiltinEnginePlugins: true,
             pluginDryRun: options.pluginDryRun,
             pluginIsolate: options.pluginIsolate,
+            externalEntryRecognition: options.enableExternalEntryRecognition
+                ? {
+                    enabled: true,
+                    model: options.externalEntryModel,
+                    minConfidence: options.externalEntryMinConfidence,
+                    batchSize: options.externalEntryBatchSize,
+                    maxCandidates: options.externalEntryMaxCandidates,
+                    enableCache: Boolean(options.externalEntryCachePath),
+                    cachePath: options.externalEntryCachePath,
+                    enableExternalEntryFacts: options.enableExternalEntryFacts,
+                    modelInvoker: externalEntryModelInvoker,
+                }
+                : undefined,
             debug: {
                 enableWorklistProfile: true,
             },
@@ -341,6 +359,7 @@ async function analyzeSourceDir(
                 pagNodeResolutionAudit: engine.getPagNodeResolutionAuditSnapshot(),
                 moduleAudit: engine.getModuleAuditSnapshot(),
                 enginePluginAudit: engine.getEnginePluginAuditSnapshot(),
+                externalEntryRecognition: engine.getExternalEntryRecognitionReport(),
                 elapsedMs: stageProfile.totalMs
             };
         }
@@ -400,6 +419,7 @@ async function analyzeSourceDir(
             pagNodeResolutionAudit: engine.getPagNodeResolutionAuditSnapshot(),
             moduleAudit: engine.getModuleAuditSnapshot(),
             enginePluginAudit: engine.getEnginePluginAuditSnapshot(),
+            externalEntryRecognition: engine.getExternalEntryRecognitionReport(),
             elapsedMs: stageProfile.totalMs,
         };
     } catch (err: any) {
@@ -425,6 +445,7 @@ async function analyzeSourceDir(
             pagNodeResolutionAudit: engine?.getPagNodeResolutionAuditSnapshot() || emptyPagNodeResolutionAuditSnapshot(),
             moduleAudit: engine?.getModuleAuditSnapshot() || emptyModuleAuditSnapshot(),
             enginePluginAudit: engine?.getEnginePluginAuditSnapshot() || emptyEnginePluginAuditSnapshot(),
+            externalEntryRecognition: engine?.getExternalEntryRecognitionReport(),
             elapsedMs: stageProfile.totalMs,
             error: String(err?.message || err),
         };
@@ -634,10 +655,25 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         failedPluginNames: [] as string[],
         plugins: {} as Record<string, AnalyzeReport["summary"]["pluginAudit"]["plugins"][string]>,
     };
+    const externalEntryRecognitionSummary = {
+        enabled: options.enableExternalEntryRecognition === true,
+        model: options.externalEntryModel,
+        candidateCount: 0,
+        recognitionCount: 0,
+        promotedMethodCount: 0,
+        injectedFactCount: 0,
+        cacheEnabled: Boolean(options.externalEntryCachePath),
+        cachePath: options.externalEntryCachePath,
+        recognizedEntries: [] as NonNullable<AnalyzeReport["summary"]["externalEntryRecognition"]>["recognizedEntries"],
+    };
     const loadedModuleIdSet = new Set<string>();
     const failedModuleIdSet = new Set<string>();
     const loadedPluginNameSet = new Set<string>();
     const failedPluginNameSet = new Set<string>();
+    const externalEntryRecognizedBest = new Map<
+        string,
+        NonNullable<AnalyzeReport["summary"]["externalEntryRecognition"]>["recognizedEntries"][number]
+    >();
     const diagnostics = emptyAnalyzeErrorDiagnostics();
     let transferShareCount = 0;
     const transferNoHitReasons: Record<string, number> = {};
@@ -769,6 +805,21 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
             current.resultTransformCount += stats.resultTransformCount;
             current.resultAddedFindingCount += stats.resultAddedFindingCount;
         }
+        if (e.externalEntryRecognition) {
+            externalEntryRecognitionSummary.candidateCount += e.externalEntryRecognition.candidateCount || 0;
+            externalEntryRecognitionSummary.recognitionCount += e.externalEntryRecognition.recognitionCount || 0;
+            externalEntryRecognitionSummary.promotedMethodCount += e.externalEntryRecognition.promotedMethodCount || 0;
+            externalEntryRecognitionSummary.injectedFactCount += e.externalEntryRecognition.injectedFactCount || 0;
+            for (const item of e.externalEntryRecognition.recognizedEntries || []) {
+                const existing = externalEntryRecognizedBest.get(item.methodSignature);
+                if (!existing || item.confidence > existing.confidence) {
+                    externalEntryRecognizedBest.set(item.methodSignature, {
+                        ...item,
+                        evidenceTags: [...(item.evidenceTags || [])],
+                    });
+                }
+            }
+        }
         diagnostics.moduleRuntimeFailures.push(...e.moduleAudit.failureEvents);
         diagnostics.enginePluginRuntimeFailures.push(...e.enginePluginAudit.failureEvents);
         transferShareCount++;
@@ -793,6 +844,9 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     moduleAuditSummary.failedModuleIds = [...failedModuleIdSet].sort((a, b) => a.localeCompare(b));
     pluginAuditSummary.loadedPluginNames = [...loadedPluginNameSet].sort((a, b) => a.localeCompare(b));
     pluginAuditSummary.failedPluginNames = [...failedPluginNameSet].sort((a, b) => a.localeCompare(b));
+    externalEntryRecognitionSummary.recognizedEntries = [...externalEntryRecognizedBest.values()]
+        .sort((left, right) => right.confidence - left.confidence || left.methodSignature.localeCompare(right.methodSignature))
+        .slice(0, 50);
     const diagnosticItems = normalizeDiagnosticsItems(diagnostics);
     transferProfile.noCandidateCallsites = [...noCandidateSummaryMap.values()]
         .sort((a, b) => b.count - a.count || a.calleeSignature.localeCompare(b.calleeSignature))
@@ -835,6 +889,9 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
             diagnosticItems,
             moduleAudit: moduleAuditSummary,
             pluginAudit: pluginAuditSummary,
+            externalEntryRecognition: externalEntryRecognitionSummary.enabled
+                ? externalEntryRecognitionSummary
+                : undefined,
             stageProfile: {
                 ruleLoadMs: Number(stageProfile.ruleLoadMs.toFixed(3)),
                 sceneBuildMs: Number(stageProfile.sceneBuildMs.toFixed(3)),

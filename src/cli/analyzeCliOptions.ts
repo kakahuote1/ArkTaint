@@ -36,6 +36,13 @@ export interface CliOptions {
     stopOnFirstFlow: boolean;
     maxFlowsPerEntry?: number;
     enableSecondarySinkSweep: boolean;
+    enableExternalEntryRecognition?: boolean;
+    externalEntryModel?: string;
+    externalEntryMinConfidence?: number;
+    externalEntryBatchSize?: number;
+    externalEntryMaxCandidates?: number;
+    externalEntryCachePath?: string;
+    enableExternalEntryFacts?: boolean;
     ruleOptions: RuleLoaderOptions;
 }
 
@@ -75,6 +82,13 @@ export function parseArgs(argv: string[]): CliOptions {
     let stopOnFirstFlow = false;
     let maxFlowsPerEntryRaw: number | undefined;
     let secondarySinkSweepRaw: boolean | undefined;
+    let enableExternalEntryRecognition = false;
+    let externalEntryModel: string | undefined;
+    let externalEntryMinConfidence: number | undefined;
+    let externalEntryBatchSize: number | undefined;
+    let externalEntryMaxCandidates: number | undefined;
+    let externalEntryCachePath: string | undefined;
+    let enableExternalEntryFacts = false;
     const ruleOptions: RuleLoaderOptions = {};
 
     for (let i = 0; i < argv.length; i++) {
@@ -314,6 +328,44 @@ export function parseArgs(argv: string[]): CliOptions {
             secondarySinkSweepRaw = false;
             continue;
         }
+        if (arg === "--enableExternalEntryRecognition") {
+            enableExternalEntryRecognition = true;
+            continue;
+        }
+        const externalEntryModelArg = readValue("--externalEntryModel");
+        if (externalEntryModelArg !== undefined) {
+            externalEntryModel = externalEntryModelArg.trim();
+            if (arg === "--externalEntryModel") i++;
+            continue;
+        }
+        const externalEntryMinConfidenceArg = readValue("--externalEntryMinConfidence");
+        if (externalEntryMinConfidenceArg !== undefined) {
+            externalEntryMinConfidence = Number(externalEntryMinConfidenceArg);
+            if (arg === "--externalEntryMinConfidence") i++;
+            continue;
+        }
+        const externalEntryBatchSizeArg = readValue("--externalEntryBatchSize");
+        if (externalEntryBatchSizeArg !== undefined) {
+            externalEntryBatchSize = Number(externalEntryBatchSizeArg);
+            if (arg === "--externalEntryBatchSize") i++;
+            continue;
+        }
+        const externalEntryMaxCandidatesArg = readValue("--externalEntryMaxCandidates");
+        if (externalEntryMaxCandidatesArg !== undefined) {
+            externalEntryMaxCandidates = Number(externalEntryMaxCandidatesArg);
+            if (arg === "--externalEntryMaxCandidates") i++;
+            continue;
+        }
+        const externalEntryCachePathArg = readValue("--externalEntryCachePath");
+        if (externalEntryCachePathArg !== undefined) {
+            externalEntryCachePath = externalEntryCachePathArg;
+            if (arg === "--externalEntryCachePath") i++;
+            continue;
+        }
+        if (arg === "--enableExternalEntryFacts") {
+            enableExternalEntryFacts = true;
+            continue;
+        }
         if (arg.startsWith("--")) {
             throw new Error(`unknown option: ${arg}`);
         }
@@ -371,6 +423,24 @@ export function parseArgs(argv: string[]): CliOptions {
     const enableSecondarySinkSweep = secondarySinkSweepRaw !== undefined
         ? secondarySinkSweepRaw
         : profile === "fast";
+    if (
+        externalEntryMinConfidence !== undefined
+        && (!Number.isFinite(externalEntryMinConfidence) || externalEntryMinConfidence < 0 || externalEntryMinConfidence > 1)
+    ) {
+        throw new Error(`invalid --externalEntryMinConfidence: ${externalEntryMinConfidence}`);
+    }
+    if (
+        externalEntryBatchSize !== undefined
+        && (!Number.isFinite(externalEntryBatchSize) || externalEntryBatchSize <= 0)
+    ) {
+        throw new Error(`invalid --externalEntryBatchSize: ${externalEntryBatchSize}`);
+    }
+    if (
+        externalEntryMaxCandidates !== undefined
+        && (!Number.isFinite(externalEntryMaxCandidates) || externalEntryMaxCandidates <= 0)
+    ) {
+        throw new Error(`invalid --externalEntryMaxCandidates: ${externalEntryMaxCandidates}`);
+    }
 
     if (!outputDir) {
         const repoName = path.basename(normalizedRepo);
@@ -392,6 +462,11 @@ export function parseArgs(argv: string[]): CliOptions {
             ? incrementalCachePath
             : path.resolve(incrementalCachePath);
     }
+    const normalizedExternalEntryCachePath = externalEntryCachePath
+        ? (path.isAbsolute(externalEntryCachePath)
+            ? externalEntryCachePath
+            : path.resolve(externalEntryCachePath))
+        : undefined;
     return {
         repo: normalizedRepo,
         sourceDirs,
@@ -423,6 +498,13 @@ export function parseArgs(argv: string[]): CliOptions {
         stopOnFirstFlow,
         maxFlowsPerEntry,
         enableSecondarySinkSweep,
+        enableExternalEntryRecognition,
+        externalEntryModel,
+        externalEntryMinConfidence,
+        externalEntryBatchSize: externalEntryBatchSize !== undefined ? Math.floor(externalEntryBatchSize) : undefined,
+        externalEntryMaxCandidates: externalEntryMaxCandidates !== undefined ? Math.floor(externalEntryMaxCandidates) : undefined,
+        externalEntryCachePath: normalizedExternalEntryCachePath,
+        enableExternalEntryFacts,
         ruleOptions,
     };
 }

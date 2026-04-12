@@ -67,7 +67,10 @@ import {
 import { collectFiniteStringCandidatesFromValue } from "../substrate/queries/FiniteStringCandidateResolver";
 import { collectOrdinaryHigherOrderCallbackMethodSignaturesFromMethod } from "../kernel/ordinary/OrdinaryArrayPropagation";
 import { buildArkMainPlan } from "../entry/arkmain/ArkMainPlanner";
+import { buildArkMainPlanWithExternalEntries } from "../entry/arkmain/ArkMainPlanWithExternalEntries";
+import { ArkMainEntryFact } from "../entry/arkmain/ArkMainTypes";
 import { ArkMainSyntheticRootBuilder } from "../entry/arkmain/ArkMainSyntheticRootBuilder";
+import type { ArkMainExternalEntryRecognition } from "../entry/arkmain/llm/ArkMainExternalEntryTypes";
 import {
     emptyModuleAuditSnapshot,
     ModuleAuditSnapshot,
@@ -127,6 +130,49 @@ export interface DebugOptions {
     propagationTraceMaxEdges?: number;
 }
 
+type ExternalEntryRecognitionModelInvoker = (
+    input: {
+        prompt: string;
+        candidates: any[];
+        model?: string;
+    }
+) => Promise<string>;
+
+export interface ExternalEntryRecognitionOptions {
+    enabled?: boolean;
+    model?: string;
+    minConfidence?: number;
+    batchSize?: number;
+    maxCandidates?: number;
+    enableCache?: boolean;
+    cachePath?: string;
+    enableExternalEntryFacts?: boolean;
+    modelInvoker?: ExternalEntryRecognitionModelInvoker;
+    preseedMethods?: ArkMethod[];
+    preseedFacts?: ArkMainEntryFact[];
+}
+
+export interface ExternalEntryRecognitionReportItem {
+    methodSignature: string;
+    confidence: number;
+    phase?: ArkMainExternalEntryRecognition["phase"];
+    kind?: ArkMainExternalEntryRecognition["kind"];
+    reason: string;
+    evidenceTags: string[];
+}
+
+export interface ExternalEntryRecognitionReport {
+    enabled: boolean;
+    model?: string;
+    candidateCount: number;
+    recognitionCount: number;
+    promotedMethodCount: number;
+    injectedFactCount: number;
+    cacheEnabled: boolean;
+    cachePath?: string;
+    recognizedEntries: ExternalEntryRecognitionReportItem[];
+}
+
 export interface TaintEngineOptions {
     contextStrategy?: "fixed" | "adaptive";
     adaptiveContext?: AdaptiveContextSelectorOptions;
@@ -149,6 +195,7 @@ export interface TaintEngineOptions {
     pluginDryRun?: boolean;
     pluginIsolate?: string[];
     pluginAudit?: boolean;
+    externalEntryRecognition?: ExternalEntryRecognitionOptions;
     debug?: DebugOptions;
 }
 
@@ -265,6 +312,7 @@ export class TaintPropagationEngine {
     private executionHandoffSnapshot?: ExecutionHandoffContractSnapshot;
     private executionHandoffDeferredSiteKeys?: Set<string>;
     private currentEntryModel: EntryModel = "arkMain";
+    private externalEntryRecognitionReport?: ExternalEntryRecognitionReport;
 
     public verbose: boolean = true;
 
@@ -398,6 +446,19 @@ export class TaintPropagationEngine {
             return emptyModuleAuditSnapshot();
         }
         return audit;
+    }
+
+    public getExternalEntryRecognitionReport(): ExternalEntryRecognitionReport | undefined {
+        if (!this.externalEntryRecognitionReport) {
+            return undefined;
+        }
+        return {
+            ...this.externalEntryRecognitionReport,
+            recognizedEntries: this.externalEntryRecognitionReport.recognizedEntries.map(item => ({
+                ...item,
+                evidenceTags: [...item.evidenceTags],
+            })),
+        };
     }
 
     public getExecutionHandoffContractSnapshot(): ExecutionHandoffContractSnapshot | undefined {
@@ -648,8 +709,53 @@ export class TaintPropagationEngine {
         this.currentEntryModel = entryModel;
         const explicitSyntheticEntries = this.normalizeSyntheticEntryMethods(options.syntheticEntryMethods);
         this.explicitEntryScopeMethodSignatures = this.resolveExplicitEntryScope(explicitSyntheticEntries);
-        const arkMainPlan = entryModel === "arkMain"
-            ? buildArkMainPlan(this.scene, { seedMethods: explicitSyntheticEntries })
+        const arkMainPlanResult = entryModel === "arkMain"
+            ? (this.options.externalEntryRecognition?.enabled
+                ? await buildArkMainPlanWithExternalEntries(this.scene as never, {
+                    seedMethods: explicitSyntheticEntries,
+                    externalEntryCandidates: this.options.externalEntryRecognition.preseedMethods,
+                    externalEntryFacts: this.options.externalEntryRecognition.preseedFacts,
+                    maxCandidates: this.options.externalEntryRecognition.maxCandidates,
+                    minConfidence: this.options.externalEntryRecognition.minConfidence,
+                    batchSize: this.options.externalEntryRecognition.batchSize,
+                    enableCache: this.options.externalEntryRecognition.enableCache,
+                    cachePath: this.options.externalEntryRecognition.cachePath,
+                    model: this.options.externalEntryRecognition.model,
+                    modelInvoker: this.options.externalEntryRecognition.modelInvoker,
+                    enableExternalEntryFacts: this.options.externalEntryRecognition.enableExternalEntryFacts,
+                })
+                : {
+                    plan: buildArkMainPlan(this.scene, { seedMethods: explicitSyntheticEntries }),
+                    candidates: [],
+                    recognitions: [],
+                    externalEntryCandidates: [],
+                    externalEntryFacts: [],
+                })
+            : undefined;
+        const arkMainPlan = arkMainPlanResult?.plan;
+        this.externalEntryRecognitionReport = entryModel === "arkMain"
+            ? {
+                enabled: Boolean(this.options.externalEntryRecognition?.enabled),
+                model: this.options.externalEntryRecognition?.model,
+                candidateCount: arkMainPlanResult?.candidates.length || 0,
+                recognitionCount: arkMainPlanResult?.recognitions.filter(item => item.isEntry).length || 0,
+                promotedMethodCount: arkMainPlanResult?.externalEntryCandidates.length || 0,
+                injectedFactCount: arkMainPlanResult?.externalEntryFacts.length || 0,
+                cacheEnabled: Boolean(this.options.externalEntryRecognition?.enableCache),
+                cachePath: this.options.externalEntryRecognition?.cachePath,
+                recognizedEntries: (arkMainPlanResult?.recognitions || [])
+                    .filter(item => item.isEntry)
+                    .sort((left, right) => right.confidence - left.confidence || left.methodSignature.localeCompare(right.methodSignature))
+                    .slice(0, 50)
+                    .map(item => ({
+                        methodSignature: item.methodSignature,
+                        confidence: item.confidence,
+                        phase: item.phase,
+                        kind: item.kind,
+                        reason: item.reason,
+                        evidenceTags: [...(item.evidenceTags || [])],
+                    })),
+            }
             : undefined;
         this.activeOrderedMethodSignatures = entryModel === "arkMain"
             ? (arkMainPlan?.orderedMethods || []).map(method => method?.getSignature?.()?.toString?.()).filter((sig): sig is string => !!sig)

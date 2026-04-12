@@ -2,18 +2,21 @@ import { Scene } from "../../../../../arkanalyzer/out/src/Scene";
 import { ArkClass } from "../../../../../arkanalyzer/out/src/core/model/ArkClass";
 import { ArkMethod } from "../../../../../arkanalyzer/out/src/core/model/ArkMethod";
 import { normalizeDecoratorKind, resolveAbilityLikeOwnerKind } from "./ArkMainFactResolverUtils";
+import { resolveComponentLifecycleContract } from "./ArkMainLifecycleContracts";
 
 export type ArkMainManagedOwnerKind =
     | "ability_owner"
     | "stage_owner"
     | "extension_owner"
-    | "component_owner";
+    | "component_owner"
+    | "builder_owner";
 
 export interface ArkMainManagedOwnerEvidence {
     ownerKind: ArkMainManagedOwnerKind;
     recognitionLayer:
         | "owner_qualified_inheritance"
-        | "qualified_decorator_first_layer";
+        | "qualified_decorator_first_layer"
+        | "component_contract_shape";
     reason: string;
 }
 
@@ -30,24 +33,31 @@ export interface ArkMainManagedOwnerDiscovery {
     isStageOwner: (cls: ArkClass | null | undefined) => boolean;
     isExtensionOwner: (cls: ArkClass | null | undefined) => boolean;
     isComponentOwner: (cls: ArkClass | null | undefined) => boolean;
+    isBuilderOwner: (cls: ArkClass | null | undefined) => boolean;
     getEvidences: (cls: ArkClass | null | undefined) => ArkMainManagedOwnerEvidence[];
     getPrimaryRecognitionLayer: (cls: ArkClass | null | undefined) => string | undefined;
 }
 
+export interface ArkMainManagedOwnerDiscoveryOptions {
+    includeComponentContractShape?: boolean;
+}
+
 const OWNER_DECORATORS = new Set(["Entry", "Component", "CustomDialog"]);
-const OWNER_DECORATORS_V2 = new Set(["ComponentV2"]);
+const BUILDER_DECORATOR = "Builder";
 
 export function collectFrameworkManagedOwners(
     scene: Scene,
+    options: ArkMainManagedOwnerDiscoveryOptions = {},
 ): ArkMainManagedOwnerDiscovery {
     const ownerMap = new Map<string, ArkMainManagedOwnerRecord>();
     const ownerOrder: string[] = [];
+    const includeComponentContractShape = options.includeComponentContractShape ?? true;
 
     for (const cls of scene.getClasses()) {
-        const ownerIdentity = getOwnerIdentity(cls);
-        if (!ownerIdentity) continue;
+        const className = cls.getName?.() || "";
+        if (!className) continue;
 
-        const record = ensureRecord(ownerMap, ownerOrder, ownerIdentity, cls);
+        const record = ensureRecord(ownerMap, ownerOrder, className, cls);
         const inheritedOwnerKind = resolveAbilityLikeOwnerKind(cls);
         if (inheritedOwnerKind) {
             pushEvidence(record, {
@@ -64,41 +74,60 @@ export function collectFrameworkManagedOwners(
                 reason: "class has framework owner decorator",
             });
         }
+
+        if (hasBuilderDecorator(cls)) {
+            pushEvidence(record, {
+                ownerKind: "builder_owner",
+                recognitionLayer: "qualified_decorator_first_layer",
+                reason: "class/method carries @Builder decorator",
+            });
+        }
+
+        if (includeComponentContractShape && hasComponentLifecycleContractShape(cls)) {
+            pushEvidence(record, {
+                ownerKind: "component_owner",
+                recognitionLayer: "component_contract_shape",
+                reason: "class declares component lifecycle contract method",
+            });
+        }
     }
 
     const records = ownerOrder
-        .map(ownerIdentity => ownerMap.get(ownerIdentity))
+        .map(className => ownerMap.get(className))
         .filter((record): record is ArkMainManagedOwnerRecord => Boolean(record))
         .filter(record => record.ownerKinds.length > 0);
-    const recordByOwnerIdentity = new Map(records.map(record => [getOwnerIdentity(record.ownerClass), record]));
+    const recordByClassName = new Map(records.map(record => [record.ownerClass.getName?.() || "", record]));
 
     const hasKind = (cls: ArkClass | null | undefined, kind: ArkMainManagedOwnerKind): boolean => {
-        const ownerIdentity = getOwnerIdentity(cls);
-        if (!ownerIdentity) return false;
-        return recordByOwnerIdentity.get(ownerIdentity)?.ownerKinds.includes(kind) || false;
+        const className = cls?.getName?.() || "";
+        if (!className) return false;
+        return recordByClassName.get(className)?.ownerKinds.includes(kind) || false;
     };
 
     return {
         records,
         isFrameworkManagedOwner: (cls: ArkClass | null | undefined): boolean => {
-            const ownerIdentity = getOwnerIdentity(cls);
-            if (!ownerIdentity) return false;
-            return recordByOwnerIdentity.has(ownerIdentity);
+            const className = cls?.getName?.() || "";
+            if (!className) return false;
+            return recordByClassName.has(className);
         },
         isAbilityOwner: (cls: ArkClass | null | undefined): boolean => hasKind(cls, "ability_owner"),
         isStageOwner: (cls: ArkClass | null | undefined): boolean => hasKind(cls, "stage_owner"),
         isExtensionOwner: (cls: ArkClass | null | undefined): boolean => hasKind(cls, "extension_owner"),
         isComponentOwner: (cls: ArkClass | null | undefined): boolean => hasKind(cls, "component_owner"),
+        isBuilderOwner: (cls: ArkClass | null | undefined): boolean => hasKind(cls, "builder_owner"),
         getEvidences: (cls: ArkClass | null | undefined): ArkMainManagedOwnerEvidence[] => {
-            const ownerIdentity = getOwnerIdentity(cls);
-            if (!ownerIdentity) return [];
-            return [...(recordByOwnerIdentity.get(ownerIdentity)?.evidences || [])];
+            const className = cls?.getName?.() || "";
+            if (!className) return [];
+            return [...(recordByClassName.get(className)?.evidences || [])];
         },
         getPrimaryRecognitionLayer: (cls: ArkClass | null | undefined): string | undefined => {
-            const ownerIdentity = getOwnerIdentity(cls);
-            const evidences = ownerIdentity ? (recordByOwnerIdentity.get(ownerIdentity)?.evidences || []) : [];
+            const evidences = cls ? (recordByClassName.get(cls.getName?.() || "")?.evidences || []) : [];
             if (evidences.some(evidence => evidence.recognitionLayer === "qualified_decorator_first_layer")) {
                 return "qualified_decorator_first_layer";
+            }
+            if (evidences.some(evidence => evidence.recognitionLayer === "component_contract_shape")) {
+                return "component_contract_shape";
             }
             return evidences[0]?.recognitionLayer;
         },
@@ -143,20 +172,23 @@ function hasOwnerDecorator(cls: ArkClass): boolean {
         return true;
     }
     const decorators = cls.getDecorators?.() || [];
-    return decorators.some(decorator => {
-        const kind = normalizeDecoratorKind(decorator?.getKind?.()) || "";
-        return OWNER_DECORATORS.has(kind) || OWNER_DECORATORS_V2.has(kind);
-    });
+    return decorators.some(decorator => OWNER_DECORATORS.has(normalizeDecoratorKind(decorator?.getKind?.()) || ""));
 }
 
-function getOwnerIdentity(cls: ArkClass | null | undefined): string {
-    if (!cls) return "";
-    const classSig = cls.getSignature?.();
-    if (classSig?.toString?.()) {
-        return classSig.toString();
+function hasBuilderDecorator(cls: ArkClass): boolean {
+    const classHasBuilder = (cls.getDecorators?.() || [])
+        .some(decorator => normalizeDecoratorKind(decorator?.getKind?.()) === BUILDER_DECORATOR);
+    if (classHasBuilder) {
+        return true;
     }
-    const className = cls.getName?.() || "";
-    if (!className) return "";
-    const fileSig = classSig?.getDeclaringFileSignature?.()?.toString?.() || "";
-    return fileSig ? `${fileSig}::${className}` : className;
+    return cls.getMethods().some((method: ArkMethod) =>
+        !method.isStatic()
+        && (method.getDecorators?.() || []).some(decorator => normalizeDecoratorKind(decorator?.getKind?.()) === BUILDER_DECORATOR),
+    );
+}
+
+function hasComponentLifecycleContractShape(cls: ArkClass): boolean {
+    return cls.getMethods().some((method: ArkMethod) =>
+        !method.isStatic() && !!resolveComponentLifecycleContract(method.getName()),
+    );
 }

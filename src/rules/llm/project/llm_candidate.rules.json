@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "2.0",
+  "sources": [
+    {
+      "id": "llm_candidate.source_builtin_plugin_001",
+      "match": {
+        "kind": "signature_equals",
+        "value": "@complex_calls/builtin_plugin_demo_entry.ets: %dflt.BuiltinPluginSource()",
+        "invokeKind": "static",
+        "argCount": 0
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "tags": [
+        "llm_candidate",
+        "source"
+      ],
+      "scope": {
+        "file": {
+          "mode": "contains",
+          "value": "complex_calls/builtin_plugin_demo_entry.ets"
+        }
+      },
+      "enabled": true
+    }
+  ],
+  "sinks": [
+    {
+      "id": "llm_candidate.sink_taint_mock_001",
+      "match": {
+        "kind": "signature_equals",
+        "value": "@complex_calls/taint_mock.ts: taint.%dflt.Sink(any)",
+        "invokeKind": "static",
+        "argCount": 1
+      },
+      "target": "arg0",
+      "tags": [
+        "llm_candidate",
+        "sink"
+      ],
+      "scope": {
+        "file": {
+          "mode": "contains",
+          "value": "complex_calls/taint_mock.ts"
+        }
+      },
+      "enabled": true
+    }
+  ],
+  "transfers": [],
+  "sanitizers": []
+}

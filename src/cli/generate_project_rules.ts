@@ -5,8 +5,10 @@ import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "..
 import { ArkParameterRef } from "../../arkanalyzer/out/src/core/base/Ref";
 import { Local } from "../../arkanalyzer/out/src/core/base/Local";
 import { buildArkMainPlan } from "../core/entry/arkmain/ArkMainPlanner";
+import { buildArkMainPlanWithExternalEntries } from "../core/entry/arkmain/ArkMainPlanWithExternalEntries";
 import { SinkRule, SourceRule, TaintRuleSet, TransferRule } from "../core/rules/RuleSchema";
 import { validateRuleSet } from "../core/rules/RuleValidator";
+import { createExternalEntryModelInvokerFromEnv } from "./externalEntryLlmClient";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -20,6 +22,13 @@ export interface GenerateProjectRuleCliOptions {
     includePaths: string[];
     excludePaths: string[];
     enableCandidates: boolean;
+    enableExternalEntryRecognition?: boolean;
+    externalEntryModel?: string;
+    externalEntryMinConfidence?: number;
+    externalEntryBatchSize?: number;
+    externalEntryMaxCandidates?: number;
+    externalEntryCachePath?: string;
+    enableExternalEntryFacts?: boolean;
 }
 
 export interface RuleScaffoldResult {
@@ -92,6 +101,13 @@ function parseArgs(argv: string[]): GenerateProjectRuleCliOptions {
     const includePaths: string[] = [];
     const excludePaths: string[] = [];
     let enableCandidates = false;
+    let enableExternalEntryRecognition = false;
+    let externalEntryModel: string | undefined;
+    let externalEntryMinConfidence: number | undefined;
+    let externalEntryBatchSize: number | undefined;
+    let externalEntryMaxCandidates: number | undefined;
+    let externalEntryCachePath: string | undefined;
+    let enableExternalEntryFacts = false;
 
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
@@ -150,8 +166,46 @@ function parseArgs(argv: string[]): GenerateProjectRuleCliOptions {
             if (arg === "--exclude") i++;
             continue;
         }
+        const externalEntryModelArg = readValue("--externalEntryModel");
+        if (externalEntryModelArg !== undefined) {
+            externalEntryModel = externalEntryModelArg;
+            if (arg === "--externalEntryModel") i++;
+            continue;
+        }
+        const externalEntryMinConfidenceArg = readValue("--externalEntryMinConfidence");
+        if (externalEntryMinConfidenceArg !== undefined) {
+            externalEntryMinConfidence = Number(externalEntryMinConfidenceArg);
+            if (arg === "--externalEntryMinConfidence") i++;
+            continue;
+        }
+        const externalEntryBatchSizeArg = readValue("--externalEntryBatchSize");
+        if (externalEntryBatchSizeArg !== undefined) {
+            externalEntryBatchSize = Number(externalEntryBatchSizeArg);
+            if (arg === "--externalEntryBatchSize") i++;
+            continue;
+        }
+        const externalEntryMaxCandidatesArg = readValue("--externalEntryMaxCandidates");
+        if (externalEntryMaxCandidatesArg !== undefined) {
+            externalEntryMaxCandidates = Number(externalEntryMaxCandidatesArg);
+            if (arg === "--externalEntryMaxCandidates") i++;
+            continue;
+        }
+        const externalEntryCacheArg = readValue("--externalEntryCache");
+        if (externalEntryCacheArg !== undefined) {
+            externalEntryCachePath = externalEntryCacheArg;
+            if (arg === "--externalEntryCache") i++;
+            continue;
+        }
         if (arg === "--enableCandidates") {
             enableCandidates = true;
+            continue;
+        }
+        if (arg === "--enableExternalEntryRecognition") {
+            enableExternalEntryRecognition = true;
+            continue;
+        }
+        if (arg === "--enableExternalEntryFacts") {
+            enableExternalEntryFacts = true;
             continue;
         }
     }
@@ -160,6 +214,24 @@ function parseArgs(argv: string[]): GenerateProjectRuleCliOptions {
     if (!Number.isFinite(maxEntries) || maxEntries <= 0) throw new Error(`invalid --maxEntries: ${maxEntries}`);
     if (!Number.isFinite(maxSinks) || maxSinks <= 0) throw new Error(`invalid --maxSinks: ${maxSinks}`);
     if (!Number.isFinite(maxTransfers) || maxTransfers <= 0) throw new Error(`invalid --maxTransfers: ${maxTransfers}`);
+    if (
+        externalEntryMinConfidence !== undefined
+        && (!Number.isFinite(externalEntryMinConfidence) || externalEntryMinConfidence < 0 || externalEntryMinConfidence > 1)
+    ) {
+        throw new Error(`invalid --externalEntryMinConfidence: ${externalEntryMinConfidence}`);
+    }
+    if (
+        externalEntryBatchSize !== undefined
+        && (!Number.isFinite(externalEntryBatchSize) || externalEntryBatchSize <= 0)
+    ) {
+        throw new Error(`invalid --externalEntryBatchSize: ${externalEntryBatchSize}`);
+    }
+    if (
+        externalEntryMaxCandidates !== undefined
+        && (!Number.isFinite(externalEntryMaxCandidates) || externalEntryMaxCandidates <= 0)
+    ) {
+        throw new Error(`invalid --externalEntryMaxCandidates: ${externalEntryMaxCandidates}`);
+    }
 
     const normalizedRepo = path.isAbsolute(repo) ? repo : path.resolve(repo);
     if (!fs.existsSync(normalizedRepo)) throw new Error(`repo path not found: ${normalizedRepo}`);
@@ -171,6 +243,12 @@ function parseArgs(argv: string[]): GenerateProjectRuleCliOptions {
     if (sourceDirs.length === 0) throw new Error("no sourceDir found. pass --sourceDir");
 
     const outputPath = path.isAbsolute(output) ? output : path.resolve(output);
+    const normalizedExternalEntryCachePath = externalEntryCachePath
+        ? (path.isAbsolute(externalEntryCachePath)
+            ? externalEntryCachePath
+            : path.resolve(externalEntryCachePath))
+        : undefined;
+
     return {
         repo: normalizedRepo,
         sourceDirs: sourceDirs.map(d => d.replace(/\\/g, "/")),
@@ -181,6 +259,13 @@ function parseArgs(argv: string[]): GenerateProjectRuleCliOptions {
         includePaths,
         excludePaths,
         enableCandidates,
+        enableExternalEntryRecognition,
+        externalEntryModel,
+        externalEntryMinConfidence,
+        externalEntryBatchSize: externalEntryBatchSize !== undefined ? Math.floor(externalEntryBatchSize) : undefined,
+        externalEntryMaxCandidates: externalEntryMaxCandidates !== undefined ? Math.floor(externalEntryMaxCandidates) : undefined,
+        externalEntryCachePath: normalizedExternalEntryCachePath,
+        enableExternalEntryFacts,
     };
 }
 
@@ -233,8 +318,26 @@ function getSourceLikeLocalCount(method: any): number {
     return count;
 }
 
-function collectArkMainMethods(scene: Scene): any[] {
-    const runtimeMethods = buildArkMainPlan(scene).orderedMethods;
+async function collectArkMainMethods(
+    scene: Scene,
+    options: GenerateProjectRuleCliOptions,
+): Promise<any[]> {
+    const runtimeMethods = options.enableExternalEntryRecognition
+        ? (await buildArkMainPlanWithExternalEntries(scene as never, {
+            maxCandidates: options.externalEntryMaxCandidates ?? options.maxEntries * 4,
+            minConfidence: options.externalEntryMinConfidence ?? 0.85,
+            batchSize: options.externalEntryBatchSize ?? 10,
+            enableCache: Boolean(options.externalEntryCachePath),
+            cachePath: options.externalEntryCachePath,
+            model: options.externalEntryModel,
+            modelInvoker: createExternalEntryModelInvokerFromEnv({
+                enabled: options.enableExternalEntryRecognition,
+                model: options.externalEntryModel,
+            }),
+            enableExternalEntryFacts: options.enableExternalEntryFacts ?? false,
+        })).plan.orderedMethods
+        : buildArkMainPlan(scene).orderedMethods;
+
     const dedup = new Map<string, any>();
     for (const method of runtimeMethods || []) {
         const signature = method?.getSignature?.()?.toString?.();
@@ -264,14 +367,14 @@ function scoreSourceCandidate(method: any, signature: string, fromArkMain: boole
     return score;
 }
 
-function collectSourceCandidates(
+async function collectSourceCandidates(
     scene: Scene,
     sourceDir: string,
-    options: GenerateProjectRuleCliOptions
-): SourceCandidateMethod[] {
+    options: GenerateProjectRuleCliOptions,
+): Promise<SourceCandidateMethod[]> {
     const includePaths = normalizeLowerList(options.includePaths);
     const excludePaths = normalizeLowerList(options.excludePaths);
-    const arkMainMethods = collectArkMainMethods(scene);
+    const arkMainMethods = await collectArkMainMethods(scene, options);
     const fromArkMain = arkMainMethods.length > 0;
     const baseMethods = fromArkMain ? arkMainMethods : scene.getMethods();
     const dedup = new Map<string, SourceCandidateMethod>();
@@ -343,15 +446,15 @@ function pickSinkTarget(invokeKind: "instance" | "static", argCount: number): "b
     return "result";
 }
 
-function collectCandidatesFromScene(
+async function collectCandidatesFromScene(
     scene: Scene,
     sourceDir: string,
     options: GenerateProjectRuleCliOptions,
     sourceRules: SourceRule[],
     sinkCandidates: Map<string, SinkCandidate>,
-    transferCandidates: Map<string, TransferCandidate>
-): void {
-    const sourceCandidates = collectSourceCandidates(scene, sourceDir, options);
+    transferCandidates: Map<string, TransferCandidate>,
+): Promise<void> {
+    const sourceCandidates = await collectSourceCandidates(scene, sourceDir, options);
 
     for (const candidate of sourceCandidates) {
         const idPart = sanitizeIdPart(`${candidate.name}_${candidate.pathHint || sourceDir}`, "entry");
@@ -473,7 +576,7 @@ function buildRuleSetFromCandidates(
     enableCandidates: boolean,
     sourceRules: SourceRule[],
     sinkCandidates: SinkCandidate[],
-    transferCandidates: TransferCandidate[]
+    transferCandidates: TransferCandidate[],
 ): TaintRuleSet {
     const uniqueSources = Array.from(new Map(sourceRules.map(r => [r.id, r])).values());
     const uniqueSinks = uniqueBySignature(sinkCandidates)
@@ -481,7 +584,7 @@ function buildRuleSetFromCandidates(
         .map((c, idx): SinkRule => ({
             id: `sink.candidate.${sanitizeIdPart(c.methodName, "sink")}.${idx + 1}`,
             enabled: enableCandidates,
-            description: `[候选] 自动发现 sink 调用，命中次�?${c.hitCount}，需人工确认位点。`,
+            description: `[candidate] auto-discovered sink call; observed ${c.hitCount} times and requires manual review.`,
             tags: ["candidate", "auto", "sink"],
             severity: resolveSinkSeverity(c.signature, c.methodName),
             category: "auto_discovered",
@@ -499,7 +602,7 @@ function buildRuleSetFromCandidates(
         .map((c, idx): TransferRule => ({
             id: `transfer.candidate.${sanitizeIdPart(c.methodName, "transfer")}.${idx + 1}`,
             enabled: enableCandidates,
-            description: `[候选] 自动发现 transfer ${c.from}->${c.to}，命中次�?${c.hitCount}，需人工确认。`,
+            description: `[candidate] auto-discovered transfer ${c.from}->${c.to}; observed ${c.hitCount} times and requires manual review.`,
             tags: ["candidate", "auto", "transfer"],
             match: {
                 kind: "signature_equals",
@@ -524,7 +627,7 @@ function buildRuleSetFromCandidates(
     };
 }
 
-export function generateProjectRuleScaffold(options: GenerateProjectRuleCliOptions): RuleScaffoldResult {
+export async function generateProjectRuleScaffold(options: GenerateProjectRuleCliOptions): Promise<RuleScaffoldResult> {
     const sourceRules: SourceRule[] = [];
     const sinkCandidates = new Map<string, SinkCandidate>();
     const transferCandidates = new Map<string, TransferCandidate>();
@@ -532,12 +635,21 @@ export function generateProjectRuleScaffold(options: GenerateProjectRuleCliOptio
     for (const sourceDir of options.sourceDirs) {
         const sourceAbs = path.resolve(options.repo, sourceDir);
         if (!fs.existsSync(sourceAbs)) continue;
+
         const config = new SceneConfig();
         config.buildFromProjectDir(sourceAbs);
         const scene = new Scene();
         scene.buildSceneFromProjectDir(config);
         scene.inferTypes();
-        collectCandidatesFromScene(scene, sourceDir, options, sourceRules, sinkCandidates, transferCandidates);
+
+        await collectCandidatesFromScene(
+            scene,
+            sourceDir,
+            options,
+            sourceRules,
+            sinkCandidates,
+            transferCandidates,
+        );
     }
 
     const sinkList = Array.from(sinkCandidates.values()).slice(0, options.maxSinks);
@@ -549,7 +661,7 @@ export function generateProjectRuleScaffold(options: GenerateProjectRuleCliOptio
         options.enableCandidates,
         sourceList,
         sinkList,
-        transferList
+        transferList,
     );
     const validation = validateRuleSet(ruleSet);
     if (!validation.valid) {
@@ -572,7 +684,8 @@ export function generateProjectRuleScaffold(options: GenerateProjectRuleCliOptio
 
 async function main(): Promise<void> {
     const options = parseArgs(process.argv.slice(2));
-    const result = generateProjectRuleScaffold(options);
+    const result = await generateProjectRuleScaffold(options);
+
     console.log("====== Generate Project Rules Scaffold ======");
     console.log(`repo=${options.repo}`);
     console.log(`source_dirs=${options.sourceDirs.join(",")}`);
@@ -581,6 +694,7 @@ async function main(): Promise<void> {
     console.log(`sink_candidates=${result.stats.sinkCandidates}`);
     console.log(`transfer_candidates=${result.stats.transferCandidates}`);
     console.log(`candidates_enabled=${options.enableCandidates}`);
+    console.log(`external_entry_recognition=${options.enableExternalEntryRecognition === true}`);
     console.log("next_step=edit_rules_and_set_enabled_true_for_confirmed_candidates");
 }
 

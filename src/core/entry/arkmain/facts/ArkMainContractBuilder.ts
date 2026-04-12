@@ -8,13 +8,17 @@ import {
     ArkMainFactKind,
     ArkMainFactOwnership,
     ArkMainOwnerKind,
+    ArkMainSurfaceKind,
+    ArkMainTriggerKind,
     ArkMainSourceRule,
     ARK_MAIN_LIFECYCLE_FACT_KINDS,
     classifyArkMainFactOwnership,
 } from "../ArkMainTypes";
 import { ArkMainActivationGraph } from "../edges/ArkMainActivationGraph";
 import { ArkMainSchedule } from "../scheduling/ArkMainScheduler";
+import { resolveArkMainChannelInvocation } from "./ArkMainChannelInvocationResolver";
 import { collectFrameworkManagedOwners } from "./ArkMainOwnerDiscovery";
+import { shouldArkMainAutoHintCallbackFact } from "./ArkMainFrameworkCallbackBoundary";
 
 const FORM_BINDING_FIELD_PATHS = [
     ["payload"],
@@ -29,10 +33,18 @@ export function buildArkMainContracts(
     _graph: ArkMainActivationGraph,
     _schedule: ArkMainSchedule,
 ): ArkMainContract[] {
-    const managedOwners = collectFrameworkManagedOwners(scene);
+    const managedOwners = collectFrameworkManagedOwners(scene, { includeComponentContractShape: true });
+    const wantHandoffTargetMethodSignatures = new Set(
+        facts
+            .filter(fact => fact.kind === "want_handoff")
+            .map(fact => fact.method.getSignature?.()?.toString?.())
+            .filter((signature): signature is string => !!signature),
+    );
     return facts.map(fact => buildContractForFact(
+        scene,
         managedOwners,
         fact,
+        wantHandoffTargetMethodSignatures,
     ));
 }
 
@@ -62,6 +74,7 @@ export function buildArkMainSourceRulesFromContracts(
                     : undefined,
                 sourceKind: schema.sourceKind,
                 target: schema.target,
+                callbackArgIndexes: schema.callbackArgIndexes,
             });
         }
     }
@@ -69,16 +82,18 @@ export function buildArkMainSourceRulesFromContracts(
 }
 
 function buildContractForFact(
+    scene: Scene,
     managedOwners: ReturnType<typeof collectFrameworkManagedOwners>,
     fact: ArkMainEntryFact,
+    wantHandoffTargetMethodSignatures: Set<string>,
 ): ArkMainContract {
     const ownerKind = resolveOwnerKind(fact, managedOwners);
     const contract: ArkMainContract = {
         phase: fact.phase,
         method: fact.method,
         ownerKind,
-        surface: "lifecycle",
-        trigger: "root",
+        surface: classifySurface(fact.kind),
+        trigger: classifyTrigger(fact.kind),
         boundary: classifyArkMainFactOwnership(fact),
         kind: fact.kind,
         reason: fact.reason,
@@ -86,10 +101,20 @@ function buildContractForFact(
         entryFamily: fact.entryFamily,
         entryShape: fact.entryShape,
         recognitionLayer: fact.recognitionLayer,
+        callbackFlavor: fact.callbackFlavor,
+        callbackShape: fact.callbackShape,
+        callbackSlotFamily: fact.callbackSlotFamily,
+        callbackRecognitionLayer: fact.callbackRecognitionLayer,
+        callbackRegistrationSignature: fact.callbackRegistrationSignature,
+        callbackArgIndex: fact.callbackArgIndex,
+        callbackStructuralEvidenceFamily: fact.callbackStructuralEvidenceFamily,
         sourceSchemas: [],
     };
 
-    populateLifecycleSourceSchemas(contract, fact);
+    populateLifecycleSourceSchemas(contract, fact, wantHandoffTargetMethodSignatures);
+    populateStageContextSourceSchemas(contract, fact);
+    populateRouterTriggerSourceSchemas(scene, contract, fact);
+    populateUnknownCallbackHintSchemas(contract, fact);
     return contract;
 }
 
@@ -116,6 +141,7 @@ function resolveOwnerKindFromClass(
     if (managedOwners.isStageOwner(cls)) return "stage_owner";
     if (managedOwners.isExtensionOwner(cls)) return "extension_owner";
     if (managedOwners.isComponentOwner(cls)) return "component_owner";
+    if (managedOwners.isBuilderOwner(cls)) return "builder_owner";
     return undefined;
 }
 
@@ -123,7 +149,7 @@ function defaultOwnerKindForFact(kind: ArkMainFactKind): ArkMainOwnerKind {
     if (kind === "page_build" || kind === "page_lifecycle") {
         return "component_owner";
     }
-    if (kind === "ability_lifecycle") {
+    if (kind === "ability_lifecycle" || kind === "want_handoff") {
         return "ability_owner";
     }
     if (kind === "stage_lifecycle") {
@@ -135,15 +161,35 @@ function defaultOwnerKindForFact(kind: ArkMainFactKind): ArkMainOwnerKind {
     return "unknown_owner";
 }
 
+function classifySurface(kind: ArkMainFactKind): ArkMainSurfaceKind {
+    if (ARK_MAIN_LIFECYCLE_FACT_KINDS.has(kind)) return "lifecycle";
+    if (kind === "callback") return "callback";
+    if (kind === "scheduler_callback") return "scheduler";
+    if (kind === "watch_handler" || kind === "watch_source") return "watch";
+    if (kind === "router_source" || kind === "router_trigger") return "router";
+    return "handoff";
+}
+
+function classifyTrigger(kind: ArkMainFactKind): ArkMainTriggerKind {
+    if (ARK_MAIN_LIFECYCLE_FACT_KINDS.has(kind)) return "root";
+    if (kind === "callback") return "callback";
+    if (kind === "scheduler_callback") return "scheduler";
+    if (kind === "watch_handler" || kind === "watch_source") return "state_watch";
+    if (kind === "router_source" || kind === "router_trigger") return "navigation_channel";
+    return "ability_handoff";
+}
+
 function populateLifecycleSourceSchemas(
     contract: ArkMainContract,
     fact: ArkMainEntryFact,
+    wantHandoffTargetMethodSignatures: Set<string>,
 ): void {
     if (!ARK_MAIN_LIFECYCLE_FACT_KINDS.has(fact.kind)) {
         return;
     }
     const signature = fact.method.getSignature?.()?.toString?.();
     if (!signature) return;
+    const isWantHandoffTarget = wantHandoffTargetMethodSignatures.has(signature);
 
     const parameters = fact.method.getParameters?.() || [];
     parameters.forEach((parameter: any, index: number) => {
@@ -152,16 +198,18 @@ function populateLifecycleSourceSchemas(
         const paramType = String(parameter?.getType?.()?.toString?.() || "").toLowerCase();
         const wantLikeParam = isWantLikeParam(paramName, paramType);
 
-        contract.sourceSchemas.push({
-            id: `source.arkmain.contract.lifecycle.param.${signature}.${endpoint}`,
-            sourceKind: "entry_param",
-            family: "source.arkmain.contract.lifecycle.param",
-            tier: "A",
-            description: `[arkmain contract] ${fact.kind} param ${endpoint} in ${fact.method.getName()}`,
-            tags: ["arkmain", "contract_source", "lifecycle", fact.kind],
-            matchSignature: signature,
-            target: endpoint,
-        });
+        if (!(isWantHandoffTarget && wantLikeParam)) {
+            contract.sourceSchemas.push({
+                id: `source.arkmain.contract.lifecycle.param.${signature}.${endpoint}`,
+                sourceKind: "entry_param",
+                family: "source.arkmain.contract.lifecycle.param",
+                tier: "A",
+                description: `[arkmain contract] ${fact.kind} param ${endpoint} in ${fact.method.getName()}`,
+                tags: ["arkmain", "contract_source", "lifecycle", fact.kind],
+                matchSignature: signature,
+                target: endpoint,
+            });
+        }
 
         if (wantLikeParam) {
             contract.sourceSchemas.push({
@@ -202,6 +250,101 @@ function populateLifecycleSourceSchemas(
             }
         }
     });
+}
+
+function populateStageContextSourceSchemas(contract: ArkMainContract, fact: ArkMainEntryFact): void {
+    if (fact.kind !== "stage_lifecycle" || fact.method.getName?.() !== "onCreate") {
+        return;
+    }
+
+    const className = fact.method.getDeclaringArkClass?.()?.getName?.();
+    const methodName = fact.method.getName?.();
+    const cfg = fact.method.getCfg?.();
+    if (!cfg || !className || !methodName) return;
+
+    for (const stmt of cfg.getStmts()) {
+        const invokeExpr = stmt?.getInvokeExpr?.();
+        if (!invokeExpr) continue;
+        const methodSig = invokeExpr.getMethodSignature?.();
+        const calleeSignature = methodSig?.toString?.() || "";
+        const calleeName = methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "";
+        const calleeClassName = methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";
+        if (calleeName !== "getContext" || calleeClassName !== "SystemEnv" || !calleeSignature) {
+            continue;
+        }
+
+        contract.sourceSchemas.push({
+            id: `source.arkmain.contract.stage.context.${fact.method.getSignature().toString()}.${calleeSignature}`,
+            sourceKind: "call_return",
+            family: "source.arkmain.contract.stage.context",
+            tier: "A",
+            description: `[arkmain contract] stage context source in ${fact.method.getName()}`,
+            tags: ["arkmain", "contract_source", "stage_lifecycle", "context_call"],
+            matchSignature: calleeSignature,
+            scopeClassName: className,
+            scopeMethodName: methodName,
+            target: { endpoint: "result" },
+        });
+    }
+}
+
+function populateRouterTriggerSourceSchemas(
+    scene: Scene,
+    contract: ArkMainContract,
+    fact: ArkMainEntryFact,
+): void {
+    if (fact.kind !== "router_trigger") {
+        return;
+    }
+    const className = fact.method.getDeclaringArkClass?.()?.getName?.();
+    const methodName = fact.method.getName?.();
+    const cfg = fact.method.getCfg?.();
+    if (!cfg || !className || !methodName) return;
+
+    for (const stmt of cfg.getStmts()) {
+        const invokeExpr = stmt?.getInvokeExpr?.();
+        if (!invokeExpr) continue;
+        const match = resolveArkMainChannelInvocation(scene, fact.method, invokeExpr);
+        if (!match || match.factKind !== "router_trigger") {
+            continue;
+        }
+        const calleeSignature = invokeExpr.getMethodSignature?.()?.toString?.() || "";
+        if (!calleeSignature) continue;
+
+        contract.sourceSchemas.push({
+            id: `source.arkmain.contract.router.trigger.${fact.method.getSignature().toString()}.${calleeSignature}`,
+            sourceKind: "call_return",
+            family: "source.arkmain.contract.router.trigger",
+            tier: "A",
+            description: `[arkmain contract] router trigger in ${fact.method.getName()}`,
+            tags: ["arkmain", "contract_source", "router_trigger"],
+            matchSignature: calleeSignature,
+            scopeClassName: className,
+            scopeMethodName: methodName,
+            target: { endpoint: "result" },
+        });
+    }
+}
+
+function populateUnknownCallbackHintSchemas(contract: ArkMainContract, fact: ArkMainEntryFact): void {
+    if (!shouldArkMainAutoHintCallbackFact(fact)) {
+        return;
+    }
+
+    const parameterCount = fact.method.getParameters?.().length || 0;
+    for (let paramIndex = 0; paramIndex < parameterCount; paramIndex++) {
+        contract.sourceSchemas.push({
+            id: `source.arkmain.callback_hint.${fact.callbackRegistrationSignature}|cbArg:${fact.callbackArgIndex}|param:${paramIndex}`,
+            sourceKind: "callback_param",
+            family: "arkmain_unknown_callback_hint",
+            tier: "C",
+            description: `[auto hint] ${fact.entryFamily} callback param arg${paramIndex}`,
+            tags: ["auto", "source-hint", "callback_param", fact.entryFamily || "unknown_callback"],
+            matchSignature: fact.callbackRegistrationSignature!,
+            target: `arg${paramIndex}`,
+            callbackArgIndexes: [fact.callbackArgIndex!],
+        });
+    }
 }
 
 function isWantLikeParam(paramName: string, paramType: string): boolean {

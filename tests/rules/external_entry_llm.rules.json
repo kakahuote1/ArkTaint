@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "2.0",
+  "meta": {
+    "name": "external-entry-llm-rule-pack",
+    "description": "Rule pack for validating LLM-promoted external entry discovery.",
+    "updatedAt": "2026-04-08"
+  },
+  "sources": [
+    {
+      "id": "source.external_entry_llm.return.Source",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "Source"
+      },
+      "sourceKind": "call_return",
+      "target": "result"
+    }
+  ],
+  "sinks": [
+    {
+      "id": "sink.external_entry_llm.arg0.Sink",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "Sink"
+      },
+      "target": {
+        "endpoint": "arg0"
+      }
+    }
+  ],
+  "transfers": []
+}

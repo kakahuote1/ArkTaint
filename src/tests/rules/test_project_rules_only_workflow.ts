@@ -180,7 +180,7 @@ async function main(): Promise<void> {
     fs.mkdirSync(options.outputDir, { recursive: true });
 
     // Step 1: Auto-generate candidate project rules.
-    const generated = generateProjectRuleScaffold({
+    const generated = await generateProjectRuleScaffold({
         repo: options.repo,
         sourceDirs: [options.sourceDir],
         output: generatedRulePath,

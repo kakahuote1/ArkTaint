@@ -3,13 +3,25 @@ import { ArkMainEntryFact, ArkMainPhaseName } from "../ArkMainTypes";
 
 export type ArkMainActivationEdgeKind =
     | "baseline_root"
-    | "lifecycle_progression";
+    | "lifecycle_progression"
+    | "callback_registration"
+    | "channel_callback_activation"
+    | "scheduler_activation"
+    | "state_watch_trigger"
+    | "router_channel"
+    | "want_handoff";
 
 export type ArkMainActivationEdgeFamily =
     | "baseline_root"
     | "composition_lifecycle"
     | "interaction_lifecycle"
-    | "teardown_lifecycle";
+    | "teardown_lifecycle"
+    | "ui_callback"
+    | "channel_callback"
+    | "scheduler_callback"
+    | "state_watch"
+    | "navigation_channel"
+    | "ability_handoff";
 
 export interface ArkMainActivationReason {
     kind: "entry_fact" | ArkMainActivationEdgeKind;
@@ -18,6 +30,8 @@ export interface ArkMainActivationReason {
     evidenceMethod?: ArkMethod;
     entryFamily?: string;
     recognitionLayer?: string;
+    callbackShape?: string;
+    callbackSlotFamily?: string;
 }
 
 export interface ArkMainActivationEdge {

@@ -100,6 +100,24 @@ interface AnalyzeReportLike {
                 finishHookCalls: number;
             }>;
         };
+        externalEntryRecognition?: {
+            enabled: boolean;
+            model?: string;
+            candidateCount: number;
+            recognitionCount: number;
+            promotedMethodCount: number;
+            injectedFactCount: number;
+            cacheEnabled: boolean;
+            cachePath?: string;
+            recognizedEntries: Array<{
+                methodSignature: string;
+                confidence: number;
+                phase?: string;
+                kind?: string;
+                reason: string;
+                evidenceTags: string[];
+            }>;
+        };
         stageProfile: any;
         transferNoHitReasons: Record<string, number>;
         diagnosticItems?: Array<{
@@ -268,6 +286,10 @@ export function renderMarkdownReport(report: AnalyzeReportLike): string {
     lines.push(`- transferProfile: checks=${report.summary.transferProfile.ruleCheckCount}, matches=${report.summary.transferProfile.ruleMatchCount}, endpointMatches=${report.summary.transferProfile.endpointMatchCount}, results=${report.summary.transferProfile.resultCount}, dedupSkips=${report.summary.transferProfile.dedupSkipCount}, elapsedMs=${report.summary.transferProfile.elapsedMs}`);
     lines.push(`- detectProfile: calls=${report.summary.detectProfile.detectCallCount}, sinksChecked=${report.summary.detectProfile.sinksChecked}, sanitizerChecks=${report.summary.detectProfile.sanitizerGuardCheckCount}, sanitizerHits=${report.summary.detectProfile.sanitizerGuardHitCount}, totalMs=${report.summary.detectProfile.totalMs}`);
     lines.push(`- pagNodeResolutionAudit: requests=${pagAudit.requestCount || 0}, directHits=${pagAudit.directHitCount || 0}, fallbacks=${pagAudit.fallbackResolveCount || 0}, addFailures=${pagAudit.addFailureCount || 0}, unresolved=${pagAudit.unresolvedCount || 0}`);
+    if (report.summary.externalEntryRecognition) {
+        const ext = report.summary.externalEntryRecognition;
+        lines.push(`- externalEntryRecognition: candidates=${ext.candidateCount}, recognized=${ext.recognitionCount}, promotedMethods=${ext.promotedMethodCount}, injectedFacts=${ext.injectedFactCount}, cacheEnabled=${ext.cacheEnabled}, model=${ext.model || ""}`);
+    }
     if (diagnostics) {
         lines.push(`- diagnostics: total=${(report.summary.diagnosticItems || []).length}, rule=${(diagnostics.ruleLoadIssues || []).length}, moduleLoad=${(diagnostics.moduleLoadIssues || []).length}, moduleRuntime=${(diagnostics.moduleRuntimeFailures || []).length}, pluginLoad=${(diagnostics.enginePluginLoadIssues || []).length}, pluginRuntime=${(diagnostics.enginePluginRuntimeFailures || []).length}`);
     }

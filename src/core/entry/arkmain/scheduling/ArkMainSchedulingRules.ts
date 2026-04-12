@@ -6,6 +6,7 @@ export interface ArkMainSchedulingRule {
     targetPhase: ArkMainPhaseName;
     minRoundGap: number;
     allowedSourcePhases: "any" | ArkMainPhaseName[];
+    allowsRootlessActivation?: boolean;
 }
 
 interface ArkMainSchedulingActivationLike {
@@ -34,13 +35,50 @@ const ARK_MAIN_SCHEDULING_RULES: Record<ArkMainActivationEdgeFamily, ArkMainSche
         edgeFamily: "interaction_lifecycle",
         targetPhase: "interaction",
         minRoundGap: 1,
-        allowedSourcePhases: ["bootstrap", "composition"],
+        allowedSourcePhases: ["composition"],
     },
     teardown_lifecycle: {
         edgeFamily: "teardown_lifecycle",
         targetPhase: "teardown",
         minRoundGap: 1,
-        allowedSourcePhases: ["bootstrap", "composition", "interaction"],
+        allowedSourcePhases: ["bootstrap", "composition", "interaction", "reactive_handoff"],
+    },
+    ui_callback: {
+        edgeFamily: "ui_callback",
+        targetPhase: "interaction",
+        minRoundGap: 1,
+        allowedSourcePhases: ["composition"],
+    },
+    channel_callback: {
+        edgeFamily: "channel_callback",
+        targetPhase: "interaction",
+        minRoundGap: 1,
+        allowedSourcePhases: "any",
+    },
+    scheduler_callback: {
+        edgeFamily: "scheduler_callback",
+        targetPhase: "interaction",
+        minRoundGap: 1,
+        allowedSourcePhases: ["bootstrap", "composition", "reactive_handoff"],
+    },
+    state_watch: {
+        edgeFamily: "state_watch",
+        targetPhase: "reactive_handoff",
+        minRoundGap: 1,
+        allowedSourcePhases: ["bootstrap", "composition", "reactive_handoff"],
+    },
+    navigation_channel: {
+        edgeFamily: "navigation_channel",
+        targetPhase: "reactive_handoff",
+        minRoundGap: 1,
+        allowedSourcePhases: ["composition"],
+        allowsRootlessActivation: true,
+    },
+    ability_handoff: {
+        edgeFamily: "ability_handoff",
+        targetPhase: "reactive_handoff",
+        minRoundGap: 1,
+        allowedSourcePhases: ["bootstrap"],
     },
 };
 
@@ -62,7 +100,7 @@ export function canScheduleArkMainActivationEdge(
     }
     const rule = getArkMainSchedulingRule(edge.edgeFamily);
     if (!sourceActivation) {
-        return false;
+        return Boolean(rule.allowsRootlessActivation) && round >= rule.minRoundGap;
     }
     if (sourceActivation.round > round - rule.minRoundGap) {
         return false;

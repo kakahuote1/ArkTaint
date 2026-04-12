@@ -270,6 +270,9 @@ async function main(): Promise<void> {
     console.log(`detect_profile=${JSON.stringify(report.summary.detectProfile)}`);
     console.log(`stage_profile=${JSON.stringify(report.summary.stageProfile)}`);
     console.log(`transfer_no_hit_reasons=${JSON.stringify(report.summary.transferNoHitReasons)}`);
+    if (report.summary.externalEntryRecognition) {
+        console.log(`external_entry_recognition=${JSON.stringify(report.summary.externalEntryRecognition)}`);
+    }
     console.log(`rule_layers=${report.ruleLayers.join(" -> ")}`);
     console.log(`summary_json=${jsonPath}`);
     console.log(`summary_md=${mdPath}`);
