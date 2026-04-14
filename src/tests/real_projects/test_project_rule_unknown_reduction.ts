@@ -14,7 +14,7 @@ interface CliOptions {
     profile: string;
     k: number;
     maxEntries: number;
-    ruleCatalogPath: string;
+    modelRoot: string;
     projectRulePath: string;
     outputDir: string;
     threshold: number;
@@ -42,7 +42,7 @@ interface UnknownDeltaReport {
         k: number;
         maxEntries: number;
         threshold: number;
-        ruleCatalogPath: string;
+        modelRoot: string;
         projectRulePath: string;
     };
     baseline: {
@@ -80,7 +80,7 @@ function parseArgs(argv: string[]): CliOptions {
     let profile = "default";
     let k = 1;
     let maxEntries = 12;
-    let ruleCatalogPath = "src/rules";
+    let modelRoot = "src/models";
     let projectRulePath = "tests/rules/real_project/wanharmony.project.rules.json";
     let outputDir = "tmp/test_runs/project_rules/unknown_reduction_wanharmony/latest";
     let threshold = 0.05;
@@ -127,12 +127,12 @@ function parseArgs(argv: string[]): CliOptions {
             maxEntries = Number(arg.slice("--maxEntries=".length));
             continue;
         }
-        if (arg === "--ruleCatalog" && i + 1 < argv.length) {
-            ruleCatalogPath = argv[++i];
+        if (arg === "--model-root" && i + 1 < argv.length) {
+            modelRoot = argv[++i];
             continue;
         }
-        if (arg.startsWith("--ruleCatalog=")) {
-            ruleCatalogPath = arg.slice("--ruleCatalog=".length);
+        if (arg.startsWith("--model-root=")) {
+            modelRoot = arg.slice("--model-root=".length);
             continue;
         }
         if (arg === "--project" && i + 1 < argv.length) {
@@ -181,7 +181,7 @@ function parseArgs(argv: string[]): CliOptions {
         profile,
         k,
         maxEntries: Math.floor(maxEntries),
-        ruleCatalogPath,
+        modelRoot,
         projectRulePath,
         outputDir,
         threshold,
@@ -205,8 +205,8 @@ function runAnalyze(options: CliOptions, runDir: string, withProjectRules: boole
         String(options.maxEntries),
         "--outputDir",
         runDir,
-        "--ruleCatalog",
-        path.resolve(options.ruleCatalogPath),
+        "--model-root",
+        path.resolve(options.modelRoot),
     ];
 
     for (const sourceDir of options.sourceDirs) {
@@ -355,8 +355,8 @@ async function main(): Promise<void> {
             k: options.k,
             maxEntries: options.maxEntries,
             threshold: options.threshold,
-            ruleCatalogPath: path.resolve(options.ruleCatalogPath),
-            projectRulePath: path.resolve(options.projectRulePath),
+        modelRoot: path.resolve(options.modelRoot),
+        projectRulePath: path.resolve(options.projectRulePath),
         },
         baseline: {
             summaryPath: baselineSummaryPath,
@@ -428,4 +428,5 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+
 

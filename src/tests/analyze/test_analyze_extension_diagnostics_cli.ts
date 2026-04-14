@@ -55,8 +55,8 @@ async function main(): Promise<void> {
     fs.mkdirSync(moduleRoot, { recursive: true });
     fs.mkdirSync(pluginDir, { recursive: true });
 
-    const noSeedModuleDir = path.join(moduleRoot, "project", "cli_broken_no_seed");
-    const invalidEmissionModuleDir = path.join(moduleRoot, "project", "cli_invalid_emission");
+    const noSeedModuleDir = path.join(moduleRoot, "project", "cli_broken_no_seed", "modules");
+    const invalidEmissionModuleDir = path.join(moduleRoot, "project", "cli_invalid_emission", "modules");
     const noSeedModuleFile = path.join(noSeedModuleDir, "broken_setup_no_seed.ts");
     writeText(
         noSeedModuleFile,
@@ -81,8 +81,8 @@ async function main(): Promise<void> {
         `"${cli}"`,
         "--repo", `"${fixtureRepo}"`,
         "--sourceDir", ".",
-        "--module-root", `"${moduleRoot}"`,
-        "--enable-module-project", "cli_broken_no_seed",
+        "--model-root", `"${moduleRoot}"`,
+        "--enable-model", "cli_broken_no_seed:modules",
         "--project", `"${noSeedRules}"`,
         "--no-incremental",
         "--outputDir", `"${noSeedOutput}"`,
@@ -149,8 +149,8 @@ async function main(): Promise<void> {
         `"${cli}"`,
         "--repo", `"${fixtureRepo}"`,
         "--sourceDir", ".",
-        "--module-root", `"${moduleRoot}"`,
-        "--enable-module-project", "cli_invalid_emission",
+        "--model-root", `"${moduleRoot}"`,
+        "--enable-model", "cli_invalid_emission:modules",
         "--project", `"${seededRules}"`,
         "--disable-module", "fixture.cli_broken_module_no_seed",
         "--no-incremental",

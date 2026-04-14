@@ -35,7 +35,7 @@ function writeProjectModuleFile(
     fileName: string,
     lines: string[],
 ): string {
-    const filePath = path.join(rootDir, "project", projectId, fileName);
+    const filePath = path.join(rootDir, "project", projectId, "modules", fileName);
     writeText(filePath, `${lines.join("\n")}\n`);
     return filePath;
 }
@@ -84,7 +84,7 @@ async function main(): Promise<void> {
         "  description: \"Suppressed project module fixture.\",",
         "});",
     ]);
-    const privateImportDir = path.join(externalRoot, "project", "private_demo");
+    const privateImportDir = path.join(externalRoot, "project", "private_demo", "modules");
     const privateSupportImport = path.relative(
         privateImportDir,
         path.resolve("src/core/orchestration/modules/ModuleRuntime"),
@@ -331,10 +331,10 @@ async function main(): Promise<void> {
     );
 
     const builtinDeletionProbeSrcRoot = path.join(testRoot, "builtin_delete_probe_src");
-    const builtinDeletionProbeRoot = path.join(builtinDeletionProbeSrcRoot, "src", "modules");
+    const builtinDeletionProbeRoot = path.join(builtinDeletionProbeSrcRoot, "src", "models");
     fs.mkdirSync(builtinDeletionProbeSrcRoot, { recursive: true });
     writeText(
-        path.join(builtinDeletionProbeRoot, "kernel", "harmony", "router.ts"),
+        path.join(builtinDeletionProbeRoot, "kernel", "modules", "harmony", "router.ts"),
         [
             `import { defineModule } from "@arktaint/module";`,
             "",
@@ -346,7 +346,7 @@ async function main(): Promise<void> {
         ].join("\n"),
     );
     writeText(
-        path.join(builtinDeletionProbeRoot, "kernel", "harmony", "appstorage.ts"),
+        path.join(builtinDeletionProbeRoot, "kernel", "modules", "harmony", "appstorage.ts"),
         [
             `import { defineModule } from "@arktaint/module";`,
             "",
@@ -357,7 +357,7 @@ async function main(): Promise<void> {
             "",
         ].join("\n"),
     );
-    const routerModuleFile = path.join(builtinDeletionProbeRoot, "kernel", "harmony", "router.ts");
+    const routerModuleFile = path.join(builtinDeletionProbeRoot, "kernel", "modules", "harmony", "router.ts");
     fs.unlinkSync(routerModuleFile);
     const deletedBuiltinResult = loadModules({
         builtinModuleRoots: [builtinDeletionProbeRoot],

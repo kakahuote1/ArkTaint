@@ -78,7 +78,7 @@ function sortStrings(values: string[]): string[] {
 }
 
 function readKernelRuleSets(kind: "sinks"): TaintRuleSet[] {
-    const dir = path.resolve("src/rules", kind, "kernel");
+    const dir = path.resolve("src/models/kernel/rules", kind);
     const files = fs.readdirSync(dir)
         .filter(fileName => fileName.endsWith(".rules.json"))
         .sort((a, b) => a.localeCompare(b));
@@ -145,7 +145,7 @@ async function main(): Promise<void> {
     const generatedSinkRules = buildFrameworkSinkRules(rawKernelSinks);
     const loaded = loadRuleSet({
         kernelRulePath: path.resolve("tests/rules/minimal.rules.json"),
-        ruleCatalogPath: path.resolve("src/rules"),
+        ruleCatalogPath: path.resolve("src/models"),
         autoDiscoverLayers: false,
         allowMissingProject: true,
         allowMissingCandidate: true,
@@ -200,3 +200,4 @@ main().catch(error => {
     console.error(error);
     process.exit(1);
 });
+

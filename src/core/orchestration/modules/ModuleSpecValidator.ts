@@ -456,7 +456,7 @@ function validateConstraint(value: unknown, path: string, collector: ValidationC
     switch (value.kind) {
         case "same_receiver":
             if (value.fallbackMode !== undefined) {
-                validateStringEnum(value.fallbackMode, new Set(["none", "all_targets_if_unmatched"]), `${path}.fallbackMode`, collector);
+                collector.add(`${path}.fallbackMode`, "is not supported");
             }
             return true;
         case "same_address":

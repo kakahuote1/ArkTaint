@@ -31,9 +31,9 @@ async function main(): Promise<void> {
     fs.rmSync(root, { recursive: true, force: true });
     fs.mkdirSync(moduleRoot, { recursive: true });
 
-    const healthyModuleDir = path.join(moduleRoot, "project", "cli_demo");
-    const brokenModuleDir = path.join(moduleRoot, "project", "cli_broken");
-    const privateModuleDir = path.join(moduleRoot, "project", "cli_private_import");
+    const healthyModuleDir = path.join(moduleRoot, "project", "cli_demo", "modules");
+    const brokenModuleDir = path.join(moduleRoot, "project", "cli_broken", "modules");
+    const privateModuleDir = path.join(moduleRoot, "project", "cli_private_import", "modules");
     const privateSupportImport = path.relative(
         privateModuleDir,
         path.resolve("src/core/orchestration/modules/ModuleRuntime"),
@@ -120,8 +120,8 @@ async function main(): Promise<void> {
         `"${cli}"`,
         "--repo", "tests/demo/rule_transfer_variants",
         "--sourceDir", ".",
-        "--module-root", `"${moduleRoot}"`,
-        "--enable-module-project", "cli_demo",
+        "--model-root", `"${moduleRoot}"`,
+        "--enable-model", "cli_demo:modules",
         "--disable-module", "harmony.router",
         "--outputDir", `"${outputDir}"`,
     ].join(" ");
@@ -139,8 +139,8 @@ async function main(): Promise<void> {
         `"${cli}"`,
         "--repo", `"${brokenModuleRepo}"`,
         "--sourceDir", ".",
-        "--module-root", `"${moduleRoot}"`,
-        "--enable-module-project", "cli_broken",
+        "--model-root", `"${moduleRoot}"`,
+        "--enable-model", "cli_broken:modules",
         "--project", `"${brokenRulePath}"`,
         "--no-incremental",
         "--outputDir", `"${brokenOutputDir}"`,
@@ -194,8 +194,8 @@ async function main(): Promise<void> {
         `"${cli}"`,
         "--repo", `"${brokenModuleRepo}"`,
         "--sourceDir", ".",
-        "--module-root", `"${moduleRoot}"`,
-        "--enable-module-project", "cli_private_import",
+        "--model-root", `"${moduleRoot}"`,
+        "--enable-model", "cli_private_import:modules",
         "--project", `"${brokenRulePath}"`,
         "--no-incremental",
         "--outputDir", `"${privateOutputDir}"`,
@@ -220,7 +220,7 @@ async function main(): Promise<void> {
     );
 
     console.log("PASS test_analyze_module_cli");
-    console.log(`module_root=${moduleRoot}`);
+    console.log(`model_root=${moduleRoot}`);
     console.log("disabled_modules=harmony.router");
     console.log(`broken_output_dir=${brokenOutputDir}`);
 }

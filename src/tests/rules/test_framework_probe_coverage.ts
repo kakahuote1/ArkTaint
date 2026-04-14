@@ -238,7 +238,7 @@ function main(): void {
     const signaturesPath = path.resolve("tmp/sdk_signature_probe/signatures.json");
     const analyzeOutputDir = path.resolve("tmp/sdk_signature_probe/analyze");
     const summaryPath = getAnalyzeSummaryJsonPath(analyzeOutputDir);
-    const ruleCatalogPath = path.resolve("src/rules");
+    const ruleCatalogPath = path.resolve("src/models");
     const kernelRulePath = path.resolve("tests/rules/minimal.rules.json");
     const coverageJsonPath = path.resolve("tmp/sdk_signature_probe/coverage_report.json");
     const coverageMdPath = path.resolve("tmp/sdk_signature_probe/coverage_report.md");
@@ -411,3 +411,4 @@ function main(): void {
 }
 
 main();
+

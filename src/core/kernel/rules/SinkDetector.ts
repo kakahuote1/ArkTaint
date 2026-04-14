@@ -799,6 +799,12 @@ function detectPreciseCandidateSource(
                     fallbackFieldToVarIndex,
                 };
             }
+            if (hasOrderedConstantOverwrite && !hasPriorStore) {
+                return {
+                    blockGenericNodeTaint: true,
+                    fallbackFieldToVarIndex,
+                };
+            }
         }
         const carrierIds = collectCarrierNodeIdsForValueAtStmt(
             pag,
@@ -900,6 +906,12 @@ function detectPreciseCandidateSource(
                     fallbackFieldToVarIndex,
                 };
             }
+            return {
+                blockGenericNodeTaint: true,
+                fallbackFieldToVarIndex,
+            };
+        }
+        if (hasOrderedConstantOverwrite && !hasPriorStore) {
             return {
                 blockGenericNodeTaint: true,
                 fallbackFieldToVarIndex,
@@ -1015,6 +1027,12 @@ function detectReceiverFieldCandidateSource(
                     fallbackFieldToVarIndex,
                 };
             }
+            return {
+                blockGenericNodeTaint: true,
+                fallbackFieldToVarIndex,
+            };
+        }
+        if (hasOrderedConstantOverwrite && !hasPriorStore) {
             return {
                 blockGenericNodeTaint: true,
                 fallbackFieldToVarIndex,

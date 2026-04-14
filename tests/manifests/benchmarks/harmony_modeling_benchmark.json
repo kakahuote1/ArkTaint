@@ -32,7 +32,7 @@
       "category": "reactive_composition",
       "sourceDir": "tests/demo/harmony_reactive_composition",
       "kernelRulePath": "tests/rules/minimal.rules.json",
-      "ruleCatalogPath": "src/rules",
+      "ruleCatalogPath": "src/models",
       "projectRulePath": "tests/rules/harmony_reactive_composition.rules.json",
       "modelingCapabilities": ["state"]
     },
@@ -41,7 +41,7 @@
       "category": "reactive_composition",
       "sourceDir": "tests/demo/harmony_reactive_deep_tree",
       "kernelRulePath": "tests/rules/minimal.rules.json",
-      "ruleCatalogPath": "src/rules",
+      "ruleCatalogPath": "src/models",
       "projectRulePath": "tests/rules/harmony_reactive_deep_tree.rules.json",
       "caseExcludePatterns": [
         "^reactive_route_link_watch_002_T$"

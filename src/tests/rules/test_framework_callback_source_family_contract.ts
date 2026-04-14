@@ -155,7 +155,7 @@ async function main(): Promise<void> {
     const generatedRules = buildFrameworkCallbackSourceRules();
     const loaded = loadRuleSet({
         kernelRulePath: path.resolve("tests/rules/minimal.rules.json"),
-        ruleCatalogPath: path.resolve("src/rules"),
+        ruleCatalogPath: path.resolve("src/models"),
         autoDiscoverLayers: false,
         allowMissingProject: true,
     });
@@ -212,3 +212,4 @@ main().catch(error => {
     console.error(error);
     process.exit(1);
 });
+

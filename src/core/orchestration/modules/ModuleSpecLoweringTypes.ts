@@ -301,7 +301,6 @@ export interface ModuleRecipeCallbackChannel {
     payload?: ModuleRecipeArgValueSource;
     callback?: ModuleRecipeCallbackTarget;
     association?: ModuleRecipeAssociationKind;
-    fallbackMode?: "none" | "all_targets_if_unmatched";
     emit?: ModuleBridgeEmitSpec;
     trigger?: ModuleRecipeCallbackTrigger;
 }
@@ -323,7 +322,6 @@ export interface ModuleRecipeAccessorPair {
     read: ModuleRecipeInvokeSurfaceRef;
     value?: ModuleRecipeArgValueSource;
     association?: ModuleRecipeAssociationKind;
-    fallbackMode?: "none" | "all_targets_if_unmatched";
     emit?: ModuleBridgeEmitSpec;
 }
 
@@ -348,7 +346,6 @@ export interface ModuleRecipeSameCarrierAssociation {
     kind: "same_carrier";
     left: ModuleRecipeEndpoint;
     right: ModuleRecipeEndpoint;
-    fallbackMode?: "none" | "all_targets_if_unmatched";
 }
 
 export interface ModuleRecipeAssociatedBridge {
@@ -453,7 +450,6 @@ export interface ModulePortToPortTransfer extends ModuleTransferBase {
     fromPort: string;
     toPort: string;
     association?: string;
-    fallbackMode?: "none" | "all_targets_if_unmatched";
 }
 
 export interface ModulePortToCellTransfer extends ModuleTransferBase {

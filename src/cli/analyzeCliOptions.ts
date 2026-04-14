@@ -8,18 +8,25 @@ export type ReportMode = "light" | "full";
 export interface CliOptions {
     repo: string;
     sourceDirs: string[];
+    autoModel?: boolean;
+    publishModel?: string;
+    llmConfigPath?: string;
+    llmProfile?: string;
+    llmModel?: string;
+    arkMainMaxCandidates?: number;
     listModules?: boolean;
-    listModuleProjects?: boolean;
+    listModels?: boolean;
     explainModuleId?: string;
     traceModuleId?: string;
     listPlugins?: boolean;
     explainPluginName?: string;
     tracePluginName?: string;
-    moduleRoots?: string[];
+    modelRoots?: string[];
     moduleSpecFiles?: string[];
-    enabledModuleProjects?: string[];
-    disabledModuleProjects?: string[];
     disabledModuleIds?: string[];
+    arkMainSpecFiles?: string[];
+    enabledModels?: string[];
+    disabledModels?: string[];
     pluginPaths?: string[];
     disabledPluginNames?: string[];
     pluginIsolate?: string[];
@@ -36,13 +43,7 @@ export interface CliOptions {
     stopOnFirstFlow: boolean;
     maxFlowsPerEntry?: number;
     enableSecondarySinkSweep: boolean;
-    enableExternalEntryRecognition?: boolean;
-    externalEntryModel?: string;
-    externalEntryMinConfidence?: number;
-    externalEntryBatchSize?: number;
-    externalEntryMaxCandidates?: number;
-    externalEntryCachePath?: string;
-    enableExternalEntryFacts?: boolean;
+    showLoadWarnings?: boolean;
     ruleOptions: RuleLoaderOptions;
 }
 
@@ -54,18 +55,25 @@ function splitCsv(value?: string): string[] {
 export function parseArgs(argv: string[]): CliOptions {
     let repo = "";
     let sourceDirs: string[] = [];
+    let autoModel = false;
+    let publishModel: string | undefined;
+    let llmConfigPath: string | undefined;
+    let llmProfile: string | undefined;
+    let llmModel: string | undefined;
+    let arkMainMaxCandidates: number | undefined;
     let listModules = false;
-    let listModuleProjects = false;
+    let listModels = false;
     let explainModuleId: string | undefined;
     let traceModuleId: string | undefined;
     let listPlugins = false;
     let explainPluginName: string | undefined;
     let tracePluginName: string | undefined;
-    let moduleRoots: string[] = [];
+    let modelRoots: string[] = [];
     let moduleSpecFiles: string[] = [];
-    let enabledModuleProjects: string[] = [];
-    let disabledModuleProjects: string[] = [];
     let disabledModuleIds: string[] = [];
+    let arkMainSpecFiles: string[] = [];
+    let enabledModels: string[] = [];
+    let disabledModels: string[] = [];
     let pluginPaths: string[] = [];
     let disabledPluginNames: string[] = [];
     let pluginIsolate: string[] = [];
@@ -82,13 +90,6 @@ export function parseArgs(argv: string[]): CliOptions {
     let stopOnFirstFlow = false;
     let maxFlowsPerEntryRaw: number | undefined;
     let secondarySinkSweepRaw: boolean | undefined;
-    let enableExternalEntryRecognition = false;
-    let externalEntryModel: string | undefined;
-    let externalEntryMinConfidence: number | undefined;
-    let externalEntryBatchSize: number | undefined;
-    let externalEntryMaxCandidates: number | undefined;
-    let externalEntryCachePath: string | undefined;
-    let enableExternalEntryFacts = false;
     const ruleOptions: RuleLoaderOptions = {};
 
     for (let i = 0; i < argv.length; i++) {
@@ -100,6 +101,16 @@ export function parseArgs(argv: string[]): CliOptions {
             return undefined;
         };
 
+        if (arg === "--autoModel") {
+            autoModel = true;
+            continue;
+        }
+        const publishModelArg = readValue("--publish-model");
+        if (publishModelArg !== undefined) {
+            publishModel = publishModelArg.trim();
+            if (arg === "--publish-model") i++;
+            continue;
+        }
         const repoArg = readValue("--repo");
         if (repoArg !== undefined) {
             repo = repoArg;
@@ -112,6 +123,30 @@ export function parseArgs(argv: string[]): CliOptions {
             if (arg === "--sourceDir") i++;
             continue;
         }
+        const llmConfigArg = readValue("--llmConfig");
+        if (llmConfigArg !== undefined) {
+            llmConfigPath = llmConfigArg.trim();
+            if (arg === "--llmConfig") i++;
+            continue;
+        }
+        const llmProfileArg = readValue("--llmProfile");
+        if (llmProfileArg !== undefined) {
+            llmProfile = llmProfileArg.trim();
+            if (arg === "--llmProfile") i++;
+            continue;
+        }
+        const llmModelArg = readValue("--model");
+        if (llmModelArg !== undefined) {
+            llmModel = llmModelArg.trim();
+            if (arg === "--model") i++;
+            continue;
+        }
+        const arkMainMaxCandidatesArg = readValue("--arkMainMaxCandidates");
+        if (arkMainMaxCandidatesArg !== undefined) {
+            arkMainMaxCandidates = Number(arkMainMaxCandidatesArg);
+            if (arg === "--arkMainMaxCandidates") i++;
+            continue;
+        }
         if (arg === "--list-modules") {
             listModules = true;
             continue;
@@ -120,8 +155,8 @@ export function parseArgs(argv: string[]): CliOptions {
             listPlugins = true;
             continue;
         }
-        if (arg === "--list-module-projects") {
-            listModuleProjects = true;
+        if (arg === "--list-models") {
+            listModels = true;
             continue;
         }
         const explainModuleArg = readValue("--explain-module");
@@ -148,34 +183,40 @@ export function parseArgs(argv: string[]): CliOptions {
             if (arg === "--trace-plugin") i++;
             continue;
         }
-        const moduleRootArg = readValue("--module-root");
-        if (moduleRootArg !== undefined) {
-            moduleRoots.push(...splitCsv(moduleRootArg));
-            if (arg === "--module-root") i++;
-            continue;
-        }
         const moduleSpecArg = readValue("--module-spec");
         if (moduleSpecArg !== undefined) {
             moduleSpecFiles.push(...splitCsv(moduleSpecArg));
             if (arg === "--module-spec") i++;
             continue;
         }
-        const enableModuleProjectArg = readValue("--enable-module-project");
-        if (enableModuleProjectArg !== undefined) {
-            enabledModuleProjects.push(...splitCsv(enableModuleProjectArg));
-            if (arg === "--enable-module-project") i++;
-            continue;
-        }
-        const disableModuleProjectArg = readValue("--disable-module-project");
-        if (disableModuleProjectArg !== undefined) {
-            disabledModuleProjects.push(...splitCsv(disableModuleProjectArg));
-            if (arg === "--disable-module-project") i++;
+        const arkMainSpecArg = readValue("--arkmain-spec");
+        if (arkMainSpecArg !== undefined) {
+            arkMainSpecFiles.push(...splitCsv(arkMainSpecArg));
+            if (arg === "--arkmain-spec") i++;
             continue;
         }
         const disabledModuleArg = readValue("--disable-module");
         if (disabledModuleArg !== undefined) {
             disabledModuleIds.push(...splitCsv(disabledModuleArg));
             if (arg === "--disable-module") i++;
+            continue;
+        }
+        const modelRootArg = readValue("--model-root");
+        if (modelRootArg !== undefined) {
+            modelRoots.push(...splitCsv(modelRootArg));
+            if (arg === "--model-root") i++;
+            continue;
+        }
+        const enableModelArg = readValue("--enable-model");
+        if (enableModelArg !== undefined) {
+            enabledModels.push(...splitCsv(enableModelArg));
+            if (arg === "--enable-model") i++;
+            continue;
+        }
+        const disableModelArg = readValue("--disable-model");
+        if (disableModelArg !== undefined) {
+            disabledModels.push(...splitCsv(disableModelArg));
+            if (arg === "--disable-model") i++;
             continue;
         }
         const pluginsArg = readValue("--plugins");
@@ -254,36 +295,10 @@ export function parseArgs(argv: string[]): CliOptions {
             if (arg === "--kernelRule") i++;
             continue;
         }
-        const ruleCatalogArg = readValue("--ruleCatalog") ?? readValue("--rules");
-        if (ruleCatalogArg !== undefined) {
-            ruleOptions.ruleCatalogPath = ruleCatalogArg;
-            if (arg === "--ruleCatalog" || arg === "--rules") i++;
-            continue;
-        }
         const projectRuleArg = readValue("--project");
         if (projectRuleArg !== undefined) {
             ruleOptions.projectRulePath = projectRuleArg;
             if (arg === "--project") i++;
-            continue;
-        }
-        const enableRulePackArg = readValue("--enable-rule-pack");
-        if (enableRulePackArg !== undefined) {
-            const nextValues = splitCsv(enableRulePackArg);
-            ruleOptions.enabledRulePacks = [
-                ...(ruleOptions.enabledRulePacks || []),
-                ...nextValues,
-            ];
-            if (arg === "--enable-rule-pack") i++;
-            continue;
-        }
-        const disableRulePackArg = readValue("--disable-rule-pack");
-        if (disableRulePackArg !== undefined) {
-            const nextValues = splitCsv(disableRulePackArg);
-            ruleOptions.disabledRulePacks = [
-                ...(ruleOptions.disabledRulePacks || []),
-                ...nextValues,
-            ];
-            if (arg === "--disable-rule-pack") i++;
             continue;
         }
         const candidateRuleArg = readValue("--candidate");
@@ -328,44 +343,6 @@ export function parseArgs(argv: string[]): CliOptions {
             secondarySinkSweepRaw = false;
             continue;
         }
-        if (arg === "--enableExternalEntryRecognition") {
-            enableExternalEntryRecognition = true;
-            continue;
-        }
-        const externalEntryModelArg = readValue("--externalEntryModel");
-        if (externalEntryModelArg !== undefined) {
-            externalEntryModel = externalEntryModelArg.trim();
-            if (arg === "--externalEntryModel") i++;
-            continue;
-        }
-        const externalEntryMinConfidenceArg = readValue("--externalEntryMinConfidence");
-        if (externalEntryMinConfidenceArg !== undefined) {
-            externalEntryMinConfidence = Number(externalEntryMinConfidenceArg);
-            if (arg === "--externalEntryMinConfidence") i++;
-            continue;
-        }
-        const externalEntryBatchSizeArg = readValue("--externalEntryBatchSize");
-        if (externalEntryBatchSizeArg !== undefined) {
-            externalEntryBatchSize = Number(externalEntryBatchSizeArg);
-            if (arg === "--externalEntryBatchSize") i++;
-            continue;
-        }
-        const externalEntryMaxCandidatesArg = readValue("--externalEntryMaxCandidates");
-        if (externalEntryMaxCandidatesArg !== undefined) {
-            externalEntryMaxCandidates = Number(externalEntryMaxCandidatesArg);
-            if (arg === "--externalEntryMaxCandidates") i++;
-            continue;
-        }
-        const externalEntryCachePathArg = readValue("--externalEntryCachePath");
-        if (externalEntryCachePathArg !== undefined) {
-            externalEntryCachePath = externalEntryCachePathArg;
-            if (arg === "--externalEntryCachePath") i++;
-            continue;
-        }
-        if (arg === "--enableExternalEntryFacts") {
-            enableExternalEntryFacts = true;
-            continue;
-        }
         if (arg.startsWith("--")) {
             throw new Error(`unknown option: ${arg}`);
         }
@@ -373,7 +350,7 @@ export function parseArgs(argv: string[]): CliOptions {
 
     const inspectionModeCount = [
         listModules,
-        listModuleProjects,
+        listModels,
         !!explainModuleId,
         !!traceModuleId,
         listPlugins,
@@ -381,7 +358,10 @@ export function parseArgs(argv: string[]): CliOptions {
         !!tracePluginName,
     ].filter(Boolean).length;
     if (inspectionModeCount > 1) {
-        throw new Error("only one inspection mode may be used at a time: --list-modules, --list-module-projects, --explain-module, --trace-module, --list-plugins, --explain-plugin, --trace-plugin");
+        throw new Error("only one inspection mode may be used at a time: --list-modules, --list-models, --explain-module, --trace-module, --list-plugins, --explain-plugin, --trace-plugin");
+    }
+    if (publishModel && !autoModel) {
+        throw new Error("--publish-model requires --autoModel");
     }
     if (!repo) throw new Error("missing required --repo <path>");
     const normalizedRepo = path.isAbsolute(repo) ? repo : path.resolve(repo);
@@ -393,11 +373,12 @@ export function parseArgs(argv: string[]): CliOptions {
     }
     if (sourceDirs.length === 0) throw new Error("no sourceDir found. pass --sourceDir");
     sourceDirs = [...new Set(sourceDirs.map(d => d.replace(/\\/g, "/")))];
-    moduleRoots = [...new Set(moduleRoots.map(d => path.isAbsolute(d) ? d : path.resolve(d)))];
+    modelRoots = [...new Set(modelRoots.map(d => path.isAbsolute(d) ? d : path.resolve(d)))];
     moduleSpecFiles = [...new Set(moduleSpecFiles.map(d => path.isAbsolute(d) ? d : path.resolve(d)))];
-    enabledModuleProjects = [...new Set(enabledModuleProjects.map(id => id.trim()).filter(Boolean))];
-    disabledModuleProjects = [...new Set(disabledModuleProjects.map(id => id.trim()).filter(Boolean))];
     disabledModuleIds = [...new Set(disabledModuleIds.map(id => id.trim()).filter(Boolean))];
+    arkMainSpecFiles = [...new Set(arkMainSpecFiles.map(d => path.isAbsolute(d) ? d : path.resolve(d)))];
+    enabledModels = [...new Set(enabledModels.map(id => id.trim()).filter(Boolean))];
+    disabledModels = [...new Set(disabledModels.map(id => id.trim()).filter(Boolean))];
     pluginPaths = [...new Set(pluginPaths.map(d => path.isAbsolute(d) ? d : path.resolve(d)))];
     disabledPluginNames = [...new Set(disabledPluginNames.map(name => name.trim()).filter(Boolean))];
     pluginIsolate = [...new Set(pluginIsolate.map(name => name.trim()).filter(Boolean))];
@@ -424,22 +405,10 @@ export function parseArgs(argv: string[]): CliOptions {
         ? secondarySinkSweepRaw
         : profile === "fast";
     if (
-        externalEntryMinConfidence !== undefined
-        && (!Number.isFinite(externalEntryMinConfidence) || externalEntryMinConfidence < 0 || externalEntryMinConfidence > 1)
+        arkMainMaxCandidates !== undefined
+        && (!Number.isFinite(arkMainMaxCandidates) || arkMainMaxCandidates <= 0)
     ) {
-        throw new Error(`invalid --externalEntryMinConfidence: ${externalEntryMinConfidence}`);
-    }
-    if (
-        externalEntryBatchSize !== undefined
-        && (!Number.isFinite(externalEntryBatchSize) || externalEntryBatchSize <= 0)
-    ) {
-        throw new Error(`invalid --externalEntryBatchSize: ${externalEntryBatchSize}`);
-    }
-    if (
-        externalEntryMaxCandidates !== undefined
-        && (!Number.isFinite(externalEntryMaxCandidates) || externalEntryMaxCandidates <= 0)
-    ) {
-        throw new Error(`invalid --externalEntryMaxCandidates: ${externalEntryMaxCandidates}`);
+        throw new Error(`invalid --arkMainMaxCandidates: ${arkMainMaxCandidates}`);
     }
 
     if (!outputDir) {
@@ -450,6 +419,10 @@ export function parseArgs(argv: string[]): CliOptions {
         outputDir = path.isAbsolute(outputDir) ? outputDir : path.resolve(outputDir);
     }
 
+    if (modelRoots.length > 0) {
+        ruleOptions.ruleCatalogPaths = [...modelRoots];
+        ruleOptions.ruleCatalogPath = modelRoots[0];
+    }
     ruleOptions.autoDiscoverLayers = true;
     if (ruleOptions.enabledRulePacks) {
         ruleOptions.enabledRulePacks = [...new Set(ruleOptions.enabledRulePacks.map(item => item.trim()).filter(Boolean))];
@@ -462,26 +435,30 @@ export function parseArgs(argv: string[]): CliOptions {
             ? incrementalCachePath
             : path.resolve(incrementalCachePath);
     }
-    const normalizedExternalEntryCachePath = externalEntryCachePath
-        ? (path.isAbsolute(externalEntryCachePath)
-            ? externalEntryCachePath
-            : path.resolve(externalEntryCachePath))
-        : undefined;
     return {
         repo: normalizedRepo,
         sourceDirs,
+        autoModel,
+        publishModel: publishModel || undefined,
+        llmConfigPath: llmConfigPath
+            ? (path.isAbsolute(llmConfigPath) ? llmConfigPath : path.resolve(llmConfigPath))
+            : undefined,
+        llmProfile,
+        llmModel,
+        arkMainMaxCandidates: arkMainMaxCandidates !== undefined ? Math.floor(arkMainMaxCandidates) : undefined,
         listModules,
-        listModuleProjects,
+        listModels,
         explainModuleId,
         traceModuleId,
         listPlugins,
         explainPluginName,
         tracePluginName,
-        moduleRoots,
+        modelRoots,
         moduleSpecFiles,
-        enabledModuleProjects,
-        disabledModuleProjects,
         disabledModuleIds,
+        arkMainSpecFiles,
+        enabledModels,
+        disabledModels,
         pluginPaths,
         disabledPluginNames,
         pluginIsolate,
@@ -498,13 +475,7 @@ export function parseArgs(argv: string[]): CliOptions {
         stopOnFirstFlow,
         maxFlowsPerEntry,
         enableSecondarySinkSweep,
-        enableExternalEntryRecognition,
-        externalEntryModel,
-        externalEntryMinConfidence,
-        externalEntryBatchSize: externalEntryBatchSize !== undefined ? Math.floor(externalEntryBatchSize) : undefined,
-        externalEntryMaxCandidates: externalEntryMaxCandidates !== undefined ? Math.floor(externalEntryMaxCandidates) : undefined,
-        externalEntryCachePath: normalizedExternalEntryCachePath,
-        enableExternalEntryFacts,
+        showLoadWarnings: true,
         ruleOptions,
     };
 }

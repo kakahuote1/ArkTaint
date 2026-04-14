@@ -224,7 +224,6 @@ export interface ModuleDispatch {
 
 export interface ModuleSameReceiverConstraint {
     kind: "same_receiver";
-    fallbackMode?: "none" | "all_targets_if_unmatched";
 }
 
 export interface ModuleSameAddressConstraint {

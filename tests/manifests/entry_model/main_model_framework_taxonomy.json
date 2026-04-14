@@ -8,7 +8,7 @@
       "category": "ability_lifecycle",
       "sourceDir": "tests/demo/harmony_lifecycle",
       "kernelRulePath": "tests/rules/minimal.rules.json",
-      "ruleCatalogPath": "src/rules",
+      "ruleCatalogPath": "src/models",
       "projectRulePath": "tests/rules/harmony_lifecycle_sink_only.rules.json"
     },
     {
@@ -16,7 +16,7 @@
       "category": "ability_lifecycle",
       "sourceDir": "tests/demo/harmony_stage_window_variants",
       "kernelRulePath": "tests/rules/minimal.rules.json",
-      "ruleCatalogPath": "src/rules",
+      "ruleCatalogPath": "src/models",
       "projectRulePath": "tests/rules/harmony_stage_window_variants.rules.json"
     },
     {
@@ -52,7 +52,7 @@
       "category": "reactive_composition",
       "sourceDir": "tests/demo/harmony_reactive_composition",
       "kernelRulePath": "tests/rules/minimal.rules.json",
-      "ruleCatalogPath": "src/rules",
+      "ruleCatalogPath": "src/models",
       "projectRulePath": "tests/rules/harmony_reactive_composition.rules.json"
     },
     {
@@ -81,7 +81,7 @@
       "category": "reactive_composition",
       "sourceDir": "tests/demo/harmony_reactive_deep_tree",
       "kernelRulePath": "tests/rules/minimal.rules.json",
-      "ruleCatalogPath": "src/rules",
+      "ruleCatalogPath": "src/models",
       "projectRulePath": "tests/rules/harmony_reactive_deep_tree.rules.json"
     },
     {

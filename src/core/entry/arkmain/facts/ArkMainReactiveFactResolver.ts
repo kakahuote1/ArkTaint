@@ -10,8 +10,7 @@ import {
     normalizeDecoratorKind,
 } from "./ArkMainFactResolverUtils";
 import { collectQualifiedDecoratorCandidates } from "./ArkMainStructuralDiscovery";
-
-const WATCH_LIKE_DECORATORS = new Set(["Watch", "Monitor"]);
+import { ARK_MAIN_WATCH_LIKE_DECORATORS } from "../catalog/ArkMainFrameworkCatalog";
 
 export function collectReactiveFacts(scene: Scene, context: ArkMainFactCollectionContext): void {
     const decoratorCandidates = collectQualifiedDecoratorCandidates(scene.getClasses());
@@ -24,7 +23,7 @@ export function collectReactiveFacts(scene: Scene, context: ArkMainFactCollectio
         const decorators = method.getDecorators?.() || [];
         for (const decorator of decorators) {
             const kind = normalizeDecoratorKind(decorator?.getKind?.());
-            if (!kind || !WATCH_LIKE_DECORATORS.has(kind)) continue;
+            if (!kind || !ARK_MAIN_WATCH_LIKE_DECORATORS.has(kind)) continue;
             const ownerName = method.getDeclaringArkClass?.().getName?.() || "";
             context.addFact({
                 phase: "reactive_handoff",
@@ -89,7 +88,7 @@ export function collectReactiveFacts(scene: Scene, context: ArkMainFactCollectio
             for (const method of cls.getMethods().filter(candidate => !candidate.isStatic())) {
                 if ((method.getDecorators?.() || []).some(decorator => {
                     const kind = normalizeDecoratorKind(decorator?.getKind?.());
-                    return !!kind && WATCH_LIKE_DECORATORS.has(kind);
+                    return !!kind && ARK_MAIN_WATCH_LIKE_DECORATORS.has(kind);
                 })) {
                     continue;
                 }

@@ -23,7 +23,7 @@ function main(): void {
     let brokenJsonError: RuleLoadError | undefined;
     try {
         loadRuleSet({
-            ruleCatalogPath: "src/rules",
+            ruleCatalogPath: "src/models",
             projectRulePath: brokenJsonPath,
         });
     } catch (error) {
@@ -77,7 +77,7 @@ function main(): void {
     let brokenRuleError: RuleLoadError | undefined;
     try {
         loadRuleSet({
-            ruleCatalogPath: "src/rules",
+            ruleCatalogPath: "src/models",
             projectRulePath: brokenRulePath,
         });
     } catch (error) {
@@ -190,14 +190,14 @@ function main(): void {
         sanitizers: [],
         transfers: [],
     }, null, 2);
-    fs.mkdirSync(path.join(ruleDir, "sources", "kernel"), { recursive: true });
-    fs.mkdirSync(path.join(ruleDir, "sinks", "kernel"), { recursive: true });
-    fs.mkdirSync(path.join(ruleDir, "sanitizers", "kernel"), { recursive: true });
-    fs.mkdirSync(path.join(ruleDir, "transfers", "kernel"), { recursive: true });
-    fs.writeFileSync(path.join(ruleDir, "sources", "kernel", "alpha.rules.json"), emptyRuleSet, "utf-8");
-    fs.writeFileSync(path.join(ruleDir, "sinks", "kernel", "beta.rules.json"), emptyRuleSet, "utf-8");
-    fs.writeFileSync(path.join(ruleDir, "sanitizers", "kernel", "gamma.rules.json"), emptyRuleSet, "utf-8");
-    fs.writeFileSync(path.join(ruleDir, "transfers", "kernel", "delta.rules.json"), emptyRuleSet, "utf-8");
+    fs.mkdirSync(path.join(ruleDir, "kernel", "rules", "sources"), { recursive: true });
+    fs.mkdirSync(path.join(ruleDir, "kernel", "rules", "sinks"), { recursive: true });
+    fs.mkdirSync(path.join(ruleDir, "kernel", "rules", "sanitizers"), { recursive: true });
+    fs.mkdirSync(path.join(ruleDir, "kernel", "rules", "transfers"), { recursive: true });
+    fs.writeFileSync(path.join(ruleDir, "kernel", "rules", "sources", "alpha.rules.json"), emptyRuleSet, "utf-8");
+    fs.writeFileSync(path.join(ruleDir, "kernel", "rules", "sinks", "beta.rules.json"), emptyRuleSet, "utf-8");
+    fs.writeFileSync(path.join(ruleDir, "kernel", "rules", "sanitizers", "gamma.rules.json"), emptyRuleSet, "utf-8");
+    fs.writeFileSync(path.join(ruleDir, "kernel", "rules", "transfers", "delta.rules.json"), emptyRuleSet, "utf-8");
     fs.writeFileSync(path.join(ruleDir, "junk.rules.json"), emptyRuleSet, "utf-8");
     fs.writeFileSync(path.join(ruleDir, "noise.bin"), "not-a-rule", "utf-8");
     const warnedRules = loadRuleSet({
@@ -217,6 +217,7 @@ function main(): void {
 }
 
 main();
+
 
 
 

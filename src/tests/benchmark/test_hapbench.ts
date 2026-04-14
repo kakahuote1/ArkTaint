@@ -181,7 +181,7 @@ interface BenchmarkReport {
 function parseArgs(argv: string[]): CliOptions {
     let benchmarkRoot = "tests/benchmark/HapBench";
     let kernelRulePath = "tests/rules/minimal.rules.json";
-    let ruleCatalogPath = "src/rules";
+    let ruleCatalogPath = "src/models";
     let overridePath = "tests/benchmark/HapBench/oracle_overrides.json";
     let outputDir = "tmp/test_runs/benchmark/hapbench/latest";
     let k = 1;
@@ -885,3 +885,4 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+

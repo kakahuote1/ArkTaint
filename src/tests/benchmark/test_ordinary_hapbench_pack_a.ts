@@ -27,7 +27,7 @@ interface CliOptions {
 function parseArgs(argv: string[]): CliOptions {
     let sourceDir = "tests/demo/ordinary_hapbench_pack_a";
     let kernelRulePath = "tests/rules/minimal.rules.json";
-    let ruleCatalogPath = "src/rules";
+    let ruleCatalogPath = "src/models";
     let projectRulePath = "tests/rules/ordinary_hapbench_pack_a.rules.json";
     let k = 1;
 
@@ -191,3 +191,4 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+

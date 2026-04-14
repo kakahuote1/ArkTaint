@@ -55,7 +55,7 @@ async function main(): Promise<void> {
     const sourceDir = path.resolve("tests/demo/arkmain_hapbench_pack_a");
     const loaded = loadRuleSet({
         kernelRulePath: path.resolve("tests/rules/minimal.rules.json"),
-        ruleCatalogPath: path.resolve("src/rules"),
+        ruleCatalogPath: path.resolve("src/models"),
         projectRulePath: path.resolve("tests/rules/harmony_lifecycle_sink_only.rules.json"),
         allowMissingProject: false,
         autoDiscoverLayers: false,
@@ -115,3 +115,4 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+

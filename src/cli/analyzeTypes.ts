@@ -1,6 +1,6 @@
 import {
     DetectProfileSnapshot,
-    ExternalEntryRecognitionReport,
+    ArkMainSeedReport,
     RuleHitCounters,
 } from "../core/orchestration/TaintPropagationEngine";
 import { EnginePluginAuditSnapshot } from "../core/orchestration/plugins/EnginePluginRuntime";
@@ -87,7 +87,7 @@ export interface EntryAnalyzeResult {
     pagNodeResolutionAudit: PagNodeResolutionAuditSnapshot;
     moduleAudit: ModuleAuditSnapshot;
     enginePluginAudit: EnginePluginAuditSnapshot;
-    externalEntryRecognition?: ExternalEntryRecognitionReport;
+    arkMainSeeds?: ArkMainSeedReport;
     elapsedMs: number;
     fromCache?: boolean;
     error?: string;
@@ -184,7 +184,7 @@ export interface AnalyzeReport {
             failedPluginNames: string[];
             plugins: Record<string, EnginePluginAuditSnapshot["pluginStats"][string]>;
         };
-        externalEntryRecognition?: ExternalEntryRecognitionReport;
+        arkMainSeeds?: ArkMainSeedReport;
         ruleFeedback: {
             zeroHitRules: RuleHitCounters;
             ruleHitRanking: {

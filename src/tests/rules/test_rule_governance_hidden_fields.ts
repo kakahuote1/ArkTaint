@@ -35,7 +35,7 @@ function collectGovernanceFields(filePath: string): string[] {
 
 async function main(): Promise<void> {
     const files = [
-        ...walkRuleFiles(path.resolve("src/rules")),
+        ...walkRuleFiles(path.resolve("src/models")),
         ...walkRuleFiles(path.resolve("tests/rules")),
     ].sort();
 
@@ -65,3 +65,4 @@ main().catch(error => {
     console.error(error);
     process.exit(1);
 });
+

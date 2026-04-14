@@ -35,13 +35,13 @@ const ARK_MAIN_SCHEDULING_RULES: Record<ArkMainActivationEdgeFamily, ArkMainSche
         edgeFamily: "interaction_lifecycle",
         targetPhase: "interaction",
         minRoundGap: 1,
-        allowedSourcePhases: ["composition"],
+        allowedSourcePhases: ["bootstrap", "composition"],
     },
     teardown_lifecycle: {
         edgeFamily: "teardown_lifecycle",
         targetPhase: "teardown",
         minRoundGap: 1,
-        allowedSourcePhases: ["bootstrap", "composition", "interaction", "reactive_handoff"],
+        allowedSourcePhases: ["bootstrap", "composition", "interaction"],
     },
     ui_callback: {
         edgeFamily: "ui_callback",

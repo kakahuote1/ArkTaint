@@ -34,6 +34,7 @@ import type {
     TransferExecutionStats,
     TransferExecutionWithStats,
 } from "./TransferTypes";
+import { buildNoCandidateCallsiteRecord } from "./NoCandidateSurface";
 
 export type {
     EndpointDescriptor,
@@ -282,20 +283,14 @@ export class ConfigBasedTransferExecutor {
         for (const site of sites) {
             const candidateRules = this.resolveCandidateRulesForSite(site);
             if (candidateRules.length === 0) {
-                const argCount = site.args.length;
-                const key = `${site.signature}|${site.methodName}|${site.invokeKind}|${argCount}|${site.calleeFilePath}`;
+                const owner = this.stmtOwner.get(site.stmt);
+                const noCandidate = buildNoCandidateCallsiteRecord(site, owner);
+                const key = `${noCandidate.calleeSignature}|${noCandidate.method}|${noCandidate.invokeKind}|${noCandidate.argCount}|${noCandidate.sourceFile}`;
                 const existing = noCandidateCallsiteMap.get(key);
                 if (existing) {
                     existing.count += 1;
                 } else {
-                    noCandidateCallsiteMap.set(key, {
-                        calleeSignature: site.signature,
-                        method: site.methodName,
-                        invokeKind: site.invokeKind,
-                        argCount,
-                        sourceFile: site.calleeFilePath,
-                        count: 1,
-                    });
+                    noCandidateCallsiteMap.set(key, noCandidate);
                 }
             }
             for (const runtimeRule of candidateRules) {

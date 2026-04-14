@@ -16,7 +16,6 @@ import {
 } from "../ArkMainTypes";
 import { ArkMainActivationGraph } from "../edges/ArkMainActivationGraph";
 import { ArkMainSchedule } from "../scheduling/ArkMainScheduler";
-import { resolveArkMainChannelInvocation } from "./ArkMainChannelInvocationResolver";
 import { collectFrameworkManagedOwners } from "./ArkMainOwnerDiscovery";
 import { shouldArkMainAutoHintCallbackFact } from "./ArkMainFrameworkCallbackBoundary";
 
@@ -33,7 +32,7 @@ export function buildArkMainContracts(
     _graph: ArkMainActivationGraph,
     _schedule: ArkMainSchedule,
 ): ArkMainContract[] {
-    const managedOwners = collectFrameworkManagedOwners(scene, { includeComponentContractShape: true });
+    const managedOwners = collectFrameworkManagedOwners(scene);
     const wantHandoffTargetMethodSignatures = new Set(
         facts
             .filter(fact => fact.kind === "want_handoff")
@@ -112,8 +111,6 @@ function buildContractForFact(
     };
 
     populateLifecycleSourceSchemas(contract, fact, wantHandoffTargetMethodSignatures);
-    populateStageContextSourceSchemas(contract, fact);
-    populateRouterTriggerSourceSchemas(scene, contract, fact);
     populateUnknownCallbackHintSchemas(contract, fact);
     return contract;
 }
@@ -250,80 +247,6 @@ function populateLifecycleSourceSchemas(
             }
         }
     });
-}
-
-function populateStageContextSourceSchemas(contract: ArkMainContract, fact: ArkMainEntryFact): void {
-    if (fact.kind !== "stage_lifecycle" || fact.method.getName?.() !== "onCreate") {
-        return;
-    }
-
-    const className = fact.method.getDeclaringArkClass?.()?.getName?.();
-    const methodName = fact.method.getName?.();
-    const cfg = fact.method.getCfg?.();
-    if (!cfg || !className || !methodName) return;
-
-    for (const stmt of cfg.getStmts()) {
-        const invokeExpr = stmt?.getInvokeExpr?.();
-        if (!invokeExpr) continue;
-        const methodSig = invokeExpr.getMethodSignature?.();
-        const calleeSignature = methodSig?.toString?.() || "";
-        const calleeName = methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "";
-        const calleeClassName = methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";
-        if (calleeName !== "getContext" || calleeClassName !== "SystemEnv" || !calleeSignature) {
-            continue;
-        }
-
-        contract.sourceSchemas.push({
-            id: `source.arkmain.contract.stage.context.${fact.method.getSignature().toString()}.${calleeSignature}`,
-            sourceKind: "call_return",
-            family: "source.arkmain.contract.stage.context",
-            tier: "A",
-            description: `[arkmain contract] stage context source in ${fact.method.getName()}`,
-            tags: ["arkmain", "contract_source", "stage_lifecycle", "context_call"],
-            matchSignature: calleeSignature,
-            scopeClassName: className,
-            scopeMethodName: methodName,
-            target: { endpoint: "result" },
-        });
-    }
-}
-
-function populateRouterTriggerSourceSchemas(
-    scene: Scene,
-    contract: ArkMainContract,
-    fact: ArkMainEntryFact,
-): void {
-    if (fact.kind !== "router_trigger") {
-        return;
-    }
-    const className = fact.method.getDeclaringArkClass?.()?.getName?.();
-    const methodName = fact.method.getName?.();
-    const cfg = fact.method.getCfg?.();
-    if (!cfg || !className || !methodName) return;
-
-    for (const stmt of cfg.getStmts()) {
-        const invokeExpr = stmt?.getInvokeExpr?.();
-        if (!invokeExpr) continue;
-        const match = resolveArkMainChannelInvocation(scene, fact.method, invokeExpr);
-        if (!match || match.factKind !== "router_trigger") {
-            continue;
-        }
-        const calleeSignature = invokeExpr.getMethodSignature?.()?.toString?.() || "";
-        if (!calleeSignature) continue;
-
-        contract.sourceSchemas.push({
-            id: `source.arkmain.contract.router.trigger.${fact.method.getSignature().toString()}.${calleeSignature}`,
-            sourceKind: "call_return",
-            family: "source.arkmain.contract.router.trigger",
-            tier: "A",
-            description: `[arkmain contract] router trigger in ${fact.method.getName()}`,
-            tags: ["arkmain", "contract_source", "router_trigger"],
-            matchSignature: calleeSignature,
-            scopeClassName: className,
-            scopeMethodName: methodName,
-            target: { endpoint: "result" },
-        });
-    }
 }
 
 function populateUnknownCallbackHintSchemas(contract: ArkMainContract, fact: ArkMainEntryFact): void {

@@ -27,7 +27,7 @@ async function main(): Promise<void> {
     assert(layeredMissing.length === 0, `layer_priority fixture still has missing governance: ${layeredMissing.join(", ")}`);
 
     const actual = loadRuleSet({
-        ruleCatalogPath: path.resolve("src/rules"),
+        ruleCatalogPath: path.resolve("src/models"),
     });
     const actualMissing = collectRulesMissingGovernance(actual.ruleSet);
     assert(actualMissing.length === 0, `active runtime rule set still has missing governance: ${actualMissing.slice(0, 10).join(", ")}`);
@@ -54,3 +54,4 @@ main().catch(error => {
     console.error(error);
     process.exit(1);
 });
+

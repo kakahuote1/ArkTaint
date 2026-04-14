@@ -11,8 +11,8 @@ interface ImportEdge {
 }
 
 const CORE_ROOT = path.resolve("src/core");
-const RULE_ROOT = path.resolve("src/rules");
-const MODULE_ROOT = path.resolve("src/modules");
+const RULE_ROOT = path.resolve("src/models/kernel/rules");
+const MODULE_ROOT = path.resolve("src/models/kernel/modules");
 const PLUGIN_ROOT = path.resolve("src/plugins");
 const ALLOWED_MODULE_CORE_IMPORTS = new Set<string>([
     "src/core/kernel/contracts/ModuleApi.ts",
@@ -27,6 +27,7 @@ const ALLOWED_MODULE_CORE_IMPORTS = new Set<string>([
     "src/core/kernel/contracts/StateModuleProvider.ts",
     "src/core/kernel/contracts/WorkerTaskPoolModuleProvider.ts",
     "src/core/kernel/contracts/MethodLookup.ts",
+    "src/core/kernel/contracts/ModuleSpec.ts",
     "src/core/kernel/contracts/PagNodeResolution.ts",
 ]);
 const LEGACY_ALLOWED_VIOLATIONS = new Set<string>([
@@ -255,7 +256,7 @@ async function main(): Promise<void> {
     );
     assert(
         forbiddenModuleSupportSpecifiers.length === 0,
-        `Layer dependency gate found forbidden module_support imports under src/modules:\n${forbiddenModuleSupportSpecifiers.map(item =>
+        `Layer dependency gate found forbidden module_support imports under src/models/kernel/modules:\n${forbiddenModuleSupportSpecifiers.map(item =>
             `  MODULE ${item.fromFile} -> ${item.specifier}`,
         ).join("\n")}`,
     );
@@ -273,3 +274,4 @@ main().catch(error => {
     console.error(error);
     process.exit(1);
 });
+

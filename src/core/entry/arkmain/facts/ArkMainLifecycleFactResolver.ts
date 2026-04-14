@@ -16,9 +16,7 @@ export function collectLifecycleFacts(scene: Scene, context: ArkMainFactCollecti
     const sdkOverrideBySignature = new Map(
         collectSdkOverrideCandidates(scene).map(candidate => [candidate.method.getSignature().toString(), candidate]),
     );
-    const managedOwners = collectFrameworkManagedOwners(scene, {
-        includeComponentContractShape: true,
-    });
+    const managedOwners = collectFrameworkManagedOwners(scene);
 
     for (const cls of scene.getClasses()) {
         const methods = cls.getMethods().filter(method => !method.isStatic());

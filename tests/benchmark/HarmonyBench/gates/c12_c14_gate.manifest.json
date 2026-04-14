@@ -10,7 +10,7 @@
       "sourceDir": "tests/demo/harmony_preferences",
       "rules": {
         "kernelRule": "tests/rules/minimal.rules.json",
-        "ruleCatalog": "src/rules",
+        "ruleCatalog": "src/models",
         "project": "tests/rules/harmony_preferences.rules.json"
       },
       "cases": [
@@ -55,7 +55,7 @@
       "sourceDir": "tests/demo/harmony_rdb",
       "rules": {
         "kernelRule": "tests/rules/minimal.rules.json",
-        "ruleCatalog": "src/rules",
+        "ruleCatalog": "src/models",
         "project": "tests/rules/harmony_rdb.rules.json"
       },
       "cases": [
@@ -100,7 +100,7 @@
       "sourceDir": "tests/demo/harmony_http",
       "rules": {
         "kernelRule": "tests/rules/minimal.rules.json",
-        "ruleCatalog": "src/rules",
+        "ruleCatalog": "src/models",
         "project": "tests/rules/harmony_http.rules.json"
       },
       "cases": [

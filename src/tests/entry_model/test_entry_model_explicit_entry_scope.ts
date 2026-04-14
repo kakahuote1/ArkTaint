@@ -27,7 +27,7 @@ function buildScene(projectDir: string): Scene {
 
 function loadRules(spec: ProbeSpec): { sourceRules: SourceRule[]; sinkRules: SinkRule[]; transferRules: TransferRule[] } {
     const loaded = loadRuleSet({
-        ruleCatalogPath: path.resolve(spec.ruleCatalogPath || "src/rules"),
+        ruleCatalogPath: path.resolve(spec.ruleCatalogPath || "src/models"),
         projectRulePath: path.resolve(spec.projectRulePath),
         allowMissingProject: false,
         autoDiscoverLayers: false,
@@ -87,21 +87,21 @@ async function main(): Promise<void> {
             sourceDir: "tests/demo/harmony_lifecycle",
             caseName: "lifecycle_want_direct_001_T",
             projectRulePath: "tests/rules/harmony_lifecycle_sink_only.rules.json",
-            ruleCatalogPath: "src/rules",
+            ruleCatalogPath: "src/models",
             expectedMethodRef: "AbilityWantDirect001.onCreate",
         },
         {
             sourceDir: "tests/demo/harmony_lifecycle",
             caseName: "lifecycle_extension_formbinding_013_T",
             projectRulePath: "tests/rules/harmony_lifecycle_sink_only.rules.json",
-            ruleCatalogPath: "src/rules",
+            ruleCatalogPath: "src/models",
             expectedMethodRef: "DemoFormExtension013.onUpdateForm",
         },
         {
             sourceDir: "tests/demo/harmony_lifecycle",
             caseName: "lifecycle_extension_addform_011_T",
             projectRulePath: "tests/rules/harmony_lifecycle_sink_only.rules.json",
-            ruleCatalogPath: "src/rules",
+            ruleCatalogPath: "src/models",
             expectedMethodRef: "DemoFormExtension011.onAddForm",
         },
     ];
@@ -118,3 +118,4 @@ main().catch(error => {
     console.error(error);
     process.exit(1);
 });
+

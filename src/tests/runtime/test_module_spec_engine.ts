@@ -1014,6 +1014,26 @@ async function main(): Promise<void> {
         "semantics[0].dispatch.preset must be one of: \"callback_sync\", \"callback_event\", \"promise_fulfilled\", \"promise_rejected\", \"promise_any\", \"declarative_field\"",
     ]);
 
+    expectCompileError({
+        id: "invalid_fallback_mode",
+        semantics: [
+            {
+                kind: "bridge",
+                from: { surface: "postMessage", slot: "arg", index: 0 },
+                to: { surface: "onMessage", slot: "callback_param" },
+                constraints: [
+                    {
+                        kind: "same_receiver",
+                        fallbackMode: "all_targets_if_unmatched",
+                    },
+                ],
+            },
+        ],
+    }, [
+        "semantics[0].constraints[0].fallbackMode",
+        "is not supported",
+    ]);
+
     const scene = buildScene(repoRoot);
 
     const callbackBaseline = await runCase(scene, "callback_case.ets", "callback_case", {});

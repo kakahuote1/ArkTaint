@@ -37,9 +37,15 @@ async function main(): Promise<void> {
     assertUnknown("--providers-dir");
     assertUnknown("--disable-builtin-providers");
     assertUnknown("--disable-builtin-packs");
+    assertUnknown("--enableExternalEntryRecognition");
+    assertUnknown("--externalEntryMinConfidence");
+    assertUnknown("--externalEntryBatchSize");
+    assertUnknown("--externalEntryMaxCandidates");
+    assertUnknown("--enableExternalEntryFacts");
+    assertUnknown("--externalEntryCachePath");
 
     console.log("====== Analyze Invalid Flags Test ======");
-    console.log("rejected_flags=7");
+    console.log("rejected_flags=13");
 }
 
 main().catch(err => {

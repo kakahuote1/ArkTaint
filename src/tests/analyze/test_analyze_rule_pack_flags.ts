@@ -1,4 +1,5 @@
 import { parseArgs } from "../../cli/analyzeCliOptions";
+import * as path from "path";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -10,25 +11,28 @@ async function main(): Promise<void> {
     const parsed = parseArgs([
         "--repo", "tests/demo/rule_transfer_variants",
         "--sourceDir", ".",
-        "--ruleCatalog", "src/rules",
-        "--enable-rule-pack", "sdk_alpha,sdk_beta",
-        "--disable-rule-pack", "sdk_beta",
+        "--model-root", "src/models",
+        "--enable-model", "sdk_alpha:rules,sdk_beta:rules",
+        "--disable-model", "sdk_beta:rules",
     ]);
 
-    assert(parsed.ruleOptions.ruleCatalogPath === "src/rules", "ruleCatalog should map into ruleOptions.ruleCatalogPath");
     assert(
-        JSON.stringify(parsed.ruleOptions.enabledRulePacks || []) === JSON.stringify(["sdk_alpha", "sdk_beta"]),
-        "enable-rule-pack should parse CSV values",
+        parsed.ruleOptions.ruleCatalogPath === path.resolve("src/models"),
+        "model-root should map into ruleOptions.ruleCatalogPath",
     );
     assert(
-        JSON.stringify(parsed.ruleOptions.disabledRulePacks || []) === JSON.stringify(["sdk_beta"]),
-        "disable-rule-pack should parse CSV values",
+        JSON.stringify(parsed.enabledModels || []) === JSON.stringify(["sdk_alpha:rules", "sdk_beta:rules"]),
+        "enable-model should parse CSV values",
+    );
+    assert(
+        JSON.stringify(parsed.disabledModels || []) === JSON.stringify(["sdk_beta:rules"]),
+        "disable-model should parse CSV values",
     );
 
     console.log("====== Analyze Rule Pack Flags ======");
-    console.log("rule_catalog_flag=PASS");
-    console.log("enable_rule_pack_flag=PASS");
-    console.log("disable_rule_pack_flag=PASS");
+    console.log("model_root_flag=PASS");
+    console.log("enable_model_flag=PASS");
+    console.log("disable_model_flag=PASS");
 }
 
 main().catch(error => {
@@ -36,3 +40,4 @@ main().catch(error => {
     console.error(error);
     process.exit(1);
 });
+

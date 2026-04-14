@@ -30,11 +30,11 @@ function makeEmptyRuleSet(kind: "sources" | "sinks" | "sanitizers" | "transfers"
 }
 
 async function main(): Promise<void> {
-    const root = path.resolve("tmp/test_runs/rule_project_pack_loading/latest/rules");
+    const root = path.resolve("tmp/test_runs/rule_project_pack_loading/latest/models");
     fs.rmSync(path.dirname(root), { recursive: true, force: true });
 
     writeRuleFile(
-        path.join(root, "sources", "kernel", "seed.rules.json"),
+        path.join(root, "kernel", "rules", "sources", "seed.rules.json"),
         makeEmptyRuleSet("sources", [
             {
                 id: "source.kernel.seed",
@@ -45,7 +45,7 @@ async function main(): Promise<void> {
         ]),
     );
     writeRuleFile(
-        path.join(root, "sinks", "kernel", "send.rules.json"),
+        path.join(root, "kernel", "rules", "sinks", "send.rules.json"),
         makeEmptyRuleSet("sinks", [
             {
                 id: "sink.kernel.send",
@@ -54,11 +54,11 @@ async function main(): Promise<void> {
         ]),
     );
     writeRuleFile(
-        path.join(root, "sanitizers", "kernel", "sanitize.rules.json"),
+        path.join(root, "kernel", "rules", "sanitizers", "sanitize.rules.json"),
         makeEmptyRuleSet("sanitizers", []),
     );
     writeRuleFile(
-        path.join(root, "transfers", "kernel", "flow.rules.json"),
+        path.join(root, "kernel", "rules", "transfers", "flow.rules.json"),
         makeEmptyRuleSet("transfers", [
             {
                 id: "transfer.kernel.base_to_result",
@@ -70,7 +70,7 @@ async function main(): Promise<void> {
     );
 
     writeRuleFile(
-        path.join(root, "sources", "project", "sdk_alpha", "alpha.rules.json"),
+        path.join(root, "project", "sdk_alpha", "rules", "sources", "alpha.rules.json"),
         makeEmptyRuleSet("sources", [
             {
                 id: "source.project.alpha",
@@ -81,7 +81,7 @@ async function main(): Promise<void> {
         ]),
     );
     writeRuleFile(
-        path.join(root, "transfers", "project", "sdk_alpha", "alpha.rules.json"),
+        path.join(root, "project", "sdk_alpha", "rules", "transfers", "alpha.rules.json"),
         makeEmptyRuleSet("transfers", [
             {
                 id: "transfer.project.alpha",
@@ -92,7 +92,7 @@ async function main(): Promise<void> {
         ]),
     );
     writeRuleFile(
-        path.join(root, "sinks", "project", "sdk_beta", "beta.rules.json"),
+        path.join(root, "project", "sdk_beta", "rules", "sinks", "beta.rules.json"),
         makeEmptyRuleSet("sinks", [
             {
                 id: "sink.project.beta",

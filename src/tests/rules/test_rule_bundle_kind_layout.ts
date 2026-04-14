@@ -30,16 +30,13 @@ function writeRuleFile(filePath: string, payload: unknown): void {
 }
 
 function verifyKindFirstRoot(kind: RuleBundleKind): void {
-    const ruleCatalog = path.resolve("src/rules");
-    const kindDir = path.join(ruleCatalog, kind);
-    const kernelDir = path.join(kindDir, "kernel");
-    const projectDir = path.join(kindDir, "project");
+    const ruleCatalog = path.resolve("src/models");
+    const kindDir = path.join(ruleCatalog, "kernel", "rules", kind);
 
-    assert(fs.existsSync(kernelDir), `missing ${kind}/kernel directory`);
-    assert(fs.existsSync(projectDir), `missing ${kind}/project directory`);
-    const memberFiles = fs.readdirSync(kernelDir)
+    assert(fs.existsSync(kindDir), `missing kernel/rules/${kind} directory`);
+    const memberFiles = fs.readdirSync(kindDir)
         .filter(name => name.endsWith(".rules.json"))
-        .map(name => path.join(kernelDir, name));
+        .map(name => path.join(kindDir, name));
     assert(memberFiles.length > 0, `missing ${kind} kernel rule files`);
 
     for (const memberPath of memberFiles) {
@@ -58,9 +55,9 @@ function main(): void {
     verifyKindFirstRoot("sanitizers");
     verifyKindFirstRoot("transfers");
 
-    const probeRoot = path.resolve("tmp/test_runs/rule_bundle_kind_layout/latest/rules");
+    const probeRoot = path.resolve("tmp/test_runs/rule_bundle_kind_layout/latest/models");
     fs.rmSync(path.dirname(probeRoot), { recursive: true, force: true });
-    writeRuleFile(path.join(probeRoot, "sources", "kernel", "alpha.rules.json"), {
+    writeRuleFile(path.join(probeRoot, "kernel", "rules", "sources", "alpha.rules.json"), {
         schemaVersion: "2.0",
         sources: [
             {
@@ -74,7 +71,7 @@ function main(): void {
         sanitizers: [],
         transfers: [],
     });
-    writeRuleFile(path.join(probeRoot, "sinks", "kernel", "omega.rules.json"), {
+    writeRuleFile(path.join(probeRoot, "kernel", "rules", "sinks", "omega.rules.json"), {
         schemaVersion: "2.0",
         sources: [],
         sinks: [
@@ -86,14 +83,14 @@ function main(): void {
         sanitizers: [],
         transfers: [],
     });
-    writeRuleFile(path.join(probeRoot, "sanitizers", "kernel", "gamma.rules.json"), {
+    writeRuleFile(path.join(probeRoot, "kernel", "rules", "sanitizers", "gamma.rules.json"), {
         schemaVersion: "2.0",
         sources: [],
         sinks: [],
         sanitizers: [],
         transfers: [],
     });
-    writeRuleFile(path.join(probeRoot, "transfers", "kernel", "beta.rules.json"), {
+    writeRuleFile(path.join(probeRoot, "kernel", "rules", "transfers", "beta.rules.json"), {
         schemaVersion: "2.0",
         sources: [],
         sinks: [],
@@ -111,7 +108,7 @@ function main(): void {
     const loaded = loadRuleSet({
         ruleCatalogPath: probeRoot,
     });
-    assert(loaded.appliedLayerOrder.join(" -> ") === "kernel", "kind-first root loading should keep kernel-only order by default");
+    assert(loaded.appliedLayerOrder.join(" -> ") === "kernel", "pack layout loading should keep kernel-only order by default");
     assert(loaded.ruleSet.sources.some(rule => rule.id === "source.layout.alpha"), "loader should accept arbitrary kernel source file names");
     assert(loaded.ruleSet.sinks.some(rule => rule.id === "sink.layout.omega"), "loader should accept arbitrary kernel sink file names");
     assert(loaded.ruleSet.transfers.some(rule => rule.id === "transfer.layout.beta"), "loader should accept arbitrary kernel transfer file names");
@@ -120,3 +117,4 @@ function main(): void {
 }
 
 main();
+

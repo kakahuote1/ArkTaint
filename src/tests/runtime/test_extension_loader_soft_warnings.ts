@@ -16,16 +16,17 @@ function writeFile(filePath: string, content: string): void {
 
 function main(): void {
     const root = path.resolve("tmp/test_runs/diagnostics/extension_loader_soft_warnings/latest");
-    const moduleDir = path.join(root, "modules");
+    const moduleDir = path.join(root, "models");
+    const modulePackDir = path.join(moduleDir, "kernel", "fixture", "modules");
     const pluginDir = path.join(root, "plugins");
     fs.rmSync(root, { recursive: true, force: true });
-    fs.mkdirSync(moduleDir, { recursive: true });
+    fs.mkdirSync(modulePackDir, { recursive: true });
     fs.mkdirSync(pluginDir, { recursive: true });
 
-    writeFile(path.join(moduleDir, "kernel", "README.md"), "# allowed helper doc\n");
-    writeFile(path.join(moduleDir, "kernel", "noise.bin"), "not-a-module");
-    writeFile(path.join(moduleDir, "kernel", "broken.ts"), "export default {\n");
-    writeFile(path.join(moduleDir, "kernel", "helper.ts"), "export const value = 1;\n");
+    writeFile(path.join(modulePackDir, "README.md"), "# allowed helper doc\n");
+    writeFile(path.join(modulePackDir, "noise.bin"), "not-a-module");
+    writeFile(path.join(modulePackDir, "broken.ts"), "export default {\n");
+    writeFile(path.join(modulePackDir, "helper.ts"), "export const value = 1;\n");
 
     writeFile(path.join(pluginDir, "README.md"), "# allowed helper doc\n");
     writeFile(path.join(pluginDir, "noise.bin"), "not-a-plugin");

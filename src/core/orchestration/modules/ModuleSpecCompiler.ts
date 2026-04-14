@@ -137,7 +137,6 @@ interface CarrierBridgeModuleSpec {
     target: CarrierBridgeSideSpec;
     targetDeferredBinding?: ModuleImperativeDeferredBindingSpec;
     emit?: ModuleBridgeEmitSpec;
-    fallbackMode?: "none" | "all_targets_if_unmatched";
 }
 
 interface DirectCallbackBridgeModuleSpec {
@@ -1742,11 +1741,6 @@ function compileCarrierBridgeModule(spec: CarrierBridgeModuleSpec): TaintModule 
                     }
                 }
 
-                if (matchedTargets.size === 0 && spec.fallbackMode === "all_targets_if_unmatched") {
-                    for (const nodeId of allTargetValueNodeIds) {
-                        matchedTargets.add(nodeId);
-                    }
-                }
                 if (matchedTargets.size === 0) continue;
                 relay.connectMany(sourceValueNodeIds, matchedTargets);
             }
@@ -2803,7 +2797,6 @@ function lowerPortToPortTransfer(
                 ? toDeferredBindingSpec(index, spec, toPort)
                 : undefined,
             emit: buildBridgeEmitSpec(spec, transfer, "carrier_bridge"),
-            fallbackMode: transfer.fallbackMode || "none",
         };
     }
 
@@ -3739,7 +3732,6 @@ function expandCallbackChannelRecipe(
                     kind: "invoke_base",
                     nodeKind: "carrier",
                 },
-                fallbackMode: recipe.fallbackMode,
             },
             emit: recipe.emit,
             trigger: recipe.trigger || {
@@ -3833,7 +3825,6 @@ function expandAccessorPairRecipe(
                     kind: "invoke_base",
                     nodeKind: "carrier",
                 },
-                fallbackMode: recipe.fallbackMode,
             },
             emit: recipe.emit,
         },
@@ -3904,7 +3895,6 @@ function expandAssociatedBridgeRecipe(
         fromPort,
         toPort,
         association: associationId,
-        fallbackMode: recipe.association.fallbackMode,
         ...buildRecipeTransferBase(recipe.id, recipe.emit),
     }, "transfer", spec.id);
     addRecipeCallbackTrigger(spec, surfaceIds, ports, triggers, seenPortIds, seenTriggerIds, recipe.id, recipe.trigger, toPort);
@@ -4072,7 +4062,6 @@ function expandBridgeSemantic(
                     right: toRecipeEndpointFromSemantic(spec, surfaceIds, semantic.id, "assoc.right", toSurfaceRef.kind === "invoke"
                         ? { slot: "base", surface: toSurfaceRef }
                         : semantic.to, { relationCarrier: true }),
-                    fallbackMode: receiverConstraint.fallbackMode,
                 },
                 emit: semantic.emit,
                 trigger: toRecipeTriggerFromDispatch(spec, surfaceIds, semantic.id, semantic.dispatch),

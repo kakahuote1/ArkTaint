@@ -23,8 +23,8 @@ async function main(): Promise<void> {
     fs.rmSync(root, { recursive: true, force: true });
 
     const repoSourceDir = path.join(repoRoot, "src", "main", "ets");
-    const inspectProjectDir = path.join(moduleRoot, "project", "inspect_demo");
-    const traceProjectDir = path.join(moduleRoot, "project", "trace_demo");
+    const inspectProjectDir = path.join(moduleRoot, "project", "inspect_demo", "modules");
+    const traceProjectDir = path.join(moduleRoot, "project", "trace_demo", "modules");
 
     writeText(
         path.join(repoSourceDir, "EntryAbility.ets"),
@@ -134,26 +134,32 @@ async function main(): Promise<void> {
         process.execPath,
         `"${cli}"`,
         "--repo", `"${repoRoot}"`,
-        "--module-root", `"${moduleRoot}"`,
-        "--enable-module-project", "trace_demo",
-        "--list-module-projects",
+        "--model-root", `"${moduleRoot}"`,
+        "--enable-model", "trace_demo:modules",
+        "--list-models",
     ].join(" ");
     const listProjectsResult = runShell(listProjectsCommand, { stdio: "pipe" });
     if (listProjectsResult.status !== 0) {
-        throw new Error(`list-module-projects failed:\n${listProjectsResult.stdout}\n${listProjectsResult.stderr}`);
+        throw new Error(`list-models failed:\n${listProjectsResult.stdout}\n${listProjectsResult.stderr}`);
     }
     const listProjectsOutput = `${listProjectsResult.stdout}\n${listProjectsResult.stderr}`;
-    assert(listProjectsOutput.includes("project=inspect_demo"), "list-module-projects should include inspect_demo");
-    assert(listProjectsOutput.includes("project=trace_demo"), "list-module-projects should include trace_demo");
-    assert(listProjectsOutput.includes("project=trace_demo\tenabled=true"), "trace_demo should be marked enabled");
-    assert(listProjectsOutput.includes("project=inspect_demo\tenabled=false"), "inspect_demo should be marked disabled");
+    assert(listProjectsOutput.includes("pack=inspect_demo"), "list-models should include inspect_demo");
+    assert(listProjectsOutput.includes("pack=trace_demo"), "list-models should include trace_demo");
+    assert(
+        listProjectsOutput.includes("pack=trace_demo") && listProjectsOutput.includes("enabled=modules"),
+        "trace_demo should be marked enabled for modules",
+    );
+    assert(
+        listProjectsOutput.includes("pack=inspect_demo") && listProjectsOutput.includes("enabled=-"),
+        "inspect_demo should be marked disabled",
+    );
 
     const listModulesCommand = [
         process.execPath,
         `"${cli}"`,
         "--repo", `"${repoRoot}"`,
-        "--module-root", `"${moduleRoot}"`,
-        "--enable-module-project", "trace_demo",
+        "--model-root", `"${moduleRoot}"`,
+        "--enable-model", "trace_demo:modules",
         "--list-modules",
     ].join(" ");
     const listModulesResult = runShell(listModulesCommand, { stdio: "pipe" });
@@ -169,8 +175,8 @@ async function main(): Promise<void> {
         process.execPath,
         `"${cli}"`,
         "--repo", `"${repoRoot}"`,
-        "--module-root", `"${moduleRoot}"`,
-        "--enable-module-project", "trace_demo",
+        "--model-root", `"${moduleRoot}"`,
+        "--enable-model", "trace_demo:modules",
         "--explain-module", "fixture.inspect_disabled",
     ].join(" ");
     const explainResult = runShell(explainCommand, { stdio: "pipe" });
@@ -188,8 +194,8 @@ async function main(): Promise<void> {
         `"${cli}"`,
         "--repo", `"${repoRoot}"`,
         "--sourceDir", "src/main/ets",
-        "--module-root", `"${moduleRoot}"`,
-        "--enable-module-project", "trace_demo",
+        "--model-root", `"${moduleRoot}"`,
+        "--enable-model", "trace_demo:modules",
         "--project", `"${path.join(moduleRoot, "trace.rules.json")}"`,
         "--trace-module", "fixture.trace_module",
         "--no-incremental",

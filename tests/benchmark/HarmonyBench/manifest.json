@@ -10,7 +10,7 @@
                            "sourceDir":  "tests/demo/harmony_lifecycle",
                            "rules":  {
                                          "kernelRule":  "tests/rules/minimal.rules.json",
-                                         "ruleCatalog":  "src/rules",
+                                         "ruleCatalog":  "src/models",
                                          "project":  "tests/rules/harmony_lifecycle_sink_only.rules.json"
                                      },
                            "cases":  [
@@ -675,7 +675,7 @@
                            "sourceDir":  "tests/demo/harmony_router_dynamic",
                            "rules":  {
                                          "kernelRule":  "tests/rules/minimal.rules.json",
-                                         "ruleCatalog":  "src/rules",
+                                         "ruleCatalog":  "src/models",
                                          "project":  "tests/rules/harmony_router_dynamic.rules.json"
                                      },
                            "cases":  [

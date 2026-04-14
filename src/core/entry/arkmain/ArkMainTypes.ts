@@ -149,19 +149,20 @@ export const ARK_MAIN_ROOT_ENTRY_FACT_KINDS: ReadonlySet<ArkMainFactKind> = new 
     "extension_lifecycle",
     "page_build",
     "page_lifecycle",
-    "callback",
-    "scheduler_callback",
-    "watch_handler",
-    "want_handoff",
 ]);
 
 export const ARK_MAIN_ACTIVATION_SUPPORT_FACT_KINDS: ReadonlySet<ArkMainFactKind> = new Set([
+]);
+
+export const ARK_MAIN_PROPAGATION_MODELING_FACT_KINDS: ReadonlySet<ArkMainFactKind> = new Set<ArkMainFactKind>([
+    "want_handoff",
+    "callback",
+    "scheduler_callback",
+    "watch_handler",
     "watch_source",
     "router_source",
     "router_trigger",
 ]);
-
-export const ARK_MAIN_PROPAGATION_MODELING_FACT_KINDS: ReadonlySet<ArkMainFactKind> = new Set<ArkMainFactKind>();
 
 export interface ArkMainEntryFact {
     phase: ArkMainPhaseName;
@@ -187,8 +188,8 @@ export interface ArkMainEntryFact {
 
 export interface ArkMainPlanOptions {
     seedMethods?: ArkMethod[];
-    externalEntryCandidates?: ArkMethod[];
-    externalEntryFacts?: ArkMainEntryFact[];
+    seededMethods?: ArkMethod[];
+    seededFacts?: ArkMainEntryFact[];
 }
 
 export interface ArkMainPhasePlan {
@@ -219,14 +220,6 @@ export function classifyArkMainFactOwnership(
     }
     if (ARK_MAIN_PROPAGATION_MODELING_FACT_KINDS.has(fact.kind)) {
         return "propagation_modeling";
-    }
-    if (fact.kind === "watch_source") {
-        return "activation_support";
-    }
-    if (fact.kind === "router_source" || fact.kind === "router_trigger") {
-        return fact.entryFamily?.startsWith("navigation_")
-            ? "activation_support"
-            : "propagation_modeling";
     }
     return "activation_support";
 }

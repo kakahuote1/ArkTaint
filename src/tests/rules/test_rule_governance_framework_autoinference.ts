@@ -22,7 +22,7 @@ function findTransferRule(rules: TransferRule[], id: string): TransferRule {
 
 async function main(): Promise<void> {
     const loaded = loadRuleSet({
-        ruleCatalogPath: path.resolve("src/rules"),
+        ruleCatalogPath: path.resolve("src/models"),
         autoDiscoverLayers: false,
         allowMissingProject: true,
         allowMissingCandidate: true,
@@ -79,3 +79,4 @@ main().catch(error => {
     console.error(error);
     process.exit(1);
 });
+

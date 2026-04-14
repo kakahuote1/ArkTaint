@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "reactiveAnchorMethodNames": [
+    "build",
+    "aboutToAppear",
+    "onPageShow",
+    "render"
+  ],
+  "abilityBaseClassNames": [
+    "Ability",
+    "UIAbility",
+    "ExtensionAbility",
+    "UiExtensionAbility",
+    "UIExtensionAbility",
+    "FormExtensionAbility",
+    "ServiceExtensionAbility",
+    "BackupExtensionAbility",
+    "InputMethodExtensionAbility",
+    "WorkSchedulerExtensionAbility",
+    "AbilityStage",
+    "DriverExtensionAbility",
+    "AutoFillExtensionAbility",
+    "VpnExtensionAbility",
+    "FenceExtensionAbility",
+    "PrintExtensionAbility",
+    "PhotoEditorExtensionAbility",
+    "UIServiceExtensionAbility",
+    "AppServiceExtensionAbility",
+    "ShareExtensionAbility",
+    "ActionExtensionAbility",
+    "EmbeddableUIAbility",
+    "EmbeddedUIExtensionAbility",
+    "MediaControlExtensionAbility",
+    "UserAuthExtensionAbility",
+    "FormEditExtensionAbility",
+    "ChildProcess",
+    "InsightIntentExecutor",
+    "LiveFormExtensionAbility",
+    "AccessibilityExtensionAbility",
+    "WindowExtensionAbility",
+    "StaticSubscriberExtensionAbility",
+    "DistributedExtensionAbility",
+    "EnterpriseAdminExtensionAbility",
+    "FaultLogExtensionAbility",
+    "WallpaperExtensionAbility",
+    "DataShareExtensionAbility",
+    "SelectionExtensionAbility",
+    "AdsServiceExtensionAbility"
+  ],
+  "abilityHandoffTargetMethodNames": [
+    "onNewWant",
+    "onAcceptWant",
+    "onAcceptWantAsync",
+    "onNewProcessRequest",
+    "onNewProcessRequestAsync"
+  ],
+  "pageMethodNames": [
+    "build",
+    "aboutToAppear",
+    "aboutToDisappear",
+    "onPageShow",
+    "onPageHide",
+    "onBackPress",
+    "pageTransition",
+    "onDidBuild",
+    "render"
+  ],
+  "routerOwnerClassNames": [
+    "Router",
+    "NavPathStack"
+  ],
+  "navigationSourceOwnerClassNames": [
+    "Router",
+    "NavPathStack",
+    "NavDestination"
+  ],
+  "routerSourceMethodNames": [
+    "pushUrl",
+    "replaceUrl",
+    "pushNamedRoute",
+    "pushPath",
+    "pushPathByName",
+    "replacePath",
+    "trigger"
+  ],
+  "routerTriggerMethodNames": [
+    "getParams"
+  ],
+  "watchLikeDecorators": [
+    "Watch",
+    "Monitor"
+  ],
+  "ownerDecorators": [
+    "Entry",
+    "Component",
+    "CustomDialog"
+  ],
+  "builderDecorator": "Builder",
+  "deferredContinuationMethodNames": [
+    "then",
+    "catch",
+    "finally"
+  ],
+  "openWorldCallbackEntryFamilies": [
+    "unknown_sdk_callback",
+    "unknown_external_callback",
+    "unknown_structural_callback"
+  ]
+}

@@ -48,7 +48,7 @@ node out/cli/analyze.js --repo D:\projects\MyArkApp --sourceDir entry/src/main/e
 node out/cli/analyze.js \
   --repo D:\projects\MyArkApp \
   --sourceDir entry/src/main/ets \
-  --ruleCatalog src/rules
+  --model-root src/models
 ```
 
 ### 3.2 Add a project rule file
@@ -57,7 +57,7 @@ node out/cli/analyze.js \
 node out/cli/analyze.js \
   --repo D:\projects\MyArkApp \
   --sourceDir entry/src/main/ets \
-  --ruleCatalog src/rules \
+  --model-root src/models \
   --project D:\projects\MyArkApp\arktaint.project.rules.json
 ```
 
@@ -139,13 +139,13 @@ node out/cli/analyze.js \
 ### 5.4 Rules
 
 - `--kernelRule <file>`
-- `--ruleCatalog <dir>`
+- `--model-root <dir>`
 - `--rules <dir>`
-  - alias of `--ruleCatalog`
+  - alias of `--model-root`
 - `--project <file>`
 - `--candidate <file>`
-- `--enable-rule-pack <pack-id[,pack-id]>`
-- `--disable-rule-pack <pack-id[,pack-id]>`
+- `--enable-model <pack-id[,pack-id]>`
+- `--disable-model <pack-id[,pack-id]>`
 
 See [Rules](./rule_schema.md).
 
@@ -273,7 +273,7 @@ node out/cli/analyze.js \
 node out/cli/analyze.js \
   --repo <repo> \
   --sourceDir <sourceDir> \
-  --ruleCatalog src/rules
+  --model-root src/models
 ```
 
 ### 7.2 Rules plus project modules
@@ -282,7 +282,7 @@ node out/cli/analyze.js \
 node out/cli/analyze.js \
   --repo <repo> \
   --sourceDir <sourceDir> \
-  --ruleCatalog src/rules \
+  --model-root src/models \
   --project <project.rules.json> \
   --module-root <module-root> \
   --enable-module-project <project-id>

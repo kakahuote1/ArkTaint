@@ -1,7 +1,9 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as path from "path";
 import { parseArgs } from "./analyzeCliOptions";
+import type { CliOptions } from "./analyzeCliOptions";
 import { runAnalyze } from "./analyzeRunner";
+import { runSemanticFlowCli } from "./semanticflow";
 import { RuleLoadError } from "../core/rules/RuleLoader";
 import { inspectModules, ModuleCatalogEntry } from "../core/orchestration/modules/ModuleLoader";
 import { EnginePluginCatalogEntry, inspectEnginePlugins } from "../core/orchestration/plugins/EnginePluginLoader";
@@ -17,6 +19,11 @@ import {
     resolveAnalyzeOutputLayout,
     writeAnalyzeFailureRunManifest,
 } from "./analyzeOutputLayout";
+import { resolveModelSelections } from "./modelSelection";
+import { modelPackPlaneList } from "../core/model/ModelPack";
+
+declare const require: any;
+declare const module: any;
 
 function formatModuleSource(entry: ModuleCatalogEntry): string {
     if (entry.source === "project_module") {
@@ -29,18 +36,15 @@ function formatModuleSource(entry: ModuleCatalogEntry): string {
     return "explicit_object";
 }
 
-function renderModuleProjectInspection(
-    discoveredProjects: string[],
-    enabledProjects: string[],
-): string {
-    const enabledSet = new Set(enabledProjects);
+function renderModelInspection(result: ReturnType<typeof resolveModelSelections>): string {
     const lines = [
-        "====== ArkTaint Module Projects ======",
-        `discovered=${discoveredProjects.length}`,
-        `enabled=${enabledProjects.length}`,
+        "====== ArkTaint Models ======",
+        `discovered=${result.catalog.length}`,
     ];
-    for (const projectId of discoveredProjects) {
-        lines.push(`project=${projectId}\tenabled=${enabledSet.has(projectId)}`);
+    for (const entry of result.catalog) {
+        lines.push(
+            `pack=${entry.packId}\tavailable=${modelPackPlaneList(entry.available).join(",") || "-"}\tenabled=${modelPackPlaneList(entry.enabled).join(",") || "-"}`,
+        );
     }
     return `${lines.join("\n")}\n`;
 }
@@ -195,24 +199,93 @@ function resolveFallbackOutputDir(argv: string[]): string {
     return path.resolve("output", "runs", "analyze", "__error__", ts);
 }
 
+function syncAutoModeledArtifacts(outputDir: string): void {
+    const copyDir = (fromDir: string, toDir: string) => {
+        if (!fs.existsSync(fromDir) || !fs.statSync(fromDir).isDirectory()) {
+            return;
+        }
+        fs.mkdirSync(path.dirname(toDir), { recursive: true });
+        fs.cpSync(fromDir, toDir, { recursive: true, force: true });
+    };
+    copyDir(path.join(outputDir, "final", "summary"), path.join(outputDir, "summary"));
+    copyDir(path.join(outputDir, "final", "diagnostics"), path.join(outputDir, "diagnostics"));
+}
+
 async function main(): Promise<void> {
     const options = parseArgs(process.argv.slice(2));
-    if (options.listModules || options.listModuleProjects || options.explainModuleId) {
+    await runAnalyzeCliCommand(options);
+}
+
+export async function runAnalyzeCliCommand(options: CliOptions): Promise<void> {
+    if (options.autoModel) {
+        if (
+            options.listModules
+            || options.listModels
+            || options.explainModuleId
+            || options.traceModuleId
+        ) {
+            throw new Error("--autoModel cannot be combined with inspection flags");
+        }
+        if (options.listPlugins || options.explainPluginName || options.tracePluginName) {
+            throw new Error("--autoModel cannot be combined with plugin inspection flags");
+        }
+        console.log("auto_model_phase=semanticflow start");
+        await runSemanticFlowCli({
+            repo: options.repo,
+            sourceDirs: options.sourceDirs,
+            llmConfigPath: options.llmConfigPath,
+            llmProfile: options.llmProfile,
+            publishModel: options.publishModel,
+            modelRoots: options.modelRoots,
+            outputDir: options.outputDir,
+            model: options.llmModel,
+            arkMainMaxCandidates: options.arkMainMaxCandidates,
+            maxRounds: 2,
+            concurrency: options.concurrency,
+            contextRadius: 4,
+            cfgNeighborRadius: 2,
+            maxSliceItems: 48,
+            examplesPerItem: 2,
+            analyze: true,
+            profile: options.profile,
+            reportMode: options.reportMode,
+            maxEntries: options.maxEntries,
+            k: options.k,
+            stopOnFirstFlow: options.stopOnFirstFlow,
+            maxFlowsPerEntry: options.maxFlowsPerEntry,
+        });
+        console.log("auto_model_phase=semanticflow done");
+        syncAutoModeledArtifacts(options.outputDir);
+        console.log("auto_model_phase=sync_artifacts done");
+        console.log(`auto_model=true`);
+        console.log(`final_summary_json=${path.join(options.outputDir, "summary", "summary.json")}`);
+        console.log(`final_summary_md=${path.join(options.outputDir, "summary", "summary.md")}`);
+        return;
+    }
+    if (options.listModels) {
+        process.stdout.write(renderModelInspection(resolveModelSelections({
+            ruleOptions: options.ruleOptions,
+            modelRoots: options.modelRoots,
+            enabledModels: options.enabledModels,
+            disabledModels: options.disabledModels,
+        })));
+        return;
+    }
+    if (options.listModules || options.explainModuleId) {
+        const resolved = resolveModelSelections({
+            ruleOptions: options.ruleOptions,
+            modelRoots: options.modelRoots,
+            enabledModels: options.enabledModels,
+            disabledModels: options.disabledModels,
+        });
         const inspection = inspectModules({
-            moduleRoots: options.moduleRoots || [],
+            moduleRoots: options.modelRoots || [],
             moduleSpecFiles: options.moduleSpecFiles || [],
-            enabledModuleProjects: options.enabledModuleProjects || [],
-            disabledModuleProjects: options.disabledModuleProjects || [],
+            enabledModuleProjects: resolved.enabledModuleProjects,
+            disabledModuleProjects: resolved.disabledModuleProjects,
             disabledModuleIds: options.disabledModuleIds || [],
             includeBuiltinModules: true,
         });
-        if (options.listModuleProjects) {
-            process.stdout.write(renderModuleProjectInspection(
-                inspection.discoveredModuleProjects,
-                inspection.enabledModuleProjects,
-            ));
-            return;
-        }
         if (options.listModules) {
             process.stdout.write(renderModuleCatalog(inspection.catalog));
             return;
@@ -270,8 +343,8 @@ async function main(): Promise<void> {
     console.log(`detect_profile=${JSON.stringify(report.summary.detectProfile)}`);
     console.log(`stage_profile=${JSON.stringify(report.summary.stageProfile)}`);
     console.log(`transfer_no_hit_reasons=${JSON.stringify(report.summary.transferNoHitReasons)}`);
-    if (report.summary.externalEntryRecognition) {
-        console.log(`external_entry_recognition=${JSON.stringify(report.summary.externalEntryRecognition)}`);
+    if (report.summary.arkMainSeeds) {
+        console.log(`arkmain_seeds=${JSON.stringify(report.summary.arkMainSeeds)}`);
     }
     console.log(`rule_layers=${report.ruleLayers.join(" -> ")}`);
     console.log(`summary_json=${jsonPath}`);
@@ -292,41 +365,50 @@ async function main(): Promise<void> {
     }
 }
 
-main().catch(err => {
-    const outputDir = resolveFallbackOutputDir(process.argv.slice(2));
-    const outputLayout = resolveAnalyzeOutputLayout(outputDir);
-    ensureAnalyzeOutputLayout(outputLayout);
-    const diagnostics = emptyAnalyzeErrorDiagnostics();
+async function runCliMain(): Promise<void> {
+    try {
+        await main();
+    } catch (err) {
+        const outputDir = resolveFallbackOutputDir(process.argv.slice(2));
+        const outputLayout = resolveAnalyzeOutputLayout(outputDir);
+        ensureAnalyzeOutputLayout(outputLayout);
+        const diagnostics = emptyAnalyzeErrorDiagnostics();
 
-    if (err instanceof RuleLoadError) {
-        diagnostics.ruleLoadIssues = err.issues;
+        if (err instanceof RuleLoadError) {
+            diagnostics.ruleLoadIssues = err.issues;
+            const { jsonPath, textPath } = writeDiagnosticsArtifacts(outputLayout.diagnosticsDir, diagnostics);
+            writeAnalyzeFailureRunManifest(outputLayout, {
+                generatedAt: new Date().toISOString(),
+            });
+            console.error("ArkTaint analyze failed while loading rules.");
+            process.stderr.write(formatDiagnosticsText(diagnostics));
+            console.error(`diagnostics_txt=${textPath}`);
+            console.error(`diagnostics_json=${jsonPath}`);
+            process.exitCode = 1;
+            return;
+        }
+
+        diagnostics.systemFailures.push(buildSystemFailureEvent(err, {
+            phase: "analyze",
+            code: "SYSTEM_ANALYZE_THROW",
+            title: "Analysis Pipeline",
+            summary: "The analyze pipeline threw an unexpected error.",
+            advice: "Inspect the stack and nearby code to decide whether this is a rule, extension, or engine issue.",
+        }));
         const { jsonPath, textPath } = writeDiagnosticsArtifacts(outputLayout.diagnosticsDir, diagnostics);
         writeAnalyzeFailureRunManifest(outputLayout, {
             generatedAt: new Date().toISOString(),
         });
-        console.error("ArkTaint analyze failed while loading rules.");
+        console.error("ArkTaint analyze failed.");
         process.stderr.write(formatDiagnosticsText(diagnostics));
         console.error(`diagnostics_txt=${textPath}`);
         console.error(`diagnostics_json=${jsonPath}`);
+        console.error(err);
         process.exitCode = 1;
-        return;
     }
+}
 
-    diagnostics.systemFailures.push(buildSystemFailureEvent(err, {
-        phase: "analyze",
-        code: "SYSTEM_ANALYZE_THROW",
-        title: "分析主流程",
-        summary: "分析主流程抛出了未归类异常",
-        advice: "这不是规则、语义包或插件自身的已归类错误。请先检查这里附近的代码和上一条栈信息，再决定是修配置、扩展还是引擎主流程。",
-    }));
-    const { jsonPath, textPath } = writeDiagnosticsArtifacts(outputLayout.diagnosticsDir, diagnostics);
-    writeAnalyzeFailureRunManifest(outputLayout, {
-        generatedAt: new Date().toISOString(),
-    });
-    console.error("ArkTaint analyze failed.");
-    process.stderr.write(formatDiagnosticsText(diagnostics));
-    console.error(`diagnostics_txt=${textPath}`);
-    console.error(`diagnostics_json=${jsonPath}`);
-    console.error(err);
-    process.exitCode = 1;
-});
+if (require.main === module) {
+    runCliMain();
+}
+

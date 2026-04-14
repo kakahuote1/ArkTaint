@@ -28,7 +28,7 @@ const KNOWN_BOUNDARY_CASES = new Set<string>();
 function parseArgs(argv: string[]): CliOptions {
     let sourceDir = "tests/demo/arkmain_stateful_object_precision";
     let kernelRulePath = "tests/rules/minimal.rules.json";
-    let ruleCatalogPath = "src/rules";
+    let ruleCatalogPath = "src/models";
     let projectRulePath = "tests/rules/harmony_lifecycle_sink_only.rules.json";
     let k = 1;
 
@@ -196,3 +196,4 @@ main().catch(err => {
     console.error(err);
     process.exitCode = 1;
 });
+

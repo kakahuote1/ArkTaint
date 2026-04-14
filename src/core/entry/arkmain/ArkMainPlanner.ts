@@ -44,12 +44,12 @@ export function buildArkMainPlan(scene: Scene, options: ArkMainPlanOptions = {})
     const _t0 = Date.now();
     const initialSeedMethods = dedupeMethods([
         ...(options.seedMethods || []),
-        ...(options.externalEntryCandidates || []),
+        ...(options.seededMethods || []),
     ]);
     const expandedSeedMethods = expandSeedMethodsByDirectCalls(scene, initialSeedMethods);
     const _t1 = Date.now();
     const facts = collectArkMainEntryFacts(scene, expandedSeedMethods, {
-        externalFacts: options.externalEntryFacts || [],
+        externalFacts: options.seededFacts || [],
     });
     const _t2 = Date.now();
     const activationGraph = buildArkMainActivationGraph(facts, expandedSeedMethods);

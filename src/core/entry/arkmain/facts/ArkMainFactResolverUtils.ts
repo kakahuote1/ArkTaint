@@ -6,9 +6,8 @@ import { ArkMainEntryFact } from "../ArkMainTypes";
 import {
     ARK_MAIN_ABILITY_BASE_CLASS_NAMES,
     ARK_MAIN_REACTIVE_ANCHOR_METHOD_NAMES,
+    ARK_MAIN_WATCH_LIKE_DECORATORS,
 } from "../catalog/ArkMainFrameworkCatalog";
-
-const WATCH_LIKE_DECORATORS = new Set(["Watch", "Monitor"]);
 
 export function classInheritsAbility(arkClass: ArkClass): boolean {
     return !!resolveAbilityLikeOwnerKind(arkClass);
@@ -73,7 +72,7 @@ export function findReactiveAnchorMethods(cls: ArkClass): ArkMethod[] {
     const watchMethods = methods.filter(method =>
         (method.getDecorators?.() || []).some(decorator => {
             const kind = normalizeDecoratorKind(decorator?.getKind?.());
-            return !!kind && WATCH_LIKE_DECORATORS.has(kind);
+            return !!kind && ARK_MAIN_WATCH_LIKE_DECORATORS.has(kind);
         }),
     );
     if (watchMethods.length > 0) {
@@ -112,7 +111,7 @@ export function extractWatchTargets(decorators: any[]): string[] {
     const out = new Set<string>();
     for (const decorator of decorators) {
         const kind = normalizeDecoratorKind(decorator?.getKind?.());
-        if (!kind || !WATCH_LIKE_DECORATORS.has(kind)) continue;
+        if (!kind || !ARK_MAIN_WATCH_LIKE_DECORATORS.has(kind)) continue;
         const raw = decorator?.getParam?.() || decorator?.getContent?.() || "";
         const normalized = normalizeDecoratorParam(raw);
         if (normalized) out.add(normalized);

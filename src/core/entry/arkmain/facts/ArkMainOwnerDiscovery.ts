@@ -1,8 +1,11 @@
 import { Scene } from "../../../../../arkanalyzer/out/src/Scene";
 import { ArkClass } from "../../../../../arkanalyzer/out/src/core/model/ArkClass";
 import { ArkMethod } from "../../../../../arkanalyzer/out/src/core/model/ArkMethod";
+import {
+    ARK_MAIN_BUILDER_DECORATOR,
+    ARK_MAIN_OWNER_DECORATORS,
+} from "../catalog/ArkMainFrameworkCatalog";
 import { normalizeDecoratorKind, resolveAbilityLikeOwnerKind } from "./ArkMainFactResolverUtils";
-import { resolveComponentLifecycleContract } from "./ArkMainLifecycleContracts";
 
 export type ArkMainManagedOwnerKind =
     | "ability_owner"
@@ -15,8 +18,7 @@ export interface ArkMainManagedOwnerEvidence {
     ownerKind: ArkMainManagedOwnerKind;
     recognitionLayer:
         | "owner_qualified_inheritance"
-        | "qualified_decorator_first_layer"
-        | "component_contract_shape";
+        | "qualified_decorator_first_layer";
     reason: string;
 }
 
@@ -38,26 +40,17 @@ export interface ArkMainManagedOwnerDiscovery {
     getPrimaryRecognitionLayer: (cls: ArkClass | null | undefined) => string | undefined;
 }
 
-export interface ArkMainManagedOwnerDiscoveryOptions {
-    includeComponentContractShape?: boolean;
-}
-
-const OWNER_DECORATORS = new Set(["Entry", "Component", "CustomDialog"]);
-const BUILDER_DECORATOR = "Builder";
-
 export function collectFrameworkManagedOwners(
     scene: Scene,
-    options: ArkMainManagedOwnerDiscoveryOptions = {},
 ): ArkMainManagedOwnerDiscovery {
     const ownerMap = new Map<string, ArkMainManagedOwnerRecord>();
     const ownerOrder: string[] = [];
-    const includeComponentContractShape = options.includeComponentContractShape ?? true;
 
     for (const cls of scene.getClasses()) {
-        const className = cls.getName?.() || "";
-        if (!className) continue;
+        const classIdentity = getClassIdentity(cls);
+        if (!classIdentity) continue;
 
-        const record = ensureRecord(ownerMap, ownerOrder, className, cls);
+        const record = ensureRecord(ownerMap, ownerOrder, classIdentity, cls);
         const inheritedOwnerKind = resolveAbilityLikeOwnerKind(cls);
         if (inheritedOwnerKind) {
             pushEvidence(record, {
@@ -82,34 +75,33 @@ export function collectFrameworkManagedOwners(
                 reason: "class/method carries @Builder decorator",
             });
         }
-
-        if (includeComponentContractShape && hasComponentLifecycleContractShape(cls)) {
-            pushEvidence(record, {
-                ownerKind: "component_owner",
-                recognitionLayer: "component_contract_shape",
-                reason: "class declares component lifecycle contract method",
-            });
-        }
     }
 
     const records = ownerOrder
-        .map(className => ownerMap.get(className))
+        .map(classIdentity => ownerMap.get(classIdentity))
         .filter((record): record is ArkMainManagedOwnerRecord => Boolean(record))
         .filter(record => record.ownerKinds.length > 0);
-    const recordByClassName = new Map(records.map(record => [record.ownerClass.getName?.() || "", record]));
+    const recordByClassIdentity = new Map(
+        records
+            .map(record => {
+                const classIdentity = getClassIdentity(record.ownerClass);
+                return classIdentity ? [classIdentity, record] as const : undefined;
+            })
+            .filter((item): item is readonly [string, ArkMainManagedOwnerRecord] => Boolean(item)),
+    );
 
     const hasKind = (cls: ArkClass | null | undefined, kind: ArkMainManagedOwnerKind): boolean => {
-        const className = cls?.getName?.() || "";
-        if (!className) return false;
-        return recordByClassName.get(className)?.ownerKinds.includes(kind) || false;
+        const classIdentity = getClassIdentity(cls);
+        if (!classIdentity) return false;
+        return recordByClassIdentity.get(classIdentity)?.ownerKinds.includes(kind) || false;
     };
 
     return {
         records,
         isFrameworkManagedOwner: (cls: ArkClass | null | undefined): boolean => {
-            const className = cls?.getName?.() || "";
-            if (!className) return false;
-            return recordByClassName.has(className);
+            const classIdentity = getClassIdentity(cls);
+            if (!classIdentity) return false;
+            return recordByClassIdentity.has(classIdentity);
         },
         isAbilityOwner: (cls: ArkClass | null | undefined): boolean => hasKind(cls, "ability_owner"),
         isStageOwner: (cls: ArkClass | null | undefined): boolean => hasKind(cls, "stage_owner"),
@@ -117,17 +109,16 @@ export function collectFrameworkManagedOwners(
         isComponentOwner: (cls: ArkClass | null | undefined): boolean => hasKind(cls, "component_owner"),
         isBuilderOwner: (cls: ArkClass | null | undefined): boolean => hasKind(cls, "builder_owner"),
         getEvidences: (cls: ArkClass | null | undefined): ArkMainManagedOwnerEvidence[] => {
-            const className = cls?.getName?.() || "";
-            if (!className) return [];
-            return [...(recordByClassName.get(className)?.evidences || [])];
+            const classIdentity = getClassIdentity(cls);
+            if (!classIdentity) return [];
+            return [...(recordByClassIdentity.get(classIdentity)?.evidences || [])];
         },
         getPrimaryRecognitionLayer: (cls: ArkClass | null | undefined): string | undefined => {
-            const evidences = cls ? (recordByClassName.get(cls.getName?.() || "")?.evidences || []) : [];
+            const evidences = cls
+                ? (recordByClassIdentity.get(getClassIdentity(cls) || "")?.evidences || [])
+                : [];
             if (evidences.some(evidence => evidence.recognitionLayer === "qualified_decorator_first_layer")) {
                 return "qualified_decorator_first_layer";
-            }
-            if (evidences.some(evidence => evidence.recognitionLayer === "component_contract_shape")) {
-                return "component_contract_shape";
             }
             return evidences[0]?.recognitionLayer;
         },
@@ -137,10 +128,10 @@ export function collectFrameworkManagedOwners(
 function ensureRecord(
     ownerMap: Map<string, ArkMainManagedOwnerRecord>,
     ownerOrder: string[],
-    className: string,
+    classIdentity: string,
     ownerClass: ArkClass,
 ): ArkMainManagedOwnerRecord {
-    const existing = ownerMap.get(className);
+    const existing = ownerMap.get(classIdentity);
     if (existing) {
         return existing;
     }
@@ -149,9 +140,21 @@ function ensureRecord(
         ownerKinds: [],
         evidences: [],
     };
-    ownerMap.set(className, record);
-    ownerOrder.push(className);
+    ownerMap.set(classIdentity, record);
+    ownerOrder.push(classIdentity);
     return record;
+}
+
+function getClassIdentity(cls: ArkClass | null | undefined): string | undefined {
+    if (!cls) return undefined;
+    const signatureText = cls.getSignature?.()?.toString?.();
+    if (signatureText) return signatureText;
+    const fileSignatureText = cls.getDeclaringArkFile?.()?.getFileSignature?.()?.toString?.()
+        || cls.getSignature?.()?.getDeclaringFileSignature?.()?.toString?.()
+        || "";
+    const className = cls.getName?.() || "";
+    if (!className) return undefined;
+    return `${fileSignatureText}::${className}`;
 }
 
 function pushEvidence(record: ArkMainManagedOwnerRecord, evidence: ArkMainManagedOwnerEvidence): void {
@@ -168,27 +171,22 @@ function pushEvidence(record: ArkMainManagedOwnerRecord, evidence: ArkMainManage
 }
 
 function hasOwnerDecorator(cls: ArkClass): boolean {
-    if (cls.hasEntryDecorator?.() || cls.hasComponentDecorator?.()) {
-        return true;
-    }
     const decorators = cls.getDecorators?.() || [];
-    return decorators.some(decorator => OWNER_DECORATORS.has(normalizeDecoratorKind(decorator?.getKind?.()) || ""));
+    return decorators.some(decorator =>
+        ARK_MAIN_OWNER_DECORATORS.has(normalizeDecoratorKind(decorator?.getKind?.()) || ""),
+    );
 }
 
 function hasBuilderDecorator(cls: ArkClass): boolean {
     const classHasBuilder = (cls.getDecorators?.() || [])
-        .some(decorator => normalizeDecoratorKind(decorator?.getKind?.()) === BUILDER_DECORATOR);
+        .some(decorator => normalizeDecoratorKind(decorator?.getKind?.()) === ARK_MAIN_BUILDER_DECORATOR);
     if (classHasBuilder) {
         return true;
     }
     return cls.getMethods().some((method: ArkMethod) =>
         !method.isStatic()
-        && (method.getDecorators?.() || []).some(decorator => normalizeDecoratorKind(decorator?.getKind?.()) === BUILDER_DECORATOR),
-    );
-}
-
-function hasComponentLifecycleContractShape(cls: ArkClass): boolean {
-    return cls.getMethods().some((method: ArkMethod) =>
-        !method.isStatic() && !!resolveComponentLifecycleContract(method.getName()),
+        && (method.getDecorators?.() || []).some(decorator =>
+            normalizeDecoratorKind(decorator?.getKind?.()) === ARK_MAIN_BUILDER_DECORATOR,
+        ),
     );
 }

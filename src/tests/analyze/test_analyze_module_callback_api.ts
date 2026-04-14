@@ -30,7 +30,7 @@ async function main(): Promise<void> {
     fs.rmSync(root, { recursive: true, force: true });
 
     const repoSourceDir = path.join(repoRoot, "src", "main", "ets");
-    const callbackProjectDir = path.join(moduleRoot, "project", "callback_demo");
+    const callbackProjectDir = path.join(moduleRoot, "project", "callback_demo", "modules");
 
     writeText(
         path.join(repoSourceDir, "EntryAbility.ets"),
@@ -128,8 +128,8 @@ async function main(): Promise<void> {
     ]);
     runAnalyzeCli([
         ...sharedArgs,
-        "--module-root", moduleRoot,
-        "--enable-module-project", "callback_demo",
+        "--model-root", moduleRoot,
+        "--enable-model", "callback_demo:modules",
         "--outputDir", moduleOutput,
     ]);
 

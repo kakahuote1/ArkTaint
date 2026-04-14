@@ -23,7 +23,6 @@ import {
     normalizeDiagnosticsItems,
     writeDiagnosticsArtifacts,
 } from "./diagnosticsFormat";
-import { createExternalEntryModelInvokerFromEnv } from "./externalEntryLlmClient";
 import {
     ensureAnalyzeOutputLayout,
     resolveAnalyzeOutputLayout,
@@ -65,8 +64,10 @@ import {
 import { injectArkUiSdk } from "../core/orchestration/ArkUiSdkConfig";
 import { loadModules } from "../core/orchestration/modules/ModuleLoader";
 import { loadEnginePlugins } from "../core/orchestration/plugins/EnginePluginLoader";
+import { loadArkMainSeeds, ArkMainLoadResult } from "../core/entry/arkmain/ArkMainLoader";
 import * as fs from "fs";
 import * as path from "path";
+import { resolveModelSelections } from "./modelSelection";
 
 async function mapWithConcurrency<T, R>(
     items: T[],
@@ -272,26 +273,30 @@ async function analyzeSourceDir(
     scene: Scene,
     sourceDir: string,
     options: CliOptions,
+    resolvedSelections: ReturnType<typeof resolveModelSelections>,
     loadedRules: LoadedRuleSet,
     seedingPolicy: AnalyzeSeedingPolicy,
     pluginDirs: string[],
     pluginFiles: string[],
+    arkMainLoadResult?: ArkMainLoadResult,
 ): Promise<EntryAnalyzeResult> {
     const t0 = process.hrtime.bigint();
     const stageProfile = emptyEntryStageProfile();
     const arkMainEntryName = "@arkMain";
     let engine: TaintPropagationEngine | undefined;
-    const externalEntryModelInvoker = createExternalEntryModelInvokerFromEnv({
-        enabled: options.enableExternalEntryRecognition,
-        model: options.externalEntryModel,
-    });
+    const arkMainSeeds = arkMainLoadResult && (arkMainLoadResult.methods.length > 0 || arkMainLoadResult.facts.length > 0)
+        ? {
+            methods: arkMainLoadResult.methods,
+            facts: arkMainLoadResult.facts,
+        }
+        : undefined;
     try {
         engine = new TaintPropagationEngine(scene, options.k, {
             transferRules: loadedRules.ruleSet.transfers || [],
-            moduleRoots: options.moduleRoots,
+            moduleRoots: options.modelRoots,
             moduleSpecFiles: options.moduleSpecFiles,
-            enabledModuleProjects: options.enabledModuleProjects,
-            disabledModuleProjects: options.disabledModuleProjects,
+            enabledModuleProjects: resolvedSelections.enabledModuleProjects,
+            disabledModuleProjects: resolvedSelections.disabledModuleProjects,
             disabledModuleIds: options.disabledModuleIds,
             enginePluginDirs: pluginDirs,
             enginePluginFiles: pluginFiles,
@@ -300,17 +305,10 @@ async function analyzeSourceDir(
             includeBuiltinEnginePlugins: true,
             pluginDryRun: options.pluginDryRun,
             pluginIsolate: options.pluginIsolate,
-            externalEntryRecognition: options.enableExternalEntryRecognition
+            arkMainSeeds: arkMainSeeds
                 ? {
-                    enabled: true,
-                    model: options.externalEntryModel,
-                    minConfidence: options.externalEntryMinConfidence,
-                    batchSize: options.externalEntryBatchSize,
-                    maxCandidates: options.externalEntryMaxCandidates,
-                    enableCache: Boolean(options.externalEntryCachePath),
-                    cachePath: options.externalEntryCachePath,
-                    enableExternalEntryFacts: options.enableExternalEntryFacts,
-                    modelInvoker: externalEntryModelInvoker,
+                    methods: arkMainSeeds.methods,
+                    facts: arkMainSeeds.facts,
                 }
                 : undefined,
             debug: {
@@ -359,7 +357,7 @@ async function analyzeSourceDir(
                 pagNodeResolutionAudit: engine.getPagNodeResolutionAuditSnapshot(),
                 moduleAudit: engine.getModuleAuditSnapshot(),
                 enginePluginAudit: engine.getEnginePluginAuditSnapshot(),
-                externalEntryRecognition: engine.getExternalEntryRecognitionReport(),
+                arkMainSeeds: engine.getArkMainSeedReport(),
                 elapsedMs: stageProfile.totalMs
             };
         }
@@ -419,7 +417,7 @@ async function analyzeSourceDir(
             pagNodeResolutionAudit: engine.getPagNodeResolutionAuditSnapshot(),
             moduleAudit: engine.getModuleAuditSnapshot(),
             enginePluginAudit: engine.getEnginePluginAuditSnapshot(),
-            externalEntryRecognition: engine.getExternalEntryRecognitionReport(),
+            arkMainSeeds: engine.getArkMainSeedReport(),
             elapsedMs: stageProfile.totalMs,
         };
     } catch (err: any) {
@@ -445,7 +443,7 @@ async function analyzeSourceDir(
             pagNodeResolutionAudit: engine?.getPagNodeResolutionAuditSnapshot() || emptyPagNodeResolutionAuditSnapshot(),
             moduleAudit: engine?.getModuleAuditSnapshot() || emptyModuleAuditSnapshot(),
             enginePluginAudit: engine?.getEnginePluginAuditSnapshot() || emptyEnginePluginAuditSnapshot(),
-            externalEntryRecognition: engine?.getExternalEntryRecognitionReport(),
+            arkMainSeeds: engine?.getArkMainSeedReport(),
             elapsedMs: stageProfile.totalMs,
             error: String(err?.message || err),
         };
@@ -464,13 +462,20 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     const analyzeStart = process.hrtime.bigint();
     const stageProfile = emptyAnalyzeStageProfile();
     ConfigBasedTransferExecutor.resetSceneRuleCacheStats();
+    const resolvedSelections = resolveModelSelections({
+        ruleOptions: options.ruleOptions,
+        modelRoots: options.modelRoots,
+        enabledModels: options.enabledModels,
+        disabledModels: options.disabledModels,
+    });
     const pluginDirs = (options.pluginPaths || []).filter(p => fs.existsSync(p) && fs.statSync(p).isDirectory());
     const pluginFiles = (options.pluginPaths || []).filter(p => fs.existsSync(p) && fs.statSync(p).isFile());
+    const arkMainWarningSet = new Set<string>();
     const moduleResult = loadModules({
-        moduleRoots: options.moduleRoots || [],
+        moduleRoots: options.modelRoots || [],
         moduleSpecFiles: options.moduleSpecFiles || [],
-        enabledModuleProjects: options.enabledModuleProjects || [],
-        disabledModuleProjects: options.disabledModuleProjects || [],
+        enabledModuleProjects: resolvedSelections.enabledModuleProjects,
+        disabledModuleProjects: resolvedSelections.disabledModuleProjects,
         disabledModuleIds: options.disabledModuleIds || [],
     });
     const enginePluginResult = loadEnginePlugins({
@@ -481,17 +486,19 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     });
     const ruleLoadT0 = process.hrtime.bigint();
     const loadedRules = loadRuleSet({
-        ...options.ruleOptions,
+        ...resolvedSelections.ruleOptions,
     });
     stageProfile.ruleLoadMs = elapsedMsSince(ruleLoadT0);
-    for (const warning of loadedRules.warnings) {
-        console.warn(`rule warning: ${warning}`);
-    }
-    for (const warning of moduleResult.warnings) {
-        console.warn(`module warning: ${warning}`);
-    }
-    for (const warning of enginePluginResult.warnings) {
-        console.warn(`engine plugin warning: ${warning}`);
+    if (options.showLoadWarnings !== false) {
+        for (const warning of loadedRules.warnings) {
+            console.warn(`rule warning: ${warning}`);
+        }
+        for (const warning of moduleResult.warnings) {
+            console.warn(`module warning: ${warning}`);
+        }
+        for (const warning of enginePluginResult.warnings) {
+            console.warn(`engine plugin warning: ${warning}`);
+        }
     }
     const seedingPolicy: AnalyzeSeedingPolicy = {
         enableSecondarySinkSweep: options.enableSecondarySinkSweep,
@@ -501,11 +508,16 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         ruleFingerprint,
         moduleFiles: buildLoadedFileFingerprint(moduleResult.loadedFiles),
         enginePluginFiles: buildLoadedFileFingerprint(enginePluginResult.loadedFiles),
-        moduleRoots: (options.moduleRoots || []).map(item => path.resolve(item)).sort(),
+        modelRoots: (options.modelRoots || []).map(item => path.resolve(item)).sort(),
         moduleSpecFiles: (options.moduleSpecFiles || []).map(item => path.resolve(item)).sort(),
-        enabledModuleProjects: [...(options.enabledModuleProjects || [])].sort(),
-        disabledModuleProjects: [...(options.disabledModuleProjects || [])].sort(),
+        enabledModuleProjects: [...resolvedSelections.enabledModuleProjects].sort(),
+        disabledModuleProjects: [...resolvedSelections.disabledModuleProjects].sort(),
         disabledModuleIds: [...(options.disabledModuleIds || [])].sort(),
+        arkMainSpecFiles: (options.arkMainSpecFiles || []).map(item => path.resolve(item)).sort(),
+        enabledArkMainProjects: [...resolvedSelections.enabledArkMainProjects].sort(),
+        disabledArkMainProjects: [...resolvedSelections.disabledArkMainProjects].sort(),
+        enabledModels: [...(options.enabledModels || [])].sort(),
+        disabledModels: [...(options.disabledModels || [])].sort(),
         pluginPaths: (options.pluginPaths || []).map(item => path.resolve(item)).sort(),
         disabledPluginNames: [...(options.disabledPluginNames || [])].sort(),
         pluginIsolate: [...(options.pluginIsolate || [])].sort(),
@@ -526,12 +538,13 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     const incrementalCache = options.incremental
         ? loadIncrementalCache<EntryAnalyzeResult>(incrementalCachePath, incrementalCacheScope)
         : new Map<string, IncrementalCacheEntry<EntryAnalyzeResult>>();
-    const sourceContextCache = new Map<string, { scene: Scene }>();
+    const sourceContextCache = new Map<string, { scene: Scene; arkMainLoad: ArkMainLoadResult }>();
     const orderedEntries: Array<EntryAnalyzeResult | undefined> = [];
     const pendingTasks: Array<{
         order: number;
         sourceDir: string;
         scene: Scene;
+        arkMainLoad: ArkMainLoadResult;
         entryCacheKey: string;
         entryStamp?: EntryFileStamp;
     }> = [];
@@ -542,7 +555,8 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         const sourceAbs = path.resolve(options.repo, sourceDir);
         if (!fs.existsSync(sourceAbs)) continue;
         let scene = sourceContextCache.get(sourceAbs)?.scene;
-        if (!scene) {
+        let arkMainLoad = sourceContextCache.get(sourceAbs)?.arkMainLoad;
+        if (!scene || !arkMainLoad) {
             stageProfile.sceneCacheMissCount++;
             const sceneBuildT0 = process.hrtime.bigint();
             const config = new SceneConfig();
@@ -551,8 +565,23 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
             scene = new Scene();
             scene.buildSceneFromProjectDir(config);
             scene.inferTypes();
+            arkMainLoad = loadArkMainSeeds(scene, {
+                arkMainRoots: options.modelRoots,
+                arkMainSpecFiles: options.arkMainSpecFiles,
+                enabledArkMainProjects: resolvedSelections.enabledArkMainProjects,
+                disabledArkMainProjects: resolvedSelections.disabledArkMainProjects,
+            });
+            for (const warning of arkMainLoad.warnings) {
+                if (arkMainWarningSet.has(warning)) {
+                    continue;
+                }
+                arkMainWarningSet.add(warning);
+                if (options.showLoadWarnings !== false) {
+                    console.warn(`arkmain warning: ${warning}`);
+                }
+            }
             stageProfile.sceneBuildMs += elapsedMsSince(sceneBuildT0);
-            sourceContextCache.set(sourceAbs, { scene });
+            sourceContextCache.set(sourceAbs, { scene, arkMainLoad });
         } else {
             stageProfile.sceneCacheHitCount++;
         }
@@ -578,6 +607,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
             order,
             sourceDir,
             scene,
+            arkMainLoad,
             entryCacheKey,
             entryStamp,
         });
@@ -592,10 +622,12 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
                 task.scene,
                 task.sourceDir,
                 options,
+                resolvedSelections,
                 loadedRules,
                 seedingPolicy,
                 pluginDirs,
                 pluginFiles,
+                task.arkMainLoad,
             );
         }
     );
@@ -655,25 +687,15 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         failedPluginNames: [] as string[],
         plugins: {} as Record<string, AnalyzeReport["summary"]["pluginAudit"]["plugins"][string]>,
     };
-    const externalEntryRecognitionSummary = {
-        enabled: options.enableExternalEntryRecognition === true,
-        model: options.externalEntryModel,
-        candidateCount: 0,
-        recognitionCount: 0,
-        promotedMethodCount: 0,
-        injectedFactCount: 0,
-        cacheEnabled: Boolean(options.externalEntryCachePath),
-        cachePath: options.externalEntryCachePath,
-        recognizedEntries: [] as NonNullable<AnalyzeReport["summary"]["externalEntryRecognition"]>["recognizedEntries"],
+    const arkMainSeedSummary = {
+        enabled: false,
+        methodCount: 0,
+        factCount: 0,
     };
     const loadedModuleIdSet = new Set<string>();
     const failedModuleIdSet = new Set<string>();
     const loadedPluginNameSet = new Set<string>();
     const failedPluginNameSet = new Set<string>();
-    const externalEntryRecognizedBest = new Map<
-        string,
-        NonNullable<AnalyzeReport["summary"]["externalEntryRecognition"]>["recognizedEntries"][number]
-    >();
     const diagnostics = emptyAnalyzeErrorDiagnostics();
     let transferShareCount = 0;
     const transferNoHitReasons: Record<string, number> = {};
@@ -805,20 +827,10 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
             current.resultTransformCount += stats.resultTransformCount;
             current.resultAddedFindingCount += stats.resultAddedFindingCount;
         }
-        if (e.externalEntryRecognition) {
-            externalEntryRecognitionSummary.candidateCount += e.externalEntryRecognition.candidateCount || 0;
-            externalEntryRecognitionSummary.recognitionCount += e.externalEntryRecognition.recognitionCount || 0;
-            externalEntryRecognitionSummary.promotedMethodCount += e.externalEntryRecognition.promotedMethodCount || 0;
-            externalEntryRecognitionSummary.injectedFactCount += e.externalEntryRecognition.injectedFactCount || 0;
-            for (const item of e.externalEntryRecognition.recognizedEntries || []) {
-                const existing = externalEntryRecognizedBest.get(item.methodSignature);
-                if (!existing || item.confidence > existing.confidence) {
-                    externalEntryRecognizedBest.set(item.methodSignature, {
-                        ...item,
-                        evidenceTags: [...(item.evidenceTags || [])],
-                    });
-                }
-            }
+        if (e.arkMainSeeds) {
+            arkMainSeedSummary.enabled = arkMainSeedSummary.enabled || e.arkMainSeeds.enabled;
+            arkMainSeedSummary.methodCount = Math.max(arkMainSeedSummary.methodCount, e.arkMainSeeds.methodCount || 0);
+            arkMainSeedSummary.factCount = Math.max(arkMainSeedSummary.factCount, e.arkMainSeeds.factCount || 0);
         }
         diagnostics.moduleRuntimeFailures.push(...e.moduleAudit.failureEvents);
         diagnostics.enginePluginRuntimeFailures.push(...e.enginePluginAudit.failureEvents);
@@ -844,9 +856,6 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     moduleAuditSummary.failedModuleIds = [...failedModuleIdSet].sort((a, b) => a.localeCompare(b));
     pluginAuditSummary.loadedPluginNames = [...loadedPluginNameSet].sort((a, b) => a.localeCompare(b));
     pluginAuditSummary.failedPluginNames = [...failedPluginNameSet].sort((a, b) => a.localeCompare(b));
-    externalEntryRecognitionSummary.recognizedEntries = [...externalEntryRecognizedBest.values()]
-        .sort((left, right) => right.confidence - left.confidence || left.methodSignature.localeCompare(right.methodSignature))
-        .slice(0, 50);
     const diagnosticItems = normalizeDiagnosticsItems(diagnostics);
     transferProfile.noCandidateCallsites = [...noCandidateSummaryMap.values()]
         .sort((a, b) => b.count - a.count || a.calleeSignature.localeCompare(b.calleeSignature))
@@ -889,8 +898,8 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
             diagnosticItems,
             moduleAudit: moduleAuditSummary,
             pluginAudit: pluginAuditSummary,
-            externalEntryRecognition: externalEntryRecognitionSummary.enabled
-                ? externalEntryRecognitionSummary
+            arkMainSeeds: arkMainSeedSummary.enabled
+                ? arkMainSeedSummary
                 : undefined,
             stageProfile: {
                 ruleLoadMs: Number(stageProfile.ruleLoadMs.toFixed(3)),

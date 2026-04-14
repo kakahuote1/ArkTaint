@@ -1,18 +1,10 @@
 import { ArkMethod } from "../../../../../arkanalyzer/out/src/core/model/ArkMethod";
 import { isKnownSchedulerMethodName } from "../../shared/FrameworkCallbackClassifier";
 import type { ArkMainEntryFact, ArkMainPhaseName } from "../ArkMainTypes";
-
-const ARK_MAIN_DEFERRED_CONTINUATION_METHOD_NAMES = new Set([
-    "then",
-    "catch",
-    "finally",
-]);
-
-const ARK_MAIN_OPEN_WORLD_CALLBACK_ENTRY_FAMILIES = new Set([
-    "unknown_sdk_callback",
-    "unknown_external_callback",
-    "unknown_structural_callback",
-]);
+import {
+    ARK_MAIN_DEFERRED_CONTINUATION_METHOD_NAMES,
+    ARK_MAIN_OPEN_WORLD_CALLBACK_ENTRY_FAMILIES,
+} from "../catalog/ArkMainFrameworkCatalog";
 
 interface ArkMainCallbackBindingLike {
     registrationMethodName?: string;

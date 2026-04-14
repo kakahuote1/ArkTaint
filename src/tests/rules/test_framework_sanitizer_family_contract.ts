@@ -15,7 +15,7 @@ function assert(condition: unknown, message: string): asserts condition {
 }
 
 function readKernelSanitizerRules(): SanitizerRule[] {
-    const dir = path.resolve("src/rules/sanitizers/kernel");
+    const dir = path.resolve("src/models/kernel/rules/sanitizers");
     const files = fs.readdirSync(dir)
         .filter(fileName => fileName.endsWith(".rules.json"))
         .sort((a, b) => a.localeCompare(b));
@@ -39,7 +39,7 @@ async function main(): Promise<void> {
 
     const kernelLoaded = loadRuleSet({
         kernelRulePath: path.resolve("tests/rules/minimal.rules.json"),
-        ruleCatalogPath: path.resolve("src/rules"),
+        ruleCatalogPath: path.resolve("src/models"),
         autoDiscoverLayers: false,
         allowMissingProject: true,
         allowMissingCandidate: true,
@@ -49,7 +49,7 @@ async function main(): Promise<void> {
 
     const projectLoaded = loadRuleSet({
         kernelRulePath: path.resolve("tests/rules/minimal.rules.json"),
-        ruleCatalogPath: path.resolve("src/rules"),
+        ruleCatalogPath: path.resolve("src/models"),
         projectRulePath: path.resolve("tests/rules/sanitizer_guard.rules.json"),
         autoDiscoverLayers: false,
     });
@@ -75,3 +75,4 @@ main().catch(error => {
     console.error(error);
     process.exit(1);
 });
+

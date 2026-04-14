@@ -27,7 +27,7 @@ function walkRuleFiles(dirPath: string, out: string[] = []): string[] {
 }
 
 function readKernelSinkRules(): SinkRule[] {
-    const files = walkRuleFiles(path.resolve("src/rules/sinks/kernel")).sort((a, b) => a.localeCompare(b));
+    const files = walkRuleFiles(path.resolve("src/models/kernel/rules/sinks")).sort((a, b) => a.localeCompare(b));
     return files.flatMap(filePath => {
         const ruleSet = JSON.parse(fs.readFileSync(filePath, "utf-8")) as TaintRuleSet;
         return ruleSet.sinks || [];
@@ -69,7 +69,7 @@ async function main(): Promise<void> {
 
     const loaded = loadRuleSet({
         kernelRulePath: path.resolve("tests/rules/minimal.rules.json"),
-        ruleCatalogPath: path.resolve("src/rules"),
+        ruleCatalogPath: path.resolve("src/models"),
         autoDiscoverLayers: false,
         allowMissingProject: true,
         allowMissingCandidate: true,
@@ -110,3 +110,4 @@ main().catch(error => {
     console.error(error);
     process.exit(1);
 });
+

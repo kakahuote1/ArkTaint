@@ -3,14 +3,15 @@ import * as path from "path";
 import { ModuleSession, TaintModule } from "../../kernel/contracts/ModuleContract";
 import { ModuleSpec, ModuleSpecDocument } from "../../kernel/contracts/ModuleSpec";
 import {
-    auditExtensionDirectoryFiles,
     collectExtensionExportCandidates,
+    auditExtensionDirectoryFiles,
     collectTypeScriptImportRecords,
     collectTypeScriptSourceFiles,
     ExtensionModuleLoadIssue,
     getExtensionSourceModulePath,
     loadExtensionModuleExports,
     pushLoaderWarning,
+    loadExtensionCandidatesFromModule,
     resolveExistingDirectories,
     resolveLoadableTypeScriptModule,
     resolvePublicModuleApiPath,
@@ -71,7 +72,8 @@ interface LoadedModuleResult {
 interface ProjectModuleSpec {
     projectId: string;
     rootDir: string;
-    files: string[];
+    moduleFiles: string[];
+    specFiles: string[];
 }
 
 type ModuleSelectionSource = "builtin_kernel" | "project_module" | "explicit_file" | "explicit_spec_file" | "explicit_spec" | "explicit_object";
@@ -101,25 +103,22 @@ export function loadModules(options: ModuleLoaderOptions = {}): ModuleLoadResult
     const extraRoots = resolveExistingDirectories(options.moduleRoots);
     const allRoots = [...new Set([...builtinRoots, ...extraRoots])];
 
-    for (const root of allRoots) {
-        const kernelRoot = path.join(root, "kernel");
-        if (fs.existsSync(kernelRoot) && fs.statSync(kernelRoot).isDirectory()) {
-            auditExtensionDirectoryFiles(kernelRoot, "module", warnings, options.onWarning);
-            for (const file of collectModuleFiles(kernelRoot)) {
-                loadModuleFile(
-                    file,
-                    "builtin_kernel",
-                    {
-                        attemptedModules,
-                        loadedFiles,
-                        loadIssues,
-                        selectedModules,
-                        warnings,
-                        disabledModuleIds,
-                        onWarning: options.onWarning,
-                    },
-                );
-            }
+    for (const kernelModuleRoot of collectKernelModuleRoots(allRoots)) {
+        auditExtensionDirectoryFiles(kernelModuleRoot, "module", warnings, options.onWarning);
+        for (const file of collectModuleFiles(kernelModuleRoot)) {
+            loadModuleFile(
+                file,
+                "builtin_kernel",
+                {
+                    attemptedModules,
+                    loadedFiles,
+                    loadIssues,
+                    selectedModules,
+                    warnings,
+                    disabledModuleIds,
+                    onWarning: options.onWarning,
+                },
+            );
         }
     }
 
@@ -129,7 +128,7 @@ export function loadModules(options: ModuleLoaderOptions = {}): ModuleLoadResult
         if (!enabledModuleProjects.has(spec.projectId)) {
             continue;
         }
-        for (const file of spec.files) {
+        for (const file of spec.moduleFiles) {
             loadModuleFile(
                 file,
                 "project_module",
@@ -144,6 +143,16 @@ export function loadModules(options: ModuleLoaderOptions = {}): ModuleLoadResult
                     projectRootDir: spec.rootDir,
                 },
             );
+        }
+        const projectSpecResult = loadModuleSpecFiles(spec.specFiles, warnings, options.onWarning);
+        loadIssues.push(...projectSpecResult.loadIssues);
+        for (const loadedFile of projectSpecResult.loadedFiles) {
+            loadedFiles.add(loadedFile);
+        }
+        for (const module of projectSpecResult.modules) {
+            if (!module?.id) continue;
+            if (disabledModuleIds.has(module.id)) continue;
+            registerModule(selectedModules, module, "project_module", warnings, options.onWarning);
         }
     }
 
@@ -270,21 +279,24 @@ export function inspectModules(options: ModuleLoaderOptions = {}): ModuleInspect
         }
     };
 
-    for (const root of allRoots) {
-        const kernelRoot = path.join(root, "kernel");
-        if (fs.existsSync(kernelRoot) && fs.statSync(kernelRoot).isDirectory()) {
-            auditExtensionDirectoryFiles(kernelRoot, "module", warnings, options.onWarning);
-            for (const file of collectModuleFiles(kernelRoot)) {
-                inspectFile(file, "builtin_kernel");
-            }
+    for (const kernelModuleRoot of collectKernelModuleRoots(allRoots)) {
+        auditExtensionDirectoryFiles(kernelModuleRoot, "module", warnings, options.onWarning);
+        for (const file of collectModuleFiles(kernelModuleRoot)) {
+            inspectFile(file, "builtin_kernel");
         }
     }
 
     const projectModuleSpecs = collectProjectModuleSpecs(allRoots);
     for (const spec of projectModuleSpecs) {
         discoveredModuleProjects.add(spec.projectId);
-        for (const file of spec.files) {
+        for (const file of spec.moduleFiles) {
             inspectFile(file, "project_module", spec.projectId, spec.rootDir);
+        }
+        const projectSpecResult = loadModuleSpecFiles(spec.specFiles, warnings, options.onWarning);
+        loadIssues.push(...projectSpecResult.loadIssues);
+        for (const module of projectSpecResult.modules) {
+            if (!module?.id) continue;
+            pushCandidate(module, module.enabled !== false, "project_module", spec.projectId);
         }
     }
 
@@ -349,11 +361,26 @@ function getBuiltinModuleRoots(explicitRoots?: string[]): string[] {
     if (explicit.length > 0) {
         return explicit;
     }
-    const preferredSourceRoot = path.resolve(__dirname, "../../../../src/modules");
+    const preferredSourceRoot = path.resolve(__dirname, "../../../../src/models");
     if (fs.existsSync(preferredSourceRoot) && fs.statSync(preferredSourceRoot).isDirectory()) {
         return [preferredSourceRoot];
     }
     return [];
+}
+
+function collectKernelModuleRoots(moduleRoots: string[]): string[] {
+    const out = new Set<string>();
+    for (const root of moduleRoots) {
+        const kernelModuleRoot = path.join(root, "kernel", "modules");
+        if (!fs.existsSync(kernelModuleRoot) || !fs.statSync(kernelModuleRoot).isDirectory()) {
+            continue;
+        }
+        if (collectModuleFiles(kernelModuleRoot).length === 0) {
+            continue;
+        }
+        out.add(path.resolve(kernelModuleRoot));
+    }
+    return [...out.values()].sort((a, b) => a.localeCompare(b));
 }
 
 function collectModuleFiles(rootDir: string): string[] {
@@ -362,31 +389,68 @@ function collectModuleFiles(rootDir: string): string[] {
 }
 
 function collectProjectModuleSpecs(moduleRoots: string[]): ProjectModuleSpec[] {
-    const byProjectId = new Map<string, { rootDir: string; files: string[] }>();
+    const byProjectId = new Map<string, { rootDir: string; moduleFiles: string[]; specFiles: string[] }>();
     for (const root of moduleRoots) {
         const projectRoot = path.join(root, "project");
         if (!fs.existsSync(projectRoot) || !fs.statSync(projectRoot).isDirectory()) continue;
         for (const entry of fs.readdirSync(projectRoot, { withFileTypes: true })) {
             if (!entry.isDirectory()) continue;
             const projectId = entry.name;
-            const projectDir = path.join(projectRoot, projectId);
-            const files = collectModuleFiles(projectDir);
-            if (files.length === 0) continue;
-            const current = byProjectId.get(projectId);
-            if (!current) {
-                byProjectId.set(projectId, { rootDir: projectDir, files: [...files] });
+            const packRootDir = path.join(projectRoot, projectId);
+            const projectDir = path.join(packRootDir, "modules");
+            if (!fs.existsSync(projectDir) || !fs.statSync(projectDir).isDirectory()) {
                 continue;
             }
-            current.files.push(...files);
+            const moduleFiles = collectModuleFiles(projectDir);
+            const specFiles = collectProjectModuleSpecFiles(projectDir);
+            if (moduleFiles.length === 0 && specFiles.length === 0) continue;
+            const current = byProjectId.get(projectId);
+            if (!current) {
+                byProjectId.set(projectId, {
+                    rootDir: projectDir,
+                    moduleFiles: [...moduleFiles],
+                    specFiles: [...specFiles],
+                });
+                continue;
+            }
+            current.moduleFiles.push(...moduleFiles);
+            current.specFiles.push(...specFiles);
         }
     }
     return [...byProjectId.entries()]
         .map(([projectId, spec]) => ({
             projectId,
             rootDir: spec.rootDir,
-            files: [...new Set(spec.files)].sort((a, b) => a.localeCompare(b)),
+            moduleFiles: [...new Set(spec.moduleFiles)].sort((a, b) => a.localeCompare(b)),
+            specFiles: [...new Set(spec.specFiles)].sort((a, b) => a.localeCompare(b)),
         }))
         .sort((a, b) => a.projectId.localeCompare(b.projectId));
+}
+
+function collectProjectModuleSpecFiles(rootDir: string): string[] {
+    if (!fs.existsSync(rootDir) || !fs.statSync(rootDir).isDirectory()) {
+        return [];
+    }
+    const out: string[] = [];
+    const queue = [rootDir];
+    for (let head = 0; head < queue.length; head++) {
+        const current = queue[head];
+        for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+            const fullPath = path.join(current, entry.name);
+            if (entry.isDirectory()) {
+                queue.push(fullPath);
+                continue;
+            }
+            if (!entry.isFile()) {
+                continue;
+            }
+            if (!entry.name.toLowerCase().endsWith(".modules.json")) {
+                continue;
+            }
+            out.push(path.resolve(fullPath));
+        }
+    }
+    return out.sort((a, b) => a.localeCompare(b));
 }
 
 function resolveEnabledModuleProjects(options: ModuleLoaderOptions): Set<string> {
@@ -458,6 +522,29 @@ function loadModulesFromModule(
     warnings: string[],
     onWarning?: (warning: string) => void,
 ): LoadedModuleResult {
+    const runtimeResult = loadExtensionCandidatesFromModule<TaintModule>({
+        modulePath,
+        kindLabel: "module",
+        warnings,
+        onWarning,
+        exportAliases: ["module", "moduleSpec", "modules"],
+        isCandidate: isModule,
+        getId: module => module.id,
+        isEnabled: module => module.enabled !== false,
+    });
+    const byId = new Map<string, LoadedModuleCandidate>();
+    for (const candidate of runtimeResult.candidates) {
+        byId.set(candidate.value.id, {
+            module: candidate.value,
+            enabled: candidate.enabled,
+        });
+    }
+    if (runtimeResult.loadIssue) {
+        return {
+            candidates: [],
+            loadIssue: runtimeResult.loadIssue,
+        };
+    }
     const exportsResult = loadExtensionModuleExports({
         modulePath,
         kindLabel: "module",
@@ -471,23 +558,6 @@ function loadModulesFromModule(
         };
     }
     const exportCandidates = collectExtensionExportCandidates(exportsResult.exports, ["module", "moduleSpec", "modules"]);
-    const byId = new Map<string, LoadedModuleCandidate>();
-    for (const candidate of exportCandidates) {
-        if (isModule(candidate)) {
-            if (byId.has(candidate.id)) {
-                pushLoaderWarning(
-                    warnings,
-                    onWarning,
-                    `module module exports duplicate id ${candidate.id}; keeping first export: ${modulePath}`,
-                );
-                continue;
-            }
-            byId.set(candidate.id, {
-                module: candidate,
-                enabled: candidate.enabled !== false,
-            });
-        }
-    }
     const exportedSpecs = collectExportedModuleSpecs(exportCandidates, modulePath, warnings, onWarning);
     if (exportedSpecs.length > 0) {
         const bundled = exportedSpecs.map(spec => bundleModuleSpec(spec, modulePath));

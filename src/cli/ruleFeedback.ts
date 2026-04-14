@@ -175,7 +175,7 @@ export function buildRuleFeedback(
 }
 
 export function writeNoCandidateCallsiteArtifacts(report: AnalyzeReport, outputDir: string): void {
-    const items = report.summary.ruleFeedback?.noCandidateCallsites || [];
+    const items = collectSemanticFlowRuleCandidateItems(report);
     const feedbackOutputDir = resolveRuleFeedbackOutputDir(outputDir);
     fs.mkdirSync(feedbackOutputDir, { recursive: true });
     const jsonPath = path.resolve(feedbackOutputDir, "no_candidate_callsites.json");
@@ -195,7 +195,7 @@ export function writeNoCandidateCallsiteClassificationArtifacts(
     loadedRules: LoadedRuleSet,
     outputDir: string,
 ): void {
-    const baseItems = report.summary.ruleFeedback?.noCandidateCallsites || [];
+    const baseItems = collectSemanticFlowRuleCandidateItems(report);
     const kernelTransferRules = loadAppliedKernelTransferRules(loadedRules);
     const items = baseItems.map(site => classifyNoCandidateCallsite(site, kernelTransferRules));
     const categoryCount = items.reduce((acc, item) => {
@@ -232,6 +232,51 @@ export function writeNoCandidateCallsiteClassificationArtifacts(
         items: projectCandidates,
     }, null, 2), "utf-8");
     fs.writeFileSync(projectCandidateMdPath, renderNoCandidateProjectCandidatesMarkdown(projectCandidates, report), "utf-8");
+}
+
+function collectSemanticFlowRuleCandidateItems(report: AnalyzeReport): NoCandidateCallsiteStat[] {
+    const merged = new Map<string, NoCandidateCallsiteStat>();
+    const add = (item: NoCandidateCallsiteStat): void => {
+        const key = `${item.callee_signature}|${item.method}|${item.invokeKind}|${item.argCount}|${item.sourceFile}`;
+        const existing = merged.get(key);
+        if (existing) {
+            existing.count = Math.max(existing.count, item.count);
+            existing.topEntries = dedupStrings([...existing.topEntries, ...item.topEntries]);
+            return;
+        }
+        merged.set(key, {
+            callee_signature: item.callee_signature,
+            method: item.method,
+            invokeKind: item.invokeKind,
+            argCount: item.argCount,
+            sourceFile: item.sourceFile,
+            count: item.count,
+            topEntries: dedupStrings(item.topEntries),
+        });
+    };
+
+    for (const item of report.summary.transferProfile.noCandidateCallsites || []) {
+        add({
+            callee_signature: item.calleeSignature,
+            method: item.method,
+            invokeKind: item.invokeKind,
+            argCount: item.argCount,
+            sourceFile: item.sourceFile,
+            count: item.count,
+            topEntries: [],
+        });
+    }
+    for (const item of report.summary.ruleFeedback?.noCandidateCallsites || []) {
+        add(item);
+    }
+
+    return [...merged.values()]
+        .sort((a, b) => b.count - a.count || a.callee_signature.localeCompare(b.callee_signature))
+        .slice(0, 200);
+}
+
+function dedupStrings(values: string[]): string[] {
+    return [...new Set(values.map(value => String(value || "").trim()).filter(Boolean))];
 }
 
 function getAnalyzeSourceRules(loadedRules: LoadedRuleSet): SourceRule[] {

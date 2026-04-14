@@ -29,7 +29,7 @@
   "hapBench": {
     "benchmarkRoot": "tests/benchmark/HapBench",
     "kernelRulePath": "tests/rules/minimal.rules.json",
-    "ruleCatalogPath": "src/rules",
+    "ruleCatalogPath": "src/models",
     "selectedCases": [
       "Anonymous Constructs/AnonymousClass2",
       "Lifecycle Modeling/ActivityLifecycle1",
