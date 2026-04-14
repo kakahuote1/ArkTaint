@@ -15,6 +15,10 @@ function readSummary(outputDir: string): any {
     return JSON.parse(fs.readFileSync(path.join(outputDir, "summary", "summary.json"), "utf8"));
 }
 
+function readJson(absPath: string): any {
+    return JSON.parse(fs.readFileSync(absPath, "utf8"));
+}
+
 function writeFixture(projectDir: string): void {
     fs.rmSync(projectDir, { recursive: true, force: true });
     fs.mkdirSync(projectDir, { recursive: true });
@@ -157,6 +161,7 @@ async function main(): Promise<void> {
     const llmConfigPath = path.join(root, "llm.json");
     const modelRoot = path.join(root, "assets");
     const autoOutputDir = path.join(root, "auto_model");
+    const autoReuseOutputDir = path.join(root, "auto_model_reuse");
     const reuseOutputDir = path.join(root, "reuse");
     fs.rmSync(root, { recursive: true, force: true });
     fs.mkdirSync(root, { recursive: true });
@@ -192,7 +197,7 @@ async function main(): Promise<void> {
 
         assert(fs.existsSync(path.join(modelRoot, "project", "shared_demo", "rules", "semanticflow.rules.json")), "published rule set missing");
         assert(fs.existsSync(path.join(modelRoot, "project", "shared_demo", "modules", "semanticflow.modules.json")), "published module specs missing");
-        assert(fs.existsSync(path.join(modelRoot, "project", "shared_demo", "arkmain", "semanticflow.arkmain.json")), "published arkmain specs missing");
+        assert(!fs.existsSync(path.join(modelRoot, "project", "shared_demo", "arkmain", "semanticflow.arkmain.json")), "built-in arkmain lifecycle should not publish project arkmain specs");
 
         await runAnalyzeCliCommand(parseArgs([
             "--repo", projectDir,
@@ -206,6 +211,29 @@ async function main(): Promise<void> {
         const summary = readSummary(reuseOutputDir);
         assert(summary.summary.withSeeds > 0, `expected reuse analyze withSeeds > 0, got ${summary.summary.withSeeds}`);
         assert(summary.summary.totalFlows > 0, `expected reuse analyze totalFlows > 0, got ${summary.summary.totalFlows}`);
+
+        await runAnalyzeCliCommand(parseArgs([
+            "--repo", projectDir,
+            "--sourceDir", ".",
+            "--autoModel",
+            "--llmConfig", llmConfigPath,
+            "--llmProfile", "test",
+            "--model", "mock-model-project",
+            "--model-root", modelRoot,
+            "--enable-model", "shared_demo",
+            "--no-incremental",
+            "--outputDir", autoReuseOutputDir,
+        ]));
+
+        const semanticflowSummary = readJson(path.join(autoReuseOutputDir, "summary.json"));
+        assert(semanticflowSummary.itemCount === 1, `expected exactly one remaining unknown semanticflow item, got ${semanticflowSummary.itemCount}`);
+        assert(semanticflowSummary.ruleKnownCoveredCount === 2, `expected enabled shared_demo pack to cover two known semanticflow rule candidates, got ${semanticflowSummary.ruleKnownCoveredCount}`);
+        const semanticflowSession = readJson(path.join(autoReuseOutputDir, "session.json"));
+        assert(semanticflowSession.items.length === 1, `expected one semanticflow session item after known filtering, got ${semanticflowSession.items.length}`);
+        assert(semanticflowSession.items[0]?.anchor?.surface === "info", `expected remaining semanticflow item to be the unknown info callsite, got ${semanticflowSession.items[0]?.anchor?.surface}`);
+        const autoReuseSummary = readSummary(autoReuseOutputDir);
+        assert(autoReuseSummary.summary.withSeeds > 0, `expected auto-model reuse analyze withSeeds > 0, got ${autoReuseSummary.summary.withSeeds}`);
+        assert(autoReuseSummary.summary.totalFlows > 0, `expected auto-model reuse analyze totalFlows > 0, got ${autoReuseSummary.summary.totalFlows}`);
 
         console.log("PASS test_analyze_model_project_reuse");
     } finally {

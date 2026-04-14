@@ -1,4 +1,5 @@
 import { normalizeNoCandidateItem } from "../../core/model/callsite/callsiteContextSlices";
+import { splitArkMainEntryCandidatesForSemanticFlow } from "../../core/entry/arkmain/llm/ArkMainEntryCandidateFilter";
 import { buildSemanticFlowArkMainCandidateItem, buildSemanticFlowRuleCandidateItem } from "../../core/semanticflow/SemanticFlowAdapters";
 import { createArkMainCandidateExpander } from "../../core/semanticflow/SemanticFlowExpanders";
 import type { ArkMainEntryCandidate } from "../../core/entry/arkmain/llm/ArkMainEntryCandidateTypes";
@@ -94,6 +95,16 @@ async function main(): Promise<void> {
 
     const arkCandidateA = buildFakeArkMainCandidate("<@Entry: DemoAbility.onCreate(Want)>");
     const arkCandidateB = buildFakeArkMainCandidate("<@Entry: DemoAbility.onCreate(Want,string)>");
+    const split = splitArkMainEntryCandidatesForSemanticFlow([arkCandidateA, {
+        ...arkCandidateB,
+        methodName: "loadContent",
+        ownerSignals: ["owner_contract:ability_owner:framework_contract"],
+        superClassName: "UIAbility",
+    }]);
+    assert(split.kernelCoveredCandidates.length === 1, `expected one kernel-covered arkmain candidate, got ${split.kernelCoveredCandidates.length}`);
+    assert(split.semanticFlowCandidates.length === 1, `expected one semanticflow arkmain candidate, got ${split.semanticFlowCandidates.length}`);
+    assert(split.kernelCoveredCandidates[0].methodName === "onCreate", "onCreate should be filtered as kernel-covered");
+    assert(split.semanticFlowCandidates[0].methodName === "loadContent", "unknown method should stay in semanticflow candidate set");
     const arkItemA = buildSemanticFlowArkMainCandidateItem(arkCandidateA);
     const arkItemB = buildSemanticFlowArkMainCandidateItem(arkCandidateB);
     assert(arkItemA.anchor.id !== arkItemB.anchor.id, "arkmain anchor ids must stay unique across overload signatures");

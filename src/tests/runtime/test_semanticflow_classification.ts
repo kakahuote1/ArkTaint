@@ -48,6 +48,26 @@ function main(): void {
     const moduleClassification = classifySemanticFlowSummary(anchor, moduleSummary, "module");
     assert(moduleClassification === "module", `expected module classification, got ${moduleClassification}`);
 
+    const bogusArkMainSummary: SemanticFlowSummary = {
+        inputs: [],
+        outputs: [],
+        transfers: [],
+        confidence: "high",
+        relations: {
+            entryPattern: {
+                phase: "bootstrap",
+                kind: "ability_lifecycle",
+                ownerKind: "ability_owner",
+                reason: "framework entry",
+            },
+        },
+    };
+    const bogusArkMainClassification = classifySemanticFlowSummary(anchor, bogusArkMainSummary, "arkmain");
+    assert(
+        bogusArkMainClassification === undefined,
+        `non-arkmain anchor must not classify as arkmain, got ${bogusArkMainClassification}`,
+    );
+
     console.log("PASS test_semanticflow_classification");
 }
 

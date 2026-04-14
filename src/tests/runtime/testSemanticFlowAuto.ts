@@ -214,9 +214,10 @@ async function main(): Promise<void> {
         const finalSummary = JSON.parse(fs.readFileSync(analysis.summaryJsonPath, "utf8"));
 
         assert(fs.existsSync(path.join(root, runManifest.paths.phase1RuleInput)), "phase1 no_candidate artifact missing");
-        assert(rootSummary.classifications.arkmain === 1, `expected one arkmain item, got ${rootSummary.classifications.arkmain || 0}`);
+        assert((rootSummary.classifications.arkmain || 0) === 0, `expected no semanticflow arkmain item, got ${rootSummary.classifications.arkmain || 0}`);
         assert(rootSummary.classifications.rule === 1, `expected one rule item, got ${rootSummary.classifications.rule || 0}`);
         assert(rootSummary.classifications.module === 1, `expected one module item, got ${rootSummary.classifications.module || 0}`);
+        assert(rootSummary.arkMainKernelCoveredCount === 1, `expected one kernel-covered arkmain candidate, got ${rootSummary.arkMainKernelCoveredCount || 0}`);
         assert((rules.transfers || []).length === 1, `expected one transfer rule, got ${(rules.transfers || []).length}`);
         assert((modules.modules || []).length === 1, `expected one module spec, got ${(modules.modules || []).length}`);
         assert(finalSummary.summary.totalFlows > 0, `expected final analyze flow, got ${finalSummary.summary.totalFlows}`);

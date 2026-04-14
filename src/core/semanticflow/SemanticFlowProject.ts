@@ -1,5 +1,6 @@
 import type { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { buildArkMainEntryCandidates } from "../entry/arkmain/llm/ArkMainEntryCandidateBuilder";
+import { splitArkMainEntryCandidatesForSemanticFlow } from "../entry/arkmain/llm/ArkMainEntryCandidateFilter";
 import type { ArkMainEntryCandidate } from "../entry/arkmain/llm/ArkMainEntryCandidateTypes";
 import type { NormalizedCallsiteItem } from "../model/callsite/callsiteContextSlices";
 import { buildSemanticFlowArkMainCandidateItem, buildSemanticFlowRuleCandidateItem } from "./SemanticFlowAdapters";
@@ -24,17 +25,20 @@ export interface SemanticFlowProjectOptions {
 export interface SemanticFlowProjectResult {
     session: SemanticFlowSessionResult;
     arkMainCandidates: ArkMainEntryCandidate[];
+    skippedArkMainCandidates: ArkMainEntryCandidate[];
     ruleCandidateCount: number;
 }
 
 export async function runSemanticFlowProject(
     options: SemanticFlowProjectOptions,
 ): Promise<SemanticFlowProjectResult> {
-    const arkMainCandidates = options.includeArkMainCandidates === false
+    const rawArkMainCandidates = options.includeArkMainCandidates === false
         ? []
         : buildArkMainEntryCandidates(options.scene as never, {
             maxCandidates: options.arkMainMaxCandidates,
         });
+    const { semanticFlowCandidates: arkMainCandidates, kernelCoveredCandidates: skippedArkMainCandidates } =
+        splitArkMainEntryCandidatesForSemanticFlow(rawArkMainCandidates);
     const ruleCandidates = options.ruleCandidates || [];
     const companionGroups = buildRuleCandidateCompanionGroups(ruleCandidates);
 
@@ -63,6 +67,7 @@ export async function runSemanticFlowProject(
     return {
         session,
         arkMainCandidates,
+        skippedArkMainCandidates,
         ruleCandidateCount: ruleCandidates.length,
     };
 }

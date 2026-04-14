@@ -380,17 +380,18 @@ async function main(): Promise<void> {
         const modules = JSON.parse(fs.readFileSync(path.join(root, "modules.json"), "utf8"));
         const arkmain = JSON.parse(fs.readFileSync(path.join(root, "arkmain.json"), "utf8"));
 
-        assert(summary.classifications.arkmain === 1, `expected one arkmain item, got ${summary.classifications.arkmain || 0}`);
+        assert((summary.classifications.arkmain || 0) === 0, `expected no semanticflow arkmain item, got ${summary.classifications.arkmain || 0}`);
         assert(summary.classifications.rule === 3, `expected three rule items, got ${summary.classifications.rule || 0}`);
         assert(summary.classifications.module === 1, `expected one module item, got ${summary.classifications.module || 0}`);
+        assert(summary.arkMainKernelCoveredCount === 1, `expected one kernel-covered arkmain candidate, got ${summary.arkMainKernelCoveredCount || 0}`);
         assert(summary.moduleCount === 1, `expected moduleCount=1, got ${summary.moduleCount}`);
-        assert(summary.arkMainSpecCount === 1, `expected arkMainSpecCount=1, got ${summary.arkMainSpecCount}`);
+        assert(summary.arkMainSpecCount === 0, `expected arkMainSpecCount=0, got ${summary.arkMainSpecCount}`);
 
         assert((rules.sources || []).length === 1, `expected one source rule, got ${(rules.sources || []).length}`);
         assert((rules.sinks || []).length === 1, `expected one sink rule, got ${(rules.sinks || []).length}`);
         assert((rules.transfers || []).length === 1, `expected one transfer rule, got ${(rules.transfers || []).length}`);
         assert((modules.modules || []).length === 1, `expected one module spec, got ${(modules.modules || []).length}`);
-        assert((arkmain.entries || []).length === 1, `expected one arkmain spec entry, got ${(arkmain.entries || []).length}`);
+        assert((arkmain.entries || []).length === 0, `expected no arkmain spec entry, got ${(arkmain.entries || []).length}`);
         assert(finalSummary.summary.withSeeds > 0, `expected final analyze to seed sources, got ${finalSummary.summary.withSeeds}`);
         assert(finalSummary.summary.totalFlows === 1, `expected final analyze to detect one flow, got ${finalSummary.summary.totalFlows}`);
 

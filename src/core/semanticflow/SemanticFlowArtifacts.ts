@@ -31,14 +31,14 @@ import type {
 } from "./SemanticFlowTypes";
 
 export function classifySemanticFlowSummary(
-    _anchor: SemanticFlowAnchor,
+    anchor: SemanticFlowAnchor,
     summary: SemanticFlowSummary,
     hint?: SemanticFlowArtifactClass,
 ): SemanticFlowArtifactClass | undefined {
     if (!hint) {
         return undefined;
     }
-    if (hint === "arkmain" && isEntryLike(summary)) {
+    if (hint === "arkmain" && isArkMainEligibleAnchor(anchor) && isEntryLike(summary)) {
         return "arkmain";
     }
     if (hint === "rule" && isRuleLike(summary)) {
@@ -48,6 +48,10 @@ export function classifySemanticFlowSummary(
         return "module";
     }
     return undefined;
+}
+
+function isArkMainEligibleAnchor(anchor: SemanticFlowAnchor): boolean {
+    return Boolean(anchor.arkMainSelector);
 }
 
 export function buildSemanticFlowArtifact(

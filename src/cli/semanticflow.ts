@@ -18,6 +18,7 @@ import { resolveLlmProfile } from "./llmConfig";
 import { runAnalyze } from "./analyzeRunner";
 import type { AnalyzeProfile, CliOptions, ReportMode } from "./analyzeCliOptions";
 import type { SemanticFlowProgressEvent } from "../core/semanticflow/SemanticFlowPipeline";
+import { filterKnownSemanticFlowRuleCandidates } from "./semanticflowKnownRuleCandidates";
 
 declare const require: any;
 declare const module: any;
@@ -30,6 +31,8 @@ export interface SemanticFlowCliOptions {
     llmProfile?: string;
     publishModel?: string;
     modelRoots?: string[];
+    enabledModels?: string[];
+    disabledModels?: string[];
     ruleInput?: string;
     outputDir: string;
     model?: string;
@@ -51,7 +54,24 @@ export interface SemanticFlowCliOptions {
 
 interface SemanticFlowSessionBundle {
     sourceDir: string;
+    skippedKnownRuleCandidates: number;
     result: Awaited<ReturnType<typeof runSemanticFlowProject>>;
+}
+
+async function withAnalyzeHeartbeat<T>(
+    phase: "bootstrap_analyze" | "final_analyze",
+    work: () => Promise<T>,
+): Promise<T> {
+    const startedAt = Date.now();
+    const timer = setInterval(() => {
+        const elapsedMs = Date.now() - startedAt;
+        console.log(`semanticflow_phase=${phase} heartbeat elapsed_ms=${elapsedMs}`);
+    }, 15000);
+    try {
+        return await work();
+    } finally {
+        clearInterval(timer);
+    }
 }
 
 function resolveArkMainCandidateLimit(options: SemanticFlowCliOptions): number {
@@ -136,6 +156,8 @@ function parseArgs(argv: string[]): SemanticFlowCliOptions {
     let llmProfile: string | undefined;
     let publishModel: string | undefined;
     let modelRoots: string[] = [];
+    let enabledModels: string[] = [];
+    let disabledModels: string[] = [];
     let ruleInput: string | undefined;
     let outputDir = path.resolve("tmp/test_runs/runtime/semanticflow_cli/latest");
     let model: string | undefined;
@@ -189,6 +211,18 @@ function parseArgs(argv: string[]): SemanticFlowCliOptions {
         if (modelRootArg !== undefined) {
             modelRoots.push(...splitCsv(modelRootArg).map(item => path.resolve(item)));
             if (argv[i] === "--model-root") i++;
+            continue;
+        }
+        const enableModelArg = readValue(argv, i, "--enable-model");
+        if (enableModelArg !== undefined) {
+            enabledModels.push(...splitCsv(enableModelArg));
+            if (argv[i] === "--enable-model") i++;
+            continue;
+        }
+        const disableModelArg = readValue(argv, i, "--disable-model");
+        if (disableModelArg !== undefined) {
+            disabledModels.push(...splitCsv(disableModelArg));
+            if (argv[i] === "--disable-model") i++;
             continue;
         }
         const ruleInputArg = readValue(argv, i, "--ruleInput");
@@ -320,6 +354,8 @@ function parseArgs(argv: string[]): SemanticFlowCliOptions {
         llmProfile,
         publishModel,
         modelRoots: [...new Set(modelRoots)],
+        enabledModels: [...new Set(enabledModels.map(item => item.trim()).filter(Boolean))],
+        disabledModels: [...new Set(disabledModels.map(item => item.trim()).filter(Boolean))],
         ruleInput,
         outputDir,
         model,
@@ -379,24 +415,35 @@ function safeSourceDirName(sourceDir: string): string {
 function loadRuleCandidates(
     options: SemanticFlowCliOptions,
     ruleInputPath: string | undefined,
-): NormalizedCallsiteItem[] {
+): {
+    items: NormalizedCallsiteItem[];
+    skippedKnown: number;
+} {
     if (!ruleInputPath || !fs.existsSync(ruleInputPath)) {
-        return [];
+        return { items: [], skippedKnown: 0 };
     }
     const parsed = JSON.parse(fs.readFileSync(ruleInputPath, "utf-8"));
     const items = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.items) ? parsed.items : []);
     if (!Array.isArray(items)) {
-        return [];
+        return { items: [], skippedKnown: 0 };
     }
-    return enrichNoCandidateItemsWithCallsiteSlices({
-        repoRoot: options.repo,
-        sourceDirs: options.sourceDirs,
-        items,
-        maxItems: options.maxSliceItems,
-        maxExamplesPerItem: options.examplesPerItem,
-        contextRadius: options.contextRadius,
-        cfgNeighborRadius: options.cfgNeighborRadius,
+    const filtered = filterKnownSemanticFlowRuleCandidates(items as NormalizedCallsiteItem[], {
+        modelRoots: options.modelRoots,
+        enabledModels: options.enabledModels,
+        disabledModels: options.disabledModels,
     });
+    return {
+        items: enrichNoCandidateItemsWithCallsiteSlices({
+            repoRoot: options.repo,
+            sourceDirs: options.sourceDirs,
+            items: filtered.candidates,
+            maxItems: options.maxSliceItems,
+            maxExamplesPerItem: options.examplesPerItem,
+            contextRadius: options.contextRadius,
+            cfgNeighborRadius: options.cfgNeighborRadius,
+        }),
+        skippedKnown: filtered.skippedKnown.length,
+    };
 }
 
 function collectAggregateSummary(bundles: SemanticFlowSessionBundle[]) {
@@ -415,7 +462,9 @@ function collectAggregateSummary(bundles: SemanticFlowSessionBundle[]) {
             itemCount: items.length,
             classifications,
             ruleCandidateCount: bundles.reduce((sum, bundle) => sum + bundle.result.ruleCandidateCount, 0),
+            ruleKnownCoveredCount: bundles.reduce((sum, bundle) => sum + bundle.skippedKnownRuleCandidates, 0),
             arkMainCandidateCount: bundles.reduce((sum, bundle) => sum + bundle.result.arkMainCandidates.length, 0),
+            arkMainKernelCoveredCount: bundles.reduce((sum, bundle) => sum + bundle.result.skippedArkMainCandidates.length, 0),
             moduleCount: augment.moduleSpecs.length,
             sourceRuleCount: (augment.ruleSet.sources || []).length,
             sinkRuleCount: (augment.ruleSet.sinks || []).length,
@@ -456,6 +505,7 @@ function writeSemanticFlowArtifacts(
                 return acc;
             }, {} as Record<string, number>),
             ruleCandidateCount: bundle.result.ruleCandidateCount,
+            ruleKnownCoveredCount: bundle.skippedKnownRuleCandidates,
             arkMainCandidateCount: bundle.result.arkMainCandidates.length,
             moduleCount: bundle.result.session.augment.moduleSpecs.length,
             sourceRuleCount: (bundle.result.session.augment.ruleSet.sources || []).length,
@@ -523,10 +573,10 @@ function buildAnalyzeOptions(
         listPlugins: false,
         explainPluginName: undefined,
         tracePluginName: undefined,
-        modelRoots: overrides.modelRoots || [],
+        modelRoots: overrides.modelRoots || options.modelRoots || [],
         moduleSpecFiles: overrides.moduleSpecFiles || [],
-        enabledModels: overrides.enabledModels || [],
-        disabledModels: overrides.disabledModels || [],
+        enabledModels: overrides.enabledModels || options.enabledModels || [],
+        disabledModels: overrides.disabledModels || options.disabledModels || [],
         disabledModuleIds: overrides.disabledModuleIds || [],
         arkMainSpecFiles: overrides.arkMainSpecFiles || [],
         pluginPaths: overrides.pluginPaths || [],
@@ -544,18 +594,21 @@ function buildAnalyzeOptions(
 async function runBootstrapAnalyze(options: SemanticFlowCliOptions): Promise<string> {
     const phase1OutputDir = path.join(options.outputDir, "phase1");
     console.log(`semanticflow_phase=bootstrap_analyze start output_dir=${phase1OutputDir}`);
-    await runAnalyze(buildAnalyzeOptions(options, phase1OutputDir, {
+    await withAnalyzeHeartbeat("bootstrap_analyze", () => runAnalyze(buildAnalyzeOptions(options, phase1OutputDir, {
         profile: "fast",
         reportMode: "light",
         maxEntries: Math.max(options.maxEntries, 12),
         llmModel: options.model,
         arkMainMaxCandidates: options.arkMainMaxCandidates,
+        modelRoots: options.modelRoots || [],
+        enabledModels: options.enabledModels || [],
+        disabledModels: options.disabledModels || [],
         ruleOptions: {
             autoDiscoverLayers: true,
             ruleCatalogPath: options.modelRoots?.[0],
             ruleCatalogPaths: options.modelRoots,
         },
-    }));
+    })));
     const ruleInputPath = path.join(phase1OutputDir, "feedback", "rule_feedback", "no_candidate_callsites.json");
     console.log(`semanticflow_phase=bootstrap_analyze done rule_input=${ruleInputPath}`);
     return ruleInputPath;
@@ -572,7 +625,7 @@ async function runFinalAnalyze(
     const arkMainCandidateLimit = resolveArkMainCandidateLimit(options);
     const finalOutputDir = path.join(options.outputDir, "final");
     console.log(`semanticflow_phase=final_analyze start output_dir=${finalOutputDir}`);
-    return runAnalyze(buildAnalyzeOptions(options, finalOutputDir, {
+    return withAnalyzeHeartbeat("final_analyze", () => runAnalyze(buildAnalyzeOptions(options, finalOutputDir, {
         profile: options.profile,
         reportMode: options.reportMode,
         llmModel: options.model,
@@ -580,7 +633,8 @@ async function runFinalAnalyze(
         modelRoots: options.modelRoots || [],
         ...(options.publishModel
             ? {
-                enabledModels: [options.publishModel],
+                enabledModels: [...new Set([...(options.enabledModels || []), options.publishModel])],
+                disabledModels: options.disabledModels || [],
                 ruleOptions: {
                     autoDiscoverLayers: true,
                     ruleCatalogPath: options.modelRoots?.[0],
@@ -597,7 +651,7 @@ async function runFinalAnalyze(
                     candidateRulePath: aggregatePaths.aggregateRulePath,
                 },
             }),
-    }));
+    })));
 }
 
 function writeSemanticFlowRunManifest(
@@ -675,7 +729,7 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
         ? options.ruleInput
         : await runBootstrapAnalyze(options);
     const ruleCandidates = loadRuleCandidates(options, bootstrapRuleInputPath);
-    console.log(`semanticflow_phase=load_candidates done rule_candidates=${ruleCandidates.length} arkmain_limit=${arkMainCandidateLimit} min_interval_ms=${profile.minIntervalMs}`);
+    console.log(`semanticflow_phase=load_candidates done rule_candidates=${ruleCandidates.items.length} rule_known_covered=${ruleCandidates.skippedKnown} arkmain_limit=${arkMainCandidateLimit} min_interval_ms=${profile.minIntervalMs}`);
 
     const bundles: SemanticFlowSessionBundle[] = [];
     for (const sourceDir of options.sourceDirs) {
@@ -691,15 +745,17 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
             scene,
             modelInvoker: loggedInvoker,
             model: profile.model,
-            ruleCandidates,
+            ruleCandidates: ruleCandidates.items,
             includeArkMainCandidates: true,
             arkMainMaxCandidates: arkMainCandidateLimit,
             maxRounds: options.maxRounds,
             concurrency: options.concurrency,
             onProgress: emitSemanticFlowProgress,
         });
-        console.log(`semanticflow_phase=source_dir done source_dir=${sourceDir} items=${result.session.run.items.length} arkmain_candidates=${result.arkMainCandidates.length}`);
-        bundles.push({ sourceDir, result });
+        console.log(
+            `semanticflow_phase=source_dir done source_dir=${sourceDir} items=${result.session.run.items.length} rule_known_covered=${ruleCandidates.skippedKnown} arkmain_candidates=${result.arkMainCandidates.length} arkmain_kernel_covered=${result.skippedArkMainCandidates.length}`,
+        );
+        bundles.push({ sourceDir, result, skippedKnownRuleCandidates: ruleCandidates.skippedKnown });
     }
 
     const aggregatePaths = writeSemanticFlowArtifacts(options.outputDir, bundles);
@@ -760,8 +816,10 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
     console.log(`llm_profile=${profile.profileName}`);
     console.log(`llm_model=${profile.model}`);
     console.log(`rule_input=${bootstrapRuleInputPath}`);
-    console.log(`rule_candidates=${ruleCandidates.length}`);
+    console.log(`rule_candidates=${ruleCandidates.items.length}`);
+    console.log(`rule_known_covered=${aggregateSummary.summary.ruleKnownCoveredCount}`);
     console.log(`items=${aggregateSummary.summary.itemCount}`);
+    console.log(`arkmain_kernel_covered=${aggregateSummary.summary.arkMainKernelCoveredCount}`);
     console.log(`analyze=${options.analyze}`);
     console.log(`output_dir=${options.outputDir}`);
     if (finalRun) {

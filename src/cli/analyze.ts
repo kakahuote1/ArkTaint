@@ -237,6 +237,8 @@ export async function runAnalyzeCliCommand(options: CliOptions): Promise<void> {
             llmProfile: options.llmProfile,
             publishModel: options.publishModel,
             modelRoots: options.modelRoots,
+            enabledModels: options.enabledModels,
+            disabledModels: options.disabledModels,
             outputDir: options.outputDir,
             model: options.llmModel,
             arkMainMaxCandidates: options.arkMainMaxCandidates,
