@@ -446,8 +446,31 @@ async function main(): Promise<void> {
                 if (round === 0) {
                     return JSON.stringify({
                         status: "need-more-evidence",
+                        draft: {
+                            inputs: ["publish.arg1"],
+                            outputs: ["bind.cb1.param0"],
+                            transfers: [],
+                            confidence: "medium",
+                            moduleKind: "deferred",
+                            relations: {
+                                companions: ["bind"],
+                            },
+                        },
                         request: {
                             kind: "q_comp",
+                            focus: {
+                                from: "publish.arg1",
+                                to: "bind.callback1.param0",
+                                companion: "bind",
+                                triggerHint: "callback_event",
+                            },
+                            scope: {
+                                owner: "ParcelBeacon",
+                                locality: "owner",
+                                surface: "publish",
+                                sharedSymbols: ["topic"],
+                            },
+                            budgetClass: "owner_local",
                             why: ["need companion callback registration evidence"],
                             ask: "show bind(topic, cb) and topic matching evidence",
                         },
@@ -505,9 +528,9 @@ async function main(): Promise<void> {
                         confidence: "high",
                         moduleSpec: {
                             kind: "keyed_storage",
-                            writeSurface: "put",
-                            readSurface: "get",
-                            valueSlot: "arg1",
+                            storageClasses: ["Vault"],
+                            writeMethods: [{ methodName: "put", valueIndex: 1 }],
+                            readMethods: ["get"],
                         },
                     },
                 });
@@ -598,8 +621,31 @@ async function main(): Promise<void> {
 
             return JSON.stringify({
                 status: "need-more-evidence",
+                draft: {
+                    inputs: [],
+                    outputs: ["callback0.param0"],
+                    transfers: [],
+                    confidence: "low",
+                    moduleKind: "deferred",
+                    relations: {
+                        companions: ["emit"],
+                    },
+                },
                 request: {
                     kind: "q_cb",
+                    focus: {
+                        from: "emit.arg1",
+                        to: "callback0.param0",
+                        companion: "emit",
+                        triggerHint: "callback_event",
+                    },
+                    scope: {
+                        owner: "DeferredBus",
+                        locality: "owner",
+                        surface: "on",
+                        sharedSymbols: ["topic"],
+                    },
+                    budgetClass: "owner_local",
                     why: ["still missing callback connection evidence"],
                     ask: "show internal callback storage and dispatch",
                 },
@@ -611,18 +657,36 @@ async function main(): Promise<void> {
         async expand(input) {
             if (input.anchor.id === "module.deferred") {
                 return {
-                    ...input.slice,
-                    round: input.round + 1,
-                    observations: [...input.slice.observations, "bind(topic, cb) companion discovered"],
-                    snippets: [
-                        ...input.slice.snippets,
-                        { label: "companion", code: "beacon.bind(topic, cb)" },
-                    ],
-                    notes: [...(input.slice.notes || []), input.request.ask],
-                    companions: ["bind"],
+                    slice: {
+                        ...input.slice,
+                        round: input.round + 1,
+                        observations: [...input.slice.observations, "bind(topic, cb) companion discovered"],
+                        snippets: [
+                            ...input.slice.snippets,
+                            { label: "companion", code: "beacon.bind(topic, cb)" },
+                        ],
+                        notes: [...(input.slice.notes || []), input.deficit.ask],
+                        companions: ["bind"],
+                    },
+                    delta: {
+                        id: "delta.module.deferred.r1",
+                        newObservations: ["bind(topic, cb) companion discovered"],
+                        newSnippets: [{ label: "companion", code: "beacon.bind(topic, cb)" }],
+                        newCompanions: ["bind"],
+                        effective: true,
+                    },
                 };
             }
-            return input.slice;
+            return {
+                slice: input.slice,
+                delta: {
+                    id: `delta.${input.anchor.id}.noop`,
+                    newObservations: [],
+                    newSnippets: [],
+                    newCompanions: [],
+                    effective: false,
+                },
+            };
         },
     };
 
@@ -653,9 +717,20 @@ async function main(): Promise<void> {
     assert(!byId.get("broken.response.anchor")?.history[0]?.decision, "malformed llm response should not fabricate a decision");
     assert(String(byId.get("broken.response.anchor")?.history[0]?.error || "").includes("semanticflow llm response invalid"), "malformed llm response should preserve round error");
     assert((byId.get("module.deferred")?.history.length || 0) === 2, "deferred item should require one expansion");
+    assert(byId.get("module.deferred")?.draftId === "draft.module.deferred", "module item should keep stable draft id");
+    assert(byId.get("module.deferred")?.history[0]?.deficit?.kind === "q_comp", "round0 should materialize structured deficit");
+    assert(Boolean(byId.get("module.deferred")?.history[0]?.plan), "round0 should record expand plan");
+    assert(Boolean(byId.get("module.deferred")?.history[0]?.delta?.effective), "round0 should record effective evidence delta");
+    assert(Boolean(byId.get("module.deferred")?.history[0]?.marker?.deficitId), "round0 should record marker");
+    assert(byId.get("stalled.anchor")?.history[0]?.deficit?.kind === "q_cb", "stalled anchor should preserve q_cb deficit");
+    assert(byId.get("stalled.anchor")?.draftId === "draft.stalled.anchor", "stalled anchor should keep stable draft id");
 
     assert(session.augment.arkMainSpecs.length === 1, `expected 1 arkMainSpec, got ${session.augment.arkMainSpecs.length}`);
-    assert(session.augment.moduleSpecs.length === 3, `expected 3 module specs, got ${session.augment.moduleSpecs.length}`);
+    assert(session.augment.moduleSpecs.length === 2, `expected 2 footprint-distinct module specs, got ${session.augment.moduleSpecs.length}`);
+    assert(
+        session.augment.moduleSpecs.filter(spec => spec.semantics.some(semantic => semantic.kind === "keyed_storage")).length === 1,
+        "footprint consolidation should dedupe duplicate keyed_storage module specs",
+    );
     assert(session.augment.ruleSet.sources.length === 1, `expected 1 source rule, got ${session.augment.ruleSet.sources.length}`);
     assert(session.augment.ruleSet.sinks.length === 1, `expected 1 sink rule, got ${session.augment.ruleSet.sinks.length}`);
     assert((session.augment.ruleSet.sanitizers || []).length === 1, `expected 1 sanitizer rule, got ${(session.augment.ruleSet.sanitizers || []).length}`);
@@ -666,6 +741,7 @@ async function main(): Promise<void> {
     assert(session.engineAugment.sanitizerRules.length === 1, "engine augment should expose sanitizer rules");
     assert(session.engineAugment.transferRules.length === 3, "engine augment should expose transfer rules");
     assert(session.engineAugment.arkMainSpecs.length === 1, "engine augment should expose arkmain specs");
+    assert(session.engineAugment.moduleSpecs.length === 2, "engine augment should expose deduped module specs");
 
     for (const spec of session.augment.moduleSpecs) {
         compileModuleSpec(spec);

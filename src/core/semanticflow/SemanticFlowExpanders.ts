@@ -1,39 +1,29 @@
 import type { ArkMainEntryCandidate } from "../entry/arkmain/llm/ArkMainEntryCandidateTypes";
 import type { NormalizedCallsiteItem } from "../model/callsite/callsiteContextSlices";
 import { buildSemanticFlowArkMainCandidateItem, buildSemanticFlowRuleCandidateItem } from "./SemanticFlowAdapters";
+import { createSemanticFlowDelta } from "./SemanticFlowIncremental";
+import { buildRuleCandidateCompanionGroups, semanticFlowRuleCandidateKey } from "./SemanticFlowRuleCompanions";
 import type { SemanticFlowExpander } from "./SemanticFlowTypes";
 
 export function createRuleCandidateExpander(
     candidates: NormalizedCallsiteItem[],
 ): SemanticFlowExpander {
     const candidateByAnchorId = new Map<string, NormalizedCallsiteItem>();
-    const companionsByAnchorId = new Map<string, NormalizedCallsiteItem[]>();
-    const groups = new Map<string, NormalizedCallsiteItem[]>();
     for (const candidate of candidates) {
         const item = buildSemanticFlowRuleCandidateItem(candidate, { maxContextSlices: 1 });
         candidateByAnchorId.set(item.anchor.id, candidate);
-        const key = companionGroupKey(candidate);
-        const bucket = groups.get(key) || [];
-        bucket.push(candidate);
-        groups.set(key, bucket);
     }
-    for (const candidate of candidates) {
-        const item = buildSemanticFlowRuleCandidateItem(candidate, { maxContextSlices: 1 });
-        const key = companionGroupKey(candidate);
-        const companions = (groups.get(key) || []).filter(peer =>
-            peer.callee_signature !== candidate.callee_signature
-            || peer.method !== candidate.method
-            || peer.argCount !== candidate.argCount,
-        );
-        companionsByAnchorId.set(item.anchor.id, companions);
-    }
+    const companionGroups = buildRuleCandidateCompanionGroups(candidates);
     return {
         async expand(input) {
             const raw = candidateByAnchorId.get(input.anchor.id);
             if (!raw) {
-                return input.slice;
+                return {
+                    slice: input.slice,
+                    delta: createSemanticFlowDelta(input.anchor, input.round + 1, input.deficit, {}),
+                };
             }
-            const requestKind = input.request.kind;
+            const requestKind = input.deficit.kind;
             const contextSlices = Array.isArray((raw as any).contextSlices) ? (raw as any).contextSlices : [];
             const currentVisible = input.slice.snippets.filter(snippet => snippet.label.startsWith("callsite-")).length;
             const additions: typeof input.slice.snippets = [];
@@ -56,7 +46,7 @@ export function createRuleCandidateExpander(
                 additions.push(focusSnippet);
             }
             const companionSnippets = buildCompanionSnippets(
-                companionsByAnchorId.get(input.anchor.id) || [],
+                raw ? companionGroups.get(semanticFlowRuleCandidateKey(raw)) || [] : [],
                 input.slice.snippets,
                 requestKind,
             );
@@ -68,31 +58,45 @@ export function createRuleCandidateExpander(
                 additions.push(ownerSnippet);
             }
             if (additions.length === 0) {
-                return input.slice;
+                return {
+                    slice: input.slice,
+                    delta: createSemanticFlowDelta(input.anchor, input.round + 1, input.deficit, {}),
+                };
             }
+            const newObservations = [
+                ...(nextVisible > currentVisible ? [`expanded_context_slices=${nextVisible}`] : []),
+                ...(focusSnippet ? [`expanded_focus=${requestKind}`] : []),
+                ...(companionSnippets.length > 0 ? [`expanded_companions=${companionSnippets.length}`] : []),
+                ...(ownerFamilySnippets.length > 0 ? [`expanded_owner_family=${ownerFamilySnippets.length}`] : []),
+                ...(ownerSnippet ? ["expanded_owner_context=true"] : []),
+            ];
+            const newCompanions = [
+                ...companionSnippets.map(snippet => snippet.label.replace(/^companion-/, "").replace(/-\d+$/, "")),
+                ...ownerFamilySnippets.map(snippet => snippet.label.replace(/^owner-sibling-/, "").replace(/-\d+$/, "")),
+            ];
+            const delta = createSemanticFlowDelta(input.anchor, input.round + 1, input.deficit, {
+                observations: newObservations,
+                snippets: additions,
+                companions: newCompanions,
+            });
             return {
-                ...input.slice,
-                round: input.round + 1,
-                observations: [
-                    ...input.slice.observations,
-                    ...(nextVisible > currentVisible ? [`expanded_context_slices=${nextVisible}`] : []),
-                    ...(focusSnippet ? [`expanded_focus=${requestKind}`] : []),
-                    ...(companionSnippets.length > 0 ? [`expanded_companions=${companionSnippets.length}`] : []),
-                    ...(ownerFamilySnippets.length > 0 ? [`expanded_owner_family=${ownerFamilySnippets.length}`] : []),
-                    ...(ownerSnippet ? ["expanded_owner_context=true"] : []),
-                ],
-                template: companionSnippets.length > 0 || ownerFamilySnippets.length > 0
-                    ? "multi-surface"
-                    : (requestKind === "q_cb" || requestKind === "q_wrap" ? "callable-transfer" : input.slice.template),
-                companions: companionSnippets.length > 0 || ownerFamilySnippets.length > 0
-                    ? dedupeStrings([
-                        ...(input.slice.companions || []),
-                        ...companionSnippets.map(snippet => snippet.label.replace(/^companion-/, "").replace(/-\d+$/, "")),
-                        ...ownerFamilySnippets.map(snippet => snippet.label.replace(/^owner-sibling-/, "").replace(/-\d+$/, "")),
-                    ])
-                    : input.slice.companions,
-                snippets: [...input.slice.snippets, ...additions],
-                notes: [...(input.slice.notes || []), input.request.ask],
+                slice: {
+                    ...input.slice,
+                    round: input.round + 1,
+                    observations: [...input.slice.observations, ...delta.newObservations],
+                    template: companionSnippets.length > 0 || ownerFamilySnippets.length > 0
+                        ? "multi-surface"
+                        : (requestKind === "q_cb" || requestKind === "q_wrap" ? "callable-transfer" : input.slice.template),
+                    companions: companionSnippets.length > 0 || ownerFamilySnippets.length > 0
+                        ? dedupeStrings([
+                            ...(input.slice.companions || []),
+                            ...delta.newCompanions,
+                        ])
+                        : input.slice.companions,
+                    snippets: [...input.slice.snippets, ...delta.newSnippets],
+                    notes: [...(input.slice.notes || []), input.deficit.ask],
+                },
+                delta,
             };
         },
     };
@@ -110,7 +114,10 @@ export function createArkMainCandidateExpander(
         async expand(input) {
             const candidate = candidateByAnchorId.get(input.anchor.id);
             if (!candidate) {
-                return input.slice;
+                return {
+                    slice: input.slice,
+                    delta: createSemanticFlowDelta(input.anchor, input.round + 1, input.deficit, {}),
+                };
             }
             const existingLabels = new Set(input.slice.snippets.map(snippet => snippet.label));
             const bodySnippet = buildMethodBodySnippet(candidate);
@@ -128,18 +135,27 @@ export function createArkMainCandidateExpander(
                     : undefined,
             ].filter(Boolean) as Array<{ label: string; code: string }>;
             if (additions.length === 0) {
-                return input.slice;
+                return {
+                    slice: input.slice,
+                    delta: createSemanticFlowDelta(input.anchor, input.round + 1, input.deficit, {}),
+                };
             }
-            return {
-                ...input.slice,
-                round: input.round + 1,
+            const delta = createSemanticFlowDelta(input.anchor, input.round + 1, input.deficit, {
                 observations: [
-                    ...input.slice.observations,
                     "expanded: method body evidence",
                     "expanded: owner context evidence",
                 ],
-                snippets: [...input.slice.snippets, ...additions],
-                notes: [...(input.slice.notes || []), input.request.ask],
+                snippets: additions,
+            });
+            return {
+                slice: {
+                    ...input.slice,
+                    round: input.round + 1,
+                    observations: [...input.slice.observations, ...delta.newObservations],
+                    snippets: [...input.slice.snippets, ...delta.newSnippets],
+                    notes: [...(input.slice.notes || []), input.deficit.ask],
+                },
+                delta,
             };
         },
     };
@@ -152,11 +168,14 @@ export function createCompositeSemanticFlowExpander(
         async expand(input) {
             for (const expander of expanders) {
                 const expanded = await expander.expand(input);
-                if (expanded !== input.slice) {
+                if (expanded.delta.effective) {
                     return expanded;
                 }
             }
-            return input.slice;
+            return {
+                slice: input.slice,
+                delta: createSemanticFlowDelta(input.anchor, input.round + 1, input.deficit, {}),
+            };
         },
     };
 }
@@ -450,20 +469,6 @@ function nextCompanionLabel(
         label = `${base}-${index++}`;
     }
     return label;
-}
-
-function extractDeclaringClassFromMethodSignature(signature: string): string | undefined {
-    const openParen = signature.indexOf("(");
-    const methodDot = signature.lastIndexOf(".", openParen >= 0 ? openParen : signature.length);
-    if (methodDot < 0) return undefined;
-    return signature.slice(0, methodDot).trim();
-}
-
-function companionGroupKey(candidate: NormalizedCallsiteItem): string {
-    const owner = extractDeclaringClassFromMethodSignature(candidate.callee_signature);
-    return owner
-        ? `${owner}|${candidate.sourceFile}`
-        : `__anchor__|${candidate.callee_signature}|${candidate.sourceFile}|${candidate.invokeKind}|${candidate.argCount}`;
 }
 
 function dedupeStrings(values: string[]): string[] {

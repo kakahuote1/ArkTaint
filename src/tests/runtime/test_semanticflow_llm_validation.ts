@@ -63,6 +63,39 @@ async function main(): Promise<void> {
     assert(decision.summary.outputs[0].callbackArgIndex === 0, "callbackArgIndex should default to 0");
     assert(decision.summary.outputs[0].paramIndex === 0, "paramIndex should default to 0");
 
+    const requestDecision = parseSemanticFlowDecision(JSON.stringify({
+        status: "need-more-evidence",
+        draft: {
+            inputs: ["arg0"],
+            outputs: ["ret"],
+            transfers: [],
+            confidence: "medium",
+            ruleKind: "transfer",
+        },
+        request: {
+            kind: "q_comp",
+            focus: {
+                from: "arg0",
+                to: "Cache.get.ret",
+                companion: "Cache.get",
+                carrierHint: "slots",
+            },
+            scope: {
+                owner: "Cache",
+                locality: "owner",
+                sharedSymbols: ["token"],
+                surface: "set",
+            },
+            budgetClass: "owner_local",
+            why: ["need writer/reader companion evidence"],
+            ask: "show Cache.get and shared key-addressed carrier evidence",
+        },
+    }));
+    assert(requestDecision.status === "need-more-evidence", "expected structured request decision");
+    assert(requestDecision.request.focus.companion === "Cache.get", "expected structured companion focus");
+    assert(requestDecision.request.scope.locality === "owner", "expected structured scope locality");
+    assert(requestDecision.request.budgetClass === "owner_local", "expected structured budget class");
+
     const shorthandModuleDecision = parseSemanticFlowDecision(JSON.stringify({
         status: "done",
         classification: "module",
@@ -74,9 +107,9 @@ async function main(): Promise<void> {
             confidence: "high",
             moduleSpec: {
                 kind: "keyed_storage",
-                writeSurface: "put",
-                readSurface: "get",
-                valueSlot: "arg1",
+                storageClasses: ["Vault"],
+                writeMethods: [{ methodName: "put", valueIndex: 1 }],
+                readMethods: ["get"],
             },
             relations: {
                 constraints: [
@@ -122,6 +155,22 @@ async function main(): Promise<void> {
             ruleKind: "transfer",
         },
     })), "decision.classification is required when decision.resolution=resolved");
+
+    expectThrows(() => parseSemanticFlowDecision(JSON.stringify({
+        status: "need-more-evidence",
+        draft: {
+            inputs: ["arg0"],
+            outputs: [],
+            transfers: [],
+            confidence: "low",
+        },
+        request: {
+            kind: "q_cb",
+            focus: {},
+            why: ["missing callback evidence"],
+            ask: "show callback dispatch",
+        },
+    })), "decision.request.focus must describe at least one target relation");
 
     expectThrows(() => parseSemanticFlowDecision(JSON.stringify({
         status: "done",

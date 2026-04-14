@@ -52,6 +52,7 @@ async function main(): Promise<void> {
             owner: "Router",
             surface: "getParams",
         },
+        draftId: "draft.router.getParams",
         slice: {
             anchorId: "router.getParams",
             round: 0,
@@ -65,6 +66,9 @@ async function main(): Promise<void> {
                 },
             ],
         },
+        draft: undefined,
+        lastMarker: undefined,
+        lastDelta: undefined,
         round: 0,
         history: [],
     });

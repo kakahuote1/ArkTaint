@@ -3,10 +3,10 @@ import { buildArkMainEntryCandidates } from "../entry/arkmain/llm/ArkMainEntryCa
 import type { ArkMainEntryCandidate } from "../entry/arkmain/llm/ArkMainEntryCandidateTypes";
 import type { NormalizedCallsiteItem } from "../model/callsite/callsiteContextSlices";
 import { buildSemanticFlowArkMainCandidateItem, buildSemanticFlowRuleCandidateItem } from "./SemanticFlowAdapters";
-import { buildSemanticFlowAnalysisAugment } from "./SemanticFlowArtifacts";
 import { createArkMainCandidateExpander, createCompositeSemanticFlowExpander, createRuleCandidateExpander } from "./SemanticFlowExpanders";
 import { createSemanticFlowLlmDecider, type SemanticFlowModelInvoker } from "./SemanticFlowLlm";
 import { runSemanticFlowSession, type SemanticFlowProgressEvent } from "./SemanticFlowPipeline";
+import { buildRuleCandidateCompanionGroups, semanticFlowRuleCandidateKey } from "./SemanticFlowRuleCompanions";
 import type { SemanticFlowSessionResult } from "./SemanticFlowTypes";
 
 export interface SemanticFlowProjectOptions {
@@ -36,12 +36,12 @@ export async function runSemanticFlowProject(
             maxCandidates: options.arkMainMaxCandidates,
         });
     const ruleCandidates = options.ruleCandidates || [];
-    const companionGroups = buildRuleCompanionGroups(ruleCandidates);
+    const companionGroups = buildRuleCandidateCompanionGroups(ruleCandidates);
 
     const items = [
         ...ruleCandidates.map(candidate => buildSemanticFlowRuleCandidateItem(candidate, {
             maxContextSlices: 1,
-            companionCandidates: companionGroups.get(ruleCandidateKey(candidate)) || [],
+            companionCandidates: companionGroups.get(semanticFlowRuleCandidateKey(candidate)) || [],
         })),
         ...arkMainCandidates.map(candidate => buildSemanticFlowArkMainCandidateItem(candidate)),
     ];
@@ -61,56 +61,8 @@ export async function runSemanticFlowProject(
     });
 
     return {
-        session: {
-            ...session,
-            augment: buildSemanticFlowAnalysisAugment(session.run.items),
-            engineAugment: session.engineAugment,
-        },
+        session,
         arkMainCandidates,
         ruleCandidateCount: ruleCandidates.length,
     };
-}
-
-function buildRuleCompanionGroups(candidates: NormalizedCallsiteItem[]): Map<string, NormalizedCallsiteItem[]> {
-    const grouped = new Map<string, NormalizedCallsiteItem[]>();
-    for (const candidate of candidates) {
-        const key = companionGroupKey(candidate);
-        const bucket = grouped.get(key) || [];
-        bucket.push(candidate);
-        grouped.set(key, bucket);
-    }
-    const out = new Map<string, NormalizedCallsiteItem[]>();
-    for (const candidate of candidates) {
-        const key = companionGroupKey(candidate);
-        const companions = (grouped.get(key) || []).filter(peer =>
-            peer.callee_signature !== candidate.callee_signature
-            || peer.method !== candidate.method
-            || peer.argCount !== candidate.argCount,
-        );
-        out.set(ruleCandidateKey(candidate), companions);
-    }
-    return out;
-}
-
-function companionGroupKey(candidate: NormalizedCallsiteItem): string {
-    const owner = extractDeclaringClassFromMethodSignature(candidate.callee_signature);
-    return owner
-        ? `${owner}|${candidate.sourceFile}`
-        : `__anchor__|${candidate.callee_signature}|${candidate.sourceFile}|${candidate.invokeKind}|${candidate.argCount}`;
-}
-
-function ruleCandidateKey(candidate: NormalizedCallsiteItem): string {
-    return [
-        candidate.callee_signature,
-        candidate.sourceFile,
-        String(candidate.argCount),
-        candidate.invokeKind,
-    ].join("|");
-}
-
-function extractDeclaringClassFromMethodSignature(signature: string): string | undefined {
-    const openParen = signature.indexOf("(");
-    const methodDot = signature.lastIndexOf(".", openParen >= 0 ? openParen : signature.length);
-    if (methodDot < 0) return undefined;
-    return signature.slice(0, methodDot).trim();
 }

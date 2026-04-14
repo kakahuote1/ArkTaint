@@ -114,48 +114,109 @@ async function main(): Promise<void> {
 
     const expanded = await expander.expand({
         anchor: item.anchor,
+        draftId: "draft.store.get",
         slice: item.initialSlice,
         round: 0,
-        request: {
+        deficit: {
+            id: "def.store.get.comp",
             kind: "q_comp",
+            focus: {
+                companion: "set",
+                from: { surface: "set", slot: "arg", index: 1 },
+                to: { slot: "result" },
+            },
+            scope: {
+                owner: "Store",
+                locality: "owner",
+                surface: "get",
+            },
+            budgetClass: "owner_local",
             why: ["need companion surface evidence"],
             ask: "show related write surface",
         },
+        plan: {
+            kind: "q_comp",
+            seed: { mode: "owner", value: "Store" },
+            edges: ["E_scope", "E_sym"],
+            budgetClass: "owner_local",
+            stopCondition: "companion-found-or-scope-exhausted",
+        },
         history: [],
     });
 
-    assert(expanded.template === "multi-surface", `expected multi-surface template, got ${expanded.template}`);
-    assert((expanded.companions || []).includes("set"), "expected companion surface set to be attached");
-    assert(expanded.snippets.some(snippet => snippet.label === "companion-set"), "expected companion snippet for set");
-    assert(expanded.notes?.includes("show related write surface"), "expected expand note to be preserved");
+    assert(expanded.slice.template === "multi-surface", `expected multi-surface template, got ${expanded.slice.template}`);
+    assert((expanded.slice.companions || []).includes("set"), "expected companion surface set to be attached");
+    assert(expanded.slice.snippets.some(snippet => snippet.label === "companion-set"), "expected companion snippet for set");
+    assert(expanded.slice.notes?.includes("show related write surface"), "expected expand note to be preserved");
+    assert(expanded.delta.effective, "companion expansion should emit an effective delta");
 
     const callbackExpanded = await expander.expand({
         anchor: item.anchor,
+        draftId: "draft.store.get",
         slice: item.initialSlice,
         round: 0,
-        request: {
+        deficit: {
+            id: "def.store.get.cb",
             kind: "q_cb",
+            focus: {
+                from: { surface: "bind", slot: "arg", index: 1 },
+                to: { surface: "bind", slot: "callback_param", callbackArgIndex: 0, paramIndex: 0 },
+                companion: "bind",
+                triggerHint: "callback_event",
+            },
+            scope: {
+                owner: "Store",
+                locality: "owner",
+                surface: "get",
+            },
+            budgetClass: "owner_local",
             why: ["need callback evidence"],
             ask: "show callback registration or dispatch evidence",
         },
-        history: [],
-    });
-    assert(callbackExpanded.snippets.some(snippet => snippet.label.startsWith("companion-bind")), "expected callback peer snippet");
-    assert(callbackExpanded.snippets.some(snippet => snippet.label.startsWith("focus-cb")), "expected callback focus snippet");
-
-    const metaExpanded = await expander.expand({
-        anchor: item.anchor,
-        slice: item.initialSlice,
-        round: 0,
-        request: {
-            kind: "q_meta",
-            why: ["need metadata evidence"],
-            ask: "show decorator or bound field evidence",
+        plan: {
+            kind: "q_cb",
+            seed: { mode: "owner", value: "Store" },
+            edges: ["E_arg", "E_scope"],
+            budgetClass: "owner_local",
+            stopCondition: "callback-dispatch-or-scope-exhausted",
         },
         history: [],
     });
-    assert(metaExpanded.snippets.some(snippet => snippet.label.startsWith("companion-observe")), "expected metadata peer snippet");
-    assert(metaExpanded.snippets.some(snippet => snippet.label.startsWith("focus-meta")), "expected metadata focus snippet");
+    assert(callbackExpanded.slice.snippets.some(snippet => snippet.label.startsWith("companion-bind")), "expected callback peer snippet");
+    assert(callbackExpanded.slice.snippets.some(snippet => snippet.label.startsWith("focus-cb")), "expected callback focus snippet");
+
+    const metaExpanded = await expander.expand({
+        anchor: item.anchor,
+        draftId: "draft.store.get",
+        slice: item.initialSlice,
+        round: 0,
+        deficit: {
+            id: "def.store.get.meta",
+            kind: "q_meta",
+            focus: {
+                carrierHint: "decorator",
+                companion: "observe",
+            },
+            scope: {
+                owner: "Store",
+                locality: "owner",
+                surface: "get",
+            },
+            budgetClass: "owner_local",
+            why: ["need metadata evidence"],
+            ask: "show decorator or bound field evidence",
+        },
+        plan: {
+            kind: "q_meta",
+            seed: { mode: "owner", value: "Store" },
+            edges: ["E_meta", "E_scope"],
+            budgetClass: "owner_local",
+            stopCondition: "binding-evidence-or-scope-exhausted",
+        },
+        history: [],
+    });
+    assert(metaExpanded.slice.snippets.some(snippet => snippet.label.startsWith("companion-observe")), "expected metadata peer snippet");
+    assert(metaExpanded.slice.snippets.some(snippet => snippet.label.startsWith("focus-meta")), "expected metadata focus snippet");
 
     const wrapperExpander = createRuleCandidateExpander([wrapperOnly]);
     const wrapperItem = buildSemanticFlowRuleCandidateItem(wrapperOnly);
@@ -164,18 +225,36 @@ async function main(): Promise<void> {
     assert(wrapperItem.initialSlice.snippets.some(snippet => snippet.label === "owner-sibling-push"), "wrapper owner-family sibling should be present in round0");
     const ownerExpanded = await wrapperExpander.expand({
         anchor: wrapperItem.anchor,
+        draftId: "draft.router.getparams",
         slice: wrapperItem.initialSlice,
         round: 0,
-        request: {
+        deficit: {
+            id: "def.router.getparams.comp",
             kind: "q_comp",
+            focus: {
+                companion: "push",
+            },
+            scope: {
+                owner: "Router",
+                locality: "owner",
+                surface: "getParams",
+            },
+            budgetClass: "owner_local",
             why: ["need wrapper companion evidence"],
             ask: "show owner-level companion context",
         },
+        plan: {
+            kind: "q_comp",
+            seed: { mode: "owner", value: "Router" },
+            edges: ["E_scope", "E_sym"],
+            budgetClass: "owner_local",
+            stopCondition: "companion-found-or-scope-exhausted",
+        },
         history: [],
     });
-    assert(ownerExpanded.snippets.some(snippet => snippet.label === "owner-context"), "expected owner-context snippet when no explicit companion candidate exists");
-    assert(ownerExpanded.snippets.filter(snippet => snippet.label === "owner-context").length === 1, "owner-context should not be duplicated across expansion");
-    assert(ownerExpanded === wrapperItem.initialSlice, "q_comp should no-op when owner-family evidence is already present in round0");
+    assert(ownerExpanded.slice.snippets.some(snippet => snippet.label === "owner-context"), "expected owner-context snippet when no explicit companion candidate exists");
+    assert(ownerExpanded.slice.snippets.filter(snippet => snippet.label === "owner-context").length === 1, "owner-context should not be duplicated across expansion");
+    assert(!ownerExpanded.delta.effective, "q_comp should no-op when owner-family evidence is already present in round0");
 
     console.log("PASS test_semanticflow_rule_expander");
 }

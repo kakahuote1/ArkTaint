@@ -48,6 +48,16 @@ export type SemanticFlowRequestKind =
     | "q_meta"
     | "q_wrap";
 
+export type SemanticFlowDraftId = string;
+export type SemanticFlowDeficitId = string;
+export type SemanticFlowDeltaId = string;
+
+export type SemanticFlowBudgetClass =
+    | "micro"
+    | "body_local"
+    | "owner_local"
+    | "import_local";
+
 export interface SemanticFlowAnchor {
     id: string;
     owner?: string;
@@ -77,10 +87,44 @@ export interface SemanticFlowSlicePackage {
     notes?: string[];
 }
 
+export interface SemanticFlowDeficitFocus {
+    from?: SemanticFlowSurfaceSlotRef;
+    to?: SemanticFlowSurfaceSlotRef;
+    companion?: string;
+    carrierHint?: string;
+    triggerHint?: string;
+}
+
+export interface SemanticFlowDeficitScope {
+    owner?: string;
+    importSource?: string;
+    locality?: "method" | "owner" | "import" | "file";
+    sharedSymbols?: string[];
+    surface?: string;
+}
+
 export interface SemanticFlowExpansionRequest {
     kind: SemanticFlowRequestKind;
+    focus: SemanticFlowDeficitFocus;
+    scope: SemanticFlowDeficitScope;
+    budgetClass?: SemanticFlowBudgetClass;
     why: string[];
     ask: string;
+}
+
+export interface SemanticFlowDeficit extends SemanticFlowExpansionRequest {
+    id: SemanticFlowDeficitId;
+}
+
+export interface SemanticFlowExpandPlan {
+    kind: SemanticFlowRequestKind;
+    seed: {
+        mode: "anchor" | "owner" | "import";
+        value: string;
+    };
+    edges: string[];
+    budgetClass: SemanticFlowBudgetClass;
+    stopCondition: string;
 }
 
 export interface SemanticFlowSurfaceSlotRef {
@@ -152,6 +196,24 @@ export interface SemanticFlowSummary {
     moduleSpec?: ModuleSpec;
 }
 
+export interface SemanticFlowDelta {
+    id: SemanticFlowDeltaId;
+    newObservations: string[];
+    newSnippets: SemanticFlowSliceCodeSnippet[];
+    newCompanions: string[];
+    effective: boolean;
+}
+
+export interface SemanticFlowMarker {
+    draftId: SemanticFlowDraftId;
+    deficitId: SemanticFlowDeficitId;
+    deltaId: SemanticFlowDeltaId;
+    kind: SemanticFlowRequestKind;
+    focus: SemanticFlowDeficitFocus;
+    scope: SemanticFlowDeficitScope;
+    budgetClass: SemanticFlowBudgetClass;
+}
+
 export interface SemanticFlowDoneDecision {
     status: "done";
     summary: SemanticFlowSummary;
@@ -162,6 +224,7 @@ export interface SemanticFlowDoneDecision {
 
 export interface SemanticFlowNeedMoreEvidenceDecision {
     status: "need-more-evidence";
+    draft: SemanticFlowSummary;
     request: SemanticFlowExpansionRequest;
 }
 
@@ -177,7 +240,13 @@ export type SemanticFlowDecision =
 
 export interface SemanticFlowRoundRecord {
     round: number;
+    draftId: SemanticFlowDraftId;
     slice: SemanticFlowSlicePackage;
+    draft?: SemanticFlowSummary;
+    deficit?: SemanticFlowDeficit;
+    plan?: SemanticFlowExpandPlan;
+    delta?: SemanticFlowDelta;
+    marker?: SemanticFlowMarker;
     decision?: SemanticFlowDecision;
     error?: string;
 }
@@ -204,9 +273,13 @@ export type SemanticFlowArtifact =
 
 export interface SemanticFlowItemResult {
     anchor: SemanticFlowAnchor;
+    draftId: SemanticFlowDraftId;
     classification?: SemanticFlowArtifactClass;
     resolution: SemanticFlowResolution;
     summary?: SemanticFlowSummary;
+    draft?: SemanticFlowSummary;
+    lastMarker?: SemanticFlowMarker;
+    lastDelta?: SemanticFlowDelta;
     artifact?: SemanticFlowArtifact;
     finalSlice: SemanticFlowSlicePackage;
     history: SemanticFlowRoundRecord[];
@@ -240,7 +313,11 @@ export interface SemanticFlowSessionResult {
 
 export interface SemanticFlowDecisionInput {
     anchor: SemanticFlowAnchor;
+    draftId: SemanticFlowDraftId;
     slice: SemanticFlowSlicePackage;
+    draft?: SemanticFlowSummary;
+    lastMarker?: SemanticFlowMarker;
+    lastDelta?: SemanticFlowDelta;
     round: number;
     history: SemanticFlowRoundRecord[];
 }
@@ -251,13 +328,23 @@ export interface SemanticFlowDecider {
 
 export interface SemanticFlowExpandInput {
     anchor: SemanticFlowAnchor;
+    draftId: SemanticFlowDraftId;
     slice: SemanticFlowSlicePackage;
+    draft?: SemanticFlowSummary;
     round: number;
-    request: SemanticFlowExpansionRequest;
+    deficit: SemanticFlowDeficit;
+    plan: SemanticFlowExpandPlan;
+    lastMarker?: SemanticFlowMarker;
+    lastDelta?: SemanticFlowDelta;
     history: SemanticFlowRoundRecord[];
 }
 
+export interface SemanticFlowExpandResult {
+    slice: SemanticFlowSlicePackage;
+    delta: SemanticFlowDelta;
+}
+
 export interface SemanticFlowExpander {
-    expand(input: SemanticFlowExpandInput): Promise<SemanticFlowSlicePackage>;
+    expand(input: SemanticFlowExpandInput): Promise<SemanticFlowExpandResult>;
 }
 

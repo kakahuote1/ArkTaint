@@ -75,18 +75,22 @@ async function main(): Promise<void> {
     const merged = buildSemanticFlowAnalysisAugment([
         {
             anchor: { id: "dup.rule", surface: "cloneValue", methodSignature: "@a: AlphaPipe.cloneValue(string)" },
+            draftId: "draft.dup.rule",
             classification: "rule",
             resolution: "resolved",
             summary: transferSummary(),
+            draft: transferSummary(),
             artifact: ruleA,
             finalSlice: { anchorId: "dup.rule", round: 0, template: "call-return", observations: [], snippets: [] },
             history: [],
         } satisfies SemanticFlowItemResult,
         {
             anchor: { id: "dup.rule.copy", surface: "cloneValue", methodSignature: "@a: AlphaPipe.cloneValue(string)" },
+            draftId: "draft.dup.rule.copy",
             classification: "rule",
             resolution: "resolved",
             summary: transferSummary(),
+            draft: transferSummary(),
             artifact: ruleA,
             finalSlice: { anchorId: "dup.rule.copy", round: 0, template: "call-return", observations: [], snippets: [] },
             history: [],

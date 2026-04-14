@@ -10,9 +10,12 @@ import type {
 import { buildSemanticFlowPrompt, buildSemanticFlowRepairPrompt } from "./SemanticFlowPrompt";
 import type {
     SemanticFlowArtifactClass,
+    SemanticFlowBudgetClass,
     SemanticFlowDecision,
     SemanticFlowDecider,
     SemanticFlowDecisionInput,
+    SemanticFlowDeficitFocus,
+    SemanticFlowDeficitScope,
     SemanticFlowDispatchHint,
     SemanticFlowEntryPattern,
     SemanticFlowExpansionRequest,
@@ -146,6 +149,7 @@ function normalizeDecision(value: unknown): SemanticFlowDecision {
     if (status === "need-more-evidence") {
         return {
             status: "need-more-evidence",
+            draft: normalizeSummary(obj.draft),
             request: normalizeRequest(obj.request),
         };
     }
@@ -197,9 +201,53 @@ function normalizeRequest(value: unknown): SemanticFlowExpansionRequest {
     }
     return {
         kind: kind as SemanticFlowExpansionRequest["kind"],
+        focus: normalizeDeficitFocus(obj.focus),
+        scope: normalizeDeficitScope(obj.scope),
+        budgetClass: normalizeBudgetClass(obj.budgetClass),
         why: normalizeRequiredStringArray(obj.why, "decision.request.why"),
         ask: expectString(obj.ask, "decision.request.ask"),
     };
+}
+
+function normalizeDeficitFocus(value: unknown): SemanticFlowDeficitFocus {
+    const obj = expectRecord(value, "decision.request.focus");
+    const focus: SemanticFlowDeficitFocus = {
+        from: obj.from ? normalizeSlotRef(obj.from, "decision.request.focus.from") : undefined,
+        to: obj.to ? normalizeSlotRef(obj.to, "decision.request.focus.to") : undefined,
+        companion: typeof obj.companion === "string" ? obj.companion.trim() || undefined : undefined,
+        carrierHint: typeof obj.carrierHint === "string" ? obj.carrierHint.trim() || undefined : undefined,
+        triggerHint: typeof obj.triggerHint === "string" ? obj.triggerHint.trim() || undefined : undefined,
+    };
+    if (!focus.from && !focus.to && !focus.companion && !focus.carrierHint && !focus.triggerHint) {
+        throw new Error("decision.request.focus must describe at least one target relation");
+    }
+    return focus;
+}
+
+function normalizeDeficitScope(value: unknown): SemanticFlowDeficitScope {
+    if (value === undefined) {
+        return {};
+    }
+    const obj = expectRecord(value, "decision.request.scope");
+    return {
+        owner: typeof obj.owner === "string" ? obj.owner.trim() || undefined : undefined,
+        importSource: typeof obj.importSource === "string" ? obj.importSource.trim() || undefined : undefined,
+        locality: normalizeOptionalEnum(
+            obj.locality,
+            "decision.request.scope.locality",
+            ["method", "owner", "import", "file"],
+        ) as SemanticFlowDeficitScope["locality"],
+        sharedSymbols: normalizeStringArray(obj.sharedSymbols, "decision.request.scope.sharedSymbols"),
+        surface: typeof obj.surface === "string" ? obj.surface.trim() || undefined : undefined,
+    };
+}
+
+function normalizeBudgetClass(value: unknown): SemanticFlowBudgetClass | undefined {
+    return normalizeOptionalEnum(
+        value,
+        "decision.request.budgetClass",
+        ["micro", "body_local", "owner_local", "import_local"],
+    ) as SemanticFlowBudgetClass | undefined;
 }
 
 function normalizeSummary(value: unknown): SemanticFlowSummary {
@@ -504,69 +552,12 @@ function normalizeInlineModuleSpec(value: unknown): ModuleSpec | undefined {
     if (!kind) {
         return undefined;
     }
-    const semantic = normalizeInlineModuleSemantic(obj);
-    if (!semantic) {
-        return undefined;
-    }
     return {
-        id: "__semanticflow_inline__",
+        id: "semanticflow.inline",
+        description: "",
         enabled: true,
-        semantics: [semantic],
+        semantics: [obj as unknown as ModuleSemantic],
     };
-}
-
-function normalizeInlineModuleSemantic(obj: Record<string, unknown>): ModuleSemantic | undefined {
-    if (obj.kind === "keyed_storage") {
-        return normalizeInlineKeyedStorageSemantic(obj) as unknown as ModuleSemantic;
-    }
-    return obj as unknown as ModuleSemantic;
-}
-
-function normalizeInlineKeyedStorageSemantic(obj: Record<string, unknown>): Record<string, unknown> | undefined {
-    const readMethods = Array.isArray(obj.readMethods)
-        ? obj.readMethods
-        : (typeof obj.readSurface === "string" && obj.readSurface.trim()
-            ? [obj.readSurface.trim()]
-            : []);
-    const writeMethods = Array.isArray(obj.writeMethods)
-        ? obj.writeMethods
-        : (() => {
-            const methodName = typeof obj.writeSurface === "string" ? obj.writeSurface.trim() : "";
-            if (!methodName) {
-                return [];
-            }
-            return [{
-                methodName,
-                valueIndex: parseLegacyArgIndex(obj.valueSlot) ?? 1,
-            }];
-        })();
-    if (readMethods.length === 0 || writeMethods.length === 0) {
-        return undefined;
-    }
-    const storageClasses = Array.isArray(obj.storageClasses) && obj.storageClasses.length > 0
-        ? obj.storageClasses
-        : (typeof obj.storageClass === "string" && obj.storageClass.trim()
-            ? [obj.storageClass.trim()]
-            : ["__anchor_owner__"]);
-    return {
-        kind: "keyed_storage",
-        storageClasses,
-        writeMethods,
-        readMethods,
-        ...(Array.isArray(obj.propDecorators) ? { propDecorators: obj.propDecorators } : {}),
-        ...(Array.isArray(obj.linkDecorators) ? { linkDecorators: obj.linkDecorators } : {}),
-    };
-}
-
-function parseLegacyArgIndex(value: unknown): number | undefined {
-    if (typeof value === "number" && Number.isInteger(value) && value >= 0) {
-        return value;
-    }
-    if (typeof value !== "string") {
-        return undefined;
-    }
-    const match = canonicalToken(value).match(/^arg(\d+)$/);
-    return match ? Number(match[1]) : undefined;
 }
 
 function shouldIgnoreConstraintHint(value: unknown): boolean {

@@ -4,7 +4,10 @@ import type { ModuleSpec } from "../kernel/contracts/ModuleSpec";
 import type { ArkMainSpec } from "../entry/arkmain/ArkMainSpec";
 import { loadArkMainSeeds } from "../entry/arkmain/ArkMainLoader";
 import { TaintPropagationEngine, type BuildPAGOptions, type TaintEngineOptions } from "../orchestration/TaintPropagationEngine";
-import { buildSemanticFlowEngineAugment } from "./SemanticFlowArtifacts";
+import {
+    buildSemanticFlowEngineAugment,
+    consolidateSemanticFlowAnalysisAugmentByFootprint,
+} from "./SemanticFlowArtifacts";
 import type {
     SemanticFlowAnalysisAugment,
     SemanticFlowEngineAugment,
@@ -96,26 +99,21 @@ function mergeEngineAugment(
     generated: SemanticFlowEngineAugment,
     base?: SemanticFlowAnalysisOptions["base"],
 ): SemanticFlowEngineAugment {
-    return {
-        sourceRules: [...(base?.sourceRules || []), ...generated.sourceRules],
-        sinkRules: [...(base?.sinkRules || []), ...generated.sinkRules],
-        sanitizerRules: [...(base?.sanitizerRules || []), ...generated.sanitizerRules],
-        transferRules: [...(base?.transferRules || []), ...generated.transferRules],
+    const augment = consolidateSemanticFlowAnalysisAugmentByFootprint({
+        ruleSet: {
+            schemaVersion: "2.0",
+            meta: {
+                name: "semanticflow-runtime-merge",
+                description: "Merged semanticflow runtime augment.",
+                updatedAt: new Date().toISOString().slice(0, 10),
+            },
+            sources: [...(base?.sourceRules || []), ...generated.sourceRules],
+            sinks: [...(base?.sinkRules || []), ...generated.sinkRules],
+            sanitizers: [...(base?.sanitizerRules || []), ...generated.sanitizerRules],
+            transfers: [...(base?.transferRules || []), ...generated.transferRules],
+        },
         moduleSpecs: [...(base?.moduleSpecs || []), ...generated.moduleSpecs],
-        arkMainSpecs: dedupeArkMainSpecs([
-            ...(base?.arkMainSpecs || []),
-            ...(generated.arkMainSpecs || []),
-        ]),
-    };
-}
-
-function dedupeArkMainSpecs(specs: ArkMainSpec[]): ArkMainSpec[] {
-    const out = new Map<string, ArkMainSpec>();
-    for (const spec of specs) {
-        const key = JSON.stringify(spec);
-        if (!out.has(key)) {
-            out.set(key, spec);
-        }
-    }
-    return [...out.values()];
+        arkMainSpecs: [...(base?.arkMainSpecs || []), ...generated.arkMainSpecs],
+    });
+    return buildSemanticFlowEngineAugment(augment);
 }

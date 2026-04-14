@@ -4,15 +4,26 @@ import {
     buildSemanticFlowEngineAugment,
     classifySemanticFlowSummary,
 } from "./SemanticFlowArtifacts";
+import {
+    createSemanticFlowDraftId,
+    createSemanticFlowExpandPlan,
+    createSemanticFlowMarker,
+    materializeSemanticFlowDeficit,
+    protectedMergeSemanticFlowDraft,
+    stableSemanticFlowSliceKey,
+} from "./SemanticFlowIncremental";
 import type {
     SemanticFlowAnchor,
     SemanticFlowDecider,
+    SemanticFlowDelta,
     SemanticFlowExpander,
     SemanticFlowItemResult,
+    SemanticFlowMarker,
     SemanticFlowRoundRecord,
     SemanticFlowRunResult,
     SemanticFlowSessionResult,
     SemanticFlowSlicePackage,
+    SemanticFlowSummary,
 } from "./SemanticFlowTypes";
 
 export interface SemanticFlowPipelineItemInput {
@@ -79,8 +90,12 @@ async function runSemanticFlowItem(
     onProgress?: SemanticFlowPipelineOptions["onProgress"],
 ): Promise<SemanticFlowItemResult> {
     let currentSlice = initialSlice;
+    const draftId = createSemanticFlowDraftId(anchor);
+    let currentDraft: SemanticFlowSummary | undefined;
+    let lastMarker: SemanticFlowMarker | undefined;
+    let lastDelta: SemanticFlowDelta | undefined;
     const history: SemanticFlowRoundRecord[] = [];
-    const seenSliceKeys = new Set<string>([stableSliceKey(initialSlice)]);
+    const seenSliceKeys = new Set<string>([stableSemanticFlowSliceKey(initialSlice)]);
     onProgress?.({ type: "item-start", index: index + 1, totalItems, anchorId: anchor.id, surface: anchor.surface });
 
     for (let round = 0; round <= maxRounds; round++) {
@@ -89,33 +104,57 @@ async function runSemanticFlowItem(
         try {
             decision = await decider.decide({
                 anchor,
+                draftId,
                 slice: currentSlice,
+                draft: currentDraft,
+                lastMarker,
+                lastDelta,
                 round,
                 history,
             });
         } catch (error) {
             history.push({
                 round,
+                draftId,
                 slice: currentSlice,
+                draft: currentDraft,
+                marker: lastMarker,
+                delta: lastDelta,
                 error: String((error as any)?.message || error),
             });
             onProgress?.({ type: "item-done", index: index + 1, totalItems, anchorId: anchor.id, resolution: "need-human-check" });
             return {
                 anchor,
+                draftId,
                 resolution: "need-human-check",
+                draft: currentDraft,
+                lastMarker,
+                lastDelta,
                 finalSlice: currentSlice,
                 history,
                 error: String((error as any)?.message || error),
             };
         }
         onProgress?.({ type: "round-decision", index: index + 1, totalItems, anchorId: anchor.id, round, status: decision.status });
-        history.push({ round, slice: currentSlice, decision });
 
         if (decision.status === "reject") {
+            history.push({
+                round,
+                draftId,
+                slice: currentSlice,
+                draft: currentDraft,
+                marker: lastMarker,
+                delta: lastDelta,
+                decision,
+            });
             onProgress?.({ type: "item-done", index: index + 1, totalItems, anchorId: anchor.id, resolution: "rejected" });
             return {
                 anchor,
+                draftId,
                 resolution: "rejected",
+                draft: currentDraft,
+                lastMarker,
+                lastDelta,
                 finalSlice: currentSlice,
                 history,
                 error: decision.reason,
@@ -123,6 +162,20 @@ async function runSemanticFlowItem(
         }
 
         if (decision.status === "done") {
+            const summary = protectedMergeSemanticFlowDraft(currentDraft, decision.summary, lastMarker?.kind);
+            history.push({
+                round,
+                draftId,
+                slice: currentSlice,
+                draft: summary,
+                marker: lastMarker,
+                delta: lastDelta,
+                decision: {
+                    ...decision,
+                    summary,
+                },
+            });
+            currentDraft = summary;
             try {
                 if (decision.resolution !== "resolved") {
                     onProgress?.({
@@ -134,25 +187,33 @@ async function runSemanticFlowItem(
                     });
                     return {
                         anchor,
+                        draftId,
                         resolution: decision.resolution,
-                        summary: decision.summary,
+                        summary,
+                        draft: summary,
+                        lastMarker,
+                        lastDelta,
                         finalSlice: currentSlice,
                         history,
                     };
                 }
-                const classification = classifySemanticFlowSummary(anchor, decision.summary, decision.classification);
+                const classification = classifySemanticFlowSummary(anchor, summary, decision.classification);
                 if (!classification) {
                     onProgress?.({ type: "item-done", index: index + 1, totalItems, anchorId: anchor.id, resolution: "unresolved" });
                     return {
                         anchor,
+                        draftId,
                         resolution: "unresolved",
-                        summary: decision.summary,
+                        summary,
+                        draft: summary,
+                        lastMarker,
+                        lastDelta,
                         finalSlice: currentSlice,
                         history,
                         error: "unable to classify summary",
                     };
                 }
-                const artifact = buildSemanticFlowArtifact(anchor, decision.summary, classification);
+                const artifact = buildSemanticFlowArtifact(anchor, summary, classification);
                 onProgress?.({
                     type: "item-done",
                     index: index + 1,
@@ -163,9 +224,13 @@ async function runSemanticFlowItem(
                 });
                 return {
                     anchor,
+                    draftId,
                     classification,
                     resolution: decision.resolution,
-                    summary: decision.summary,
+                    summary,
+                    draft: summary,
+                    lastMarker,
+                    lastDelta,
                     artifact,
                     finalSlice: currentSlice,
                     history,
@@ -174,8 +239,12 @@ async function runSemanticFlowItem(
                 onProgress?.({ type: "item-done", index: index + 1, totalItems, anchorId: anchor.id, resolution: "need-human-check" });
                 return {
                     anchor,
+                    draftId,
                     resolution: "need-human-check",
-                    summary: decision.summary,
+                    summary,
+                    draft: summary,
+                    lastMarker,
+                    lastDelta,
                     finalSlice: currentSlice,
                     history,
                     error: String((error as any)?.message || error),
@@ -183,11 +252,32 @@ async function runSemanticFlowItem(
             }
         }
 
+        const deficit = materializeSemanticFlowDeficit(anchor, decision.request);
+        const nextDraft = protectedMergeSemanticFlowDraft(currentDraft, decision.draft, deficit.kind);
+        const plan = createSemanticFlowExpandPlan(anchor, deficit);
+        const roundRecord: SemanticFlowRoundRecord = {
+            round,
+            draftId,
+            slice: currentSlice,
+            draft: nextDraft,
+            deficit,
+            plan,
+            decision: {
+                ...decision,
+                draft: nextDraft,
+            },
+        };
+
         if (round >= maxRounds) {
+            history.push(roundRecord);
             onProgress?.({ type: "item-done", index: index + 1, totalItems, anchorId: anchor.id, resolution: "unresolved" });
             return {
                 anchor,
+                draftId,
                 resolution: "unresolved",
+                draft: nextDraft,
+                lastMarker,
+                lastDelta,
                 finalSlice: currentSlice,
                 history,
                 error: "maximum expansion rounds reached",
@@ -200,48 +290,62 @@ async function runSemanticFlowItem(
             totalItems,
             anchorId: anchor.id,
             round,
-            kind: decision.request.kind,
+            kind: deficit.kind,
         });
         const expanded = await expander.expand({
             anchor,
+            draftId,
             slice: currentSlice,
+            draft: nextDraft,
             round,
-            request: decision.request,
+            deficit,
+            plan,
+            lastMarker,
+            lastDelta,
             history,
         });
-        const expandedKey = stableSliceKey(expanded);
-        if (seenSliceKeys.has(expandedKey)) {
+        roundRecord.delta = expanded.delta;
+        const expandedKey = stableSemanticFlowSliceKey(expanded.slice);
+        const noNewSlice = seenSliceKeys.has(expandedKey);
+        if (!expanded.delta.effective || noNewSlice) {
+            history.push(roundRecord);
             onProgress?.({ type: "item-done", index: index + 1, totalItems, anchorId: anchor.id, resolution: "unresolved" });
             return {
                 anchor,
+                draftId,
                 resolution: "unresolved",
+                draft: nextDraft,
+                lastMarker,
+                lastDelta: expanded.delta,
                 finalSlice: currentSlice,
                 history,
-                error: "expansion produced no new evidence",
+                error: noNewSlice
+                    ? "expansion produced no new slice evidence"
+                    : "expansion produced no effective delta",
             };
         }
-        currentSlice = expanded;
+        const marker = createSemanticFlowMarker(draftId, deficit, expanded.delta);
+        roundRecord.marker = marker;
+        history.push(roundRecord);
+        currentDraft = nextDraft;
+        currentSlice = expanded.slice;
+        lastMarker = marker;
+        lastDelta = expanded.delta;
         seenSliceKeys.add(expandedKey);
     }
 
     onProgress?.({ type: "item-done", index: index + 1, totalItems, anchorId: anchor.id, resolution: "unresolved" });
     return {
         anchor,
+        draftId,
         resolution: "unresolved",
+        draft: currentDraft,
+        lastMarker,
+        lastDelta,
         finalSlice: currentSlice,
         history,
         error: "pipeline ended unexpectedly",
     };
-}
-
-function stableSliceKey(slice: SemanticFlowSlicePackage): string {
-    return JSON.stringify({
-        template: slice.template,
-        observations: slice.observations,
-        snippets: slice.snippets,
-        companions: slice.companions,
-        notes: slice.notes,
-    });
 }
 
 async function mapWithConcurrency<T, R>(

@@ -103,35 +103,59 @@ async function main(): Promise<void> {
     assert(!arkItemA.initialSlice.snippets.some(snippet => snippet.code.includes("framework_hint:")), "arkmain prompt slice must not leak framework hint tags");
 
     const expander = createArkMainCandidateExpander([arkCandidateA]);
-    const request = {
+    const deficit = {
+        id: "def.arkmain.body",
         kind: "q_recv" as const,
+        focus: {
+            from: { slot: "arg" as const, index: 0 },
+            carrierHint: "owner_slot",
+        },
+        scope: {
+            owner: "DemoAbility",
+            locality: "owner" as const,
+            surface: "onCreate",
+        },
+        budgetClass: "owner_local" as const,
         why: ["need body evidence"],
         ask: "show owner context and body",
+    };
+    const plan = {
+        kind: "q_recv" as const,
+        seed: { mode: "owner" as const, value: "DemoAbility" },
+        edges: ["E_recv", "E_scope"],
+        budgetClass: "owner_local" as const,
+        stopCondition: "receiver-write-or-scope-exhausted",
     };
 
     const expandedOnce = await expander.expand({
         anchor: arkItemA.anchor,
+        draftId: "draft.arkmain.demoability.oncreate",
         slice: arkItemA.initialSlice,
         round: 0,
-        request,
+        deficit,
+        plan,
         history: [],
     });
-    const onceMethodBodyCount = expandedOnce.snippets.filter(snippet => snippet.label === "method-body").length;
-    const onceOwnerCount = expandedOnce.snippets.filter(snippet => snippet.label === "owner-context").length;
+    const onceMethodBodyCount = expandedOnce.slice.snippets.filter(snippet => snippet.label === "method-body").length;
+    const onceOwnerCount = expandedOnce.slice.snippets.filter(snippet => snippet.label === "owner-context").length;
     assert(onceMethodBodyCount === 1, `expected one method-body snippet after first expansion, got ${onceMethodBodyCount}`);
     assert(onceOwnerCount === 1, `expected one owner-context snippet after first expansion, got ${onceOwnerCount}`);
+    assert(expandedOnce.delta.effective, "first arkmain expansion should be effective");
 
     const expandedTwice = await expander.expand({
         anchor: arkItemA.anchor,
-        slice: expandedOnce,
+        draftId: "draft.arkmain.demoability.oncreate",
+        slice: expandedOnce.slice,
         round: 1,
-        request,
+        deficit,
+        plan,
         history: [],
     });
-    const twiceMethodBodyCount = expandedTwice.snippets.filter(snippet => snippet.label === "method-body").length;
-    const twiceOwnerCount = expandedTwice.snippets.filter(snippet => snippet.label === "owner-context").length;
+    const twiceMethodBodyCount = expandedTwice.slice.snippets.filter(snippet => snippet.label === "method-body").length;
+    const twiceOwnerCount = expandedTwice.slice.snippets.filter(snippet => snippet.label === "owner-context").length;
     assert(twiceMethodBodyCount === 1, `duplicate arkmain expansion must not append method-body twice, got ${twiceMethodBodyCount}`);
     assert(twiceOwnerCount === 1, `duplicate arkmain expansion must not append owner-context twice, got ${twiceOwnerCount}`);
+    assert(!expandedTwice.delta.effective, "duplicate arkmain expansion should be a no-op delta");
 
     console.log("PASS testSemanticFlowGuards");
 }

@@ -119,9 +119,9 @@ async function createMockServer(): Promise<{
                         confidence: "high",
                         moduleSpec: {
                             kind: "keyed_storage",
-                            writeSurface: "put",
-                            readSurface: "get",
-                            valueSlot: "arg1",
+                            storageClasses: ["Vault"],
+                            writeMethods: [{ methodName: "put", valueIndex: 1 }],
+                            readMethods: ["get"],
                         },
                     },
                 };

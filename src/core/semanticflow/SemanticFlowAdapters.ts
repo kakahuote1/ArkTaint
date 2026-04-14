@@ -2,6 +2,7 @@ import type { ArkMainEntryCandidate } from "../entry/arkmain/llm/ArkMainEntryCan
 import type { ArkMainSelector } from "../entry/arkmain/ArkMainSpec";
 import type { CallsiteContextSlice, NormalizedCallsiteItem } from "../model/callsite/callsiteContextSlices";
 import type { SemanticFlowPipelineItemInput } from "./SemanticFlowPipeline";
+import { semanticFlowDeclaringClassFromSignature } from "./SemanticFlowRuleCompanions";
 import type { SemanticFlowAnchor, SemanticFlowSliceCodeSnippet, SemanticFlowSlicePackage } from "./SemanticFlowTypes";
 
 export interface SemanticFlowRuleCandidateAdapterOptions {
@@ -25,7 +26,7 @@ export function buildSemanticFlowRuleCandidateItem(
     return {
         anchor: {
             id: anchorId,
-            owner: extractDeclaringClassFromMethodSignature(item.callee_signature),
+            owner: semanticFlowDeclaringClassFromSignature(item.callee_signature),
             surface: item.method || "unknown",
             methodSignature: item.callee_signature,
             filePath: item.sourceFile,
@@ -370,13 +371,6 @@ function shouldInlineOwnerFamily(item: NormalizedCallsiteItem): boolean {
         return false;
     }
     return /return\s+[A-Za-z_$][\w$]*\.[A-Za-z_$][\w$]*\s*\(|[A-Za-z_$][\w$]*\.[A-Za-z_$][\w$]*\s*\(/.test(methodSnippet);
-}
-
-function extractDeclaringClassFromMethodSignature(signature: string): string | undefined {
-    const openParen = signature.indexOf("(");
-    const methodDot = signature.lastIndexOf(".", openParen >= 0 ? openParen : signature.length);
-    if (methodDot < 0) return undefined;
-    return signature.slice(0, methodDot).trim();
 }
 
 function sanitizeKey(value: string): string {
