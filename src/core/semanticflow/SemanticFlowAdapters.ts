@@ -182,6 +182,25 @@ function buildRuleObservations(item: NormalizedCallsiteItem): string[] {
     if (ownerMethodSnippets.length > 0) {
         observations.push(`ownerMethodSnippets=${ownerMethodSnippets.length}`);
     }
+    const carrierRoots = Array.isArray((item as any).carrierRoots)
+        ? ((item as any).carrierRoots as string[]).map(root => String(root || "").trim()).filter(Boolean)
+        : [];
+    if (carrierRoots.length > 0) {
+        observations.push(`carrierRoots=${carrierRoots.length}`);
+        for (const root of carrierRoots.slice(0, 3)) {
+            observations.push(`carrierRoot=${root}`);
+        }
+    }
+    const carrierObservations = Array.isArray((item as any).carrierObservations)
+        ? ((item as any).carrierObservations as string[]).map(entry => String(entry || "").trim()).filter(Boolean)
+        : [];
+    observations.push(...carrierObservations);
+    const carrierMethodSnippets = Array.isArray((item as any).carrierMethodSnippets)
+        ? (item as any).carrierMethodSnippets as Array<{ method?: string }>
+        : [];
+    if (carrierMethodSnippets.length > 0) {
+        observations.push(`carrierMethodSnippets=${carrierMethodSnippets.length}`);
+    }
     if (typeof item.count === "number") {
         observations.push(`count=${item.count}`);
     }
@@ -223,7 +242,7 @@ function buildRuleSnippets(
         ? String((item as any).methodSnippet).trim()
         : "";
 
-    if (methodSnippet) {
+    if (methodSnippet && shouldIncludeMethodSnippet(item)) {
         snippets.push({
             label: "method",
             code: methodSnippet,
@@ -251,6 +270,32 @@ function buildRuleSnippets(
             }
             snippets.push({
                 label: `owner-sibling-${methodName}`,
+                code,
+            });
+        }
+    }
+
+    const carrierSnippet = typeof (item as any).carrierSnippet === "string"
+        ? String((item as any).carrierSnippet).trim()
+        : "";
+    const carrierMethodSnippets = Array.isArray((item as any).carrierMethodSnippets)
+        ? (item as any).carrierMethodSnippets as Array<{ method?: string; code?: string }>
+        : [];
+    if (shouldInlineCarrierEvidence(item) && carrierSnippet) {
+        snippets.push({
+            label: "carrier-context",
+            code: carrierSnippet,
+        });
+    }
+    if (shouldInlineCarrierEvidence(item)) {
+        for (const companion of carrierMethodSnippets.slice(0, 2)) {
+            const methodName = String(companion.method || "").trim();
+            const code = String(companion.code || "").trim();
+            if (!methodName || !code) {
+                continue;
+            }
+            snippets.push({
+                label: `carrier-sibling-${methodName}`,
                 code,
             });
         }
@@ -309,6 +354,9 @@ function selectRuleTemplate(
     const ownerMethodSnippets = Array.isArray((item as any).ownerMethodSnippets)
         ? (item as any).ownerMethodSnippets as Array<{ method?: string }>
         : [];
+    const carrierMethodSnippets = Array.isArray((item as any).carrierMethodSnippets)
+        ? (item as any).carrierMethodSnippets as Array<{ method?: string }>
+        : [];
     const decoratorText = contextTexts.join("\n").toLowerCase();
     const lowered = [
         item.callee_signature,
@@ -336,6 +384,9 @@ function selectRuleTemplate(
     if (shouldInlineOwnerFamily(item) && ownerMethodSnippets.length > 0) {
         return "multi-surface";
     }
+    if (shouldInlineCarrierEvidence(item) && carrierMethodSnippets.length > 0) {
+        return "multi-surface";
+    }
     return "call-return";
 }
 
@@ -353,7 +404,14 @@ function buildRuleCompanionList(
     const ownerMethods = Array.isArray((item as any).ownerMethodSnippets)
         ? ((item as any).ownerMethodSnippets as Array<{ method?: string }>).map(entry => String(entry.method || "").trim()).filter(Boolean)
         : [];
-    const merged = [...new Set([...companions, ...(shouldInlineOwnerFamily(item) ? ownerMethods : [])])];
+    const carrierMethods = Array.isArray((item as any).carrierMethodSnippets)
+        ? ((item as any).carrierMethodSnippets as Array<{ method?: string }>).map(entry => String(entry.method || "").trim()).filter(Boolean)
+        : [];
+    const merged = [...new Set([
+        ...companions,
+        ...(shouldInlineOwnerFamily(item) ? ownerMethods : []),
+        ...(shouldInlineCarrierEvidence(item) ? carrierMethods : []),
+    ])];
     return merged.length > 0 ? merged : undefined;
 }
 
@@ -371,6 +429,30 @@ function shouldInlineOwnerFamily(item: NormalizedCallsiteItem): boolean {
         return false;
     }
     return /return\s+[A-Za-z_$][\w$]*\.[A-Za-z_$][\w$]*\s*\(|[A-Za-z_$][\w$]*\.[A-Za-z_$][\w$]*\s*\(/.test(methodSnippet);
+}
+
+function shouldIncludeMethodSnippet(item: NormalizedCallsiteItem): boolean {
+    const contextSlices = Array.isArray((item as any).contextSlices)
+        ? (item as any).contextSlices as CallsiteContextSlice[]
+        : [];
+    if (contextSlices.length === 0) {
+        return true;
+    }
+    return hasCarrierEvidence(item);
+}
+
+function shouldInlineCarrierEvidence(item: NormalizedCallsiteItem): boolean {
+    return hasCarrierEvidence(item);
+}
+
+function hasCarrierEvidence(item: NormalizedCallsiteItem): boolean {
+    const carrierRoots = Array.isArray((item as any).carrierRoots)
+        ? ((item as any).carrierRoots as string[]).map(root => String(root || "").trim()).filter(Boolean)
+        : [];
+    const carrierMethodSnippets = Array.isArray((item as any).carrierMethodSnippets)
+        ? (item as any).carrierMethodSnippets as Array<{ method?: string }>
+        : [];
+    return carrierRoots.length > 0 || carrierMethodSnippets.length > 0;
 }
 
 function sanitizeKey(value: string): string {

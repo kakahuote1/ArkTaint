@@ -222,7 +222,7 @@ function expandEdgesForKind(kind: SemanticFlowRequestKind): string[] {
         case "q_cb":
             return ["E_arg", "E_scope"];
         case "q_comp":
-            return ["E_scope", "E_sym"];
+            return ["E_carrier", "E_scope", "E_sym"];
         case "q_meta":
             return ["E_meta", "E_scope"];
         case "q_wrap":

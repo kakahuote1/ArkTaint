@@ -101,6 +101,42 @@ async function main(): Promise<void> {
             },
         ],
     } as any);
+    const carrierRead = normalizeNoCandidateItem({
+        callee_signature: "@project/pool.ets: f2()",
+        method: "f2",
+        invokeKind: "static",
+        argCount: 0,
+        sourceFile: "pool.ets",
+        contextSlices: [
+            {
+                callerFile: "pool.ets",
+                callerMethod: "entry",
+                invokeLine: 12,
+                invokeStmtText: "return f2()",
+                windowLines: "11 | f1(seed)\n12 | return f2()",
+                cfgNeighborStmts: ["f1(seed)", "return f2()"],
+            },
+        ],
+        methodSnippet: "    8 | export function f2(): string | undefined {\n    9 |   return pool.pop();\n   10 | }",
+        carrierRoots: ["pool"],
+        carrierObservations: ["carrierTouch=readwrite:pool.pop"],
+        carrierSnippet: [
+            "sharedCarrierRoots:",
+            "    1 | const pool: string[] = [];",
+            "",
+            "carrierMethods:",
+            "- f2",
+            "- f1",
+        ].join("\n"),
+        carrierMethodSnippets: [
+            {
+                method: "f1",
+                code: "    3 | export function f1(value: string): void {\n    4 |   pool.push(value);\n    5 | }",
+                sharedRoots: ["pool"],
+                carrierOps: ["pool.push"],
+            },
+        ],
+    } as any);
 
     const expander = createRuleCandidateExpander([primary, companion, callbackPeer, metaPeer]);
     const item = buildSemanticFlowRuleCandidateItem(primary, { maxContextSlices: 1 });
@@ -255,6 +291,44 @@ async function main(): Promise<void> {
     assert(ownerExpanded.slice.snippets.some(snippet => snippet.label === "owner-context"), "expected owner-context snippet when no explicit companion candidate exists");
     assert(ownerExpanded.slice.snippets.filter(snippet => snippet.label === "owner-context").length === 1, "owner-context should not be duplicated across expansion");
     assert(!ownerExpanded.delta.effective, "q_comp should no-op when owner-family evidence is already present in round0");
+
+    const carrierExpander = createRuleCandidateExpander([carrierRead]);
+    const carrierItem = buildSemanticFlowRuleCandidateItem(carrierRead);
+    assert(carrierItem.initialSlice.template === "multi-surface", "carrier evidence should upgrade initial template");
+    assert(carrierItem.initialSlice.snippets.some(snippet => snippet.label === "carrier-context"), "carrier context should be present in round0");
+    assert(carrierItem.initialSlice.snippets.some(snippet => snippet.label === "carrier-sibling-f1"), "carrier sibling should be present in round0");
+    const carrierExpanded = await carrierExpander.expand({
+        anchor: carrierItem.anchor,
+        draftId: "draft.pool.f2",
+        slice: carrierItem.initialSlice,
+        round: 0,
+        deficit: {
+            id: "def.pool.f2.comp",
+            kind: "q_comp",
+            focus: {
+                companion: "f1",
+                carrierHint: "pool",
+                from: { surface: "f1", slot: "arg", index: 0 },
+                to: { slot: "result" },
+            },
+            scope: {
+                locality: "file",
+                surface: "f2",
+            },
+            budgetClass: "body_local",
+            why: ["need shared carrier evidence"],
+            ask: "show pool writer companion",
+        },
+        plan: {
+            kind: "q_comp",
+            seed: { mode: "anchor", value: "f2" },
+            edges: ["E_carrier", "E_scope"],
+            budgetClass: "body_local",
+            stopCondition: "carrier-companion-found-or-scope-exhausted",
+        },
+        history: [],
+    });
+    assert(!carrierExpanded.delta.effective, "q_comp should no-op when carrier evidence is already present in round0");
 
     console.log("PASS test_semanticflow_rule_expander");
 }

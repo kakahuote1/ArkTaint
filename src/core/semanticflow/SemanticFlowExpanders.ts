@@ -57,6 +57,12 @@ export function createRuleCandidateExpander(
             if (ownerSnippet) {
                 additions.push(ownerSnippet);
             }
+            const carrierSnippet = buildRuleCarrierSnippet(raw, input.slice.snippets, requestKind);
+            if (carrierSnippet) {
+                additions.push(carrierSnippet);
+            }
+            const carrierFamilySnippets = buildCarrierCompanionSnippets(raw, input.slice.snippets, requestKind);
+            additions.push(...carrierFamilySnippets);
             if (additions.length === 0) {
                 return {
                     slice: input.slice,
@@ -69,10 +75,13 @@ export function createRuleCandidateExpander(
                 ...(companionSnippets.length > 0 ? [`expanded_companions=${companionSnippets.length}`] : []),
                 ...(ownerFamilySnippets.length > 0 ? [`expanded_owner_family=${ownerFamilySnippets.length}`] : []),
                 ...(ownerSnippet ? ["expanded_owner_context=true"] : []),
+                ...(carrierFamilySnippets.length > 0 ? [`expanded_carrier_family=${carrierFamilySnippets.length}`] : []),
+                ...(carrierSnippet ? ["expanded_carrier_context=true"] : []),
             ];
             const newCompanions = [
                 ...companionSnippets.map(snippet => snippet.label.replace(/^companion-/, "").replace(/-\d+$/, "")),
                 ...ownerFamilySnippets.map(snippet => snippet.label.replace(/^owner-sibling-/, "").replace(/-\d+$/, "")),
+                ...carrierFamilySnippets.map(snippet => snippet.label.replace(/^carrier-sibling-/, "").replace(/-\d+$/, "")),
             ];
             const delta = createSemanticFlowDelta(input.anchor, input.round + 1, input.deficit, {
                 observations: newObservations,
@@ -302,6 +311,54 @@ function buildOwnerFamilyCompanionSnippets(
         const methodName = String(method.method || "").trim();
         const code = String(method.code || "").trim();
         const label = `owner-sibling-${methodName}`;
+        if (!methodName || !code || existingLabels.has(label)) {
+            continue;
+        }
+        out.push({ label, code });
+    }
+    return out;
+}
+
+function buildRuleCarrierSnippet(
+    raw: NormalizedCallsiteItem,
+    existingSnippets: Array<{ label: string }>,
+    requestKind: "q_ret" | "q_recv" | "q_cb" | "q_comp" | "q_meta" | "q_wrap",
+): { label: string; code: string } | undefined {
+    if (requestKind !== "q_comp" && requestKind !== "q_wrap") {
+        return undefined;
+    }
+    if (existingSnippets.some(snippet => snippet.label === "carrier-context")) {
+        return undefined;
+    }
+    const carrierSnippet = typeof (raw as any).carrierSnippet === "string"
+        ? String((raw as any).carrierSnippet).trim()
+        : "";
+    if (!carrierSnippet) {
+        return undefined;
+    }
+    return {
+        label: "carrier-context",
+        code: carrierSnippet,
+    };
+}
+
+function buildCarrierCompanionSnippets(
+    raw: NormalizedCallsiteItem,
+    existingSnippets: Array<{ label: string }>,
+    requestKind: "q_ret" | "q_recv" | "q_cb" | "q_comp" | "q_meta" | "q_wrap",
+): Array<{ label: string; code: string }> {
+    if (requestKind !== "q_comp" && requestKind !== "q_wrap") {
+        return [];
+    }
+    const carrierMethods = Array.isArray((raw as any).carrierMethodSnippets)
+        ? (raw as any).carrierMethodSnippets as Array<{ method?: string; code?: string }>
+        : [];
+    const existingLabels = new Set(existingSnippets.map(snippet => snippet.label));
+    const out: Array<{ label: string; code: string }> = [];
+    for (const method of carrierMethods.slice(0, requestKind === "q_wrap" ? 1 : 3)) {
+        const methodName = String(method.method || "").trim();
+        const code = String(method.code || "").trim();
+        const label = `carrier-sibling-${methodName}`;
         if (!methodName || !code || existingLabels.has(label)) {
             continue;
         }

@@ -4,6 +4,10 @@ import { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../../arkanalyzer/out/src/Config";
 import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
 import { injectArkUiSdk } from "../../orchestration/ArkUiSdkConfig";
+import {
+    extractSharedCarrierContextFromFile,
+    type SharedCarrierMethodSnippet,
+} from "./callsiteCarrierFacts";
 
 export interface NormalizedCallsiteItem {
     callee_signature: string;
@@ -13,6 +17,10 @@ export interface NormalizedCallsiteItem {
     sourceFile: string;
     count?: number;
     topEntries?: string[];
+    carrierRoots?: string[];
+    carrierObservations?: string[];
+    carrierSnippet?: string;
+    carrierMethodSnippets?: SharedCarrierMethodSnippet[];
     [key: string]: unknown;
 }
 
@@ -627,10 +635,43 @@ export function enrichNoCandidateItemsWithCallsiteSlices(options: EnrichCallsite
         if (!shouldEnrich) {
             return item;
         }
+        const sourceAbsPath = resolveProjectSourceFile(repoRoot, sourceDirs, item.sourceFile);
+        const methodSnippet = sourceAbsPath
+            ? extractMethodSnippetFromFile(sourceAbsPath, item.method)
+            : undefined;
+        const ownerClassName = extractOwnerClassNameFromMethodSignature(item.callee_signature);
+        const ownerMethods = sourceAbsPath && ownerClassName
+            ? extractOwnerMethodSnippetsFromFile(sourceAbsPath, ownerClassName)
+            : [];
+        const ownerMethodSnippets = methodSnippet
+            ? selectOwnerFamilySnippets(ownerMethods, item.method, methodSnippet, 2)
+                .map(snippet => compactOwnerMethodSnippet(methodSnippet, snippet))
+            : [];
+        const ownerSnippet = sourceAbsPath && methodSnippet
+            ? buildCompactOwnerSnippet(
+                sourceAbsPath,
+                ownerMethods,
+                [item.method, ...ownerMethodSnippets.map(entry => entry.method)],
+                [methodSnippet, ...ownerMethodSnippets.map(entry => entry.code)],
+            )
+            : undefined;
+        const carrierContext = sourceAbsPath
+            ? extractSharedCarrierContextFromFile(sourceAbsPath, item.method)
+            : undefined;
         if (scenes.length === 0) {
             return {
                 ...item,
                 contextSlices: [],
+                ...(methodSnippet ? { methodSnippet } : {}),
+                ...(ownerSnippet ? { ownerSnippet } : {}),
+                ...(ownerMethodSnippets.length > 0 ? { ownerMethodSnippets } : {}),
+                ...(carrierContext ? {
+                    methodSnippet: methodSnippet || item.methodSnippet,
+                    carrierRoots: carrierContext.roots,
+                    carrierObservations: carrierContext.observations,
+                    carrierSnippet: carrierContext.contextSnippet,
+                    carrierMethodSnippets: carrierContext.methodSnippets,
+                } : {}),
                 contextError: "no_scene_built_for_sourceDirs",
             };
         }
@@ -648,38 +689,31 @@ export function enrichNoCandidateItemsWithCallsiteSlices(options: EnrichCallsite
             slices.push(...found);
         }
         if (slices.length === 0) {
-            const sourceAbsPath = resolveProjectSourceFile(repoRoot, sourceDirs, item.sourceFile);
-            const methodSnippet = sourceAbsPath
-                ? extractMethodSnippetFromFile(sourceAbsPath, item.method)
-                : undefined;
-            const ownerClassName = extractOwnerClassNameFromMethodSignature(item.callee_signature);
-            const ownerMethods = sourceAbsPath && ownerClassName
-                ? extractOwnerMethodSnippetsFromFile(sourceAbsPath, ownerClassName)
-                : [];
-            const ownerMethodSnippets = methodSnippet
-                ? selectOwnerFamilySnippets(ownerMethods, item.method, methodSnippet, 2)
-                    .map(snippet => compactOwnerMethodSnippet(methodSnippet, snippet))
-                : [];
-            const ownerSnippet = sourceAbsPath && methodSnippet
-                ? buildCompactOwnerSnippet(
-                    sourceAbsPath,
-                    ownerMethods,
-                    [item.method, ...ownerMethodSnippets.map(entry => entry.method)],
-                    [methodSnippet, ...ownerMethodSnippets.map(entry => entry.code)],
-                )
-                : undefined;
             return {
                 ...item,
                 contextSlices: [],
                 methodSnippet,
                 ownerSnippet,
                 ownerMethodSnippets,
+                ...(carrierContext ? {
+                    carrierRoots: carrierContext.roots,
+                    carrierObservations: carrierContext.observations,
+                    carrierSnippet: carrierContext.contextSnippet,
+                    carrierMethodSnippets: carrierContext.methodSnippets,
+                } : {}),
                 contextError: "no_matching_invoke_found_in_scene",
             };
         }
         return {
             ...item,
             contextSlices: slices,
+            ...(carrierContext ? {
+                methodSnippet: methodSnippet || item.methodSnippet,
+                carrierRoots: carrierContext.roots,
+                carrierObservations: carrierContext.observations,
+                carrierSnippet: carrierContext.contextSnippet,
+                carrierMethodSnippets: carrierContext.methodSnippets,
+            } : {}),
         };
     });
 }
