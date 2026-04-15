@@ -374,6 +374,7 @@ async function main(): Promise<void> {
         });
 
         const summary = JSON.parse(fs.readFileSync(path.join(root, "summary.json"), "utf8"));
+        const summaryRun = JSON.parse(fs.readFileSync(path.join(root, "summary", "run.json"), "utf8"));
         const analysis = JSON.parse(fs.readFileSync(path.join(root, "analysis.json"), "utf8"));
         const finalSummary = JSON.parse(fs.readFileSync(analysis.summaryJsonPath, "utf8"));
         const rules = JSON.parse(fs.readFileSync(path.join(root, "rules.json"), "utf8"));
@@ -386,6 +387,8 @@ async function main(): Promise<void> {
         assert(summary.arkMainKernelCoveredCount === 1, `expected one kernel-covered arkmain candidate, got ${summary.arkMainKernelCoveredCount || 0}`);
         assert(summary.moduleCount === 1, `expected moduleCount=1, got ${summary.moduleCount}`);
         assert(summary.arkMainSpecCount === 0, `expected arkMainSpecCount=0, got ${summary.arkMainSpecCount}`);
+        assert(summary.llmCacheWriteCount > 0, `expected llmCacheWriteCount > 0, got ${summary.llmCacheWriteCount}`);
+        assert(summary.itemCacheHitCount === 0, `expected itemCacheHitCount=0 on first run, got ${summary.itemCacheHitCount}`);
 
         assert((rules.sources || []).length === 1, `expected one source rule, got ${(rules.sources || []).length}`);
         assert((rules.sinks || []).length === 1, `expected one sink rule, got ${(rules.sinks || []).length}`);
@@ -394,6 +397,8 @@ async function main(): Promise<void> {
         assert((arkmain.entries || []).length === 0, `expected no arkmain spec entry, got ${(arkmain.entries || []).length}`);
         assert(finalSummary.summary.withSeeds > 0, `expected final analyze to seed sources, got ${finalSummary.summary.withSeeds}`);
         assert(finalSummary.summary.totalFlows === 1, `expected final analyze to detect one flow, got ${finalSummary.summary.totalFlows}`);
+        assert(summaryRun.llmSessionCache.llmCacheWriteCount > 0, "summary/run.json should expose cache write stats");
+        assert(summaryRun.llmSessionCache.itemCacheHitCount === 0, "summary/run.json should expose first-run item cache hits as zero");
 
         console.log("PASS testSemanticFlowCli");
     } finally {

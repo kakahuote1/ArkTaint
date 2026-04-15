@@ -208,6 +208,7 @@ async function main(): Promise<void> {
 
         const runManifest = JSON.parse(fs.readFileSync(path.join(root, "run.json"), "utf8"));
         const rootSummary = JSON.parse(fs.readFileSync(path.join(root, "summary.json"), "utf8"));
+        const summaryRun = JSON.parse(fs.readFileSync(path.join(root, "summary", "run.json"), "utf8"));
         const rules = JSON.parse(fs.readFileSync(path.join(root, "rules.json"), "utf8"));
         const modules = JSON.parse(fs.readFileSync(path.join(root, "modules.json"), "utf8"));
         const analysis = JSON.parse(fs.readFileSync(path.join(root, "analysis.json"), "utf8"));
@@ -218,9 +219,13 @@ async function main(): Promise<void> {
         assert(rootSummary.classifications.rule === 1, `expected one rule item, got ${rootSummary.classifications.rule || 0}`);
         assert(rootSummary.classifications.module === 1, `expected one module item, got ${rootSummary.classifications.module || 0}`);
         assert(rootSummary.arkMainKernelCoveredCount === 1, `expected one kernel-covered arkmain candidate, got ${rootSummary.arkMainKernelCoveredCount || 0}`);
+        assert(rootSummary.llmCacheWriteCount > 0, `expected llmCacheWriteCount > 0, got ${rootSummary.llmCacheWriteCount}`);
+        assert(rootSummary.itemCacheHitCount === 0, `expected itemCacheHitCount=0 on first run, got ${rootSummary.itemCacheHitCount}`);
         assert((rules.transfers || []).length === 1, `expected one transfer rule, got ${(rules.transfers || []).length}`);
         assert((modules.modules || []).length === 1, `expected one module spec, got ${(modules.modules || []).length}`);
         assert(finalSummary.summary.totalFlows > 0, `expected final analyze flow, got ${finalSummary.summary.totalFlows}`);
+        assert(summaryRun.llmSessionCache.llmCacheWriteCount > 0, "summary/run.json should expose cache write stats");
+        assert(summaryRun.llmSessionCache.itemCacheHitCount === 0, "summary/run.json should expose zero item cache hits on first run");
 
         console.log("PASS testSemanticFlowAuto");
     } finally {

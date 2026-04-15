@@ -217,6 +217,9 @@ async function main(): Promise<void> {
 }
 
 export async function runAnalyzeCliCommand(options: CliOptions): Promise<void> {
+    if (!options.autoModel && (options.llmSessionCacheDir || options.llmSessionCacheMode)) {
+        throw new Error("--llmSessionCacheDir/--llmSessionCacheMode require --autoModel");
+    }
     if (options.autoModel) {
         if (
             options.listModules
@@ -241,6 +244,8 @@ export async function runAnalyzeCliCommand(options: CliOptions): Promise<void> {
             disabledModels: options.disabledModels,
             outputDir: options.outputDir,
             model: options.llmModel,
+            llmSessionCacheDir: options.llmSessionCacheDir,
+            llmSessionCacheMode: options.llmSessionCacheMode,
             arkMainMaxCandidates: options.arkMainMaxCandidates,
             maxRounds: 2,
             concurrency: options.concurrency,

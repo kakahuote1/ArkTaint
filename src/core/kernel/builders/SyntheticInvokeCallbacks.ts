@@ -24,6 +24,7 @@ import {
     resolveMethodsFromCallable
 } from "../../substrate/queries/CalleeResolver";
 import { isSdkBackedMethodSignature } from "../../substrate/queries/SdkProvenance";
+import { resolveKnownOptionCallbackRegistrationsFromStmt } from "../../substrate/semantics/KnownOptionCallbackRegistration";
 import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
 import type { SyntheticInvokeEdgeInfo } from "./SyntheticInvokeEdgeBuilder";
 
@@ -77,6 +78,21 @@ export function collectResolvedCallbackBindingsForStmt(
 ): AsyncCallbackBinding[] {
     const out: AsyncCallbackBinding[] = [];
     const seen = new Set<string>();
+    const knownOptionRegistrations = resolveKnownOptionCallbackRegistrationsFromStmt(
+        stmt,
+        scene,
+        caller,
+    );
+    for (const registration of knownOptionRegistrations) {
+        const callbackSig = registration.callbackMethod?.getSignature?.().toString?.() || "";
+        if (!callbackSig || seen.has(callbackSig)) continue;
+        seen.add(callbackSig);
+        out.push({
+            method: registration.callbackMethod,
+            sourceMethod: registration.sourceMethod || caller,
+            reason: "direct",
+        });
+    }
     const resolvedCallees = collectResolvedInvokeTargets(scene, cg, stmt, invokeExpr);
     for (const callee of resolvedCallees) {
         const isSdk = isSdkBackedMethodSignature(scene, callee.getSignature?.(), {
@@ -172,10 +188,32 @@ export function injectResolvedCallbackParameterEdges(
     invokedParamCache: Map<string, Set<number>>
 ): number {
     const resolvedCallees = collectResolvedInvokeTargets(scene, cg, stmt, invokeExpr);
-    if (resolvedCallees.length === 0) return 0;
-
     let count = 0;
     const seenBindings = new Set<string>();
+    const knownOptionRegistrations = resolveKnownOptionCallbackRegistrationsFromStmt(
+        stmt,
+        scene,
+        caller,
+    );
+    for (const registration of knownOptionRegistrations) {
+        const callbackSig = registration.callbackMethod?.getSignature?.().toString?.() || "";
+        if (!callbackSig) continue;
+        const bindingKey = `${stmt.getOriginPositionInfo?.()?.getLineNo?.() || 0}`
+            + `#known-option`
+            + `#${callbackSig}`;
+        if (seenBindings.has(bindingKey)) continue;
+        seenBindings.add(bindingKey);
+        count += injectCallbackBindingEdges(
+            pag,
+            caller,
+            stmt,
+            edgeMap,
+            registration.callbackMethod,
+            registration.sourceMethod || caller,
+        );
+    }
+    if (resolvedCallees.length === 0) return count;
+
     for (const callee of resolvedCallees) {
         const isSdk = isSdkBackedMethodSignature(scene, callee.getSignature?.(), {
             sourceMethod: caller,
