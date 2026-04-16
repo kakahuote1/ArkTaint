@@ -1,5 +1,8 @@
 import { OpenAICompatibleClient } from "../core/llm/OpenAICompatibleClient";
-import type { SemanticFlowModelInvoker } from "../core/semanticflow/SemanticFlowLlm";
+import {
+    SEMANTIC_FLOW_LLM_TEMPERATURE,
+    type SemanticFlowModelInvoker,
+} from "../core/semanticflow/SemanticFlowLlm";
 import { resolveLlmProfile } from "./llmConfig";
 
 export interface SemanticFlowModelInvokerConfigOptions {
@@ -88,7 +91,7 @@ export function createSemanticFlowModelInvoker(
     return async input => {
         const response = await client.complete({
             model: input.model || options.model,
-            temperature: 0,
+            temperature: SEMANTIC_FLOW_LLM_TEMPERATURE,
             system: input.system,
             user: input.user,
         });

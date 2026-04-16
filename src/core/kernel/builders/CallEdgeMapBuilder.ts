@@ -928,8 +928,8 @@ function collectClosuresParamWriteBackDescriptors(
         if (!(stmt instanceof ArkAssignStmt)) continue;
         const left = stmt.getLeftOp();
         const right = stmt.getRightOp();
-        if (!(left instanceof Local) || !(right instanceof ClosureFieldRef)) continue;
-        const fieldName = right.getFieldName?.();
+        if (!(left instanceof Local)) continue;
+        const fieldName = resolveClosureCapturedFieldName(right);
         if (!fieldName) continue;
         capturedLocalToField.set(left.getName(), fieldName);
     }
@@ -965,6 +965,19 @@ function collectClosuresParamWriteBackDescriptors(
     }
 
     return result;
+}
+
+function resolveClosureCapturedFieldName(value: any): string | undefined {
+    if (value instanceof ClosureFieldRef) {
+        return value.getFieldName?.();
+    }
+    if (value instanceof ArkInstanceFieldRef) {
+        const base = value.getBase?.();
+        if (base instanceof Local && base.getName?.().startsWith("%closures")) {
+            return value.getFieldSignature?.().getFieldName?.() || value.getFieldName?.();
+        }
+    }
+    return undefined;
 }
 
 function getOrCreatePagNodes(pag: Pag, value: any, anchorStmt: any): Map<number, number> | undefined {

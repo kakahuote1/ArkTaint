@@ -66,6 +66,7 @@ import {
 } from "../substrate/queries/CalleeResolver";
 import { collectFiniteStringCandidatesFromValue } from "../substrate/queries/FiniteStringCandidateResolver";
 import { collectOrdinaryHigherOrderCallbackMethodSignaturesFromMethod } from "../kernel/ordinary/OrdinaryArrayPropagation";
+import { buildOrdinarySharedStateIndex } from "../kernel/ordinary/OrdinarySharedStatePropagation";
 import { buildArkMainPlan } from "../entry/arkmain/ArkMainPlanner";
 import { ArkMainEntryFact } from "../entry/arkmain/ArkMainTypes";
 import { ArkMainSyntheticRootBuilder } from "../entry/arkmain/ArkMainSyntheticRootBuilder";
@@ -1808,10 +1809,50 @@ export class TaintPropagationEngine {
                 fieldToVarIndex: this.fieldToVarIndex,
                 allowedMethodSignatures: this.activeReachableMethodSignatures,
                 orderedMethodSignatures: this.activeOrderedMethodSignatures,
+                interproceduralTaintTargetNodeIds: this.collectInterproceduralTaintTargetNodeIds(),
+                captureBwdTaintTargetNodeIds: this.collectCaptureBwdTaintTargetNodeIds(),
                 onProfile: (profile) => this.mergeDetectProfile(profile),
             }
         );
         return scoped;
+    }
+
+    private collectCaptureBwdTaintTargetNodeIds(): Set<number> {
+        const out = new Set<number>();
+        for (const edges of this.captureEdgeMap.values()) {
+            for (const edge of edges) {
+                out.add(edge.dstNodeId);
+            }
+        }
+        return out;
+    }
+
+    private collectInterproceduralTaintTargetNodeIds(): Set<number> {
+        const out = new Set<number>();
+        for (const edges of this.captureEdgeMap.values()) {
+            for (const edge of edges) {
+                out.add(edge.dstNodeId);
+            }
+        }
+        for (const edges of this.syntheticInvokeEdgeMap.values()) {
+            for (const edge of edges) {
+                out.add(edge.dstNodeId);
+            }
+        }
+        if (this.pag) {
+            const ordinarySharedStateIndex = buildOrdinarySharedStateIndex(this.scene, this.pag);
+            for (const consumerNodeIds of ordinarySharedStateIndex.moduleImportBindingConsumerNodeIdsByKey.values()) {
+                for (const nodeId of consumerNodeIds) {
+                    out.add(nodeId);
+                }
+            }
+            for (const consumerNodeIds of ordinarySharedStateIndex.moduleStateConsumerNodeIdsByKey.values()) {
+                for (const nodeId of consumerNodeIds) {
+                    out.add(nodeId);
+                }
+            }
+        }
+        return out;
     }
 
     private resolveSinkSignatureMatchMode(rule: SinkRule): "contains" | "equals" {

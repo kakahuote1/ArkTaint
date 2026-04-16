@@ -8,6 +8,7 @@ import { createArkMainCandidateExpander, createCompositeSemanticFlowExpander, cr
 import { createSemanticFlowLlmDecider, type SemanticFlowModelInvoker } from "./SemanticFlowLlm";
 import { runSemanticFlowSession, type SemanticFlowProgressEvent } from "./SemanticFlowPipeline";
 import { buildRuleCandidateCompanionGroups, semanticFlowRuleCandidateKey } from "./SemanticFlowRuleCompanions";
+import type { SemanticFlowSessionCache } from "./SemanticFlowSessionCache";
 import type { SemanticFlowSessionResult } from "./SemanticFlowTypes";
 
 export interface SemanticFlowProjectOptions {
@@ -19,6 +20,7 @@ export interface SemanticFlowProjectOptions {
     arkMainMaxCandidates?: number;
     maxRounds?: number;
     concurrency?: number;
+    sessionCache?: SemanticFlowSessionCache;
     onProgress?: (event: SemanticFlowProgressEvent) => void;
 }
 
@@ -53,6 +55,7 @@ export async function runSemanticFlowProject(
     const decider = createSemanticFlowLlmDecider({
         model: options.model,
         modelInvoker: options.modelInvoker,
+        sessionCache: options.sessionCache,
     });
     const expander = createCompositeSemanticFlowExpander([
         createRuleCandidateExpander(ruleCandidates),
@@ -61,6 +64,8 @@ export async function runSemanticFlowProject(
     const session = await runSemanticFlowSession(items, decider, expander, {
         maxRounds: options.maxRounds ?? 2,
         concurrency: options.concurrency ?? 4,
+        model: options.model,
+        sessionCache: options.sessionCache,
         onProgress: options.onProgress,
     });
 

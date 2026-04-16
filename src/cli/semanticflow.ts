@@ -13,6 +13,17 @@ import {
     serializeSemanticFlowSession,
 } from "../core/semanticflow/SemanticFlowSerialize";
 import { publishSemanticFlowProjectAssets } from "../core/semanticflow/SemanticFlowProjectAssets";
+import {
+    SemanticFlowSessionCache,
+    normalizeSemanticFlowSessionCacheMode,
+    resolveDefaultSemanticFlowSessionCacheDir,
+    SEMANTIC_FLOW_SESSION_CACHE_KIND,
+    SEMANTIC_FLOW_SESSION_CACHE_SCHEMA_VERSION,
+    type SemanticFlowSessionCacheEvent,
+    type SemanticFlowSessionCacheMode,
+    type SemanticFlowSessionCacheStats,
+    type SemanticFlowSessionCacheArtifactPaths,
+} from "../core/semanticflow/SemanticFlowSessionCache";
 import { createSemanticFlowModelInvokerFromConfig } from "./semanticflowLlmClient";
 import { resolveLlmProfile } from "./llmConfig";
 import { runAnalyze } from "./analyzeRunner";
@@ -44,6 +55,8 @@ export interface SemanticFlowCliOptions {
     maxSliceItems: number;
     examplesPerItem: number;
     analyze: boolean;
+    llmSessionCacheDir?: string;
+    llmSessionCacheMode?: SemanticFlowSessionCacheMode;
     profile: AnalyzeProfile;
     reportMode: ReportMode;
     maxEntries: number;
@@ -109,6 +122,14 @@ function emitSemanticFlowProgress(event: SemanticFlowProgressEvent): void {
     console.log(`semanticflow_progress=item_done index=${event.index}/${event.totalItems} anchor=${event.anchorId} resolution=${event.resolution} classification=${event.classification || ""}`);
 }
 
+function emitSemanticFlowCacheEvent(event: SemanticFlowSessionCacheEvent): void {
+    if (event.cache === "decision") {
+        console.log(`semanticflow_llm_cache=${event.outcome} anchor=${event.anchorId} round=${event.round} key_prefix=${event.keyPrefix}`);
+        return;
+    }
+    console.log(`semanticflow_item_cache=${event.outcome} anchor=${event.anchorId} key_prefix=${event.keyPrefix}`);
+}
+
 function splitCsv(value?: string): string[] {
     if (!value) return [];
     return value.split(",").map(v => v.trim()).filter(Boolean);
@@ -169,6 +190,8 @@ function parseArgs(argv: string[]): SemanticFlowCliOptions {
     let maxSliceItems = 48;
     let examplesPerItem = 2;
     let analyze = true;
+    let llmSessionCacheDir: string | undefined;
+    let llmSessionCacheMode: SemanticFlowSessionCacheMode | undefined;
     let profile: AnalyzeProfile = "default";
     let reportMode: ReportMode = "light";
     let maxEntries = 12;
@@ -293,6 +316,18 @@ function parseArgs(argv: string[]): SemanticFlowCliOptions {
             analyze = false;
             continue;
         }
+        const cacheDirArg = readValue(argv, i, "--llmSessionCacheDir");
+        if (cacheDirArg !== undefined) {
+            llmSessionCacheDir = path.resolve(cacheDirArg);
+            if (argv[i] === "--llmSessionCacheDir") i++;
+            continue;
+        }
+        const cacheModeArg = readValue(argv, i, "--llmSessionCacheMode");
+        if (cacheModeArg !== undefined) {
+            llmSessionCacheMode = normalizeSemanticFlowSessionCacheMode(cacheModeArg);
+            if (argv[i] === "--llmSessionCacheMode") i++;
+            continue;
+        }
         const profileArg = readValue(argv, i, "--profile");
         if (profileArg !== undefined) {
             profile = parseProfile(profileArg);
@@ -367,6 +402,8 @@ function parseArgs(argv: string[]): SemanticFlowCliOptions {
         maxSliceItems,
         examplesPerItem,
         analyze,
+        llmSessionCacheDir: llmSessionCacheDir || resolveDefaultSemanticFlowSessionCacheDir(repo),
+        llmSessionCacheMode: llmSessionCacheMode || "rw",
         profile,
         reportMode,
         maxEntries,
@@ -446,7 +483,10 @@ function loadRuleCandidates(
     };
 }
 
-function collectAggregateSummary(bundles: SemanticFlowSessionBundle[]) {
+function collectAggregateSummary(
+    bundles: SemanticFlowSessionBundle[],
+    cacheStats?: SemanticFlowSessionCacheStats,
+) {
     const items = bundles.flatMap(bundle => bundle.result.session.run.items);
     const classifications: Record<string, number> = {};
     for (const item of items) {
@@ -471,6 +511,10 @@ function collectAggregateSummary(bundles: SemanticFlowSessionBundle[]) {
             sanitizerRuleCount: (augment.ruleSet.sanitizers || []).length,
             transferRuleCount: (augment.ruleSet.transfers || []).length,
             arkMainSpecCount: augment.arkMainSpecs.length,
+            llmCacheHitCount: cacheStats?.llmCacheHitCount || 0,
+            llmCacheMissCount: cacheStats?.llmCacheMissCount || 0,
+            llmCacheWriteCount: cacheStats?.llmCacheWriteCount || 0,
+            itemCacheHitCount: cacheStats?.itemCacheHitCount || 0,
         },
     };
 }
@@ -478,6 +522,7 @@ function collectAggregateSummary(bundles: SemanticFlowSessionBundle[]) {
 function writeSemanticFlowArtifacts(
     rootDir: string,
     bundles: SemanticFlowSessionBundle[],
+    cacheStats?: SemanticFlowSessionCacheStats,
 ): {
     aggregateSessionPath: string;
     aggregateRulePath: string;
@@ -485,7 +530,7 @@ function writeSemanticFlowArtifacts(
     aggregateArkMainPath: string;
     aggregateSummaryPath: string;
 } {
-    const aggregate = collectAggregateSummary(bundles);
+    const aggregate = collectAggregateSummary(bundles, cacheStats);
     fs.mkdirSync(rootDir, { recursive: true });
     const modelingDir = path.join(rootDir, "modeling");
     fs.mkdirSync(modelingDir, { recursive: true });
@@ -669,10 +714,14 @@ function writeSemanticFlowRunManifest(
         aggregateSummaryPath: string;
         finalSummaryJsonPath?: string;
         finalSummaryMdPath?: string;
+        cacheDir: string;
+        cacheMode: SemanticFlowSessionCacheMode;
+        cacheStats: SemanticFlowSessionCacheStats;
+        cacheArtifacts: SemanticFlowSessionCacheArtifactPaths;
     },
 ): void {
     const relative = (targetPath?: string) => targetPath ? path.relative(outputDir, targetPath).replace(/\\/g, "/") : undefined;
-    fs.writeFileSync(path.join(outputDir, "run.json"), JSON.stringify({
+    const payload = {
         schemaVersion: 1,
         runKind: "semanticflow",
         generatedAt: new Date().toISOString(),
@@ -682,6 +731,18 @@ function writeSemanticFlowRunManifest(
             llmConfigPath: info.llmConfigPath,
             llmProfile: info.llmProfile,
             llmModel: info.llmModel,
+        },
+        llmSessionCache: {
+            schemaVersion: SEMANTIC_FLOW_SESSION_CACHE_SCHEMA_VERSION,
+            cacheKind: SEMANTIC_FLOW_SESSION_CACHE_KIND,
+            dir: relative(info.cacheDir),
+            mode: info.cacheMode,
+            schemaPath: relative(info.cacheArtifacts.schemaPath),
+            statsPath: relative(info.cacheArtifacts.statsPath),
+            decisionsDir: relative(info.cacheArtifacts.decisionsDir),
+            itemsDir: relative(info.cacheArtifacts.itemsDir),
+            anchorsDir: relative(info.cacheArtifacts.anchorsDir),
+            ...info.cacheStats,
         },
         paths: {
             phase1RuleInput: relative(info.bootstrapRuleInputPath),
@@ -693,7 +754,15 @@ function writeSemanticFlowRunManifest(
             finalSummaryJson: relative(info.finalSummaryJsonPath),
             finalSummaryMd: relative(info.finalSummaryMdPath),
         },
-    }, null, 2), "utf-8");
+    };
+    fs.writeFileSync(path.join(outputDir, "run.json"), JSON.stringify(payload, null, 2), "utf-8");
+    writeSemanticFlowSummaryRunManifest(outputDir, payload);
+}
+
+function writeSemanticFlowSummaryRunManifest(outputDir: string, payload: Record<string, unknown>): void {
+    const summaryDir = path.join(outputDir, "summary");
+    fs.mkdirSync(summaryDir, { recursive: true });
+    fs.writeFileSync(path.join(summaryDir, "run.json"), JSON.stringify(payload, null, 2), "utf-8");
 }
 
 async function main(): Promise<void> {
@@ -723,6 +792,13 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
     }
 
     const loggedInvoker = createLoggedModelInvoker(invoker);
+    const cacheDir = options.llmSessionCacheDir || resolveDefaultSemanticFlowSessionCacheDir(options.repo);
+    const cacheMode = options.llmSessionCacheMode || "rw";
+    const sessionCache = new SemanticFlowSessionCache({
+        rootDir: cacheDir,
+        mode: cacheMode,
+        onEvent: emitSemanticFlowCacheEvent,
+    });
 
     const arkMainCandidateLimit = resolveArkMainCandidateLimit(options);
     const bootstrapRuleInputPath = options.ruleInput && fs.existsSync(options.ruleInput)
@@ -730,6 +806,8 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
         : await runBootstrapAnalyze(options);
     const ruleCandidates = loadRuleCandidates(options, bootstrapRuleInputPath);
     console.log(`semanticflow_phase=load_candidates done rule_candidates=${ruleCandidates.items.length} rule_known_covered=${ruleCandidates.skippedKnown} arkmain_limit=${arkMainCandidateLimit} min_interval_ms=${profile.minIntervalMs}`);
+    console.log(`semanticflow_cache_dir=${cacheDir}`);
+    console.log(`semanticflow_cache_mode=${cacheMode}`);
 
     const bundles: SemanticFlowSessionBundle[] = [];
     for (const sourceDir of options.sourceDirs) {
@@ -750,6 +828,7 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
             arkMainMaxCandidates: arkMainCandidateLimit,
             maxRounds: options.maxRounds,
             concurrency: options.concurrency,
+            sessionCache,
             onProgress: emitSemanticFlowProgress,
         });
         console.log(
@@ -758,10 +837,11 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
         bundles.push({ sourceDir, result, skippedKnownRuleCandidates: ruleCandidates.skippedKnown });
     }
 
-    const aggregatePaths = writeSemanticFlowArtifacts(options.outputDir, bundles);
+    const cacheStats = sessionCache.getStats();
+    const aggregatePaths = writeSemanticFlowArtifacts(options.outputDir, bundles, cacheStats);
     console.log(`semanticflow_phase=write_artifacts done session=${aggregatePaths.aggregateSessionPath}`);
     if (options.publishModel) {
-        const aggregate = collectAggregateSummary(bundles);
+        const aggregate = collectAggregateSummary(bundles, cacheStats);
         const published = publishSemanticFlowProjectAssets({
             projectId: options.publishModel,
             modelRoot: options.modelRoots?.[0],
@@ -778,7 +858,7 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
         console.log(`semanticflow_phase=final_analyze done summary_json=${finalRun.jsonPath}`);
     }
 
-    const aggregateSummary = collectAggregateSummary(bundles);
+    const aggregateSummary = collectAggregateSummary(bundles, cacheStats);
     const analysisSummaryPath = path.join(options.outputDir, "analysis.json");
     fs.writeFileSync(analysisSummaryPath, JSON.stringify(finalRun
         ? {
@@ -796,6 +876,10 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
         : {
             itemCount: aggregateSummary.summary.itemCount,
             classifications: aggregateSummary.summary.classifications,
+            llmCacheHitCount: cacheStats.llmCacheHitCount,
+            llmCacheMissCount: cacheStats.llmCacheMissCount,
+            llmCacheWriteCount: cacheStats.llmCacheWriteCount,
+            itemCacheHitCount: cacheStats.itemCacheHitCount,
             modeled: true,
             finalAnalyze: false,
         }, null, 2), "utf-8");
@@ -808,6 +892,10 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
         ...aggregatePaths,
         finalSummaryJsonPath: finalRun?.jsonPath,
         finalSummaryMdPath: finalRun?.mdPath,
+        cacheDir,
+        cacheMode,
+        cacheStats,
+        cacheArtifacts: sessionCache.getArtifactPaths(),
     });
 
     console.log("====== SemanticFlow ======");
@@ -820,6 +908,10 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
     console.log(`rule_known_covered=${aggregateSummary.summary.ruleKnownCoveredCount}`);
     console.log(`items=${aggregateSummary.summary.itemCount}`);
     console.log(`arkmain_kernel_covered=${aggregateSummary.summary.arkMainKernelCoveredCount}`);
+    console.log(`llm_cache_hits=${cacheStats.llmCacheHitCount}`);
+    console.log(`llm_cache_misses=${cacheStats.llmCacheMissCount}`);
+    console.log(`llm_cache_writes=${cacheStats.llmCacheWriteCount}`);
+    console.log(`item_cache_hits=${cacheStats.itemCacheHitCount}`);
     console.log(`analyze=${options.analyze}`);
     console.log(`output_dir=${options.outputDir}`);
     if (finalRun) {

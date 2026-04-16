@@ -3,7 +3,13 @@ import { CallGraph } from "../../../../arkanalyzer/out/src/callgraph/model/CallG
 import { Pag, PagInstanceFieldNode, PagNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { ArkAssignStmt, ArkInvokeStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
 import { ArkArrayRef, ArkInstanceFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
-import { ArkInstanceInvokeExpr, ArkNewArrayExpr, ArkNewExpr, ArkPtrInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
+import {
+    ArkCastExpr,
+    ArkInstanceInvokeExpr,
+    ArkNewArrayExpr,
+    ArkNewExpr,
+    ArkPtrInvokeExpr,
+} from "../../../../arkanalyzer/out/src/core/base/Expr";
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { Constant } from "../../../../arkanalyzer/out/src/core/base/Constant";
 import { TaintTracker } from "../model/TaintTracker";
@@ -32,6 +38,8 @@ export interface SinkDetectOptions {
     fieldToVarIndex?: Map<string, Set<number>>;
     allowedMethodSignatures?: Set<string>;
     orderedMethodSignatures?: string[];
+    interproceduralTaintTargetNodeIds?: Set<number>;
+    captureBwdTaintTargetNodeIds?: Set<number>;
     sanitizerRules?: SanitizerRule[];
     onProfile?: (profile: SinkDetectProfile) => void;
 }
@@ -245,6 +253,8 @@ export function detectSinks(
                 pag,
                 tracker,
                 options.orderedMethodSignatures,
+                options.interproceduralTaintTargetNodeIds,
+                options.captureBwdTaintTargetNodeIds,
                 fallbackFieldToVarIndex,
             );
             fallbackFieldToVarIndex = preciseCandidate.fallbackFieldToVarIndex;
@@ -685,6 +695,8 @@ function detectPreciseCandidateSource(
     pag: Pag,
     tracker: TaintTracker,
     orderedMethodSignatures?: string[],
+    interproceduralTaintTargetNodeIds?: Set<number>,
+    captureBwdTaintTargetNodeIds?: Set<number>,
     fallbackFieldToVarIndex?: Map<string, Set<number>>,
 ): PreciseCandidateDetectResult {
     const value = candidate.value;
@@ -726,6 +738,16 @@ function detectPreciseCandidateSource(
             fallbackFieldToVarIndex,
         };
     }
+    const allowInterproceduralGenericNodeTaint = hasInterproceduralTaintTargetNode(
+        value,
+        pag,
+        interproceduralTaintTargetNodeIds,
+    );
+    const allowCaptureBwdGenericNodeTaint = hasInterproceduralTaintTargetNode(
+        value,
+        pag,
+        captureBwdTaintTargetNodeIds,
+    );
 
     const latestAssign = findLatestAssignStmtForLocalBefore(method, value, sinkStmt);
     if (!(latestAssign instanceof ArkAssignStmt)) {
@@ -738,10 +760,13 @@ function detectPreciseCandidateSource(
 
     const rightOp = latestAssign.getRightOp();
     if (rightOp instanceof Constant || rightOp === undefined || rightOp === null) {
+        const hasLinearConstantOverwrite = isSameBlockLinearAssignBeforeStmt(method, latestAssign, sinkStmt);
         return {
-            // A later constant assignment in the same method is a strong local kill.
-            // Keep lone constant initialization eligible so source probes can still seed it.
-            blockGenericNodeTaint: hasEarlierAssignBefore(method, value, latestAssign),
+            blockGenericNodeTaint: hasLinearConstantOverwrite
+                ? !allowCaptureBwdGenericNodeTaint
+                : (!allowInterproceduralGenericNodeTaint
+                    && !hasNonConstantReachingAssign
+                    && collectReachingAssignStmtsForLocalAtStmt(method, value, sinkStmt).length > 0),
             fallbackFieldToVarIndex,
         };
     }
@@ -974,6 +999,40 @@ function detectPreciseCandidateSource(
     };
 }
 
+function hasInterproceduralTaintTargetNode(
+    value: Local,
+    pag: Pag,
+    interproceduralTaintTargetNodeIds: ReadonlySet<number> | undefined,
+): boolean {
+    if (!interproceduralTaintTargetNodeIds || interproceduralTaintTargetNodeIds.size === 0) {
+        return false;
+    }
+    const nodeIds = pag.getNodesByValue(value);
+    if (!nodeIds || nodeIds.size === 0) {
+        return false;
+    }
+    for (const nodeRef of nodeIds.values()) {
+        const nodeId = unwrapPagNodeId(nodeRef);
+        if (nodeId !== undefined && interproceduralTaintTargetNodeIds.has(nodeId)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function unwrapPagNodeId(nodeRef: unknown): number | undefined {
+    if (typeof nodeRef === "number" && Number.isFinite(nodeRef)) {
+        return nodeRef;
+    }
+    if (Array.isArray(nodeRef) && nodeRef.length >= 2) {
+        const candidate = Number(nodeRef[1]);
+        if (Number.isFinite(candidate)) {
+            return candidate;
+        }
+    }
+    return undefined;
+}
+
 function detectReceiverFieldCandidateSource(
     method: any,
     sinkStmt: any,
@@ -1121,6 +1180,28 @@ function hasEarlierAssignBefore(method: any, local: Local, anchorStmt: any): boo
         if (!(stmt instanceof ArkAssignStmt)) continue;
         if (stmt.getLeftOp() !== local) continue;
         return true;
+    }
+    return false;
+}
+
+function isSameBlockLinearAssignBeforeStmt(method: any, assignStmt: ArkAssignStmt, anchorStmt: any): boolean {
+    const cfg = method?.getCfg?.() || anchorStmt?.getCfg?.();
+    const stmtToBlock = cfg?.getStmtToBlock?.();
+    const assignBlock = stmtToBlock?.get?.(assignStmt);
+    const anchorBlock = stmtToBlock?.get?.(anchorStmt);
+    if (!assignBlock || !anchorBlock || assignBlock !== anchorBlock) {
+        return false;
+    }
+    const stmts: any[] = assignBlock.getStmts?.() || assignBlock.stmts || [];
+    let seenAssign = false;
+    for (const stmt of stmts) {
+        if (stmt === assignStmt) {
+            seenAssign = true;
+            continue;
+        }
+        if (stmt === anchorStmt) {
+            return seenAssign;
+        }
     }
     return false;
 }
