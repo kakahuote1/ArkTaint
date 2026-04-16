@@ -6,7 +6,9 @@ import type {
     SemanticFlowAnchor,
     SemanticFlowArtifactClass,
     SemanticFlowDecision,
+    SemanticFlowDeficit,
     SemanticFlowDelta,
+    SemanticFlowExpandPlan,
     SemanticFlowItemResult,
     SemanticFlowMarker,
     SemanticFlowResolution,
@@ -25,6 +27,15 @@ export interface SemanticFlowSessionCacheStats {
     llmCacheMissCount: number;
     llmCacheWriteCount: number;
     itemCacheHitCount: number;
+}
+
+export interface SemanticFlowSessionCacheArtifactPaths {
+    rootDir: string;
+    schemaPath: string;
+    statsPath: string;
+    decisionsDir: string;
+    itemsDir: string;
+    anchorsDir: string;
 }
 
 export type SemanticFlowSessionCacheEvent =
@@ -86,20 +97,44 @@ export interface SemanticFlowItemCacheKey {
     initialSliceKey: string;
     maxRounds: number;
     model: string;
+    temperature: number;
+    promptSchemaVersion: number;
+    parserSchemaVersion: number;
 }
 
 export interface SemanticFlowItemCacheKeyInput {
     model: string;
+    temperature: number;
+    promptSchemaVersion: number;
+    parserSchemaVersion: number;
     anchor: SemanticFlowAnchor;
     initialSlice: SemanticFlowSlicePackage;
     maxRounds: number;
 }
 
+export interface CachedSemanticFlowSlice {
+    anchorId: string;
+    round: number;
+    template: SemanticFlowSlicePackage["template"];
+    observations: string[];
+    snippets: Array<{
+        label: string;
+        code: string;
+    }>;
+    companions: string[];
+    notes: string[];
+}
+
 export interface CachedSemanticFlowRound {
     round: number;
     status: "done" | "need-more-evidence" | "reject" | "error";
+    slice: CachedSemanticFlowSlice;
     decision?: SemanticFlowDecision;
     summary?: SemanticFlowSummary;
+    deficit?: SemanticFlowDeficit;
+    plan?: SemanticFlowExpandPlan;
+    delta?: SemanticFlowDelta;
+    marker?: SemanticFlowMarker;
     error?: string;
 }
 
@@ -108,7 +143,10 @@ export interface CachedSemanticFlowItem {
     classification?: SemanticFlowArtifactClass;
     summary?: SemanticFlowSummary;
     draft?: SemanticFlowSummary;
+    lastMarker?: SemanticFlowMarker;
+    lastDelta?: SemanticFlowDelta;
     error?: string;
+    finalSlice: CachedSemanticFlowSlice;
     finalRound: number;
     rounds: CachedSemanticFlowRound[];
 }
@@ -148,6 +186,9 @@ interface ItemCacheRecord {
         initialSliceKey: string;
         maxRounds: number;
         model: string;
+        temperature: number;
+        promptSchemaVersion: number;
+        parserSchemaVersion: number;
         finalRound: number;
         roundCount: number;
     };
@@ -257,6 +298,9 @@ export function buildSemanticFlowItemCacheKey(
     const payload = {
         cacheSchemaVersion: SEMANTIC_FLOW_SESSION_CACHE_SCHEMA_VERSION,
         model: input.model,
+        temperature: input.temperature,
+        promptSchemaVersion: input.promptSchemaVersion,
+        parserSchemaVersion: input.parserSchemaVersion,
         anchorFingerprint,
         initialSliceKey,
         maxRounds: input.maxRounds,
@@ -271,6 +315,9 @@ export function buildSemanticFlowItemCacheKey(
         initialSliceKey,
         maxRounds: input.maxRounds,
         model: input.model,
+        temperature: input.temperature,
+        promptSchemaVersion: input.promptSchemaVersion,
+        parserSchemaVersion: input.parserSchemaVersion,
     };
 }
 
@@ -323,6 +370,17 @@ export class SemanticFlowSessionCache {
             llmCacheMissCount: this.stats.llmCacheMissCount,
             llmCacheWriteCount: this.stats.llmCacheWriteCount,
             itemCacheHitCount: this.stats.itemCacheHitCount,
+        };
+    }
+
+    getArtifactPaths(): SemanticFlowSessionCacheArtifactPaths {
+        return {
+            rootDir: this.rootDir,
+            schemaPath: this.schemaPath,
+            statsPath: this.statsPath,
+            decisionsDir: this.decisionsDir,
+            itemsDir: this.itemsDir,
+            anchorsDir: this.anchorsDir,
         };
     }
 
@@ -466,6 +524,9 @@ export class SemanticFlowSessionCache {
                 initialSliceKey: key.initialSliceKey,
                 maxRounds: key.maxRounds,
                 model: key.model,
+                temperature: key.temperature,
+                promptSchemaVersion: key.promptSchemaVersion,
+                parserSchemaVersion: key.parserSchemaVersion,
                 finalRound: cachedResult.finalRound,
                 roundCount: cachedResult.rounds.length,
             },
@@ -485,11 +546,10 @@ export class SemanticFlowSessionCache {
 
     restoreItemResult(
         anchor: SemanticFlowAnchor,
-        initialSlice: SemanticFlowSlicePackage,
         cached: CachedSemanticFlowItem,
     ): SemanticFlowItemResult {
         const draftId = createSemanticFlowDraftId(anchor);
-        const history = cached.rounds.map(round => restoreRoundRecord(anchor.id, initialSlice.template, draftId, round));
+        const history = cached.rounds.map(round => restoreRoundRecord(draftId, round));
         return {
             anchor,
             draftId,
@@ -497,14 +557,19 @@ export class SemanticFlowSessionCache {
             resolution: cached.resolution,
             summary: cached.summary,
             draft: cached.draft,
+            lastMarker: cached.lastMarker,
+            lastDelta: cached.lastDelta,
             finalSlice: {
-                anchorId: anchor.id,
-                round: cached.finalRound,
-                template: initialSlice.template,
-                observations: [],
-                snippets: [],
-                companions: [],
-                notes: [],
+                anchorId: cached.finalSlice.anchorId,
+                round: cached.finalSlice.round,
+                template: cached.finalSlice.template,
+                observations: [...cached.finalSlice.observations],
+                snippets: cached.finalSlice.snippets.map(snippet => ({
+                    label: snippet.label,
+                    code: snippet.code,
+                })),
+                companions: [...cached.finalSlice.companions],
+                notes: [...cached.finalSlice.notes],
             },
             history,
             error: cached.error,
@@ -517,6 +582,8 @@ export class SemanticFlowSessionCache {
         }
         if (fs.existsSync(this.rootDir)) {
             this.validateExistingSchema();
+        } else if (this.canRead() && !this.canWrite()) {
+            throw new Error(`semanticflow session cache root missing for read mode: ${this.rootDir}`);
         }
         if (this.canWrite()) {
             fs.mkdirSync(this.decisionsDir, { recursive: true });
@@ -531,8 +598,11 @@ export class SemanticFlowSessionCache {
         if (!fs.existsSync(this.rootDir) || !fs.statSync(this.rootDir).isDirectory()) {
             throw new Error(`semanticflow session cache root is not a directory: ${this.rootDir}`);
         }
+        this.validateOptionalDirectory(this.decisionsDir, "decisions");
+        this.validateOptionalDirectory(this.itemsDir, "items");
+        this.validateOptionalDirectory(this.anchorsDir, "anchors");
         const entries = fs.readdirSync(this.rootDir);
-        if (entries.length === 0 && !fs.existsSync(this.schemaPath)) {
+        if (this.canWrite() && entries.length === 0 && !fs.existsSync(this.schemaPath)) {
             return;
         }
         if (!fs.existsSync(this.schemaPath)) {
@@ -546,6 +616,12 @@ export class SemanticFlowSessionCache {
         }
         if (schema?.cacheKind !== SEMANTIC_FLOW_SESSION_CACHE_KIND) {
             throw new Error(`semanticflow session cache kind mismatch: ${this.schemaPath}`);
+        }
+    }
+
+    private validateOptionalDirectory(dirPath: string, label: string): void {
+        if (fs.existsSync(dirPath) && !fs.statSync(dirPath).isDirectory()) {
+            throw new Error(`semanticflow session cache ${label} path is not a directory: ${dirPath}`);
         }
     }
 
@@ -575,14 +651,17 @@ export class SemanticFlowSessionCache {
             itemKeyFields: [
                 "cacheSchemaVersion",
                 "model",
+                "temperature",
+                "promptSchemaVersion",
+                "parserSchemaVersion",
                 "anchorFingerprint",
                 "initialSliceKey",
                 "maxRounds",
             ],
             storedArtifacts: [
                 "decisions: structured decision + summary only",
-                "items: final resolution/classification/error + round decisions/summaries only",
-                "anchors: per-round/latest summaries only",
+                "items: final resolution/classification/error + last marker/delta + redacted final slice + structured round history only",
+                "anchors: per-round/latest structured decision summaries only",
                 "excludes: prompt text, raw LLM response, code slice raw content",
             ],
         };
@@ -659,7 +738,10 @@ function sanitizeItemResult(result: SemanticFlowItemResult): CachedSemanticFlowI
         classification: result.classification,
         summary: result.summary,
         draft: result.draft,
+        lastMarker: result.lastMarker,
+        lastDelta: sanitizeCachedDelta(result.lastDelta),
         error: result.error,
+        finalSlice: sanitizeCachedSlice(result.finalSlice),
         finalRound,
         rounds,
     };
@@ -670,7 +752,12 @@ function sanitizeRound(round: SemanticFlowRoundRecord): CachedSemanticFlowRound 
         return {
             round: round.round,
             status: "error",
+            slice: sanitizeCachedSlice(round.slice),
             summary: round.draft,
+            deficit: round.deficit,
+            plan: round.plan,
+            delta: sanitizeCachedDelta(round.delta),
+            marker: round.marker,
             error: round.error,
         };
     }
@@ -680,18 +767,21 @@ function sanitizeRound(round: SemanticFlowRoundRecord): CachedSemanticFlowRound 
     return {
         round: round.round,
         status: round.decision.status,
+        slice: sanitizeCachedSlice(round.slice),
         decision: round.decision,
         summary: round.decision.status === "done"
             ? round.decision.summary
             : round.decision.status === "need-more-evidence"
                 ? round.decision.draft
                 : undefined,
+        deficit: round.deficit,
+        plan: round.plan,
+        delta: sanitizeCachedDelta(round.delta),
+        marker: round.marker,
     };
 }
 
 function restoreRoundRecord(
-    anchorId: string,
-    template: SemanticFlowSlicePackage["template"],
     draftId: string,
     round: CachedSemanticFlowRound,
 ): SemanticFlowRoundRecord {
@@ -699,15 +789,22 @@ function restoreRoundRecord(
         round: round.round,
         draftId,
         slice: {
-            anchorId,
-            round: round.round,
-            template,
-            observations: [],
-            snippets: [],
-            companions: [],
-            notes: [],
+            anchorId: round.slice.anchorId,
+            round: round.slice.round,
+            template: round.slice.template,
+            observations: [...round.slice.observations],
+            snippets: round.slice.snippets.map(snippet => ({
+                label: snippet.label,
+                code: snippet.code,
+            })),
+            companions: [...round.slice.companions],
+            notes: [...round.slice.notes],
         },
         draft: round.summary,
+        deficit: round.deficit,
+        plan: round.plan,
+        delta: round.delta,
+        marker: round.marker,
         decision: round.decision,
         error: round.error,
     };
@@ -721,6 +818,34 @@ function extractDecisionSummary(decision: SemanticFlowDecision): SemanticFlowSum
         return decision.draft;
     }
     return undefined;
+}
+
+function sanitizeCachedDelta(delta: SemanticFlowDelta | undefined): SemanticFlowDelta | undefined {
+    if (!delta) {
+        return undefined;
+    }
+    return {
+        ...delta,
+        newSnippets: (delta.newSnippets || []).map(snippet => ({
+            label: snippet.label,
+            code: "",
+        })),
+    };
+}
+
+function sanitizeCachedSlice(slice: SemanticFlowSlicePackage): CachedSemanticFlowSlice {
+    return {
+        anchorId: slice.anchorId,
+        round: slice.round,
+        template: slice.template,
+        observations: [...slice.observations],
+        snippets: (slice.snippets || []).map(snippet => ({
+            label: snippet.label,
+            code: "",
+        })),
+        companions: [...(slice.companions || [])],
+        notes: [...(slice.notes || [])],
+    };
 }
 
 function canonicalizeAnchor(anchor: SemanticFlowAnchor): Record<string, unknown> {
@@ -847,6 +972,9 @@ function validateItemCacheRecord(raw: unknown, filePath: string): ItemCacheRecor
     expectString(meta.initialSliceKey, `${filePath}.meta.initialSliceKey`);
     expectNumber(meta.maxRounds, `${filePath}.meta.maxRounds`);
     expectString(meta.model, `${filePath}.meta.model`);
+    expectNumber(meta.temperature, `${filePath}.meta.temperature`);
+    expectNumber(meta.promptSchemaVersion, `${filePath}.meta.promptSchemaVersion`);
+    expectNumber(meta.parserSchemaVersion, `${filePath}.meta.parserSchemaVersion`);
     expectNumber(meta.finalRound, `${filePath}.meta.finalRound`);
     expectNumber(meta.roundCount, `${filePath}.meta.roundCount`);
     expectString(meta.createdAt, `${filePath}.meta.createdAt`);
@@ -854,6 +982,7 @@ function validateItemCacheRecord(raw: unknown, filePath: string): ItemCacheRecor
     expectNumber(meta.hitCount, `${filePath}.meta.hitCount`);
     const result = expectObject(obj.result, `${filePath}.result`);
     expectString(result.resolution, `${filePath}.result.resolution`);
+    validateCachedSlice(result.finalSlice, `${filePath}.result.finalSlice`);
     if (!Array.isArray(result.rounds)) {
         throw new Error(`semanticflow cached item rounds must be an array: ${filePath}`);
     }
@@ -861,8 +990,21 @@ function validateItemCacheRecord(raw: unknown, filePath: string): ItemCacheRecor
         validateCachedRound(result.rounds[index], `${filePath}.result.rounds[${index}]`);
     }
     expectNumber(result.finalRound, `${filePath}.result.finalRound`);
+    if (result.lastMarker !== undefined) {
+        expectObject(result.lastMarker, `${filePath}.result.lastMarker`);
+    }
+    if (result.lastDelta !== undefined) {
+        expectObject(result.lastDelta, `${filePath}.result.lastDelta`);
+    }
     if (expectNumber(meta.roundCount, `${filePath}.meta.roundCount`) !== result.rounds.length) {
         throw new Error(`semanticflow cached item round count mismatch: ${filePath}`);
+    }
+    if (result.rounds.length > 0) {
+        const lastRound = result.rounds[result.rounds.length - 1];
+        const lastRoundNumber = expectNumber(lastRound?.round, `${filePath}.result.rounds[last].round`);
+        if (lastRoundNumber !== result.finalRound) {
+            throw new Error(`semanticflow cached item final round mismatch: ${filePath}`);
+        }
     }
     return obj as ItemCacheRecord;
 }
@@ -874,14 +1016,62 @@ function validateCachedRound(raw: unknown, pathName: string): void {
     if (!new Set(["done", "need-more-evidence", "reject", "error"]).has(status)) {
         throw new Error(`${pathName}.status invalid: ${status}`);
     }
+    validateCachedSlice(obj.slice, `${pathName}.slice`);
     if (obj.decision !== undefined && (!obj.decision || typeof obj.decision !== "object" || Array.isArray(obj.decision))) {
         throw new Error(`${pathName}.decision must be an object`);
     }
     if (obj.summary !== undefined && (!obj.summary || typeof obj.summary !== "object" || Array.isArray(obj.summary))) {
         throw new Error(`${pathName}.summary must be an object`);
     }
+    if (obj.deficit !== undefined) {
+        expectObject(obj.deficit, `${pathName}.deficit`);
+    }
+    if (obj.plan !== undefined) {
+        expectObject(obj.plan, `${pathName}.plan`);
+    }
+    if (obj.delta !== undefined) {
+        expectObject(obj.delta, `${pathName}.delta`);
+    }
+    if (obj.marker !== undefined) {
+        expectObject(obj.marker, `${pathName}.marker`);
+    }
     if (obj.error !== undefined) {
         expectString(obj.error, `${pathName}.error`);
+    }
+}
+
+function validateCachedSlice(raw: unknown, pathName: string): void {
+    const obj = expectObject(raw, pathName);
+    expectString(obj.anchorId, `${pathName}.anchorId`);
+    expectNumber(obj.round, `${pathName}.round`);
+    expectString(obj.template, `${pathName}.template`);
+    if (!Array.isArray(obj.observations)) {
+        throw new Error(`${pathName}.observations must be an array`);
+    }
+    if (!Array.isArray(obj.snippets)) {
+        throw new Error(`${pathName}.snippets must be an array`);
+    }
+    if (!Array.isArray(obj.companions)) {
+        throw new Error(`${pathName}.companions must be an array`);
+    }
+    if (!Array.isArray(obj.notes)) {
+        throw new Error(`${pathName}.notes must be an array`);
+    }
+    for (let index = 0; index < obj.observations.length; index++) {
+        expectString(obj.observations[index], `${pathName}.observations[${index}]`);
+    }
+    for (let index = 0; index < obj.snippets.length; index++) {
+        const snippet = expectObject(obj.snippets[index], `${pathName}.snippets[${index}]`);
+        expectString(snippet.label, `${pathName}.snippets[${index}].label`);
+        if (typeof snippet.code !== "string") {
+            throw new Error(`${pathName}.snippets[${index}].code must be a string`);
+        }
+    }
+    for (let index = 0; index < obj.companions.length; index++) {
+        expectString(obj.companions[index], `${pathName}.companions[${index}]`);
+    }
+    for (let index = 0; index < obj.notes.length; index++) {
+        expectString(obj.notes[index], `${pathName}.notes[${index}]`);
     }
 }
 

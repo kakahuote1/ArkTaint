@@ -17,9 +17,12 @@ import {
     SemanticFlowSessionCache,
     normalizeSemanticFlowSessionCacheMode,
     resolveDefaultSemanticFlowSessionCacheDir,
+    SEMANTIC_FLOW_SESSION_CACHE_KIND,
+    SEMANTIC_FLOW_SESSION_CACHE_SCHEMA_VERSION,
     type SemanticFlowSessionCacheEvent,
     type SemanticFlowSessionCacheMode,
     type SemanticFlowSessionCacheStats,
+    type SemanticFlowSessionCacheArtifactPaths,
 } from "../core/semanticflow/SemanticFlowSessionCache";
 import { createSemanticFlowModelInvokerFromConfig } from "./semanticflowLlmClient";
 import { resolveLlmProfile } from "./llmConfig";
@@ -714,6 +717,7 @@ function writeSemanticFlowRunManifest(
         cacheDir: string;
         cacheMode: SemanticFlowSessionCacheMode;
         cacheStats: SemanticFlowSessionCacheStats;
+        cacheArtifacts: SemanticFlowSessionCacheArtifactPaths;
     },
 ): void {
     const relative = (targetPath?: string) => targetPath ? path.relative(outputDir, targetPath).replace(/\\/g, "/") : undefined;
@@ -729,8 +733,15 @@ function writeSemanticFlowRunManifest(
             llmModel: info.llmModel,
         },
         llmSessionCache: {
+            schemaVersion: SEMANTIC_FLOW_SESSION_CACHE_SCHEMA_VERSION,
+            cacheKind: SEMANTIC_FLOW_SESSION_CACHE_KIND,
             dir: relative(info.cacheDir),
             mode: info.cacheMode,
+            schemaPath: relative(info.cacheArtifacts.schemaPath),
+            statsPath: relative(info.cacheArtifacts.statsPath),
+            decisionsDir: relative(info.cacheArtifacts.decisionsDir),
+            itemsDir: relative(info.cacheArtifacts.itemsDir),
+            anchorsDir: relative(info.cacheArtifacts.anchorsDir),
             ...info.cacheStats,
         },
         paths: {
@@ -884,6 +895,7 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
         cacheDir,
         cacheMode,
         cacheStats,
+        cacheArtifacts: sessionCache.getArtifactPaths(),
     });
 
     console.log("====== SemanticFlow ======");

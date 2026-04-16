@@ -1,9 +1,19 @@
 import * as fs from "fs";
 import * as path from "path";
 import { createSemanticFlowDraftId } from "../../core/semanticflow/SemanticFlowIncremental";
-import { createSemanticFlowLlmDecider } from "../../core/semanticflow/SemanticFlowLlm";
+import {
+    createSemanticFlowLlmDecider,
+    SEMANTIC_FLOW_DECISION_PARSER_SCHEMA_VERSION,
+    SEMANTIC_FLOW_LLM_TEMPERATURE,
+} from "../../core/semanticflow/SemanticFlowLlm";
 import { runSemanticFlowPipeline } from "../../core/semanticflow/SemanticFlowPipeline";
-import { SemanticFlowSessionCache } from "../../core/semanticflow/SemanticFlowSessionCache";
+import { SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION } from "../../core/semanticflow/SemanticFlowPrompt";
+import {
+    buildSemanticFlowItemCacheKey,
+    SEMANTIC_FLOW_SESSION_CACHE_KIND,
+    SEMANTIC_FLOW_SESSION_CACHE_SCHEMA_VERSION,
+    SemanticFlowSessionCache,
+} from "../../core/semanticflow/SemanticFlowSessionCache";
 import type {
     SemanticFlowAnchor,
     SemanticFlowDecisionInput,
@@ -15,6 +25,20 @@ function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
         throw new Error(message);
     }
+}
+
+function assertThrows(action: () => void, expectedFragment: string): void {
+    try {
+        action();
+    } catch (error) {
+        const detail = String((error as any)?.message || error);
+        assert(
+            detail.includes(expectedFragment),
+            `expected error to include "${expectedFragment}", got "${detail}"`,
+        );
+        return;
+    }
+    throw new Error(`expected throw containing "${expectedFragment}"`);
 }
 
 function extractRound(user: string): number {
@@ -80,6 +104,59 @@ function readAllJsonText(rootDir: string): string[] {
         }
     }
     return out;
+}
+
+function listJsonFiles(dirPath: string): string[] {
+    if (!fs.existsSync(dirPath)) {
+        return [];
+    }
+    return fs.readdirSync(dirPath)
+        .filter(name => name.endsWith(".json"))
+        .sort()
+        .map(name => path.join(dirPath, name));
+}
+
+function writeMinimalSessionCacheSchema(rootDir: string): void {
+    fs.writeFileSync(path.join(rootDir, "schema.json"), JSON.stringify({
+        schemaVersion: SEMANTIC_FLOW_SESSION_CACHE_SCHEMA_VERSION,
+        cacheKind: SEMANTIC_FLOW_SESSION_CACHE_KIND,
+        createdAt: new Date(0).toISOString(),
+        decisionKeyFields: [],
+        itemKeyFields: [],
+        storedArtifacts: [],
+    }, null, 2), "utf8");
+}
+
+function testSemanticFlowSessionCacheModeGuardrails(rootDir: string): void {
+    const missingReadRoot = path.join(rootDir, "read_mode_missing_root");
+    fs.rmSync(missingReadRoot, { recursive: true, force: true });
+    assertThrows(
+        () => new SemanticFlowSessionCache({ rootDir: missingReadRoot, mode: "read" }),
+        "root missing for read mode",
+    );
+
+    const invalidDecisionsRoot = path.join(rootDir, "invalid_decisions_dir");
+    resetDir(invalidDecisionsRoot);
+    writeMinimalSessionCacheSchema(invalidDecisionsRoot);
+    fs.writeFileSync(path.join(invalidDecisionsRoot, "decisions"), "not-a-directory", "utf8");
+    assertThrows(
+        () => new SemanticFlowSessionCache({ rootDir: invalidDecisionsRoot, mode: "read" }),
+        "decisions path is not a directory",
+    );
+
+    const writableRoot = path.join(rootDir, "artifact_paths");
+    resetDir(writableRoot);
+    const cache = new SemanticFlowSessionCache({
+        rootDir: writableRoot,
+        mode: "rw",
+    });
+    const artifacts = cache.getArtifactPaths();
+    assert(artifacts.rootDir === writableRoot, "artifact rootDir mismatch");
+    assert(artifacts.schemaPath === path.join(writableRoot, "schema.json"), "artifact schemaPath mismatch");
+    assert(artifacts.statsPath === path.join(writableRoot, "stats.json"), "artifact statsPath mismatch");
+    assert(artifacts.decisionsDir === path.join(writableRoot, "decisions"), "artifact decisionsDir mismatch");
+    assert(artifacts.itemsDir === path.join(writableRoot, "items"), "artifact itemsDir mismatch");
+    assert(artifacts.anchorsDir === path.join(writableRoot, "anchors"), "artifact anchorsDir mismatch");
 }
 
 async function testSemanticFlowLlmSessionCacheHit(rootDir: string): Promise<void> {
@@ -164,6 +241,132 @@ async function testSemanticFlowLlmSessionCacheInvalidateModel(rootDir: string): 
     assert(counterB.value === 1, `expected model B to miss cache once, got ${counterB.value}`);
     assert(stats.llmCacheMissCount === 2, `expected llmCacheMissCount=2, got ${stats.llmCacheMissCount}`);
     assert(stats.llmCacheWriteCount === 2, `expected llmCacheWriteCount=2, got ${stats.llmCacheWriteCount}`);
+}
+
+async function testSemanticFlowSessionCacheWriteModeSkipsRead(rootDir: string): Promise<void> {
+    const cacheRoot = path.join(rootDir, "write_mode_skips_read");
+    resetDir(cacheRoot);
+    const anchor = buildAnchor("cache.write_mode.anchor", "copyValue");
+    const slice = buildSlice(anchor.id);
+    const seedCache = new SemanticFlowSessionCache({
+        rootDir: cacheRoot,
+        mode: "rw",
+    });
+    const seedDecider = createSemanticFlowLlmDecider({
+        model: "mock-cache-write-mode",
+        sessionCache: seedCache,
+        async modelInvoker() {
+            return JSON.stringify({
+                status: "done",
+                classification: "rule",
+                resolution: "resolved",
+                summary: {
+                    inputs: [{ slot: "arg", index: 0 }],
+                    outputs: [{ slot: "result" }],
+                    transfers: [{ from: { slot: "arg", index: 0 }, to: { slot: "result" }, relation: "direct" }],
+                    confidence: "high",
+                    ruleKind: "transfer",
+                },
+            });
+        },
+    });
+    await seedDecider.decide(buildDecisionInput(anchor, slice));
+
+    let modelCalls = 0;
+    const writeOnlyCache = new SemanticFlowSessionCache({
+        rootDir: cacheRoot,
+        mode: "write",
+    });
+    const writeOnlyDecider = createSemanticFlowLlmDecider({
+        model: "mock-cache-write-mode",
+        sessionCache: writeOnlyCache,
+        async modelInvoker() {
+            modelCalls++;
+            return JSON.stringify({
+                status: "done",
+                classification: "rule",
+                resolution: "resolved",
+                summary: {
+                    inputs: [{ slot: "arg", index: 0 }],
+                    outputs: [{ slot: "result" }],
+                    transfers: [{ from: { slot: "arg", index: 0 }, to: { slot: "result" }, relation: "direct" }],
+                    confidence: "high",
+                    ruleKind: "transfer",
+                },
+            });
+        },
+    });
+
+    await writeOnlyDecider.decide(buildDecisionInput(anchor, slice));
+    await writeOnlyDecider.decide(buildDecisionInput(anchor, slice));
+    const stats = writeOnlyCache.getStats();
+
+    assert(modelCalls === 2, `expected write-only mode to bypass cache reads, got ${modelCalls}`);
+    assert(stats.llmCacheHitCount === 0, `expected write-only mode llmCacheHitCount=0, got ${stats.llmCacheHitCount}`);
+    assert(stats.llmCacheMissCount === 0, `expected write-only mode llmCacheMissCount=0, got ${stats.llmCacheMissCount}`);
+    assert(stats.llmCacheWriteCount === 2, `expected write-only mode llmCacheWriteCount=2, got ${stats.llmCacheWriteCount}`);
+}
+
+async function testSemanticFlowSessionCacheReadModeSkipsWrite(rootDir: string): Promise<void> {
+    const cacheRoot = path.join(rootDir, "read_mode_skips_write");
+    resetDir(cacheRoot);
+    const anchor = buildAnchor("cache.read_mode.anchor", "copyValue");
+    const slice = buildSlice(anchor.id);
+    const seedCache = new SemanticFlowSessionCache({
+        rootDir: cacheRoot,
+        mode: "rw",
+    });
+    const seedDecider = createSemanticFlowLlmDecider({
+        model: "mock-cache-read-mode",
+        sessionCache: seedCache,
+        async modelInvoker() {
+            return JSON.stringify({
+                status: "done",
+                classification: "rule",
+                resolution: "resolved",
+                summary: {
+                    inputs: [{ slot: "arg", index: 0 }],
+                    outputs: [{ slot: "result" }],
+                    transfers: [{ from: { slot: "arg", index: 0 }, to: { slot: "result" }, relation: "direct" }],
+                    confidence: "high",
+                    ruleKind: "transfer",
+                },
+            });
+        },
+    });
+    await seedDecider.decide(buildDecisionInput(anchor, slice));
+
+    const seededArtifacts = seedCache.getArtifactPaths();
+    const decisionFiles = listJsonFiles(seededArtifacts.decisionsDir);
+    assert(decisionFiles.length === 1, `expected exactly one seeded decision file, got ${decisionFiles.length}`);
+    const decisionBefore = fs.readFileSync(decisionFiles[0], "utf8");
+    const statsBefore = fs.readFileSync(seededArtifacts.statsPath, "utf8");
+
+    let modelCalls = 0;
+    const readOnlyCache = new SemanticFlowSessionCache({
+        rootDir: cacheRoot,
+        mode: "read",
+    });
+    const readOnlyDecider = createSemanticFlowLlmDecider({
+        model: "mock-cache-read-mode",
+        sessionCache: readOnlyCache,
+        async modelInvoker() {
+            modelCalls++;
+            throw new Error("read-only mode should hit cache before invoking model");
+        },
+    });
+
+    const decision = await readOnlyDecider.decide(buildDecisionInput(anchor, slice));
+    const stats = readOnlyCache.getStats();
+    const decisionAfter = fs.readFileSync(decisionFiles[0], "utf8");
+    const statsAfter = fs.readFileSync(seededArtifacts.statsPath, "utf8");
+
+    assert(decision.status === "done", "expected read-only mode to return cached decision");
+    assert(modelCalls === 0, `expected read-only mode to skip model calls, got ${modelCalls}`);
+    assert(stats.llmCacheHitCount === 1, `expected read-only mode llmCacheHitCount=1, got ${stats.llmCacheHitCount}`);
+    assert(stats.llmCacheWriteCount === 0, `expected read-only mode llmCacheWriteCount=0, got ${stats.llmCacheWriteCount}`);
+    assert(decisionAfter === decisionBefore, "read-only mode should not rewrite decision cache file");
+    assert(statsAfter === statsBefore, "read-only mode should not rewrite persisted stats file");
 }
 
 async function testSemanticFlowLlmSessionCacheNoRaw(rootDir: string): Promise<void> {
@@ -281,7 +484,11 @@ async function testSemanticFlowItemCacheShortcut(rootDir: string): Promise<void>
     const cacheRoot = path.join(rootDir, "item_shortcut");
     resetDir(cacheRoot);
     const anchor = buildAnchor("cache.item.anchor", "emitValue");
-    const initialSlice = buildSlice(anchor.id, 0, "itemShortcut(value)");
+    const initialSlice: SemanticFlowSlicePackage = {
+        ...buildSlice(anchor.id, 0, "itemShortcut(value)"),
+        companions: ["CacheOwner.helper"],
+        notes: ["initial wrapper evidence"],
+    };
     const cache = new SemanticFlowSessionCache({
         rootDir: cacheRoot,
         mode: "rw",
@@ -345,13 +552,14 @@ async function testSemanticFlowItemCacheShortcut(rootDir: string): Promise<void>
                     round: input.round + 1,
                     observations: [...input.slice.observations, "wrapper body recovered"],
                     snippets: [...input.slice.snippets, { label: "expanded", code: "expandedShortcut(value)" }],
+                    companions: [...(input.slice.companions || []), "CacheOwner.emitValue$expanded"],
                     notes: [...(input.slice.notes || []), input.deficit.ask],
                 },
                 delta: {
                     id: "delta.cache.item.shortcut",
                     newObservations: ["wrapper body recovered"],
                     newSnippets: [{ label: "expanded", code: "expandedShortcut(value)" }],
-                    newCompanions: [],
+                    newCompanions: ["CacheOwner.emitValue$expanded"],
                     effective: true,
                 },
             };
@@ -368,9 +576,51 @@ async function testSemanticFlowItemCacheShortcut(rootDir: string): Promise<void>
             sessionCache: cache,
         },
     );
+    assert(firstRun.items[0]?.lastMarker?.kind === "q_wrap", "expected first item-cache run to retain last marker");
+    assert(firstRun.items[0]?.lastDelta?.id === "delta.cache.item.shortcut", "expected first item-cache run to retain last delta");
+    assert(firstRun.items[0]?.history[0]?.deficit?.kind === "q_wrap", "expected first item-cache run to retain deficit");
+    assert(Boolean(firstRun.items[0]?.history[0]?.plan), "expected first item-cache run to retain plan");
+    assert(firstRun.items[0]?.history[0]?.delta?.id === "delta.cache.item.shortcut", "expected first item-cache run to retain delta");
+    assert(Boolean(firstRun.items[0]?.history[0]?.marker?.deltaId), "expected first item-cache run to retain marker");
     assert(firstRun.items[0]?.resolution === "resolved", "expected first item-cache run to resolve");
     assert(firstModelCalls === 2, `expected first item-cache run to call LLM twice, got ${firstModelCalls}`);
     assert(firstExpandCalls === 1, `expected first item-cache run to expand once, got ${firstExpandCalls}`);
+    assert(
+        cache.lookupItem(buildSemanticFlowItemCacheKey({
+            model: "mock-item-shortcut",
+            temperature: SEMANTIC_FLOW_LLM_TEMPERATURE + 1,
+            promptSchemaVersion: SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION,
+            parserSchemaVersion: SEMANTIC_FLOW_DECISION_PARSER_SCHEMA_VERSION,
+            anchor,
+            initialSlice,
+            maxRounds: 1,
+        })) === undefined,
+        "expected temperature change to invalidate item cache",
+    );
+    assert(
+        cache.lookupItem(buildSemanticFlowItemCacheKey({
+            model: "mock-item-shortcut",
+            temperature: SEMANTIC_FLOW_LLM_TEMPERATURE,
+            promptSchemaVersion: SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION + 1,
+            parserSchemaVersion: SEMANTIC_FLOW_DECISION_PARSER_SCHEMA_VERSION,
+            anchor,
+            initialSlice,
+            maxRounds: 1,
+        })) === undefined,
+        "expected prompt schema change to invalidate item cache",
+    );
+    assert(
+        cache.lookupItem(buildSemanticFlowItemCacheKey({
+            model: "mock-item-shortcut",
+            temperature: SEMANTIC_FLOW_LLM_TEMPERATURE,
+            promptSchemaVersion: SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION,
+            parserSchemaVersion: SEMANTIC_FLOW_DECISION_PARSER_SCHEMA_VERSION + 1,
+            anchor,
+            initialSlice,
+            maxRounds: 1,
+        })) === undefined,
+        "expected parser schema change to invalidate item cache",
+    );
 
     let secondModelCalls = 0;
     let secondExpandCalls = 0;
@@ -404,17 +654,56 @@ async function testSemanticFlowItemCacheShortcut(rootDir: string): Promise<void>
     assert(secondRun.items[0]?.resolution === "resolved", "expected cached item run to resolve");
     assert(secondRun.items[0]?.classification === "rule", "expected cached item run to preserve classification");
     assert((secondRun.items[0]?.history.length || 0) === 2, "expected cached item run to restore round history");
+    assert(secondRun.items[0]?.lastMarker?.kind === "q_wrap", "expected cached item run to restore last marker");
+    assert(secondRun.items[0]?.lastDelta?.id === "delta.cache.item.shortcut", "expected cached item run to restore last delta");
+    assert(secondRun.items[0]?.history[0]?.deficit?.kind === "q_wrap", "expected cached item run to restore deficit");
+    assert(Boolean(secondRun.items[0]?.history[0]?.plan), "expected cached item run to restore plan");
+    assert(secondRun.items[0]?.history[0]?.delta?.id === "delta.cache.item.shortcut", "expected cached item run to restore delta");
+    assert(Boolean(secondRun.items[0]?.history[0]?.marker?.deltaId), "expected cached item run to restore marker");
+    assert(secondRun.items[0]?.history[0]?.slice.observations[0] === `observation:${anchor.id}:0`, "expected cached item run to restore round-0 observations");
+    assert(secondRun.items[0]?.history[0]?.slice.snippets[0]?.label === "anchor", "expected cached item run to restore round-0 snippet label");
+    assert(secondRun.items[0]?.history[0]?.slice.snippets[0]?.code === "", "expected cached item run to redact round-0 snippet code");
+    assert(secondRun.items[0]?.history[0]?.slice.companions[0] === "CacheOwner.helper", "expected cached item run to restore round-0 companions");
+    assert(secondRun.items[0]?.history[0]?.slice.notes[0] === "initial wrapper evidence", "expected cached item run to restore round-0 notes");
+    assert(secondRun.items[0]?.history[1]?.slice.observations.includes("wrapper body recovered"), "expected cached item run to restore expanded observations");
+    assert(secondRun.items[0]?.history[1]?.slice.snippets[1]?.label === "expanded", "expected cached item run to restore expanded snippet label");
+    assert(secondRun.items[0]?.history[1]?.slice.snippets[1]?.code === "", "expected cached item run to redact expanded snippet code");
+    assert(secondRun.items[0]?.history[1]?.slice.companions.includes("CacheOwner.emitValue$expanded"), "expected cached item run to restore expanded companions");
+    assert(secondRun.items[0]?.history[1]?.slice.notes.includes("show the wrapper body"), "expected cached item run to restore expanded notes");
+    assert(secondRun.items[0]?.finalSlice.observations.includes("wrapper body recovered"), "expected cached item run to restore final slice observations");
+    assert(secondRun.items[0]?.finalSlice.snippets[0]?.label === "anchor", "expected cached item run to restore final slice anchor snippet label");
+    assert(secondRun.items[0]?.finalSlice.snippets[0]?.code === "", "expected cached item run to redact final slice anchor snippet code");
+    assert(secondRun.items[0]?.finalSlice.snippets[1]?.label === "expanded", "expected cached item run to restore final slice expanded snippet label");
+    assert(secondRun.items[0]?.finalSlice.snippets[1]?.code === "", "expected cached item run to redact final slice expanded snippet code");
+    assert(secondRun.items[0]?.finalSlice.companions.includes("CacheOwner.helper"), "expected cached item run to restore final slice companions");
+    assert(secondRun.items[0]?.finalSlice.companions.includes("CacheOwner.emitValue$expanded"), "expected cached item run to restore final slice expanded companions");
+    assert(secondRun.items[0]?.finalSlice.notes.includes("initial wrapper evidence"), "expected cached item run to restore final slice initial notes");
+    assert(secondRun.items[0]?.finalSlice.notes.includes("show the wrapper body"), "expected cached item run to restore final slice expanded notes");
     assert(secondModelCalls === 0, `expected cached item run to skip LLM, got ${secondModelCalls}`);
     assert(secondExpandCalls === 0, `expected cached item run to skip expander, got ${secondExpandCalls}`);
     assert(stats.itemCacheHitCount === 1, `expected itemCacheHitCount=1, got ${stats.itemCacheHitCount}`);
+    const artifacts = cache.getArtifactPaths();
+    const itemFiles = listJsonFiles(artifacts.itemsDir);
+    assert(itemFiles.length === 1, `expected exactly one cached item file, got ${itemFiles.length}`);
+    const itemCacheText = fs.readFileSync(itemFiles[0], "utf8");
+    assert(itemCacheText.includes("wrapper body recovered"), "expected cached item file to retain slice observations");
+    assert(itemCacheText.includes("initial wrapper evidence"), "expected cached item file to retain slice notes");
+    assert(itemCacheText.includes("CacheOwner.emitValue$expanded"), "expected cached item file to retain slice companions");
+    assert(itemCacheText.includes("\"label\": \"anchor\""), "expected cached item file to retain anchor snippet labels");
+    assert(itemCacheText.includes("\"label\": \"expanded\""), "expected cached item file to retain expanded snippet labels");
+    assert(!itemCacheText.includes("itemShortcut(value)"), "cached item file leaked original anchor code");
+    assert(!itemCacheText.includes("expandedShortcut(value)"), "cached item file leaked expanded anchor code");
 }
 
 async function main(): Promise<void> {
     const rootDir = path.resolve("tmp/test_runs/runtime/semanticflow_llm_session_cache/latest");
     resetDir(rootDir);
 
+    testSemanticFlowSessionCacheModeGuardrails(rootDir);
     await testSemanticFlowLlmSessionCacheHit(rootDir);
     await testSemanticFlowLlmSessionCacheInvalidateModel(rootDir);
+    await testSemanticFlowSessionCacheWriteModeSkipsRead(rootDir);
+    await testSemanticFlowSessionCacheReadModeSkipsWrite(rootDir);
     await testSemanticFlowLlmSessionCacheNoRaw(rootDir);
     await testSemanticFlowItemCacheShortcut(rootDir);
 

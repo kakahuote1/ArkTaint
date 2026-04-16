@@ -215,6 +215,14 @@ async function main(): Promise<void> {
         const finalSummary = JSON.parse(fs.readFileSync(analysis.summaryJsonPath, "utf8"));
 
         assert(fs.existsSync(path.join(root, runManifest.paths.phase1RuleInput)), "phase1 no_candidate artifact missing");
+        assert(runManifest.llmSessionCache.cacheKind === "semanticflow_llm_session", "run manifest cache kind mismatch");
+        assert(runManifest.llmSessionCache.schemaVersion === 1, "run manifest cache schema version mismatch");
+        assert(fs.existsSync(path.join(root, runManifest.llmSessionCache.dir)), "run manifest cache dir missing");
+        assert(fs.existsSync(path.join(root, runManifest.llmSessionCache.schemaPath)), "run manifest cache schema path missing");
+        assert(fs.existsSync(path.join(root, runManifest.llmSessionCache.statsPath)), "run manifest cache stats path missing");
+        assert(fs.existsSync(path.join(root, runManifest.llmSessionCache.decisionsDir)), "run manifest decisions dir missing");
+        assert(fs.existsSync(path.join(root, runManifest.llmSessionCache.itemsDir)), "run manifest items dir missing");
+        assert(fs.existsSync(path.join(root, runManifest.llmSessionCache.anchorsDir)), "run manifest anchors dir missing");
         assert((rootSummary.classifications.arkmain || 0) === 0, `expected no semanticflow arkmain item, got ${rootSummary.classifications.arkmain || 0}`);
         assert(rootSummary.classifications.rule === 1, `expected one rule item, got ${rootSummary.classifications.rule || 0}`);
         assert(rootSummary.classifications.module === 1, `expected one module item, got ${rootSummary.classifications.module || 0}`);
@@ -224,6 +232,8 @@ async function main(): Promise<void> {
         assert((rules.transfers || []).length === 1, `expected one transfer rule, got ${(rules.transfers || []).length}`);
         assert((modules.modules || []).length === 1, `expected one module spec, got ${(modules.modules || []).length}`);
         assert(finalSummary.summary.totalFlows > 0, `expected final analyze flow, got ${finalSummary.summary.totalFlows}`);
+        assert(summaryRun.llmSessionCache.cacheKind === "semanticflow_llm_session", "summary/run cache kind mismatch");
+        assert(summaryRun.llmSessionCache.schemaVersion === 1, "summary/run cache schema version mismatch");
         assert(summaryRun.llmSessionCache.llmCacheWriteCount > 0, "summary/run.json should expose cache write stats");
         assert(summaryRun.llmSessionCache.itemCacheHitCount === 0, "summary/run.json should expose zero item cache hits on first run");
 
