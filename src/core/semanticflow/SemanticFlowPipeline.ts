@@ -17,6 +17,7 @@ import {
     type CachedSemanticFlowItem,
     type SemanticFlowSessionCache,
 } from "./SemanticFlowSessionCache";
+import { getSemanticFlowItemCacheSemanticsFingerprint } from "./SemanticFlowSessionSemantics";
 import {
     SEMANTIC_FLOW_DECISION_PARSER_SCHEMA_VERSION,
     SEMANTIC_FLOW_LLM_TEMPERATURE,
@@ -130,6 +131,7 @@ async function runSemanticFlowItem(
             temperature: SEMANTIC_FLOW_LLM_TEMPERATURE,
             promptSchemaVersion: SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION,
             parserSchemaVersion: SEMANTIC_FLOW_DECISION_PARSER_SCHEMA_VERSION,
+            semanticsFingerprint: getSemanticFlowItemCacheSemanticsFingerprint(),
             anchor,
             initialSlice,
             maxRounds,

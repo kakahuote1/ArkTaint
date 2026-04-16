@@ -1,20 +1,14 @@
 import { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import { CallGraph } from "../../../../arkanalyzer/out/src/callgraph/model/CallGraph";
 import { Pag, PagInstanceFieldNode, PagNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
-import { ArkAssignStmt, ArkIfStmt, ArkInvokeStmt, ArkReturnStmt, ArkReturnVoidStmt, ArkThrowStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkArrayRef, ArkInstanceFieldRef, ArkParameterRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
+import { ArkAssignStmt, ArkInvokeStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
+import { ArkArrayRef, ArkInstanceFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
 import {
     ArkCastExpr,
-    ArkConditionExpr,
     ArkInstanceInvokeExpr,
     ArkNewArrayExpr,
     ArkNewExpr,
-    ArkNormalBinopExpr,
     ArkPtrInvokeExpr,
-    ArkUnopExpr,
-    NormalBinaryOperator,
-    RelationalBinaryOperator,
-    UnaryOperator,
 } from "../../../../arkanalyzer/out/src/core/base/Expr";
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { Constant } from "../../../../arkanalyzer/out/src/core/base/Constant";
@@ -45,6 +39,7 @@ export interface SinkDetectOptions {
     allowedMethodSignatures?: Set<string>;
     orderedMethodSignatures?: string[];
     interproceduralTaintTargetNodeIds?: Set<number>;
+    captureBwdTaintTargetNodeIds?: Set<number>;
     sanitizerRules?: SanitizerRule[];
     onProfile?: (profile: SinkDetectProfile) => void;
 }
@@ -259,6 +254,7 @@ export function detectSinks(
                 tracker,
                 options.orderedMethodSignatures,
                 options.interproceduralTaintTargetNodeIds,
+                options.captureBwdTaintTargetNodeIds,
                 fallbackFieldToVarIndex,
             );
             fallbackFieldToVarIndex = preciseCandidate.fallbackFieldToVarIndex;
@@ -691,28 +687,6 @@ interface PreciseCandidateDetectResult {
     fallbackFieldToVarIndex?: Map<string, Set<number>>;
 }
 
-type PathSensitiveLocalTaintState = "tainted" | "clean" | "unknown";
-
-type PathSensitiveConstValue =
-    | { kind: "unknown" }
-    | { kind: "boolean"; value: boolean }
-    | { kind: "number"; value: number }
-    | { kind: "string"; value: string }
-    | { kind: "undefined" }
-    | { kind: "null" };
-
-interface PathSensitiveLocalTaintResult {
-    resolved: boolean;
-    tainted: boolean;
-}
-
-interface PathSensitiveExecState {
-    block: any;
-    constEnv: Map<string, PathSensitiveConstValue>;
-    taintEnv: Map<string, PathSensitiveLocalTaintState>;
-    symbolEnv: Map<string, string>;
-}
-
 function detectPreciseCandidateSource(
     scene: Scene,
     method: any,
@@ -722,6 +696,7 @@ function detectPreciseCandidateSource(
     tracker: TaintTracker,
     orderedMethodSignatures?: string[],
     interproceduralTaintTargetNodeIds?: Set<number>,
+    captureBwdTaintTargetNodeIds?: Set<number>,
     fallbackFieldToVarIndex?: Map<string, Set<number>>,
 ): PreciseCandidateDetectResult {
     const value = candidate.value;
@@ -763,26 +738,16 @@ function detectPreciseCandidateSource(
             fallbackFieldToVarIndex,
         };
     }
-
-    const pathSensitiveLocalTaint = resolvePathSensitiveLocalTaintAtStmt(
-        scene,
-        method,
-        value,
-        sinkStmt,
-        pag,
-        tracker,
-    );
     const allowInterproceduralGenericNodeTaint = hasInterproceduralTaintTargetNode(
         value,
         pag,
         interproceduralTaintTargetNodeIds,
     );
-    if (pathSensitiveLocalTaint.resolved && !pathSensitiveLocalTaint.tainted) {
-        return {
-            blockGenericNodeTaint: !allowInterproceduralGenericNodeTaint,
-            fallbackFieldToVarIndex,
-        };
-    }
+    const allowCaptureBwdGenericNodeTaint = hasInterproceduralTaintTargetNode(
+        value,
+        pag,
+        captureBwdTaintTargetNodeIds,
+    );
 
     const latestAssign = findLatestAssignStmtForLocalBefore(method, value, sinkStmt);
     if (!(latestAssign instanceof ArkAssignStmt)) {
@@ -795,12 +760,13 @@ function detectPreciseCandidateSource(
 
     const rightOp = latestAssign.getRightOp();
     if (rightOp instanceof Constant || rightOp === undefined || rightOp === null) {
+        const hasLinearConstantOverwrite = isSameBlockLinearAssignBeforeStmt(method, latestAssign, sinkStmt);
         return {
-            blockGenericNodeTaint: allowInterproceduralGenericNodeTaint
-                ? false
-                : pathSensitiveLocalTaint.resolved
-                ? !pathSensitiveLocalTaint.tainted
-                : !hasNonConstantReachingAssign && collectReachingAssignStmtsForLocalAtStmt(method, value, sinkStmt).length > 0,
+            blockGenericNodeTaint: hasLinearConstantOverwrite
+                ? !allowCaptureBwdGenericNodeTaint
+                : (!allowInterproceduralGenericNodeTaint
+                    && !hasNonConstantReachingAssign
+                    && collectReachingAssignStmtsForLocalAtStmt(method, value, sinkStmt).length > 0),
             fallbackFieldToVarIndex,
         };
     }
@@ -1045,627 +1011,26 @@ function hasInterproceduralTaintTargetNode(
     if (!nodeIds || nodeIds.size === 0) {
         return false;
     }
-    for (const nodeId of nodeIds.values()) {
-        if (interproceduralTaintTargetNodeIds.has(nodeId)) {
+    for (const nodeRef of nodeIds.values()) {
+        const nodeId = unwrapPagNodeId(nodeRef);
+        if (nodeId !== undefined && interproceduralTaintTargetNodeIds.has(nodeId)) {
             return true;
         }
     }
     return false;
 }
 
-function resolvePathSensitiveLocalTaintAtStmt(
-    scene: Scene,
-    method: any,
-    local: Local,
-    anchorStmt: any,
-    pag: Pag,
-    tracker: TaintTracker,
-): PathSensitiveLocalTaintResult {
-    const cfg = method?.getCfg?.() || anchorStmt?.getCfg?.();
-    const startBlock = cfg?.getStartingBlock?.();
-    const anchorBlock = cfg?.getStmtToBlock?.()?.get?.(anchorStmt);
-    if (!cfg || !startBlock || !anchorBlock) {
-        return { resolved: false, tainted: false };
+function unwrapPagNodeId(nodeRef: unknown): number | undefined {
+    if (typeof nodeRef === "number" && Number.isFinite(nodeRef)) {
+        return nodeRef;
     }
-    const anchorGraphReachable = isPathSensitiveBlockGraphReachable(startBlock, anchorBlock);
-
-    const worklist: PathSensitiveExecState[] = [{
-        block: startBlock,
-        constEnv: new Map<string, PathSensitiveConstValue>(),
-        taintEnv: new Map<string, PathSensitiveLocalTaintState>(),
-        symbolEnv: new Map<string, string>(),
-    }];
-    const visited = new Set<string>();
-    const targetLocalName = local.getName?.() || "";
-    let reachedAnchor = false;
-    let sawTainted = false;
-    let sawUnknown = false;
-    let encounteredUnknownBranch = false;
-    let processedStates = 0;
-    const maxStates = 1024;
-
-    while (worklist.length > 0) {
-        if (processedStates++ > maxStates) {
-            return { resolved: false, tainted: false };
+    if (Array.isArray(nodeRef) && nodeRef.length >= 2) {
+        const candidate = Number(nodeRef[1]);
+        if (Number.isFinite(candidate)) {
+            return candidate;
         }
-
-        const state = worklist.pop()!;
-        const stateKey = serializePathSensitiveExecState(state, targetLocalName);
-        if (visited.has(stateKey)) {
-            continue;
-        }
-        visited.add(stateKey);
-
-        const stmts: any[] = state.block.getStmts?.() || [];
-        let terminated = false;
-
-        for (const stmt of stmts) {
-            if (stmt === anchorStmt) {
-                reachedAnchor = true;
-                const taintState = state.taintEnv.get(targetLocalName) || "clean";
-                if (taintState === "tainted") {
-                    sawTainted = true;
-                } else if (taintState === "unknown") {
-                    sawUnknown = true;
-                }
-                continue;
-            }
-
-            if (stmt instanceof ArkAssignStmt) {
-                const left = stmt.getLeftOp?.();
-                if (left instanceof Local) {
-                    const resolved = resolveAssignedLocalState(
-                        scene,
-                        method,
-                        left,
-                        stmt.getRightOp?.(),
-                        state,
-                        pag,
-                        tracker,
-                    );
-                    state.constEnv.set(left.getName(), resolved.constValue);
-                    state.taintEnv.set(left.getName(), resolved.taintState);
-                    if (resolved.symbolId) {
-                        state.symbolEnv.set(left.getName(), resolved.symbolId);
-                    } else {
-                        state.symbolEnv.delete(left.getName());
-                    }
-                }
-                continue;
-            }
-
-            if (stmt instanceof ArkIfStmt) {
-                const successors = state.block.getSuccessors?.() || [];
-                const conditionValue = resolveConditionExprValue(
-                    stmt.getConditionExpr?.(),
-                    state.constEnv,
-                    state.symbolEnv,
-                );
-                if (conditionValue.kind === "boolean") {
-                    const chosen = conditionValue.value ? successors[0] : successors[1];
-                    if (chosen) {
-                        worklist.push(clonePathSensitiveExecState(state, chosen));
-                    }
-                } else {
-                    encounteredUnknownBranch = true;
-                    for (const successor of successors) {
-                        worklist.push(clonePathSensitiveExecState(state, successor));
-                    }
-                }
-                terminated = true;
-                break;
-            }
-
-            if (stmt instanceof ArkThrowStmt) {
-                const exceptionalSuccessors = state.block.getExceptionalSuccessorBlocks?.() || [];
-                for (const successor of exceptionalSuccessors) {
-                    worklist.push(clonePathSensitiveExecState(state, successor));
-                }
-                terminated = true;
-                break;
-            }
-
-            if (stmt instanceof ArkReturnStmt || stmt instanceof ArkReturnVoidStmt) {
-                terminated = true;
-                break;
-            }
-        }
-
-        if (terminated) {
-            continue;
-        }
-
-        for (const successor of state.block.getSuccessors?.() || []) {
-            worklist.push(clonePathSensitiveExecState(state, successor));
-        }
-    }
-
-    if (sawTainted) {
-        return { resolved: true, tainted: true };
-    }
-    if (sawUnknown) {
-        return { resolved: false, tainted: false };
-    }
-    if (reachedAnchor) {
-        return { resolved: true, tainted: false };
-    }
-    if (encounteredUnknownBranch) {
-        return { resolved: false, tainted: false };
-    }
-    if (!anchorGraphReachable) {
-        return { resolved: false, tainted: false };
-    }
-    return { resolved: true, tainted: false };
-}
-
-function isPathSensitiveBlockGraphReachable(
-    startBlock: any,
-    targetBlock: any,
-): boolean {
-    if (!startBlock || !targetBlock) {
-        return false;
-    }
-    const worklist = [startBlock];
-    const visited = new Set<any>();
-    while (worklist.length > 0) {
-        const block = worklist.pop();
-        if (!block || visited.has(block)) {
-            continue;
-        }
-        if (block === targetBlock) {
-            return true;
-        }
-        visited.add(block);
-        for (const successor of block.getSuccessors?.() || []) {
-            worklist.push(successor);
-        }
-        for (const successor of block.getExceptionalSuccessorBlocks?.() || []) {
-            worklist.push(successor);
-        }
-    }
-    return false;
-}
-
-function clonePathSensitiveExecState(
-    state: PathSensitiveExecState,
-    nextBlock: any,
-): PathSensitiveExecState {
-    return {
-        block: nextBlock,
-        constEnv: new Map<string, PathSensitiveConstValue>(state.constEnv),
-        taintEnv: new Map<string, PathSensitiveLocalTaintState>(state.taintEnv),
-        symbolEnv: new Map<string, string>(state.symbolEnv),
-    };
-}
-
-function serializePathSensitiveExecState(
-    state: PathSensitiveExecState,
-    targetLocalName: string,
-): string {
-    const blockId = state.block?.getId?.() ?? -1;
-    const constKeys = [...state.constEnv.keys()].sort();
-    const taintKeys = [...state.taintEnv.keys()].sort();
-    const symbolKeys = [...state.symbolEnv.keys()].sort();
-    const constPart = constKeys
-        .map(key => `${key}:${serializePathSensitiveConstValue(state.constEnv.get(key) || { kind: "unknown" })}`)
-        .join("|");
-    const taintPart = taintKeys
-        .map(key => `${key}:${state.taintEnv.get(key) || "clean"}`)
-        .join("|");
-    const symbolPart = symbolKeys
-        .map(key => `${key}:${state.symbolEnv.get(key) || ""}`)
-        .join("|");
-    return `${blockId}#${targetLocalName}#${constPart}#${taintPart}#${symbolPart}`;
-}
-
-function serializePathSensitiveConstValue(value: PathSensitiveConstValue): string {
-    switch (value.kind) {
-        case "boolean":
-            return value.value ? "true" : "false";
-        case "number":
-            return `num:${value.value}`;
-        case "string":
-            return `str:${value.value}`;
-        case "undefined":
-            return "undefined";
-        case "null":
-            return "null";
-        default:
-            return "unknown";
-    }
-}
-
-function resolveAssignedLocalState(
-    scene: Scene,
-    method: any,
-    left: Local,
-    right: any,
-    state: PathSensitiveExecState,
-    pag: Pag,
-    tracker: TaintTracker,
-): {
-    constValue: PathSensitiveConstValue;
-    taintState: PathSensitiveLocalTaintState;
-    symbolId?: string;
-} {
-    if (right instanceof Constant) {
-        return {
-            constValue: resolveConstantValue(right),
-            taintState: "clean",
-            symbolId: `const:${serializePathSensitiveConstValue(resolveConstantValue(right))}`,
-        };
-    }
-
-    if (right instanceof Local) {
-        return {
-            constValue: state.constEnv.get(right.getName?.() || "") || { kind: "unknown" },
-            taintState: state.taintEnv.get(right.getName?.() || "") || "clean",
-            symbolId: state.symbolEnv.get(right.getName?.() || ""),
-        };
-    }
-
-    if (right instanceof ArkParameterRef) {
-        return {
-            constValue: resolveParameterRefConstValue(scene, method, right.getIndex?.()),
-            taintState: isLocalTaintedAnyContext(left, pag, tracker) ? "tainted" : "clean",
-            symbolId: `param:${right.getIndex?.()}`,
-        };
-    }
-
-    if (right instanceof ArkCastExpr) {
-        return resolveAssignedLocalState(scene, method, left, right.getOp?.(), state, pag, tracker);
-    }
-
-    if (right instanceof ArkConditionExpr || right instanceof ArkNormalBinopExpr) {
-        return resolveAssignedLocalStateFromExpr(left, right, state, pag, tracker);
-    }
-
-    if (right instanceof ArkUnopExpr) {
-        return resolveAssignedLocalStateFromExpr(left, right, state, pag, tracker);
-    }
-
-    return {
-        constValue: { kind: "unknown" },
-        taintState: "unknown",
-        symbolId: undefined,
-    };
-}
-
-function resolveParameterRefConstValue(
-    scene: Scene,
-    method: any,
-    paramIndex: number | undefined,
-): PathSensitiveConstValue {
-    if (!Number.isFinite(paramIndex)) {
-        return { kind: "unknown" };
-    }
-    const methodSignature = method?.getSignature?.()?.toString?.() || "";
-    if (!methodSignature) {
-        return { kind: "unknown" };
-    }
-
-    let resolved: PathSensitiveConstValue | undefined;
-    for (const candidateMethod of scene.getMethods()) {
-        const cfg = candidateMethod.getCfg?.();
-        if (!cfg) continue;
-        for (const stmt of cfg.getStmts()) {
-            if (!stmt?.containsInvokeExpr?.()) continue;
-            const invokeExpr = stmt.getInvokeExpr?.();
-            const calleeSignature = invokeExpr?.getMethodSignature?.()?.toString?.() || "";
-            if (calleeSignature !== methodSignature) continue;
-            const args = invokeExpr.getArgs?.() || [];
-            if (paramIndex! < 0 || paramIndex! >= args.length) continue;
-            const constValue = resolveValueConstValue(
-                args[paramIndex!],
-                new Map<string, PathSensitiveConstValue>(),
-                new Map<string, string>()
-            );
-            if (constValue.kind === "unknown") {
-                return { kind: "unknown" };
-            }
-            if (!resolved) {
-                resolved = constValue;
-                continue;
-            }
-            if (serializePathSensitiveConstValue(resolved) !== serializePathSensitiveConstValue(constValue)) {
-                return { kind: "unknown" };
-            }
-        }
-    }
-
-    return resolved || { kind: "unknown" };
-}
-
-function resolveAssignedLocalStateFromExpr(
-    left: Local,
-    expr: ArkConditionExpr | ArkNormalBinopExpr | ArkUnopExpr,
-    state: PathSensitiveExecState,
-    pag: Pag,
-    tracker: TaintTracker,
-): {
-    constValue: PathSensitiveConstValue;
-    taintState: PathSensitiveLocalTaintState;
-    symbolId?: string;
-} {
-    const constValue = resolveExprConstValue(expr, state.constEnv, state.symbolEnv);
-    const taintState = resolveExprTaintState(expr, state.taintEnv);
-    if (taintState !== "unknown") {
-        return { constValue, taintState };
-    }
-    return {
-        constValue,
-        taintState: isLocalTaintedAnyContext(left, pag, tracker) ? "tainted" : "unknown",
-        symbolId: undefined,
-    };
-}
-
-function resolveExprTaintState(
-    expr: ArkConditionExpr | ArkNormalBinopExpr | ArkUnopExpr,
-    taintEnv: Map<string, PathSensitiveLocalTaintState>,
-): PathSensitiveLocalTaintState {
-    const uses = expr.getUses?.() || [];
-    let sawUnknown = false;
-    for (const use of uses) {
-        if (!(use instanceof Local)) {
-            continue;
-        }
-        const state = taintEnv.get(use.getName?.() || "") || "clean";
-        if (state === "tainted") {
-            return "tainted";
-        }
-        if (state === "unknown") {
-            sawUnknown = true;
-        }
-    }
-    return sawUnknown ? "unknown" : "clean";
-}
-
-function resolveConditionExprValue(
-    expr: ArkConditionExpr | undefined,
-    constEnv: Map<string, PathSensitiveConstValue>,
-    symbolEnv: Map<string, string>,
-): PathSensitiveConstValue {
-    if (!expr) {
-        return { kind: "unknown" };
-    }
-    return resolveExprConstValue(expr, constEnv, symbolEnv);
-}
-
-function resolveExprConstValue(
-    expr: ArkConditionExpr | ArkNormalBinopExpr | ArkUnopExpr,
-    constEnv: Map<string, PathSensitiveConstValue>,
-    symbolEnv: Map<string, string>,
-): PathSensitiveConstValue {
-    if (expr instanceof ArkConditionExpr || expr instanceof ArkNormalBinopExpr) {
-        const leftValue = expr.getOp1?.();
-        const rightValue = expr.getOp2?.();
-        const left = resolveValueConstValue(leftValue, constEnv, symbolEnv);
-        const right = resolveValueConstValue(rightValue, constEnv, symbolEnv);
-        const direct = applyBinaryConstOperator(left, right, expr.getOperator?.());
-        if (direct.kind !== "unknown") {
-            return direct;
-        }
-        if (expr instanceof ArkConditionExpr) {
-            const leftSymbol = resolveValueSymbolId(leftValue, symbolEnv);
-            const rightSymbol = resolveValueSymbolId(rightValue, symbolEnv);
-            if (leftSymbol && rightSymbol && leftSymbol === rightSymbol) {
-                const operator = expr.getOperator?.();
-                if (
-                    operator === RelationalBinaryOperator.Equality
-                    || operator === RelationalBinaryOperator.StrictEquality
-                ) {
-                    return { kind: "boolean", value: true };
-                }
-                if (
-                    operator === RelationalBinaryOperator.InEquality
-                    || operator === RelationalBinaryOperator.StrictInequality
-                ) {
-                    return { kind: "boolean", value: false };
-                }
-            }
-        }
-        return { kind: "unknown" };
-    }
-    if (expr instanceof ArkUnopExpr) {
-        const operand = resolveValueConstValue(expr.getOp?.(), constEnv, symbolEnv);
-        return applyUnaryConstOperator(operand, expr.getOperator?.());
-    }
-    return { kind: "unknown" };
-}
-
-function resolveValueConstValue(
-    value: any,
-    constEnv: Map<string, PathSensitiveConstValue>,
-    symbolEnv: Map<string, string>,
-): PathSensitiveConstValue {
-    if (value instanceof Constant) {
-        return resolveConstantValue(value);
-    }
-    if (value instanceof Local) {
-        return constEnv.get(value.getName?.() || "") || { kind: "unknown" };
-    }
-    if (value instanceof ArkCastExpr) {
-        return resolveValueConstValue(value.getOp?.(), constEnv, symbolEnv);
-    }
-    if (value instanceof ArkConditionExpr || value instanceof ArkNormalBinopExpr || value instanceof ArkUnopExpr) {
-        return resolveExprConstValue(value, constEnv, symbolEnv);
-    }
-    return { kind: "unknown" };
-}
-
-function resolveValueSymbolId(
-    value: any,
-    symbolEnv: Map<string, string>,
-): string | undefined {
-    if (value instanceof Local) {
-        return symbolEnv.get(value.getName?.() || "");
-    }
-    if (value instanceof Constant) {
-        return `const:${serializePathSensitiveConstValue(resolveConstantValue(value))}`;
-    }
-    if (value instanceof ArkCastExpr) {
-        return resolveValueSymbolId(value.getOp?.(), symbolEnv);
     }
     return undefined;
-}
-
-function resolveConstantValue(value: Constant): PathSensitiveConstValue {
-    const text = String(value.toString?.() || "").trim();
-    if (text === "true") {
-        return { kind: "boolean", value: true };
-    }
-    if (text === "false") {
-        return { kind: "boolean", value: false };
-    }
-    if (text === "undefined") {
-        return { kind: "undefined" };
-    }
-    if (text === "null") {
-        return { kind: "null" };
-    }
-    if (/^-?\d+(?:\.\d+)?$/.test(text)) {
-        return { kind: "number", value: Number(text) };
-    }
-    const stringMatch = text.match(/^['"`](.*)['"`]$/);
-    if (stringMatch) {
-        return { kind: "string", value: stringMatch[1] };
-    }
-    return { kind: "unknown" };
-}
-
-function applyBinaryConstOperator(
-    left: PathSensitiveConstValue,
-    right: PathSensitiveConstValue,
-    operator: NormalBinaryOperator | RelationalBinaryOperator | undefined,
-): PathSensitiveConstValue {
-    if (!operator) {
-        return { kind: "unknown" };
-    }
-
-    if (left.kind === "unknown" || right.kind === "unknown") {
-        return { kind: "unknown" };
-    }
-
-    switch (operator) {
-        case NormalBinaryOperator.Addition:
-            if (left.kind === "number" && right.kind === "number") {
-                return { kind: "number", value: left.value + right.value };
-            }
-            if (left.kind === "string" && right.kind === "string") {
-                return { kind: "string", value: left.value + right.value };
-            }
-            return { kind: "unknown" };
-        case NormalBinaryOperator.Subtraction:
-            if (left.kind === "number" && right.kind === "number") {
-                return { kind: "number", value: left.value - right.value };
-            }
-            return { kind: "unknown" };
-        case NormalBinaryOperator.Multiplication:
-            if (left.kind === "number" && right.kind === "number") {
-                return { kind: "number", value: left.value * right.value };
-            }
-            return { kind: "unknown" };
-        case NormalBinaryOperator.Division:
-            if (left.kind === "number" && right.kind === "number" && right.value !== 0) {
-                return { kind: "number", value: left.value / right.value };
-            }
-            return { kind: "unknown" };
-        case NormalBinaryOperator.Remainder:
-            if (left.kind === "number" && right.kind === "number" && right.value !== 0) {
-                return { kind: "number", value: left.value % right.value };
-            }
-            return { kind: "unknown" };
-        case RelationalBinaryOperator.LessThan:
-            if (left.kind === "number" && right.kind === "number") {
-                return { kind: "boolean", value: left.value < right.value };
-            }
-            return { kind: "unknown" };
-        case RelationalBinaryOperator.LessThanOrEqual:
-            if (left.kind === "number" && right.kind === "number") {
-                return { kind: "boolean", value: left.value <= right.value };
-            }
-            return { kind: "unknown" };
-        case RelationalBinaryOperator.GreaterThan:
-            if (left.kind === "number" && right.kind === "number") {
-                return { kind: "boolean", value: left.value > right.value };
-            }
-            return { kind: "unknown" };
-        case RelationalBinaryOperator.GreaterThanOrEqual:
-            if (left.kind === "number" && right.kind === "number") {
-                return { kind: "boolean", value: left.value >= right.value };
-            }
-            return { kind: "unknown" };
-        case RelationalBinaryOperator.Equality:
-        case RelationalBinaryOperator.StrictEquality:
-            return { kind: "boolean", value: compareConstValues(left, right) === 0 };
-        case RelationalBinaryOperator.InEquality:
-        case RelationalBinaryOperator.StrictInequality:
-            return { kind: "boolean", value: compareConstValues(left, right) !== 0 };
-        default:
-            return { kind: "unknown" };
-    }
-}
-
-function applyUnaryConstOperator(
-    operand: PathSensitiveConstValue,
-    operator: UnaryOperator | undefined,
-): PathSensitiveConstValue {
-    if (!operator || operand.kind === "unknown") {
-        return { kind: "unknown" };
-    }
-    switch (operator) {
-        case UnaryOperator.LogicalNot:
-            if (operand.kind === "boolean") {
-                return { kind: "boolean", value: !operand.value };
-            }
-            return { kind: "unknown" };
-        case UnaryOperator.Neg:
-            if (operand.kind === "number") {
-                return { kind: "number", value: -operand.value };
-            }
-            return { kind: "unknown" };
-        default:
-            return { kind: "unknown" };
-    }
-}
-
-function compareConstValues(
-    left: PathSensitiveConstValue,
-    right: PathSensitiveConstValue,
-): number {
-    if (left.kind !== right.kind) {
-        return Number.NaN;
-    }
-    switch (left.kind) {
-        case "boolean":
-            return left.value === (right as typeof left).value ? 0 : 1;
-        case "number":
-            return left.value === (right as typeof left).value ? 0 : 1;
-        case "string":
-            return left.value === (right as typeof left).value ? 0 : 1;
-        case "undefined":
-        case "null":
-            return 0;
-        default:
-            return Number.NaN;
-    }
-}
-
-function isLocalTaintedAnyContext(
-    local: Local,
-    pag: Pag,
-    tracker: TaintTracker,
-): boolean {
-    const nodes = pag.getNodesByValue(local);
-    if (!nodes || nodes.size === 0) {
-        return false;
-    }
-    for (const nodeId of nodes.values()) {
-        if (tracker.isTaintedAnyContext(nodeId)) {
-            return true;
-        }
-    }
-    return false;
 }
 
 function detectReceiverFieldCandidateSource(
@@ -1815,6 +1180,28 @@ function hasEarlierAssignBefore(method: any, local: Local, anchorStmt: any): boo
         if (!(stmt instanceof ArkAssignStmt)) continue;
         if (stmt.getLeftOp() !== local) continue;
         return true;
+    }
+    return false;
+}
+
+function isSameBlockLinearAssignBeforeStmt(method: any, assignStmt: ArkAssignStmt, anchorStmt: any): boolean {
+    const cfg = method?.getCfg?.() || anchorStmt?.getCfg?.();
+    const stmtToBlock = cfg?.getStmtToBlock?.();
+    const assignBlock = stmtToBlock?.get?.(assignStmt);
+    const anchorBlock = stmtToBlock?.get?.(anchorStmt);
+    if (!assignBlock || !anchorBlock || assignBlock !== anchorBlock) {
+        return false;
+    }
+    const stmts: any[] = assignBlock.getStmts?.() || assignBlock.stmts || [];
+    let seenAssign = false;
+    for (const stmt of stmts) {
+        if (stmt === assignStmt) {
+            seenAssign = true;
+            continue;
+        }
+        if (stmt === anchorStmt) {
+            return seenAssign;
+        }
     }
     return false;
 }

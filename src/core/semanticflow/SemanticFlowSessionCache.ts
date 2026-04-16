@@ -93,6 +93,7 @@ export interface SemanticFlowItemCacheKey {
     keyPrefix: string;
     anchorId: string;
     anchorKey: string;
+    semanticsFingerprint: string;
     anchorFingerprint: string;
     initialSliceKey: string;
     maxRounds: number;
@@ -107,6 +108,7 @@ export interface SemanticFlowItemCacheKeyInput {
     temperature: number;
     promptSchemaVersion: number;
     parserSchemaVersion: number;
+    semanticsFingerprint: string;
     anchor: SemanticFlowAnchor;
     initialSlice: SemanticFlowSlicePackage;
     maxRounds: number;
@@ -182,6 +184,7 @@ interface ItemCacheRecord {
         hitCount: number;
         anchorId: string;
         anchorKey: string;
+        semanticsFingerprint: string;
         anchorFingerprint: string;
         initialSliceKey: string;
         maxRounds: number;
@@ -301,6 +304,7 @@ export function buildSemanticFlowItemCacheKey(
         temperature: input.temperature,
         promptSchemaVersion: input.promptSchemaVersion,
         parserSchemaVersion: input.parserSchemaVersion,
+        semanticsFingerprint: input.semanticsFingerprint,
         anchorFingerprint,
         initialSliceKey,
         maxRounds: input.maxRounds,
@@ -311,6 +315,7 @@ export function buildSemanticFlowItemCacheKey(
         keyPrefix: key.slice(0, 12),
         anchorId: input.anchor.id,
         anchorKey: buildAnchorKey(input.anchor.id),
+        semanticsFingerprint: input.semanticsFingerprint,
         anchorFingerprint,
         initialSliceKey,
         maxRounds: input.maxRounds,
@@ -520,6 +525,7 @@ export class SemanticFlowSessionCache {
                 hitCount: 0,
                 anchorId: key.anchorId,
                 anchorKey: key.anchorKey,
+                semanticsFingerprint: key.semanticsFingerprint,
                 anchorFingerprint: key.anchorFingerprint,
                 initialSliceKey: key.initialSliceKey,
                 maxRounds: key.maxRounds,
@@ -654,6 +660,7 @@ export class SemanticFlowSessionCache {
                 "temperature",
                 "promptSchemaVersion",
                 "parserSchemaVersion",
+                "semanticsFingerprint",
                 "anchorFingerprint",
                 "initialSliceKey",
                 "maxRounds",
@@ -968,6 +975,7 @@ function validateItemCacheRecord(raw: unknown, filePath: string): ItemCacheRecor
     expectString(meta.keyPrefix, `${filePath}.meta.keyPrefix`);
     expectString(meta.anchorId, `${filePath}.meta.anchorId`);
     expectString(meta.anchorKey, `${filePath}.meta.anchorKey`);
+    expectString(meta.semanticsFingerprint, `${filePath}.meta.semanticsFingerprint`);
     expectString(meta.anchorFingerprint, `${filePath}.meta.anchorFingerprint`);
     expectString(meta.initialSliceKey, `${filePath}.meta.initialSliceKey`);
     expectNumber(meta.maxRounds, `${filePath}.meta.maxRounds`);

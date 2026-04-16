@@ -1810,10 +1810,21 @@ export class TaintPropagationEngine {
                 allowedMethodSignatures: this.activeReachableMethodSignatures,
                 orderedMethodSignatures: this.activeOrderedMethodSignatures,
                 interproceduralTaintTargetNodeIds: this.collectInterproceduralTaintTargetNodeIds(),
+                captureBwdTaintTargetNodeIds: this.collectCaptureBwdTaintTargetNodeIds(),
                 onProfile: (profile) => this.mergeDetectProfile(profile),
             }
         );
         return scoped;
+    }
+
+    private collectCaptureBwdTaintTargetNodeIds(): Set<number> {
+        const out = new Set<number>();
+        for (const edges of this.captureEdgeMap.values()) {
+            for (const edge of edges) {
+                out.add(edge.dstNodeId);
+            }
+        }
+        return out;
     }
 
     private collectInterproceduralTaintTargetNodeIds(): Set<number> {

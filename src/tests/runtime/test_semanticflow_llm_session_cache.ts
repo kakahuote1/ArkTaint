@@ -8,6 +8,7 @@ import {
 } from "../../core/semanticflow/SemanticFlowLlm";
 import { runSemanticFlowPipeline } from "../../core/semanticflow/SemanticFlowPipeline";
 import { SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION } from "../../core/semanticflow/SemanticFlowPrompt";
+import { getSemanticFlowItemCacheSemanticsFingerprint } from "../../core/semanticflow/SemanticFlowSessionSemantics";
 import {
     buildSemanticFlowItemCacheKey,
     SEMANTIC_FLOW_SESSION_CACHE_KIND,
@@ -591,6 +592,7 @@ async function testSemanticFlowItemCacheShortcut(rootDir: string): Promise<void>
             temperature: SEMANTIC_FLOW_LLM_TEMPERATURE + 1,
             promptSchemaVersion: SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION,
             parserSchemaVersion: SEMANTIC_FLOW_DECISION_PARSER_SCHEMA_VERSION,
+            semanticsFingerprint: getSemanticFlowItemCacheSemanticsFingerprint(),
             anchor,
             initialSlice,
             maxRounds: 1,
@@ -603,6 +605,7 @@ async function testSemanticFlowItemCacheShortcut(rootDir: string): Promise<void>
             temperature: SEMANTIC_FLOW_LLM_TEMPERATURE,
             promptSchemaVersion: SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION + 1,
             parserSchemaVersion: SEMANTIC_FLOW_DECISION_PARSER_SCHEMA_VERSION,
+            semanticsFingerprint: getSemanticFlowItemCacheSemanticsFingerprint(),
             anchor,
             initialSlice,
             maxRounds: 1,
@@ -615,11 +618,25 @@ async function testSemanticFlowItemCacheShortcut(rootDir: string): Promise<void>
             temperature: SEMANTIC_FLOW_LLM_TEMPERATURE,
             promptSchemaVersion: SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION,
             parserSchemaVersion: SEMANTIC_FLOW_DECISION_PARSER_SCHEMA_VERSION + 1,
+            semanticsFingerprint: getSemanticFlowItemCacheSemanticsFingerprint(),
             anchor,
             initialSlice,
             maxRounds: 1,
         })) === undefined,
         "expected parser schema change to invalidate item cache",
+    );
+    assert(
+        cache.lookupItem(buildSemanticFlowItemCacheKey({
+            model: "mock-item-shortcut",
+            temperature: SEMANTIC_FLOW_LLM_TEMPERATURE,
+            promptSchemaVersion: SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION,
+            parserSchemaVersion: SEMANTIC_FLOW_DECISION_PARSER_SCHEMA_VERSION,
+            semanticsFingerprint: `${getSemanticFlowItemCacheSemanticsFingerprint()}-changed`,
+            anchor,
+            initialSlice,
+            maxRounds: 1,
+        })) === undefined,
+        "expected item semantics fingerprint change to invalidate item cache",
     );
 
     let secondModelCalls = 0;
