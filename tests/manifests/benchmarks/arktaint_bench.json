@@ -1,0 +1,55 @@
+{
+  "name": "arktaint-bench",
+  "version": "1.0.0",
+  "description": "ArkTaint-owned full benchmark composed from the complete senior_full dataset and the complete corrected HapBench corpus, with core/boundary lanes separated in reporting.",
+  "seniorFull": {
+    "targetDir": "tests/demo/senior_full",
+    "selectionMode": "all",
+    "includeTopLevelCategories": [
+      "completeness",
+      "context_sensitive",
+      "field_sensitive",
+      "flow_sensitive",
+      "path_sensitive"
+    ],
+    "boundaryTopLevelCategories": [
+      "flow_sensitive",
+      "path_sensitive"
+    ],
+    "boundaryLeafDirs": [
+      "completeness/function_call/chained_call"
+    ],
+    "explicitEntries": {
+      "completeness/cross_file/cross_file_001_T/cross_file_001_T_a.ets": "cross_file_001_T_b",
+      "completeness/cross_file/cross_file_002_F/cross_file_002_F_a.ets": "cross_file_002_F_b",
+      "completeness/cross_file/cross_file_003_T/cross_file_003_T_a.ets": "cross_file_003_T_b",
+      "completeness/cross_file/cross_file_004_F/cross_file_004_F_a.ets": "cross_file_004_F_b"
+    }
+  },
+  "hapBench": {
+    "benchmarkRoot": "tests/benchmark/HapBench",
+    "kernelRulePath": "tests/rules/minimal.rules.json",
+    "ruleCatalogPath": "src/models",
+    "selectedCases": [
+      "Anonymous Constructs/AnonymousClass2",
+      "Lifecycle Modeling/ActivityLifecycle1",
+      "Lifecycle Modeling/ActivityLifecycle2",
+      "Lifecycle Modeling/ActivityLifecycle3",
+      "Lifecycle Modeling/ActivityLifecycle4",
+      "Lifecycle Modeling/BackupExtensionAbility",
+      "Lifecycle Modeling/Button1",
+      "Lifecycle Modeling/Button2",
+      "Lifecycle Modeling/Button3",
+      "Lifecycle Modeling/ComponentLifecycle1",
+      "Lifecycle Modeling/ComponentLifecycle2",
+      "Lifecycle Modeling/ComponentLifecycle3",
+      "Lifecycle Modeling/EventOdering",
+      "Lifecycle Modeling/UnreachableFlow",
+      "OpenHarmony Specific APIs/CallbackInSource",
+      "OpenHarmony Specific APIs/DirectLeak",
+      "OpenHarmony Specific APIs/DirectLeak-want",
+      "OpenHarmony Specific APIs/FileReadWrite",
+      "OpenHarmony Specific APIs/NoLeak"
+    ]
+  }
+}

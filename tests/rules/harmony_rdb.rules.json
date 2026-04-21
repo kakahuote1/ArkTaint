@@ -1,0 +1,59 @@
+{
+    "schemaVersion": "2.0",
+    "meta": {
+        "name": "harmony_rdb",
+        "description": "C13 relational store benchmark rules (gate-ready minimal semantics)",
+        "updatedAt": "2026-02-22"
+    },
+    "sources": [
+        {
+            "id": "source.harmony_rdb.entry_param",
+            "match": {
+                "kind": "local_name_regex",
+                "value": "^taint_src$"
+            },
+            "sourceKind": "entry_param",
+            "target": "arg0"
+        }
+    ],
+    "sinks": [
+        {
+            "id": "sink.harmony_rdb.mock_sink",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "Sink"
+            },
+            "target": {
+                "endpoint": "arg0"
+            }
+        }
+    ],
+    "transfers": [
+        {
+            "id": "transfer.harmony_rdb.insert_row_to_store",
+            "description": "Model insert(table, row): row taints db instance.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "insert",
+                "invokeKind": "instance",
+                "argCount": 2,
+                "typeHint": "RdbStore"
+            },
+            "from": "arg1",
+            "to": "base"
+        },
+        {
+            "id": "transfer.harmony_rdb.query_store_to_result",
+            "description": "Model query(sql): tainted db instance taints query result.",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "query",
+                "invokeKind": "instance",
+                "argCount": 1,
+                "typeHint": "RdbStore"
+            },
+            "from": "base",
+            "to": "result"
+        }
+    ]
+}

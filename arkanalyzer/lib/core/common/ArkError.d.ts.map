@@ -1,0 +1,1 @@
+{"version":3,"file":"ArkError.d.ts","sourceRoot":"","sources":["../../../src/core/common/ArkError.ts"],"names":[],"mappings":"AAeA,oBAAY,YAAY;IACpB,EAAE,IAAI;IACN,8BAA8B,KAAK;IACnC,gCAAgC,KAAK;IACrC,6BAA6B,KAAK;IAClC,yBAAyB,KAAK;IAC9B,yBAAyB,KAAK;IAC9B,0BAA0B,KAAK;IAC/B,+BAA+B,KAAK;CACvC;AAED,MAAM,WAAW,QAAQ;IACrB,OAAO,EAAE,YAAY,CAAC;IACtB,MAAM,CAAC,EAAE,MAAM,CAAC;CACnB"}

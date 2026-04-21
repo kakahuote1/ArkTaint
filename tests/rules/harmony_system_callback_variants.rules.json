@@ -1,0 +1,51 @@
+{
+    "schemaVersion": "2.0",
+    "meta": {
+        "name": "harmony-system-callback-variants",
+        "description": "Benchmark helper/factory/cross-file system callback entry families such as WindowStage.loadContent and WebView.onMessage",
+        "updatedAt": "2026-03-15"
+    },
+    "sources": [
+        {
+            "id": "source.harmony.system_callbacks.loadContent.arg1",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "loadContent"
+            },
+            "sourceKind": "callback_param",
+            "target": {
+                "endpoint": "arg1"
+            },
+            "callbackArgIndexes": [
+                0
+            ]
+        },
+        {
+            "id": "source.harmony.system_callbacks.onMessage.arg0",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "onMessage"
+            },
+            "sourceKind": "callback_param",
+            "target": {
+                "endpoint": "arg0"
+            },
+            "callbackArgIndexes": [
+                0
+            ]
+        }
+    ],
+    "sinks": [
+        {
+            "id": "sink.harmony.system_callbacks.sink",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "Sink"
+            },
+            "target": {
+                "endpoint": "arg0"
+            }
+        }
+    ],
+    "transfers": []
+}

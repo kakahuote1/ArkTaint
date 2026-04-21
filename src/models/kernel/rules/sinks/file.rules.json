@@ -1,0 +1,172 @@
+{
+  "schemaVersion": "2.0",
+  "sources": [],
+  "sinks": [
+    {
+      "id": "sink.harmony.fs.write.arg1",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "write"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(fs|File|FileIo|FileOutput|FileAccess|FileOperator)"
+        }
+      },
+      "category": "file_operation_injection",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.fs.open.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "open"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
+        }
+      },
+      "category": "file_operation_injection",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.fs.rename.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "rename"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
+        }
+      },
+      "category": "file_operation_injection",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.fs.rename.arg1",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "rename"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
+        }
+      },
+      "category": "file_operation_injection",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.fs.unlink.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "unlink"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
+        }
+      },
+      "category": "file_operation_injection",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.fs.writeSync",
+      "description": "File sync write (complement async write)",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "file",
+        "P1"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "writeSync"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "fs"
+        }
+      },
+      "target": "arg1",
+      "severity": "medium",
+      "category": "file_operation_injection"
+    },
+    {
+      "id": "sink.harmony.fs.copyFile",
+      "description": "File copy path injection",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "file",
+        "P2"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "copyFile"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "fs"
+        }
+      },
+      "target": "arg1",
+      "severity": "low",
+      "category": "file_operation_injection"
+    },
+    {
+      "id": "sink.harmony.fs.moveFile",
+      "description": "File move path injection",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "file",
+        "P2"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "moveFile"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "fs"
+        }
+      },
+      "target": "arg1",
+      "severity": "low",
+      "category": "file_operation_injection"
+    }
+  ],
+  "sanitizers": [],
+  "transfers": []
+}

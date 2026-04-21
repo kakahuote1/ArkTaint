@@ -1,0 +1,1 @@
+{"version":3,"file":"JsonPrinter.d.ts","sourceRoot":"","sources":["../../../src/save/json/JsonPrinter.ts"],"names":[],"mappings":"AAeA,OAAO,EAAE,OAAO,EAAE,MAAM,OAAO,CAAC;AAChC,OAAO,EAAE,OAAO,EAAE,MAAM,YAAY,CAAC;AAGrC,qBAAa,WAAY,SAAQ,OAAO;IACxB,OAAO,CAAC,OAAO;gBAAP,OAAO,EAAE,OAAO;IAI7B,IAAI,IAAI,MAAM;CAIxB"}

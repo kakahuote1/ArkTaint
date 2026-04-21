@@ -1,0 +1,1 @@
+{"version":3,"file":"json5parser.d.ts","sourceRoot":"","sources":["../../src/utils/json5parser.ts"],"names":[],"mappings":"AAqBA,wBAAgB,yBAAyB,CAAC,QAAQ,EAAE,MAAM,GAAG;IACzD,CAAC,CAAC,EAAE,MAAM,GAAG,OAAO,CAAC;CACxB,CAaA;AAED,wBAAgB,aAAa,CAAC,IAAI,EAAE,MAAM,GAAG;IAAE,CAAC,CAAC,EAAE,MAAM,GAAG,OAAO,CAAA;CAAE,CAcpE"}

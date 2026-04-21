@@ -1,0 +1,396 @@
+{
+  "schemaVersion": "2.0",
+  "sources": [
+    {
+      "id": "source.harmony.input.onChange.arg0",
+      "enabled": true,
+      "description": "Text input callback parameter for onChange.",
+      "tags": [
+        "harmony",
+        "t3",
+        "t4",
+        "t6",
+        "t7"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "onChange"
+      },
+      "sourceKind": "callback_param",
+      "target": {
+        "endpoint": "arg0"
+      },
+      "callbackArgIndexes": [
+        0
+      ]
+    },
+    {
+      "id": "source.harmony.input.onInput.arg0",
+      "enabled": true,
+      "description": "Text input callback parameter for onInput.",
+      "tags": [
+        "harmony",
+        "t3",
+        "t4",
+        "t6",
+        "t7"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "onInput"
+      },
+      "sourceKind": "callback_param",
+      "target": {
+        "endpoint": "arg0"
+      },
+      "callbackArgIndexes": [
+        0
+      ]
+    },
+    {
+      "id": "source.harmony.input.onSubmit.arg0",
+      "enabled": true,
+      "description": "Text input callback parameter for onSubmit.",
+      "tags": [
+        "harmony",
+        "t3",
+        "t4",
+        "t6",
+        "t7"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "onSubmit"
+      },
+      "sourceKind": "callback_param",
+      "target": {
+        "endpoint": "arg0"
+      },
+      "callbackArgIndexes": [
+        0
+      ]
+    },
+    {
+      "id": "source.harmony.network.http.requestAsync.callback.arg0",
+      "enabled": true,
+      "description": "requestAsync callback first parameter as response source.",
+      "tags": [
+        "harmony",
+        "t1",
+        "t3",
+        "t5"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "requestAsync"
+      },
+      "sourceKind": "callback_param",
+      "target": {
+        "endpoint": "arg0"
+      },
+      "callbackArgIndexes": [
+        1
+      ]
+    },
+    {
+      "id": "source.harmony.window.loadContent.callback.arg0",
+      "enabled": true,
+      "description": "windowStage.loadContent(page, callback) callback first parameter (err) as framework callback source.",
+      "tags": [
+        "harmony",
+        "t2",
+        "callback"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "loadContent"
+      },
+      "sourceKind": "callback_param",
+      "target": {
+        "endpoint": "arg0"
+      },
+      "callbackArgIndexes": [
+        1
+      ]
+    },
+    {
+      "id": "source.harmony.window.loadContent.callback.arg1",
+      "enabled": true,
+      "description": "windowStage.loadContent(page, callback) callback second parameter (data) as framework callback source.",
+      "tags": [
+        "harmony",
+        "t2",
+        "callback"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "loadContent"
+      },
+      "sourceKind": "callback_param",
+      "target": {
+        "endpoint": "arg1"
+      },
+      "callbackArgIndexes": [
+        1
+      ]
+    },
+    {
+      "id": "source.harmony.webview.onMessage.callback.arg0",
+      "enabled": true,
+      "description": "WebView onMessage callback payload as untrusted source.",
+      "tags": [
+        "harmony",
+        "t1",
+        "t2"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "onMessage"
+      },
+      "sourceKind": "callback_param",
+      "target": {
+        "endpoint": "arg0"
+      },
+      "callbackArgIndexes": [
+        0
+      ]
+    },
+    {
+      "id": "source.harmony.commonevent.subscribe.callback.arg0",
+      "enabled": false,
+      "description": "Observation-only: commonEvent subscribe callback payload (cross-process boundary, disabled by default).",
+      "tags": [
+        "harmony",
+        "boundary",
+        "commonevent"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "subscribe"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(commonEventManager|CommonEventManager)"
+        }
+      },
+      "sourceKind": "callback_param",
+      "target": {
+        "endpoint": "arg0"
+      },
+      "callbackArgIndexes": [
+        1
+      ]
+    },
+    {
+      "id": "source.harmony.websocket.onMessage",
+      "description": "WebSocket incoming message",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "network",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "WebSocket"
+      },
+      "scope": {
+        "methodName": {
+          "mode": "regex",
+          "value": "^on$"
+        }
+      },
+      "sourceKind": "callback_param",
+      "target": "arg0",
+      "callbackArgIndexes": [
+        0
+      ]
+    },
+    {
+      "id": "source.harmony.socket.onMessage",
+      "description": "TCP/UDP/TLS/Local Socket incoming data",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "network",
+        "P1"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "on"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(TCP|UDP|TLS|Local)Socket"
+        }
+      },
+      "sourceKind": "callback_param",
+      "target": "arg0",
+      "callbackArgIndexes": [
+        0
+      ]
+    },
+    {
+      "id": "source.harmony.http.onDataReceive",
+      "description": "HTTP streaming response data (requestInStream)",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "network",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "HttpRequest"
+      },
+      "scope": {
+        "methodName": {
+          "mode": "equals",
+          "value": "on"
+        }
+      },
+      "sourceKind": "callback_param",
+      "target": "arg0",
+      "callbackArgIndexes": [
+        0
+      ]
+    },
+    {
+      "id": "source.harmony.ble.onCharacteristicChange",
+      "description": "BLE characteristic change notification",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "bluetooth",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "BLECharacteristicChange"
+      },
+      "sourceKind": "callback_param",
+      "target": "arg0",
+      "callbackArgIndexes": [
+        0
+      ]
+    },
+    {
+      "id": "source.harmony.sensor.on",
+      "description": "Sensor data callback",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "sensor",
+        "P2"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "on"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "sensor"
+        }
+      },
+      "sourceKind": "callback_param",
+      "target": "arg0",
+      "callbackArgIndexes": [
+        0
+      ]
+    },
+    {
+      "id": "source.harmony.distributedDataObject.onChange",
+      "description": "Distributed data object change notification",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "distributed",
+        "P2"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "DistributedObject"
+      },
+      "scope": {
+        "methodName": {
+          "mode": "equals",
+          "value": "on"
+        }
+      },
+      "sourceKind": "callback_param",
+      "target": "arg0",
+      "callbackArgIndexes": [
+        0
+      ]
+    },
+    {
+      "id": "source.harmony.nfc.onTagFound",
+      "description": "NFC tag found event",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "nfc",
+        "P2"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "tagFound"
+      },
+      "sourceKind": "callback_param",
+      "target": "arg0",
+      "callbackArgIndexes": [
+        0
+      ]
+    },
+    {
+      "id": "source.harmony.notification.subscribe",
+      "description": "Notification subscribe receive",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "notification",
+        "P2"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "notification"
+      },
+      "scope": {
+        "methodName": {
+          "mode": "equals",
+          "value": "subscribe"
+        }
+      },
+      "sourceKind": "callback_param",
+      "target": "arg0",
+      "callbackArgIndexes": [
+        0
+      ]
+    },
+    {
+      "id": "source.harmony.camera.onPhotoAvailable",
+      "description": "Camera photo data output",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "camera",
+        "P2"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "photoAvailable"
+      },
+      "sourceKind": "callback_param",
+      "target": "arg0",
+      "callbackArgIndexes": [
+        0
+      ]
+    }
+  ],
+  "sinks": [],
+  "sanitizers": [],
+  "transfers": []
+}

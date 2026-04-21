@@ -1,0 +1,103 @@
+{
+    "schemaVersion": "2.0",
+    "meta": {
+        "name": "harmony-event-activation-v1-rules",
+        "description": "Phase 7.3 V1 callback activation and callback-param source seeding",
+        "updatedAt": "2026-02-22"
+    },
+    "sources": [
+        {
+            "id": "source.harmony.callback.onChange.arg0",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "onChange"
+            },
+            "scope": {
+                "methodName": {
+                    "mode": "equals",
+                    "value": "build"
+                }
+            },
+            "sourceKind": "callback_param",
+            "target": {
+                "endpoint": "arg0"
+            },
+            "callbackArgIndexes": [
+                0
+            ]
+        },
+        {
+            "id": "source.harmony.callback.onInput.arg0",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "onInput"
+            },
+            "scope": {
+                "methodName": {
+                    "mode": "equals",
+                    "value": "build"
+                }
+            },
+            "sourceKind": "callback_param",
+            "target": {
+                "endpoint": "arg0"
+            },
+            "callbackArgIndexes": [
+                0
+            ]
+        },
+        {
+            "id": "source.harmony.callback.onSubmit.arg0",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "onSubmit"
+            },
+            "scope": {
+                "methodName": {
+                    "mode": "equals",
+                    "value": "build"
+                }
+            },
+            "sourceKind": "callback_param",
+            "target": {
+                "endpoint": "arg0"
+            },
+            "callbackArgIndexes": [
+                0
+            ]
+        },
+        {
+            "id": "source.harmony.callback.onChange2.arg1",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "onChange2"
+            },
+            "scope": {
+                "methodName": {
+                    "mode": "equals",
+                    "value": "build"
+                }
+            },
+            "sourceKind": "callback_param",
+            "target": {
+                "endpoint": "arg1"
+            },
+            "callbackArgIndexes": [
+                0
+            ]
+        }
+    ],
+    "sinks": [
+        {
+            "id": "sink.harmony.callback.mock_sink",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "Sink"
+            },
+            "target": {
+                "endpoint": "arg0"
+            }
+        }
+    ],
+    "transfers": []
+}

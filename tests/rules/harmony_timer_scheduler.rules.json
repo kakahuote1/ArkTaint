@@ -1,0 +1,43 @@
+{
+    "schemaVersion": "2.0",
+    "meta": {
+        "name": "harmony-timer-scheduler",
+        "description": "Benchmark timer and scheduler callback entry variants",
+        "updatedAt": "2026-03-15"
+    },
+    "sources": [
+        {
+            "id": "source.harmony.timer.mock_source_return",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "Source"
+            },
+            "sourceKind": "call_return",
+            "target": {
+                "endpoint": "result"
+            }
+        },
+        {
+            "id": "source.harmony.timer.entry_param",
+            "match": {
+                "kind": "local_name_regex",
+                "value": "^taint_src$"
+            },
+            "sourceKind": "entry_param",
+            "target": "arg0"
+        }
+    ],
+    "sinks": [
+        {
+            "id": "sink.harmony.timer.sink",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "Sink"
+            },
+            "target": {
+                "endpoint": "arg0"
+            }
+        }
+    ],
+    "transfers": []
+}

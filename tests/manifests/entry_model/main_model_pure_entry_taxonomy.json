@@ -1,0 +1,51 @@
+{
+  "name": "main-model-pure-entry-taxonomy",
+  "version": "3.0.0",
+  "description": "Pure entry discovery benchmark for the strict official-declaration ArkMain surface. This manifest only keeps suites whose entry validity is determined by official owner and lifecycle declarations. Callback, event, and open-world probes remain covered by provenance and boundary suites instead of this taxonomy benchmark.",
+  "suites": [
+    {
+      "id": "harmony_lifecycle",
+      "category": "ability_lifecycle",
+      "sourceDir": "tests/demo/harmony_lifecycle",
+      "caseIncludePatterns": [
+        "^lifecycle_(abilitystage_oncreate_015_T|extension_addform_011_T|extension_addform_safe_sink_019_F|newwant_field_003_T|param_name_mismatch_006_F|param_type_mismatch_007_F|want_alias_emit_004_T|want_direct_001_T|want_field_build_002_T|want_to_helper_017_T|want_unused_005_F)$"
+      ]
+    },
+    {
+      "id": "harmony_stage_window_variants",
+      "category": "ability_lifecycle",
+      "sourceDir": "tests/demo/harmony_stage_window_variants"
+    },
+    {
+      "id": "harmony_framework_backup_restore",
+      "category": "ability_lifecycle",
+      "sourceDir": "tests/demo/harmony_framework_entry_probe",
+      "caseIncludePatterns": [
+        "^backup_restore_(001_T|002_F)$"
+      ]
+    },
+    {
+      "id": "harmony_framework_uiextension",
+      "category": "ability_lifecycle",
+      "sourceDir": "tests/demo/harmony_framework_entry_probe",
+      "caseIncludePatterns": [
+        "^uiextension_(oncreate_014_T|onnewwant_015_T|sessioncreate_016_T|sessioncreate_017_F)$"
+      ]
+    },
+    {
+      "id": "harmony_form_extension_lifecycle",
+      "category": "ability_lifecycle",
+      "sourceDir": "tests/demo/harmony_form_extension_lifecycle"
+    },
+    {
+      "id": "harmony_extension_composition",
+      "category": "ability_lifecycle",
+      "sourceDir": "tests/demo/harmony_extension_composition"
+    },
+    {
+      "id": "harmony_extension_variants",
+      "category": "ability_lifecycle",
+      "sourceDir": "tests/demo/harmony_extension_variants"
+    }
+  ]
+}

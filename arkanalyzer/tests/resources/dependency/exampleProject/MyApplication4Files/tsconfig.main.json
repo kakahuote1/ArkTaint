@@ -1,0 +1,23 @@
+{
+    "compilerOptions": {
+        "baseUrl": "./",
+        "paths": {
+            "@DependencyTest/": [
+                "../DependencyTest/",
+                "../DependencyTest1/"
+            ],
+            "@DependencyTest/*": [
+                "../DependencyTest/*",
+                "../DependencyTest1/*"
+            ],
+            "DependencyTest/": [
+                "../DependencyTest/",
+                "../DependencyTest1/"
+            ],
+            "DependencyTest/*": [
+                "../DependencyTest/*",
+                "../DependencyTest1/*"
+            ]
+        }
+    }
+}

@@ -1,0 +1,717 @@
+{
+  "schemaVersion": "2.0",
+  "sources": [
+    {
+      "id": "source.harmony.privacy.contacts.queryContacts.result",
+      "enabled": true,
+      "description": "Optional privacy source: contacts query result.",
+      "tags": [
+        "harmony",
+        "t2",
+        "privacy_optional"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "queryContacts"
+      },
+      "sourceKind": "call_return",
+      "target": {
+        "endpoint": "result"
+      }
+    },
+    {
+      "id": "source.harmony.telephony.getIMEI",
+      "description": "IMEI device identifier",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "device_id",
+        "P0"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "getIMEI"
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "critical",
+      "category": "device_identifier"
+    },
+    {
+      "id": "source.harmony.oaid.getOAID",
+      "description": "Advertising ID (OAID)",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "device_id",
+        "P0"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "getOAID"
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "critical",
+      "category": "device_identifier"
+    },
+    {
+      "id": "source.harmony.geo.getCurrentLocation",
+      "description": "Real-time GPS location",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "location",
+        "P0"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "getCurrentLocation"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "geoLocation"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "critical",
+      "category": "location"
+    },
+    {
+      "id": "source.harmony.geo.getLastLocation",
+      "description": "Cached GPS location",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "location",
+        "P0"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "getLastLocation"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "geoLocation"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "critical",
+      "category": "location"
+    },
+    {
+      "id": "source.harmony.sim.getSimAccountInfo",
+      "description": "SIM account info with phone number",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "telephony",
+        "P0"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "getSimAccountInfo"
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "critical",
+      "category": "personal_info"
+    },
+    {
+      "id": "source.harmony.deviceInfo.udid",
+      "description": "Device UDID/serial/ODID constants",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "device_id",
+        "P0"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "deviceInfo"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "deviceInfo"
+        }
+      },
+      "sourceKind": "field_read",
+      "target": "result",
+      "severity": "critical",
+      "category": "device_identifier"
+    },
+    {
+      "id": "source.harmony.wifi.getLinkedInfo",
+      "description": "WiFi linked info (SSID/BSSID)",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "wifi",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "getLinkedInfo"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "wifi"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "high",
+      "category": "location"
+    },
+    {
+      "id": "source.harmony.wifi.getScanResults",
+      "description": "WiFi scan results (location fingerprint)",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "wifi",
+        "P1"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "getScanResults"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "wifi"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "high",
+      "category": "location"
+    },
+    {
+      "id": "source.harmony.wifi.getScanInfoList",
+      "description": "WiFi scan info list",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "wifi",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "getScanInfoList"
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "high",
+      "category": "location"
+    },
+    {
+      "id": "source.harmony.wifi.getDeviceMacAddress",
+      "description": "WiFi MAC address",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "wifi",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "getDeviceMacAddress"
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "high",
+      "category": "device_identifier"
+    },
+    {
+      "id": "source.harmony.wifi.getIpInfo",
+      "description": "WiFi IP address info",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "wifi",
+        "P1"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "getIpInfo"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "wifi"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "high",
+      "category": "network_info"
+    },
+    {
+      "id": "source.harmony.wifi.getIpv6Info",
+      "description": "WiFi IPv6 address info",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "wifi",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "getIpv6Info"
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "high",
+      "category": "network_info"
+    },
+    {
+      "id": "source.harmony.calendar.getEvents",
+      "description": "Calendar events (personal privacy)",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "calendar",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "getEvents"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "Calendar"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "high",
+      "category": "personal_info"
+    },
+    {
+      "id": "source.harmony.audio.capturer.read",
+      "description": "Microphone audio capture",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "audio",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "AudioCapturer"
+      },
+      "scope": {
+        "methodName": {
+          "mode": "equals",
+          "value": "read"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "high",
+      "category": "media_capture"
+    },
+    {
+      "id": "source.harmony.ble.readCharacteristic",
+      "description": "BLE characteristic value read",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "bluetooth",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "readCharacteristicValue"
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "high",
+      "category": "bluetooth_data"
+    },
+    {
+      "id": "source.harmony.ble.readDescriptor",
+      "description": "BLE descriptor value read",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "bluetooth",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "readDescriptorValue"
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "high",
+      "category": "bluetooth_data"
+    },
+    {
+      "id": "source.harmony.bt.sppRead",
+      "description": "Bluetooth SPP serial port data receive",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "bluetooth",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "sppRead"
+      },
+      "sourceKind": "callback_param",
+      "target": "arg0",
+      "callbackArgIndexes": [
+        0
+      ]
+    },
+    {
+      "id": "source.harmony.bt.getPairedDevices",
+      "description": "Bluetooth paired devices list",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "bluetooth",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "getPairedDevices"
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "high",
+      "category": "device_identifier"
+    },
+    {
+      "id": "source.harmony.bt.getLocalName",
+      "description": "Bluetooth local device name",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "bluetooth",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "getLocalName"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "bluetooth"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "high",
+      "category": "device_identifier"
+    },
+    {
+      "id": "source.harmony.photo.getAssets",
+      "description": "Photo gallery access",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "media",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "getAssets"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "PhotoAccessHelper"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "high",
+      "category": "media_capture"
+    },
+    {
+      "id": "source.harmony.sim.getVoiceMailNumber",
+      "description": "SIM voicemail number",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "telephony",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "getVoiceMailNumber"
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "high",
+      "category": "personal_info"
+    },
+    {
+      "id": "source.harmony.contact.queryContact",
+      "description": "Contact single query",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "contact",
+        "P1"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "queryContact"
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "high",
+      "category": "personal_info"
+    },
+    {
+      "id": "source.harmony.contact.selectContact",
+      "description": "Contact picker selection",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "contact",
+        "P1"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "selectContact"
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "high",
+      "category": "personal_info"
+    },
+    {
+      "id": "source.harmony.contact.selectContacts",
+      "description": "Contact multi-picker selection",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "contact",
+        "P1"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "selectContacts"
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "high",
+      "category": "personal_info"
+    },
+    {
+      "id": "source.harmony.account.getOsAccountName",
+      "description": "OS account user name",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "account",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "getOsAccountName"
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "high",
+      "category": "personal_info"
+    },
+    {
+      "id": "source.harmony.sim.getSimSpn",
+      "description": "SIM service provider name",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "telephony",
+        "P2"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "getSimSpn"
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "low",
+      "category": "device_fingerprint"
+    },
+    {
+      "id": "source.harmony.telephony.getIMEISV",
+      "description": "IMEI software version",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "telephony",
+        "P2"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "getIMEISV"
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "medium",
+      "category": "device_identifier"
+    },
+    {
+      "id": "source.harmony.telephony.getCellInformation",
+      "description": "Cell tower info (location fingerprint)",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "telephony",
+        "P2"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "getCellInformation"
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "medium",
+      "category": "location"
+    },
+    {
+      "id": "source.harmony.telephony.getNetworkState",
+      "description": "Network state with PLMN/CellID",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "telephony",
+        "P2"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "getNetworkState"
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "medium",
+      "category": "location"
+    },
+    {
+      "id": "source.harmony.settings.getValue",
+      "description": "System settings value",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "settings",
+        "P2"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "getValue"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "settings"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "low",
+      "category": "system_info"
+    },
+    {
+      "id": "source.harmony.settings.getValueSync",
+      "description": "System settings value sync",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "settings",
+        "P2"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "getValueSync"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "settings"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "low",
+      "category": "system_info"
+    },
+    {
+      "id": "source.harmony.systemParam.get",
+      "description": "System parameter",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "system",
+        "P2"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "systemParameterEnhance"
+      },
+      "scope": {
+        "methodName": {
+          "mode": "equals",
+          "value": "get"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "low",
+      "category": "system_info"
+    },
+    {
+      "id": "source.harmony.display.getDefaultDisplay",
+      "description": "Display info (device fingerprint)",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "display",
+        "P2"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "getDefaultDisplay"
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "low",
+      "category": "device_fingerprint"
+    },
+    {
+      "id": "source.harmony.ble.getConnectedDevices",
+      "description": "Connected BLE devices MAC list",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "bluetooth",
+        "P2"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "getConnectedBLEDevices"
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "medium",
+      "category": "device_identifier"
+    }
+  ],
+  "sinks": [],
+  "sanitizers": [],
+  "transfers": []
+}

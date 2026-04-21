@@ -1,0 +1,15 @@
+{
+    "targetProjectName": "TypeInferenceTest",
+    "targetProjectDirectory": "tests/resources/viewtree/project",
+    "sdks": [
+        {
+            "name": "etsSdk",
+            "path": "tests/resources/Sdk",
+            "moduleName": ""
+        }
+    ],
+
+    "options": {
+        "enableLeadingComments": true
+    }
+}

@@ -1,0 +1,7 @@
+﻿[
+  {
+    "id": "adhoc_perf_gap_targeted",
+    "sourceDir": "tests/adhoc/arktan_compare/perf_gap_targeted",
+    "projectRulePath": "tests/adhoc/arktan_compare/adhoc_compare.rules.json"
+  }
+]

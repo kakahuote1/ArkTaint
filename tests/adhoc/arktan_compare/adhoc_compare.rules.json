@@ -1,0 +1,30 @@
+{
+    "schemaVersion": "2.0",
+    "meta": {
+        "name": "adhoc-arktan-compare-rule-pack",
+        "description": "Temporary rules for ad-hoc ArkTaint vs Arktan comparison",
+        "updatedAt": "2026-03-03"
+    },
+    "sources": [
+        {
+            "id": "source.adhoc.entry_param.any",
+            "match": {
+                "kind": "local_name_regex",
+                "value": ".*"
+            },
+            "sourceKind": "entry_param",
+            "target": "arg0"
+        }
+    ],
+    "sinks": [
+        {
+            "id": "sink.adhoc.method.Sink",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "Sink"
+            },
+            "target": "arg0"
+        }
+    ],
+    "transfers": []
+}

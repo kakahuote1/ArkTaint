@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "2.0",
+  "sources": [
+    {
+      "id": "source.harmony.network.http.request.result",
+      "enabled": true,
+      "description": "Http.request() promise result as network response source.",
+      "tags": [
+        "harmony",
+        "t1",
+        "t2",
+        "t3",
+        "t5"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "request"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "Http"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": {
+        "endpoint": "result"
+      }
+    },
+    {
+      "id": "source.harmony.request.download.result",
+      "enabled": true,
+      "description": "@ohos.request download result as untrusted source.",
+      "tags": [
+        "harmony",
+        "t2",
+        "t5"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "download"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(request|Request|Download|DownloadTask|RequestAgent)"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": {
+        "endpoint": "result"
+      }
+    },
+    {
+      "id": "source.harmony.request.upload.result",
+      "enabled": true,
+      "description": "@ohos.request upload result as untrusted source.",
+      "tags": [
+        "harmony",
+        "t2",
+        "t5"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "upload"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(request|Request|Upload|UploadTask|RequestAgent)"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": {
+        "endpoint": "result"
+      }
+    }
+  ],
+  "sinks": [],
+  "sanitizers": [],
+  "transfers": []
+}

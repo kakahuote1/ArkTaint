@@ -1,0 +1,32 @@
+{
+    "schemaVersion": "2.0",
+    "meta": {
+        "name": "harmony_implicit",
+        "description": "C15 implicit-flow benchmark rules",
+        "updatedAt": "2026-02-22"
+    },
+    "sources": [
+        {
+            "id": "source.harmony_implicit.entry_param",
+            "match": {
+                "kind": "local_name_regex",
+                "value": "^taint_src$"
+            },
+            "sourceKind": "entry_param",
+            "target": "arg0"
+        }
+    ],
+    "sinks": [
+        {
+            "id": "sink.harmony_implicit.mock_sink",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "Sink"
+            },
+            "target": {
+                "endpoint": "arg0"
+            }
+        }
+    ],
+    "transfers": []
+}

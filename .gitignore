@@ -1,0 +1,13 @@
+.DS_Store
+node_modules
+out
+output
+.vscode
+.idea
+*.log
+*.txt
+tmp/
+implementation_plan.md
+arkanalyzer/out
+arkanalyzer/output
+internal_docs/

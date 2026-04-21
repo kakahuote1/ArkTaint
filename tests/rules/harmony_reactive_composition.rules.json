@@ -1,0 +1,34 @@
+{
+    "schemaVersion": "2.0",
+    "meta": {
+        "name": "harmony-reactive-composition",
+        "description": "Benchmark combined reactive chains such as state+watch and route+watch",
+        "updatedAt": "2026-03-15"
+    },
+    "sources": [
+        {
+            "id": "source.harmony.reactive_composition.source",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "Source"
+            },
+            "sourceKind": "call_return",
+            "target": {
+                "endpoint": "result"
+            }
+        }
+    ],
+    "sinks": [
+        {
+            "id": "sink.harmony.reactive_composition.sink",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "Sink"
+            },
+            "target": {
+                "endpoint": "arg0"
+            }
+        }
+    ],
+    "transfers": []
+}

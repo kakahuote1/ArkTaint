@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "2.0",
+  "meta": {
+    "name": "ordinary-hapbench-pack-a-rule-pack",
+    "description": "Focused rule pack for Pack A HapBench-shaped ordinary language cases",
+    "updatedAt": "2026-04-04"
+  },
+  "sources": [
+    {
+      "id": "source.ordinary_hapbench_pack_a.local_seed",
+      "match": {
+        "kind": "local_name_regex",
+        "value": "^taint_src$"
+      },
+      "sourceKind": "seed_local_name",
+      "target": "result"
+    }
+  ],
+  "sinks": [
+    {
+      "id": "sink.ordinary_hapbench_pack_a.Sink",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "Sink"
+      }
+    }
+  ],
+  "transfers": []
+}

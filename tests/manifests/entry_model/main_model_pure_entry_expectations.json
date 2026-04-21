@@ -1,0 +1,222 @@
+{
+  "name": "main-model-pure-entry-expectations",
+  "version": "2.0.0",
+  "description": "Expectations for pure entry discovery benchmark. Only covers suites that test whether methods are correctly discovered as entry points.",
+  "suites": [
+    {
+      "id": "harmony_lifecycle",
+      "positiveCases": [
+        "lifecycle_abilitystage_oncreate_015_T",
+        "lifecycle_extension_addform_011_T",
+        "lifecycle_extension_addform_safe_sink_019_F",
+        "lifecycle_newwant_field_003_T",
+        "lifecycle_want_alias_emit_004_T",
+        "lifecycle_want_direct_001_T",
+        "lifecycle_want_field_build_002_T",
+        "lifecycle_want_to_helper_017_T"
+      ],
+      "negativeCases": [
+        "lifecycle_param_name_mismatch_006_F",
+        "lifecycle_param_type_mismatch_007_F",
+        "lifecycle_want_unused_005_F"
+      ]
+    },
+    {
+      "id": "harmony_stage_window_variants",
+      "positiveCases": [
+        "abilitystage_crosshap_chain_001_T",
+        "abilitystage_crosshap_safe_002_T",
+        "windowstage_create_destroy_003_T",
+        "windowstage_loadcontent_destroy_004_T",
+        "windowstage_multistage_safe_005_T"
+      ],
+      "negativeCases": [
+        "windowstage_non_lifecycle_006_F"
+      ]
+    },
+    {
+      "id": "harmony_event_activation",
+      "positiveCases": [
+        "event_callback_param_index_006_T",
+        "event_callback_param_index_wrong_007_F",
+        "event_onchange2_first_only_011_F",
+        "event_onchange2_second_010_T",
+        "event_onchange_build_001_T",
+        "event_onchange_nested_009_T",
+        "event_onchange_no_sink_008_F",
+        "event_onclick_build_004_F",
+        "event_oninput_build_002_T",
+        "event_onsubmit_build_003_T"
+      ],
+      "negativeCases": [
+        "event_onchange_outside_build_005_F"
+      ]
+    },
+    {
+      "id": "harmony_callback_registration",
+      "positiveCases": [
+        "callback_constant_sink_006_T",
+        "callback_direct_build_001_T",
+        "callback_factory_004_T",
+        "callback_helper_crossfile_003_T",
+        "callback_helper_samefile_002_T"
+      ],
+      "negativeCases": [
+        "callback_fake_button_007_F",
+        "callback_outside_build_005_F"
+      ]
+    },
+    {
+      "id": "harmony_system_callback_variants",
+      "positiveCases": [
+        "system_webview_crossfile_005_T",
+        "system_webview_factory_006_T",
+        "system_webview_helper_004_T"
+      ],
+      "negativeCases": [
+        "system_loadcontent_crossfile_002_F",
+        "system_loadcontent_factory_003_F",
+        "system_loadcontent_helper_001_F",
+        "system_fake_webview_008_F",
+        "system_fake_window_007_F"
+      ]
+    },
+    {
+      "id": "pure_entry_watch",
+      "positiveCases": [
+        "watch_appear_trigger_002_T",
+        "watch_build_trigger_001_T",
+        "watch_monitor_trigger_005_T"
+      ],
+      "negativeCases": [
+        "watch_no_trigger_003_F",
+        "watch_non_watched_write_004_F"
+      ]
+    },
+    {
+      "id": "harmony_page_visibility",
+      "positiveCases": [
+        "page_about_to_appear_001_T",
+        "page_build_to_route_show_005_T",
+        "page_on_page_hide_003_T",
+        "page_on_page_show_002_T",
+        "page_route_safe_006_T"
+      ],
+      "negativeCases": [
+        "page_non_visibility_method_004_F"
+      ]
+    },
+    {
+      "id": "pure_entry_worker",
+      "positiveCases": [
+        "worker_onmessage_build_001_T",
+        "worker_taskpool_build_002_T"
+      ],
+      "negativeCases": [
+        "worker_fake_owner_003_F"
+      ]
+    },
+    {
+      "id": "pure_entry_emitter",
+      "positiveCases": [
+        "emitter_helper_build_002_T",
+        "emitter_on_build_001_T"
+      ],
+      "negativeCases": [
+        "emitter_fake_owner_003_F"
+      ]
+    },
+    {
+      "id": "harmony_timer_scheduler",
+      "positiveCases": [
+        "timer_constant_sink_007_T",
+        "timer_interval_build_002_T",
+        "timer_interval_no_sink_008_T",
+        "timer_microtask_build_009_T",
+        "timer_microtask_safe_011_T",
+        "timer_raf_build_003_T",
+        "timer_timeout_build_001_T",
+        "timer_timeout_factory_005_T",
+        "timer_timeout_helper_004_T"
+      ],
+      "negativeCases": [
+        "timer_promise_then_build_010_T",
+        "timer_outside_build_006_F"
+      ]
+    },
+    {
+      "id": "harmony_framework_backup_restore",
+      "positiveCases": [
+        "backup_restore_001_T"
+      ],
+      "negativeCases": [
+        "backup_restore_002_F"
+      ]
+    },
+    {
+      "id": "harmony_framework_onclick",
+      "positiveCases": [
+        "onclick_build_009_T",
+        "onclick_factory_011_T",
+        "onclick_helper_crossfile_010_T"
+      ],
+      "negativeCases": []
+    },
+    {
+      "id": "harmony_framework_uiextension",
+      "positiveCases": [
+        "uiextension_oncreate_014_T",
+        "uiextension_onnewwant_015_T",
+        "uiextension_sessioncreate_016_T"
+      ],
+      "negativeCases": [
+        "uiextension_sessioncreate_017_F"
+      ]
+    },
+    {
+      "id": "harmony_framework_system_callbacks",
+      "positiveCases": [
+        "webview_onmessage_008_T"
+      ],
+      "negativeCases": [
+        "windowstage_loadcontent_006_F",
+        "windowstage_loadcontent_007_F"
+      ]
+    },
+    {
+      "id": "harmony_form_extension_lifecycle",
+      "positiveCases": [
+        "form_extension_acquirestate_005_T",
+        "form_extension_addform_001_T",
+        "form_extension_casttonormal_004_T",
+        "form_extension_formevent_006_T",
+        "form_extension_remove_safe_008_T",
+        "form_extension_removeform_003_T",
+        "form_extension_updateform_002_T"
+      ],
+      "negativeCases": [
+        "form_extension_nonform_007_F"
+      ]
+    },
+    {
+      "id": "harmony_extension_composition",
+      "positiveCases": [
+        "inputmethod_helper_001_T",
+        "inputmethod_safe_002_T",
+        "workscheduler_helper_003_T",
+        "workscheduler_stop_safe_004_T"
+      ],
+      "negativeCases": []
+    },
+    {
+      "id": "harmony_extension_variants",
+      "positiveCases": [
+        "input_method_oncreate_001_T",
+        "input_method_ondestroy_002_T",
+        "workscheduler_onworkstart_003_T",
+        "workscheduler_onworkstop_004_T"
+      ],
+      "negativeCases": []
+    }
+  ]
+}

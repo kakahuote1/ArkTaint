@@ -1,0 +1,287 @@
+{
+  "schemaVersion": "2.0",
+  "sources": [],
+  "sinks": [],
+  "sanitizers": [],
+  "transfers": [
+    {
+      "id": "transfer.reflect.get.arg0_to_result",
+      "description": "Reflect.get(target, key): target object field value flows to result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "get",
+        "invokeKind": "static",
+        "argCount": 2,
+        "typeHint": "reflect"
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.object.assign.arg1_to_arg0",
+      "description": "Object.assign(target, source): source taints target object.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Object.assign",
+        "invokeKind": "static"
+      },
+      "from": "arg1",
+      "to": "arg0"
+    },
+    {
+      "id": "transfer.harmony.object.assign.arg1_to_result",
+      "description": "Object.assign(target, source): source taints returned object.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Object.assign",
+        "invokeKind": "static"
+      },
+      "from": "arg1",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.object.keys.arg0_to_result",
+      "description": "Object.keys(obj): object key content taints returned key array.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Object.keys",
+        "invokeKind": "static",
+        "argCount": 1
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.object.values.arg0_to_result",
+      "description": "Object.values(obj): object value content taints returned value array.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Object.values",
+        "invokeKind": "static",
+        "argCount": 1
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.object.entries.arg0_to_result",
+      "description": "Object.entries(obj): object value content taints returned entry array.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Object.entries",
+        "invokeKind": "static",
+        "argCount": 1
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.object.getOwnPropertyDescriptors.arg0_to_result",
+      "description": "Object.getOwnPropertyDescriptors(obj): object value content taints descriptor result.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Object.getOwnPropertyDescriptors",
+        "invokeKind": "static",
+        "argCount": 1
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.reflect.set.arg2_to_arg0",
+      "description": "Reflect.set(target, key, value): value taints target object.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Reflect.set",
+        "invokeKind": "static",
+        "argCount": 3
+      },
+      "from": "arg2",
+      "to": "arg0"
+    },
+    {
+      "id": "transfer.harmony.weakref.deref.base_to_result",
+      "description": "WeakRef.deref(): wrapped object taint flows to dereferenced result.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "WeakRef.deref",
+        "invokeKind": "instance",
+        "argCount": 0
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.builtin.object.freeze.arg0_to_result",
+      "description": "Object.freeze(obj): returns same frozen object.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Object.freeze",
+        "invokeKind": "static"
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.builtin.object.seal.arg0_to_result",
+      "description": "Object.seal(obj): returns same sealed object.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Object.seal",
+        "invokeKind": "static"
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.builtin.object.getOwnPropertyNames.arg0_to_result",
+      "description": "Object.getOwnPropertyNames(obj): object property names taint result array.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Object.getOwnPropertyNames",
+        "invokeKind": "static"
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.builtin.object.preventExtensions.arg0_to_result",
+      "description": "Object.preventExtensions(obj): returns same object reference.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Object.preventExtensions",
+        "invokeKind": "static"
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.builtin.object.create.arg0_to_result",
+      "description": "Object.create(proto): prototype properties accessible on created object.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Object.create",
+        "invokeKind": "static"
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.builtin.object.create.arg1_to_result",
+      "description": "Object.create(proto, descriptors): descriptor values taint created object.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Object.create",
+        "invokeKind": "static",
+        "argCount": 2
+      },
+      "from": "arg1",
+      "to": "result"
+    },
+    {
+      "id": "transfer.builtin.object.defineProperty.arg2_to_arg0",
+      "description": "Object.defineProperty(obj, prop, descriptor): descriptor value taints target.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "defineProperty",
+        "invokeKind": "static",
+        "argCount": 3
+      },
+      "from": "arg2",
+      "to": "arg0"
+    },
+    {
+      "id": "transfer.builtin.object.defineProperty.arg0_to_result",
+      "description": "Object.defineProperty(obj, prop, descriptor): returns same object.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "defineProperty",
+        "invokeKind": "static",
+        "argCount": 3
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.builtin.object.defineProperties.arg1_to_arg0",
+      "description": "Object.defineProperties(obj, props): descriptor values taint target.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "defineProperties",
+        "invokeKind": "static",
+        "argCount": 2
+      },
+      "from": "arg1",
+      "to": "arg0"
+    },
+    {
+      "id": "transfer.builtin.object.defineProperties.arg0_to_result",
+      "description": "Object.defineProperties(obj, props): returns same object.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "defineProperties",
+        "invokeKind": "static",
+        "argCount": 2
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.builtin.regexp.exec.arg0_to_result",
+      "description": "RegExp.exec(str): matched string content taints result array.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "exec",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "regexp"
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.builtin.reflect.ownKeys.arg0_to_result",
+      "description": "Reflect.ownKeys(obj): object property keys taint result array.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Reflect.ownKeys",
+        "invokeKind": "static"
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.builtin.reflect.apply.arg2_to_result",
+      "description": "Reflect.apply(target, thisArg, args): args array taints function result.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Reflect.apply",
+        "invokeKind": "static"
+      },
+      "from": "arg2",
+      "to": "result"
+    },
+    {
+      "id": "transfer.builtin.reflect.construct.arg1_to_result",
+      "description": "Reflect.construct(target, args): args array taints constructed object.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Reflect.construct",
+        "invokeKind": "static"
+      },
+      "from": "arg1",
+      "to": "result"
+    },
+    {
+      "id": "transfer.builtin.reflect.getOwnPropertyDescriptor.arg0_to_result",
+      "description": "Reflect.getOwnPropertyDescriptor(obj, prop): object content taints descriptor.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Reflect.getOwnPropertyDescriptor",
+        "invokeKind": "static"
+      },
+      "from": "arg0",
+      "to": "result"
+    }
+  ]
+}

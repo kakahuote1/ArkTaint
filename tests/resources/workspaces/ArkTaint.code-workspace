@@ -1,0 +1,21 @@
+{
+	"folders": [
+		{
+			"name": "ArkTaint",
+			"path": "../.."
+		},
+		{
+			"name": "ArkTaint-new",
+			"path": "../../../ArkTaint-new"
+		},
+		{
+			"name": "Arktan",
+			"path": "../../../Arktan"
+		},
+		{
+			"name": "HapFlow",
+			"path": "../../../HapFlow"
+		}
+	],
+	"settings": {}
+}

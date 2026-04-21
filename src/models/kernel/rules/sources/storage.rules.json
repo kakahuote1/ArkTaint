@@ -1,0 +1,312 @@
+{
+  "schemaVersion": "2.0",
+  "sources": [
+    {
+      "id": "source.harmony.preferences.getSync.result",
+      "enabled": true,
+      "description": "Preference read value as source in leak/persistence scenarios.",
+      "tags": [
+        "harmony",
+        "t2"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "getSync"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(Preferences|DataPreferences)"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": {
+        "endpoint": "result"
+      }
+    },
+    {
+      "id": "source.harmony.preferences.get.result",
+      "enabled": true,
+      "description": "Preference get() return value as source in leak/persistence scenarios.",
+      "tags": [
+        "harmony",
+        "t2"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "get"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(Preferences|DataPreferences)"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": {
+        "endpoint": "result"
+      }
+    },
+    {
+      "id": "source.harmony.rdb.querySql.result",
+      "enabled": true,
+      "description": "querySql() return value as source.",
+      "tags": [
+        "harmony",
+        "t2",
+        "t4"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "querySql"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(RdbStore|RelationalStore)"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": {
+        "endpoint": "result"
+      }
+    },
+    {
+      "id": "source.harmony.rdb.query.result",
+      "enabled": true,
+      "description": "query() return value as source.",
+      "tags": [
+        "harmony",
+        "t2",
+        "t4"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "query"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(RdbStore|RelationalStore)"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": {
+        "endpoint": "result"
+      }
+    },
+    {
+      "id": "source.harmony.globalcontext.getObject.result",
+      "enabled": true,
+      "description": "GlobalContext.getObject() return value as source when globally persisted data is read back.",
+      "tags": [
+        "harmony",
+        "t2",
+        "t5"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "GlobalContext.getObject"
+      },
+      "sourceKind": "call_return",
+      "target": {
+        "endpoint": "result"
+      }
+    },
+    {
+      "id": "source.harmony.fs.read.result",
+      "enabled": true,
+      "description": "File read result as untrusted source.",
+      "tags": [
+        "harmony",
+        "t2",
+        "t5"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "read"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": {
+        "endpoint": "result"
+      }
+    },
+    {
+      "id": "source.harmony.fs.readSync.result",
+      "enabled": true,
+      "description": "File readSync result as untrusted source.",
+      "tags": [
+        "harmony",
+        "t2",
+        "t5"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "readSync"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": {
+        "endpoint": "result"
+      }
+    },
+    {
+      "id": "source.harmony.privacy.pasteboard.getSystemPasteboard.result",
+      "enabled": true,
+      "description": "Optional privacy source: system pasteboard read result.",
+      "tags": [
+        "harmony",
+        "t2",
+        "privacy_optional"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "getSystemPasteboard"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(pasteboard|Pasteboard)"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": {
+        "endpoint": "result"
+      }
+    },
+    {
+      "id": "source.harmony.privacy.pasteboard.getData.result",
+      "enabled": true,
+      "description": "Optional privacy source: pasteboard getData() result.",
+      "tags": [
+        "harmony",
+        "t2",
+        "privacy_optional"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "getData"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(pasteboard|Pasteboard)"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": {
+        "endpoint": "result"
+      }
+    },
+    {
+      "id": "source.harmony.fs.readText",
+      "description": "File text read (complement read/readSync)",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "file",
+        "P1"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "readText"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "fs"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "medium",
+      "category": "file_read"
+    },
+    {
+      "id": "source.harmony.fs.readTextSync",
+      "description": "File text read sync",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "file",
+        "P1"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "readTextSync"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "fs"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "medium",
+      "category": "file_read"
+    },
+    {
+      "id": "source.harmony.dataShare.query",
+      "description": "DataShare cross-app query",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "datashare",
+        "P1"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "DataShareHelper"
+      },
+      "scope": {
+        "methodName": {
+          "mode": "equals",
+          "value": "query"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "high",
+      "category": "cross_app_data"
+    },
+    {
+      "id": "source.harmony.unifiedData.getValue",
+      "description": "Unified data channel read",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "data",
+        "P2"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "UnifiedRecord"
+      },
+      "scope": {
+        "methodName": {
+          "mode": "equals",
+          "value": "getValue"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "low",
+      "category": "cross_app_data"
+    }
+  ],
+  "sinks": [],
+  "sanitizers": [],
+  "transfers": []
+}

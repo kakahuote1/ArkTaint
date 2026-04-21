@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-04-16",
+  "skills": [
+    {
+      "id": "arktaint/rule-authoring",
+      "path": ".cursor/skills/arktaint/rule-authoring/SKILL.md",
+      "owners": ["security", "taint-analysis"],
+      "tags": ["rules", "schema", "governance"],
+      "triggers": ["新增规则", "修改 rules", "rule schema", "kernel rules", "project rules"],
+      "qualityGates": ["test:rules", "test:rule-governance"]
+    },
+    {
+      "id": "arktaint/smoke-and-ci",
+      "path": ".cursor/skills/arktaint/smoke-and-ci/SKILL.md",
+      "owners": ["ci", "qa"],
+      "tags": ["smoke", "real-projects", "diagnostics"],
+      "triggers": ["smoke", "real project", "回归", "CI 失败", "test:smoke"],
+      "qualityGates": ["test:smoke:core"]
+    },
+    {
+      "id": "arktaint/llm-governance",
+      "path": ".cursor/skills/arktaint/llm-governance/SKILL.md",
+      "owners": ["security", "platform"],
+      "tags": ["llm", "governance", "safety"],
+      "triggers": ["LLM 生成规则", "自动落盘", "写回仓库", "agent output"],
+      "qualityGates": ["test:rules"]
+    }
+  ]
+}
+

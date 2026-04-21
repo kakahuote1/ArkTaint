@@ -1,0 +1,89 @@
+{
+  "schemaVersion": "2.0",
+  "sources": [],
+  "sinks": [
+    {
+      "id": "sink.keyword.axios",
+      "enabled": false,
+      "match": {
+        "kind": "signature_contains",
+        "value": "axios"
+      },
+      "severity": "medium"
+    },
+    {
+      "id": "sink.keyword.fetch",
+      "enabled": false,
+      "match": {
+        "kind": "signature_contains",
+        "value": "fetch"
+      },
+      "severity": "medium"
+    },
+    {
+      "id": "sink.keyword.request",
+      "enabled": false,
+      "match": {
+        "kind": "signature_contains",
+        "value": "request"
+      },
+      "severity": "medium"
+    },
+    {
+      "id": "sink.keyword.router",
+      "enabled": false,
+      "match": {
+        "kind": "signature_contains",
+        "value": "router"
+      },
+      "severity": "medium"
+    },
+    {
+      "id": "sink.keyword.pushUrl",
+      "enabled": false,
+      "match": {
+        "kind": "signature_contains",
+        "value": "pushUrl"
+      },
+      "severity": "medium"
+    },
+    {
+      "id": "sink.keyword.relationalStore",
+      "enabled": false,
+      "match": {
+        "kind": "signature_contains",
+        "value": "relationalStore"
+      },
+      "severity": "high"
+    },
+    {
+      "id": "sink.keyword.rdb",
+      "enabled": false,
+      "match": {
+        "kind": "signature_contains",
+        "value": "rdb"
+      },
+      "severity": "medium"
+    },
+    {
+      "id": "sink.keyword.preferences",
+      "enabled": false,
+      "match": {
+        "kind": "signature_contains",
+        "value": "preferences"
+      },
+      "severity": "low"
+    },
+    {
+      "id": "sink.keyword.console",
+      "enabled": false,
+      "match": {
+        "kind": "signature_contains",
+        "value": "console"
+      },
+      "severity": "low"
+    }
+  ],
+  "sanitizers": [],
+  "transfers": []
+}

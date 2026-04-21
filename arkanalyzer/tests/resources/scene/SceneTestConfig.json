@@ -1,0 +1,12 @@
+{
+    "targetProjectName": "viewtree",
+    "targetProjectDirectory": "tests/resources/viewtree/project",
+
+    "sdks": [
+        {
+            "name": "etsSdk",
+            "path": "D:\\codes\\openharmony\\sdks\\version-Master_Version-OpenHarmony_6.0.0.40-20250711_171128-ohos-sdk-full\\windows\\ets",
+            "moduleName": ""
+        }
+    ]
+}

@@ -1,0 +1,128 @@
+{
+  "schemaVersion": "2.0",
+  "sources": [
+    {
+      "id": "source.harmony.distributedkv.get.result",
+      "enabled": true,
+      "description": "Distributed KV get() return value as source.",
+      "tags": [
+        "harmony",
+        "t2",
+        "t5"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "get"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(DistributedKVStore|distributedKVStore|KVStore|SingleKVStore)"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": {
+        "endpoint": "result"
+      }
+    },
+    {
+      "id": "source.harmony.distributed.getLocalDeviceId",
+      "description": "Local distributed device ID",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "distributed",
+        "P2"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "getLocalDeviceId"
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "medium",
+      "category": "device_identifier"
+    },
+    {
+      "id": "source.harmony.distributed.getLocalDeviceName",
+      "description": "Local distributed device name",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "distributed",
+        "P2"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "getLocalDeviceName"
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "medium",
+      "category": "device_identifier"
+    },
+    {
+      "id": "source.harmony.distributed.getLocalDeviceNetworkId",
+      "description": "Local distributed device network ID",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "distributed",
+        "P2"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "getLocalDeviceNetworkId"
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "medium",
+      "category": "device_identifier"
+    },
+    {
+      "id": "source.harmony.distributed.getAvailableDeviceList",
+      "description": "Available distributed devices list",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "distributed",
+        "P2"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "getAvailableDeviceList"
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "medium",
+      "category": "device_identifier"
+    },
+    {
+      "id": "source.harmony.wantAgent.getWant",
+      "description": "Extract Want params from WantAgent",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "ability",
+        "P2"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "getWant"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "wantAgent"
+        }
+      },
+      "sourceKind": "call_return",
+      "target": "result",
+      "severity": "medium",
+      "category": "intent_data"
+    }
+  ],
+  "sinks": [],
+  "sanitizers": [],
+  "transfers": []
+}

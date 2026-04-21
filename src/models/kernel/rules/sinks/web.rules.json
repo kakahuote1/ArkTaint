@@ -1,0 +1,125 @@
+{
+  "schemaVersion": "2.0",
+  "sources": [],
+  "sinks": [
+    {
+      "id": "sink.harmony.web.create.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "signature_contains",
+        "value": "Web.create"
+      },
+      "category": "webview_injection",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.webcontroller.loadUrl.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "loadUrl"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "WebController"
+        }
+      },
+      "category": "webview_injection",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.webcontroller.runJavaScript.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "runJavaScript"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "WebController"
+        }
+      },
+      "category": "webview_injection",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.js.eval.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "eval"
+      },
+      "category": "code_injection",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.js.function_ctor.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "signature_contains",
+        "value": "Function.constructor"
+      },
+      "category": "code_injection",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.webview.loadData",
+      "description": "Load HTML data into WebView (XSS)",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "webview",
+        "P0"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "loadData"
+      },
+      "scope": {
+        "className": {
+          "mode": "contains",
+          "value": "Webview"
+        }
+      },
+      "target": "arg0",
+      "severity": "critical",
+      "category": "webview_injection"
+    },
+    {
+      "id": "sink.harmony.webview.registerJavaScriptProxy",
+      "description": "Register JS bridge object to WebView",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "webview",
+        "P0"
+      ],
+      "match": {
+        "kind": "signature_contains",
+        "value": "registerJavaScriptProxy"
+      },
+      "target": "arg0",
+      "severity": "critical",
+      "category": "webview_injection"
+    }
+  ],
+  "sanitizers": [],
+  "transfers": []
+}

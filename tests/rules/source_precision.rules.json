@@ -1,0 +1,76 @@
+{
+    "schemaVersion": "2.0",
+    "meta": {
+        "name": "source-precision-rule-pack",
+        "description": "Rules used to validate source precise seeding execution",
+        "updatedAt": "2026-02-15"
+    },
+    "sources": [
+        {
+            "id": "source.precision.call_return.source_return",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "SourceReturn"
+            },
+            "sourceKind": "call_return",
+            "target": {
+                "endpoint": "result"
+            }
+        },
+        {
+            "id": "source.precision.call_arg.source_arg_arg1",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "SourceArg"
+            },
+            "sourceKind": "call_arg",
+            "target": {
+                "endpoint": "arg1"
+            }
+        },
+        {
+            "id": "source.precision.field_read.secret",
+            "match": {
+                "kind": "method_name_regex",
+                "value": "^source_field_read_00[56]_[TF]$"
+            },
+            "sourceKind": "field_read",
+            "target": {
+                "endpoint": "result",
+                "path": [
+                    "secret"
+                ]
+            }
+        },
+        {
+            "id": "source.precision.scope.call_return",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "SourceScope"
+            },
+            "scope": {
+                "methodName": {
+                    "mode": "equals",
+                    "value": "source_scope_match_007_T"
+                }
+            },
+            "sourceKind": "call_return",
+            "target": {
+                "endpoint": "result"
+            }
+        }
+    ],
+    "sinks": [
+        {
+            "id": "sink.precision.method_name.sink",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "Sink"
+            },
+            "target": {
+                "endpoint": "arg0"
+            }
+        }
+    ],
+    "transfers": []
+}

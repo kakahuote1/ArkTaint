@@ -1,0 +1,172 @@
+{
+  "schemaVersion": "2.0",
+  "sources": [],
+  "sinks": [],
+  "sanitizers": [],
+  "transfers": [
+    {
+      "id": "transfer.harmony.json.stringify.arg0_to_result.exact",
+      "description": "Exact probe signature for stringify (Tier A).",
+      "match": {
+        "kind": "signature_equals",
+        "value": "@sdk_signature_probe/taint_mock.ts: JsonCodec.stringify(any)",
+        "invokeKind": "instance",
+        "argCount": 1
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.json.parse.arg0_to_result.exact",
+      "description": "Exact probe signature for parse (Tier A).",
+      "match": {
+        "kind": "signature_equals",
+        "value": "@sdk_signature_probe/taint_mock.ts: JsonCodec.parse(string)",
+        "invokeKind": "instance",
+        "argCount": 1
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.json.stringify.arg0_to_result",
+      "description": "JSON.stringify(x): x taints serialized string.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "stringify",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "json"
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.json.parse.arg0_to_result",
+      "description": "JSON.parse(str): input string taints parsed value.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "parse",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "json"
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.json.stringify.arg0_to_result.sig",
+      "description": "Fallback: JSON.stringify(x) via signature match.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "JsonCodec.stringify"
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.json.parse.arg0_to_result.sig",
+      "description": "Fallback: JSON.parse(str) via signature match.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "JsonCodec.parse"
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.uri.encodeURI.arg0_to_result",
+      "description": "encodeURI(x): input string taints encoded result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "encodeURI",
+        "invokeKind": "static",
+        "argCount": 1
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.uri.decodeURI.arg0_to_result",
+      "description": "decodeURI(x): input string taints decoded result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "decodeURI",
+        "invokeKind": "static",
+        "argCount": 1
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.uri.encodeURIComponent.arg0_to_result",
+      "description": "encodeURIComponent(x): input string taints encoded component result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "encodeURIComponent",
+        "invokeKind": "static",
+        "argCount": 1
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.uri.decodeURIComponent.arg0_to_result",
+      "description": "decodeURIComponent(x): input string taints decoded component result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "decodeURIComponent",
+        "invokeKind": "static",
+        "argCount": 1
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.uri.escape.arg0_to_result",
+      "description": "escape(x): input string taints escaped result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "escape",
+        "invokeKind": "static",
+        "argCount": 1
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.uri.unescape.arg0_to_result",
+      "description": "unescape(x): input string taints unescaped result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "unescape",
+        "invokeKind": "static",
+        "argCount": 1
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.builtin.atob.arg0_to_result",
+      "description": "atob(encoded): Base64-encoded string taints decoded result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "atob",
+        "invokeKind": "static"
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.builtin.btoa.arg0_to_result",
+      "description": "btoa(data): input string taints Base64-encoded result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "btoa",
+        "invokeKind": "static"
+      },
+      "from": "arg0",
+      "to": "result"
+    }
+  ]
+}

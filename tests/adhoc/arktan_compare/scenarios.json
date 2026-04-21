@@ -1,0 +1,12 @@
+﻿[
+  {
+    "id": "adhoc_context_pollution",
+    "sourceDir": "tests/adhoc/arktan_compare/context_pollution",
+    "projectRulePath": "tests/adhoc/arktan_compare/adhoc_compare.rules.json"
+  },
+  {
+    "id": "adhoc_perf_dummy_main_pressure",
+    "sourceDir": "tests/adhoc/arktan_compare/perf_dummy_main_pressure",
+    "projectRulePath": "tests/adhoc/arktan_compare/adhoc_compare.rules.json"
+  }
+]

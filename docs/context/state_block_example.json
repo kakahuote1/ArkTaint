@@ -1,0 +1,42 @@
+{
+  "task_id": "RULE-1234",
+  "goal": "新增一条 transfer 规则，并保证核心 smoke 不回退",
+  "constraints": [
+    "不要修改 lockfile（package-lock.json 等）",
+    "规则变更必须能通过 test:rules + test:rule-governance"
+  ],
+  "branch": "feat/rule-transfer-x",
+  "active_skills": [
+    "arktaint/rule-authoring",
+    "arktaint/smoke-and-ci"
+  ],
+  "state": "implementing",
+  "files_touched": [
+    "src/models/kernel/rules/transfers/network.rules.json"
+  ],
+  "last_commands": [
+    {
+      "cmd": "npm run test:rules",
+      "result": "pass"
+    },
+    {
+      "cmd": "npm run test:smoke:core",
+      "result": "fail",
+      "note": "sink inventory mismatch on demo X"
+    }
+  ],
+  "decisions": [
+    "先做最小规则集 + 最小 demo 覆盖，再扩展边界情况"
+  ],
+  "open_questions": [
+    "这个 API 在 HarmonyOS 版本差异下是否需要分支规则？"
+  ],
+  "next_actions": [
+    "定位 smoke 首个失败用例对应的 rule family",
+    "补一条最小回归用例并重跑 test:smoke:core"
+  ],
+  "hypotheses": [
+    "可能缺少 callback registration 的 transfer 连接导致路径断裂"
+  ]
+}
+

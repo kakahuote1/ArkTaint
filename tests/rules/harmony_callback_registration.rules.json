@@ -1,0 +1,43 @@
+{
+    "schemaVersion": "2.0",
+    "meta": {
+        "name": "harmony-callback-registration",
+        "description": "Benchmark callback registration variants for build/helper/factory/cross-file patterns",
+        "updatedAt": "2026-03-15"
+    },
+    "sources": [
+        {
+            "id": "source.harmony.callback_registration.onclick.arg0",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "onClick"
+            },
+            "scope": {
+                "methodName": {
+                    "mode": "equals",
+                    "value": "build"
+                }
+            },
+            "sourceKind": "callback_param",
+            "target": {
+                "endpoint": "arg0"
+            },
+            "callbackArgIndexes": [
+                0
+            ]
+        }
+    ],
+    "sinks": [
+        {
+            "id": "sink.harmony.callback_registration.sink",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "Sink"
+            },
+            "target": {
+                "endpoint": "arg0"
+            }
+        }
+    ],
+    "transfers": []
+}

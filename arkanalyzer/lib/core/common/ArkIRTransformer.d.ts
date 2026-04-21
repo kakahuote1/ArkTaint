@@ -1,0 +1,71 @@
+import { BinaryOperator, UnaryOperator } from '../base/Expr';
+import { GlobalRef } from '../base/Ref';
+import { Value } from '../base/Value';
+import * as ts from 'ohos-typescript';
+import { Local } from '../base/Local';
+import { ArkAliasTypeDefineStmt, Stmt } from '../base/Stmt';
+import { AliasType } from '../base/Type';
+import { ArkMethod } from '../model/ArkMethod';
+import { FullPosition } from '../base/Position';
+export type ValueAndStmts = {
+    value: Value;
+    valueOriginalPositions: FullPosition[];
+    stmts: Stmt[];
+};
+export declare class DummyStmt extends Stmt {
+    constructor(text: string);
+    toString(): string;
+}
+export declare class ArkIRTransformer {
+    static readonly DUMMY_LOOP_INITIALIZER_STMT = "LoopInitializer";
+    static readonly DUMMY_CONDITIONAL_OPERATOR = "ConditionalOperator";
+    static readonly DUMMY_CONDITIONAL_OPERATOR_IF_TRUE_STMT: string;
+    static readonly DUMMY_CONDITIONAL_OPERATOR_IF_FALSE_STMT: string;
+    static readonly DUMMY_CONDITIONAL_OPERATOR_END_STMT: string;
+    private sourceFile;
+    private declaringMethod;
+    private inBuilderMethod;
+    private builderMethodContextFlag;
+    private stmtsHaveOriginalText;
+    private arkValueTransformer;
+    constructor(sourceFile: ts.SourceFile, declaringMethod: ArkMethod);
+    getLocals(): Set<Local>;
+    getGlobals(): Map<string, GlobalRef> | null;
+    getThisLocal(): Local;
+    getAliasTypeMap(): Map<string, [AliasType, ArkAliasTypeDefineStmt]>;
+    prebuildStmts(): Stmt[];
+    tsNodeToStmts(node: ts.Node): Stmt[];
+    tsNodeToValueAndStmts(node: ts.Node): ValueAndStmts;
+    private functionDeclarationToStmts;
+    private classDeclarationToStmts;
+    private parameterPropertyToStmts;
+    private parameterToStmts;
+    private returnStatementToStmts;
+    private blockToStmts;
+    private expressionStatementToStmts;
+    private addInvokeStmts;
+    private shouldGenerateExtraAssignStmt;
+    private typeAliasDeclarationToStmts;
+    private generateAliasTypeExpr;
+    private resolveImportTypeNode;
+    switchStatementToValueAndStmts(switchStatement: ts.SwitchStatement): ValueAndStmts[];
+    private forStatementToStmts;
+    private rangeForStatementToStmts;
+    private whileStatementToStmts;
+    private doStatementToStmts;
+    private variableStatementToStmts;
+    private variableDeclarationListToStmts;
+    private ifStatementToStmts;
+    private gotoStatementToStmts;
+    private throwStatementToStmts;
+    private catchClauseToStmts;
+    private expressionInExportToStmts;
+    private newClassInExportToStmts;
+    mapStmtsToTsStmt(stmts: Stmt[], node: ts.Node): void;
+    static tokenToUnaryOperator(token: ts.SyntaxKind): UnaryOperator | null;
+    static tokenToBinaryOperator(token: ts.SyntaxKind): BinaryOperator | null;
+    generateAssignStmtForValue(value: Value, valueOriginalPositions: FullPosition[]): ValueAndStmts;
+    generateIfStmtForValues(leftValue: Value, leftOpOriginalPositions: FullPosition[], rightValue: Value, rightOpOriginalPositions: FullPosition[]): Stmt[];
+    setBuilderMethodContextFlag(builderMethodContextFlag: boolean): void;
+}
+//# sourceMappingURL=ArkIRTransformer.d.ts.map

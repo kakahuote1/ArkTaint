@@ -1,0 +1,423 @@
+{
+  "version": 1,
+  "name": "execution_handoff_semantic_perturbation_corpus",
+  "sourceDir": "tests/adhoc/execution_handoff_semantic_perturbation",
+  "purpose": "Semantic-preserving perturbation corpus for execution handoff carrier and shape variation.",
+  "globalFactorUniverse": {
+    "carrier": ["direct_callable", "returned_callable", "field_callable", "slot_callable"],
+    "trigger": ["call", "event", "settle_fulfilled", "settle_rejected", "settle_any"],
+    "payload": ["none", "param0", "param1", "multi"],
+    "capture": ["none", "capture_in", "capture_out", "capture_in_out"],
+    "resume": ["none", "promise_chain", "await_site"],
+    "relayDepth": [0, 1, 2],
+    "bindingSite": ["local", "samefile_helper", "crossfile_helper", "field", "slot"],
+    "deferred": [true, false]
+  },
+  "activeSemanticScope": {
+    "name": "event_handoff_shape_invariance",
+    "outputTag": "event_handoff_shape_invariance",
+    "activeLayers": ["mechanism_benchmark", "boundary_control"],
+    "rationale": [
+      "Hold event/capture semantics constant and perturb only the carrier and handoff form.",
+      "Measure robustness under semantic-preserving rewrites instead of treating the corpus as a head-to-head benchmark.",
+      "Keep source shape, sink shape, payload, resume, builtin packs, and engine plugins fixed."
+    ],
+    "fixedFactors": {
+      "payload": ["none"],
+      "capture": ["capture_in"],
+      "resume": ["none"],
+      "trigger": ["event", "call"]
+    },
+    "deferredFocus": ["event"],
+    "controlRows": ["call"],
+    "excludedForNow": [
+      "Promise/await payload-resume rows stay in the dedicated async semantic corpus.",
+      "Blind holdout and natural-sample layers are not part of this perturbation scope."
+    ]
+  },
+  "twinRules": [
+    "Each twin group must contain exactly one positive case and one negative case.",
+    "Twin cases must share the same semantic factors; only taint consumption at the sink may differ.",
+    "Perturbation variants under the same semantic family must preserve the same semantic intent while changing only surface handoff form."
+  ],
+  "cases": [
+    {
+      "caseName": "event_direct_capture_001_T",
+      "expected": true,
+      "layer": "mechanism_benchmark",
+      "twinGroup": "event_direct_local",
+      "semanticFamily": "event_capture_shape",
+      "variantId": "direct_local",
+      "polarity": "positive",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Direct local event registration.",
+      "factors": {
+        "carrier": "direct_callable",
+        "trigger": "event",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 0,
+        "bindingSite": "local",
+        "deferred": true
+      }
+    },
+    {
+      "caseName": "event_direct_safe_002_F",
+      "expected": false,
+      "layer": "mechanism_benchmark",
+      "twinGroup": "event_direct_local",
+      "semanticFamily": "event_capture_shape",
+      "variantId": "direct_local",
+      "polarity": "negative",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Direct local event registration twin.",
+      "factors": {
+        "carrier": "direct_callable",
+        "trigger": "event",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 0,
+        "bindingSite": "local",
+        "deferred": true
+      }
+    },
+    {
+      "caseName": "event_helper_samefile_capture_003_T",
+      "expected": true,
+      "layer": "mechanism_benchmark",
+      "twinGroup": "event_samefile_relay",
+      "semanticFamily": "event_capture_shape",
+      "variantId": "samefile_relay",
+      "polarity": "positive",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Same-file helper relay before event registration.",
+      "factors": {
+        "carrier": "direct_callable",
+        "trigger": "event",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 1,
+        "bindingSite": "samefile_helper",
+        "deferred": true
+      }
+    },
+    {
+      "caseName": "event_helper_samefile_safe_004_F",
+      "expected": false,
+      "layer": "mechanism_benchmark",
+      "twinGroup": "event_samefile_relay",
+      "semanticFamily": "event_capture_shape",
+      "variantId": "samefile_relay",
+      "polarity": "negative",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Same-file helper relay twin.",
+      "factors": {
+        "carrier": "direct_callable",
+        "trigger": "event",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 1,
+        "bindingSite": "samefile_helper",
+        "deferred": true
+      }
+    },
+    {
+      "caseName": "event_helper_crossfile_capture_005_T",
+      "expected": true,
+      "layer": "mechanism_benchmark",
+      "twinGroup": "event_crossfile_relay",
+      "semanticFamily": "event_capture_shape",
+      "variantId": "crossfile_relay",
+      "polarity": "positive",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Nested helper relay before event registration.",
+      "factors": {
+        "carrier": "direct_callable",
+        "trigger": "event",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 2,
+        "bindingSite": "crossfile_helper",
+        "deferred": true
+      }
+    },
+    {
+      "caseName": "event_helper_crossfile_safe_006_F",
+      "expected": false,
+      "layer": "mechanism_benchmark",
+      "twinGroup": "event_crossfile_relay",
+      "semanticFamily": "event_capture_shape",
+      "variantId": "crossfile_relay",
+      "polarity": "negative",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Nested helper relay twin.",
+      "factors": {
+        "carrier": "direct_callable",
+        "trigger": "event",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 2,
+        "bindingSite": "crossfile_helper",
+        "deferred": true
+      }
+    },
+    {
+      "caseName": "event_factory_capture_007_T",
+      "expected": true,
+      "layer": "mechanism_benchmark",
+      "twinGroup": "event_returned_factory",
+      "semanticFamily": "event_capture_shape",
+      "variantId": "returned_callable",
+      "polarity": "positive",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Returned callable registered as event handler.",
+      "factors": {
+        "carrier": "returned_callable",
+        "trigger": "event",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 0,
+        "bindingSite": "local",
+        "deferred": true
+      }
+    },
+    {
+      "caseName": "event_factory_safe_008_F",
+      "expected": false,
+      "layer": "mechanism_benchmark",
+      "twinGroup": "event_returned_factory",
+      "semanticFamily": "event_capture_shape",
+      "variantId": "returned_callable",
+      "polarity": "negative",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Returned callable twin.",
+      "factors": {
+        "carrier": "returned_callable",
+        "trigger": "event",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 0,
+        "bindingSite": "local",
+        "deferred": true
+      }
+    },
+    {
+      "caseName": "event_field_capture_009_T",
+      "expected": true,
+      "layer": "mechanism_benchmark",
+      "twinGroup": "event_field_carrier",
+      "semanticFamily": "event_capture_shape",
+      "variantId": "field_carrier",
+      "polarity": "positive",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Field-stored callable registered as event handler.",
+      "factors": {
+        "carrier": "field_callable",
+        "trigger": "event",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 0,
+        "bindingSite": "field",
+        "deferred": true
+      }
+    },
+    {
+      "caseName": "event_field_safe_010_F",
+      "expected": false,
+      "layer": "mechanism_benchmark",
+      "twinGroup": "event_field_carrier",
+      "semanticFamily": "event_capture_shape",
+      "variantId": "field_carrier",
+      "polarity": "negative",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Field-stored callable twin.",
+      "factors": {
+        "carrier": "field_callable",
+        "trigger": "event",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 0,
+        "bindingSite": "field",
+        "deferred": true
+      }
+    },
+    {
+      "caseName": "event_slot_capture_011_T",
+      "expected": true,
+      "layer": "mechanism_benchmark",
+      "twinGroup": "event_slot_carrier",
+      "semanticFamily": "event_capture_shape",
+      "variantId": "slot_carrier",
+      "polarity": "positive",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Slot-stored callable registered as event handler.",
+      "factors": {
+        "carrier": "slot_callable",
+        "trigger": "event",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 0,
+        "bindingSite": "slot",
+        "deferred": true
+      }
+    },
+    {
+      "caseName": "event_slot_safe_012_F",
+      "expected": false,
+      "layer": "mechanism_benchmark",
+      "twinGroup": "event_slot_carrier",
+      "semanticFamily": "event_capture_shape",
+      "variantId": "slot_carrier",
+      "polarity": "negative",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Slot-stored callable twin.",
+      "factors": {
+        "carrier": "slot_callable",
+        "trigger": "event",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 0,
+        "bindingSite": "slot",
+        "deferred": true
+      }
+    },
+    {
+      "caseName": "call_direct_capture_013_T",
+      "expected": true,
+      "layer": "boundary_control",
+      "twinGroup": "call_direct_local",
+      "semanticFamily": "call_capture_shape_control",
+      "variantId": "direct_local",
+      "polarity": "positive",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Immediate direct-call control.",
+      "factors": {
+        "carrier": "direct_callable",
+        "trigger": "call",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 0,
+        "bindingSite": "local",
+        "deferred": false
+      }
+    },
+    {
+      "caseName": "call_direct_safe_014_F",
+      "expected": false,
+      "layer": "boundary_control",
+      "twinGroup": "call_direct_local",
+      "semanticFamily": "call_capture_shape_control",
+      "variantId": "direct_local",
+      "polarity": "negative",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Immediate direct-call control twin.",
+      "factors": {
+        "carrier": "direct_callable",
+        "trigger": "call",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 0,
+        "bindingSite": "local",
+        "deferred": false
+      }
+    },
+    {
+      "caseName": "call_field_capture_015_T",
+      "expected": true,
+      "layer": "boundary_control",
+      "twinGroup": "call_field_carrier",
+      "semanticFamily": "call_capture_shape_control",
+      "variantId": "field_carrier",
+      "polarity": "positive",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Immediate field-carried callable control.",
+      "factors": {
+        "carrier": "field_callable",
+        "trigger": "call",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 0,
+        "bindingSite": "field",
+        "deferred": false
+      }
+    },
+    {
+      "caseName": "call_field_safe_016_F",
+      "expected": false,
+      "layer": "boundary_control",
+      "twinGroup": "call_field_carrier",
+      "semanticFamily": "call_capture_shape_control",
+      "variantId": "field_carrier",
+      "polarity": "negative",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Immediate field-carried callable control twin.",
+      "factors": {
+        "carrier": "field_callable",
+        "trigger": "call",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 0,
+        "bindingSite": "field",
+        "deferred": false
+      }
+    },
+    {
+      "caseName": "call_slot_capture_017_T",
+      "expected": true,
+      "layer": "boundary_control",
+      "twinGroup": "call_slot_carrier",
+      "semanticFamily": "call_capture_shape_control",
+      "variantId": "slot_carrier",
+      "polarity": "positive",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Immediate slot-carried callable control.",
+      "factors": {
+        "carrier": "slot_callable",
+        "trigger": "call",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 0,
+        "bindingSite": "slot",
+        "deferred": false
+      }
+    },
+    {
+      "caseName": "call_slot_safe_018_F",
+      "expected": false,
+      "layer": "boundary_control",
+      "twinGroup": "call_slot_carrier",
+      "semanticFamily": "call_capture_shape_control",
+      "variantId": "slot_carrier",
+      "polarity": "negative",
+      "semanticFlip": "taint_consumed_at_sink",
+      "note": "Immediate slot-carried callable control twin.",
+      "factors": {
+        "carrier": "slot_callable",
+        "trigger": "call",
+        "payload": "none",
+        "capture": "capture_in",
+        "resume": "none",
+        "relayDepth": 0,
+        "bindingSite": "slot",
+        "deferred": false
+      }
+    }
+  ]
+}

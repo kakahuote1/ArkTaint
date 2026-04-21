@@ -1,0 +1,233 @@
+{
+  "schemaVersion": "2.0",
+  "sources": [],
+  "sinks": [],
+  "sanitizers": [],
+  "transfers": [
+    {
+      "id": "transfer.map.set.value_to_base_slot",
+      "description": "map.set(key, value): value taints the precise map slot selected by key.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Map.set",
+        "invokeKind": "instance",
+        "argCount": 2
+      },
+      "from": "arg1",
+      "to": {
+        "endpoint": "base",
+        "pathFrom": "arg0",
+        "slotKind": "map"
+      }
+    },
+    {
+      "id": "transfer.map.set.key_to_base_keyslot",
+      "description": "map.set(key, value): key taints the precise map-key slot selected by key.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Map.set",
+        "invokeKind": "instance",
+        "argCount": 2
+      },
+      "from": "arg0",
+      "to": {
+        "endpoint": "base",
+        "pathFrom": "arg0",
+        "slotKind": "mapkey"
+      }
+    },
+    {
+      "id": "transfer.map.get.base_slot_to_result",
+      "description": "map.get(key): the precise map slot selected by key taints result.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Map.get",
+        "invokeKind": "instance",
+        "argCount": 1
+      },
+      "from": {
+        "endpoint": "base",
+        "pathFrom": "arg0",
+        "slotKind": "map"
+      },
+      "to": "result"
+    },
+    {
+      "id": "transfer.weakmap.set.value_to_base_slot",
+      "description": "weakMap.set(key, value): value taints the precise weakmap slot selected by key.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "WeakMap.set",
+        "invokeKind": "instance",
+        "argCount": 2
+      },
+      "from": "arg1",
+      "to": {
+        "endpoint": "base",
+        "pathFrom": "arg0",
+        "slotKind": "weakmap"
+      }
+    },
+    {
+      "id": "transfer.weakmap.get.base_slot_to_result",
+      "description": "weakMap.get(key): the precise weakmap slot selected by key taints result.",
+      "match": {
+        "kind": "signature_contains",
+        "value": "WeakMap.get",
+        "invokeKind": "instance",
+        "argCount": 1
+      },
+      "from": {
+        "endpoint": "base",
+        "pathFrom": "arg0",
+        "slotKind": "weakmap"
+      },
+      "to": "result"
+    },
+    {
+      "id": "transfer.list.add.arg0_to_base",
+      "description": "list.add(value): value taints list base",
+      "match": {
+        "kind": "signature_contains",
+        "value": "List.add"
+      },
+      "from": "arg0",
+      "to": "base"
+    },
+    {
+      "id": "transfer.list.get.base_slot_to_result",
+      "description": "list.get(index): the precise list slot selected by index taints result",
+      "match": {
+        "kind": "signature_contains",
+        "value": "List.get",
+        "invokeKind": "instance",
+        "argCount": 1
+      },
+      "from": {
+        "endpoint": "base",
+        "pathFrom": "arg0",
+        "slotKind": "list"
+      },
+      "to": "result"
+    },
+    {
+      "id": "transfer.queue.add.arg0_to_base",
+      "description": "queue.add(value): value taints queue base",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Queue.add"
+      },
+      "from": "arg0",
+      "to": "base"
+    },
+    {
+      "id": "transfer.array.push.arg0_to_base",
+      "description": "array.push(value): value taints array base",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Array.push"
+      },
+      "from": "arg0",
+      "to": "base"
+    },
+    {
+      "id": "transfer.array.pop.base_to_result",
+      "description": "array.pop(): array base taints result",
+      "match": {
+        "kind": "signature_contains",
+        "value": "Array.pop"
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.array.join.base_to_result",
+      "description": "Array.join(sep): array elements conservatively taint joined string result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "join",
+        "invokeKind": "instance"
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.builtin.array.sort.base_to_result",
+      "description": "Array.sort(): sorted array (same reference) preserves taint.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "sort",
+        "invokeKind": "instance"
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.builtin.array.reverse.base_to_result",
+      "description": "Array.reverse(): reversed array (same reference) preserves taint.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "reverse",
+        "invokeKind": "instance"
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.builtin.array.fill.arg0_to_base",
+      "description": "Array.fill(value): fill value taints array base.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "fill",
+        "invokeKind": "instance"
+      },
+      "from": "arg0",
+      "to": "base"
+    },
+    {
+      "id": "transfer.builtin.array.fill.base_to_result",
+      "description": "Array.fill(value): returns same array reference.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "fill",
+        "invokeKind": "instance"
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.builtin.array.copyWithin.base_to_result",
+      "description": "Array.copyWithin(): returns same array reference preserving taint.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "copyWithin",
+        "invokeKind": "instance"
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.builtin.typedarray.subarray.base_to_result",
+      "description": "TypedArray.subarray(): buffer view preserves taint.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "subarray",
+        "invokeKind": "instance"
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.builtin.typedarray.set.arg0_to_base",
+      "description": "TypedArray.set(source): source array content taints target typed array.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "set",
+        "invokeKind": "instance",
+        "typeHint": "array"
+      },
+      "from": "arg0",
+      "to": "base"
+    }
+  ]
+}

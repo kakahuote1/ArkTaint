@@ -1,0 +1,243 @@
+{
+  "name": "main-model-framework-taxonomy",
+  "version": "1.0.0",
+  "description": "Framework-first entry taxonomy for dummyMain / ArkMain / HarmonyMainCompat comparison",
+  "suites": [
+    {
+      "id": "harmony_lifecycle",
+      "category": "ability_lifecycle",
+      "sourceDir": "tests/demo/harmony_lifecycle",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "ruleCatalogPath": "src/models",
+      "projectRulePath": "tests/rules/harmony_lifecycle_sink_only.rules.json"
+    },
+    {
+      "id": "harmony_stage_window_variants",
+      "category": "ability_lifecycle",
+      "sourceDir": "tests/demo/harmony_stage_window_variants",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "ruleCatalogPath": "src/models",
+      "projectRulePath": "tests/rules/harmony_stage_window_variants.rules.json"
+    },
+    {
+      "id": "harmony_event_activation",
+      "category": "ui_event_callback",
+      "sourceDir": "tests/demo/harmony_event_activation",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_event_activation.rules.json"
+    },
+    {
+      "id": "harmony_callback_registration",
+      "category": "ui_event_callback",
+      "sourceDir": "tests/demo/harmony_callback_registration",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_callback_registration.rules.json"
+    },
+    {
+      "id": "harmony_system_callback_variants",
+      "category": "event_async",
+      "sourceDir": "tests/demo/harmony_system_callback_variants",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_system_callback_variants.rules.json"
+    },
+    {
+      "id": "harmony_watch",
+      "category": "reactive_watch",
+      "sourceDir": "tests/demo/harmony_watch",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_watch.rules.json"
+    },
+    {
+      "id": "harmony_reactive_composition",
+      "category": "reactive_composition",
+      "sourceDir": "tests/demo/harmony_reactive_composition",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "ruleCatalogPath": "src/models",
+      "projectRulePath": "tests/rules/harmony_reactive_composition.rules.json"
+    },
+    {
+      "id": "harmony_state_mgmt",
+      "category": "reactive_binding",
+      "sourceDir": "tests/demo/harmony_state_mgmt",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_state_mgmt.rules.json"
+    },
+    {
+      "id": "harmony_link",
+      "category": "reactive_binding",
+      "sourceDir": "tests/demo/harmony_link",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_link.rules.json"
+    },
+    {
+      "id": "harmony_provide_consume",
+      "category": "reactive_binding",
+      "sourceDir": "tests/demo/harmony_provide_consume",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_provide_consume.rules.json"
+    },
+    {
+      "id": "harmony_reactive_deep_tree",
+      "category": "reactive_composition",
+      "sourceDir": "tests/demo/harmony_reactive_deep_tree",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "ruleCatalogPath": "src/models",
+      "projectRulePath": "tests/rules/harmony_reactive_deep_tree.rules.json"
+    },
+    {
+      "id": "harmony_router_bridge",
+      "category": "route_handoff",
+      "sourceDir": "tests/demo/harmony_router_bridge",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_router_bridge.rules.json"
+    },
+    {
+      "id": "harmony_router_crossfile",
+      "category": "route_handoff",
+      "sourceDir": "tests/demo/harmony_router_crossfile",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_router_crossfile.rules.json"
+    },
+    {
+      "id": "harmony_router_dynamic",
+      "category": "route_handoff",
+      "sourceDir": "tests/demo/harmony_router_dynamic",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_router_dynamic.rules.json"
+    },
+    {
+      "id": "harmony_route_stack_variants",
+      "category": "route_handoff",
+      "sourceDir": "tests/demo/harmony_route_stack_variants",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_route_stack_variants.rules.json"
+    },
+    {
+      "id": "harmony_page_visibility",
+      "category": "page_visibility",
+      "sourceDir": "tests/demo/harmony_page_visibility",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_page_visibility.rules.json"
+    },
+    {
+      "id": "harmony_implicit",
+      "category": "implicit_control",
+      "sourceDir": "tests/demo/harmony_implicit",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_implicit.rules.json"
+    },
+    {
+      "id": "harmony_appstorage",
+      "category": "storage_channel",
+      "sourceDir": "tests/demo/harmony_appstorage",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_appstorage.rules.json"
+    },
+    {
+      "id": "harmony_localstorage",
+      "category": "storage_channel",
+      "sourceDir": "tests/demo/harmony_localstorage",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_localstorage.rules.json"
+    },
+    {
+      "id": "harmony_persistentstorage",
+      "category": "storage_channel",
+      "sourceDir": "tests/demo/harmony_persistentstorage",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_persistentstorage.rules.json"
+    },
+    {
+      "id": "harmony_preferences",
+      "category": "storage_channel",
+      "sourceDir": "tests/demo/harmony_preferences",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_preferences.rules.json"
+    },
+    {
+      "id": "harmony_emitter",
+      "category": "event_async",
+      "sourceDir": "tests/demo/harmony_emitter",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_emitter.rules.json"
+    },
+    {
+      "id": "harmony_worker",
+      "category": "event_async",
+      "sourceDir": "tests/demo/harmony_worker",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_worker.rules.json"
+    },
+    {
+      "id": "harmony_timer_scheduler",
+      "category": "event_async",
+      "sourceDir": "tests/demo/harmony_timer_scheduler",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_timer_scheduler.rules.json"
+    },
+    {
+      "id": "harmony_http",
+      "category": "service_bridge",
+      "sourceDir": "tests/demo/harmony_http",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_http.rules.json"
+    },
+    {
+      "id": "harmony_handoff_multihop",
+      "category": "cross_component_handoff",
+      "sourceDir": "tests/demo/harmony_handoff_multihop",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_handoff_multihop.rules.json"
+    },
+    {
+      "id": "harmony_multi_ability_chain",
+      "category": "cross_component_handoff",
+      "sourceDir": "tests/demo/harmony_multi_ability_chain",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_multi_ability_chain.rules.json"
+    },
+    {
+      "id": "harmony_rdb",
+      "category": "service_bridge",
+      "sourceDir": "tests/demo/harmony_rdb",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_rdb.rules.json"
+    },
+    {
+      "id": "harmony_e2e",
+      "category": "end_to_end",
+      "sourceDir": "tests/demo/harmony_e2e",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_e2e.rules.json"
+    },
+    {
+      "id": "harmony_framework_entry_probe",
+      "category": "framework_probe",
+      "sourceDir": "tests/demo/harmony_framework_entry_probe",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_framework_entry_probe.rules.json"
+    },
+    {
+      "id": "harmony_form_extension_lifecycle",
+      "category": "ability_lifecycle",
+      "sourceDir": "tests/demo/harmony_form_extension_lifecycle",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_form_extension_lifecycle.rules.json"
+    },
+    {
+      "id": "harmony_extension_composition",
+      "category": "ability_lifecycle",
+      "sourceDir": "tests/demo/harmony_extension_composition",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_extension_composition.rules.json"
+    },
+    {
+      "id": "harmony_extension_variants",
+      "category": "ability_lifecycle",
+      "sourceDir": "tests/demo/harmony_extension_variants",
+      "kernelRulePath": "tests/rules/minimal.rules.json",
+      "projectRulePath": "tests/rules/harmony_extension_variants.rules.json"
+    }
+  ]
+}
+

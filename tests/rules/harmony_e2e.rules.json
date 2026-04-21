@@ -1,0 +1,57 @@
+{
+    "schemaVersion": "2.0",
+    "meta": {
+        "name": "harmony-e2e-rules",
+        "description": "Phase 7.5 end-to-end cross-module integration smoke rules",
+        "updatedAt": "2026-02-22"
+    },
+    "sources": [
+        {
+            "id": "source.harmony.e2e.oncreate_want_parameters",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "onCreate"
+            },
+            "sourceKind": "entry_param",
+            "target": {
+                "endpoint": "arg0",
+                "path": [
+                    "parameters"
+                ]
+            }
+        },
+        {
+            "id": "source.harmony.e2e.activate_callback_in_build",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "onChange"
+            },
+            "scope": {
+                "methodName": {
+                    "mode": "equals",
+                    "value": "build"
+                }
+            },
+            "sourceKind": "callback_param",
+            "target": {
+                "endpoint": "arg99"
+            },
+            "callbackArgIndexes": [
+                0
+            ]
+        }
+    ],
+    "sinks": [
+        {
+            "id": "sink.harmony.e2e.mock_sink",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "Sink"
+            },
+            "target": {
+                "endpoint": "arg0"
+            }
+        }
+    ],
+    "transfers": []
+}

@@ -1,0 +1,1 @@
+export {Log4js} from './src/main/ets/log4js/Log4js'

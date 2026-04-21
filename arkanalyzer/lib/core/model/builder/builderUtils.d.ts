@@ -1,0 +1,20 @@
+import ts, { HeritageClause, ParameterDeclaration, TypeNode, TypeParameterDeclaration } from 'ohos-typescript';
+import { AliasType, GenericType, Type } from '../../base/Type';
+import { ArkField } from '../ArkField';
+import { ArkClass } from '../ArkClass';
+import { ArkMethod } from '../ArkMethod';
+import { Decorator } from '../../base/Decorator';
+import { MethodParameter } from './ArkMethodBuilder';
+import { FullPosition } from '../../base/Position';
+export declare function handleQualifiedName(node: ts.QualifiedName): string;
+export declare function handlePropertyAccessExpression(node: ts.PropertyAccessExpression): string;
+export declare function buildDecorators(node: ts.Node, sourceFile: ts.SourceFile): Set<Decorator>;
+export declare function buildModifiers(node: ts.Node): number;
+export declare function buildHeritageClauses(heritageClauses?: ts.NodeArray<HeritageClause>): Map<string, string>;
+export declare function buildTypeParameters(typeParameters: ts.NodeArray<TypeParameterDeclaration>, sourceFile: ts.SourceFile, arkInstance: ArkMethod | ArkClass): GenericType[];
+export declare function buildParameters(params: ts.NodeArray<ParameterDeclaration>, arkInstance: ArkMethod | ArkField, sourceFile: ts.SourceFile, paramsPosition: Map<string, FullPosition>): MethodParameter[];
+export declare function buildGenericType(type: Type, arkInstance: ArkMethod | ArkField | AliasType): Type;
+export declare function buildReturnType(node: TypeNode, sourceFile: ts.SourceFile, method: ArkMethod): Type;
+export declare function tsNode2Type(typeNode: ts.TypeNode | ts.TypeParameterDeclaration, sourceFile: ts.SourceFile, arkInstance: ArkMethod | ArkClass | ArkField): Type;
+export declare function buildTypeFromPreStr(preStr: string): Type;
+//# sourceMappingURL=builderUtils.d.ts.map

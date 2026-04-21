@@ -1,0 +1,10 @@
+{
+    "targetProjectName": "TypeInferenceTest",    
+    "targetProjectDirectory": "tests/resources/typeInference/multi_module/main_module",
+
+    "logPath": "out/ArkAnalyzer.log",
+    "logLevel": "INFO",
+    
+    "sdks": [
+    ]
+}
