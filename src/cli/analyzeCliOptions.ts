@@ -1,10 +1,5 @@
 import * as fs from "fs";
 import * as path from "path";
-import {
-    normalizeSemanticFlowSessionCacheMode,
-    resolveDefaultSemanticFlowSessionCacheDir,
-    type SemanticFlowSessionCacheMode,
-} from "../core/semanticflow/SemanticFlowSessionCache";
 import { RuleLoaderOptions } from "../core/rules/RuleLoader";
 
 export type AnalyzeProfile = "default" | "strict" | "fast";
@@ -18,8 +13,6 @@ export interface CliOptions {
     llmConfigPath?: string;
     llmProfile?: string;
     llmModel?: string;
-    llmSessionCacheDir?: string;
-    llmSessionCacheMode?: SemanticFlowSessionCacheMode;
     arkMainMaxCandidates?: number;
     listModules?: boolean;
     listModels?: boolean;
@@ -67,8 +60,6 @@ export function parseArgs(argv: string[]): CliOptions {
     let llmConfigPath: string | undefined;
     let llmProfile: string | undefined;
     let llmModel: string | undefined;
-    let llmSessionCacheDir: string | undefined;
-    let llmSessionCacheMode: SemanticFlowSessionCacheMode | undefined;
     let arkMainMaxCandidates: number | undefined;
     let listModules = false;
     let listModels = false;
@@ -148,18 +139,6 @@ export function parseArgs(argv: string[]): CliOptions {
         if (llmModelArg !== undefined) {
             llmModel = llmModelArg.trim();
             if (arg === "--model") i++;
-            continue;
-        }
-        const llmSessionCacheDirArg = readValue("--llmSessionCacheDir");
-        if (llmSessionCacheDirArg !== undefined) {
-            llmSessionCacheDir = llmSessionCacheDirArg.trim();
-            if (arg === "--llmSessionCacheDir") i++;
-            continue;
-        }
-        const llmSessionCacheModeArg = readValue("--llmSessionCacheMode");
-        if (llmSessionCacheModeArg !== undefined) {
-            llmSessionCacheMode = normalizeSemanticFlowSessionCacheMode(llmSessionCacheModeArg);
-            if (arg === "--llmSessionCacheMode") i++;
             continue;
         }
         const arkMainMaxCandidatesArg = readValue("--arkMainMaxCandidates");
@@ -384,9 +363,6 @@ export function parseArgs(argv: string[]): CliOptions {
     if (publishModel && !autoModel) {
         throw new Error("--publish-model requires --autoModel");
     }
-    if (!autoModel && (llmSessionCacheDir || llmSessionCacheMode)) {
-        throw new Error("--llmSessionCacheDir/--llmSessionCacheMode require --autoModel");
-    }
     if (!repo) throw new Error("missing required --repo <path>");
     const normalizedRepo = path.isAbsolute(repo) ? repo : path.resolve(repo);
     if (!fs.existsSync(normalizedRepo)) throw new Error(`repo path not found: ${normalizedRepo}`);
@@ -459,11 +435,6 @@ export function parseArgs(argv: string[]): CliOptions {
             ? incrementalCachePath
             : path.resolve(incrementalCachePath);
     }
-    const resolvedLlmSessionCacheDir = autoModel
-        ? (llmSessionCacheDir
-            ? (path.isAbsolute(llmSessionCacheDir) ? llmSessionCacheDir : path.resolve(llmSessionCacheDir))
-            : resolveDefaultSemanticFlowSessionCacheDir(normalizedRepo))
-        : undefined;
     return {
         repo: normalizedRepo,
         sourceDirs,
@@ -474,8 +445,6 @@ export function parseArgs(argv: string[]): CliOptions {
             : undefined,
         llmProfile,
         llmModel,
-        llmSessionCacheDir: resolvedLlmSessionCacheDir,
-        llmSessionCacheMode: autoModel ? (llmSessionCacheMode || "rw") : undefined,
         arkMainMaxCandidates: arkMainMaxCandidates !== undefined ? Math.floor(arkMainMaxCandidates) : undefined,
         listModules,
         listModels,

@@ -2,8 +2,17 @@
 
 `tests/` stores long-lived test assets only. Do not write runtime outputs here.
 
+## Related docs
+
+- **Conceptual guide (why & how to mirror this layout in your own project):** [`docs/tests_for_context_comprehension.md`](../docs/tests_for_context_comprehension.md)（中文：原理、manifest 与单元测试分层、CI 门禁思路）
+- **Where test *code* and harnesses live:** [`src/tests/README.md`](../src/tests/README.md)（`src/tests/**` → `out/tests/**`）
+- **Manifest file grouping:** [`tests/manifests/README.md`](manifests/README.md)
+
+This file is the **authoritative index for `tests/` directory roles**; the conceptual guide does not duplicate every subdirectory rule here.
+
 ## Directory Roles
 
+- `context_and_comprehension/`: author-maintained assets for context pack / skills / comprehension tests (see [`context_and_comprehension/README.md`](context_and_comprehension/README.md)); **not** a top-level manifest group under `manifests/`
 - `demo/`: semantic and rule datasets
 - `fixtures/`: CLI, runtime, and loader fixtures
 - `benchmark/`: benchmark baselines and reference data

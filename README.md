@@ -93,6 +93,17 @@ src/
 
 ```bash
 npm install
+```
+
+仓库自带 `arkanalyzer/` 子工程；根目录 `npm install` 会通过 `postinstall` 自动执行 `npm install --prefix arkanalyzer`，以安装 `ohos-typescript` 等依赖（运行测试与 `tsc` 所必需）。若你禁用了 postinstall 或仍报 `Cannot find module 'ohos-typescript'`，请手动执行：
+
+```bash
+npm install --prefix arkanalyzer
+```
+
+然后：
+
+```bash
 npm run build
 ```
 
@@ -354,6 +365,17 @@ src/
 
 ```bash
 npm install
+```
+
+This repo vendors `arkanalyzer/`. Root `npm install` runs `postinstall`, which installs that package (including `ohos-typescript`) via `npm install --prefix arkanalyzer`. If you use `--ignore-scripts` or still see `Cannot find module 'ohos-typescript'`, run:
+
+```bash
+npm install --prefix arkanalyzer
+```
+
+Then:
+
+```bash
 npm run build
 ```
 

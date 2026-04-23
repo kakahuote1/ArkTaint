@@ -7,15 +7,7 @@ import type {
     ModuleSemantic,
     ModuleSpec,
 } from "../kernel/contracts/ModuleSpec";
-import {
-    SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION,
-    buildSemanticFlowPrompt,
-    buildSemanticFlowRepairPrompt,
-} from "./SemanticFlowPrompt";
-import {
-    buildSemanticFlowDecisionCacheKey,
-    type SemanticFlowSessionCache,
-} from "./SemanticFlowSessionCache";
+import { buildSemanticFlowPrompt, buildSemanticFlowRepairPrompt } from "./SemanticFlowPrompt";
 import type {
     SemanticFlowArtifactClass,
     SemanticFlowBudgetClass,
@@ -42,15 +34,11 @@ export interface SemanticFlowModelInvokerInput {
 
 export type SemanticFlowModelInvoker = (input: SemanticFlowModelInvokerInput) => Promise<string>;
 
-export const SEMANTIC_FLOW_LLM_TEMPERATURE = 0;
-export const SEMANTIC_FLOW_DECISION_PARSER_SCHEMA_VERSION = 1;
-
 export interface CreateSemanticFlowLlmDeciderOptions {
     modelInvoker: SemanticFlowModelInvoker;
     model?: string;
     repairInvalidJson?: boolean;
     maxRepairAttempts?: number;
-    sessionCache?: SemanticFlowSessionCache;
 }
 
 export function createSemanticFlowLlmDecider(options: CreateSemanticFlowLlmDeciderOptions): SemanticFlowDecider {
@@ -59,30 +47,6 @@ export function createSemanticFlowLlmDecider(options: CreateSemanticFlowLlmDecid
     return {
         async decide(input: SemanticFlowDecisionInput): Promise<SemanticFlowDecision> {
             const prompt = buildSemanticFlowPrompt(input);
-            const cache = options.sessionCache;
-            if (cache?.isActive() && !options.model) {
-                throw new Error("semanticflow session cache requires an explicit model");
-            }
-            const decisionCacheKey = cache?.isActive()
-                ? buildSemanticFlowDecisionCacheKey({
-                    promptSchemaVersion: SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION,
-                    parserSchemaVersion: SEMANTIC_FLOW_DECISION_PARSER_SCHEMA_VERSION,
-                    model: options.model as string,
-                    temperature: SEMANTIC_FLOW_LLM_TEMPERATURE,
-                    system: prompt.system,
-                    user: prompt.user,
-                    anchorId: input.anchor.id,
-                    round: input.round,
-                    slice: input.slice,
-                    draft: input.draft,
-                    lastMarker: input.lastMarker,
-                    lastDelta: input.lastDelta,
-                })
-                : undefined;
-            const cachedDecision = decisionCacheKey ? cache.lookupDecision(decisionCacheKey) : undefined;
-            if (cachedDecision) {
-                return cachedDecision;
-            }
             let raw = await options.modelInvoker({
                 system: prompt.system,
                 user: prompt.user,
@@ -91,11 +55,7 @@ export function createSemanticFlowLlmDecider(options: CreateSemanticFlowLlmDecid
             let initialError: string | undefined;
             for (let attempt = 0; attempt <= maxRepairAttempts; attempt++) {
                 try {
-                    const decision = parseSemanticFlowDecision(raw);
-                    if (decisionCacheKey) {
-                        cache.storeDecision(decisionCacheKey, decision);
-                    }
-                    return decision;
+                    return parseSemanticFlowDecision(raw);
                 } catch (error) {
                     const detail = String((error as any)?.message || error);
                     if (!repairInvalidJson || attempt >= maxRepairAttempts) {

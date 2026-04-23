@@ -19,17 +19,6 @@
     "boundaryLeafDirs": [
       "completeness/function_call/chained_call"
     ],
-    "observationOnlyCaseKeys": [
-      "flow_sensitive/loop_stmt/for_006_F.ets",
-      "path_sensitive/conditional_stmt/conditional_if_002_F.ets",
-      "path_sensitive/conditional_stmt/conditional_switch_002_F.ets",
-      "path_sensitive/exception_throw/exception_throw_002_F.ets",
-      "path_sensitive/explicit_jump_control/break_002_F.ets",
-      "path_sensitive/explicit_jump_control/continue_002_F.ets",
-      "path_sensitive/explicit_jump_control/return_002_F.ets",
-      "path_sensitive/loop_stmt/for_body_002_F.ets",
-      "path_sensitive/loop_stmt/while_body_002_F.ets"
-    ],
     "explicitEntries": {
       "completeness/cross_file/cross_file_001_T/cross_file_001_T_a.ets": "cross_file_001_T_b",
       "completeness/cross_file/cross_file_002_F/cross_file_002_F_a.ets": "cross_file_002_F_b",

@@ -1,7 +1,5 @@
 import type { SemanticFlowDecisionInput } from "./SemanticFlowTypes";
 
-export const SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION = 1;
-
 export interface SemanticFlowPrompt {
     system: string;
     user: string;

@@ -1,13 +1,9 @@
 ﻿import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
+import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { SinkRule, SourceRule } from "../../core/rules/RuleSchema";
 import { validateRuleSet } from "../../core/rules/RuleValidator";
 import * as path from "path";
-import {
-    buildEngineForCase,
-    findCaseMethod,
-    resolveCaseMethod,
-} from "../helpers/SyntheticCaseHarness";
 
 interface CaseSpec {
     name: string;
@@ -32,14 +28,9 @@ async function runCase(
     sourceRules: SourceRule[],
     sinkRules: SinkRule[]
 ): Promise<boolean> {
-    const entry = resolveCaseMethod(scene, `${caseName}.ets`, caseName);
-    const entryMethod = findCaseMethod(scene, entry);
-    assert(entryMethod?.getBody(), `entry method not found: ${caseName}`);
-    const engine = await buildEngineForCase(scene, 1, entryMethod, {
-        verbose: false,
-        entryModel: "explicit",
-    });
-    engine.setActiveReachableMethodSignatures(new Set([entryMethod.getSignature().toString()]));
+    const engine = new TaintPropagationEngine(scene, 1);
+    engine.verbose = false;
+    await engine.buildPAG();
     engine.propagateWithSourceRules(sourceRules);
     const flows = engine.detectSinksByRules(sinkRules);
     const scopedFlows = flows.filter(flow => flowSinkInCaseMethod(scene, flow.sink, caseName));

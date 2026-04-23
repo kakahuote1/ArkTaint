@@ -210,15 +210,12 @@ async function main(): Promise<void> {
 
         getAnalyzeSummaryMarkdownPath(root);
         const report = readAnalyzeSummary<AnalyzeReport>(root);
-        const summaryRun = JSON.parse(fs.readFileSync(path.join(root, "summary", "run.json"), "utf8"));
         assert(report.summary.withSeeds > 0, `expected withSeeds > 0, got ${report.summary.withSeeds}`);
         assert(report.summary.totalFlows > 0, `expected totalFlows > 0, got ${report.summary.totalFlows}`);
         assert(fs.existsSync(path.join(root, "phase1", "feedback", "rule_feedback", "no_candidate_callsites.json")), "missing phase1 rule feedback");
         assert(fs.existsSync(path.join(root, "rules.json")), "missing modeled rules artifact");
         assert(fs.existsSync(path.join(root, "modules.json")), "missing modeled modules artifact");
         assert(fs.existsSync(path.join(root, "arkmain.json")), "missing modeled arkmain artifact");
-        assert(summaryRun.llmSessionCache.llmCacheWriteCount > 0, "summary/run.json should expose cache write stats");
-        assert(summaryRun.llmSessionCache.itemCacheHitCount === 0, "summary/run.json should expose zero item cache hits on first run");
 
         console.log("PASS test_analyze_auto_model");
     } finally {

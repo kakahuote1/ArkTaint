@@ -374,30 +374,18 @@ async function main(): Promise<void> {
         });
 
         const summary = JSON.parse(fs.readFileSync(path.join(root, "summary.json"), "utf8"));
-        const runManifest = JSON.parse(fs.readFileSync(path.join(root, "run.json"), "utf8"));
-        const summaryRun = JSON.parse(fs.readFileSync(path.join(root, "summary", "run.json"), "utf8"));
         const analysis = JSON.parse(fs.readFileSync(path.join(root, "analysis.json"), "utf8"));
         const finalSummary = JSON.parse(fs.readFileSync(analysis.summaryJsonPath, "utf8"));
         const rules = JSON.parse(fs.readFileSync(path.join(root, "rules.json"), "utf8"));
         const modules = JSON.parse(fs.readFileSync(path.join(root, "modules.json"), "utf8"));
         const arkmain = JSON.parse(fs.readFileSync(path.join(root, "arkmain.json"), "utf8"));
 
-        assert(runManifest.llmSessionCache.cacheKind === "semanticflow_llm_session", "run manifest cache kind mismatch");
-        assert(runManifest.llmSessionCache.schemaVersion === 1, "run manifest cache schema version mismatch");
-        assert(fs.existsSync(path.join(root, runManifest.llmSessionCache.dir)), "run manifest cache dir missing");
-        assert(fs.existsSync(path.join(root, runManifest.llmSessionCache.schemaPath)), "run manifest cache schema path missing");
-        assert(fs.existsSync(path.join(root, runManifest.llmSessionCache.statsPath)), "run manifest cache stats path missing");
-        assert(fs.existsSync(path.join(root, runManifest.llmSessionCache.decisionsDir)), "run manifest decisions dir missing");
-        assert(fs.existsSync(path.join(root, runManifest.llmSessionCache.itemsDir)), "run manifest items dir missing");
-        assert(fs.existsSync(path.join(root, runManifest.llmSessionCache.anchorsDir)), "run manifest anchors dir missing");
         assert((summary.classifications.arkmain || 0) === 0, `expected no semanticflow arkmain item, got ${summary.classifications.arkmain || 0}`);
         assert(summary.classifications.rule === 3, `expected three rule items, got ${summary.classifications.rule || 0}`);
         assert(summary.classifications.module === 1, `expected one module item, got ${summary.classifications.module || 0}`);
         assert(summary.arkMainKernelCoveredCount === 1, `expected one kernel-covered arkmain candidate, got ${summary.arkMainKernelCoveredCount || 0}`);
         assert(summary.moduleCount === 1, `expected moduleCount=1, got ${summary.moduleCount}`);
         assert(summary.arkMainSpecCount === 0, `expected arkMainSpecCount=0, got ${summary.arkMainSpecCount}`);
-        assert(summary.llmCacheWriteCount > 0, `expected llmCacheWriteCount > 0, got ${summary.llmCacheWriteCount}`);
-        assert(summary.itemCacheHitCount === 0, `expected itemCacheHitCount=0 on first run, got ${summary.itemCacheHitCount}`);
 
         assert((rules.sources || []).length === 1, `expected one source rule, got ${(rules.sources || []).length}`);
         assert((rules.sinks || []).length === 1, `expected one sink rule, got ${(rules.sinks || []).length}`);
@@ -406,10 +394,6 @@ async function main(): Promise<void> {
         assert((arkmain.entries || []).length === 0, `expected no arkmain spec entry, got ${(arkmain.entries || []).length}`);
         assert(finalSummary.summary.withSeeds > 0, `expected final analyze to seed sources, got ${finalSummary.summary.withSeeds}`);
         assert(finalSummary.summary.totalFlows === 1, `expected final analyze to detect one flow, got ${finalSummary.summary.totalFlows}`);
-        assert(summaryRun.llmSessionCache.cacheKind === "semanticflow_llm_session", "summary/run cache kind mismatch");
-        assert(summaryRun.llmSessionCache.schemaVersion === 1, "summary/run cache schema version mismatch");
-        assert(summaryRun.llmSessionCache.llmCacheWriteCount > 0, "summary/run.json should expose cache write stats");
-        assert(summaryRun.llmSessionCache.itemCacheHitCount === 0, "summary/run.json should expose first-run item cache hits as zero");
 
         console.log("PASS testSemanticFlowCli");
     } finally {
