@@ -23,6 +23,7 @@ import {
     resolveMethodsFromAnonymousObjectCarrierByField,
     resolveMethodsFromCallable
 } from "../../substrate/queries/CalleeResolver";
+import { resolveKnownControllerOptionCallbackRegistrationsFromStmt } from "../../entry/shared/FrameworkCallbackClassifier";
 import { isSdkBackedMethodSignature } from "../../substrate/queries/SdkProvenance";
 import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
 import type { SyntheticInvokeEdgeInfo } from "./SyntheticInvokeEdgeBuilder";
@@ -172,7 +173,14 @@ export function injectResolvedCallbackParameterEdges(
     invokedParamCache: Map<string, Set<number>>
 ): number {
     const resolvedCallees = collectResolvedInvokeTargets(scene, cg, stmt, invokeExpr);
-    if (resolvedCallees.length === 0) return 0;
+    if (resolvedCallees.length === 0) {
+        let count = 0;
+        const optionRegs = resolveKnownControllerOptionCallbackRegistrationsFromStmt(stmt, scene, caller);
+        for (const reg of optionRegs) {
+            count += injectCallbackBindingEdges(pag, caller, stmt, edgeMap, reg.callbackMethod, reg.sourceMethod || caller);
+        }
+        return count;
+    }
 
     let count = 0;
     const seenBindings = new Set<string>();

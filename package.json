@@ -101,7 +101,7 @@
         "test:entry-model:rule-hygiene": "node out/tests/entry_model/test_entry_model_rule_hygiene.js",
         "test:entry-model:pure-oracle": "node out/tests/entry_model/test_entry_model_pure_entry_oracle.js",
         "test:entry-model:taxonomy": "node out/tests/entry_model/test_entry_model_taxonomy.js",
-        "test:entry-model:provenance": "node out/tests/entry_model/test_entry_model_owner_discovery.js && node out/tests/entry_model/test_entry_model_owner_identity.js && node out/tests/entry_model/test_entry_model_contract_lifecycle.js && node out/tests/entry_model/test_entry_model_owner_family_contract_plane.js",
+        "test:entry-model:provenance": "node out/tests/entry_model/test_entry_model_owner_discovery.js && node out/tests/entry_model/test_entry_model_owner_identity.js && node out/tests/entry_model/test_entry_model_contract_lifecycle.js && node out/tests/entry_model/test_entry_model_owner_family_contract_plane.js && node out/tests/entry_model/test_entry_model_option_callback_provenance.js",
         "test:entry-model:contract-lifecycle": "node out/tests/entry_model/test_entry_model_contract_lifecycle.js",
         "test:entry-model:owner-family-contract-plane": "node out/tests/entry_model/test_entry_model_owner_family_contract_plane.js",
         "test:entry-model:owner-identity": "node out/tests/entry_model/test_entry_model_owner_identity.js",

@@ -32,6 +32,8 @@ export interface SinkDetectOptions {
     fieldToVarIndex?: Map<string, Set<number>>;
     allowedMethodSignatures?: Set<string>;
     orderedMethodSignatures?: string[];
+    /** PAG node ids that receive capture / synthetic / module-fan-in taint; exempts locals from strict const-reassignment kill. */
+    interproceduralTaintTargetNodeIds?: Set<number>;
     sanitizerRules?: SanitizerRule[];
     onProfile?: (profile: SinkDetectProfile) => void;
 }
@@ -245,6 +247,7 @@ export function detectSinks(
                 pag,
                 tracker,
                 options.orderedMethodSignatures,
+                options.interproceduralTaintTargetNodeIds,
                 fallbackFieldToVarIndex,
             );
             fallbackFieldToVarIndex = preciseCandidate.fallbackFieldToVarIndex;
@@ -677,6 +680,26 @@ interface PreciseCandidateDetectResult {
     fallbackFieldToVarIndex?: Map<string, Set<number>>;
 }
 
+function hasInterproceduralTaintTargetNode(
+    value: Local,
+    pag: Pag,
+    interproceduralTaintTargetNodeIds: ReadonlySet<number> | undefined,
+): boolean {
+    if (!interproceduralTaintTargetNodeIds || interproceduralTaintTargetNodeIds.size === 0) {
+        return false;
+    }
+    const nodeIds = pag.getNodesByValue(value);
+    if (!nodeIds || nodeIds.size === 0) {
+        return false;
+    }
+    for (const nodeId of nodeIds.values()) {
+        if (interproceduralTaintTargetNodeIds.has(nodeId)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function detectPreciseCandidateSource(
     scene: Scene,
     method: any,
@@ -685,6 +708,7 @@ function detectPreciseCandidateSource(
     pag: Pag,
     tracker: TaintTracker,
     orderedMethodSignatures?: string[],
+    interproceduralTaintTargetNodeIds?: Set<number>,
     fallbackFieldToVarIndex?: Map<string, Set<number>>,
 ): PreciseCandidateDetectResult {
     const value = candidate.value;
@@ -738,10 +762,11 @@ function detectPreciseCandidateSource(
 
     const rightOp = latestAssign.getRightOp();
     if (rightOp instanceof Constant || rightOp === undefined || rightOp === null) {
+        const allowInterprocedural = hasInterproceduralTaintTargetNode(value, pag, interproceduralTaintTargetNodeIds);
         return {
             // A later constant assignment in the same method is a strong local kill.
             // Keep lone constant initialization eligible so source probes can still seed it.
-            blockGenericNodeTaint: hasEarlierAssignBefore(method, value, latestAssign),
+            blockGenericNodeTaint: !allowInterprocedural && hasEarlierAssignBefore(method, value, latestAssign),
             fallbackFieldToVarIndex,
         };
     }

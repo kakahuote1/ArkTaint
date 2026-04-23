@@ -408,6 +408,11 @@ export function renderContextPackMarkdown(pack: ContextPack, budget: RenderBudge
             "",
         ].join("\n");
         md = minimal;
+        if (maxChars > 0 && md.length > maxChars) {
+            const ellipsis = "...";
+            const take = Math.max(0, maxChars - ellipsis.length);
+            md = `${md.slice(0, take)}${ellipsis}`;
+        }
     }
 
     return { markdown: md, truncation };

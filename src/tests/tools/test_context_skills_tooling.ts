@@ -62,6 +62,10 @@ function main(): void {
         tiny.markdown.includes("active_skills") || tiny.markdown.includes("rule-authoring"),
         "must-keep skills should appear in JSON section under tight budget",
     );
+    assert.ok(tiny.markdown.length <= 200, `hard minimal path must respect maxChars, got ${tiny.markdown.length}`);
+
+    const micro = renderContextPackMarkdown(pack, { maxChars: 50 });
+    assert.ok(micro.markdown.length <= 50, `extreme budget must be honored, got ${micro.markdown.length}`);
 
     console.log("PASS test_context_skills_tooling");
 }

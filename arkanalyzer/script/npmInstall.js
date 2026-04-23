@@ -16,6 +16,18 @@
 'use strict';
 const execSync = require('child_process').execSync;
 const fs = require('fs');
+const path = require('path');
+
+function ohosTypescriptPresent() {
+    const arkanalyzerRoot = path.resolve(__dirname, '..');
+    const candidate = path.join(arkanalyzerRoot, 'node_modules', 'ohos-typescript');
+    try {
+        const st = fs.statSync(candidate);
+        return st.isDirectory();
+    } catch {
+        return false;
+    }
+}
 
 async function execCommand(command) {
     console.log(command);
@@ -30,6 +42,10 @@ function removeFolder(folderPath) {
 }
 
 async function runCommands() {
+    if (ohosTypescriptPresent()) {
+        console.log('[npmInstall] ohos-typescript already present; skipping arktools bootstrap.');
+        return;
+    }
     try {
         removeFolder('arktools');
         await execCommand('git clone https://gitee.com/yifei-xue/arktools.git');

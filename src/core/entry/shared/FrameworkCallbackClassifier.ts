@@ -18,6 +18,7 @@ import {
     resolveCallbackMethodsFromValueWithReturns,
     resolveCallbackRegistrationsFromStmt,
 } from "../../substrate/queries/CallbackBindingQuery";
+import { hasModuleSemanticRegistrationProvenance } from "../../substrate/semantics/KnownOptionCallbackRegistration";
 
 export interface FrameworkCallbackResolutionPolicy {
     enableSdkProvenance?: boolean;
@@ -262,6 +263,13 @@ const CONTROLLER_OPTION_CALLBACK_SPECS: ControllerOptionCallbackSpec[] = [
         callbackFieldNames: new Set(["builder", "cancel", "confirm"]),
         reasonLabel: "Framework controller callback registration",
     },
+    {
+        ownerClassNames: new Set(["%dflt"]),
+        constructorMethodNames: new Set(["animateTo"]),
+        optionsArgIndex: 0,
+        callbackFieldNames: new Set(["onFinish"]),
+        reasonLabel: "Framework module callback registration",
+    },
 ];
 const KNOWN_SCHEDULER_METHOD_NAMES = new Set([
     "setTimeout",
@@ -454,6 +462,9 @@ export function resolveKnownControllerOptionCallbackRegistrationsFromStmt(
     for (const spec of CONTROLLER_OPTION_CALLBACK_SPECS) {
         if (!spec.ownerClassNames.has(className)) continue;
         if (!spec.constructorMethodNames.has(methodName)) continue;
+        if (methodName === "animateTo" && !hasModuleSemanticRegistrationProvenance(scene, sourceMethod, invokeExpr, methodSig)) {
+            continue;
+        }
         const optionsValue = explicitArgs[spec.optionsArgIndex];
         const optionClass = resolveClassFromValue(scene, optionsValue);
         if (!optionClass) continue;
