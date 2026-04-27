@@ -173,17 +173,30 @@ export function injectResolvedCallbackParameterEdges(
     invokedParamCache: Map<string, Set<number>>
 ): number {
     const resolvedCallees = collectResolvedInvokeTargets(scene, cg, stmt, invokeExpr);
-    if (resolvedCallees.length === 0) {
-        let count = 0;
+    let count = 0;
+    const seenBindings = new Set<string>();
+
+    const injectKnownOptionCallbacks = (): void => {
         const optionRegs = resolveKnownControllerOptionCallbackRegistrationsFromStmt(stmt, scene, caller);
         for (const reg of optionRegs) {
+            const callbackSig = reg.callbackMethod.getSignature?.().toString?.() || "";
+            if (!callbackSig) {
+                continue;
+            }
+            const bindingKey = `option#${stmt.getOriginPositionInfo?.()?.getLineNo?.() || 0}#${callbackSig}`;
+            if (seenBindings.has(bindingKey)) {
+                continue;
+            }
+            seenBindings.add(bindingKey);
             count += injectCallbackBindingEdges(pag, caller, stmt, edgeMap, reg.callbackMethod, reg.sourceMethod || caller);
         }
+    };
+
+    if (resolvedCallees.length === 0) {
+        injectKnownOptionCallbacks();
         return count;
     }
 
-    let count = 0;
-    const seenBindings = new Set<string>();
     for (const callee of resolvedCallees) {
         const isSdk = isSdkBackedMethodSignature(scene, callee.getSignature?.(), {
             sourceMethod: caller,
@@ -233,6 +246,7 @@ export function injectResolvedCallbackParameterEdges(
         }
     }
 
+    injectKnownOptionCallbacks();
     return count;
 }
 

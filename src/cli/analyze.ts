@@ -255,6 +255,8 @@ export async function runAnalyzeCliCommand(options: CliOptions): Promise<void> {
             k: options.k,
             stopOnFirstFlow: options.stopOnFirstFlow,
             maxFlowsPerEntry: options.maxFlowsPerEntry,
+            llmSessionCacheDir: options.llmSessionCacheDir,
+            llmSessionCacheMode: options.llmSessionCacheMode,
         });
         console.log("auto_model_phase=semanticflow done");
         syncAutoModeledArtifacts(options.outputDir);

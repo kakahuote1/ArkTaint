@@ -26,6 +26,7 @@ interface SeniorFullManifest {
     includeTopLevelCategories: string[];
     boundaryTopLevelCategories?: string[];
     boundaryLeafDirs?: string[];
+    observationOnlyCaseKeys?: string[];
     explicitEntries?: Record<string, string | { name: string; pathHint?: string }>;
 }
 
@@ -51,6 +52,7 @@ interface SeniorFullCaseResult {
     detectedFlow: boolean;
     pass: boolean;
     boundary: boolean;
+    observationOnly: boolean;
 }
 
 interface PaperClaims {
@@ -269,6 +271,7 @@ async function runSeniorFullSection(
     const results: SeniorFullCaseResult[] = [];
     const boundaryTopLevels = new Set(section.boundaryTopLevelCategories || []);
     const boundaryLeafDirs = new Set((section.boundaryLeafDirs || []).map(item => item.replace(/\\/g, "/")));
+    const observationOnlyCaseKeys = new Set((section.observationOnlyCaseKeys || []).map(item => item.replace(/\\/g, "/")));
     const grouped = new Map<string, string[]>();
     for (const file of files) {
         const normalizedRelative = path.relative(targetDir, file).replace(/\\/g, "/");
@@ -292,6 +295,11 @@ async function runSeniorFullSection(
             const explicitEntry = resolveSeniorFullExplicitEntry(section, normalizedRelative);
             const entry = resolveCaseMethod(scene, relativePath, testName, { explicitEntry });
             const entryMethod = findCaseMethod(scene, entry);
+            const boundary = boundaryTopLevels.has(category) || boundaryLeafDirs.has(leafDir);
+            const observationOnly = observationOnlyCaseKeys.has(normalizedRelative);
+            if (observationOnly && !boundary) {
+                throw new Error(`observation-only ArkTaint bench case must stay on the boundary lane: ${normalizedRelative}`);
+            }
             return {
                 normalizedRelative,
                 category,
@@ -299,7 +307,8 @@ async function runSeniorFullSection(
                 testName,
                 entryMethod,
                 expectedFlow: testName.endsWith("_T") || testName.includes("_T_"),
-                boundary: boundaryTopLevels.has(category) || boundaryLeafDirs.has(leafDir),
+                boundary,
+                observationOnly,
             };
         });
         const allEntryMethods = preparedCases
@@ -340,6 +349,7 @@ async function runSeniorFullSection(
                 detectedFlow,
                 pass: detectedFlow === item.expectedFlow,
                 boundary: item.boundary,
+                observationOnly: item.observationOnly,
             });
 
             progress.reporter.update(
@@ -577,12 +587,15 @@ function renderMarkdown(
     manifest: ArkTaintBenchManifest,
     seniorSummary: BenchSectionSummary,
     seniorBoundarySummary: BenchSectionSummary,
+    seniorObservationSummary: BenchSectionSummary,
     hapSummary: BenchSectionSummary,
     seniorFailures: SeniorFullCaseResult[],
     seniorBoundaryFailures: SeniorFullCaseResult[],
+    seniorObservationMismatches: SeniorFullCaseResult[],
     hapFailures: HapBenchCaseResult[],
 ): string {
     const total = seniorSummary.total + seniorBoundarySummary.total + hapSummary.total;
+    const executedTotal = total + seniorObservationSummary.total;
     const tp = seniorSummary.tp + seniorBoundarySummary.tp + hapSummary.tp;
     const tn = seniorSummary.tn + seniorBoundarySummary.tn + hapSummary.tn;
     const fp = seniorSummary.fp + seniorBoundarySummary.fp + hapSummary.fp;
@@ -595,7 +608,8 @@ function renderMarkdown(
     lines.push("");
     lines.push(`- name: ${manifest.name}`);
     lines.push(`- version: ${manifest.version}`);
-    lines.push(`- total_cases: ${total}`);
+    lines.push(`- scored_cases: ${total}`);
+    lines.push(`- executed_cases: ${executedTotal}`);
     lines.push(`- positives: ${positives}`);
     lines.push(`- negatives: ${negatives}`);
     lines.push(`- tp: ${tp}`);
@@ -617,8 +631,16 @@ function renderMarkdown(
     lines.push(`- senior_full_boundary_fp: ${seniorBoundarySummary.fp}`);
     lines.push(`- senior_full_boundary_fn: ${seniorBoundarySummary.fn}`);
     lines.push("");
+    lines.push("## Observation Lane");
+    lines.push("");
+    lines.push(`- senior_full_observation_cases: ${seniorObservationSummary.total}`);
+    lines.push(`- senior_full_observation_tp: ${seniorObservationSummary.tp}`);
+    lines.push(`- senior_full_observation_tn: ${seniorObservationSummary.tn}`);
+    lines.push(`- senior_full_observation_fp: ${seniorObservationSummary.fp}`);
+    lines.push(`- senior_full_observation_fn: ${seniorObservationSummary.fn}`);
+    lines.push("");
 
-    if (seniorFailures.length > 0 || hapFailures.length > 0 || seniorBoundaryFailures.length > 0) {
+    if (seniorFailures.length > 0 || hapFailures.length > 0 || seniorBoundaryFailures.length > 0 || seniorObservationMismatches.length > 0) {
         lines.push("## Failures");
         lines.push("");
         for (const item of seniorFailures) {
@@ -626,6 +648,9 @@ function renderMarkdown(
         }
         for (const item of seniorBoundaryFailures) {
             lines.push(`- senior_full_boundary :: ${item.caseKey} expected=${item.expectedFlow ? "T" : "F"} detected=${item.detectedFlow ? "T" : "F"}`);
+        }
+        for (const item of seniorObservationMismatches) {
+            lines.push(`- senior_full_observation_only :: ${item.caseKey} expected=${item.expectedFlow ? "T" : "F"} detected=${item.detectedFlow ? "T" : "F"}`);
         }
         for (const item of hapFailures) {
             lines.push(`- hapbench :: ${item.caseKey} expected=${item.expectedFlow ? "T" : "F"} detected=${item.detectedFlow ? "T" : "F"} inventoryFlows=${item.inventoryFlowCount}`);
@@ -672,12 +697,15 @@ async function main(): Promise<void> {
     });
 
     const seniorCoreResults = seniorResults.filter(item => !item.boundary);
-    const seniorBoundaryResults = seniorResults.filter(item => item.boundary);
+    const seniorBoundaryResults = seniorResults.filter(item => item.boundary && !item.observationOnly);
+    const seniorObservationResults = seniorResults.filter(item => item.observationOnly);
     const seniorSummary = summarizeSection("senior_full_core", seniorCoreResults);
     const seniorBoundarySummary = summarizeSection("senior_full_boundary", seniorBoundaryResults);
+    const seniorObservationSummary = summarizeSection("senior_full_observation_only", seniorObservationResults);
     const hapSummary = summarizeSection("hapbench_harmony", hapResults);
     const seniorFailures = seniorCoreResults.filter(item => !item.pass);
     const seniorBoundaryFailures = seniorBoundaryResults.filter(item => !item.pass);
+    const seniorObservationMismatches = seniorObservationResults.filter(item => !item.pass);
     const hapFailures = hapResults.filter(item => !item.pass);
 
     const report = {
@@ -704,6 +732,16 @@ async function main(): Promise<void> {
             fn: seniorBoundarySummary.fn,
             failures: seniorBoundaryFailures,
         },
+        seniorFullObservationOnly: {
+            total: seniorObservationSummary.total,
+            positives: seniorObservationSummary.positives,
+            negatives: seniorObservationSummary.negatives,
+            tp: seniorObservationSummary.tp,
+            tn: seniorObservationSummary.tn,
+            fp: seniorObservationSummary.fp,
+            fn: seniorObservationSummary.fn,
+            mismatches: seniorObservationMismatches,
+        },
         hapBench: {
             total: hapSummary.total,
             positives: hapSummary.positives,
@@ -717,6 +755,7 @@ async function main(): Promise<void> {
         },
         total: {
             cases: seniorSummary.total + seniorBoundarySummary.total + hapSummary.total,
+            executedCases: seniorSummary.total + seniorBoundarySummary.total + seniorObservationSummary.total + hapSummary.total,
             positives: seniorSummary.positives + seniorBoundarySummary.positives + hapSummary.positives,
             negatives: seniorSummary.negatives + seniorBoundarySummary.negatives + hapSummary.negatives,
             tp: seniorSummary.tp + seniorBoundarySummary.tp + hapSummary.tp,
@@ -729,7 +768,17 @@ async function main(): Promise<void> {
     fs.writeFileSync(outputLayout.reportJsonPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
     fs.writeFileSync(
         outputLayout.reportMarkdownPath,
-        `${renderMarkdown(manifest, seniorSummary, seniorBoundarySummary, hapSummary, seniorFailures, seniorBoundaryFailures, hapFailures)}\n`,
+        `${renderMarkdown(
+            manifest,
+            seniorSummary,
+            seniorBoundarySummary,
+            seniorObservationSummary,
+            hapSummary,
+            seniorFailures,
+            seniorBoundaryFailures,
+            seniorObservationMismatches,
+            hapFailures,
+        )}\n`,
         "utf8",
     );
     progressReporter.finish("DONE", "section=all");
@@ -787,7 +836,8 @@ async function main(): Promise<void> {
         ],
         failures,
         notes: [
-            "Boundary lane cases are included in total scoring and intentionally keep current capability limits visible.",
+            "Boundary lane cases remain part of scored coverage.",
+            "Observation-only boundary cases remain executed and reported, but they are excluded from scored pass/fail because path-sensitive negative capability is not contracted in the current mainline.",
         ],
     });
     printTestConsoleSummary(metadata, outputLayout, {
@@ -804,9 +854,12 @@ async function main(): Promise<void> {
             senior_full_core_failures: seniorSummary.fp + seniorSummary.fn,
             senior_full_boundary_cases: seniorBoundarySummary.total,
             senior_full_boundary_failures: seniorBoundarySummary.fp + seniorBoundarySummary.fn,
+            senior_full_observation_cases: seniorObservationSummary.total,
+            senior_full_observation_mismatches: seniorObservationSummary.fp + seniorObservationSummary.fn,
             hapbench_cases: hapSummary.total,
             hapbench_failures: hapSummary.fp + hapSummary.fn,
             total_cases: report.total.cases,
+            executed_cases: report.total.executedCases,
             tp: report.total.tp,
             tn: report.total.tn,
             fp: report.total.fp,

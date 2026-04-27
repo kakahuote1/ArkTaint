@@ -13,6 +13,8 @@ export interface CliOptions {
     llmConfigPath?: string;
     llmProfile?: string;
     llmModel?: string;
+    llmSessionCacheDir?: string;
+    llmSessionCacheMode?: string;
     arkMainMaxCandidates?: number;
     listModules?: boolean;
     listModels?: boolean;
@@ -60,6 +62,8 @@ export function parseArgs(argv: string[]): CliOptions {
     let llmConfigPath: string | undefined;
     let llmProfile: string | undefined;
     let llmModel: string | undefined;
+    let llmSessionCacheDir: string | undefined;
+    let llmSessionCacheMode: string | undefined;
     let arkMainMaxCandidates: number | undefined;
     let listModules = false;
     let listModels = false;
@@ -139,6 +143,18 @@ export function parseArgs(argv: string[]): CliOptions {
         if (llmModelArg !== undefined) {
             llmModel = llmModelArg.trim();
             if (arg === "--model") i++;
+            continue;
+        }
+        const llmSessionCacheDirArg = readValue("--llmSessionCacheDir");
+        if (llmSessionCacheDirArg !== undefined) {
+            llmSessionCacheDir = llmSessionCacheDirArg.trim();
+            if (arg === "--llmSessionCacheDir") i++;
+            continue;
+        }
+        const llmSessionCacheModeArg = readValue("--llmSessionCacheMode");
+        if (llmSessionCacheModeArg !== undefined) {
+            llmSessionCacheMode = llmSessionCacheModeArg.trim();
+            if (arg === "--llmSessionCacheMode") i++;
             continue;
         }
         const arkMainMaxCandidatesArg = readValue("--arkMainMaxCandidates");
@@ -435,6 +451,9 @@ export function parseArgs(argv: string[]): CliOptions {
             ? incrementalCachePath
             : path.resolve(incrementalCachePath);
     }
+    const resolvedLlmSessionCacheDir = llmSessionCacheDir
+        ? (path.isAbsolute(llmSessionCacheDir) ? llmSessionCacheDir : path.resolve(llmSessionCacheDir))
+        : undefined;
     return {
         repo: normalizedRepo,
         sourceDirs,
@@ -445,6 +464,8 @@ export function parseArgs(argv: string[]): CliOptions {
             : undefined,
         llmProfile,
         llmModel,
+        llmSessionCacheDir: resolvedLlmSessionCacheDir,
+        llmSessionCacheMode: llmSessionCacheMode || undefined,
         arkMainMaxCandidates: arkMainMaxCandidates !== undefined ? Math.floor(arkMainMaxCandidates) : undefined,
         listModules,
         listModels,

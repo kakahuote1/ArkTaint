@@ -326,6 +326,7 @@ async function main(): Promise<void> {
     const root = path.resolve("tmp/test_runs/runtime/semanticflow_cli/latest");
     const projectDir = path.join(root, "project");
     const ruleInput = path.join(root, "rule_candidates.json");
+    const llmSessionCacheDir = path.join(root, "llm_session_cache");
     fs.rmSync(root, { recursive: true, force: true });
     fs.mkdirSync(root, { recursive: true });
 
@@ -371,7 +372,14 @@ async function main(): Promise<void> {
             k: 1,
             stopOnFirstFlow: false,
             maxFlowsPerEntry: undefined,
+            llmSessionCacheDir,
+            llmSessionCacheMode: "rw",
         });
+
+        const cacheStats = JSON.parse(fs.readFileSync(path.join(llmSessionCacheDir, "stats.json"), "utf8"));
+        if (typeof cacheStats.llmCacheWriteCount !== "number" || cacheStats.llmCacheWriteCount <= 0) {
+            throw new Error(`expected semanticflow session cache writes, got ${JSON.stringify(cacheStats)}`);
+        }
 
         const summary = JSON.parse(fs.readFileSync(path.join(root, "summary.json"), "utf8"));
         const analysis = JSON.parse(fs.readFileSync(path.join(root, "analysis.json"), "utf8"));

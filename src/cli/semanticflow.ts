@@ -19,6 +19,7 @@ import { runAnalyze } from "./analyzeRunner";
 import type { AnalyzeProfile, CliOptions, ReportMode } from "./analyzeCliOptions";
 import type { SemanticFlowProgressEvent } from "../core/semanticflow/SemanticFlowPipeline";
 import { filterKnownSemanticFlowRuleCandidates } from "./semanticflowKnownRuleCandidates";
+import { normalizeSemanticFlowSessionCacheMode, SemanticFlowSessionCache } from "../core/semanticflow/SemanticFlowSessionCache";
 
 declare const require: any;
 declare const module: any;
@@ -50,6 +51,8 @@ export interface SemanticFlowCliOptions {
     k: number;
     stopOnFirstFlow: boolean;
     maxFlowsPerEntry?: number;
+    llmSessionCacheDir?: string;
+    llmSessionCacheMode?: string;
 }
 
 interface SemanticFlowSessionBundle {
@@ -175,6 +178,8 @@ function parseArgs(argv: string[]): SemanticFlowCliOptions {
     let k = 1;
     let stopOnFirstFlow = false;
     let maxFlowsPerEntry: number | undefined;
+    let llmSessionCacheDir: string | undefined;
+    let llmSessionCacheMode: string | undefined;
 
     for (let i = 0; i < argv.length; i++) {
         const repoArg = readValue(argv, i, "--repo");
@@ -331,6 +336,18 @@ function parseArgs(argv: string[]): SemanticFlowCliOptions {
             if (argv[i] === "--maxFlowsPerEntry") i++;
             continue;
         }
+        const llmSessionCacheDirArg = readValue(argv, i, "--llmSessionCacheDir");
+        if (llmSessionCacheDirArg !== undefined) {
+            llmSessionCacheDir = path.resolve(llmSessionCacheDirArg);
+            if (argv[i] === "--llmSessionCacheDir") i++;
+            continue;
+        }
+        const llmSessionCacheModeArg = readValue(argv, i, "--llmSessionCacheMode");
+        if (llmSessionCacheModeArg !== undefined) {
+            llmSessionCacheMode = llmSessionCacheModeArg.trim();
+            if (argv[i] === "--llmSessionCacheMode") i++;
+            continue;
+        }
         if (argv[i].startsWith("--")) {
             throw new Error(`unknown option: ${argv[i]}`);
         }
@@ -373,6 +390,8 @@ function parseArgs(argv: string[]): SemanticFlowCliOptions {
         k,
         stopOnFirstFlow,
         maxFlowsPerEntry,
+        llmSessionCacheDir,
+        llmSessionCacheMode,
     };
 }
 
@@ -661,6 +680,8 @@ function writeSemanticFlowRunManifest(
         llmConfigPath?: string;
         llmProfile?: string;
         llmModel?: string;
+        llmSessionCacheDir?: string;
+        llmSessionCacheMode?: string;
         bootstrapRuleInputPath: string;
         aggregateSessionPath: string;
         aggregateRulePath: string;
@@ -682,6 +703,8 @@ function writeSemanticFlowRunManifest(
             llmConfigPath: info.llmConfigPath,
             llmProfile: info.llmProfile,
             llmModel: info.llmModel,
+            llmSessionCacheDir: info.llmSessionCacheDir,
+            llmSessionCacheMode: info.llmSessionCacheMode,
         },
         paths: {
             phase1RuleInput: relative(info.bootstrapRuleInputPath),
@@ -724,6 +747,16 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
 
     const loggedInvoker = createLoggedModelInvoker(invoker);
 
+    const sessionCache = options.llmSessionCacheDir
+        ? new SemanticFlowSessionCache({
+            rootDir: options.llmSessionCacheDir,
+            mode: normalizeSemanticFlowSessionCacheMode(
+                options.llmSessionCacheMode ?? "rw",
+                "--llmSessionCacheMode",
+            ),
+        })
+        : undefined;
+
     const arkMainCandidateLimit = resolveArkMainCandidateLimit(options);
     const bootstrapRuleInputPath = options.ruleInput && fs.existsSync(options.ruleInput)
         ? options.ruleInput
@@ -751,6 +784,7 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
             maxRounds: options.maxRounds,
             concurrency: options.concurrency,
             onProgress: emitSemanticFlowProgress,
+            sessionCache,
         });
         console.log(
             `semanticflow_phase=source_dir done source_dir=${sourceDir} items=${result.session.run.items.length} rule_known_covered=${ruleCandidates.skippedKnown} arkmain_candidates=${result.arkMainCandidates.length} arkmain_kernel_covered=${result.skippedArkMainCandidates.length}`,
@@ -804,6 +838,8 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
         llmConfigPath: profile.configPath,
         llmProfile: profile.profileName,
         llmModel: profile.model,
+        llmSessionCacheDir: options.llmSessionCacheDir,
+        llmSessionCacheMode: options.llmSessionCacheMode,
         bootstrapRuleInputPath,
         ...aggregatePaths,
         finalSummaryJsonPath: finalRun?.jsonPath,
