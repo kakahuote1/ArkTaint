@@ -31,7 +31,9 @@
             "id": "transfer.test.putData.arg0_to_base",
             "match": {
                 "kind": "method_name_equals",
-                "value": "putData"
+                "value": "putData",
+                "invokeKind": "instance",
+                "argCount": 1
             },
             "from": "arg0",
             "to": "base"
@@ -40,7 +42,9 @@
             "id": "transfer.test.get.base_to_result",
             "match": {
                 "kind": "method_name_equals",
-                "value": "get"
+                "value": "get",
+                "invokeKind": "instance",
+                "argCount": 0
             },
             "from": "base",
             "to": "result"
@@ -49,7 +53,9 @@
             "id": "transfer.test.putPair.arg1_to_base",
             "match": {
                 "kind": "method_name_equals",
-                "value": "putPair"
+                "value": "putPair",
+                "invokeKind": "instance",
+                "argCount": 2
             },
             "from": "arg1",
             "to": "base"
@@ -58,7 +64,9 @@
             "id": "transfer.test.bind.arg0_to_base",
             "match": {
                 "kind": "method_name_equals",
-                "value": "bind"
+                "value": "bind",
+                "invokeKind": "instance",
+                "argCount": 1
             },
             "from": "arg0",
             "to": "base"
@@ -67,7 +75,9 @@
             "id": "transfer.test.paint.base_to_arg0",
             "match": {
                 "kind": "method_name_equals",
-                "value": "paint"
+                "value": "paint",
+                "invokeKind": "instance",
+                "argCount": 1
             },
             "from": "base",
             "to": "arg0"
@@ -76,7 +86,9 @@
             "id": "transfer.test.blend.arg1_to_result",
             "match": {
                 "kind": "method_name_equals",
-                "value": "blend"
+                "value": "blend",
+                "invokeKind": "static",
+                "argCount": 2
             },
             "from": "arg1",
             "to": "result"
@@ -85,7 +97,9 @@
             "id": "transfer.test.project.result_to_arg0",
             "match": {
                 "kind": "method_name_equals",
-                "value": "project"
+                "value": "project",
+                "invokeKind": "static",
+                "argCount": 1
             },
             "from": "result",
             "to": "arg0"

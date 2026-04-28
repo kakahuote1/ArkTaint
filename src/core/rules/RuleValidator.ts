@@ -394,12 +394,12 @@ function validateTransferRule(rulePath: string, rule: unknown, out: RuleValidati
     if (obj.from === undefined) {
         out.errors.push(`${rulePath}.from is required`);
     } else {
-        validateEndpointOrRef(rulePath, "from", obj.from, out);
+        validateEndpointOrRef(rulePath, "from", obj.from, out, { allowStaticPath: true });
     }
     if (obj.to === undefined) {
         out.errors.push(`${rulePath}.to is required`);
     } else {
-        validateEndpointOrRef(rulePath, "to", obj.to, out);
+        validateEndpointOrRef(rulePath, "to", obj.to, out, { allowStaticPath: true });
     }
 
     return true;

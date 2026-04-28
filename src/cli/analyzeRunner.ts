@@ -265,6 +265,39 @@ function getAnalyzeSourceRules(loadedRules: LoadedRuleSet): SourceRule[] {
     return rules.filter(rule => rule.id !== "source.local_name.primary");
 }
 
+function createSourceDirExceptionResult(
+    sourceDir: string,
+    startedAt: bigint,
+    error: unknown,
+): EntryAnalyzeResult {
+    const stageProfile = emptyEntryStageProfile();
+    stageProfile.totalMs = elapsedMsSince(startedAt);
+    return {
+        sourceDir,
+        entryName: "@arkMain",
+        entryPathHint: sourceDir,
+        score: 100,
+        status: "exception",
+        seedCount: 0,
+        seedLocalNames: [],
+        seedStrategies: [],
+        flowCount: 0,
+        sinkSamples: [],
+        flowRuleTraces: [],
+        ruleHits: emptyRuleHitCounters(),
+        ruleHitEndpoints: emptyRuleHitCounters(),
+        transferProfile: emptyTransferProfile(),
+        detectProfile: emptyDetectProfile(),
+        stageProfile,
+        transferNoHitReasons: ["source_dir_exception"],
+        pagNodeResolutionAudit: emptyPagNodeResolutionAuditSnapshot(),
+        moduleAudit: emptyModuleAuditSnapshot(),
+        enginePluginAudit: emptyEnginePluginAuditSnapshot(),
+        elapsedMs: stageProfile.totalMs,
+        error: String((error as any)?.message || error),
+    };
+}
+
 interface AnalyzeSeedingPolicy {
     enableSecondarySinkSweep: boolean;
 }
@@ -317,7 +350,7 @@ async function analyzeSourceDir(
         });
         engine.verbose = false;
         const buildPagT0 = process.hrtime.bigint();
-        await engine.buildPAG({ entryModel: "arkMain" });
+        await engine.buildPAG({ entryModel: options.entryModel || "arkMain" });
         stageProfile.buildPagMs = elapsedMsSince(buildPagT0);
 
         const reachableMethodSignatures = engine.computeReachableMethodSignatures();
@@ -554,34 +587,42 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     for (const sourceDir of options.sourceDirs) {
         const sourceAbs = path.resolve(options.repo, sourceDir);
         if (!fs.existsSync(sourceAbs)) continue;
+        const sourceStartedAt = process.hrtime.bigint();
         let scene = sourceContextCache.get(sourceAbs)?.scene;
         let arkMainLoad = sourceContextCache.get(sourceAbs)?.arkMainLoad;
         if (!scene || !arkMainLoad) {
-            stageProfile.sceneCacheMissCount++;
-            const sceneBuildT0 = process.hrtime.bigint();
-            const config = new SceneConfig();
-            config.buildFromProjectDir(sourceAbs);
-            injectArkUiSdk(config);
-            scene = new Scene();
-            scene.buildSceneFromProjectDir(config);
-            scene.inferTypes();
-            arkMainLoad = loadArkMainSeeds(scene, {
-                arkMainRoots: options.modelRoots,
-                arkMainSpecFiles: options.arkMainSpecFiles,
-                enabledArkMainProjects: resolvedSelections.enabledArkMainProjects,
-                disabledArkMainProjects: resolvedSelections.disabledArkMainProjects,
-            });
-            for (const warning of arkMainLoad.warnings) {
-                if (arkMainWarningSet.has(warning)) {
-                    continue;
+            try {
+                stageProfile.sceneCacheMissCount++;
+                const sceneBuildT0 = process.hrtime.bigint();
+                const config = new SceneConfig();
+                config.buildFromProjectDir(sourceAbs);
+                injectArkUiSdk(config);
+                scene = new Scene();
+                scene.buildSceneFromProjectDir(config);
+                scene.inferTypes();
+                arkMainLoad = loadArkMainSeeds(scene, {
+                    arkMainRoots: options.modelRoots,
+                    arkMainSpecFiles: options.arkMainSpecFiles,
+                    enabledArkMainProjects: resolvedSelections.enabledArkMainProjects,
+                    disabledArkMainProjects: resolvedSelections.disabledArkMainProjects,
+                });
+                for (const warning of arkMainLoad.warnings) {
+                    if (arkMainWarningSet.has(warning)) {
+                        continue;
+                    }
+                    arkMainWarningSet.add(warning);
+                    if (options.showLoadWarnings !== false) {
+                        console.warn(`arkmain warning: ${warning}`);
+                    }
                 }
-                arkMainWarningSet.add(warning);
-                if (options.showLoadWarnings !== false) {
-                    console.warn(`arkmain warning: ${warning}`);
-                }
+                stageProfile.sceneBuildMs += elapsedMsSince(sceneBuildT0);
+                sourceContextCache.set(sourceAbs, { scene, arkMainLoad });
+            } catch (error) {
+                const order = orderedEntries.length;
+                orderedEntries.push(createSourceDirExceptionResult(sourceDir, sourceStartedAt, error));
+                stageProfile.entryAnalyzeMs += orderedEntries[order]!.stageProfile.totalMs;
+                continue;
             }
-            stageProfile.sceneBuildMs += elapsedMsSince(sceneBuildT0);
-            sourceContextCache.set(sourceAbs, { scene, arkMainLoad });
         } else {
             stageProfile.sceneCacheHitCount++;
         }

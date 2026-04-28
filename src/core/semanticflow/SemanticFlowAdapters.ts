@@ -432,13 +432,7 @@ function shouldInlineOwnerFamily(item: NormalizedCallsiteItem): boolean {
 }
 
 function shouldIncludeMethodSnippet(item: NormalizedCallsiteItem): boolean {
-    const contextSlices = Array.isArray((item as any).contextSlices)
-        ? (item as any).contextSlices as CallsiteContextSlice[]
-        : [];
-    if (contextSlices.length === 0) {
-        return true;
-    }
-    return hasCarrierEvidence(item);
+    return true;
 }
 
 function shouldInlineCarrierEvidence(item: NormalizedCallsiteItem): boolean {

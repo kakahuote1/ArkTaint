@@ -139,11 +139,14 @@ function parseSkillFrontmatter(fm: string): ParsedSkillFrontmatter | { error: st
         i++;
         if (key === "quality_gates") {
             while (i < lines.length && /^\s*-\s+script:/.test(lines[i])) {
-                const m = /^\s*-\s+script:\s*"(.*)"\s*$/.exec(lines[i]);
+                const m = /^\s*-\s+script:\s*(.+?)\s*$/.exec(lines[i]);
                 if (!m) {
                     return { error: `malformed quality_gates script line: ${lines[i]}` };
                 }
-                const script = m[1];
+                const script = unquoteScalar(m[1]);
+                if (!script) {
+                    return { error: `empty quality_gates script line: ${lines[i]}` };
+                }
                 let j = i + 1;
                 if (j < lines.length && /^\s{4}why:\s*"/.test(lines[j])) {
                     j++;
@@ -226,7 +229,7 @@ function renderMarkdown(report: ValidationReport): string {
     if (report.issues.length === 0) {
         lines.push("## Result");
         lines.push("");
-        lines.push("- ✅ ok");
+        lines.push("- ok");
         lines.push("");
         return lines.join("\n");
     }
@@ -266,15 +269,40 @@ export function validateSkills(registryPath: string, repoRoot: string): Validati
         };
     }
 
-    let registry: SkillRegistry;
+    let rawRegistry: unknown;
     try {
-        registry = readJson<SkillRegistry>(registryAbs);
+        rawRegistry = readJson<unknown>(registryAbs);
     } catch {
         return {
             generatedAt,
             registryPath,
             skillsCount: 0,
             issues: [{ severity: "error", message: `failed to parse registry json: ${registryPath}` }],
+        };
+    }
+    if (!rawRegistry || typeof rawRegistry !== "object" || Array.isArray(rawRegistry)) {
+        return {
+            generatedAt,
+            registryPath,
+            skillsCount: 0,
+            issues: [{ severity: "error", message: `registry root must be an object: ${registryPath}` }],
+        };
+    }
+    const registry = rawRegistry as Partial<SkillRegistry>;
+    if (typeof registry.schemaVersion !== "number") {
+        return {
+            generatedAt,
+            registryPath,
+            skillsCount: 0,
+            issues: [{ severity: "error", message: `registry schemaVersion must be a number: ${registryPath}` }],
+        };
+    }
+    if (!Array.isArray(registry.skills)) {
+        return {
+            generatedAt,
+            registryPath,
+            skillsCount: 0,
+            issues: [{ severity: "error", message: `registry skills must be an array: ${registryPath}` }],
         };
     }
 
@@ -286,8 +314,13 @@ export function validateSkills(registryPath: string, repoRoot: string): Validati
     const seenIds = new Set<string>();
     const seenPaths = new Map<string, string>();
 
-    for (const skill of registry.skills ?? []) {
-        if (!skill.id) {
+    for (const rawSkill of registry.skills) {
+        if (!rawSkill || typeof rawSkill !== "object" || Array.isArray(rawSkill)) {
+            issues.push({ severity: "error", message: "registry skill entry must be an object" });
+            continue;
+        }
+        const skill = rawSkill as Partial<SkillRegistryEntry>;
+        if (typeof skill.id !== "string" || !skill.id.trim()) {
             issues.push({ severity: "error", message: "skill missing id" });
             continue;
         }
@@ -296,7 +329,7 @@ export function validateSkills(registryPath: string, repoRoot: string): Validati
         }
         seenIds.add(skill.id);
 
-        if (!skill.path) {
+        if (typeof skill.path !== "string" || !skill.path.trim()) {
             issues.push({ skillId: skill.id, severity: "error", message: "skill missing path" });
             continue;
         }
@@ -385,9 +418,9 @@ export function validateSkills(registryPath: string, repoRoot: string): Validati
             issues.push({ skillId: skill.id, severity: "error", message: "frontmatter references must be a non-empty array" });
         }
 
-        const regOwners = skill.owners ?? [];
-        const regTriggers = skill.triggers ?? [];
-        const regGates = skill.qualityGates ?? [];
+        const regOwners = Array.isArray(skill.owners) ? skill.owners : [];
+        const regTriggers = Array.isArray(skill.triggers) ? skill.triggers : [];
+        const regGates = Array.isArray(skill.qualityGates) ? skill.qualityGates : [];
 
         if (!multisetEqual(regOwners, parsed.owners)) {
             issues.push({
@@ -436,7 +469,7 @@ export function validateSkills(registryPath: string, repoRoot: string): Validati
     return {
         generatedAt,
         registryPath,
-        skillsCount: (registry.skills ?? []).length,
+        skillsCount: registry.skills.length,
         issues,
     };
 }

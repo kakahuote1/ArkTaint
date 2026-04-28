@@ -156,6 +156,60 @@ function createBuiltinMatchers(): KnownMatcher[] {
         },
     });
 
+    const promiseMethods = new Set(["then", "catch", "finally"]);
+    matchers.push({
+        id: "builtin:tsjs.promise",
+        matches(view) {
+            if (!promiseMethods.has(view.methodLower)) return false;
+            return containsAny(view.signatureLower, ["promise", "@%unk/%unk"])
+                || containsAny(view.ownerLower, ["promise"]);
+        },
+    });
+
+    const loggingMethods = new Set(["log", "info", "warn", "error", "debug", "trace"]);
+    matchers.push({
+        id: "builtin:logging",
+        matches(view) {
+            if (!loggingMethods.has(view.methodLower)) return false;
+            return containsAny(view.signatureLower, ["console", "hilog", "logger", "logutil", "@%unk/%unk"])
+                || containsAny(view.ownerLower, ["console", "hilog", "logger", "logutil"]);
+        },
+    });
+
+    const numericMethods = new Set(["min", "max", "abs", "round", "floor", "ceil", "trunc", "random"]);
+    matchers.push({
+        id: "builtin:tsjs.math",
+        matches(view) {
+            if (!numericMethods.has(view.methodLower)) return false;
+            return matchesDeclaringClass(view, "Math") || containsAny(view.signatureLower, ["@%unk/%unk"]);
+        },
+    });
+
+    const uiUtilityMethods = new Set([
+        "px2vp",
+        "vp2px",
+        "fp2px",
+        "px2fp",
+        "lpx2px",
+        "px2lpx",
+        "getwindowproperties",
+        "setpreferredorientation",
+        "getmainwindow",
+        "getmainwindowsync",
+        "loadcontent",
+        "setdefaultorientation",
+    ]);
+    matchers.push({
+        id: "builtin:harmony.ui_utility",
+        matches(view) {
+            const utilityName = uiUtilityMethods.has(view.methodLower)
+                || (view.methodLower === "init" && containsAny(view.signatureLower, ["screenadapter", "windowstage", "window.stage"]));
+            if (!utilityName) return false;
+            return containsAny(view.signatureLower, ["window", "display", "orientation", "ability", "screenadapter", "@%unk/%unk"])
+                || containsAny(view.ownerLower, ["window", "display", "orientation", "ability", "screenadapter"]);
+        },
+    });
+
     const arrayMethods = new Set(["push", "pop", "shift", "unshift", "at", "concat", "splice", "slice", "map", "filter", "reduce", "foreach", "values", "entries", "keys"]);
     const mapMethods = new Set(["set", "get", "has", "entries", "values", "keys", "foreach"]);
     const setMethods = new Set(["add", "has", "entries", "values", "keys", "foreach"]);

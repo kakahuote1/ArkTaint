@@ -207,10 +207,19 @@ function extractMethodSnippetFromFile(absPath: string, methodName: string): stri
     if (!lines || !normalizedMethod) {
         return undefined;
     }
-    const signaturePattern = new RegExp(`\\b${escapeRegExp(normalizedMethod)}\\s*\\(`);
+    const methodPattern = new RegExp(
+        `^\\s*(?:public\\s+|private\\s+|protected\\s+)?(?:static\\s+)?(?:async\\s+)?${escapeRegExp(normalizedMethod)}\\s*\\(`,
+    );
+    const functionPattern = new RegExp(
+        `^\\s*(?:export\\s+)?(?:async\\s+)?function\\s+${escapeRegExp(normalizedMethod)}\\s*\\(`,
+    );
+    const propertyPattern = new RegExp(
+        `^\\s*(?:public\\s+|private\\s+|protected\\s+)?(?:static\\s+)?(?:readonly\\s+)?${escapeRegExp(normalizedMethod)}\\s*=\\s*(?:async\\s*)?\\(`,
+    );
     let startIndex = -1;
     for (let i = 0; i < lines.length; i++) {
-        if (signaturePattern.test(lines[i])) {
+        const line = lines[i];
+        if (methodPattern.test(line) || functionPattern.test(line) || propertyPattern.test(line)) {
             startIndex = i;
             break;
         }
@@ -240,7 +249,7 @@ function extractMethodSnippetFromFile(absPath: string, methodName: string): stri
 }
 
 function findClassBlock(lines: string[], ownerClassName: string): { startIndex: number; endIndex: number } | undefined {
-    const classPattern = new RegExp(`\\bclass\\s+${escapeRegExp(ownerClassName)}\\b`);
+    const classPattern = new RegExp(`\\b(?:class|struct)\\s+${escapeRegExp(ownerClassName)}\\b`);
     for (let i = 0; i < lines.length; i++) {
         if (!classPattern.test(lines[i])) {
             continue;
@@ -274,12 +283,14 @@ function isTopLevelMethodLine(line: string): boolean {
     if (!/\(/.test(trimmed)) {
         return false;
     }
-    return /\b(?:public|private|protected)?\s*(?:static\s+)?[A-Za-z_$][\w$]*\s*\(/.test(trimmed);
+    return /\b(?:public|private|protected)?\s*(?:static\s+)?(?:async\s+)?[A-Za-z_$][\w$]*\s*\(/.test(trimmed)
+        || /\b(?:public|private|protected)?\s*(?:static\s+)?(?:readonly\s+)?[A-Za-z_$][\w$]*\s*=\s*(?:async\s*)?\(/.test(trimmed);
 }
 
 function extractMethodNameFromDefinition(line: string): string | undefined {
     const trimmed = line.trim();
-    const match = trimmed.match(/^(?:public|private|protected)?\s*(?:static\s+)?([A-Za-z_$][\w$]*)\s*\(/);
+    const match = trimmed.match(/^(?:public|private|protected)?\s*(?:static\s+)?(?:async\s+)?([A-Za-z_$][\w$]*)\s*\(/)
+        || trimmed.match(/^(?:public|private|protected)?\s*(?:static\s+)?(?:readonly\s+)?([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?\(/);
     return match?.[1];
 }
 
@@ -707,6 +718,9 @@ export function enrichNoCandidateItemsWithCallsiteSlices(options: EnrichCallsite
         return {
             ...item,
             contextSlices: slices,
+            ...(methodSnippet ? { methodSnippet } : {}),
+            ...(ownerSnippet ? { ownerSnippet } : {}),
+            ...(ownerMethodSnippets.length > 0 ? { ownerMethodSnippets } : {}),
             ...(carrierContext ? {
                 methodSnippet: methodSnippet || item.methodSnippet,
                 carrierRoots: carrierContext.roots,

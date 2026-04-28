@@ -1,9 +1,11 @@
 import * as fs from "fs";
 import * as path from "path";
 import { RuleLoaderOptions } from "../core/rules/RuleLoader";
+import { discoverArkTsSourceDirs, normalizeSourceDirsForCli } from "./sourceDiscovery";
 
 export type AnalyzeProfile = "default" | "strict" | "fast";
 export type ReportMode = "light" | "full";
+export type AnalyzeEntryModel = "arkMain" | "explicit";
 
 export interface CliOptions {
     repo: string;
@@ -15,6 +17,12 @@ export interface CliOptions {
     llmModel?: string;
     llmSessionCacheDir?: string;
     llmSessionCacheMode?: string;
+    llmTimeoutMs?: number;
+    llmConnectTimeoutMs?: number;
+    llmMaxAttempts?: number;
+    llmMaxFailures?: number;
+    llmRepairAttempts?: number;
+    maxLlmItems?: number;
     arkMainMaxCandidates?: number;
     listModules?: boolean;
     listModels?: boolean;
@@ -35,6 +43,7 @@ export interface CliOptions {
     pluginDryRun?: boolean;
     pluginAudit?: boolean;
     profile: AnalyzeProfile;
+    entryModel?: AnalyzeEntryModel;
     k: number;
     maxEntries: number;
     reportMode: ReportMode;
@@ -64,6 +73,12 @@ export function parseArgs(argv: string[]): CliOptions {
     let llmModel: string | undefined;
     let llmSessionCacheDir: string | undefined;
     let llmSessionCacheMode: string | undefined;
+    let llmTimeoutMs: number | undefined;
+    let llmConnectTimeoutMs: number | undefined;
+    let llmMaxAttempts: number | undefined;
+    let llmMaxFailures: number | undefined;
+    let llmRepairAttempts: number | undefined;
+    let maxLlmItems: number | undefined;
     let arkMainMaxCandidates: number | undefined;
     let listModules = false;
     let listModels = false;
@@ -84,6 +99,7 @@ export function parseArgs(argv: string[]): CliOptions {
     let pluginDryRun = false;
     let pluginAudit = false;
     let profile: AnalyzeProfile = "default";
+    let entryModel: AnalyzeEntryModel = "arkMain";
     let reportMode: ReportMode = "light";
     let kRaw: number | undefined;
     let maxEntriesRaw: number | undefined;
@@ -155,6 +171,42 @@ export function parseArgs(argv: string[]): CliOptions {
         if (llmSessionCacheModeArg !== undefined) {
             llmSessionCacheMode = llmSessionCacheModeArg.trim();
             if (arg === "--llmSessionCacheMode") i++;
+            continue;
+        }
+        const llmTimeoutArg = readValue("--llmTimeoutMs");
+        if (llmTimeoutArg !== undefined) {
+            llmTimeoutMs = Number(llmTimeoutArg);
+            if (arg === "--llmTimeoutMs") i++;
+            continue;
+        }
+        const llmConnectTimeoutArg = readValue("--llmConnectTimeoutMs");
+        if (llmConnectTimeoutArg !== undefined) {
+            llmConnectTimeoutMs = Number(llmConnectTimeoutArg);
+            if (arg === "--llmConnectTimeoutMs") i++;
+            continue;
+        }
+        const llmMaxAttemptsArg = readValue("--llmMaxAttempts");
+        if (llmMaxAttemptsArg !== undefined) {
+            llmMaxAttempts = Number(llmMaxAttemptsArg);
+            if (arg === "--llmMaxAttempts") i++;
+            continue;
+        }
+        const llmMaxFailuresArg = readValue("--llmMaxFailures");
+        if (llmMaxFailuresArg !== undefined) {
+            llmMaxFailures = Number(llmMaxFailuresArg);
+            if (arg === "--llmMaxFailures") i++;
+            continue;
+        }
+        const llmRepairAttemptsArg = readValue("--llmRepairAttempts");
+        if (llmRepairAttemptsArg !== undefined) {
+            llmRepairAttempts = Number(llmRepairAttemptsArg);
+            if (arg === "--llmRepairAttempts") i++;
+            continue;
+        }
+        const maxLlmItemsArg = readValue("--maxLlmItems");
+        if (maxLlmItemsArg !== undefined) {
+            maxLlmItems = Number(maxLlmItemsArg);
+            if (arg === "--maxLlmItems") i++;
             continue;
         }
         const arkMainMaxCandidatesArg = readValue("--arkMainMaxCandidates");
@@ -271,6 +323,16 @@ export function parseArgs(argv: string[]): CliOptions {
             if (arg === "--profile") i++;
             continue;
         }
+        const entryModelArg = readValue("--entryModel");
+        if (entryModelArg !== undefined) {
+            if (entryModelArg === "arkMain" || entryModelArg === "explicit") {
+                entryModel = entryModelArg;
+            } else {
+                throw new Error(`invalid --entryModel: ${entryModelArg}`);
+            }
+            if (arg === "--entryModel") i++;
+            continue;
+        }
         const reportModeArg = readValue("--reportMode") ?? readValue("--report");
         if (reportModeArg !== undefined) {
             if (reportModeArg === "light" || reportModeArg === "full") {
@@ -384,11 +446,10 @@ export function parseArgs(argv: string[]): CliOptions {
     if (!fs.existsSync(normalizedRepo)) throw new Error(`repo path not found: ${normalizedRepo}`);
 
     if (sourceDirs.length === 0) {
-        const auto = ["entry/src/main/ets", "src/main/ets", "."];
-        sourceDirs = auto.filter(rel => fs.existsSync(path.resolve(normalizedRepo, rel)));
+        sourceDirs = discoverArkTsSourceDirs(normalizedRepo);
     }
     if (sourceDirs.length === 0) throw new Error("no sourceDir found. pass --sourceDir");
-    sourceDirs = [...new Set(sourceDirs.map(d => d.replace(/\\/g, "/")))];
+    sourceDirs = normalizeSourceDirsForCli(sourceDirs);
     modelRoots = [...new Set(modelRoots.map(d => path.isAbsolute(d) ? d : path.resolve(d)))];
     moduleSpecFiles = [...new Set(moduleSpecFiles.map(d => path.isAbsolute(d) ? d : path.resolve(d)))];
     disabledModuleIds = [...new Set(disabledModuleIds.map(id => id.trim()).filter(Boolean))];
@@ -425,6 +486,24 @@ export function parseArgs(argv: string[]): CliOptions {
         && (!Number.isFinite(arkMainMaxCandidates) || arkMainMaxCandidates <= 0)
     ) {
         throw new Error(`invalid --arkMainMaxCandidates: ${arkMainMaxCandidates}`);
+    }
+    if (llmTimeoutMs !== undefined && (!Number.isFinite(llmTimeoutMs) || llmTimeoutMs <= 0)) {
+        throw new Error(`invalid --llmTimeoutMs: ${llmTimeoutMs}`);
+    }
+    if (llmConnectTimeoutMs !== undefined && (!Number.isFinite(llmConnectTimeoutMs) || llmConnectTimeoutMs <= 0)) {
+        throw new Error(`invalid --llmConnectTimeoutMs: ${llmConnectTimeoutMs}`);
+    }
+    if (llmMaxAttempts !== undefined && (!Number.isFinite(llmMaxAttempts) || llmMaxAttempts <= 0)) {
+        throw new Error(`invalid --llmMaxAttempts: ${llmMaxAttempts}`);
+    }
+    if (llmMaxFailures !== undefined && (!Number.isFinite(llmMaxFailures) || llmMaxFailures <= 0)) {
+        throw new Error(`invalid --llmMaxFailures: ${llmMaxFailures}`);
+    }
+    if (llmRepairAttempts !== undefined && (!Number.isFinite(llmRepairAttempts) || llmRepairAttempts < 0)) {
+        throw new Error(`invalid --llmRepairAttempts: ${llmRepairAttempts}`);
+    }
+    if (maxLlmItems !== undefined && (!Number.isFinite(maxLlmItems) || maxLlmItems <= 0)) {
+        throw new Error(`invalid --maxLlmItems: ${maxLlmItems}`);
     }
 
     if (!outputDir) {
@@ -466,6 +545,12 @@ export function parseArgs(argv: string[]): CliOptions {
         llmModel,
         llmSessionCacheDir: resolvedLlmSessionCacheDir,
         llmSessionCacheMode: llmSessionCacheMode || undefined,
+        llmTimeoutMs: llmTimeoutMs !== undefined ? Math.floor(llmTimeoutMs) : undefined,
+        llmConnectTimeoutMs: llmConnectTimeoutMs !== undefined ? Math.floor(llmConnectTimeoutMs) : undefined,
+        llmMaxAttempts: llmMaxAttempts !== undefined ? Math.floor(llmMaxAttempts) : undefined,
+        llmMaxFailures: llmMaxFailures !== undefined ? Math.floor(llmMaxFailures) : undefined,
+        llmRepairAttempts: llmRepairAttempts !== undefined ? Math.floor(llmRepairAttempts) : undefined,
+        maxLlmItems: maxLlmItems !== undefined ? Math.floor(maxLlmItems) : undefined,
         arkMainMaxCandidates: arkMainMaxCandidates !== undefined ? Math.floor(arkMainMaxCandidates) : undefined,
         listModules,
         listModels,
@@ -486,6 +571,7 @@ export function parseArgs(argv: string[]): CliOptions {
         pluginDryRun,
         pluginAudit,
         profile,
+        entryModel,
         reportMode,
         k,
         maxEntries: Math.floor(maxEntries),

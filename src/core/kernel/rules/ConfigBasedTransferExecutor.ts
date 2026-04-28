@@ -993,6 +993,7 @@ export class ConfigBasedTransferExecutor {
         const n = normalizeEndpoint(rule.from);
         return {
             endpoint: n.endpoint,
+            path: n.path,
             pathFrom: n.pathFrom,
             slotKind: n.slotKind,
         };
@@ -1002,6 +1003,7 @@ export class ConfigBasedTransferExecutor {
         const n = normalizeEndpoint(rule.to);
         return {
             endpoint: n.endpoint,
+            path: n.path,
             pathFrom: n.pathFrom,
             slotKind: n.slotKind,
         };
@@ -1018,6 +1020,16 @@ export class ConfigBasedTransferExecutor {
         if (endpointValues.length === 0) return false;
 
         const resolvedPath = this.resolveDescriptorFieldPath(descriptor, site);
+        if (descriptor.path && descriptor.path.length > 0) {
+            for (const endpointValue of endpointValues) {
+                const carrierIds = this.resolveCarrierNodeIdsFromValue(endpointValue, pag);
+                for (const carrierId of carrierIds) {
+                    if (carrierId === fact.node.getID() && this.samePath(fact.field, descriptor.path)) return true;
+                    if (tracker?.isTaintedAnyContext(carrierId, descriptor.path)) return true;
+                }
+            }
+            return false;
+        }
         if (descriptor.pathFrom) {
             if (!resolvedPath) return false;
             for (const endpointValue of endpointValues) {
@@ -1071,6 +1083,16 @@ export class ConfigBasedTransferExecutor {
         };
 
         const resolvedPath = this.resolveDescriptorFieldPath(descriptor, site);
+        if (descriptor.path && descriptor.path.length > 0) {
+            for (const endpointValue of endpointValues) {
+                const carrierIds = this.resolveCarrierNodeIdsFromValue(endpointValue, pag);
+                for (const carrierId of carrierIds) {
+                    const carrierNode = pag.getNode(carrierId) as PagNode;
+                    addFact(new TaintFact(carrierNode, source, contextID, [...descriptor.path]));
+                }
+            }
+            return out;
+        }
         if (descriptor.pathFrom) {
             if (!resolvedPath) return out;
             for (const endpointValue of endpointValues) {

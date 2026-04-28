@@ -42,7 +42,7 @@ interface NoCandidateCallsiteStat {
     topEntries: string[];
 }
 
-type NoCandidateCategory = "C1_UI_NOISE" | "C2_PROJECT_WRAPPER" | "C3_FRAMEWORK_GAP";
+type NoCandidateCategory = "C0_NON_TRANSFER_HELPER" | "C1_UI_NOISE" | "C2_PROJECT_WRAPPER" | "C3_FRAMEWORK_GAP";
 
 interface ClassifiedNoCandidateCallsite extends NoCandidateCallsiteStat {
     category: NoCandidateCategory;
@@ -202,6 +202,7 @@ export function writeNoCandidateCallsiteClassificationArtifacts(
         acc[item.category] = (acc[item.category] || 0) + 1;
         return acc;
     }, {
+        C0_NON_TRANSFER_HELPER: 0,
         C1_UI_NOISE: 0,
         C2_PROJECT_WRAPPER: 0,
         C3_FRAMEWORK_GAP: 0,
@@ -559,6 +560,33 @@ function classifyNoCandidateCallsite(
     const methodLower = site.method.toLowerCase();
     const sourceLower = site.sourceFile.toLowerCase();
 
+    if (isNonTransferProjectHelper(site, sigLower, methodLower)) {
+        return {
+            ...site,
+            category: "C0_NON_TRANSFER_HELPER",
+            reason: "Callsite is a project helper without argument-to-result transfer semantics and is excluded from LLM modeling.",
+            evidence: [
+                `method=${site.method}`,
+                `invokeKind=${site.invokeKind}`,
+                `argCount=${site.argCount}`,
+                `sourceFile=${site.sourceFile}`,
+            ],
+        };
+    }
+
+    if (isArkUiAttributeNoise(site, sigLower, methodLower)) {
+        return {
+            ...site,
+            category: "C1_UI_NOISE",
+            reason: "Callsite is an ArkUI attribute/builder helper and is excluded from LLM modeling.",
+            evidence: [
+                `method=${site.method}`,
+                `signature=${site.callee_signature}`,
+                `sourceFile=${site.sourceFile}`,
+            ],
+        };
+    }
+
     const uiNoiseMethods = new Set([
         "observecomponentcreation2",
         "ifelsebranchupdatefunction",
@@ -625,6 +653,85 @@ function classifyNoCandidateCallsite(
             `sourceFile=${site.sourceFile}`,
         ],
     };
+}
+
+function isNonTransferProjectHelper(
+    site: NoCandidateCallsiteStat,
+    sigLower: string,
+    methodLower: string,
+): boolean {
+    if (methodLower === "constructor" || methodLower.includes("instinit") || methodLower.startsWith("%")) {
+        return true;
+    }
+    if (isPageOrComponentGetter(site, sigLower, methodLower)) {
+        return true;
+    }
+    if (site.invokeKind !== "static" || site.argCount !== 0) {
+        return false;
+    }
+    const singletonAccessors = new Set([
+        "shared",
+        "getcontext",
+        "getinstance",
+        "sharedinstance",
+        "getsharedinstance",
+    ]);
+    if (!singletonAccessors.has(methodLower)) {
+        return false;
+    }
+    return sigLower.includes(".[static]") || sigLower.includes("[static]");
+}
+
+function isPageOrComponentGetter(
+    site: NoCandidateCallsiteStat,
+    sigLower: string,
+    methodLower: string,
+): boolean {
+    const uiHelperMethods = new Set([
+        "collecticon",
+        "getpage",
+        "getrightitems",
+        "routesaction",
+        "shareaction",
+        "tabbaritem",
+    ]);
+    if (uiHelperMethods.has(methodLower) && site.argCount <= 1) {
+        return true;
+    }
+    if (site.argCount !== 0) {
+        return false;
+    }
+    if (!/\/(pages|page|components|component|view)\//.test(sigLower)) {
+        return false;
+    }
+    if (/^(get|is|has)[a-z0-9_$]*/.test(methodLower)) {
+        return true;
+    }
+    return false;
+}
+
+function isArkUiAttributeNoise(
+    site: NoCandidateCallsiteStat,
+    sigLower: string,
+    methodLower: string,
+): boolean {
+    if (!sigLower.includes("arkui-builtin") && !sigLower.includes("commonattribute")) {
+        return false;
+    }
+    const uiAttributeMethods = new Set([
+        "title",
+        "height",
+        "width",
+        "fontcolor",
+        "fontsize",
+        "backgroundcolor",
+        "margin",
+        "padding",
+        "align",
+        "layoutweight",
+        "visibility",
+    ]);
+    return uiAttributeMethods.has(methodLower) || site.sourceFile.toLowerCase().includes("arkui-builtin");
 }
 
 function renderNoCandidateCallsitesClassifiedMarkdown(

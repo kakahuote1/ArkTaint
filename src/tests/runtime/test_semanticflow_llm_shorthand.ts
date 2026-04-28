@@ -30,6 +30,11 @@ async function main(): Promise<void> {
     assert(decision.summary.transfers[0].relation === undefined, "direct shorthand should not force relation");
     assert(decision.summary.transfers[0].from.slot === "arg" && decision.summary.transfers[0].from.index === 0, "expected arg0 source");
     assert(decision.summary.transfers[0].to.slot === "result", "expected ret target");
+    const proseWrapped = parseSemanticFlowDecision(`模型判断如下：
+{"status":"done","classification":"rule","resolution":"resolved","summary":{"inputs":["arg0"],"outputs":["ret"],"transfers":["arg0 -> ret"],"confidence":"high","ruleKind":"transfer"},"rationale":["valid json embedded in prose"]}
+以上为结果。`);
+    assert(proseWrapped.status === "done", "expected prose-wrapped JSON to parse");
+    assert(proseWrapped.summary.transfers.length === 1, "expected prose-wrapped transfer");
 
     const invalidPayloads = [
         {
@@ -87,6 +92,18 @@ async function main(): Promise<void> {
                 inputs: ["arg0"],
                 outputs: ["ret"],
                 transfers: ["companion:set.arg1 -> ret"],
+                confidence: "high",
+                ruleKind: "transfer",
+            },
+        },
+        {
+            status: "done",
+            classification: "rule",
+            resolution: "resolved",
+            summary: {
+                inputs: [],
+                outputs: ["ret"],
+                transfers: [".arg0 -> ret"],
                 confidence: "high",
                 ruleKind: "transfer",
             },

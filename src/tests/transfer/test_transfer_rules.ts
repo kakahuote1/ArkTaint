@@ -1,11 +1,7 @@
 ﻿import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
-import { ArkAssignStmt } from "../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkParameterRef } from "../../../arkanalyzer/out/src/core/base/Ref";
-import { Local } from "../../../arkanalyzer/out/src/core/base/Local";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
-import { loadRuleSet } from "../../core/rules/RuleLoader";
-import { TransferRule } from "../../core/rules/RuleSchema";
+import { SinkRule, SourceRule, TaintRuleSet, TransferRule } from "../../core/rules/RuleSchema";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -76,73 +72,31 @@ function listTestCases(sourceDir: string): string[] {
     return files;
 }
 
-function findCaseMethod(scene: Scene, caseMethodName: string): any {
+function flowSinkInCaseMethod(scene: Scene, sinkStmt: any, caseMethodName: string): boolean {
     const method = scene.getMethods().find(m => m.getName() === caseMethodName);
-    if (!method) {
-        throw new Error(`Case method not found: ${caseMethodName}`);
-    }
-    return method;
-}
-
-function collectParameterSeedLocals(entryMethod: any): Local[] {
-    const out: Local[] = [];
-    const cfg = entryMethod.getCfg();
-    if (!cfg) return out;
-
-    for (const stmt of cfg.getStmts()) {
-        if (!(stmt instanceof ArkAssignStmt)) continue;
-        if (!(stmt.getRightOp() instanceof ArkParameterRef)) continue;
-        const leftOp = stmt.getLeftOp();
-        if (leftOp instanceof Local) out.push(leftOp);
-    }
-    return out;
-}
-
-function collectSeedNodes(engine: TaintPropagationEngine, entryMethod: any): any[] {
-    const seedNodes: any[] = [];
-    const seenNodeIds = new Set<number>();
-    const seedLocals = collectParameterSeedLocals(entryMethod);
-
-    for (const local of seedLocals) {
-        if (local.getName() !== "taint_src") continue;
-        let nodes = engine.pag.getNodesByValue(local);
-        if ((!nodes || nodes.size === 0) && local instanceof Local) {
-            try {
-                engine.pag.getOrNewNode(0, local, local.getDeclaringStmt?.() || undefined);
-                nodes = engine.pag.getNodesByValue(local);
-            } catch {
-                nodes = undefined;
-            }
-        }
-        if (!nodes) continue;
-        for (const nodeId of nodes.values()) {
-            if (seenNodeIds.has(nodeId)) continue;
-            seenNodeIds.add(nodeId);
-            seedNodes.push(engine.pag.getNode(nodeId));
-        }
-    }
-    return seedNodes;
+    if (!method) return false;
+    const cfg = method.getCfg();
+    if (!cfg) return false;
+    return cfg.getStmts().includes(sinkStmt);
 }
 
 async function detectFlowForCase(
     scene: Scene,
     caseName: string,
     k: number,
+    sourceRules: SourceRule[],
+    sinkRules: SinkRule[],
     transferRules: TransferRule[]
 ): Promise<boolean> {
     const engine = new TaintPropagationEngine(scene, k, { transferRules });
     engine.verbose = false;
     await engine.buildPAG();
+    engine.setActiveReachableMethodSignatures(undefined, { mergeExplicitEntryScope: false });
 
-    const entryMethod = findCaseMethod(scene, caseName);
-    const seeds = collectSeedNodes(engine, entryMethod);
-    if (seeds.length === 0) {
-        return false;
-    }
-
-    engine.propagateWithSeeds(seeds);
-    const flows = engine.detectSinks("Sink");
-    return flows.length > 0;
+    const seedInfo = engine.propagateWithSourceRules(sourceRules);
+    if (seedInfo.seedCount === 0) return false;
+    const flows = engine.detectSinksByRules(sinkRules);
+    return flows.some(flow => flowSinkInCaseMethod(scene, flow.sink, caseName));
 }
 
 async function main(): Promise<void> {
@@ -154,11 +108,12 @@ async function main(): Promise<void> {
         throw new Error(`Project rule file not found: ${options.projectRulePath}`);
     }
 
-    const loadedRules = loadRuleSet({
-        projectRulePath: options.projectRulePath,
-        allowMissingProject: false,
-    });
-    const transferRules = loadedRules.ruleSet.transfers || [];
+    const loadedRules = JSON.parse(fs.readFileSync(options.projectRulePath, "utf-8")) as TaintRuleSet;
+    const sourceRules = loadedRules.sources || [];
+    const sinkRules = loadedRules.sinks || [];
+    const transferRules = loadedRules.transfers || [];
+    console.log(`source_rules_loaded=${sourceRules.length}`);
+    console.log(`sink_rules_loaded=${sinkRules.length}`);
     console.log(`transfer_rules_loaded=${transferRules.length}`);
 
     const sceneConfig = new SceneConfig();
@@ -178,8 +133,8 @@ async function main(): Promise<void> {
 
     for (const caseName of cases) {
         const expected = caseName.endsWith("_T");
-        const detectedWithRules = await detectFlowForCase(scene, caseName, options.k, transferRules);
-        const detectedWithoutRules = await detectFlowForCase(scene, caseName, options.k, []);
+        const detectedWithRules = await detectFlowForCase(scene, caseName, options.k, sourceRules, sinkRules, transferRules);
+        const detectedWithoutRules = await detectFlowForCase(scene, caseName, options.k, sourceRules, sinkRules, []);
 
         let pass = false;
         let note = "";

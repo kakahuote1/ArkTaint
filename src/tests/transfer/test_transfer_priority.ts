@@ -97,6 +97,7 @@ async function runCase(
     const engine = new TaintPropagationEngine(scene, k, { transferRules });
     engine.verbose = false;
     await engine.buildPAG();
+    engine.setActiveReachableMethodSignatures(undefined, { mergeExplicitEntryScope: false });
     const seedInfo = engine.propagateWithSourceRules(sourceRules);
     const flows = engine.detectSinksByRules(sinkRules);
     const scopedFlows = flows.filter(flow => flowSinkInCaseMethod(scene, flow.sink, caseName));

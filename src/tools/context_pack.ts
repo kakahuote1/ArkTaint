@@ -90,9 +90,9 @@ export function parseContextPackArgs(argv: string[]): ContextPackCliOptions {
         } else if (arg.startsWith("--out=")) {
             options.outPath = arg.slice("--out=".length);
         } else if (arg === "--max-chars" && argv[i + 1]) {
-            options.maxChars = Number(argv[++i]);
+            options.maxChars = parsePositiveIntegerOption(argv[++i], "--max-chars");
         } else if (arg.startsWith("--max-chars=")) {
-            options.maxChars = Number(arg.slice("--max-chars=".length));
+            options.maxChars = parsePositiveIntegerOption(arg.slice("--max-chars=".length), "--max-chars");
         } else if (arg === "--generated-at" && argv[i + 1]) {
             options.generatedAt = argv[++i];
         } else if (arg.startsWith("--generated-at=")) {
@@ -100,6 +100,14 @@ export function parseContextPackArgs(argv: string[]): ContextPackCliOptions {
         }
     }
     return options;
+}
+
+function parsePositiveIntegerOption(raw: string, flagName: string): number {
+    const numeric = Number(raw);
+    if (!Number.isInteger(numeric) || numeric <= 0) {
+        throw new Error(`${flagName} must be a positive integer`);
+    }
+    return numeric;
 }
 
 function readJsonIfExists(absPath: string): StateBlock | undefined {
@@ -130,20 +138,24 @@ export function extractSignalsFromRaw(raw: string): {
     const openQuestions: string[] = [];
     const nextActions: string[] = [];
     const hypotheses: string[] = [];
+    const decisionPrefix = /^(?:decision\b|决定|结论|已决定)\s*[:：-]?\s*/i;
+    const openQuestionPrefix = /^(?:open question\b|问题|未决)\s*[:：-]?\s*/i;
+    const nextActionPrefix = /^(?:next\b|todo\b|下一步|行动项)\s*[:：-]?\s*/i;
+    const hypothesisPrefix = /^(?:hypothesis\b|假设)\s*[:：-]?\s*/i;
 
     const lines = raw.split(/\r?\n/);
     for (const line of lines) {
         const s = line.trim();
         if (!s) continue;
 
-        if (/^(decision|决定|结论|已决定)\b/i.test(s) || /=>\s*decision/i.test(s)) {
-            decisions.push(s.replace(/^(decision|决定|结论|已决定)\s*[:：-]?\s*/i, ""));
-        } else if (/^(open question|问题|未决)\b/i.test(s) || s.endsWith("?") || s.endsWith("？")) {
-            openQuestions.push(s.replace(/^(open question|问题|未决)\s*[:：-]?\s*/i, ""));
-        } else if (/^(next|todo|下一步|行动项)\b/i.test(s)) {
-            nextActions.push(s.replace(/^(next|todo|下一步|行动项)\s*[:：-]?\s*/i, ""));
-        } else if (/^(hypothesis|假设)\b/i.test(s)) {
-            hypotheses.push(s.replace(/^(hypothesis|假设)\s*[:：-]?\s*/i, ""));
+        if (decisionPrefix.test(s) || /=>\s*decision/i.test(s)) {
+            decisions.push(s.replace(decisionPrefix, ""));
+        } else if (openQuestionPrefix.test(s) || s.endsWith("?") || s.endsWith("？")) {
+            openQuestions.push(s.replace(openQuestionPrefix, ""));
+        } else if (nextActionPrefix.test(s)) {
+            nextActions.push(s.replace(nextActionPrefix, ""));
+        } else if (hypothesisPrefix.test(s)) {
+            hypotheses.push(s.replace(hypothesisPrefix, ""));
         }
     }
 

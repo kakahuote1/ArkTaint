@@ -130,10 +130,17 @@ function buildCandidate(
             ? [`override:sdk_base_method:${sdkOverrideCandidate.baseMethod.getName()}`]
             : []),
     ];
-    const frameworkSignals = collectHintSignals([methodName, ...parameterTypes, returnType || "", methodSignature])
+    const frameworkSignals = collectHintSignals([methodName, ...parameterTypes, returnType || ""])
         .map(signal => `framework_hint:${signal}`);
 
     if (ownerSignals.length === 0 && overrideSignals.length === 0) {
+        return null;
+    }
+    if (
+        overrideSignals.length === 0
+        && frameworkSignals.length === 0
+        && !looksEntryLikeMethodName(methodName)
+    ) {
         return null;
     }
 
@@ -153,7 +160,31 @@ function buildCandidate(
     };
 }
 
+function looksEntryLikeMethodName(methodName: string): boolean {
+    const normalized = String(methodName || "").trim();
+    if (!normalized) {
+        return false;
+    }
+    if (/^on[A-Z]/.test(normalized)) {
+        return true;
+    }
+    const lower = normalized.toLowerCase();
+    return lower === "build"
+        || lower === "initialrender"
+        || lower === "rerender"
+        || lower === "abouttoappear"
+        || lower === "abouttodisappear"
+        || lower === "abouttoreuse"
+        || lower === "onpageload"
+        || lower === "onpageshow"
+        || lower === "onpagehide";
+}
+
 function isEligibleMethod(method: ArkMainMethod): boolean {
+    const name = String(method.getName?.() || "").toLowerCase();
+    if (name === "constructor" || name.includes("instinit") || name.startsWith("%")) {
+        return false;
+    }
     if (method.isStatic?.() || method.isPrivate?.()) {
         return false;
     }

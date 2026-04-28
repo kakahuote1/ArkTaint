@@ -19,6 +19,7 @@ export interface SemanticFlowProjectOptions {
     includeArkMainCandidates?: boolean;
     arkMainMaxCandidates?: number;
     maxRounds?: number;
+    maxRepairAttempts?: number;
     concurrency?: number;
     onProgress?: (event: SemanticFlowProgressEvent) => void;
     sessionCache?: SemanticFlowSessionCache;
@@ -55,6 +56,7 @@ export async function runSemanticFlowProject(
     const decider = createSemanticFlowLlmDecider({
         model: options.model,
         modelInvoker: options.modelInvoker,
+        maxRepairAttempts: options.maxRepairAttempts,
         sessionCache: options.sessionCache,
     });
     const expander = createCompositeSemanticFlowExpander([

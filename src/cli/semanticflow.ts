@@ -16,10 +16,11 @@ import { publishSemanticFlowProjectAssets } from "../core/semanticflow/SemanticF
 import { createSemanticFlowModelInvokerFromConfig } from "./semanticflowLlmClient";
 import { resolveLlmProfile } from "./llmConfig";
 import { runAnalyze } from "./analyzeRunner";
-import type { AnalyzeProfile, CliOptions, ReportMode } from "./analyzeCliOptions";
+import type { AnalyzeEntryModel, AnalyzeProfile, CliOptions, ReportMode } from "./analyzeCliOptions";
 import type { SemanticFlowProgressEvent } from "../core/semanticflow/SemanticFlowPipeline";
 import { filterKnownSemanticFlowRuleCandidates } from "./semanticflowKnownRuleCandidates";
 import { normalizeSemanticFlowSessionCacheMode, SemanticFlowSessionCache } from "../core/semanticflow/SemanticFlowSessionCache";
+import { discoverArkTsSourceDirs, normalizeSourceDirsForCli } from "./sourceDiscovery";
 
 declare const require: any;
 declare const module: any;
@@ -46,6 +47,7 @@ export interface SemanticFlowCliOptions {
     examplesPerItem: number;
     analyze: boolean;
     profile: AnalyzeProfile;
+    entryModel?: AnalyzeEntryModel;
     reportMode: ReportMode;
     maxEntries: number;
     k: number;
@@ -53,12 +55,29 @@ export interface SemanticFlowCliOptions {
     maxFlowsPerEntry?: number;
     llmSessionCacheDir?: string;
     llmSessionCacheMode?: string;
+    llmTimeoutMs?: number;
+    llmConnectTimeoutMs?: number;
+    llmMaxAttempts?: number;
+    llmMaxFailures?: number;
+    llmRepairAttempts?: number;
+    maxLlmItems?: number;
 }
 
 interface SemanticFlowSessionBundle {
     sourceDir: string;
     skippedKnownRuleCandidates: number;
     result: Awaited<ReturnType<typeof runSemanticFlowProject>>;
+}
+
+interface SemanticFlowSourceRunRecord {
+    sourceDir: string;
+    absPath: string;
+    status: "ok" | "missing" | "exception";
+    methods?: number;
+    itemCount?: number;
+    arkMainCandidateCount?: number;
+    elapsedMs: number;
+    error?: string;
 }
 
 async function withAnalyzeHeartbeat<T>(
@@ -136,6 +155,17 @@ function normalizePositiveInt(raw: string | undefined, flag: string, fallback: n
     return Math.floor(value);
 }
 
+function normalizeNonNegativeInt(raw: string | undefined, flag: string, fallback: number): number {
+    if (raw === undefined) {
+        return fallback;
+    }
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value < 0) {
+        throw new Error(`invalid ${flag}: ${raw}`);
+    }
+    return Math.floor(value);
+}
+
 function parseProfile(raw: string | undefined): AnalyzeProfile {
     if (!raw) return "default";
     if (raw === "default" || raw === "strict" || raw === "fast") {
@@ -173,6 +203,7 @@ function parseArgs(argv: string[]): SemanticFlowCliOptions {
     let examplesPerItem = 2;
     let analyze = true;
     let profile: AnalyzeProfile = "default";
+    let entryModel: AnalyzeEntryModel = "arkMain";
     let reportMode: ReportMode = "light";
     let maxEntries = 12;
     let k = 1;
@@ -180,6 +211,12 @@ function parseArgs(argv: string[]): SemanticFlowCliOptions {
     let maxFlowsPerEntry: number | undefined;
     let llmSessionCacheDir: string | undefined;
     let llmSessionCacheMode: string | undefined;
+    let llmTimeoutMs: number | undefined;
+    let llmConnectTimeoutMs: number | undefined;
+    let llmMaxAttempts = 1;
+    let llmMaxFailures = 3;
+    let llmRepairAttempts = 0;
+    let maxLlmItems = 12;
 
     for (let i = 0; i < argv.length; i++) {
         const repoArg = readValue(argv, i, "--repo");
@@ -304,6 +341,15 @@ function parseArgs(argv: string[]): SemanticFlowCliOptions {
             if (argv[i] === "--profile") i++;
             continue;
         }
+        const entryModelArg = readValue(argv, i, "--entryModel");
+        if (entryModelArg !== undefined) {
+            if (entryModelArg !== "arkMain" && entryModelArg !== "explicit") {
+                throw new Error(`invalid --entryModel: ${entryModelArg}`);
+            }
+            entryModel = entryModelArg;
+            if (argv[i] === "--entryModel") i++;
+            continue;
+        }
         const reportModeArg = readValue(argv, i, "--reportMode");
         if (reportModeArg !== undefined) {
             reportMode = parseReportMode(reportModeArg);
@@ -348,6 +394,42 @@ function parseArgs(argv: string[]): SemanticFlowCliOptions {
             if (argv[i] === "--llmSessionCacheMode") i++;
             continue;
         }
+        const llmTimeoutArg = readValue(argv, i, "--llmTimeoutMs");
+        if (llmTimeoutArg !== undefined) {
+            llmTimeoutMs = normalizePositiveInt(llmTimeoutArg, "--llmTimeoutMs", 1);
+            if (argv[i] === "--llmTimeoutMs") i++;
+            continue;
+        }
+        const llmConnectTimeoutArg = readValue(argv, i, "--llmConnectTimeoutMs");
+        if (llmConnectTimeoutArg !== undefined) {
+            llmConnectTimeoutMs = normalizePositiveInt(llmConnectTimeoutArg, "--llmConnectTimeoutMs", 1);
+            if (argv[i] === "--llmConnectTimeoutMs") i++;
+            continue;
+        }
+        const llmMaxAttemptsArg = readValue(argv, i, "--llmMaxAttempts");
+        if (llmMaxAttemptsArg !== undefined) {
+            llmMaxAttempts = normalizePositiveInt(llmMaxAttemptsArg, "--llmMaxAttempts", 1);
+            if (argv[i] === "--llmMaxAttempts") i++;
+            continue;
+        }
+        const llmMaxFailuresArg = readValue(argv, i, "--llmMaxFailures");
+        if (llmMaxFailuresArg !== undefined) {
+            llmMaxFailures = normalizePositiveInt(llmMaxFailuresArg, "--llmMaxFailures", 1);
+            if (argv[i] === "--llmMaxFailures") i++;
+            continue;
+        }
+        const llmRepairAttemptsArg = readValue(argv, i, "--llmRepairAttempts");
+        if (llmRepairAttemptsArg !== undefined) {
+            llmRepairAttempts = normalizeNonNegativeInt(llmRepairAttemptsArg, "--llmRepairAttempts", 0);
+            if (argv[i] === "--llmRepairAttempts") i++;
+            continue;
+        }
+        const maxLlmItemsArg = readValue(argv, i, "--maxLlmItems");
+        if (maxLlmItemsArg !== undefined) {
+            maxLlmItems = normalizePositiveInt(maxLlmItemsArg, "--maxLlmItems", 1);
+            if (argv[i] === "--maxLlmItems") i++;
+            continue;
+        }
         if (argv[i].startsWith("--")) {
             throw new Error(`unknown option: ${argv[i]}`);
         }
@@ -357,12 +439,12 @@ function parseArgs(argv: string[]): SemanticFlowCliOptions {
         throw new Error("missing --repo");
     }
     if (sourceDirs.length === 0) {
-        const auto = ["entry/src/main/ets", "src/main/ets", "."];
-        sourceDirs = auto.filter(rel => fs.existsSync(path.resolve(repo, rel)));
+        sourceDirs = discoverArkTsSourceDirs(repo);
     }
     if (sourceDirs.length === 0) {
         throw new Error("no sourceDir found; pass --sourceDir");
     }
+    sourceDirs = normalizeSourceDirsForCli(sourceDirs);
 
     return {
         repo,
@@ -385,6 +467,7 @@ function parseArgs(argv: string[]): SemanticFlowCliOptions {
         examplesPerItem,
         analyze,
         profile,
+        entryModel,
         reportMode,
         maxEntries,
         k,
@@ -392,6 +475,12 @@ function parseArgs(argv: string[]): SemanticFlowCliOptions {
         maxFlowsPerEntry,
         llmSessionCacheDir,
         llmSessionCacheMode,
+        llmTimeoutMs,
+        llmConnectTimeoutMs,
+        llmMaxAttempts,
+        llmMaxFailures,
+        llmRepairAttempts,
+        maxLlmItems,
     };
 }
 
@@ -406,20 +495,29 @@ function buildScene(projectDir: string): Scene {
 
 function createLoggedModelInvoker(
     invoker: NonNullable<ReturnType<typeof createSemanticFlowModelInvokerFromConfig>>,
+    options: { maxFailures?: number } = {},
 ): NonNullable<ReturnType<typeof createSemanticFlowModelInvokerFromConfig>> {
     let requestSeq = 0;
+    let consecutiveFailures = 0;
+    const maxFailures = Math.max(1, options.maxFailures ?? 3);
     return async input => {
+        if (consecutiveFailures >= maxFailures) {
+            console.log(`semanticflow_llm=circuit_open failures=${consecutiveFailures} max_failures=${maxFailures}`);
+            throw new Error(`semanticflow LLM circuit open after ${consecutiveFailures} consecutive failures`);
+        }
         const requestId = ++requestSeq;
         const startedAt = Date.now();
         console.log(`semanticflow_llm=request_start id=${requestId} model=${input.model || "-"}`);
         try {
             const raw = await invoker(input);
             const elapsedMs = Date.now() - startedAt;
+            consecutiveFailures = 0;
             console.log(`semanticflow_llm=request_done id=${requestId} elapsed_ms=${elapsedMs} chars=${String(raw || "").length}`);
             return raw;
         } catch (error) {
             const elapsedMs = Date.now() - startedAt;
             const detail = String((error as any)?.message || error).replace(/\s+/g, " ").trim();
+            consecutiveFailures++;
             console.log(`semanticflow_llm=request_fail id=${requestId} elapsed_ms=${elapsedMs} error=${detail}`);
             throw error;
         }
@@ -492,6 +590,56 @@ function collectAggregateSummary(bundles: SemanticFlowSessionBundle[]) {
             arkMainSpecCount: augment.arkMainSpecs.length,
         },
     };
+}
+
+function candidateBelongsToSourceDir(sourceDir: string, sourceAbs: string, item: NormalizedCallsiteItem): boolean {
+    if (sourceDir === ".") {
+        return true;
+    }
+    const sourceFile = String(item.sourceFile || "").replace(/\\/g, "/").replace(/^\/+/g, "");
+    if (!sourceFile || sourceFile.includes("%unk") || sourceFile.includes("arkui-builtin")) {
+        return true;
+    }
+    const variants = [
+        sourceFile,
+        sourceFile.replace(/^ets\//, ""),
+        sourceFile.replace(/^src\/main\/ets\//, ""),
+    ];
+    return variants.some(rel => fs.existsSync(path.resolve(sourceAbs, rel)));
+}
+
+function capRuleCandidatesForSourceDir(
+    sourceDir: string,
+    sourceAbs: string,
+    candidates: NormalizedCallsiteItem[],
+    maxItems: number | undefined,
+): NormalizedCallsiteItem[] {
+    const scoped = candidates.filter(item => candidateBelongsToSourceDir(sourceDir, sourceAbs, item));
+    const ranked = scoped.sort((a, b) => scoreRuleCandidate(b) - scoreRuleCandidate(a)
+        || (Number(b.count) || 0) - (Number(a.count) || 0)
+        || String(a.callee_signature || "").localeCompare(String(b.callee_signature || "")));
+    const limit = Math.max(1, maxItems ?? ranked.length);
+    return ranked.slice(0, limit);
+}
+
+function scoreRuleCandidate(item: NormalizedCallsiteItem): number {
+    const method = String(item.method || "").toLowerCase();
+    const sig = String(item.callee_signature || "").toLowerCase();
+    let score = Number(item.count) || 0;
+    if (item.argCount > 0) score += 20;
+    if (/(process|parse|decode|encode|transform|convert|collect|save|insert|update|request|response)/.test(method)) score += 12;
+    if (/viewmodel|service|manager|repository|store|cache|client/.test(sig)) score += 8;
+    if (/pages\/|components\//.test(sig)) score -= 8;
+    if (/^get|^is|^has/.test(method) && item.argCount === 0) score -= 10;
+    return score;
+}
+
+function countSourceRunStatuses(records: SemanticFlowSourceRunRecord[]): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const record of records) {
+        out[record.status] = (out[record.status] || 0) + 1;
+    }
+    return out;
 }
 
 function writeSemanticFlowArtifacts(
@@ -572,6 +720,7 @@ function buildAnalyzeOptions(
         llmProfile: options.llmProfile,
         publishModel: options.publishModel,
         profile: overrides.profile || options.profile,
+        entryModel: overrides.entryModel || options.entryModel || "arkMain",
         reportMode: overrides.reportMode || options.reportMode,
         k: overrides.k ?? options.k,
         maxEntries: overrides.maxEntries ?? options.maxEntries,
@@ -615,8 +764,9 @@ async function runBootstrapAnalyze(options: SemanticFlowCliOptions): Promise<str
     console.log(`semanticflow_phase=bootstrap_analyze start output_dir=${phase1OutputDir}`);
     await withAnalyzeHeartbeat("bootstrap_analyze", () => runAnalyze(buildAnalyzeOptions(options, phase1OutputDir, {
         profile: "fast",
+        entryModel: options.entryModel || "arkMain",
         reportMode: "light",
-        maxEntries: Math.max(options.maxEntries, 12),
+        maxEntries: Math.min(options.maxEntries, 12),
         llmModel: options.model,
         arkMainMaxCandidates: options.arkMainMaxCandidates,
         modelRoots: options.modelRoots || [],
@@ -628,7 +778,12 @@ async function runBootstrapAnalyze(options: SemanticFlowCliOptions): Promise<str
             ruleCatalogPaths: options.modelRoots,
         },
     })));
-    const ruleInputPath = path.join(phase1OutputDir, "feedback", "rule_feedback", "no_candidate_callsites.json");
+    const feedbackDir = path.join(phase1OutputDir, "feedback", "rule_feedback");
+    const projectCandidatePath = path.join(feedbackDir, "no_candidate_project_candidates.json");
+    const fallbackRuleInputPath = path.join(feedbackDir, "no_candidate_callsites.json");
+    const ruleInputPath = fs.existsSync(projectCandidatePath)
+        ? projectCandidatePath
+        : fallbackRuleInputPath;
     console.log(`semanticflow_phase=bootstrap_analyze done rule_input=${ruleInputPath}`);
     return ruleInputPath;
 }
@@ -688,6 +843,7 @@ function writeSemanticFlowRunManifest(
         aggregateModulePath: string;
         aggregateArkMainPath: string;
         aggregateSummaryPath: string;
+        sourceRunsPath: string;
         finalSummaryJsonPath?: string;
         finalSummaryMdPath?: string;
     },
@@ -705,6 +861,12 @@ function writeSemanticFlowRunManifest(
             llmModel: info.llmModel,
             llmSessionCacheDir: info.llmSessionCacheDir,
             llmSessionCacheMode: info.llmSessionCacheMode,
+            llmTimeoutMs: options.llmTimeoutMs,
+            llmConnectTimeoutMs: options.llmConnectTimeoutMs,
+            llmMaxAttempts: options.llmMaxAttempts,
+            llmMaxFailures: options.llmMaxFailures,
+            llmRepairAttempts: options.llmRepairAttempts,
+            maxLlmItems: options.maxLlmItems,
         },
         paths: {
             phase1RuleInput: relative(info.bootstrapRuleInputPath),
@@ -713,6 +875,7 @@ function writeSemanticFlowRunManifest(
             modules: relative(info.aggregateModulePath),
             arkmain: relative(info.aggregateArkMainPath),
             summary: relative(info.aggregateSummaryPath),
+            sourceRuns: relative(info.sourceRunsPath),
             finalSummaryJson: relative(info.finalSummaryJsonPath),
             finalSummaryMd: relative(info.finalSummaryMdPath),
         },
@@ -739,13 +902,17 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
         configPath: options.llmConfigPath,
         profile: options.llmProfile,
         model: options.model,
-        maxAttempts: 2,
+        timeoutMs: options.llmTimeoutMs,
+        connectTimeoutMs: options.llmConnectTimeoutMs,
+        maxAttempts: options.llmMaxAttempts ?? 1,
     });
     if (!invoker) {
         throw new Error("semanticflow model invoker unavailable; check llm profile configuration");
     }
 
-    const loggedInvoker = createLoggedModelInvoker(invoker);
+    const loggedInvoker = createLoggedModelInvoker(invoker, {
+        maxFailures: options.llmMaxFailures,
+    });
 
     const sessionCache = options.llmSessionCacheDir
         ? new SemanticFlowSessionCache({
@@ -762,37 +929,80 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
         ? options.ruleInput
         : await runBootstrapAnalyze(options);
     const ruleCandidates = loadRuleCandidates(options, bootstrapRuleInputPath);
-    console.log(`semanticflow_phase=load_candidates done rule_candidates=${ruleCandidates.items.length} rule_known_covered=${ruleCandidates.skippedKnown} arkmain_limit=${arkMainCandidateLimit} min_interval_ms=${profile.minIntervalMs}`);
+    console.log(`semanticflow_phase=load_candidates done rule_candidates=${ruleCandidates.items.length} rule_known_covered=${ruleCandidates.skippedKnown} arkmain_limit=${arkMainCandidateLimit} min_interval_ms=${profile.minIntervalMs} timeout_ms=${options.llmTimeoutMs ?? profile.timeoutMs} max_attempts=${options.llmMaxAttempts ?? 1}`);
 
     const bundles: SemanticFlowSessionBundle[] = [];
+    const sourceRuns: SemanticFlowSourceRunRecord[] = [];
     for (const sourceDir of options.sourceDirs) {
+        const sourceStartedAt = Date.now();
         const sourceAbs = path.resolve(options.repo, sourceDir);
         if (!fs.existsSync(sourceAbs)) {
+            sourceRuns.push({
+                sourceDir,
+                absPath: sourceAbs,
+                status: "missing",
+                elapsedMs: Date.now() - sourceStartedAt,
+                error: "source directory does not exist",
+            });
             continue;
         }
-        console.log(`semanticflow_phase=source_dir start source_dir=${sourceDir} abs=${sourceAbs}`);
-        console.log(`semanticflow_phase=build_scene start source_dir=${sourceDir}`);
-        const scene = buildScene(sourceAbs);
-        console.log(`semanticflow_phase=build_scene done source_dir=${sourceDir} methods=${scene.getMethods().length}`);
-        const result = await runSemanticFlowProject({
-            scene,
-            modelInvoker: loggedInvoker,
-            model: profile.model,
-            ruleCandidates: ruleCandidates.items,
-            includeArkMainCandidates: true,
-            arkMainMaxCandidates: arkMainCandidateLimit,
-            maxRounds: options.maxRounds,
-            concurrency: options.concurrency,
-            onProgress: emitSemanticFlowProgress,
-            sessionCache,
-        });
-        console.log(
-            `semanticflow_phase=source_dir done source_dir=${sourceDir} items=${result.session.run.items.length} rule_known_covered=${ruleCandidates.skippedKnown} arkmain_candidates=${result.arkMainCandidates.length} arkmain_kernel_covered=${result.skippedArkMainCandidates.length}`,
-        );
-        bundles.push({ sourceDir, result, skippedKnownRuleCandidates: ruleCandidates.skippedKnown });
+        try {
+            console.log(`semanticflow_phase=source_dir start source_dir=${sourceDir} abs=${sourceAbs}`);
+            console.log(`semanticflow_phase=build_scene start source_dir=${sourceDir}`);
+            const scene = buildScene(sourceAbs);
+            const methodCount = scene.getMethods().length;
+            console.log(`semanticflow_phase=build_scene done source_dir=${sourceDir} methods=${methodCount}`);
+            const sourceRuleCandidates = capRuleCandidatesForSourceDir(
+                sourceDir,
+                sourceAbs,
+                ruleCandidates.items,
+                options.maxLlmItems,
+            );
+            if (sourceRuleCandidates.length !== ruleCandidates.items.length) {
+                console.log(`semanticflow_phase=source_dir candidates source_dir=${sourceDir} scoped=${sourceRuleCandidates.length} global=${ruleCandidates.items.length} max_items=${options.maxLlmItems ?? ""}`);
+            }
+            const result = await runSemanticFlowProject({
+                scene,
+                modelInvoker: loggedInvoker,
+                model: profile.model,
+                ruleCandidates: sourceRuleCandidates,
+                includeArkMainCandidates: true,
+                arkMainMaxCandidates: arkMainCandidateLimit,
+                maxRounds: options.maxRounds,
+                maxRepairAttempts: options.llmRepairAttempts ?? 0,
+                concurrency: options.concurrency,
+                onProgress: emitSemanticFlowProgress,
+                sessionCache,
+            });
+            console.log(
+                `semanticflow_phase=source_dir done source_dir=${sourceDir} items=${result.session.run.items.length} rule_known_covered=${ruleCandidates.skippedKnown} arkmain_candidates=${result.arkMainCandidates.length} arkmain_kernel_covered=${result.skippedArkMainCandidates.length}`,
+            );
+            sourceRuns.push({
+                sourceDir,
+                absPath: sourceAbs,
+                status: "ok",
+                methods: methodCount,
+                itemCount: result.session.run.items.length,
+                arkMainCandidateCount: result.arkMainCandidates.length,
+                elapsedMs: Date.now() - sourceStartedAt,
+            });
+            bundles.push({ sourceDir, result, skippedKnownRuleCandidates: ruleCandidates.skippedKnown });
+        } catch (error) {
+            const detail = String((error as any)?.message || error).replace(/\s+/g, " ").trim();
+            console.log(`semanticflow_phase=source_dir exception source_dir=${sourceDir} elapsed_ms=${Date.now() - sourceStartedAt} error=${detail}`);
+            sourceRuns.push({
+                sourceDir,
+                absPath: sourceAbs,
+                status: "exception",
+                elapsedMs: Date.now() - sourceStartedAt,
+                error: detail,
+            });
+        }
     }
 
     const aggregatePaths = writeSemanticFlowArtifacts(options.outputDir, bundles);
+    const sourceRunsPath = path.join(options.outputDir, "source_runs.json");
+    fs.writeFileSync(sourceRunsPath, JSON.stringify(sourceRuns, null, 2), "utf-8");
     console.log(`semanticflow_phase=write_artifacts done session=${aggregatePaths.aggregateSessionPath}`);
     if (options.publishModel) {
         const aggregate = collectAggregateSummary(bundles);
@@ -826,12 +1036,16 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
             summaryMdPath: finalRun.mdPath,
             diagnosticsJsonPath: finalRun.diagnosticsJsonPath,
             diagnosticsTextPath: finalRun.diagnosticsTextPath,
+            sourceRunsPath,
+            sourceRunStatusCount: countSourceRunStatuses(sourceRuns),
         }
         : {
             itemCount: aggregateSummary.summary.itemCount,
             classifications: aggregateSummary.summary.classifications,
             modeled: true,
             finalAnalyze: false,
+            sourceRunsPath,
+            sourceRunStatusCount: countSourceRunStatuses(sourceRuns),
         }, null, 2), "utf-8");
 
     writeSemanticFlowRunManifest(options.outputDir, options, {
@@ -842,6 +1056,7 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
         llmSessionCacheMode: options.llmSessionCacheMode,
         bootstrapRuleInputPath,
         ...aggregatePaths,
+        sourceRunsPath,
         finalSummaryJsonPath: finalRun?.jsonPath,
         finalSummaryMdPath: finalRun?.mdPath,
     });

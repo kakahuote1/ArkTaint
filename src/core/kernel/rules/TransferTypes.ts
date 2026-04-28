@@ -55,6 +55,7 @@ export interface MethodEntityIndex {
 
 export interface EndpointDescriptor {
     endpoint: RuleEndpoint;
+    path?: string[];
     pathFrom?: RuleEndpoint;
     slotKind?: string;
 }

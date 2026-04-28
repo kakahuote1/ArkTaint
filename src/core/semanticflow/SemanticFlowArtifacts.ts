@@ -424,38 +424,70 @@ function toModuleDispatch(anchor: SemanticFlowAnchor, summary: SemanticFlowSumma
 }
 
 function toModuleEndpoint(anchor: SemanticFlowAnchor, ref: SemanticFlowSurfaceSlotRef): ModuleEndpoint {
-    const base = {
+    const invokeBase = {
         surface: ref.surface || anchor.surface,
         ...(ref.fieldPath ? { fieldPath: ref.fieldPath } : {}),
+    };
+    const methodBase = {
+        surface: toMethodSurface(anchor, ref.surface),
+        ...(moduleFieldLoadTail(ref).length > 0 ? { fieldPath: moduleFieldLoadTail(ref) } : {}),
     };
     switch (ref.slot) {
         case "arg":
             if (typeof ref.index !== "number") throw new Error(`arg slot requires index for ${anchor.id}`);
-            return { ...base, slot: "arg", index: ref.index };
+            return { ...invokeBase, slot: "arg", index: ref.index };
         case "base":
-            return { ...base, slot: "base" };
+            return { ...invokeBase, slot: "base" };
         case "result":
-            return { ...base, slot: "result" };
+            return { ...invokeBase, slot: "result" };
         case "callback_param":
             return {
-                ...base,
+                ...invokeBase,
                 slot: "callback_param",
                 callbackArgIndex: ref.callbackArgIndex,
                 paramIndex: ref.paramIndex,
             };
         case "method_this":
-            return { ...base, slot: "method_this" };
+            return { ...methodBase, slot: "method_this" };
         case "method_param":
             if (typeof ref.paramIndex !== "number") throw new Error(`method_param slot requires paramIndex for ${anchor.id}`);
-            return { ...base, slot: "method_param", paramIndex: ref.paramIndex };
+            return { ...methodBase, slot: "method_param", paramIndex: ref.paramIndex };
         case "field_load":
             if (!ref.fieldName) throw new Error(`field_load slot requires fieldName for ${anchor.id}`);
-            return { ...base, slot: "field_load", fieldName: ref.fieldName };
+            return { ...methodBase, slot: "field_load", fieldName: ref.fieldName };
         case "decorated_field_value":
-            return { ...base, slot: "decorated_field_value" };
+            return { ...invokeBase, slot: "decorated_field_value" };
         default:
             throw new Error(`unsupported module endpoint slot ${(ref as any).slot}`);
     }
+}
+
+function toMethodSurface(anchor: SemanticFlowAnchor, surface: SemanticFlowSurfaceSlotRef["surface"] | undefined) {
+    if (surface && typeof surface === "object" && (surface as any).kind === "method") {
+        return surface;
+    }
+    const selector: Record<string, unknown> = {};
+    if (anchor.methodSignature) {
+        selector.methodSignature = anchor.methodSignature;
+    }
+    if (anchor.surface) {
+        selector.methodName = anchor.surface;
+    }
+    if (anchor.owner) {
+        selector.declaringClassName = anchor.owner;
+    }
+    return {
+        kind: "method" as const,
+        selector,
+    };
+}
+
+function moduleFieldLoadTail(ref: SemanticFlowSurfaceSlotRef): string[] {
+    const path = Array.isArray(ref.fieldPath) ? ref.fieldPath.map(part => String(part)).filter(Boolean) : [];
+    if (ref.slot !== "field_load" || !ref.fieldName || path[0] !== ref.fieldName) {
+        return path;
+    }
+    return path.slice(1);
 }
 
 function toRuleEndpoint(ref: SemanticFlowSurfaceSlotRef): RuleEndpointOrRef {

@@ -32,6 +32,7 @@ async function runCase(
     const engine = new TaintPropagationEngine(scene, 1, { transferRules });
     engine.verbose = false;
     await engine.buildPAG();
+    engine.setActiveReachableMethodSignatures(undefined, { mergeExplicitEntryScope: false });
     engine.propagateWithSourceRules(sourceRules);
     const flows = engine.detectSinksByRules(sinkRules);
     const scopedFlows = flows.filter(flow => flowSinkInCaseMethod(scene, flow.sink, caseName));
@@ -164,25 +165,44 @@ async function main(): Promise<void> {
     });
     assert(sinkPathValidation.valid, `sink static path rule should be valid: ${sinkPathValidation.errors.join("; ")}`);
 
+    const transferPathValidation = validateRuleSet({
+        schemaVersion: "2.0",
+        sources: [],
+        sinks: [],
+        transfers: [{
+            id: "transfer.static.path.ok",
+            match: { kind: "signature_contains", value: "Map.get" },
+            from: {
+                endpoint: "base",
+                path: ["payload"],
+            },
+            to: {
+                endpoint: "result",
+                path: ["value"],
+            },
+        }],
+    });
+    assert(transferPathValidation.valid, `transfer static path rule should be valid: ${transferPathValidation.errors.join("; ")}`);
+
     const invalidTransferPathValidation = validateRuleSet({
         schemaVersion: "2.0",
         sources: [],
         sinks: [],
         transfers: [{
-            id: "transfer.invalid.path.bad",
+            id: "transfer.invalid.path.empty",
             match: { kind: "signature_contains", value: "Map.get" },
             from: {
                 endpoint: "base",
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                path: ["legacy"] as any,
+                path: [] as any,
             } as any,
             to: "result",
         }],
     });
-    assert(!invalidTransferPathValidation.valid, "invalid transfer path rule should be rejected");
+    assert(!invalidTransferPathValidation.valid, "empty transfer path rule should be rejected");
     assert(
-        invalidTransferPathValidation.errors.some(err => err.includes("path is not supported for transfer rules")),
-        `invalid transfer path rejection missing, errors=${invalidTransferPathValidation.errors.join("; ")}`
+        invalidTransferPathValidation.errors.some(err => err.includes("path must be a non-empty string[]")),
+        `empty transfer path rejection missing, errors=${invalidTransferPathValidation.errors.join("; ")}`
     );
 
     const cases: CaseSpec[] = [

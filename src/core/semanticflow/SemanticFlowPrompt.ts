@@ -1,7 +1,7 @@
 import type { SemanticFlowDecisionInput } from "./SemanticFlowTypes";
 
 /** Bump when prompt instructions / JSON shape expectations change (invalidates on-disk session cache keys). */
-export const SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION = 1;
+export const SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION = 3;
 
 export interface SemanticFlowPrompt {
     system: string;
@@ -107,6 +107,7 @@ export function buildSemanticFlowPrompt(input: SemanticFlowDecisionInput): Seman
         "",
         "Rules:",
         "- Use resolution=resolved only when the summary is specific enough to generate a stable ArkMain artifact, Rule artifact, or ModuleSpec.",
+        '- The only valid positive resolution token is "resolved". Do not use "source", "sink", "transfer", "rule", or "module" as resolution values.',
         "- Use resolution=irrelevant, no-transfer, wrapper-only, or need-human-check when no final artifact should be emitted.",
         "- If resolution is not resolved, classification may be omitted.",
         "- Decision order: first ask whether this is a framework-managed external entry. If yes, use arkmain. Otherwise ask whether one visible anchor surface is enough. If yes, use rule. Only use module when hidden mechanism or cross-surface semantics are necessary.",
@@ -114,11 +115,16 @@ export function buildSemanticFlowPrompt(input: SemanticFlowDecisionInput): Seman
         "- For classification=rule, ruleKind is mandatory and moduleSpec/moduleKind must be absent.",
         "- ruleKind=source means taint originates from API output with no tainted input slot; use outputs only and no transfers.",
         "- ruleKind=sink means tainted input is consumed; use inputs only and no transfers.",
+        "- If a wrapper passes an argument, field, or derived string into a network/storage/log/navigation/IPC API and does not return that data, summarize the wrapper as ruleKind=sink over the consumed input slot.",
         "- ruleKind=sanitizer means taint is stopped or neutralized at this anchor. Do not also model it as a transfer. If taint still reaches a visible output slot, it is not a sanitizer.",
         "- ruleKind=transfer means visible slot-to-slot propagation inside the anchor surface only. Use anchor-local slots only; do not use companion surfaces, carrier state, dispatch, or constraints.",
+        "- For field-sensitive slots, use shorthands such as arg0.data.items -> field:listDataSource or result.data -> ret.",
         "- Any single-surface source, sink, sanitizer, or direct visible transfer belongs to classification=rule, never classification=module.",
         "- A simple one-surface arg/base/result/field transfer belongs to ruleKind=transfer, not module.",
         "- A wrapper around an already-known framework source/sink/transfer should summarize only the wrapper-visible effect. Do not invent hidden internal slots for the wrapped framework state.",
+        "- A boolean/status return is not a data transfer from request arguments unless the returned value itself contains the argument payload. Prefer sink or no-transfer for request helpers that return success/failure.",
+        "- If the rationale says the return value does not carry the original payload, do not emit arg -> ret transfer for that method.",
+        "- If hidden state or carrier reasoning is only explanatory and not needed for a valid artifact, omit relations entirely rather than attaching carrier/companions to classification=rule.",
         "- Choose classification=module only when single-surface rule semantics are insufficient because of companion surfaces, carrier state, deferred callback dispatch, or structural constraints.",
         "- classification=module must not include ruleKind/sourceKind or entryPattern.",
         "- For classification=module, prefer returning an explicit moduleSpec whenever the summary already supports one.",
@@ -128,6 +134,7 @@ export function buildSemanticFlowPrompt(input: SemanticFlowDecisionInput): Seman
         "- If a moduleSpec only encodes one-surface direct bridge semantics that rules can already express, do not use classification=module.",
         "- Do not classify a simple visible arg->ret/base transfer as module; that belongs to ruleKind=transfer.",
         "- Prefer arkmain only for framework-managed external entry semantics.",
+        "- If anchor metaTags contains rule or candidate, do not use classification=arkmain. Project helper methods, wrappers, and ordinary callsites are rule/module/no-transfer decisions.",
         "- classification=arkmain must include relations.entryPattern and must not include ruleKind, moduleKind, moduleSpec, or transfers.",
         "- When classification=arkmain and resolution=resolved, relations.entryPattern must be a full object with phase and kind. Do not return entryPattern as a bare string.",
         "- classification=arkmain is only for framework entry ownership and scheduling. It is not for ordinary wrappers, helpers, or state bridges.",
@@ -136,6 +143,8 @@ export function buildSemanticFlowPrompt(input: SemanticFlowDecisionInput): Seman
         '- Example keyed_storage moduleSpec shorthand: { "kind": "keyed_storage", "writeMethods": [{ "methodName": "put", "valueIndex": 1 }], "readMethods": ["get"] }',
         '- Example event_emitter moduleSpec shorthand: { "kind": "event_emitter", "onMethods": ["on"], "emitMethods": ["emit"], "payloadArgIndex": 1, "callbackArgIndex": 1, "callbackParamIndex": 0 }',
         "- Ask for more evidence only when the current slice is insufficient.",
+        "- If a method snippet is already provided, use it as the method body evidence. Do not ask again for the same method body.",
+        "- If the method only builds UI, dispatches navigation, reads constants, or has no visible data propagation to ret/field/callback/sink, return done with resolution=no-transfer.",
         "- When you ask for more evidence, keep the same draft and only request one explicit deficit at a time.",
         "- Deficit focus/scope must be structured JSON. Do not encode the deficit identity in free-form prose.",
         "- You may use slot shorthand in summary fields: arg0, arg1, ret, base, callback0.param0, param0, field:name, decorated_field_value.",
@@ -151,6 +160,7 @@ export function buildSemanticFlowPrompt(input: SemanticFlowDecisionInput): Seman
         `owner: ${anchor.owner || "-"}`,
         `methodSignature: ${anchor.methodSignature || "-"}`,
         `filePath: ${anchor.filePath || "-"}`,
+        `metaTags: ${(anchor.metaTags || []).join(",") || "-"}`,
         `draftId: ${draftId}`,
         `round: ${round}`,
         `historyRounds: ${history.length}`,

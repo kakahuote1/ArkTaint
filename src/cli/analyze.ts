@@ -250,6 +250,7 @@ export async function runAnalyzeCliCommand(options: CliOptions): Promise<void> {
             examplesPerItem: 2,
             analyze: true,
             profile: options.profile,
+            entryModel: options.entryModel,
             reportMode: options.reportMode,
             maxEntries: options.maxEntries,
             k: options.k,
@@ -257,6 +258,12 @@ export async function runAnalyzeCliCommand(options: CliOptions): Promise<void> {
             maxFlowsPerEntry: options.maxFlowsPerEntry,
             llmSessionCacheDir: options.llmSessionCacheDir,
             llmSessionCacheMode: options.llmSessionCacheMode,
+            llmTimeoutMs: options.llmTimeoutMs,
+            llmConnectTimeoutMs: options.llmConnectTimeoutMs,
+            llmMaxAttempts: options.llmMaxAttempts,
+            llmMaxFailures: options.llmMaxFailures,
+            llmRepairAttempts: options.llmRepairAttempts,
+            maxLlmItems: options.maxLlmItems,
         });
         console.log("auto_model_phase=semanticflow done");
         syncAutoModeledArtifacts(options.outputDir);

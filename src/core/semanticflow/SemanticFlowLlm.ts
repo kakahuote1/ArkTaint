@@ -40,7 +40,7 @@ export interface SemanticFlowModelInvokerInput {
 export type SemanticFlowModelInvoker = (input: SemanticFlowModelInvokerInput) => Promise<string>;
 
 export const SEMANTIC_FLOW_LLM_TEMPERATURE = 0;
-export const SEMANTIC_FLOW_DECISION_PARSER_SCHEMA_VERSION = 1;
+export const SEMANTIC_FLOW_DECISION_PARSER_SCHEMA_VERSION = 2;
 
 export interface CreateSemanticFlowLlmDeciderOptions {
     modelInvoker: SemanticFlowModelInvoker;
@@ -88,13 +88,17 @@ export function createSemanticFlowLlmDecider(options: CreateSemanticFlowLlmDecid
             let initialError: string | undefined;
             for (let attempt = 0; attempt <= maxRepairAttempts; attempt++) {
                 try {
+                    const parseStartedAt = Date.now();
+                    console.log(`semanticflow_llm=parse_start anchor=${input.anchor.id} round=${input.round} attempt=${attempt} raw_chars=${String(raw || "").length}`);
                     const decision = parseSemanticFlowDecision(raw);
+                    console.log(`semanticflow_llm=parse_done anchor=${input.anchor.id} round=${input.round} attempt=${attempt} elapsed_ms=${Date.now() - parseStartedAt} status=${decision.status}`);
                     if (decisionCacheKey) {
                         cache!.storeDecision(decisionCacheKey, decision);
                     }
                     return decision;
                 } catch (error) {
                     const detail = String((error as any)?.message || error);
+                    console.log(`semanticflow_llm=parse_error anchor=${input.anchor.id} round=${input.round} attempt=${attempt} error=${detail.replace(/\s+/g, " ").slice(0, 360)}`);
                     if (!repairInvalidJson || attempt >= maxRepairAttempts) {
                         if (initialError) {
                             throw new Error([
@@ -115,8 +119,21 @@ export function createSemanticFlowLlmDecider(options: CreateSemanticFlowLlmDecid
 }
 
 export function parseSemanticFlowDecision(raw: string): SemanticFlowDecision {
-    const parsed = JSON.parse(stripJsonFences(raw));
+    const parsed = parseLlmJsonObject(raw);
     return normalizeDecision(parsed);
+}
+
+function parseLlmJsonObject(raw: string): unknown {
+    const text = stripJsonFences(raw);
+    try {
+        return JSON.parse(text);
+    } catch (firstError) {
+        const extracted = extractFirstJsonObject(text);
+        if (!extracted || extracted === text) {
+            throw firstError;
+        }
+        return JSON.parse(extracted);
+    }
 }
 
 async function repairSemanticFlowDecisionRaw(
@@ -195,7 +212,16 @@ function normalizeDecision(value: unknown): SemanticFlowDecision {
         throw new Error(`decision.status must be "done", "need-more-evidence", or "reject". Got: ${status}`);
     }
 
-    const resolutionText = normalizeResolution(obj.resolution);
+    const classification = normalizeClassification(obj.classification);
+    const summaryRuleKind = obj.summary && typeof obj.summary === "object" && !Array.isArray(obj.summary)
+        ? normalizeOptionalEnum((obj.summary as Record<string, unknown>).ruleKind, "decision.summary.ruleKind", [
+            "source",
+            "sink",
+            "sanitizer",
+            "transfer",
+        ]) as SemanticFlowSummary["ruleKind"]
+        : undefined;
+    const resolutionText = normalizeResolution(obj.resolution, classification, summaryRuleKind);
     if (!new Set(["resolved", "irrelevant", "no-transfer", "wrapper-only", "need-human-check"]).has(resolutionText)) {
         throw new Error(`decision.resolution invalid: ${resolutionText}`);
     }
@@ -204,8 +230,8 @@ function normalizeDecision(value: unknown): SemanticFlowDecision {
     const decision: SemanticFlowDecision = {
         status: "done",
         resolution,
-        classification: normalizeClassification(obj.classification),
-        summary: normalizeSummary(obj.summary),
+        classification,
+        summary: normalizeSummary(obj.summary, classification),
         rationale: normalizeStringArray(obj.rationale),
     };
     if (resolution === "resolved" && !decision.classification) {
@@ -287,26 +313,32 @@ function normalizeBudgetClass(value: unknown): SemanticFlowBudgetClass | undefin
     ) as SemanticFlowBudgetClass | undefined;
 }
 
-function normalizeSummary(value: unknown): SemanticFlowSummary {
+function normalizeSummary(value: unknown, classification?: SemanticFlowArtifactClass): SemanticFlowSummary {
     const obj = expectRecord(value, "decision.summary");
+    const rawRuleKind = normalizeOptionalEnum(obj.ruleKind, "decision.summary.ruleKind", [
+        "source",
+        "sink",
+        "sanitizer",
+        "transfer",
+    ]) as SemanticFlowSummary["ruleKind"];
+    const transfers = normalizeTransfers(obj.transfers, "decision.summary.transfers");
+    const ruleKind = normalizeRuleKindForTransfers(rawRuleKind, transfers, classification);
+    const relations = normalizeRelations(obj.relations);
     const summary: SemanticFlowSummary = {
         inputs: normalizeSlotRefs(obj.inputs, "decision.summary.inputs"),
         outputs: normalizeSlotRefs(obj.outputs, "decision.summary.outputs"),
-        transfers: normalizeTransfers(obj.transfers, "decision.summary.transfers"),
+        transfers,
         confidence: normalizeConfidence(obj.confidence),
-        ruleKind: normalizeOptionalEnum(obj.ruleKind, "decision.summary.ruleKind", [
-            "source",
-            "sink",
-            "sanitizer",
-            "transfer",
-        ]) as SemanticFlowSummary["ruleKind"],
-        sourceKind: normalizeOptionalEnum(obj.sourceKind, "decision.summary.sourceKind", [
-            "entry_param",
-            "call_return",
-            "call_arg",
-            "field_read",
-            "callback_param",
-        ]) as SemanticFlowSummary["sourceKind"],
+        ruleKind,
+        sourceKind: ruleKind === "source"
+            ? normalizeOptionalEnum(obj.sourceKind, "decision.summary.sourceKind", [
+                "entry_param",
+                "call_return",
+                "call_arg",
+                "field_read",
+                "callback_param",
+            ]) as SemanticFlowSummary["sourceKind"]
+            : undefined,
         moduleKind: normalizeOptionalEnum(obj.moduleKind, "decision.summary.moduleKind", [
             "state",
             "pair",
@@ -314,11 +346,60 @@ function normalizeSummary(value: unknown): SemanticFlowSummary {
             "deferred",
             "declarative",
         ]) as SemanticFlowSummary["moduleKind"],
-        relations: normalizeRelations(obj.relations),
-        moduleSpec: normalizeModuleSpec(obj.moduleSpec),
+        relations: normalizeRelationsForClassification(relations, classification, ruleKind, transfers),
+        moduleSpec: classification === "module" ? normalizeModuleSpec(obj.moduleSpec) : undefined,
     };
     validateSummaryInternalConsistency(summary);
     return summary;
+}
+
+function normalizeRelationsForClassification(
+    relations: SemanticFlowRelations | undefined,
+    classification?: SemanticFlowArtifactClass,
+    ruleKind?: SemanticFlowSummary["ruleKind"],
+    transfers: SemanticFlowTransfer[] = [],
+): SemanticFlowRelations | undefined {
+    if (!relations || classification !== "rule") {
+        return relations;
+    }
+    if (
+        ruleKind === "transfer"
+        && transfers.some(transfer => isFieldSensitiveTransferTarget(transfer.to))
+        && !relations.trigger
+        && !relations.entryPattern
+        && (!relations.constraints || relations.constraints.length === 0)
+    ) {
+        return undefined;
+    }
+    if (
+        relations.companions?.length
+        && !relations.carrier
+        && !relations.trigger
+        && !relations.entryPattern
+        && (!relations.constraints || relations.constraints.length === 0)
+    ) {
+        return undefined;
+    }
+    return relations;
+}
+
+function normalizeRuleKindForTransfers(
+    ruleKind: SemanticFlowSummary["ruleKind"],
+    transfers: SemanticFlowTransfer[],
+    classification?: SemanticFlowArtifactClass,
+): SemanticFlowSummary["ruleKind"] {
+    if (
+        classification === "rule"
+        && ruleKind === "sink"
+        && transfers.some(transfer => isFieldSensitiveTransferTarget(transfer.to))
+    ) {
+        return "transfer";
+    }
+    return ruleKind;
+}
+
+function isFieldSensitiveTransferTarget(ref: SemanticFlowSurfaceSlotRef): boolean {
+    return ref.slot === "field_load" || (Array.isArray(ref.fieldPath) && ref.fieldPath.length > 0);
 }
 
 function normalizeModuleSpec(value: unknown) {
@@ -943,8 +1024,19 @@ function isStructuralModuleSummary(summary: SemanticFlowSummary): boolean {
     );
 }
 
-function normalizeResolution(value: unknown): string {
-    return canonicalToken(expectString(value, "decision.resolution"));
+function normalizeResolution(
+    value: unknown,
+    classification?: SemanticFlowArtifactClass,
+    ruleKind?: SemanticFlowSummary["ruleKind"],
+): string {
+    const text = canonicalToken(expectString(value, "decision.resolution"));
+    if (classification && ["rule", "module", "arkmain"].includes(text)) {
+        return "resolved";
+    }
+    if (ruleKind && text === ruleKind) {
+        return "resolved";
+    }
+    return text;
 }
 
 function canonicalToken(value: string): string {
@@ -985,7 +1077,7 @@ function parseSlotRefShorthand(value: string, path: string): SemanticFlowSurface
     if (bare) {
         return bare;
     }
-    for (let i = normalized.lastIndexOf("."); i >= 0; i = normalized.lastIndexOf(".", i - 1)) {
+    for (let i = normalized.lastIndexOf("."); i > 0; i = normalized.lastIndexOf(".", i - 1)) {
         const surfaceText = normalized.slice(0, i).trim();
         const slotText = normalized.slice(i + 1).trim();
         if (!surfaceText || !slotText) {
@@ -1008,11 +1100,33 @@ function parseBareSlotRef(value: string): SemanticFlowSurfaceSlotRef | undefined
     if (match) {
         return { slot: "arg", index: Number(match[1]) };
     }
+    match = value.trim().match(/^arg(\d+)\.([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)$/);
+    if (match) {
+        return {
+            slot: "arg",
+            index: Number(match[1]),
+            fieldPath: splitFieldPath(match[2]),
+        };
+    }
     if (normalized === "ret" || normalized === "result") {
         return { slot: "result" };
     }
+    match = value.trim().match(/^(?:ret|result)\.([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)$/i);
+    if (match) {
+        return {
+            slot: "result",
+            fieldPath: splitFieldPath(match[1]),
+        };
+    }
     if (normalized === "base" || normalized === "receiver" || normalized === "this") {
         return { slot: "base" };
+    }
+    match = value.trim().match(/^(?:base|receiver|this)\.([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)$/i);
+    if (match) {
+        return {
+            slot: "base",
+            fieldPath: splitFieldPath(match[1]),
+        };
     }
     if (normalized === "method-this") {
         return { slot: "method_this" };
@@ -1047,6 +1161,10 @@ function parseBareSlotRef(value: string): SemanticFlowSurfaceSlotRef | undefined
     return undefined;
 }
 
+function splitFieldPath(value: string): string[] {
+    return String(value || "").split(".").map(part => part.trim()).filter(Boolean);
+}
+
 function expectRecord(value: unknown, path: string): Record<string, any> {
     if (!value || typeof value !== "object" || Array.isArray(value)) {
         throw new Error(`${path} must be an object`);
@@ -1065,6 +1183,45 @@ function stripJsonFences(text: string): string {
     const trimmed = String(text || "").trim();
     const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
     return fenced?.[1] ? fenced[1].trim() : trimmed;
+}
+
+function extractFirstJsonObject(text: string): string | undefined {
+    const input = String(text || "");
+    const start = input.indexOf("{");
+    if (start < 0) {
+        return undefined;
+    }
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let index = start; index < input.length; index++) {
+        const char = input[index];
+        if (inString) {
+            if (escaped) {
+                escaped = false;
+            } else if (char === "\\") {
+                escaped = true;
+            } else if (char === '"') {
+                inString = false;
+            }
+            continue;
+        }
+        if (char === '"') {
+            inString = true;
+            continue;
+        }
+        if (char === "{") {
+            depth++;
+            continue;
+        }
+        if (char === "}") {
+            depth--;
+            if (depth === 0) {
+                return input.slice(start, index + 1).trim();
+            }
+        }
+    }
+    return undefined;
 }
 
 function truncateLlmRaw(raw: string, max = 800): string {

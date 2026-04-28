@@ -1,7 +1,7 @@
 import * as assert from "assert";
 import * as crypto from "crypto";
 import * as path from "path";
-import { buildContextPack, dedupeKeepOrder, extractSignalsFromRaw, renderContextPackMarkdown } from "../../tools/context_pack";
+import { buildContextPack, dedupeKeepOrder, extractSignalsFromRaw, parseContextPackArgs, renderContextPackMarkdown } from "../../tools/context_pack";
 import { validateSkills } from "../../tools/skills_validate";
 
 function sha256(s: string): string {
@@ -18,11 +18,20 @@ function main(): void {
     const raw = [
         "decision: use approach A",
         "Decision: use approach A",
+        "决定：保留 session cache",
+        "问题：缓存是否可复用？",
         "next: run tests",
+        "下一步：检查上下文压缩",
         "hypothesis: flaky CI",
+        "假设：中文状态块可以稳定抽取",
     ].join("\n");
     const sig = extractSignalsFromRaw(raw);
-    assert.deepStrictEqual(sig.decisions, ["use approach A"]);
+    assert.deepStrictEqual(sig.decisions, ["use approach A", "保留 session cache"]);
+    assert.ok(sig.openQuestions.includes("缓存是否可复用？"));
+    assert.ok(sig.nextActions.includes("检查上下文压缩"));
+    assert.ok(sig.hypotheses.includes("中文状态块可以稳定抽取"));
+    assert.strictEqual(parseContextPackArgs(["--max-chars", "120"]).maxChars, 120);
+    assert.throws(() => parseContextPackArgs(["--max-chars=bad"]), /positive integer/);
     assert.deepStrictEqual(dedupeKeepOrder(["a", "A", "b"]), ["a", "b"]);
 
     const frozenTime = "2026-04-21T00:00:00.000Z";
