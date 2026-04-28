@@ -1,5 +1,6 @@
 import type { SemanticFlowDecisionInput } from "./SemanticFlowTypes";
 
+/** Bump when prompt instructions / JSON shape expectations change (invalidates on-disk session cache keys). */
 export const SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION = 1;
 
 export interface SemanticFlowPrompt {

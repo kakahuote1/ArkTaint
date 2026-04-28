@@ -8,14 +8,11 @@ import type {
     ModuleSpec,
 } from "../kernel/contracts/ModuleSpec";
 import {
-    SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION,
     buildSemanticFlowPrompt,
     buildSemanticFlowRepairPrompt,
+    SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION,
 } from "./SemanticFlowPrompt";
-import {
-    buildSemanticFlowDecisionCacheKey,
-    type SemanticFlowSessionCache,
-} from "./SemanticFlowSessionCache";
+import { buildSemanticFlowDecisionCacheKey, type SemanticFlowSessionCache } from "./SemanticFlowSessionCache";
 import type {
     SemanticFlowArtifactClass,
     SemanticFlowBudgetClass,
@@ -79,7 +76,7 @@ export function createSemanticFlowLlmDecider(options: CreateSemanticFlowLlmDecid
                     lastDelta: input.lastDelta,
                 })
                 : undefined;
-            const cachedDecision = decisionCacheKey ? cache.lookupDecision(decisionCacheKey) : undefined;
+            const cachedDecision = decisionCacheKey ? cache!.lookupDecision(decisionCacheKey) : undefined;
             if (cachedDecision) {
                 return cachedDecision;
             }
@@ -93,7 +90,7 @@ export function createSemanticFlowLlmDecider(options: CreateSemanticFlowLlmDecid
                 try {
                     const decision = parseSemanticFlowDecision(raw);
                     if (decisionCacheKey) {
-                        cache.storeDecision(decisionCacheKey, decision);
+                        cache!.storeDecision(decisionCacheKey, decision);
                     }
                     return decision;
                 } catch (error) {

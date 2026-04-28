@@ -18,7 +18,7 @@ import {
     resolveCallbackMethodsFromValueWithReturns,
     resolveCallbackRegistrationsFromStmt,
 } from "../../substrate/queries/CallbackBindingQuery";
-import { resolveKnownOptionCallbackRegistrationsFromStmt } from "../../substrate/semantics/KnownOptionCallbackRegistration";
+import { hasModuleSemanticRegistrationProvenance } from "../../substrate/semantics/KnownOptionCallbackRegistration";
 
 export interface FrameworkCallbackResolutionPolicy {
     enableSdkProvenance?: boolean;
@@ -78,6 +78,14 @@ export type KeyedCallbackDispatchRegistration = FrameworkResolvedCallbackRegistr
     familyId: string;
     dispatchKeys: string[];
 };
+
+interface ControllerOptionCallbackSpec {
+    ownerClassNames: Set<string>;
+    constructorMethodNames: Set<string>;
+    optionsArgIndex: number;
+    callbackFieldNames: Set<string>;
+    reasonLabel: string;
+}
 
 type FrameworkCallbackOwnerFamily =
     | "ui_component"
@@ -246,6 +254,22 @@ const EMPTY_OWNER_FALLBACK_SPECS: FallbackSlotSpec[] = [
     DIRECT_UI_FALLBACK_SLOT_SPEC,
     GESTURE_FALLBACK_SLOT_SPEC,
     SUBSCRIPTION_EVENT_FALLBACK_SLOT_SPEC,
+];
+const CONTROLLER_OPTION_CALLBACK_SPECS: ControllerOptionCallbackSpec[] = [
+    {
+        ownerClassNames: new Set(["CustomDialogController"]),
+        constructorMethodNames: new Set(["constructor"]),
+        optionsArgIndex: 0,
+        callbackFieldNames: new Set(["builder", "cancel", "confirm"]),
+        reasonLabel: "Framework controller callback registration",
+    },
+    {
+        ownerClassNames: new Set(["%dflt"]),
+        constructorMethodNames: new Set(["animateTo"]),
+        optionsArgIndex: 0,
+        callbackFieldNames: new Set(["onFinish"]),
+        reasonLabel: "Framework module callback registration",
+    },
 ];
 const KNOWN_SCHEDULER_METHOD_NAMES = new Set([
     "setTimeout",
@@ -426,7 +450,55 @@ export function resolveKnownControllerOptionCallbackRegistrationsFromStmt(
     scene: Scene,
     sourceMethod: ArkMethod,
 ): FrameworkResolvedCallbackRegistration[] {
-    return resolveKnownOptionCallbackRegistrationsFromStmt(stmt, scene, sourceMethod);
+    const invokeExpr = stmt?.getInvokeExpr?.();
+    if (!invokeExpr) return [];
+
+    const methodSig = invokeExpr.getMethodSignature?.();
+    const methodName = methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "";
+    const className = methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";
+    const explicitArgs = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
+    const out = new Map<string, FrameworkResolvedCallbackRegistration>();
+
+    for (const spec of CONTROLLER_OPTION_CALLBACK_SPECS) {
+        if (!spec.ownerClassNames.has(className)) continue;
+        if (!spec.constructorMethodNames.has(methodName)) continue;
+        if (methodName === "animateTo" && !hasModuleSemanticRegistrationProvenance(scene, sourceMethod, invokeExpr, methodSig)) {
+            continue;
+        }
+        const optionsValue = explicitArgs[spec.optionsArgIndex];
+        const optionClass = resolveClassFromValue(scene, optionsValue);
+        if (!optionClass) continue;
+        for (const field of optionClass.getFields()) {
+            const fieldName = field.getName?.() || "";
+            if (!spec.callbackFieldNames.has(fieldName)) continue;
+            const callbackSig = field.getType?.()?.getMethodSignature?.();
+            if (!callbackSig) continue;
+            const callbackMethod = scene.getMethod(callbackSig);
+            if (!callbackMethod?.getCfg?.()) continue;
+            const callbackSignature = callbackMethod.getSignature?.()?.toString?.() || "";
+            if (!callbackSignature) continue;
+            const registrationSignature = methodSig?.toString?.() || "";
+            const key = `${callbackSignature}|field:${fieldName}|call:${registrationSignature}`;
+            if (out.has(key)) continue;
+            out.set(key, {
+                callbackMethod,
+                sourceMethod,
+                registrationMethod: sourceMethod,
+                registrationInvokeExpr: invokeExpr,
+                registrationMethodName: methodName,
+                registrationOwnerName: className,
+                registrationSignature,
+                callbackArgIndex: spec.optionsArgIndex,
+                reason: `${spec.reasonLabel} ${className}.${fieldName} from ${sourceMethod.getName()}`,
+                callbackFlavor: "channel",
+                registrationShape: "options_object_slot",
+                slotFamily: "controller_option_slot",
+                recognitionLayer: "controller_options",
+            });
+        }
+    }
+
+    return [...out.values()];
 }
 
 export function resolveKnownKeyedCallbackRegistrationsFromStmt(
@@ -919,6 +991,12 @@ function matchFallbackSlotSpec(
         }
         return (spec.requiredStringArgIndexes || []).every(index => looksLikeStringArg(explicitArgs[index]));
     });
+}
+
+function resolveClassFromValue(scene: Scene, value: any): any | null {
+    const classSignature = value?.getType?.()?.getClassSignature?.();
+    if (!classSignature) return null;
+    return scene.getClass(classSignature) || null;
 }
 
 function looksLikeStringArg(value: any): boolean {

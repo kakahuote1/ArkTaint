@@ -12,17 +12,14 @@ import {
     protectedMergeSemanticFlowDraft,
     stableSemanticFlowSliceKey,
 } from "./SemanticFlowIncremental";
+import { SEMANTIC_FLOW_DECISION_PARSER_SCHEMA_VERSION, SEMANTIC_FLOW_LLM_TEMPERATURE } from "./SemanticFlowLlm";
+import { SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION } from "./SemanticFlowPrompt";
 import {
     buildSemanticFlowItemCacheKey,
     type CachedSemanticFlowItem,
     type SemanticFlowSessionCache,
 } from "./SemanticFlowSessionCache";
 import { getSemanticFlowItemCacheSemanticsFingerprint } from "./SemanticFlowSessionSemantics";
-import {
-    SEMANTIC_FLOW_DECISION_PARSER_SCHEMA_VERSION,
-    SEMANTIC_FLOW_LLM_TEMPERATURE,
-} from "./SemanticFlowLlm";
-import { SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION } from "./SemanticFlowPrompt";
 import type {
     SemanticFlowAnchor,
     SemanticFlowDecider,
@@ -159,7 +156,7 @@ async function runSemanticFlowItem(
         const cachedItem = sessionCache!.lookupItem(itemCacheKey);
         if (cachedItem) {
             return finalize(
-                restoreCachedItemResult(sessionCache!, itemCacheKey, anchor, cachedItem),
+                restoreCachedItemResult(sessionCache!, itemCacheKey, anchor, initialSlice, cachedItem),
                 { skipCacheWrite: true },
             );
         }
@@ -397,6 +394,7 @@ function restoreCachedItemResult(
     sessionCache: SemanticFlowSessionCache,
     itemCacheKey: ReturnType<typeof buildSemanticFlowItemCacheKey>,
     anchor: SemanticFlowAnchor,
+    _initialSlice: SemanticFlowSlicePackage,
     cachedItem: CachedSemanticFlowItem,
 ): SemanticFlowItemResult {
     const result = sessionCache.restoreItemResult(anchor, cachedItem);

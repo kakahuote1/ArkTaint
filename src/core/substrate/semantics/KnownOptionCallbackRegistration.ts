@@ -152,7 +152,8 @@ function matchesModuleSemanticOptionObjectCallbackSpec(
     });
 }
 
-function hasModuleSemanticRegistrationProvenance(
+/** True when the callee is SDK-backed, imported into the caller file, or defined in a different file than the caller (module semantic registration). */
+export function hasModuleSemanticRegistrationProvenance(
     scene: Scene,
     sourceMethod: any,
     invokeExpr: any,

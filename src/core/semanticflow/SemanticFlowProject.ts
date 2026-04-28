@@ -7,8 +7,8 @@ import { buildSemanticFlowArkMainCandidateItem, buildSemanticFlowRuleCandidateIt
 import { createArkMainCandidateExpander, createCompositeSemanticFlowExpander, createRuleCandidateExpander } from "./SemanticFlowExpanders";
 import { createSemanticFlowLlmDecider, type SemanticFlowModelInvoker } from "./SemanticFlowLlm";
 import { runSemanticFlowSession, type SemanticFlowProgressEvent } from "./SemanticFlowPipeline";
-import { buildRuleCandidateCompanionGroups, semanticFlowRuleCandidateKey } from "./SemanticFlowRuleCompanions";
 import type { SemanticFlowSessionCache } from "./SemanticFlowSessionCache";
+import { buildRuleCandidateCompanionGroups, semanticFlowRuleCandidateKey } from "./SemanticFlowRuleCompanions";
 import type { SemanticFlowSessionResult } from "./SemanticFlowTypes";
 
 export interface SemanticFlowProjectOptions {
@@ -20,8 +20,8 @@ export interface SemanticFlowProjectOptions {
     arkMainMaxCandidates?: number;
     maxRounds?: number;
     concurrency?: number;
-    sessionCache?: SemanticFlowSessionCache;
     onProgress?: (event: SemanticFlowProgressEvent) => void;
+    sessionCache?: SemanticFlowSessionCache;
 }
 
 export interface SemanticFlowProjectResult {
@@ -64,9 +64,9 @@ export async function runSemanticFlowProject(
     const session = await runSemanticFlowSession(items, decider, expander, {
         maxRounds: options.maxRounds ?? 2,
         concurrency: options.concurrency ?? 4,
+        onProgress: options.onProgress,
         model: options.model,
         sessionCache: options.sessionCache,
-        onProgress: options.onProgress,
     });
 
     return {

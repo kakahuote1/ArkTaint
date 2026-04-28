@@ -8,7 +8,6 @@ import {
     resolveCaseMethod,
 } from "../helpers/SyntheticCaseHarness";
 import { registerMockSdkFiles } from "../helpers/TestSceneBuilder";
-import { injectArkUiSdk } from "../../core/orchestration/ArkUiSdkConfig";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { LoadedRuleSet, loadRuleSet } from "../../core/rules/RuleLoader";
 import { summarizeSinkInventoryFlows } from "../helpers/SinkInventoryScoring";
@@ -234,7 +233,6 @@ function selectSeniorFullFiles(section: SeniorFullManifest): string[] {
 
 function buildScene(projectDir: string): Scene {
     const config = new SceneConfig();
-    injectArkUiSdk(config);
     config.buildFromProjectDir(projectDir);
     const scene = new Scene();
     scene.buildSceneFromProjectDir(config);
