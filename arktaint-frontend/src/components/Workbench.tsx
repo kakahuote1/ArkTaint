@@ -60,25 +60,25 @@ const modeCards: Array<{
   {
     id: 'single',
     title: '单项目分析',
-    body: '验证一个项目能否完整跑通，并观察 UDE、规则与结果产物。',
+    body: '最常用路径。选择一个项目，直接运行预分析和全量分析，适合第一次上手。',
     icon: Play,
   },
   {
     id: 'auto',
     title: '自动建模',
-    body: '在结构分析之外启用 SemanticFlow，补足未知 API 和项目语义。',
+    body: '在标准分析之外启用 SemanticFlow，用模型补足项目里的未知 API 语义。',
     icon: Sparkles,
   },
   {
     id: 'batch',
     title: '批量任务',
-    body: '面向真实项目集合，统一设置超时、分片、并发和结果回写。',
+    body: '一次跑多个真实项目，统一控制超时、分片、并发和结果回写。',
     icon: Workflow,
   },
   {
     id: 'inspect',
     title: '检查与说明',
-    body: '列出、解释或追踪模块、模型与插件，不直接进入完整分析。',
+    body: '先查看模块、模型或插件是否生效，不直接进入完整分析。',
     icon: Search,
   },
 ];
@@ -100,9 +100,9 @@ const inspectionOptions: Array<{
 
 const flowPhases = [
   { key: 'scope', title: '选择范围', hint: '确定项目、源码目录和输出位置。' },
-  { key: 'graph', title: '场景构建', hint: '入口恢复、PAG 构建和 UDE 审计。' },
+  { key: 'graph', title: '场景构建', hint: '恢复入口、构建分析图并记录审计信息。' },
   { key: 'model', title: '规则与建模', hint: '按需引入规则包、模型包和 SemanticFlow。' },
-  { key: 'result', title: '求解与产物', hint: '输出 summary、diagnostics 和路径级差分。' },
+  { key: 'result', title: '求解与产物', hint: '输出 summary、diagnostics 和结果路径。' },
 ];
 
 function nowText() {
@@ -330,7 +330,7 @@ export default function Workbench() {
   const [pluginsOpen, setPluginsOpen] = useState(readBool('pluginsOpen', false));
   const [semanticOpen, setSemanticOpen] = useState(readBool('semanticOpen', false));
   const [batchOpen, setBatchOpen] = useState(readBool('batchOpen', false));
-  const [activeSection, setActiveSection] = useState<WorkbenchSection>('mode');
+  const [activeSection, setActiveSection] = useState<WorkbenchSection>('scope');
 
   const inspectionNeedsTarget = inspectionOptions.find(item => item.value === inspectionMode)?.needsTarget ?? false;
   const needsRepo = taskMode !== 'batch';
@@ -574,6 +574,7 @@ export default function Workbench() {
 
   const applyPreset = (mode: TaskMode) => {
     setTaskMode(mode);
+    setActiveSection('scope');
     if (mode === 'single') {
       setAutoModel(false);
       setInspectionMode('none');
@@ -1128,8 +1129,8 @@ export default function Workbench() {
       <div className="workbench-heading">
         <div>
           <span className="eyebrow">分析工作台</span>
-          <h2>让一次分析从选择项目开始，再逐步收敛到求解策略</h2>
-          <p>左侧决定当前步骤，中间只编辑这一组设置，右侧始终显示运行状态、产物路径和日志。</p>
+          <h2>按步骤完成一次真实项目分析</h2>
+          <p>先选择任务模式和项目范围，再按需打开高级能力；运行状态、产物路径和日志会固定显示在右侧。</p>
         </div>
         <div className={`bridge-state ${bridgeError ? 'error' : bridgeConfig?.valid ? 'ok' : 'warn'}`}>
           {bridgeError || `本地服务已连接 · 默认根目录：${bridgeConfig?.defaultArkTaintRoot || '-'}`}
@@ -1137,8 +1138,8 @@ export default function Workbench() {
       </div>
 
       <div className="starter-guide">
-        <strong>第一次使用：</strong>
-        <span>先选任务模式，再填写项目目录。源码目录通常可以留空；确认 ArkTaint 根目录校验通过后，再开始首轮分析。</span>
+        <strong>推荐路径：</strong>
+        <span>新手选“单项目分析”，只填目标项目目录；源码目录先留空，其他高级能力后面需要时再打开。</span>
       </div>
 
       <div className="workbench-grid workbench-grid-refined">
@@ -1155,6 +1156,7 @@ export default function Workbench() {
                   type="button"
                   className={`workspace-section-tab ${resolvedSection === item.id ? 'active' : ''}`}
                   onClick={() => setActiveSection(item.id)}
+                  aria-pressed={resolvedSection === item.id}
                 >
                   <span className="workspace-section-index">{String(index + 1).padStart(2, '0')}</span>
                   <span className="workspace-section-copy">
@@ -1232,8 +1234,8 @@ export default function Workbench() {
             <div className="panel-heading">
               <span className="icon-badge"><CheckCircle2 size={16} /></span>
               <div>
-                <strong>当前任务摘要</strong>
-                <p>这里固定展示本轮分析的目标、范围和关键策略，不需要返回中间区域反复确认。</p>
+              <strong>当前任务摘要</strong>
+                <p>这里固定展示本轮分析的目标、范围和关键策略，方便在启动前快速确认。</p>
               </div>
             </div>
             <div className="intent-list">

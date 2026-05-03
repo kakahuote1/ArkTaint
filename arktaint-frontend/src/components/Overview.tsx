@@ -1,4 +1,5 @@
-﻿import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
+import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
+import { ArrowRight, CheckCircle2, FileSearch, Gauge, ListChecks, ShieldCheck } from 'lucide-react';
 
 interface OverviewProps {
   onStart: () => void;
@@ -16,7 +17,7 @@ function useReveal() {
           target.classList.add('is-visible');
         }
       },
-      { threshold: 0.12 }
+      { threshold: 0.16 }
     );
     observer.observe(target);
     return () => observer.disconnect();
@@ -49,297 +50,211 @@ function RevealSection({
   );
 }
 
-function PipelinePoster() {
+function ProductFlowSvg() {
   return (
-    <svg className="poster-diagram" viewBox="0 0 760 520" role="img" aria-label="ArkTaint 分析链路">
+    <svg className="product-flow-svg" viewBox="0 0 920 620" role="img" aria-label="ArkTaint 标准分析流程">
       <defs>
-        <linearGradient id="posterLine" x1="0" x2="1">
-          <stop offset="0" stopColor="#1d4ed8" />
-          <stop offset="1" stopColor="#0f766e" />
+        <linearGradient id="flowBg" x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0" stopColor="#f8fafc" />
+          <stop offset="1" stopColor="#eef7f4" />
         </linearGradient>
-        <marker id="posterArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-          <path d="M0 0 L10 5 L0 10z" fill="#1d4ed8" />
-        </marker>
+        <linearGradient id="flowStroke" x1="0" x2="1">
+          <stop offset="0" stopColor="#2563eb" />
+          <stop offset="0.52" stopColor="#14b8a6" />
+          <stop offset="1" stopColor="#f59e0b" />
+        </linearGradient>
+        <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="18" stdDeviation="18" floodColor="#0f172a" floodOpacity="0.12" />
+        </filter>
       </defs>
 
-      <rect x="28" y="26" width="704" height="468" rx="30" />
+      <rect x="24" y="24" width="872" height="572" rx="8" fill="url(#flowBg)" />
+      <path className="flow-grid-line" d="M92 128 H828" />
+      <path className="flow-grid-line" d="M92 262 H828" />
+      <path className="flow-grid-line" d="M92 396 H828" />
+      <path className="flow-grid-line" d="M180 82 V520" />
+      <path className="flow-grid-line" d="M460 82 V520" />
+      <path className="flow-grid-line" d="M740 82 V520" />
 
-      <g className="poster-grid">
-        <path d="M88 98 H672" />
-        <path d="M88 194 H672" />
-        <path d="M88 290 H672" />
-        <path d="M88 386 H672" />
-        <path d="M88 98 V386" />
-        <path d="M204 98 V386" />
-        <path d="M320 98 V386" />
-        <path d="M436 98 V386" />
-        <path d="M552 98 V386" />
-        <path d="M668 98 V386" />
+      <g filter="url(#softShadow)">
+        <g className="flow-node" transform="translate(86 156)">
+          <rect width="190" height="118" rx="8" />
+          <text x="22" y="38">预分析</text>
+          <text x="22" y="68" className="muted">自动识别项目入口</text>
+          <text x="22" y="92" className="muted">整理候选与缺口</text>
+        </g>
+        <g className="flow-node center" transform="translate(364 104)">
+          <rect width="190" height="118" rx="8" />
+          <text x="22" y="38">LLM 建模</text>
+          <text x="22" y="68" className="muted">只在需要时补语义</text>
+          <text x="22" y="92" className="muted">生成可复核产物</text>
+        </g>
+        <g className="flow-node" transform="translate(644 156)">
+          <rect width="190" height="118" rx="8" />
+          <text x="22" y="38">全量分析</text>
+          <text x="22" y="68" className="muted">恢复异步和回调传播</text>
+          <text x="22" y="92" className="muted">输出可追踪结果</text>
+        </g>
       </g>
 
-      <g className="poster-node" transform="translate(96 118)">
-        <rect width="128" height="64" rx="18" />
-        <text x="20" y="28">源码目录</text>
-        <text x="20" y="48" className="muted">自动发现 / 手动限定</text>
-      </g>
+      <path className="main-flow-path" pathLength="1" d="M276 216 C336 214 318 160 364 160" />
+      <path className="main-flow-path" pathLength="1" d="M554 160 C608 160 580 216 644 216" />
+      <path className="return-flow-path" pathLength="1" d="M740 286 C740 444 184 456 184 286" />
 
-      <g className="poster-node" transform="translate(256 118)">
-        <rect width="128" height="64" rx="18" />
-        <text x="20" y="28">场景构建</text>
-        <text x="20" y="48" className="muted">入口与调用关系</text>
-      </g>
+      <circle className="flow-pulse pulse-a" r="7">
+        <animateMotion dur="5.2s" repeatCount="indefinite" path="M276 216 C336 214 318 160 364 160" />
+      </circle>
+      <circle className="flow-pulse pulse-b" r="7">
+        <animateMotion dur="5.2s" begin="1.4s" repeatCount="indefinite" path="M554 160 C608 160 580 216 644 216" />
+      </circle>
+      <circle className="flow-pulse pulse-c" r="6">
+        <animateMotion dur="7s" begin="0.7s" repeatCount="indefinite" path="M740 286 C740 444 184 456 184 286" />
+      </circle>
 
-      <g className="poster-node" transform="translate(416 118)">
-        <rect width="128" height="64" rx="18" />
-        <text x="20" y="28">规则 / 模型</text>
-        <text x="20" y="48" className="muted">规则、模型、插件</text>
-      </g>
-
-      <g className="poster-node strong" transform="translate(576 118)">
-        <rect width="128" height="64" rx="18" />
-        <text x="20" y="28">UDE</text>
-        <text x="20" y="48" className="muted">统一延后执行恢复</text>
-      </g>
-
-      <g className="poster-node" transform="translate(168 310)">
-        <rect width="128" height="64" rx="18" />
-        <text x="20" y="28">PAG</text>
-        <text x="20" y="48" className="muted">新增传播边注入</text>
-      </g>
-
-      <g className="poster-node" transform="translate(356 310)">
-        <rect width="148" height="64" rx="18" />
-        <text x="20" y="28">污点流求解</text>
-        <text x="20" y="48" className="muted">路径级差分与命中</text>
-      </g>
-
-      <g className="poster-node" transform="translate(564 310)">
-        <rect width="140" height="64" rx="18" />
-        <text x="20" y="28">结果落盘</text>
-        <text x="20" y="48" className="muted">summary / diagnostics</text>
-      </g>
-
-      <path className="poster-flow" d="M224 150 H256" markerEnd="url(#posterArrow)" />
-      <path className="poster-flow" d="M384 150 H416" markerEnd="url(#posterArrow)" />
-      <path className="poster-flow" d="M544 150 H576" markerEnd="url(#posterArrow)" />
-      <path className="poster-flow" d="M640 182 C640 242 252 246 252 310" markerEnd="url(#posterArrow)" />
-      <path className="poster-flow" d="M296 342 H356" markerEnd="url(#posterArrow)" />
-      <path className="poster-flow" d="M504 342 H564" markerEnd="url(#posterArrow)" />
-
-      <g className="poster-core" transform="translate(292 210)">
-        <rect x="-56" y="-34" width="176" height="96" rx="24" />
-        <path d="M32 -18 L84 10 L32 38 L-20 10 Z" />
-        <circle cx="32" cy="10" r="12" />
-        <text x="-24" y="86" className="muted">先恢复延后传播结构，再交给求解器</text>
+      <g className="flow-output" transform="translate(168 390)">
+        <rect width="584" height="116" rx="8" />
+        <text x="28" y="42">输出给人的结果，而不是只给机器的日志</text>
+        <text x="28" y="74" className="muted">summary、diagnostics、feedback、运行过程和产物路径会一起保留，方便复核和复跑。</text>
       </g>
     </svg>
   );
 }
 
-function RecoveryFigure() {
+function AdvantageSvg() {
   return (
-    <svg className="contrast-diagram" viewBox="0 0 1040 280" role="img" aria-label="UDE 恢复效果对照">
+    <svg className="advantage-svg" viewBox="0 0 760 280" role="img" aria-label="ArkTaint 优势">
       <defs>
-        <marker id="contrastArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-          <path d="M0 0 L10 5 L0 10z" fill="#0f172a" />
-        </marker>
+        <linearGradient id="advLine" x1="0" x2="1">
+          <stop offset="0" stopColor="#2563eb" />
+          <stop offset="1" stopColor="#10b981" />
+        </linearGradient>
       </defs>
-      <rect x="18" y="22" width="1004" height="236" rx="24" />
-      <g className="contrast-panel" transform="translate(48 52)">
-        <text x="0" y="0" className="title">未恢复 UDE</text>
-        <path d="M0 80 H120" markerEnd="url(#contrastArrow)" />
-        <circle cx="0" cy="80" r="10" />
-        <circle cx="120" cy="80" r="10" />
-        <path d="M120 80 H240" strokeDasharray="8 10" markerEnd="url(#contrastArrow)" />
-        <circle cx="240" cy="80" r="10" />
-        <path d="M240 80 H360" markerEnd="url(#contrastArrow)" opacity="0.22" />
-        <circle cx="360" cy="80" r="10" opacity="0.22" />
-        <text x="0" y="126" className="muted">回调值、Promise 结果和环境位置在边界处断开</text>
+      <rect x="18" y="22" width="724" height="236" rx="8" />
+      <path className="adv-track" d="M96 142 H664" />
+      <g className="adv-step" transform="translate(76 94)">
+        <circle cx="48" cy="48" r="42" />
+        <text x="48" y="53">找得到</text>
       </g>
-      <g className="contrast-separator" transform="translate(520 52)">
-        <circle cx="0" cy="70" r="24" />
-        <text x="-18" y="76">VS</text>
+      <g className="adv-step" transform="translate(310 94)">
+        <circle cx="48" cy="48" r="42" />
+        <text x="48" y="53">跑得通</text>
       </g>
-      <g className="contrast-panel positive" transform="translate(606 52)">
-        <text x="0" y="0" className="title">恢复 UDE</text>
-        <path d="M0 80 H120" markerEnd="url(#contrastArrow)" />
-        <circle cx="0" cy="80" r="10" />
-        <circle cx="120" cy="80" r="10" />
-        <path d="M120 80 H240" markerEnd="url(#contrastArrow)" />
-        <circle cx="240" cy="80" r="10" />
-        <path d="M240 80 H360" markerEnd="url(#contrastArrow)" />
-        <circle cx="360" cy="80" r="10" />
-        <path d="M120 80 C160 26 210 26 240 80" className="handoff" />
-        <path d="M240 80 C284 134 330 134 360 80" className="handoff" />
-        <text x="0" y="126" className="muted">新增传播边不改源汇规则，只补足求解前传播结构</text>
+      <g className="adv-step" transform="translate(544 94)">
+        <circle cx="48" cy="48" r="42" />
+        <text x="48" y="53">看得懂</text>
       </g>
+      <circle className="adv-dot" r="8">
+        <animateMotion dur="4.6s" repeatCount="indefinite" path="M124 142 H358 H592" />
+      </circle>
     </svg>
   );
 }
 
-const evidenceMetrics = [
-  { value: 'Promise', label: '结算结果恢复', note: '恢复 Promise 结果与 continuation 之间的传播连接' },
-  { value: '回调', label: '注册侧关联', note: '把注册点、回调值和消费点重新放回同一条传播链' },
-  { value: '声明式触发', label: '界面状态联动', note: '处理组件状态、属性更新与声明式触发中的传播断点' },
-  { value: '环境传递', label: '闭包与位置恢复', note: '恢复环境位置和延后执行单元之间的值交接' },
-  { value: '规则与模型', label: '语义补全', note: '规则包、模型包、SemanticFlow 与插件能力可以协同接入' },
-  { value: '结果产物', label: '可复核输出', note: '统一输出 summary、diagnostics、feedback 与路径差分结果' },
-];
-
-const capabilityColumns = [
+const advantages = [
   {
-    title: '先恢复结构，再进入求解',
-    body: 'Promise、回调、声明式触发和环境传递先被统一恢复为延后传播结构，再交给 PAG 和污点求解器消费。',
+    icon: FileSearch,
+    title: '先理解项目结构，再进入风险分析',
+    body: 'ArkTaint 会从项目目录出发识别源码范围、入口和候选 API，让后续分析建立在真实项目结构上。',
   },
   {
-    title: '规则、模型与插件协同',
-    body: '规则包负责源汇与传递，模型包负责语义补全，SemanticFlow 与插件负责项目侧扩展和自动建模。',
+    icon: ShieldCheck,
+    title: '恢复异步和回调里的传播断点',
+    body: '面对 Promise、回调和声明式触发，ArkTaint 会补足断开的传播关系，让数据流结果更接近实际执行。',
   },
   {
-    title: '结果可复核',
-    body: '分析结束后会同时输出 summary、diagnostics、feedback、inventory 和路径级结果，便于复核和复跑。',
+    icon: ListChecks,
+    title: '结果能追踪、能复核、能复跑',
+    body: 'summary、diagnostics 和 feedback 会一起保留，方便安全人员解释结果、定位缺口并进行复查。',
   },
 ];
 
-const rulePanels = [
-  {
-    title: '项目输入',
-    body: '支持项目目录、源码目录、模型根目录和批量清单；单项目、自动建模、批量和检查模式共享同一套输入结构。',
-  },
-  {
-    title: '分析扩展',
-    body: '规则包、模型包、模块规约、ArkMain 规约、SemanticFlow 和插件能力可以按项目需要逐层接入。',
-  },
-  {
-    title: '结果落盘',
-    body: '输出目录中同时保存 summary、diagnostics、feedback、inventory 和路径级结果，便于后续复核。',
-  },
+const productSteps = [
+  '选择项目',
+  '确认源码范围',
+  '按需启用建模',
+  '运行全量分析',
+  '查看结果产物',
 ];
 
 export default function Overview({ onStart }: OverviewProps) {
   return (
     <main className="experience-shell overview-page">
-      <div id="overview" className="section-anchor" />
-      <section className="split-stage">
-        <div className="stage-copy">
-          <span className="eyebrow">面向 ArkTS / OpenHarmony 的静态污点分析平台</span>
-          <h1>把延后执行恢复为可求解的传播结构</h1>
-          <p className="lead">
-            ArkTaint 面向真实 ArkTS 项目，统一恢复 Promise、回调、声明式触发与环境传递中的延后传播关系。
-            当数据在异步边界、回调边界或声明式触发边界处断开时，ArkTaint 会把这些断点重新恢复到 PAG 与污点求解过程中。
+      <section className="product-hero">
+        <div className="product-hero-copy">
+          <span className="eyebrow">ArkTaint 静态分析工作台</span>
+          <h1>让真实 ArkTS 项目的数据流风险更早暴露</h1>
+          <p className="hero-paragraph">
+            ArkTaint 面向 OpenHarmony / ArkTS 应用，自动梳理项目入口、异步回调和跨组件传播关系，帮助安全人员发现敏感数据从来源到风险点的真实流向，并保留可复核的过程与结果。
           </p>
-
           <div className="stage-actions">
-            <button className="primary-button" onClick={onStart}>进入分析工作台</button>
-            <a className="secondary-link" href="#outputs">查看输出产物</a>
+            <button className="primary-button hero-action" onClick={onStart}>
+              进入工作台
+              <ArrowRight size={16} />
+            </button>
+            <a className="secondary-link" href="#product-advantages">了解产品优势</a>
           </div>
-
-          <div className="stage-points">
-            <div>
-              <strong>真实项目分析</strong>
-              <span>支持项目目录、源码目录、模型根目录和批量清单，适合单项目复核和大规模批量测试。</span>
-            </div>
-            <div>
-              <strong>统一延后执行恢复（UDE）</strong>
-              <span>在求解前恢复跨 Promise、回调和声明式触发的传播连接，生成新增传播边并补足结构断点。</span>
-            </div>
-            <div>
-              <strong>规则 / 模型协同</strong>
-              <span>规则包、模型包、SemanticFlow 与插件能力可以按项目需要逐层接入，补足项目语义。</span>
-            </div>
+          <div className="hero-trust-row">
+            <span><CheckCircle2 size={15} /> 适合真实项目</span>
+            <span><Gauge size={15} /> 有预算和进度控制</span>
+            <span><ShieldCheck size={15} /> 输出可复核</span>
           </div>
         </div>
-
-        <div className="stage-visual">
-          <div className="poster-panel">
-            <PipelinePoster />
-          </div>
-          <div className="visual-note">
-            <strong>核心分析链</strong>
-            <p>源码目录先进入场景构建，再由规则、模型和 UDE 共同补足传播结构，最后进入 PAG、路径求解和结果落盘。</p>
-          </div>
+        <div className="product-hero-visual" aria-hidden="true">
+          <ProductFlowSvg />
         </div>
       </section>
 
-      <RevealSection className="evidence-ribbon">
-        {evidenceMetrics.map(metric => (
-          <div key={metric.label} className="evidence-cell">
-            <strong>{metric.value}</strong>
-            <span>{metric.label}</span>
-            <em>{metric.note}</em>
+      <RevealSection className="product-strip">
+        {productSteps.map((step, index) => (
+          <div key={step} className="product-strip-step">
+            <span>{String(index + 1).padStart(2, '0')}</span>
+            <strong>{step}</strong>
           </div>
         ))}
       </RevealSection>
 
-      <RevealSection className="editorial-block">
-        <div className="block-heading">
-          <span className="eyebrow">方法特征</span>
-          <h2>ArkTaint 把传播断点恢复成结构对象，再交给后续求解器处理</h2>
+      <RevealSection className="product-advantage-section">
+        <div id="product-advantages" className="section-anchor" />
+        <div className="product-section-copy">
+          <span className="eyebrow">产品优势</span>
+          <h2>ArkTaint 的目标不是多报结果，而是把真实项目里的传播关系讲清楚</h2>
           <p>
-            在 ArkTS / OpenHarmony 项目里，很多数据流并不是在当前调用栈内直接闭合，而是会在未来激活的执行单元里继续传播。
-            ArkTaint 把这些传播统一恢复为可求解的结构对象，再交给后续规则和求解器继续处理。
+            ArkTS 项目里，数据经常穿过 Promise、回调、生命周期和声明式界面触发。ArkTaint 会把这些容易断开的传播关系恢复出来，再生成能够复核的分析产物。
           </p>
         </div>
-        <div className="capability-columns">
-          {capabilityColumns.map(item => (
-            <article key={item.title}>
-              <h3>{item.title}</h3>
-              <p>{item.body}</p>
-            </article>
-          ))}
+        <div className="advantage-layout">
+          <div className="advantage-visual">
+            <AdvantageSvg />
+          </div>
+          <div className="advantage-list">
+            {advantages.map(item => {
+              const Icon = item.icon;
+              return (
+                <article key={item.title} className="advantage-item">
+                  <span><Icon size={18} /></span>
+                  <div>
+                    <h3>{item.title}</h3>
+                    <p>{item.body}</p>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
         </div>
       </RevealSection>
 
-      <RevealSection as="div" className="diagram-block">
-        <RecoveryFigure />
-      </RevealSection>
-
-      <RevealSection as="section" className="editorial-block models-block">
-        <div className="block-heading">
-          <span className="eyebrow">输入与产物</span>
-          <h2>从项目输入到结果落盘，所有关键产物都能直接复核</h2>
+      <RevealSection className="product-output-section">
+        <div className="product-section-copy compact">
+          <span className="eyebrow">运行体验</span>
+            <h2>分析结果既能给出风险，也能说明它从哪里来</h2>
           <p>
-            ArkTaint 的输入包括项目目录、源码目录、规则包和模型包，也包括按需启用的自动建模与插件能力；
-            输出覆盖 summary、diagnostics、feedback、inventory 以及路径级差分结果。
+            每次分析都会保留 summary、diagnostics、feedback 和运行日志。你可以看到风险流、候选缺口和模型补全结果，也可以据此复查项目结构或再次运行。
           </p>
         </div>
-        <div className="rule-panels">
-          {rulePanels.map(panel => (
-            <article key={panel.title}>
-              <h3>{panel.title}</h3>
-              <p>{panel.body}</p>
-            </article>
-          ))}
-        </div>
-      </RevealSection>
-
-      <RevealSection as="section" className="editorial-block results-block">
-        <div id="outputs" className="section-anchor" />
-        <div className="block-heading">
-          <span className="eyebrow">输出产物</span>
-          <h2>分析完成后，ArkTaint 会把关键结果和诊断信息一起落盘</h2>
-          <p>
-            输出目录中会同时保存 summary、diagnostics、feedback、inventory 和路径级结果，便于对项目做复核、追踪和复跑。
-          </p>
-        </div>
-        <div className="result-table">
-          <div className="result-row">
-            <span>summary</span>
-            <strong>总耗时、阶段统计、结构审计和分析摘要。</strong>
-          </div>
-          <div className="result-row">
-            <span>diagnostics</span>
-            <strong>入口恢复、规则命中、候选缺口和失败原因。</strong>
-          </div>
-          <div className="result-row">
-            <span>feedback</span>
-            <strong>未知 API、规则候选、模型缺口与人工复核入口。</strong>
-          </div>
-          <div className="result-row">
-            <span>inventory</span>
-            <strong>真实项目清单、正式主链结果、开销结果和输出目录。</strong>
-          </div>
-        </div>
+        <button className="primary-button" onClick={onStart}>
+          打开分析工作台
+          <ArrowRight size={16} />
+        </button>
       </RevealSection>
     </main>
   );
