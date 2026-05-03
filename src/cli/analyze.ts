@@ -256,6 +256,9 @@ export async function runAnalyzeCliCommand(options: CliOptions): Promise<void> {
             k: options.k,
             stopOnFirstFlow: options.stopOnFirstFlow,
             maxFlowsPerEntry: options.maxFlowsPerEntry,
+            worklistBudgetMs: options.worklistBudgetMs,
+            worklistMaxDequeues: options.worklistMaxDequeues,
+            worklistMaxVisited: options.worklistMaxVisited,
             llmSessionCacheDir: options.llmSessionCacheDir,
             llmSessionCacheMode: options.llmSessionCacheMode,
             llmTimeoutMs: options.llmTimeoutMs,
@@ -353,6 +356,7 @@ export async function runAnalyzeCliCommand(options: CliOptions): Promise<void> {
     console.log(`transfer_profile=${JSON.stringify(report.summary.transferProfile)}`);
     console.log(`detect_profile=${JSON.stringify(report.summary.detectProfile)}`);
     console.log(`stage_profile=${JSON.stringify(report.summary.stageProfile)}`);
+    console.log(`memory_profile=${JSON.stringify(report.summary.memoryProfile)}`);
     console.log(`transfer_no_hit_reasons=${JSON.stringify(report.summary.transferNoHitReasons)}`);
     if (report.summary.arkMainSeeds) {
         console.log(`arkmain_seeds=${JSON.stringify(report.summary.arkMainSeeds)}`);

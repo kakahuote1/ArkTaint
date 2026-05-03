@@ -14,10 +14,23 @@ import {
 import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
 
 const MAX_ALIAS_RESOLUTION_DEPTH = 8;
-const directAliasLocalCache: WeakMap<Pag, Map<number, Local[]>> = new WeakMap();
+const defaultDirectAliasLocalCache: WeakMap<Pag, Map<number, Local[]>> = new WeakMap();
+const directAliasLocalCacheByClassIndex: WeakMap<Pag, WeakMap<Map<string, any>, Map<number, Local[]>>> = new WeakMap();
+const directAliasCandidateIndexCache: WeakMap<Pag, Map<number, Local[]>> = new WeakMap();
+const aliasLocalsForCarrierCacheByClassIndex: WeakMap<Pag, WeakMap<Map<string, any>, Map<number, Local[]>>> = new WeakMap();
+const capturedFieldLoadCandidateIndexByClassIndex: WeakMap<Pag, WeakMap<Map<string, any>, CapturedFieldLoadCandidateIndex>> = new WeakMap();
 const hasAnonymousObjectLiteralClassCache: WeakMap<Map<string, any>, boolean> = new WeakMap();
 const defaultCarrierResolutionCache: WeakMap<Pag, WeakMap<object, WeakMap<object, number[]>>> = new WeakMap();
 const carrierResolutionCacheByClassIndex: WeakMap<Pag, WeakMap<Map<string, any>, WeakMap<object, WeakMap<object, number[]>>>> = new WeakMap();
+
+interface CapturedFieldLoadCandidate {
+    value: Local;
+    declStmt: ArkAssignStmt;
+}
+
+interface CapturedFieldLoadCandidateIndex {
+    byCapturedLocalName: Map<string, CapturedFieldLoadCandidate[]>;
+}
 
 export function isCarrierAliasNode(aliasNode: PagNode, carrierNodeId: number): boolean {
     if (aliasNode.getID() === carrierNodeId) return true;
@@ -30,17 +43,27 @@ export function collectAliasLocalsForCarrier(
     carrierNodeId: number,
     classBySignature?: Map<string, any>,
 ): Local[] {
+    const fullCache = resolveAliasLocalsForCarrierCache(pag, classBySignature);
+    if (fullCache?.has(carrierNodeId)) {
+        return fullCache.get(carrierNodeId)!;
+    }
+
+    const results: Local[] = [];
+    fullCache?.set(carrierNodeId, results);
+
     const directAliasLocals = collectDirectAliasLocalsForCarrier(pag, carrierNodeId, classBySignature);
-    const results: Local[] = [...directAliasLocals];
+    results.push(...directAliasLocals);
     const seen = new Set<string>(
         directAliasLocals.map(value => `${value.getName?.() || ""}#${value.getDeclaringStmt?.()?.toString?.() || ""}`),
     );
     const methodLocalIndex = new Map<string, Map<string, Local[]>>();
 
     if (!classBySignature || directAliasLocals.length === 0) {
+        fullCache?.set(carrierNodeId, results);
         return results;
     }
     if (!hasAnonymousObjectLiteralClasses(classBySignature)) {
+        fullCache?.set(carrierNodeId, results);
         return results;
     }
 
@@ -51,51 +74,54 @@ export function collectAliasLocalsForCarrier(
         directAliasLocalNames.add(name);
     }
 
-    for (const rawNode of pag.getNodesIter()) {
-        const candidateNode = rawNode as PagNode;
-        const candidateValue = candidateNode.getValue?.();
-        if (!(candidateValue instanceof Local)) continue;
+    const capturedCandidateIndex = getCapturedFieldLoadCandidateIndex(pag, classBySignature);
+    const candidateSeen = new Set<string>();
+    for (const directAliasName of directAliasLocalNames) {
+        const candidates = capturedCandidateIndex.byCapturedLocalName.get(directAliasName) || [];
+        for (const candidate of candidates) {
+            const candidateValue = candidate.value;
+            const declStmt = candidate.declStmt;
+            const key = localIdentityKey(candidateValue);
+            if (candidateSeen.has(key)) continue;
+            candidateSeen.add(key);
+            if (seen.has(key)) continue;
 
-        const declStmt = candidateValue.getDeclaringStmt?.();
-        if (!(declStmt instanceof ArkAssignStmt) || declStmt.getLeftOp() !== candidateValue) continue;
-        const rhs = declStmt.getRightOp();
-        if (!(rhs instanceof ArkInstanceFieldRef)) continue;
-        const base = rhs.getBase?.();
-        if (!(base instanceof Local)) continue;
+            const carrierIds = collectCarrierNodeIdsForValueAtStmt(
+                pag,
+                candidateValue,
+                declStmt,
+                classBySignature,
+                methodLocalIndex,
+            );
+            if (!carrierIds.includes(carrierNodeId)) continue;
 
-        const baseMethodSig = resolveDeclaringMethodSignature(base);
-        if (!baseMethodSig) continue;
-        const baseClassSig = resolveValueClassSignatureAtStmt(base, declStmt, 0, new Set<string>());
-        if (!baseClassSig) continue;
-        const arkClass = classBySignature.get(baseClassSig);
-        if (!arkClass) continue;
-
-        const fieldName = rhs.getFieldSignature?.().getFieldName?.() || rhs.getFieldName?.();
-        if (!fieldName) continue;
-        const capturedLocalNames = resolveCapturedLocalNamesForField(arkClass, fieldName);
-        if (capturedLocalNames.length === 0) continue;
-
-        const localIndex = ensureMethodLocalIndex(methodLocalIndex, pag, baseMethodSig);
-        const hasDirectCarrierCapture = capturedLocalNames.some(name => directAliasLocalNames.has(name));
-        if (!hasDirectCarrierCapture) continue;
-
-        const key = `${candidateValue.getName?.() || ""}#${candidateValue.getDeclaringStmt?.()?.toString?.() || ""}`;
-        if (seen.has(key)) continue;
-
-        const carrierIds = collectCarrierNodeIdsForValueAtStmt(
-            pag,
-            candidateValue,
-            declStmt,
-            classBySignature,
-            methodLocalIndex,
-        );
-        if (!carrierIds.includes(carrierNodeId)) continue;
-
-        seen.add(key);
-        results.push(candidateValue);
+            seen.add(key);
+            results.push(candidateValue);
+        }
     }
 
+    fullCache?.set(carrierNodeId, results);
     return results;
+}
+
+function resolveAliasLocalsForCarrierCache(
+    pag: Pag,
+    classBySignature?: Map<string, any>,
+): Map<number, Local[]> | undefined {
+    if (!classBySignature) {
+        return undefined;
+    }
+    let byClassIndex = aliasLocalsForCarrierCacheByClassIndex.get(pag);
+    if (!byClassIndex) {
+        byClassIndex = new WeakMap<Map<string, any>, Map<number, Local[]>>();
+        aliasLocalsForCarrierCacheByClassIndex.set(pag, byClassIndex);
+    }
+    let byCarrier = byClassIndex.get(classBySignature);
+    if (!byCarrier) {
+        byCarrier = new Map<number, Local[]>();
+        byClassIndex.set(classBySignature, byCarrier);
+    }
+    return byCarrier;
 }
 
 function collectDirectAliasLocalsForCarrier(
@@ -103,25 +129,17 @@ function collectDirectAliasLocalsForCarrier(
     carrierNodeId: number,
     classBySignature?: Map<string, any>,
 ): Local[] {
-    let byCarrier = directAliasLocalCache.get(pag);
-    if (!byCarrier) {
-        byCarrier = new Map<number, Local[]>();
-        directAliasLocalCache.set(pag, byCarrier);
-    }
-    const cached = byCarrier.get(carrierNodeId);
-    if (cached) {
-        return cached;
+    const byCarrier = resolveDirectAliasLocalCache(pag, classBySignature);
+    if (byCarrier.has(carrierNodeId)) {
+        return byCarrier.get(carrierNodeId)!;
     }
 
     const results: Local[] = [];
+    byCarrier.set(carrierNodeId, results);
     const seen = new Set<string>();
     const methodLocalIndex = new Map<string, Map<string, Local[]>>();
-    for (const rawNode of pag.getNodesIter()) {
-        const aliasNode = rawNode as PagNode;
-        if (!isCarrierAliasNode(aliasNode, carrierNodeId)) continue;
-
-        const value = aliasNode.getValue?.();
-        if (!(value instanceof Local)) continue;
+    const candidates = getDirectAliasCandidateIndex(pag).get(carrierNodeId) || [];
+    for (const value of candidates) {
         const anchorStmt = value.getDeclaringStmt?.();
         if (anchorStmt) {
             const resolvedCarrierIds = collectCarrierNodeIdsForValueAtStmt(
@@ -136,14 +154,153 @@ function collectDirectAliasLocalsForCarrier(
             }
         }
 
-        const key = `${value.getName?.() || ""}#${value.getDeclaringStmt?.()?.toString?.() || ""}`;
+        const key = localIdentityKey(value);
         if (seen.has(key)) continue;
         seen.add(key);
         results.push(value);
     }
 
-    byCarrier.set(carrierNodeId, results);
     return results;
+}
+
+function resolveDirectAliasLocalCache(
+    pag: Pag,
+    classBySignature?: Map<string, any>,
+): Map<number, Local[]> {
+    if (!classBySignature) {
+        let cache = defaultDirectAliasLocalCache.get(pag);
+        if (!cache) {
+            cache = new Map<number, Local[]>();
+            defaultDirectAliasLocalCache.set(pag, cache);
+        }
+        return cache;
+    }
+    let byClassIndex = directAliasLocalCacheByClassIndex.get(pag);
+    if (!byClassIndex) {
+        byClassIndex = new WeakMap<Map<string, any>, Map<number, Local[]>>();
+        directAliasLocalCacheByClassIndex.set(pag, byClassIndex);
+    }
+    let cache = byClassIndex.get(classBySignature);
+    if (!cache) {
+        cache = new Map<number, Local[]>();
+        byClassIndex.set(classBySignature, cache);
+    }
+    return cache;
+}
+
+function getDirectAliasCandidateIndex(pag: Pag): Map<number, Local[]> {
+    const cached = directAliasCandidateIndexCache.get(pag);
+    if (cached) {
+        return cached;
+    }
+    const index = new Map<number, Local[]>();
+    const seenByCarrier = new Map<number, Set<string>>();
+    for (const rawNode of pag.getNodesIter()) {
+        const aliasNode = rawNode as PagNode;
+        const value = aliasNode.getValue?.();
+        if (!(value instanceof Local)) continue;
+        addDirectAliasCandidate(index, seenByCarrier, aliasNode.getID(), value);
+        for (const objId of aliasNode.getPointTo()) {
+            addDirectAliasCandidate(index, seenByCarrier, objId, value);
+        }
+    }
+    directAliasCandidateIndexCache.set(pag, index);
+    return index;
+}
+
+function getCapturedFieldLoadCandidateIndex(
+    pag: Pag,
+    classBySignature: Map<string, any>,
+): CapturedFieldLoadCandidateIndex {
+    let byClassIndex = capturedFieldLoadCandidateIndexByClassIndex.get(pag);
+    if (!byClassIndex) {
+        byClassIndex = new WeakMap<Map<string, any>, CapturedFieldLoadCandidateIndex>();
+        capturedFieldLoadCandidateIndexByClassIndex.set(pag, byClassIndex);
+    }
+    const cached = byClassIndex.get(classBySignature);
+    if (cached) {
+        return cached;
+    }
+
+    const index: CapturedFieldLoadCandidateIndex = {
+        byCapturedLocalName: new Map<string, CapturedFieldLoadCandidate[]>(),
+    };
+    const seenByCapturedName = new Map<string, Set<string>>();
+    for (const rawNode of pag.getNodesIter()) {
+        const candidateNode = rawNode as PagNode;
+        const candidateValue = candidateNode.getValue?.();
+        if (!(candidateValue instanceof Local)) continue;
+
+        const declStmt = candidateValue.getDeclaringStmt?.();
+        if (!(declStmt instanceof ArkAssignStmt) || declStmt.getLeftOp() !== candidateValue) continue;
+        const rhs = declStmt.getRightOp();
+        if (!(rhs instanceof ArkInstanceFieldRef)) continue;
+        const base = rhs.getBase?.();
+        if (!(base instanceof Local)) continue;
+
+        const baseClassSig = resolveValueClassSignatureAtStmt(base, declStmt, 0, new Set<string>());
+        if (!baseClassSig) continue;
+        const arkClass = classBySignature.get(baseClassSig);
+        if (!arkClass) continue;
+
+        const fieldName = rhs.getFieldSignature?.().getFieldName?.() || rhs.getFieldName?.();
+        if (!fieldName) continue;
+        const capturedLocalNames = resolveCapturedLocalNamesForField(arkClass, fieldName);
+        if (capturedLocalNames.length === 0) continue;
+
+        for (const capturedLocalName of capturedLocalNames) {
+            addCapturedFieldLoadCandidate(index, seenByCapturedName, capturedLocalName, {
+                value: candidateValue,
+                declStmt,
+            });
+        }
+    }
+    byClassIndex.set(classBySignature, index);
+    return index;
+}
+
+function addCapturedFieldLoadCandidate(
+    index: CapturedFieldLoadCandidateIndex,
+    seenByCapturedName: Map<string, Set<string>>,
+    capturedLocalName: string,
+    candidate: CapturedFieldLoadCandidate,
+): void {
+    const key = localIdentityKey(candidate.value);
+    let seen = seenByCapturedName.get(capturedLocalName);
+    if (!seen) {
+        seen = new Set<string>();
+        seenByCapturedName.set(capturedLocalName, seen);
+    }
+    if (seen.has(key)) return;
+    seen.add(key);
+    let candidates = index.byCapturedLocalName.get(capturedLocalName);
+    if (!candidates) {
+        candidates = [];
+        index.byCapturedLocalName.set(capturedLocalName, candidates);
+    }
+    candidates.push(candidate);
+}
+
+function addDirectAliasCandidate(
+    index: Map<number, Local[]>,
+    seenByCarrier: Map<number, Set<string>>,
+    carrierNodeId: number,
+    value: Local,
+): void {
+    const key = localIdentityKey(value);
+    let seen = seenByCarrier.get(carrierNodeId);
+    if (!seen) {
+        seen = new Set<string>();
+        seenByCarrier.set(carrierNodeId, seen);
+    }
+    if (seen.has(key)) return;
+    seen.add(key);
+    let values = index.get(carrierNodeId);
+    if (!values) {
+        values = [];
+        index.set(carrierNodeId, values);
+    }
+    values.push(value);
 }
 
 function hasAnonymousObjectLiteralClasses(classBySignature: Map<string, any>): boolean {
@@ -695,17 +852,17 @@ function extractInitializerRhsText(text: string): string {
 }
 
 function resolveDeclaringMethodSignature(local: Local): string | undefined {
-    return local.getDeclaringStmt?.()?.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.();
+    return safeMethodSignatureKey(local.getDeclaringStmt?.()?.getCfg?.()?.getDeclaringMethod?.());
 }
 
 function resolveDeclaringMethodSignatureFromStmt(stmt: any): string | undefined {
-    return stmt?.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.();
+    return safeMethodSignatureKey(stmt?.getCfg?.()?.getDeclaringMethod?.());
 }
 
 function resolveLocalClassSignature(local: Local): string | undefined {
     const typeAny = local.getType?.() as any;
     const classSig = typeAny?.getClassSignature?.();
-    const text = classSig?.toString?.() || "";
+    const text = safeSignatureLikeText(classSig) || "";
     return text || undefined;
 }
 
@@ -735,14 +892,84 @@ function resolveClassSignatureFromValue(value: any): string | undefined {
     if (!value) return undefined;
     const typeAny = value.getType?.() as any;
     const classSig = typeAny?.getClassSignature?.();
-    const text = classSig?.toString?.() || "";
+    const text = safeSignatureLikeText(classSig) || "";
     if (text) return text;
-    return value.getClassSignature?.()?.toString?.() || undefined;
+    return safeSignatureLikeText(value.getClassSignature?.());
+}
+
+function safeMethodSignatureKey(method: any): string | undefined {
+    if (!method) return undefined;
+    const signature = safeRead(() => method.getSignature?.());
+    const full = safeSignatureLikeText(signature);
+    if (full) return full;
+
+    const classText = safeSignatureLikeText(safeRead(() => signature?.getDeclaringClassSignature?.()))
+        || safeSignatureLikeText(safeRead(() => method.getDeclaringArkClass?.()?.getSignature?.()))
+        || safeString(() => method.getDeclaringArkClass?.()?.getName?.())
+        || "%unk";
+    const subSignature = safeRead(() => signature?.getMethodSubSignature?.());
+    const methodName = safeString(() => subSignature?.getMethodName?.())
+        || safeString(() => method.getName?.())
+        || "%unk";
+    const paramCount = safeNumber(() => subSignature?.getParameters?.()?.length)
+        ?? safeNumber(() => method.getParameters?.()?.length);
+    return `${classText}.${methodName}/${paramCount ?? "?"}`;
+}
+
+function safeSignatureLikeText(signatureLike: any): string | undefined {
+    if (!signatureLike) return undefined;
+    try {
+        const text = signatureLike.toString?.();
+        if (typeof text === "string" && text.length > 0) {
+            return text;
+        }
+    } catch {
+        // Fall back to a coarser key below.
+    }
+    try {
+        const text = signatureLike.toMapKey?.();
+        if (typeof text === "string" && text.length > 0) {
+            return text;
+        }
+    } catch {
+        // A recursive type signature can also make toMapKey unsafe.
+    }
+    return undefined;
+}
+
+function safeRead<T>(read: () => T): T | undefined {
+    try {
+        return read();
+    } catch {
+        return undefined;
+    }
+}
+
+function safeString(read: () => unknown): string | undefined {
+    try {
+        const value = read();
+        return typeof value === "string" && value.length > 0 ? value : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+function safeNumber(read: () => unknown): number | undefined {
+    try {
+        const value = read();
+        return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+    } catch {
+        return undefined;
+    }
 }
 
 function isSameLocal(candidate: any, local: Local): boolean {
     return candidate instanceof Local
         && (candidate === local || (candidate.getName?.() || "") === (local.getName?.() || ""));
+}
+
+function localIdentityKey(value: Local): string {
+    return `${value.getName?.() || ""}#${value.getDeclaringStmt?.()?.toString?.() || ""}`;
 }
 
 function isWeakMapKey(value: any): value is object {

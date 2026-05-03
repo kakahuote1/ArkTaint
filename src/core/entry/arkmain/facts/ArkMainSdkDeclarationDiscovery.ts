@@ -4,6 +4,7 @@ import { ArkClass } from "../../../../../arkanalyzer/out/src/core/model/ArkClass
 import { ArkMethod } from "../../../../../arkanalyzer/out/src/core/model/ArkMethod";
 import { ModifierType } from "../../../../../arkanalyzer/out/src/core/model/ArkBaseModel";
 import { CONSTRUCTOR_NAME } from "../../../../../arkanalyzer/out/src/core/common/TSConst";
+import { walkArkMainSuperClasses } from "./ArkMainFactResolverUtils";
 
 export interface ArkMainSdkOverrideCandidate {
     method: ArkMethod;
@@ -25,8 +26,12 @@ export interface ArkMainDecoratorCandidate {
 }
 
 export function isSdkBackedArkClass(scene: Scene, arkClass: ArkClass | null | undefined): boolean {
-    const fileSig = arkClass?.getDeclaringArkFile?.()?.getFileSignature?.();
-    return !!fileSig && scene.hasSdkFile(fileSig);
+    try {
+        const fileSig = arkClass?.getDeclaringArkFile?.()?.getFileSignature?.();
+        return !!fileSig && scene.hasSdkFile(fileSig);
+    } catch {
+        return false;
+    }
 }
 
 export function resolveSdkOverrideCandidate(
@@ -38,30 +43,31 @@ export function resolveSdkOverrideCandidate(
     }
 
     const explicitOverride = method.containsModifier?.(ModifierType.OVERRIDE) ?? false;
-    let superClass = method.getDeclaringArkClass?.()?.getSuperClass?.() || null;
-    while (superClass) {
+    let resolved: ArkMainSdkOverrideCandidate | undefined;
+    walkArkMainSuperClasses(method.getDeclaringArkClass?.(), superClass => {
         if (isSdkBackedArkClass(scene, superClass)) {
             const baseMethod = findSdkBaseMethod(superClass, method.getName());
             if (baseMethod) {
-                return {
+                resolved = {
                     method,
                     baseClass: superClass,
                     baseMethod,
                     discoveryLayer: "sdk_override_first_layer",
                     explicitOverride,
                 };
+                return false;
             }
         }
-        superClass = superClass.getSuperClass?.() || null;
-    }
-    return undefined;
+        return true;
+    });
+    return resolved;
 }
 
 export function collectSdkOverrideCandidates(scene: Scene, classes: ArkClass[] = scene.getClasses()): ArkMainSdkOverrideCandidate[] {
     const candidates: ArkMainSdkOverrideCandidate[] = [];
     const seen = new Set<string>();
     for (const cls of classes) {
-        for (const method of cls.getMethods().filter(candidate => !candidate.isStatic())) {
+        for (const method of getInstanceMethods(cls)) {
             const candidate = resolveSdkOverrideCandidate(scene, method);
             const signature = candidate?.method.getSignature?.().toString?.();
             if (!candidate || !signature || seen.has(signature)) {
@@ -125,9 +131,17 @@ function isEligibleOverrideMethod(method: ArkMethod): boolean {
 }
 
 function findSdkBaseMethod(superClass: ArkClass, methodName: string): ArkMethod | undefined {
-    return superClass
-        .getAllMethodsWithName(methodName)
+    return getInstanceMethods(superClass)
+        .filter(method => method.getName() === methodName)
         .find(method => !method.isStatic() && !method.isPrivate() && method.getName() !== CONSTRUCTOR_NAME);
+}
+
+function getInstanceMethods(cls: ArkClass): ArkMethod[] {
+    try {
+        return (cls.getMethods?.() || []).filter(candidate => !candidate.isStatic());
+    } catch {
+        return [];
+    }
 }
 
 function normalizeDecoratorKinds(decorators: any[]): string[] {

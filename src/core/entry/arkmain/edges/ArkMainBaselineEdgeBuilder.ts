@@ -23,17 +23,29 @@ export function buildBaselineRootEdges(
         f.schedule !== false
         && ARK_MAIN_LIFECYCLE_FACT_KINDS.has(f.kind),
     );
+    const hasEntryComponentRoot = baselineFacts.some(fact =>
+        isComponentLifecycleFact(fact) && hasEntryDecorator(fact.method),
+    );
     const hasManagedSeedMethod = baselineFacts.some(fact => {
         const signature = fact.method.getSignature?.()?.toString?.();
         return !!signature && seedSignatures.has(signature);
     });
     for (const fact of baselineFacts) {
         const signature = fact.method.getSignature?.()?.toString?.();
+        const matchesSeedMethod = !!signature && seedSignatures.has(signature);
+        const matchesSeedFile = !hasManagedSeedMethod
+            && seedFileKeys.size > 0
+            && seedFileKeys.has(methodFileKey(fact.method) || "");
+        if (
+            isComponentLifecycleFact(fact)
+            && hasEntryComponentRoot
+            && !hasEntryDecorator(fact.method)
+            && !matchesSeedMethod
+            && !matchesSeedFile
+        ) {
+            continue;
+        }
         if (seedSignatures.size > 0) {
-            const matchesSeedMethod = !!signature && seedSignatures.has(signature);
-            const matchesSeedFile = !hasManagedSeedMethod
-                && seedFileKeys.size > 0
-                && seedFileKeys.has(methodFileKey(fact.method) || "");
             if (!matchesSeedMethod && !matchesSeedFile) {
                 continue;
             }
@@ -61,6 +73,24 @@ export function buildBaselineRootEdges(
 
 function methodFileKey(method: ArkMethod): string | undefined {
     return method.getDeclaringArkFile?.()?.getFileSignature?.()?.toString?.();
+}
+
+function isComponentLifecycleFact(fact: ArkMainEntryFact): boolean {
+    return fact.kind === "page_build" || fact.kind === "page_lifecycle";
+}
+
+function hasEntryDecorator(method: ArkMethod): boolean {
+    const decorators = method.getDeclaringArkClass?.()?.getDecorators?.() || [];
+    return decorators.some(decorator => normalizeDecoratorKind(decorator?.getKind?.()) === "Entry");
+}
+
+function normalizeDecoratorKind(raw: string | undefined): string | undefined {
+    if (!raw) return undefined;
+    const normalized = raw.replace(/^@/, "").trim();
+    if (!normalized) return undefined;
+    return normalized.endsWith("()")
+        ? normalized.slice(0, normalized.length - 2)
+        : normalized;
 }
 
 

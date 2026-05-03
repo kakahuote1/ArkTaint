@@ -23,7 +23,7 @@ import {
     resolveMethodsFromAnonymousObjectCarrierByField,
     resolveMethodsFromCallable
 } from "../../substrate/queries/CalleeResolver";
-import { resolveKnownControllerOptionCallbackRegistrationsFromStmt } from "../../entry/shared/FrameworkCallbackClassifier";
+import { resolveKnownOptionCallbackRegistrationsFromStmt } from "../../substrate/semantics/KnownOptionCallbackRegistration";
 import { isSdkBackedMethodSignature } from "../../substrate/queries/SdkProvenance";
 import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
 import type { SyntheticInvokeEdgeInfo } from "./SyntheticInvokeEdgeBuilder";
@@ -177,7 +177,7 @@ export function injectResolvedCallbackParameterEdges(
     const seenBindings = new Set<string>();
 
     const injectKnownOptionCallbacks = (): void => {
-        const optionRegs = resolveKnownControllerOptionCallbackRegistrationsFromStmt(stmt, scene, caller);
+        const optionRegs = resolveKnownOptionCallbackRegistrationsFromStmt(stmt, scene, caller);
         for (const reg of optionRegs) {
             const callbackSig = reg.callbackMethod.getSignature?.().toString?.() || "";
             if (!callbackSig) {

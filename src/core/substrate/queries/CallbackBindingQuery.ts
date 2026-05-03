@@ -38,6 +38,7 @@ export type ResolvedCallbackRegistration<TMatch extends CallbackRegistrationMatc
 
 const DEFAULT_MAX_CALLBACK_HELPER_DEPTH = 4;
 const METHOD_BY_NAME_CACHE = new WeakMap<Scene, Map<string, ArkMethod | null>>();
+const HELPER_CALLEE_CANDIDATE_CACHE = new WeakMap<Scene, WeakMap<any, any[]>>();
 
 export function resolveCallbackRegistrationsFromStmt<TMatch extends CallbackRegistrationMatchBase>(
     stmt: any,
@@ -201,7 +202,7 @@ function collectHelperCallbackRegistrations<TMatch extends CallbackRegistrationM
     maxDepth: number,
 ): Array<ResolvedCallbackRegistration<TMatch>> {
     const out = new Map<string, ResolvedCallbackRegistration<TMatch>>();
-    const callees = resolveCalleeCandidates(scene, invokeExpr, { maxNameMatchCandidates: 8 });
+    const callees = resolveHelperCalleeCandidatesCached(scene, invokeExpr);
     for (const resolved of callees) {
         const helperMethod = resolved?.method as ArkMethod | undefined;
         if (!helperMethod?.getCfg?.()) continue;
@@ -243,6 +244,21 @@ function collectHelperCallbackRegistrations<TMatch extends CallbackRegistrationM
         }
     }
     return [...out.values()];
+}
+
+function resolveHelperCalleeCandidatesCached(scene: Scene, invokeExpr: any): any[] {
+    let byInvoke = HELPER_CALLEE_CANDIDATE_CACHE.get(scene);
+    if (!byInvoke) {
+        byInvoke = new WeakMap<any, any[]>();
+        HELPER_CALLEE_CANDIDATE_CACHE.set(scene, byInvoke);
+    }
+    const cached = byInvoke.get(invokeExpr);
+    if (cached) {
+        return cached;
+    }
+    const resolved = resolveCalleeCandidates(scene, invokeExpr, { maxNameMatchCandidates: 8 });
+    byInvoke.set(invokeExpr, resolved);
+    return resolved;
 }
 
 function shouldSkipProjectConstructorHelperFollowing(scene: Scene, helperMethod: ArkMethod): boolean {

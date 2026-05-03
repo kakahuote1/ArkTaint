@@ -20,6 +20,7 @@ import {
     isReflectDispatchInvoke,
     mapInvokeArgsToParamAssigns,
     resolveCalleeCandidates,
+    resolveInvokeMethodName,
 } from "../../substrate/queries/CalleeResolver";
 import { getMethodBySignature } from "../contracts/MethodLookup";
 import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
@@ -51,6 +52,8 @@ export interface SyntheticInvokeEdgeInfo {
     calleeMethodName: string;
     callerSignature?: string;
     calleeSignature?: string;
+    originTag?: string;
+    handoffId?: string;
 }
 
 export interface SyntheticConstructorStoreInfo {
@@ -357,6 +360,8 @@ function collectSyntheticInvokeTriggerNodeIds(
     return triggerNodeIds;
 }
 
+export const EXCLUDE_ALL_DEFERRED_SYNTHETIC_INVOKE_SITES = "__arktaint_exclude_all_deferred_synthetic_invoke_sites__";
+
 function materializeSyntheticInvokeSite(
     scene: Scene,
     cg: CallGraph,
@@ -369,7 +374,11 @@ function materializeSyntheticInvokeSite(
 ): { callCount: number; returnCount: number; fallbackCalleeCount: number } {
     const { caller, stmt, invokeExpr } = site;
     const siteKey = buildExecutionHandoffSiteKeyFromStmt(caller, stmt);
-    const skipDeferredCallbacks = excludedDeferredSiteKeys?.has(siteKey) || false;
+    const skipDeferredCallbacks = shouldSkipDeferredSyntheticInvokeSite(
+        excludedDeferredSiteKeys,
+        siteKey,
+        invokeExpr,
+    );
     const callCount = skipDeferredCallbacks
         ? 0
         : injectResolvedCallbackParameterEdges(
@@ -402,6 +411,25 @@ function materializeSyntheticInvokeSite(
         returnCount: directStats.returnCount,
         fallbackCalleeCount: directStats.fallbackCalleeCount,
     };
+}
+
+function shouldSkipDeferredSyntheticInvokeSite(
+    excludedDeferredSiteKeys: ReadonlySet<string> | undefined,
+    siteKey: string,
+    invokeExpr: any,
+): boolean {
+    if (!excludedDeferredSiteKeys) return false;
+    if (excludedDeferredSiteKeys.has(siteKey)) return true;
+    if (!excludedDeferredSiteKeys.has(EXCLUDE_ALL_DEFERRED_SYNTHETIC_INVOKE_SITES)) return false;
+    const methodName = resolveInvokeMethodName(invokeExpr);
+    return methodName === "then"
+        || methodName === "catch"
+        || methodName === "finally"
+        || methodName === "on"
+        || methodName === "once"
+        || methodName === "addEventListener"
+        || methodName === "setTimeout"
+        || methodName === "setInterval";
 }
 
 function materializeDirectSyntheticInvokeEdges(
@@ -503,6 +531,7 @@ function materializeDirectSyntheticInvokeEdges(
                         calleeMethodName: callee.getName(),
                         callerSignature: caller.getSignature?.().toString?.(),
                         calleeSignature: calleeSig,
+                        originTag: "synthetic_invoke",
                     });
                     callCount++;
                 }
@@ -532,6 +561,7 @@ function materializeDirectSyntheticInvokeEdges(
                         calleeMethodName: callee.getName(),
                         callerSignature: caller.getSignature?.().toString?.(),
                         calleeSignature: calleeSig,
+                        originTag: "synthetic_invoke",
                     });
                     returnCount++;
                 }

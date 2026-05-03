@@ -162,26 +162,96 @@ function resolveCallerFile(repoRoot: string, callerFilePath: string): string | u
     return undefined;
 }
 
-function resolveProjectSourceFile(repoRoot: string, sourceDirs: string[], relativeFilePath: string): string | undefined {
+function resolveProjectSourceFile(
+    repoRoot: string,
+    sourceDirs: string[],
+    relativeFilePath: string,
+    preferredMethodName?: string | string[],
+): string | undefined {
+    const candidates = resolveProjectSourceFileCandidates(repoRoot, sourceDirs, relativeFilePath);
+    const methodNames = Array.isArray(preferredMethodName)
+        ? preferredMethodName.map(name => String(name || "").trim()).filter(Boolean)
+        : [String(preferredMethodName || "").trim()].filter(Boolean);
+    if (methodNames.length > 0) {
+        for (const candidate of candidates) {
+            for (const methodName of methodNames) {
+                if (extractMethodSnippetFromFile(candidate, methodName)) {
+                    return candidate;
+                }
+            }
+        }
+    }
+    return candidates[0];
+}
+
+function resolveProjectSourceFileCandidates(repoRoot: string, sourceDirs: string[], relativeFilePath: string): string[] {
     const normalized = normalizeSlashes(relativeFilePath);
     if (!normalized || normalized.includes("%unk")) {
-        return undefined;
+        return [];
     }
-    const direct = path.resolve(repoRoot, normalized);
-    if (fs.existsSync(direct)) {
-        return direct;
+    const out: string[] = [];
+    const seen = new Set<string>();
+    const pushExisting = (candidate: string): void => {
+        const resolved = path.resolve(candidate);
+        if (!seen.has(resolved) && fs.existsSync(resolved)) {
+            seen.add(resolved);
+            out.push(resolved);
+        }
+    };
+    const variants = sourceFilePathVariants(normalized);
+    for (const variant of variants) {
+        pushExisting(path.resolve(repoRoot, variant));
     }
     for (const sourceDir of sourceDirs) {
         const absSourceDir = path.resolve(repoRoot, sourceDir);
-        const candidates = [
-            path.resolve(absSourceDir, normalized),
-            path.resolve(path.dirname(absSourceDir), normalized),
-            path.resolve(path.dirname(path.dirname(absSourceDir)), normalized),
-        ];
-        for (const candidate of candidates) {
-            if (fs.existsSync(candidate)) {
-                return candidate;
+        for (const variant of variants) {
+            const candidates = [
+                path.resolve(absSourceDir, variant),
+                path.resolve(path.dirname(absSourceDir), variant),
+                path.resolve(path.dirname(path.dirname(absSourceDir)), variant),
+            ];
+            for (const candidate of candidates) {
+                pushExisting(candidate);
             }
+        }
+    }
+    return out;
+}
+
+function sourceFilePathVariants(normalized: string): string[] {
+    const out = [normalized];
+    for (const prefix of ["ets/", "src/main/ets/"]) {
+        if (normalized.startsWith(prefix)) {
+            out.push(normalized.slice(prefix.length));
+        }
+    }
+    return [...new Set(out.filter(Boolean))];
+}
+
+function sourceMethodNameCandidates(methodName: string): string[] {
+    const normalized = String(methodName || "").trim();
+    const out: string[] = [];
+    if (normalized) {
+        out.push(normalized);
+    }
+    const syntheticHost = normalized.match(/^%[A-Za-z]+\d*\$([A-Za-z_$][\w$]*)$/);
+    if (syntheticHost?.[1]) {
+        out.push(syntheticHost[1]);
+    }
+    return [...new Set(out.filter(Boolean))];
+}
+
+function extractPreferredMethodSnippet(
+    absPath: string | undefined,
+    methodNames: string[],
+): { methodName: string; code: string } | undefined {
+    if (!absPath) {
+        return undefined;
+    }
+    for (const methodName of methodNames) {
+        const code = extractMethodSnippetFromFile(absPath, methodName);
+        if (code) {
+            return { methodName, code };
         }
     }
     return undefined;
@@ -207,14 +277,15 @@ function extractMethodSnippetFromFile(absPath: string, methodName: string): stri
     if (!lines || !normalizedMethod) {
         return undefined;
     }
+    const modifiers = String.raw`(?:(?:public|private|protected|static|async|abstract|override|readonly)\s+)*`;
     const methodPattern = new RegExp(
-        `^\\s*(?:public\\s+|private\\s+|protected\\s+)?(?:static\\s+)?(?:async\\s+)?${escapeRegExp(normalizedMethod)}\\s*\\(`,
+        `^\\s*${modifiers}${escapeRegExp(normalizedMethod)}\\s*\\(`,
     );
     const functionPattern = new RegExp(
         `^\\s*(?:export\\s+)?(?:async\\s+)?function\\s+${escapeRegExp(normalizedMethod)}\\s*\\(`,
     );
     const propertyPattern = new RegExp(
-        `^\\s*(?:public\\s+|private\\s+|protected\\s+)?(?:static\\s+)?(?:readonly\\s+)?${escapeRegExp(normalizedMethod)}\\s*=\\s*(?:async\\s*)?\\(`,
+        `^\\s*${modifiers}${escapeRegExp(normalizedMethod)}\\s*=\\s*(?:async\\s*)?\\(`,
     );
     let startIndex = -1;
     for (let i = 0; i < lines.length; i++) {
@@ -241,6 +312,9 @@ function extractMethodSnippetFromFile(absPath: string, methodName: string): stri
             sawOpeningBrace = true;
         }
         braceDepth += opens - closes;
+        if (!sawOpeningBrace && /;\s*$/.test(line)) {
+            break;
+        }
         if (sawOpeningBrace && braceDepth <= 0) {
             break;
         }
@@ -646,16 +720,19 @@ export function enrichNoCandidateItemsWithCallsiteSlices(options: EnrichCallsite
         if (!shouldEnrich) {
             return item;
         }
-        const sourceAbsPath = resolveProjectSourceFile(repoRoot, sourceDirs, item.sourceFile);
-        const methodSnippet = sourceAbsPath
-            ? extractMethodSnippetFromFile(sourceAbsPath, item.method)
+        const methodNameCandidates = sourceMethodNameCandidates(item.method);
+        const sourceAbsPath = resolveProjectSourceFile(repoRoot, sourceDirs, item.sourceFile, methodNameCandidates);
+        const preferredMethodSnippet = extractPreferredMethodSnippet(sourceAbsPath, methodNameCandidates);
+        const methodSnippet = preferredMethodSnippet?.code;
+        const methodSnippetSource = preferredMethodSnippet && preferredMethodSnippet.methodName !== item.method
+            ? preferredMethodSnippet.methodName
             : undefined;
         const ownerClassName = extractOwnerClassNameFromMethodSignature(item.callee_signature);
         const ownerMethods = sourceAbsPath && ownerClassName
             ? extractOwnerMethodSnippetsFromFile(sourceAbsPath, ownerClassName)
             : [];
         const ownerMethodSnippets = methodSnippet
-            ? selectOwnerFamilySnippets(ownerMethods, item.method, methodSnippet, 2)
+            ? selectOwnerFamilySnippets(ownerMethods, preferredMethodSnippet?.methodName || item.method, methodSnippet, 2)
                 .map(snippet => compactOwnerMethodSnippet(methodSnippet, snippet))
             : [];
         const ownerSnippet = sourceAbsPath && methodSnippet
@@ -674,6 +751,7 @@ export function enrichNoCandidateItemsWithCallsiteSlices(options: EnrichCallsite
                 ...item,
                 contextSlices: [],
                 ...(methodSnippet ? { methodSnippet } : {}),
+                ...(methodSnippetSource ? { methodSnippetSource } : {}),
                 ...(ownerSnippet ? { ownerSnippet } : {}),
                 ...(ownerMethodSnippets.length > 0 ? { ownerMethodSnippets } : {}),
                 ...(carrierContext ? {
@@ -704,6 +782,7 @@ export function enrichNoCandidateItemsWithCallsiteSlices(options: EnrichCallsite
                 ...item,
                 contextSlices: [],
                 methodSnippet,
+                ...(methodSnippetSource ? { methodSnippetSource } : {}),
                 ownerSnippet,
                 ownerMethodSnippets,
                 ...(carrierContext ? {
@@ -719,6 +798,7 @@ export function enrichNoCandidateItemsWithCallsiteSlices(options: EnrichCallsite
             ...item,
             contextSlices: slices,
             ...(methodSnippet ? { methodSnippet } : {}),
+            ...(methodSnippetSource ? { methodSnippetSource } : {}),
             ...(ownerSnippet ? { ownerSnippet } : {}),
             ...(ownerMethodSnippets.length > 0 ? { ownerMethodSnippets } : {}),
             ...(carrierContext ? {

@@ -2,6 +2,7 @@ import {
     buildSemanticFlowArtifact,
     buildSemanticFlowAnalysisAugment,
 } from "../../core/semanticflow/SemanticFlowArtifacts";
+import { compileModuleSpec } from "../../core/orchestration/modules/ModuleSpecCompiler";
 import type { SemanticFlowItemResult, SemanticFlowSummary } from "../../core/semanticflow/SemanticFlowTypes";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -39,6 +40,42 @@ function bridgeSummary(): SemanticFlowSummary {
     };
 }
 
+function callbackBridgeSummaryWithFunctionVia(): SemanticFlowSummary {
+    return {
+        inputs: [{ slot: "arg", index: 0 }, { slot: "arg", index: 1 }],
+        outputs: [{ slot: "callback_param", callbackArgIndex: 0, paramIndex: 0 }],
+        transfers: [{
+            from: { slot: "arg", index: 1 },
+            to: { slot: "callback_param", callbackArgIndex: 0, paramIndex: 0 },
+        }],
+        confidence: "high",
+        moduleKind: "bridge",
+        relations: {
+            trigger: {
+                preset: "callback_sync",
+                via: { slot: "arg", index: 1 },
+                reason: "callback function argument is invoked synchronously",
+            },
+        },
+    };
+}
+
+function decoratedFieldBridgeSummary(): SemanticFlowSummary {
+    return {
+        inputs: [{ slot: "arg", index: 0, fieldPath: ["parameters", "token"] }],
+        outputs: [{ slot: "base", fieldPath: ["storage", "token"] }],
+        transfers: [{
+            from: { slot: "arg", index: 0, fieldPath: ["parameters", "token"] },
+            to: { slot: "base", fieldPath: ["storage", "token"] },
+        }],
+        confidence: "high",
+        moduleKind: "bridge",
+        relations: {
+            carrier: { kind: "state", label: "this.storage" },
+        },
+    };
+}
+
 async function main(): Promise<void> {
     const ruleA = buildSemanticFlowArtifact({
         id: "rule.alpha.cloneValue",
@@ -68,6 +105,23 @@ async function main(): Promise<void> {
         owner: "BetaBus",
         surface: "publish",
     }, bridgeSummary(), "module");
+
+    const callbackModule = buildSemanticFlowArtifact({
+        id: "module.callback.handle",
+        owner: "CallbackOwner",
+        surface: "handle",
+    }, callbackBridgeSummaryWithFunctionVia(), "module");
+    assert(callbackModule.kind === "module", "expected callback bridge module artifact");
+    compileModuleSpec(callbackModule.moduleSpec);
+
+    const decoratedFieldModule = buildSemanticFlowArtifact({
+        id: "module.decorated.field.write",
+        owner: "StateOwner",
+        surface: "restoreLocalStorage",
+        methodSignature: "@a: StateOwner.restoreLocalStorage(Want)",
+    }, decoratedFieldBridgeSummary(), "module");
+    assert(decoratedFieldModule.kind === "module", "expected decorated field bridge module artifact");
+    compileModuleSpec(decoratedFieldModule.moduleSpec);
 
     assert(moduleA.kind === "module" && moduleB.kind === "module", "expected module artifacts");
     assert(moduleA.moduleSpec.id !== moduleB.moduleSpec.id, "same-surface inferred modules must not share ids");

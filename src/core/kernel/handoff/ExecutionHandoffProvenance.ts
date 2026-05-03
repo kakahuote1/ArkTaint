@@ -52,6 +52,9 @@ interface IncomingCallSite {
 
 interface ExecutionHandoffProvenanceContext {
     incomingCallsiteIndexByCalleeSig?: Map<string, IncomingCallSite[]>;
+    callbackMethodsWithReturnsByValue: Map<any, any[]>;
+    callableMethodsByValue: Map<any, any[]>;
+    anonymousCarrierMethodsByBaseAndField: Map<any, Map<string, any[]>>;
 }
 
 interface ExecutionHandoffCandidate {
@@ -78,6 +81,9 @@ export function buildExecutionHandoffActivationPaths(
 ): ExecutionHandoffActivationPathRecord[] {
     const context: ExecutionHandoffProvenanceContext = {
         incomingCallsiteIndexByCalleeSig: buildIncomingCallsiteIndex(scene, cg),
+        callbackMethodsWithReturnsByValue: new Map<any, any[]>(),
+        callableMethodsByValue: new Map<any, any[]>(),
+        anonymousCarrierMethodsByBaseAndField: new Map<any, Map<string, any[]>>(),
     };
     const records = new Map<string, ExecutionHandoffActivationPathRecord>();
 
@@ -230,7 +236,7 @@ function collectExecutionHandoffFeatures(
 ): ExecutionHandoffFeatures {
     const invokeExpr = stmt?.getInvokeExpr?.();
     const explicitArgs = invokeExpr?.getArgs ? invokeExpr.getArgs() : [];
-    const { callableArgIndexes, matchingArgIndexes } = collectArgMatchIndexes(scene, stmt, unit);
+    const { callableArgIndexes, matchingArgIndexes } = collectArgMatchIndexes(scene, stmt, unit, context);
     const registrationMatch = invokeExpr
         ? resolveApprovedImperativeRegistrationMatch(scene, caller, invokeExpr, explicitArgs)
         : undefined;
@@ -337,16 +343,16 @@ function collectFutureUnitCandidates(
     };
     const addMethodsFromValue = (value: any): void => {
         if (!value) return;
-        for (const method of resolveCallbackMethodsFromValueWithReturns(scene, value, { maxDepth: 6 })) {
+        for (const method of resolveCallbackMethodsFromValueWithReturnsCached(scene, value, context)) {
             addMethod(method, caller, "returned");
         }
         for (const { baseValue, fieldName } of collectAnonymousCarrierFieldLookups(value)) {
             if (!fieldName || !baseValue) continue;
-            for (const method of resolveMethodsFromAnonymousObjectCarrierByField(scene, baseValue, fieldName, CALLBACK_RESOLVE_OPTIONS)) {
+            for (const method of resolveMethodsFromAnonymousCarrierByFieldCached(scene, baseValue, fieldName, context)) {
                 addMethod(method, caller, "field");
             }
         }
-        for (const method of resolveMethodsFromCallable(scene, value, CALLBACK_RESOLVE_OPTIONS)) {
+        for (const method of resolveMethodsFromCallableCached(scene, value, context)) {
             addMethod(method, caller, "direct");
         }
     };
@@ -404,6 +410,54 @@ function collectFutureUnitCandidates(
     return [...out.values()];
 }
 
+function resolveCallbackMethodsFromValueWithReturnsCached(
+    scene: Scene,
+    value: any,
+    context: ExecutionHandoffProvenanceContext,
+): any[] {
+    if (!context.callbackMethodsWithReturnsByValue.has(value)) {
+        context.callbackMethodsWithReturnsByValue.set(
+            value,
+            resolveCallbackMethodsFromValueWithReturns(scene, value, { maxDepth: 6 }),
+        );
+    }
+    return context.callbackMethodsWithReturnsByValue.get(value) || [];
+}
+
+function resolveMethodsFromCallableCached(
+    scene: Scene,
+    value: any,
+    context: ExecutionHandoffProvenanceContext,
+): any[] {
+    if (!context.callableMethodsByValue.has(value)) {
+        context.callableMethodsByValue.set(
+            value,
+            resolveMethodsFromCallable(scene, value, CALLBACK_RESOLVE_OPTIONS),
+        );
+    }
+    return context.callableMethodsByValue.get(value) || [];
+}
+
+function resolveMethodsFromAnonymousCarrierByFieldCached(
+    scene: Scene,
+    baseValue: any,
+    fieldName: string,
+    context: ExecutionHandoffProvenanceContext,
+): any[] {
+    let byField = context.anonymousCarrierMethodsByBaseAndField.get(baseValue);
+    if (!byField) {
+        byField = new Map<string, any[]>();
+        context.anonymousCarrierMethodsByBaseAndField.set(baseValue, byField);
+    }
+    if (!byField.has(fieldName)) {
+        byField.set(
+            fieldName,
+            resolveMethodsFromAnonymousObjectCarrierByField(scene, baseValue, fieldName, CALLBACK_RESOLVE_OPTIONS),
+        );
+    }
+    return byField.get(fieldName) || [];
+}
+
 function resolveRelayCallbackOrigins(
     scene: Scene,
     carrierMethod: any,
@@ -411,7 +465,7 @@ function resolveRelayCallbackOrigins(
     context: ExecutionHandoffProvenanceContext,
     visited: Set<string> = new Set<string>(),
 ): RelayOrigin[] {
-    const direct = resolveCallbackMethodsFromValueWithReturns(scene, value, { maxDepth: 6 });
+    const direct = resolveCallbackMethodsFromValueWithReturnsCached(scene, value, context);
     if (direct.length > 0) {
         return direct.map(method => ({
             method,
@@ -442,7 +496,7 @@ function resolveRelayCallbackOrigins(
         const actualArg = explicitArgs[paramIndex];
         const sourceMethod = callSite.callStmt?.getCfg?.()?.getDeclaringMethod?.();
         if (!sourceMethod) continue;
-        for (const method of resolveCallbackMethodsFromValueWithReturns(scene, actualArg, { maxDepth: 6 })) {
+        for (const method of resolveCallbackMethodsFromValueWithReturnsCached(scene, actualArg, context)) {
             out.set(methodSignature(method), { method, sourceMethod, carrierKind: "relay" });
         }
         for (const origin of resolveRelayCallbackOrigins(
@@ -462,7 +516,12 @@ function resolveRelayCallbackOrigins(
     return [...out.values()];
 }
 
-function collectArgMatchIndexes(scene: Scene, stmt: any, unit: any): { callableArgIndexes: number[]; matchingArgIndexes: number[] } {
+function collectArgMatchIndexes(
+    scene: Scene,
+    stmt: any,
+    unit: any,
+    context: ExecutionHandoffProvenanceContext,
+): { callableArgIndexes: number[]; matchingArgIndexes: number[] } {
     const invokeExpr = stmt?.getInvokeExpr?.();
     if (!invokeExpr) {
         return { callableArgIndexes: [], matchingArgIndexes: [] };
@@ -472,7 +531,7 @@ function collectArgMatchIndexes(scene: Scene, stmt: any, unit: any): { callableA
     const callableArgIndexes: number[] = [];
     const matchingArgIndexes: number[] = [];
     explicitArgs.forEach((arg: any, index: number) => {
-        const methods = resolveMethodsFromCallable(scene, arg, CALLBACK_RESOLVE_OPTIONS);
+        const methods = resolveMethodsFromCallableCached(scene, arg, context);
         if (methods.length > 0 || isCallableValue(arg)) {
             callableArgIndexes.push(index);
         }
@@ -548,7 +607,7 @@ function resolveRelayRegistrationDepth(
         if (paramIndex >= explicitArgs.length) continue;
 
         const actualArg = explicitArgs[paramIndex];
-        const directMethods = resolveCallbackMethodsFromValueWithReturns(scene, actualArg, { maxDepth: 6 });
+        const directMethods = resolveCallbackMethodsFromValueWithReturnsCached(scene, actualArg, context);
         if (directMethods.some(method => methodSignature(method) === unitSignature)) {
             bestDepth = bestDepth === null ? 1 : Math.min(bestDepth, 1);
             continue;

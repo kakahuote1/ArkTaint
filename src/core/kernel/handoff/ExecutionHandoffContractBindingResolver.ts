@@ -20,6 +20,9 @@ import type {
     ExecutionHandoffResolvedEdgeBinding,
 } from "./ExecutionHandoffContract";
 
+const MAX_PROMISE_SETTLEMENT_TRACE_DEPTH = 8;
+const MAX_PROMISE_SETTLEMENT_VISITED = 256;
+
 export function buildExecutionHandoffContractEdgeBindings(
     scene: Scene,
     _cg: CallGraph,
@@ -148,17 +151,22 @@ function resolvePromiseSettlementSourceNodeIdsFromLocal(
     anchorStmt: any,
     activation: ExecutionHandoffContractRecord["activation"],
     visited: Set<string>,
+    depth: number = 0,
 ): number[] {
-    const localKey = `${resolveDeclaringMethodSignature(local)}#${local.getName?.() || ""}#${local.getDeclaringStmt?.()?.toString?.() || ""}`;
+    const fallback = (): number[] => collectNodeIds(safeGetOrCreatePagNodes(pag, local, anchorStmt));
+    if (depth > MAX_PROMISE_SETTLEMENT_TRACE_DEPTH || visited.size > MAX_PROMISE_SETTLEMENT_VISITED) {
+        return fallback();
+    }
+    const localKey = `local:${resolveDeclaringMethodSignature(local)}#${safeLocalName(local)}#${safeStmtText(safeGetDeclaringStmt(local))}`;
     if (visited.has(localKey)) {
-        return collectNodeIds(safeGetOrCreatePagNodes(pag, local, anchorStmt));
+        return fallback();
     }
     visited.add(localKey);
 
-    const ownerMethod = anchorStmt?.getCfg?.()?.getDeclaringMethod?.()
-        || local.getDeclaringStmt?.()?.getCfg?.()?.getDeclaringMethod?.();
+    const ownerMethod = safeGetDeclaringMethodFromStmt(anchorStmt)
+        || safeGetDeclaringMethodFromStmt(safeGetDeclaringStmt(local));
     const declaringStmt = resolveLatestAssignStmtForLocal(ownerMethod, local, anchorStmt)
-        || local.getDeclaringStmt?.();
+        || safeGetDeclaringStmt(local);
     if (declaringStmt instanceof ArkAssignStmt && declaringStmt.getLeftOp?.() === local) {
         const rightOp = declaringStmt.getRightOp?.();
         if (isPromiseResolveRejectInvoke(rightOp, activation)) {
@@ -174,6 +182,7 @@ function resolvePromiseSettlementSourceNodeIdsFromLocal(
                 rightOp,
                 activation,
                 visited,
+                depth + 1,
             );
             if (calleeSourceNodeIds.length > 0) {
                 return calleeSourceNodeIds;
@@ -187,11 +196,12 @@ function resolvePromiseSettlementSourceNodeIdsFromLocal(
                 declaringStmt,
                 activation,
                 visited,
+                depth + 1,
             );
         }
     }
 
-    return collectNodeIds(safeGetOrCreatePagNodes(pag, local, anchorStmt));
+    return fallback();
 }
 
 function resolvePromiseSettlementSourceNodeIdsFromInvoke(
@@ -200,9 +210,21 @@ function resolvePromiseSettlementSourceNodeIdsFromInvoke(
     invokeExpr: any,
     activation: ExecutionHandoffContractRecord["activation"],
     visited: Set<string>,
+    depth: number = 0,
 ): number[] {
+    if (depth > MAX_PROMISE_SETTLEMENT_TRACE_DEPTH || visited.size > MAX_PROMISE_SETTLEMENT_VISITED) {
+        return [];
+    }
+    const invokeKey = `invoke:${safeInvokeSignatureText(invokeExpr)}#${safeValueText(invokeExpr)}`;
+    if (visited.has(invokeKey)) {
+        return [];
+    }
+    visited.add(invokeKey);
     const sourceNodeIds: number[] = [];
-    for (const resolved of resolveCalleeCandidates(scene, invokeExpr)) {
+    for (const resolved of resolveCalleeCandidates(scene, invokeExpr, {
+        maxNameMatchCandidates: 4,
+        maxCallableResolveDepth: 4,
+    })) {
         sourceNodeIds.push(
             ...collectPromiseSettlementSourceNodeIdsFromMethod(
                 scene,
@@ -210,6 +232,7 @@ function resolvePromiseSettlementSourceNodeIdsFromInvoke(
                 resolved.method,
                 activation,
                 visited,
+                depth + 1,
             ),
         );
     }
@@ -222,7 +245,16 @@ function collectPromiseSettlementSourceNodeIdsFromMethod(
     method: any,
     activation: ExecutionHandoffContractRecord["activation"],
     visited: Set<string>,
+    depth: number = 0,
 ): number[] {
+    if (depth > MAX_PROMISE_SETTLEMENT_TRACE_DEPTH || visited.size > MAX_PROMISE_SETTLEMENT_VISITED) {
+        return [];
+    }
+    const methodKey = `method:${safeMethodSignatureText(method)}`;
+    if (visited.has(methodKey)) {
+        return [];
+    }
+    visited.add(methodKey);
     const sourceNodeIds: number[] = [];
     for (const retStmt of method.getReturnStmt?.() || []) {
         if (!(retStmt instanceof ArkReturnStmt)) continue;
@@ -236,6 +268,7 @@ function collectPromiseSettlementSourceNodeIdsFromMethod(
                 retValue,
                 activation,
                 visited,
+                depth + 1,
             ),
         );
     }
@@ -249,9 +282,15 @@ function resolvePromiseSettlementSourceNodeIdsFromReturnedLocal(
     local: Local,
     activation: ExecutionHandoffContractRecord["activation"],
     visited: Set<string>,
+    depth: number = 0,
 ): number[] {
+    if (depth > MAX_PROMISE_SETTLEMENT_TRACE_DEPTH || visited.size > MAX_PROMISE_SETTLEMENT_VISITED) {
+        return collectNodeIds(
+            safeGetOrCreatePagNodes(pag, local, firstMethodStmt(method)),
+        );
+    }
     const declaringStmt = resolveLatestAssignStmtForLocal(method, local)
-        || local.getDeclaringStmt?.();
+        || safeGetDeclaringStmt(local);
     if (declaringStmt instanceof ArkAssignStmt && declaringStmt.getLeftOp?.() === local) {
         const rightOp = declaringStmt.getRightOp?.();
         if (isPromiseResolveRejectInvoke(rightOp, activation)) {
@@ -275,6 +314,7 @@ function resolvePromiseSettlementSourceNodeIdsFromReturnedLocal(
                 rightOp,
                 activation,
                 visited,
+                depth + 1,
             );
             if (nestedSourceNodeIds.length > 0) {
                 return nestedSourceNodeIds;
@@ -288,6 +328,7 @@ function resolvePromiseSettlementSourceNodeIdsFromReturnedLocal(
                 declaringStmt,
                 activation,
                 visited,
+                depth + 1,
             );
         }
     }
@@ -306,7 +347,7 @@ function collectPromiseConstructorSettlementSourceNodeIds(
     const invokeArgs = constructorInvoke?.getArgs?.() || [];
     const sourceNodeIds: number[] = [];
     for (const arg of invokeArgs) {
-        for (const executorMethod of resolveMethodsFromCallable(scene, arg)) {
+        for (const executorMethod of resolveMethodsFromCallable(scene, arg, { maxCallableResolveDepth: 4 })) {
             sourceNodeIds.push(
                 ...collectPromiseSettlementArgNodeIdsFromExecutor(
                     pag,
@@ -369,9 +410,9 @@ function isPromiseConstructorInvoke(invokeExpr: any): boolean {
     }
     const methodName = resolveInvokeMethodName(invokeExpr);
     if (methodName !== "constructor") return false;
-    const sigText = invokeExpr.getMethodSignature?.()?.toString?.() || "";
+    const sigText = safeInvokeSignatureText(invokeExpr);
     const baseValue = invokeExpr instanceof ArkInstanceInvokeExpr ? invokeExpr.getBase?.() : undefined;
-    const baseText = baseValue?.getType?.()?.toString?.() || baseValue?.toString?.() || "";
+    const baseText = safeValueTypeText(baseValue) || safeValueText(baseValue);
     return sigText.includes("Promise.constructor") || baseText.includes("Promise");
 }
 
@@ -389,7 +430,7 @@ function isDeferredContinuationInvoke(invokeExpr: any): boolean {
     if (methodName === "then" || methodName === "catch" || methodName === "finally") {
         return true;
     }
-    const sigText = invokeExpr.getMethodSignature?.()?.toString?.() || "";
+    const sigText = safeInvokeSignatureText(invokeExpr);
     return sigText.includes(".then()") || sigText.includes(".catch()") || sigText.includes(".finally()");
 }
 
@@ -402,8 +443,9 @@ function isPromiseSettlementActivation(
 }
 
 function isPromiseLikeInvokeText(invokeExpr: any): boolean {
-    const sigText = invokeExpr?.getMethodSignature?.()?.toString?.() || "";
-    const baseText = invokeExpr?.getBase?.()?.getType?.()?.toString?.() || invokeExpr?.getBase?.()?.toString?.() || "";
+    const sigText = safeInvokeSignatureText(invokeExpr);
+    const baseValue = invokeExpr?.getBase?.();
+    const baseText = safeValueTypeText(baseValue) || safeValueText(baseValue);
     return sigText.includes("Promise.resolve")
         || sigText.includes("Promise.reject")
         || baseText.includes("Promise")
@@ -423,12 +465,67 @@ function collectInvokeArgNodeIds(
 }
 
 function resolveDeclaringMethodSignature(value: Local): string {
-    return value
-        .getDeclaringStmt?.()
-        ?.getCfg?.()
-        ?.getDeclaringMethod?.()
-        ?.getSignature?.()
-        ?.toString?.() || "";
+    return safeMethodSignatureText(safeGetDeclaringMethodFromStmt(safeGetDeclaringStmt(value)));
+}
+
+function safeGetDeclaringStmt(local: Local): any {
+    try {
+        return local.getDeclaringStmt?.();
+    } catch {
+        return undefined;
+    }
+}
+
+function safeGetDeclaringMethodFromStmt(stmt: any): any {
+    try {
+        return stmt?.getCfg?.()?.getDeclaringMethod?.();
+    } catch {
+        return undefined;
+    }
+}
+
+function safeLocalName(local: Local): string {
+    try {
+        return local.getName?.() || "";
+    } catch {
+        return "";
+    }
+}
+
+function safeStmtText(stmt: any): string {
+    return safeValueText(stmt);
+}
+
+function safeInvokeSignatureText(invokeExpr: any): string {
+    try {
+        return invokeExpr?.getMethodSignature?.()?.toString?.() || "";
+    } catch {
+        return "";
+    }
+}
+
+function safeMethodSignatureText(method: any): string {
+    try {
+        return method?.getSignature?.()?.toString?.() || "";
+    } catch {
+        return "";
+    }
+}
+
+function safeValueText(value: any): string {
+    try {
+        return String(value?.toString?.() || value || "");
+    } catch {
+        return "[unprintable]";
+    }
+}
+
+function safeValueTypeText(value: any): string {
+    try {
+        return value?.getType?.()?.toString?.() || "";
+    } catch {
+        return "";
+    }
 }
 
 function resolveEnvBindings(
@@ -542,17 +639,21 @@ function resolvePromiseObserveEnvSourceNodeIdsFromLocal(
     anchorStmt: any,
     fieldName: string,
     visited: Set<string>,
+    depth: number = 0,
 ): number[] {
-    const localKey = `${resolveDeclaringMethodSignature(local)}#${local.getName?.() || ""}#${anchorStmt?.toString?.() || ""}`;
+    if (depth > MAX_PROMISE_SETTLEMENT_TRACE_DEPTH || visited.size > MAX_PROMISE_SETTLEMENT_VISITED) {
+        return [];
+    }
+    const localKey = `observe:${resolveDeclaringMethodSignature(local)}#${safeLocalName(local)}#${safeStmtText(anchorStmt)}`;
     if (visited.has(localKey)) {
         return [];
     }
     visited.add(localKey);
 
-    const ownerMethod = anchorStmt?.getCfg?.()?.getDeclaringMethod?.()
-        || local.getDeclaringStmt?.()?.getCfg?.()?.getDeclaringMethod?.();
+    const ownerMethod = safeGetDeclaringMethodFromStmt(anchorStmt)
+        || safeGetDeclaringMethodFromStmt(safeGetDeclaringStmt(local));
     const declaringStmt = resolveLatestAssignStmtForLocal(ownerMethod, local, anchorStmt)
-        || local.getDeclaringStmt?.();
+        || safeGetDeclaringStmt(local);
     if (!(declaringStmt instanceof ArkAssignStmt) || declaringStmt.getLeftOp?.() !== local) {
         return [];
     }
@@ -577,6 +678,7 @@ function resolvePromiseObserveEnvSourceNodeIdsFromLocal(
                 declaringStmt,
                 fieldName,
                 visited,
+                depth + 1,
             );
         }
         return [];
@@ -590,6 +692,7 @@ function resolvePromiseObserveEnvSourceNodeIdsFromLocal(
             declaringStmt,
             fieldName,
             visited,
+            depth + 1,
         );
     }
 
@@ -604,7 +707,7 @@ function collectContinuationCaptureWriteSourceNodeIds(
 ): number[] {
     const sourceNodeIds: number[] = [];
     for (const arg of invokeExpr?.getArgs?.() || []) {
-        for (const callbackMethod of resolveMethodsFromCallable(scene, arg)) {
+        for (const callbackMethod of resolveMethodsFromCallable(scene, arg, { maxCallableResolveDepth: 4 })) {
             sourceNodeIds.push(
                 ...collectCallbackCaptureWriteSourceNodeIds(
                     pag,
@@ -913,10 +1016,10 @@ function collectFreeLocalReadMappings(
     const maybeRecord = (value: any, anchorStmt: any): void => {
         if (!(value instanceof Local)) return;
         if (value.getName?.() === "this") return;
-        if (value.getDeclaringStmt?.()) return;
+        if (safeGetDeclaringStmt(value)) return;
         const localName = value.getName?.();
         if (!localName) return;
-        const key = `${localName}#${anchorStmt?.toString?.() || ""}`;
+        const key = `${localName}#${safeStmtText(anchorStmt)}`;
         if (seen.has(key)) return;
         seen.add(key);
         results.push({
@@ -966,7 +1069,7 @@ function collectMethodSourceNodeIdsByName(
     if (!(local instanceof Local)) {
         return [];
     }
-    const anchorStmt = local.getDeclaringStmt?.() || firstMethodStmt(method);
+    const anchorStmt = safeGetDeclaringStmt(local) || firstMethodStmt(method);
     const nodeIds = collectNodeIds(safeGetOrCreatePagNodes(pag, local, anchorStmt));
     const extraPointToIds: number[] = [];
     for (const nodeId of nodeIds) {
@@ -1064,7 +1167,7 @@ function collectThisCarrierNodeIds(
         return [];
     }
 
-    const resolvedAnchor = anchorStmt || thisLocal.getDeclaringStmt?.() || firstMethodStmt(method);
+    const resolvedAnchor = anchorStmt || safeGetDeclaringStmt(thisLocal) || firstMethodStmt(method);
     const localNodeIds = collectNodeIds(
         safeGetOrCreatePagNodes(pag, thisLocal, resolvedAnchor),
     );

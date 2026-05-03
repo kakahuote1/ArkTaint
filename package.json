@@ -173,6 +173,7 @@
         "analyze:demo": "node out/cli/analyze.js --repo tests/demo/complex_calls --sourceDir . --profile default --maxEntries 12 --outputDir output/runs/analyze/demo_complex_calls/latest",
         "test:semanticflow:cli": "node out/tests/runtime/testSemanticFlowCli.js",
         "test:semanticflow:auto": "node out/tests/runtime/testSemanticFlowAuto.js",
+        "test:semanticflow:auto-no-artifact-reuse": "node out/tests/runtime/testSemanticFlowAutoNoArtifactReuse.js",
         "test:llm-cli": "node out/tests/runtime/test_llm_cli.js",
         "test:llm-endpoint-auth": "node out/tests/runtime/test_llm_endpoint_auth.js",
         "test:llm-min-interval": "node out/tests/runtime/test_llm_min_interval.js",

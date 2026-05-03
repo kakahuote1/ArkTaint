@@ -13,6 +13,12 @@ interface AnalyzeReport {
             transfer: Record<string, number>;
         };
         transferNoHitReasons: string[];
+        executionHandoffAudit: {
+            contracts: number;
+            syntheticEdges: number;
+            syntheticCallers: number;
+            syntheticCallees: number;
+        };
     }>;
 }
 
@@ -54,6 +60,7 @@ async function main(): Promise<void> {
     }
 
     let lightHeavyLeak = 0;
+    let lightAuditPresent = 0;
     for (const e of light.entries || []) {
         const heavy = (e.sinkSamples?.length || 0)
             + (e.flowRuleTraces?.length || 0)
@@ -62,6 +69,11 @@ async function main(): Promise<void> {
             + hitCount(e.ruleHits?.transfer || {})
             + (e.transferNoHitReasons?.length || 0);
         if (heavy > 0) lightHeavyLeak++;
+        const auditWeight = (e.executionHandoffAudit?.contracts || 0)
+            + (e.executionHandoffAudit?.syntheticEdges || 0)
+            + (e.executionHandoffAudit?.syntheticCallers || 0)
+            + (e.executionHandoffAudit?.syntheticCallees || 0);
+        if (auditWeight > 0) lightAuditPresent++;
     }
 
     let fullHeavyPresent = 0;
@@ -79,6 +91,7 @@ async function main(): Promise<void> {
     console.log(`light_entries=${(light.entries || []).length}`);
     console.log(`full_entries=${(full.entries || []).length}`);
     console.log(`light_heavy_leak=${lightHeavyLeak}`);
+    console.log(`light_audit_present=${lightAuditPresent}`);
     console.log(`full_heavy_present=${fullHeavyPresent}`);
 
     if (lightHeavyLeak > 0) {
@@ -86,6 +99,9 @@ async function main(): Promise<void> {
     }
     if (fullHeavyPresent <= 0) {
         throw new Error("expected heavy details in full mode, got none");
+    }
+    if (lightAuditPresent <= 0) {
+        throw new Error("expected structural execution-handoff audit to remain visible in light mode");
     }
 }
 

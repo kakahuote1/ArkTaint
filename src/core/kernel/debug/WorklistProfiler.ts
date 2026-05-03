@@ -30,6 +30,12 @@ export interface WorklistProfileSnapshot {
         successes: number;
         dedupDrops: number;
     }>;
+    bySection: Array<{
+        section: string;
+        calls: number;
+        elapsedMs: number;
+        avgMs: number;
+    }>;
     transfer: TransferProfileSnapshot;
 }
 
@@ -47,6 +53,7 @@ export class WorklistProfiler {
     private dedupDropCount = 0;
     private maxQueueSize = 0;
     private readonly reasonCounters: Map<string, ReasonCounter> = new Map();
+    private readonly sectionCounters: Map<string, { calls: number; elapsedMs: number }> = new Map();
     private transferFactCount = 0;
     private transferInvokeSiteCount = 0;
     private transferRuleCheckCount = 0;
@@ -109,6 +116,23 @@ export class WorklistProfiler {
         }
     }
 
+    public measure<T>(section: string, fn: () => T): T {
+        const startedAt = process.hrtime.bigint();
+        try {
+            return fn();
+        } finally {
+            this.onSectionElapsed(section, Number(process.hrtime.bigint() - startedAt) / 1_000_000);
+        }
+    }
+
+    public onSectionElapsed(section: string, elapsedMs: number): void {
+        if (!section || !Number.isFinite(elapsedMs) || elapsedMs < 0) return;
+        const current = this.sectionCounters.get(section) || { calls: 0, elapsedMs: 0 };
+        current.calls += 1;
+        current.elapsedMs += elapsedMs;
+        this.sectionCounters.set(section, current);
+    }
+
     public snapshot(): WorklistProfileSnapshot {
         const byReason = Array.from(this.reasonCounters.entries())
             .map(([reason, counter]) => ({
@@ -129,6 +153,14 @@ export class WorklistProfiler {
         const noCandidateCallsites = [...this.transferNoCandidateCallsiteMap.values()]
             .sort((a, b) => b.count - a.count || a.calleeSignature.localeCompare(b.calleeSignature))
             .slice(0, 200);
+        const bySection = [...this.sectionCounters.entries()]
+            .map(([section, counter]) => ({
+                section,
+                calls: counter.calls,
+                elapsedMs: Number(counter.elapsedMs.toFixed(3)),
+                avgMs: counter.calls > 0 ? Number((counter.elapsedMs / counter.calls).toFixed(3)) : 0,
+            }))
+            .sort((a, b) => b.elapsedMs - a.elapsedMs || a.section.localeCompare(b.section));
 
         return {
             elapsedMs,
@@ -138,6 +170,7 @@ export class WorklistProfiler {
             dedupDropCount: this.dedupDropCount,
             maxQueueSize: this.maxQueueSize,
             byReason,
+            bySection,
             transfer: {
                 factCount: this.transferFactCount,
                 invokeSiteCount: this.transferInvokeSiteCount,

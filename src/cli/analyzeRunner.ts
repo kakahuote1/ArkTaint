@@ -20,6 +20,7 @@ import {
 import { CliOptions } from "./analyzeCliOptions";
 import { renderMarkdownReport } from "./analyzeReport";
 import {
+    buildSystemFailureEvent,
     normalizeDiagnosticsItems,
     writeDiagnosticsArtifacts,
 } from "./diagnosticsFormat";
@@ -32,8 +33,10 @@ import {
     accumulateRuleHitCounters,
     AnalyzeReport,
     emptyAnalyzeErrorDiagnostics,
+    emptyAnalyzeMemoryProfile,
     emptyAnalyzeStageProfile,
     emptyDetectProfile,
+    emptyExecutionHandoffAudit,
     emptyEnginePluginAuditSnapshot,
     emptyEntryStageProfile,
     emptyRuleHitCounters,
@@ -68,6 +71,12 @@ import { loadArkMainSeeds, ArkMainLoadResult } from "../core/entry/arkmain/ArkMa
 import * as fs from "fs";
 import * as path from "path";
 import { resolveModelSelections } from "./modelSelection";
+
+function verboseAnalyzeLog(message: string): void {
+    if (process.env.ARKTAINT_VERBOSE_BUILD === "1") {
+        console.log(`[analyzeRunner] ${message}`);
+    }
+}
 
 async function mapWithConcurrency<T, R>(
     items: T[],
@@ -265,6 +274,65 @@ function getAnalyzeSourceRules(loadedRules: LoadedRuleSet): SourceRule[] {
     return rules.filter(rule => rule.id !== "source.local_name.primary");
 }
 
+interface AnalyzeMemoryTracker {
+    sample(): void;
+    stop(): ReturnType<typeof emptyAnalyzeMemoryProfile>;
+}
+
+function roundMiB(bytes: number): number {
+    return Number((bytes / (1024 * 1024)).toFixed(3));
+}
+
+function createAnalyzeMemoryTracker(sampleIntervalMs = 100): AnalyzeMemoryTracker {
+    const snapshot = emptyAnalyzeMemoryProfile();
+    snapshot.sampleIntervalMs = sampleIntervalMs;
+    const sampleOnce = (): void => {
+        const usage = process.memoryUsage();
+        snapshot.sampleCount += 1;
+        snapshot.rssMiB = roundMiB(usage.rss);
+        snapshot.heapUsedMiB = roundMiB(usage.heapUsed);
+        snapshot.heapTotalMiB = roundMiB(usage.heapTotal);
+        snapshot.externalMiB = roundMiB(usage.external);
+        snapshot.arrayBuffersMiB = roundMiB(usage.arrayBuffers || 0);
+        snapshot.peakRssMiB = Math.max(snapshot.peakRssMiB, snapshot.rssMiB);
+        snapshot.peakHeapUsedMiB = Math.max(snapshot.peakHeapUsedMiB, snapshot.heapUsedMiB);
+        snapshot.peakHeapTotalMiB = Math.max(snapshot.peakHeapTotalMiB, snapshot.heapTotalMiB);
+        snapshot.peakExternalMiB = Math.max(snapshot.peakExternalMiB, snapshot.externalMiB);
+        snapshot.peakArrayBuffersMiB = Math.max(snapshot.peakArrayBuffersMiB, snapshot.arrayBuffersMiB);
+    };
+    sampleOnce();
+    const timer = setInterval(sampleOnce, sampleIntervalMs);
+    if (typeof timer.unref === "function") {
+        timer.unref();
+    }
+    return {
+        sample: sampleOnce,
+        stop(): ReturnType<typeof emptyAnalyzeMemoryProfile> {
+            clearInterval(timer);
+            sampleOnce();
+            return { ...snapshot };
+        },
+    };
+}
+
+function formatAnalyzeErrorMessage(error: unknown): string {
+    return String((error as any)?.message || error);
+}
+
+function formatAnalyzeErrorStack(error: unknown, maxLines = 24): string | undefined {
+    const stack = (error as any)?.stack;
+    if (typeof stack !== "string" || stack.trim().length === 0) {
+        return undefined;
+    }
+    return stack.split(/\r?\n/).slice(0, maxLines).join("\n");
+}
+
+function traceAnalyzeBuild(message: string): void {
+    if (process.env.ARKTAINT_VERBOSE_BUILD === "1") {
+        process.stderr.write(`${message}\n`);
+    }
+}
+
 function createSourceDirExceptionResult(
     sourceDir: string,
     startedAt: bigint,
@@ -291,11 +359,32 @@ function createSourceDirExceptionResult(
         stageProfile,
         transferNoHitReasons: ["source_dir_exception"],
         pagNodeResolutionAudit: emptyPagNodeResolutionAuditSnapshot(),
+        executionHandoffAudit: emptyExecutionHandoffAudit(),
         moduleAudit: emptyModuleAuditSnapshot(),
         enginePluginAudit: emptyEnginePluginAuditSnapshot(),
         elapsedMs: stageProfile.totalMs,
-        error: String((error as any)?.message || error),
+        error: formatAnalyzeErrorMessage(error),
+        errorStack: formatAnalyzeErrorStack(error),
     };
+}
+
+function buildEntryAnalyzeFailureEvent(entry: EntryAnalyzeResult): ReturnType<typeof buildSystemFailureEvent> {
+    const reasonSet = new Set(entry.transferNoHitReasons || []);
+    const sourceDirFailure = reasonSet.has("source_dir_exception");
+    const phase = sourceDirFailure ? "source_dir_build" : "entry_analyze";
+    const error = {
+        message: entry.error || "Entry analysis failed",
+        stack: entry.errorStack,
+    };
+    return buildSystemFailureEvent(error, {
+        phase,
+        code: sourceDirFailure ? "SYSTEM_SOURCE_DIR_BUILD_THROW" : "SYSTEM_ENTRY_ANALYZE_THROW",
+        title: sourceDirFailure ? "SourceDir Build" : "Entry Analyze",
+        summary: sourceDirFailure
+            ? `Scene build failed for sourceDir ${entry.sourceDir}.`
+            : `Entry analysis failed for ${entry.entryName || "@arkMain"} in ${entry.sourceDir}.`,
+        advice: "Inspect the stack frame and failing sourceDir. If the same frame recurs across projects, fix the engine path rather than the individual project.",
+    });
 }
 
 interface AnalyzeSeedingPolicy {
@@ -326,6 +415,7 @@ async function analyzeSourceDir(
     try {
         engine = new TaintPropagationEngine(scene, options.k, {
             transferRules: loadedRules.ruleSet.transfers || [],
+            executionHandoff: options.executionHandoff,
             moduleRoots: options.modelRoots,
             moduleSpecFiles: options.moduleSpecFiles,
             enabledModuleProjects: resolvedSelections.enabledModuleProjects,
@@ -346,22 +436,55 @@ async function analyzeSourceDir(
                 : undefined,
             debug: {
                 enableWorklistProfile: true,
+                worklistMaxElapsedMs: options.worklistBudgetMs && options.worklistBudgetMs > 0
+                    ? options.worklistBudgetMs
+                    : undefined,
+                worklistMaxDequeues: options.worklistMaxDequeues && options.worklistMaxDequeues > 0
+                    ? options.worklistMaxDequeues
+                    : undefined,
+                worklistMaxVisited: options.worklistMaxVisited && options.worklistMaxVisited > 0
+                    ? options.worklistMaxVisited
+                    : undefined,
             },
         });
-        engine.verbose = false;
+        engine.verbose = process.env.ARKTAINT_VERBOSE_BUILD === "1";
         const buildPagT0 = process.hrtime.bigint();
+        verboseAnalyzeLog(`buildPAG start source_dir=${sourceDir || "."}`);
         await engine.buildPAG({ entryModel: options.entryModel || "arkMain" });
         stageProfile.buildPagMs = elapsedMsSince(buildPagT0);
+        verboseAnalyzeLog(`buildPAG done source_dir=${sourceDir || "."} elapsed_ms=${Math.round(stageProfile.buildPagMs)}`);
 
-        const reachableMethodSignatures = engine.computeReachableMethodSignatures();
-        engine.setActiveReachableMethodSignatures(reachableMethodSignatures);
+        const activeReachableMethodSignatures = engine.getActiveReachableMethodSignatures();
+        const reachableMethodSignatures = activeReachableMethodSignatures
+            || engine.computeReachableMethodSignatures();
+        if (!activeReachableMethodSignatures) {
+            verboseAnalyzeLog(`reachable recompute start source_dir=${sourceDir || "."}`);
+            engine.setActiveReachableMethodSignatures(reachableMethodSignatures);
+            verboseAnalyzeLog(`reachable recompute done source_dir=${sourceDir || "."} count=${reachableMethodSignatures.size}`);
+        } else {
+            verboseAnalyzeLog(`reachable reused source_dir=${sourceDir || "."} count=${reachableMethodSignatures.size}`);
+        }
+        const executionHandoffContractSnapshot = engine.getExecutionHandoffContractSnapshot();
+        const syntheticInvokeEdgeSnapshot = engine.getSyntheticInvokeEdgeSnapshot();
+        const executionHandoffAudit = {
+            contracts: executionHandoffContractSnapshot?.totalContracts || 0,
+            syntheticEdges: syntheticInvokeEdgeSnapshot.totalEdges || 0,
+            syntheticCallers: syntheticInvokeEdgeSnapshot.callerSignatures.length || 0,
+            syntheticCallees: syntheticInvokeEdgeSnapshot.calleeSignatures.length || 0,
+        };
 
         let seedCount = 0;
         const seedLocalNames = new Set<string>();
         const seedStrategies = new Set<string>();
         const sourceSeedT0 = process.hrtime.bigint();
+        verboseAnalyzeLog(`source rule propagation start source_dir=${sourceDir || "."}`);
         const sourceRuleResult = engine.propagateWithSourceRules(getAnalyzeSourceRules(loadedRules));
         stageProfile.propagateRuleSeedMs = elapsedMsSince(sourceSeedT0);
+        verboseAnalyzeLog(
+            `source rule propagation done source_dir=${sourceDir || "."} elapsed_ms=${Math.round(stageProfile.propagateRuleSeedMs)} seeds=${sourceRuleResult.seedCount}`,
+        );
+        const worklistTruncation = engine.getWorklistTruncation();
+        const worklistProfile = engine.getWorklistProfile();
         seedCount += sourceRuleResult.seedCount;
         for (const x of sourceRuleResult.seededLocals) seedLocalNames.add(x);
         if (sourceRuleResult.seedCount > 0) seedStrategies.add("rule:source");
@@ -388,6 +511,7 @@ async function analyzeSourceDir(
                 stageProfile,
                 transferNoHitReasons: ["no_source_seed"],
                 pagNodeResolutionAudit: engine.getPagNodeResolutionAuditSnapshot(),
+                executionHandoffAudit,
                 moduleAudit: engine.getModuleAuditSnapshot(),
                 enginePluginAudit: engine.getEnginePluginAuditSnapshot(),
                 arkMainSeeds: engine.getArkMainSeedReport(),
@@ -395,8 +519,51 @@ async function analyzeSourceDir(
             };
         }
 
+        if (worklistTruncation) {
+            const transferProfile = engine.getWorklistProfile()?.transfer || emptyTransferProfile();
+            const ruleHits = engine.getRuleHitCounters();
+            const ruleHitEndpoints = buildRuleEndpointHits(ruleHits, loadedRules);
+            engine.finishEnginePlugins({
+                sourceDir,
+                elapsedMs: stageProfile.propagateRuleSeedMs,
+                reachableMethodCount: engine.getActiveReachableMethodSignatures()?.size,
+            });
+            stageProfile.totalMs = elapsedMsSince(t0);
+            return {
+                sourceDir,
+                entryName: arkMainEntryName,
+                entryPathHint: sourceDir,
+                score: 100,
+                status: "budget_exceeded",
+                seedCount,
+                seedLocalNames: [...seedLocalNames].sort(),
+                seedStrategies: [...seedStrategies].sort(),
+                flowCount: 0,
+                sinkSamples: [],
+                flowRuleTraces: [],
+                ruleHits,
+                ruleHitEndpoints,
+                transferProfile,
+                detectProfile: emptyDetectProfile(),
+                stageProfile,
+                transferNoHitReasons: [
+                    "propagation_budget_exceeded",
+                    `propagation_budget_exceeded:${worklistTruncation.reason}`,
+                ],
+                pagNodeResolutionAudit: engine.getPagNodeResolutionAuditSnapshot(),
+                executionHandoffAudit,
+                moduleAudit: engine.getModuleAuditSnapshot(),
+                enginePluginAudit: engine.getEnginePluginAuditSnapshot(),
+                arkMainSeeds: engine.getArkMainSeedReport(),
+                worklistProfile,
+                worklistTruncation,
+                elapsedMs: stageProfile.totalMs,
+            };
+        }
+
         const detectT0 = process.hrtime.bigint();
         engine.resetDetectProfile();
+        verboseAnalyzeLog(`detect start source_dir=${sourceDir || "."}`);
         const detectStopPolicy = options.profile === "fast"
             ? {
                 stopOnFirstFlow: options.stopOnFirstFlow,
@@ -413,13 +580,20 @@ async function analyzeSourceDir(
             enableSecondarySinkSweep: seedingPolicy.enableSecondarySinkSweep,
         });
         const detectProfile = engine.getDetectProfile();
+        verboseAnalyzeLog(
+            `detect done source_dir=${sourceDir || "."} elapsed_ms=${Math.round(elapsedMsSince(detectT0))} flows=${detected.totalFlowCount}`,
+        );
         const ruleHits = engine.getRuleHitCounters();
         const ruleHitEndpoints = buildRuleEndpointHits(ruleHits, loadedRules);
-        const transferProfile = engine.getWorklistProfile()?.transfer || emptyTransferProfile();
+        const transferProfile = worklistProfile?.transfer || emptyTransferProfile();
         const transferNoHitReasons = summarizeTransferNoHitReasons(
             transferProfile,
             (loadedRules.ruleSet.transfers || []).length
         );
+        if (worklistTruncation) {
+            transferNoHitReasons.push("propagation_budget_exceeded");
+            transferNoHitReasons.push(`propagation_budget_exceeded:${worklistTruncation.reason}`);
+        }
         stageProfile.detectMs = elapsedMsSince(detectT0);
         engine.finishEnginePlugins({
             sourceDir,
@@ -434,7 +608,7 @@ async function analyzeSourceDir(
             entryName: arkMainEntryName,
             entryPathHint: sourceDir,
             score: 100,
-            status: "ok",
+            status: worklistTruncation ? "budget_exceeded" : "ok",
             seedCount,
             seedLocalNames: [...seedLocalNames].sort(),
             seedStrategies: [...seedStrategies].sort(),
@@ -448,9 +622,12 @@ async function analyzeSourceDir(
             stageProfile,
             transferNoHitReasons,
             pagNodeResolutionAudit: engine.getPagNodeResolutionAuditSnapshot(),
+            executionHandoffAudit,
             moduleAudit: engine.getModuleAuditSnapshot(),
             enginePluginAudit: engine.getEnginePluginAuditSnapshot(),
             arkMainSeeds: engine.getArkMainSeedReport(),
+            worklistProfile,
+            worklistTruncation,
             elapsedMs: stageProfile.totalMs,
         };
     } catch (err: any) {
@@ -474,11 +651,20 @@ async function analyzeSourceDir(
             stageProfile,
             transferNoHitReasons: ["analyze_exception"],
             pagNodeResolutionAudit: engine?.getPagNodeResolutionAuditSnapshot() || emptyPagNodeResolutionAuditSnapshot(),
+            executionHandoffAudit: engine
+                ? {
+                    contracts: engine.getExecutionHandoffContractSnapshot()?.totalContracts || 0,
+                    syntheticEdges: engine.getSyntheticInvokeEdgeSnapshot().totalEdges || 0,
+                    syntheticCallers: engine.getSyntheticInvokeEdgeSnapshot().callerSignatures.length || 0,
+                    syntheticCallees: engine.getSyntheticInvokeEdgeSnapshot().calleeSignatures.length || 0,
+                }
+                : emptyExecutionHandoffAudit(),
             moduleAudit: engine?.getModuleAuditSnapshot() || emptyModuleAuditSnapshot(),
             enginePluginAudit: engine?.getEnginePluginAuditSnapshot() || emptyEnginePluginAuditSnapshot(),
             arkMainSeeds: engine?.getArkMainSeedReport(),
             elapsedMs: stageProfile.totalMs,
-            error: String(err?.message || err),
+            error: formatAnalyzeErrorMessage(err),
+            errorStack: formatAnalyzeErrorStack(err),
         };
     }
 }
@@ -493,6 +679,7 @@ export interface AnalyzeRunResult {
 
 export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult> {
     const analyzeStart = process.hrtime.bigint();
+    const memoryTracker = createAnalyzeMemoryTracker();
     const stageProfile = emptyAnalyzeStageProfile();
     ConfigBasedTransferExecutor.resetSceneRuleCacheStats();
     const resolvedSelections = resolveModelSelections({
@@ -522,6 +709,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         ...resolvedSelections.ruleOptions,
     });
     stageProfile.ruleLoadMs = elapsedMsSince(ruleLoadT0);
+    memoryTracker.sample();
     if (options.showLoadWarnings !== false) {
         for (const warning of loadedRules.warnings) {
             console.warn(`rule warning: ${warning}`);
@@ -594,18 +782,23 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
             try {
                 stageProfile.sceneCacheMissCount++;
                 const sceneBuildT0 = process.hrtime.bigint();
+                traceAnalyzeBuild(`[analyze] sourceDir=${sourceDir} scene_config start`);
                 const config = new SceneConfig();
                 config.buildFromProjectDir(sourceAbs);
                 injectArkUiSdk(config);
+                traceAnalyzeBuild(`[analyze] sourceDir=${sourceDir} scene_build start`);
                 scene = new Scene();
                 scene.buildSceneFromProjectDir(config);
+                traceAnalyzeBuild(`[analyze] sourceDir=${sourceDir} infer_types start`);
                 scene.inferTypes();
+                traceAnalyzeBuild(`[analyze] sourceDir=${sourceDir} arkmain_load start`);
                 arkMainLoad = loadArkMainSeeds(scene, {
                     arkMainRoots: options.modelRoots,
                     arkMainSpecFiles: options.arkMainSpecFiles,
                     enabledArkMainProjects: resolvedSelections.enabledArkMainProjects,
                     disabledArkMainProjects: resolvedSelections.disabledArkMainProjects,
                 });
+                traceAnalyzeBuild(`[analyze] sourceDir=${sourceDir} arkmain_load done`);
                 for (const warning of arkMainLoad.warnings) {
                     if (arkMainWarningSet.has(warning)) {
                         continue;
@@ -616,11 +809,13 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
                     }
                 }
                 stageProfile.sceneBuildMs += elapsedMsSince(sceneBuildT0);
+                memoryTracker.sample();
                 sourceContextCache.set(sourceAbs, { scene, arkMainLoad });
             } catch (error) {
                 const order = orderedEntries.length;
                 orderedEntries.push(createSourceDirExceptionResult(sourceDir, sourceStartedAt, error));
                 stageProfile.entryAnalyzeMs += orderedEntries[order]!.stageProfile.totalMs;
+                memoryTracker.sample();
                 continue;
             }
         } else {
@@ -689,6 +884,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
             });
             stageProfile.incrementalCacheWriteCount++;
         }
+        memoryTracker.sample();
     }
 
     const entries: EntryAnalyzeResult[] = orderedEntries.filter((e): e is EntryAnalyzeResult => !!e);
@@ -716,6 +912,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     const noCandidateSummaryMap = new Map<string, AnalyzeReport["summary"]["transferProfile"]["noCandidateCallsites"][number]>();
     const detectProfile = emptyDetectProfile();
     const pagNodeResolutionAudit = emptyPagNodeResolutionAuditSnapshot();
+    const executionHandoffAudit = emptyExecutionHandoffAudit();
     const moduleAuditSummary = {
         loadedModuleIds: [] as string[],
         failedModuleIds: [] as string[],
@@ -789,6 +986,10 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         detectProfile.traversalMs += e.detectProfile.traversalMs;
         detectProfile.totalMs += e.detectProfile.totalMs;
         accumulatePagNodeResolutionAudit(pagNodeResolutionAudit, e.pagNodeResolutionAudit);
+        executionHandoffAudit.contracts += e.executionHandoffAudit.contracts;
+        executionHandoffAudit.syntheticEdges += e.executionHandoffAudit.syntheticEdges;
+        executionHandoffAudit.syntheticCallers += e.executionHandoffAudit.syntheticCallers;
+        executionHandoffAudit.syntheticCallees += e.executionHandoffAudit.syntheticCallees;
         for (const moduleId of e.moduleAudit.loadedModuleIds) {
             loadedModuleIdSet.add(moduleId);
         }
@@ -814,6 +1015,9 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
             current.factHookCalls += stats.factHookCalls;
             current.invokeHookCalls += stats.invokeHookCalls;
             current.copyEdgeChecks += stats.copyEdgeChecks;
+            current.factHookMs += stats.factHookMs;
+            current.invokeHookMs += stats.invokeHookMs;
+            current.copyEdgeMs += stats.copyEdgeMs;
             current.factEmissionCount += stats.factEmissionCount;
             current.invokeEmissionCount += stats.invokeEmissionCount;
             current.totalEmissionCount += stats.totalEmissionCount;
@@ -872,6 +1076,9 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
             arkMainSeedSummary.enabled = arkMainSeedSummary.enabled || e.arkMainSeeds.enabled;
             arkMainSeedSummary.methodCount = Math.max(arkMainSeedSummary.methodCount, e.arkMainSeeds.methodCount || 0);
             arkMainSeedSummary.factCount = Math.max(arkMainSeedSummary.factCount, e.arkMainSeeds.factCount || 0);
+        }
+        if (e.status === "exception") {
+            diagnostics.systemFailures.push(buildEntryAnalyzeFailureEvent(e));
         }
         diagnostics.moduleRuntimeFailures.push(...e.moduleAudit.failureEvents);
         diagnostics.enginePluginRuntimeFailures.push(...e.enginePluginAudit.failureEvents);
@@ -934,7 +1141,9 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
             ruleHitEndpoints,
             transferProfile,
             detectProfile,
+            memoryProfile: emptyAnalyzeMemoryProfile(),
             pagNodeResolutionAudit,
+            executionHandoffAudit,
             diagnostics,
             diagnosticItems,
             moduleAudit: moduleAuditSummary,
@@ -982,6 +1191,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     report.summary.stageProfile.transferSceneRuleCacheHitCount = transferSceneCacheStats.hitCount;
     report.summary.stageProfile.transferSceneRuleCacheMissCount = transferSceneCacheStats.missCount;
     report.summary.stageProfile.transferSceneRuleCacheDisabledCount = transferSceneCacheStats.disabledCount;
+    report.summary.memoryProfile = memoryTracker.stop();
     fs.writeFileSync(jsonPath, JSON.stringify(report, null, 2), "utf-8");
     fs.writeFileSync(mdPath, renderMarkdownReport(report), "utf-8");
     writeNoCandidateCallsiteArtifacts(report, options.outputDir);

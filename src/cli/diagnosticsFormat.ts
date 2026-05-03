@@ -252,6 +252,7 @@ export function normalizeDiagnosticsItems(diagnostics: AnalyzeErrorDiagnostics):
             path: failure.path,
             line: failure.line,
             column: failure.column,
+            stackExcerpt: failure.stackExcerpt,
         });
     }
     for (const issue of diagnostics.enginePluginLoadIssues) {
@@ -392,6 +393,9 @@ export function formatDiagnosticsText(
         lines.push(`   message: ${item.rawMessage}`);
         if (item.fieldPath) {
             lines.push(`   field: ${item.fieldPath}`);
+        }
+        if (item.stackExcerpt) {
+            lines.push(`   stack: ${item.stackExcerpt}`);
         }
         lines.push(`   advice: ${item.advice}`);
         const frame = renderCodeFrame(item);

@@ -29,6 +29,7 @@ export interface SemanticFlowProjectResult {
     session: SemanticFlowSessionResult;
     arkMainCandidates: ArkMainEntryCandidate[];
     skippedArkMainCandidates: ArkMainEntryCandidate[];
+    ineligibleArkMainCandidates: ArkMainEntryCandidate[];
     ruleCandidateCount: number;
 }
 
@@ -40,7 +41,11 @@ export async function runSemanticFlowProject(
         : buildArkMainEntryCandidates(options.scene as never, {
             maxCandidates: options.arkMainMaxCandidates,
         });
-    const { semanticFlowCandidates: arkMainCandidates, kernelCoveredCandidates: skippedArkMainCandidates } =
+    const {
+        semanticFlowCandidates: arkMainCandidates,
+        kernelCoveredCandidates: skippedArkMainCandidates,
+        ineligibleCandidates: ineligibleArkMainCandidates,
+    } =
         splitArkMainEntryCandidatesForSemanticFlow(rawArkMainCandidates);
     const ruleCandidates = options.ruleCandidates || [];
     const companionGroups = buildRuleCandidateCompanionGroups(ruleCandidates);
@@ -75,6 +80,7 @@ export async function runSemanticFlowProject(
         session,
         arkMainCandidates,
         skippedArkMainCandidates,
+        ineligibleArkMainCandidates,
         ruleCandidateCount: ruleCandidates.length,
     };
 }

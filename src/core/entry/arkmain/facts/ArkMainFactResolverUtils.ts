@@ -16,23 +16,108 @@ export function classInheritsAbility(arkClass: ArkClass): boolean {
 export function resolveAbilityLikeOwnerKind(
     arkClass: ArkClass,
 ): "ability_owner" | "stage_owner" | "extension_owner" | undefined {
-    const directKind = classifyAbilityOwnerBaseName(arkClass.getSuperClassName());
+    const directKind = classifyAbilityOwnerBaseName(safeGetSuperClassName(arkClass));
     if (directKind) {
         return directKind;
     }
-    let superClass = arkClass.getSuperClass();
-    while (superClass) {
-        const namedKind = classifyAbilityOwnerBaseName(superClass.getName?.());
+    let resolved: "ability_owner" | "stage_owner" | "extension_owner" | undefined;
+    walkArkMainSuperClasses(arkClass, superClass => {
+        const namedKind = classifyAbilityOwnerBaseName(safeGetClassName(superClass));
         if (namedKind) {
-            return namedKind;
+            resolved = namedKind;
+            return false;
         }
-        const inheritedKind = classifyAbilityOwnerBaseName(superClass.getSuperClassName());
+        const inheritedKind = classifyAbilityOwnerBaseName(safeGetSuperClassName(superClass));
         if (inheritedKind) {
-            return inheritedKind;
+            resolved = inheritedKind;
+            return false;
         }
-        superClass = superClass.getSuperClass();
+        return true;
+    });
+    return resolved;
+}
+
+export const ARK_MAIN_MAX_SUPERCLASS_DEPTH = 64;
+
+export function getArkMainClassIdentity(cls: ArkClass | null | undefined): string | undefined {
+    if (!cls) return undefined;
+    try {
+        const signatureText = cls.getSignature?.()?.toString?.();
+        if (signatureText) return signatureText;
+    } catch {
+        // Some real projects trigger arkanalyzer class-resolution recursion here.
     }
-    return undefined;
+    let fileSignatureText = "";
+    try {
+        fileSignatureText = cls.getDeclaringArkFile?.()?.getFileSignature?.()?.toString?.()
+            || cls.getSignature?.()?.getDeclaringFileSignature?.()?.toString?.()
+            || "";
+    } catch {
+        fileSignatureText = "";
+    }
+    const className = safeGetClassName(cls) || "";
+    if (!className) return undefined;
+    return `${fileSignatureText}::${className}`;
+}
+
+export function walkArkMainSuperClasses(
+    arkClass: ArkClass | null | undefined,
+    visit: (superClass: ArkClass) => boolean | void,
+    maxDepth: number = ARK_MAIN_MAX_SUPERCLASS_DEPTH,
+): void {
+    const visitedObjects = new WeakSet<object>();
+    const visitedIdentities = new Set<string>();
+    let superClass = safeGetSuperClass(arkClass);
+    let depth = 0;
+    while (superClass && depth < maxDepth) {
+        const objectRef = typeof superClass === "object" ? superClass as object : undefined;
+        if (objectRef) {
+            if (visitedObjects.has(objectRef)) {
+                break;
+            }
+            visitedObjects.add(objectRef);
+        }
+        const identity = getArkMainClassIdentity(superClass);
+        if (identity) {
+            if (visitedIdentities.has(identity)) {
+                break;
+            }
+            visitedIdentities.add(identity);
+        }
+        if (visit(superClass) === false) {
+            break;
+        }
+        const nextSuperClass = safeGetSuperClass(superClass);
+        if (!nextSuperClass || nextSuperClass === superClass) {
+            break;
+        }
+        superClass = nextSuperClass;
+        depth += 1;
+    }
+}
+
+export function safeGetSuperClass(cls: ArkClass | null | undefined): ArkClass | undefined {
+    try {
+        return cls?.getSuperClass?.() || undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+export function safeGetClassName(cls: ArkClass | null | undefined): string | undefined {
+    try {
+        return cls?.getName?.() || undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+export function safeGetSuperClassName(cls: ArkClass | null | undefined): string | undefined {
+    try {
+        return cls?.getSuperClassName?.() || undefined;
+    } catch {
+        return undefined;
+    }
 }
 
 export function dedupeMethods(methods: ArkMethod[]): ArkMethod[] {

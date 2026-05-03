@@ -9,6 +9,7 @@ import type { ArkMainEntryCandidate } from "./ArkMainEntryCandidateTypes";
 export interface SplitArkMainEntryCandidatesResult {
     semanticFlowCandidates: ArkMainEntryCandidate[];
     kernelCoveredCandidates: ArkMainEntryCandidate[];
+    ineligibleCandidates: ArkMainEntryCandidate[];
 }
 
 export function splitArkMainEntryCandidatesForSemanticFlow(
@@ -16,9 +17,14 @@ export function splitArkMainEntryCandidatesForSemanticFlow(
 ): SplitArkMainEntryCandidatesResult {
     const semanticFlowCandidates: ArkMainEntryCandidate[] = [];
     const kernelCoveredCandidates: ArkMainEntryCandidate[] = [];
+    const ineligibleCandidates: ArkMainEntryCandidate[] = [];
     for (const candidate of candidates) {
         if (isArkMainCandidateCoveredByKernelContracts(candidate)) {
             kernelCoveredCandidates.push(candidate);
+            continue;
+        }
+        if (isComponentCandidateOutsideFormalArkMain(candidate)) {
+            ineligibleCandidates.push(candidate);
             continue;
         }
         semanticFlowCandidates.push(candidate);
@@ -26,6 +32,7 @@ export function splitArkMainEntryCandidatesForSemanticFlow(
     return {
         semanticFlowCandidates,
         kernelCoveredCandidates,
+        ineligibleCandidates,
     };
 }
 
@@ -45,6 +52,21 @@ export function isArkMainCandidateCoveredByKernelContracts(candidate: ArkMainEnt
         return true;
     }
     return false;
+}
+
+function isComponentCandidateOutsideFormalArkMain(candidate: ArkMainEntryCandidate): boolean {
+    const ownerKinds = inferOwnerKinds(candidate);
+    const hasComponentOwner = ownerKinds.has("component_owner") || ownerKinds.has("builder_owner");
+    if (!hasComponentOwner) {
+        return false;
+    }
+    const hasRuntimeOwner = ownerKinds.has("ability_owner")
+        || ownerKinds.has("stage_owner")
+        || ownerKinds.has("extension_owner");
+    if (hasRuntimeOwner) {
+        return false;
+    }
+    return !resolveComponentLifecycleContract(candidate.methodName);
 }
 
 function inferOwnerKinds(candidate: ArkMainEntryCandidate): Set<string> {

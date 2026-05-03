@@ -591,6 +591,9 @@ export interface ModuleAuditEntry {
     factHookCalls: number;
     invokeHookCalls: number;
     copyEdgeChecks: number;
+    factHookMs: number;
+    invokeHookMs: number;
+    copyEdgeMs: number;
     factEmissionCount: number;
     invokeEmissionCount: number;
     totalEmissionCount: number;

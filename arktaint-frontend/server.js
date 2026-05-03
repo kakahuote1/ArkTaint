@@ -90,6 +90,7 @@ function buildAnalyzeArgs(options) {
   const args = ['run', 'analyze', '--', '--repo', options.repo];
 
   pushCsvValue(args, '--sourceDir', options.sourceDir);
+  pushValue(args, '--executionHandoff', options.executionHandoff);
   pushValue(args, '--outputDir', options.outputDir);
   pushValue(args, '--profile', options.profile && options.profile !== 'default' ? options.profile : '');
   pushValue(args, '--reportMode', options.reportMode && options.reportMode !== 'light' ? options.reportMode : '');

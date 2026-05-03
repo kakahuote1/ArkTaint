@@ -176,6 +176,12 @@ function buildRuleObservations(item: NormalizedCallsiteItem): string[] {
     if (typeof (item as any).methodSnippet === "string" && (item as any).methodSnippet.trim()) {
         observations.push("methodSnippet=available");
     }
+    const methodSnippetSource = typeof (item as any).methodSnippetSource === "string"
+        ? String((item as any).methodSnippetSource).trim()
+        : "";
+    if (methodSnippetSource) {
+        observations.push(`methodSnippetSource=${methodSnippetSource}`);
+    }
     const ownerMethodSnippets = Array.isArray((item as any).ownerMethodSnippets)
         ? (item as any).ownerMethodSnippets as Array<{ method?: string }>
         : [];
@@ -222,6 +228,10 @@ function buildRuleSnippets(
         : contextSlices;
 
     for (const [index, slice] of visibleSlices.entries()) {
+        const cfgNeighborStmts = compactSnippetLines(slice.cfgNeighborStmts || [], {
+            dropExact: [slice.invokeStmtText],
+            maxLines: 8,
+        });
         snippets.push({
             label: `callsite-${index}`,
             code: [
@@ -230,9 +240,9 @@ function buildRuleSnippets(
                 `invokeLine: ${slice.invokeLine}`,
                 `invokeStmt: ${slice.invokeStmtText}`,
                 "",
-                slice.windowLines,
-                ...(slice.cfgNeighborStmts?.length
-                    ? ["", "cfgNeighbors:", ...slice.cfgNeighborStmts]
+                compactSnippetText(slice.windowLines, { maxLines: 16 }),
+                ...(cfgNeighborStmts.length
+                    ? ["", "cfgNeighbors:", ...cfgNeighborStmts]
                     : []),
             ].join("\n"),
         });
@@ -327,6 +337,40 @@ function buildRuleSnippets(
     }
 
     return snippets;
+}
+
+function compactSnippetText(text: string, options: { maxLines: number }): string {
+    const lines = compactSnippetLines(String(text || "").split(/\r?\n/), {
+        maxLines: options.maxLines,
+    });
+    return lines.join("\n");
+}
+
+function compactSnippetLines(
+    lines: string[],
+    options: {
+        dropExact?: string[];
+        maxLines: number;
+    },
+): string[] {
+    const out: string[] = [];
+    const seen = new Set<string>();
+    const dropExact = new Set((options.dropExact || []).map(line => normalizeSnippetLine(line)));
+    for (const line of lines) {
+        const text = String(line || "").trimEnd();
+        const normalized = normalizeSnippetLine(text);
+        if (!normalized) continue;
+        if (dropExact.has(normalized)) continue;
+        if (seen.has(normalized)) continue;
+        seen.add(normalized);
+        out.push(text);
+        if (out.length >= options.maxLines) break;
+    }
+    return out;
+}
+
+function normalizeSnippetLine(line: string): string {
+    return String(line || "").replace(/\s+/g, " ").trim();
 }
 
 function buildRuleNotes(item: NormalizedCallsiteItem): string[] | undefined {

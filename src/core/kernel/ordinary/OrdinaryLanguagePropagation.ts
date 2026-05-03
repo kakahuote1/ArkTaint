@@ -27,6 +27,7 @@ import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
 
 const ARRAY_ANY_SLOT = "arr:*";
 const MAX_INDEX_BACKTRACE_DEPTH = 6;
+const OBJECT_LITERAL_CAPTURE_KEY_SEPARATOR = "\u0000";
 type OrdinaryCopyLikeKind =
     | "stringify_result"
     | "serialized_copy"
@@ -47,6 +48,16 @@ interface OrdinaryCopyLikeSpec {
     sourceRole: OrdinaryCopyLikeSourceRole;
     matches: (ctx: OrdinaryCopyLikeMatchContext) => boolean;
 }
+
+interface ObjectLiteralCaptureCandidate {
+    candidateLine: number;
+    nodeIds: number[];
+    fieldNames: string[];
+}
+
+type ObjectLiteralCaptureIndex = Map<string, ObjectLiteralCaptureCandidate[]>;
+
+const objectLiteralCaptureIndexCache = new WeakMap<Pag, WeakMap<Map<string, any>, ObjectLiteralCaptureIndex>>();
 
 const ORDINARY_COPY_LIKE_SPECS: OrdinaryCopyLikeSpec[] = [
     {
@@ -338,6 +349,7 @@ export function collectObjectLiteralFieldCaptureFactsFromTaintedObj(
     classBySignature: Map<string, any>,
 ): TaintFact[] {
     const results: TaintFact[] = [];
+    const captureIndex = getObjectLiteralCaptureIndex(pag, classBySignature);
 
     for (const aliasValue of collectAliasLocalsForCarrier(pag, taintedObjId, classBySignature)) {
         const aliasName = aliasValue.getName?.() || "";
@@ -345,29 +357,11 @@ export function collectObjectLiteralFieldCaptureFactsFromTaintedObj(
         const aliasMethodSig = getDeclaringMethodSignatureFromLocal(aliasValue);
         if (!aliasMethodSig) continue;
         const aliasLine = getDeclaringStmtLine(aliasValue.getDeclaringStmt?.());
+        const captureCandidates = captureIndex.get(objectLiteralCaptureIndexKey(aliasMethodSig, aliasName)) || [];
 
-        for (const rawCandidateNode of pag.getNodesIter()) {
-            const candidateNode = rawCandidateNode as PagNode;
-            const candidateValue = candidateNode.getValue?.();
-            if (!(candidateValue instanceof Local)) continue;
-            if (candidateValue === aliasValue) continue;
-
-            const candidateMethodSig = getDeclaringMethodSignatureFromLocal(candidateValue);
-            if (!candidateMethodSig || candidateMethodSig !== aliasMethodSig) continue;
-
-            const candidateClassSig = resolveLocalClassSignature(candidateValue);
-            if (!candidateClassSig || !isAnonymousObjectLiteralClassSignature(candidateClassSig)) continue;
-
-            const candidateLine = getDeclaringStmtLine(candidateValue.getDeclaringStmt?.());
-            if (aliasLine > 0 && candidateLine > 0 && candidateLine < aliasLine) continue;
-
-            const arkClass = classBySignature.get(candidateClassSig);
-            const capturedFieldNames = resolveObjectLiteralCapturedFieldNamesForAlias(arkClass, aliasName);
-            if (capturedFieldNames.length === 0) continue;
-
-            const candidateNodes = pag.getNodesByValue(candidateValue);
-            if (!candidateNodes || candidateNodes.size === 0) continue;
-            for (const candidateNodeId of candidateNodes.values()) {
+        for (const candidate of captureCandidates) {
+            if (aliasLine > 0 && candidate.candidateLine > 0 && candidate.candidateLine < aliasLine) continue;
+            for (const candidateNodeId of candidate.nodeIds) {
                 const carrierNode = pag.getNode(candidateNodeId) as PagNode;
                 if (!carrierNode) continue;
                 let hasPointTo = false;
@@ -375,12 +369,12 @@ export function collectObjectLiteralFieldCaptureFactsFromTaintedObj(
                     hasPointTo = true;
                     const objNode = pag.getNode(objId) as PagNode;
                     if (!objNode) continue;
-                    for (const capturedFieldName of capturedFieldNames) {
+                    for (const capturedFieldName of candidate.fieldNames) {
                         results.push(new TaintFact(objNode, source, currentCtx, [capturedFieldName, ...fieldPath]));
                     }
                 }
                 if (!hasPointTo) {
-                    for (const capturedFieldName of capturedFieldNames) {
+                    for (const capturedFieldName of candidate.fieldNames) {
                         results.push(new TaintFact(carrierNode, source, currentCtx, [capturedFieldName, ...fieldPath]));
                     }
                 }
@@ -899,22 +893,82 @@ function isAnonymousObjectLiteralClassSignature(classSig: string): boolean {
     return classSig.includes("%AC");
 }
 
-function resolveObjectLiteralCapturedFieldNamesForAlias(arkClass: any, aliasName: string): string[] {
-    const out: string[] = [];
+function getObjectLiteralCaptureIndex(pag: Pag, classBySignature: Map<string, any>): ObjectLiteralCaptureIndex {
+    let byClassIndex = objectLiteralCaptureIndexCache.get(pag);
+    if (!byClassIndex) {
+        byClassIndex = new WeakMap<Map<string, any>, ObjectLiteralCaptureIndex>();
+        objectLiteralCaptureIndexCache.set(pag, byClassIndex);
+    }
+    let index = byClassIndex.get(classBySignature);
+    if (!index) {
+        index = buildObjectLiteralCaptureIndex(pag, classBySignature);
+        byClassIndex.set(classBySignature, index);
+    }
+    return index;
+}
+
+function buildObjectLiteralCaptureIndex(pag: Pag, classBySignature: Map<string, any>): ObjectLiteralCaptureIndex {
+    const index: ObjectLiteralCaptureIndex = new Map();
+    for (const rawCandidateNode of pag.getNodesIter()) {
+        const candidateNode = rawCandidateNode as PagNode;
+        const candidateValue = candidateNode.getValue?.();
+        if (!(candidateValue instanceof Local)) continue;
+
+        const candidateMethodSig = getDeclaringMethodSignatureFromLocal(candidateValue);
+        if (!candidateMethodSig) continue;
+
+        const candidateClassSig = resolveLocalClassSignature(candidateValue);
+        if (!candidateClassSig || !isAnonymousObjectLiteralClassSignature(candidateClassSig)) continue;
+
+        const arkClass = classBySignature.get(candidateClassSig);
+        const capturedFieldMap = resolveObjectLiteralCapturedFieldMap(arkClass);
+        if (capturedFieldMap.size === 0) continue;
+
+        const candidateNodes = pag.getNodesByValue(candidateValue);
+        if (!candidateNodes || candidateNodes.size === 0) continue;
+        const nodeIds = [...candidateNodes.values()];
+        const candidateLine = getDeclaringStmtLine(candidateValue.getDeclaringStmt?.());
+        for (const [aliasName, fieldNames] of capturedFieldMap.entries()) {
+            if (!aliasName || fieldNames.length === 0) continue;
+            const key = objectLiteralCaptureIndexKey(candidateMethodSig, aliasName);
+            const bucket = index.get(key) || [];
+            bucket.push({
+                candidateLine,
+                nodeIds,
+                fieldNames,
+            });
+            index.set(key, bucket);
+        }
+    }
+    return index;
+}
+
+function objectLiteralCaptureIndexKey(methodSignature: string, aliasName: string): string {
+    return `${methodSignature}${OBJECT_LITERAL_CAPTURE_KEY_SEPARATOR}${aliasName}`;
+}
+
+function resolveObjectLiteralCapturedFieldMap(arkClass: any): Map<string, string[]> {
+    const out = new Map<string, Set<string>>();
     const fields = arkClass?.getFields?.() || [];
+    const add = (aliasName: string | undefined, fieldName: string | undefined): void => {
+        const alias = String(aliasName || "").trim();
+        const field = String(fieldName || "").trim();
+        if (!alias || !field) return;
+        const current = out.get(alias) || new Set<string>();
+        current.add(field);
+        out.set(alias, current);
+    };
     for (const field of fields) {
         const candidateName = field?.getSignature?.()?.getFieldName?.() || field?.getName?.();
         const initializer = field?.getInitializer?.();
         const capturedLocalName = resolveCapturedLocalNameFromInitializer(initializer);
-        if (!capturedLocalName && candidateName === aliasName) {
-            out.push(candidateName);
+        if (!capturedLocalName && candidateName) {
+            add(candidateName, candidateName);
             continue;
         }
-        if (capturedLocalName === aliasName) {
-            out.push(candidateName);
-        }
+        add(capturedLocalName, candidateName);
     }
-    return [...new Set(out)];
+    return new Map([...out.entries()].map(([aliasName, fieldNames]) => [aliasName, [...fieldNames]]));
 }
 
 function resolveCapturedLocalNameFromInitializer(initializer: any): string | undefined {

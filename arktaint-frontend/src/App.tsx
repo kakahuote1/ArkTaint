@@ -1,43 +1,68 @@
-import { useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import Overview from './components/Overview';
-import Console from './components/Console';
+import Workbench from './components/Workbench';
 import './index.css';
 
+type PageId = 'overview' | 'workbench';
+
+const navItems: Array<{ id: PageId; label: string }> = [
+  { id: 'overview', label: '产品介绍' },
+  { id: 'workbench', label: '分析工作台' },
+];
+
+function normalizePage(value: string): PageId {
+  return value === 'workbench' ? 'workbench' : 'overview';
+}
+
 function App() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'console'>('overview');
+  const [page, setPage] = useState<PageId>(() => normalizePage(window.location.hash.replace('#', '')));
+
+  useEffect(() => {
+    const handler = () => setPage(normalizePage(window.location.hash.replace('#', '')));
+    window.addEventListener('hashchange', handler);
+    return () => window.removeEventListener('hashchange', handler);
+  }, []);
+
+  const openPage = (next: PageId) => {
+    const hash = `#${next}`;
+    if (window.location.hash !== hash) {
+      window.history.replaceState(null, '', hash);
+    }
+    setPage(next);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
     <div className="app-container">
-      <nav className="navbar">
-        <button className="brand" onClick={() => setActiveTab('overview')}>
+      <header className="topbar">
+        <button className="brand" onClick={() => openPage('overview')}>
           <span className="brand-mark" />
           <span>ArkTaint</span>
         </button>
 
-        <div className="nav-links">
-          <button
-            className={`nav-link ${activeTab === 'overview' ? 'active' : ''}`}
-            onClick={() => setActiveTab('overview')}
-          >
-            项目介绍
-          </button>
-          <button
-            className={`nav-link ${activeTab === 'console' ? 'active' : ''}`}
-            onClick={() => setActiveTab('console')}
-          >
-            分析控制台
-          </button>
-        </div>
+        <nav className="topnav" aria-label="主导航">
+          {navItems.map(item => (
+            <button
+              key={item.id}
+              className={`topnav-link ${page === item.id ? 'active' : ''}`}
+              onClick={() => openPage(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
 
-        <button className="nav-action" onClick={() => setActiveTab('console')}>
-          开始分析
+        <button className="topbar-cta" onClick={() => openPage(page === 'overview' ? 'workbench' : 'overview')}>
+          {page === 'overview' ? '进入工作台' : '返回介绍'}
         </button>
-      </nav>
+      </header>
 
-      {activeTab === 'overview' ? (
-        <Overview onStart={() => setActiveTab('console')} />
+      {page === 'overview' ? (
+        <Overview onStart={() => openPage('workbench')} />
       ) : (
-        <Console />
+        <main className="experience-shell workbench-page">
+          <Workbench />
+        </main>
       )}
     </div>
   );

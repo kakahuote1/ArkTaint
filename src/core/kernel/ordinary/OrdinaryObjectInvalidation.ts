@@ -8,6 +8,12 @@ import { TaintTracker } from "../model/TaintTracker";
 import { collectAliasLocalsForCarrier, collectCarrierNodeIdsForValueAtStmt } from "./OrdinaryAliasPropagation";
 import { resolveOrdinaryArraySlotName } from "./OrdinaryLanguagePropagation";
 
+type LatestStoreResult = ArkAssignStmt | null | undefined;
+
+const defaultClassIndexKey = {};
+const cfgOrderCache: WeakMap<object, { order: Map<any, number> }> = new WeakMap();
+const latestStoreCache: WeakMap<Pag, WeakMap<object, WeakMap<object, Map<string, LatestStoreResult>>>> = new WeakMap();
+
 export function isCarrierFieldPathLiveAtStmt(
     pag: Pag,
     tracker: TaintTracker,
@@ -51,22 +57,38 @@ function findLatestCarrierFieldStoreBefore(
     anchorStmt: any,
     classBySignature?: Map<string, any>,
 ): ArkAssignStmt | null | undefined {
+    const classKey = classBySignature || defaultClassIndexKey;
+    const cachedByAnchor = getLatestStoreCacheForAnchor(pag, classKey, anchorStmt);
+    const cacheKey = `${carrierNodeId}|${fieldName}`;
+    if (cachedByAnchor?.has(cacheKey)) {
+        return cachedByAnchor.get(cacheKey);
+    }
+    const result = findLatestCarrierFieldStoreBeforeUncached(
+        pag,
+        carrierNodeId,
+        fieldName,
+        anchorStmt,
+        classBySignature,
+    );
+    cachedByAnchor?.set(cacheKey, result);
+    return result;
+}
+
+function findLatestCarrierFieldStoreBeforeUncached(
+    pag: Pag,
+    carrierNodeId: number,
+    fieldName: string,
+    anchorStmt: any,
+    classBySignature?: Map<string, any>,
+): ArkAssignStmt | null | undefined {
     const cfg = anchorStmt?.getCfg?.();
     const stmts = cfg?.getStmts?.();
     if (!stmts) {
         return undefined;
     }
 
-    const order = new Map<any, number>();
-    let anchorIndex = -1;
-    let index = 0;
-    for (const stmt of stmts) {
-        order.set(stmt, index);
-        if (stmt === anchorStmt) {
-            anchorIndex = index;
-        }
-        index++;
-    }
+    const order = getCfgOrder(cfg, stmts);
+    const anchorIndex = order.get(anchorStmt) ?? -1;
     if (anchorIndex < 0) {
         return undefined;
     }
@@ -110,6 +132,43 @@ function findLatestCarrierFieldStoreBefore(
         return null;
     }
     return latest;
+}
+
+function getCfgOrder(cfg: object, stmts: any[]): Map<any, number> {
+    const cached = cfgOrderCache.get(cfg);
+    if (cached) return cached.order;
+    const order = new Map<any, number>();
+    for (let index = 0; index < stmts.length; index++) {
+        order.set(stmts[index], index);
+    }
+    cfgOrderCache.set(cfg, { order });
+    return order;
+}
+
+function getLatestStoreCacheForAnchor(
+    pag: Pag,
+    classKey: object,
+    anchorStmt: any,
+): Map<string, LatestStoreResult> | undefined {
+    if (!anchorStmt || (typeof anchorStmt !== "object" && typeof anchorStmt !== "function")) {
+        return undefined;
+    }
+    let byClass = latestStoreCache.get(pag);
+    if (!byClass) {
+        byClass = new WeakMap<object, WeakMap<object, Map<string, LatestStoreResult>>>();
+        latestStoreCache.set(pag, byClass);
+    }
+    let byAnchor = byClass.get(classKey);
+    if (!byAnchor) {
+        byAnchor = new WeakMap<object, Map<string, LatestStoreResult>>();
+        byClass.set(classKey, byAnchor);
+    }
+    let byCarrierField = byAnchor.get(anchorStmt);
+    if (!byCarrierField) {
+        byCarrierField = new Map<string, LatestStoreResult>();
+        byAnchor.set(anchorStmt, byCarrierField);
+    }
+    return byCarrierField;
 }
 
 function storeMayCarryTrackedFieldPath(

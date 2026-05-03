@@ -5,7 +5,11 @@ import {
     ARK_MAIN_BUILDER_DECORATOR,
     ARK_MAIN_OWNER_DECORATORS,
 } from "../catalog/ArkMainFrameworkCatalog";
-import { normalizeDecoratorKind, resolveAbilityLikeOwnerKind } from "./ArkMainFactResolverUtils";
+import {
+    getArkMainClassIdentity,
+    normalizeDecoratorKind,
+    resolveAbilityLikeOwnerKind,
+} from "./ArkMainFactResolverUtils";
 
 export type ArkMainManagedOwnerKind =
     | "ability_owner"
@@ -47,7 +51,7 @@ export function collectFrameworkManagedOwners(
     const ownerOrder: string[] = [];
 
     for (const cls of scene.getClasses()) {
-        const classIdentity = getClassIdentity(cls);
+        const classIdentity = getArkMainClassIdentity(cls);
         if (!classIdentity) continue;
 
         const record = ensureRecord(ownerMap, ownerOrder, classIdentity, cls);
@@ -84,14 +88,14 @@ export function collectFrameworkManagedOwners(
     const recordByClassIdentity = new Map(
         records
             .map(record => {
-                const classIdentity = getClassIdentity(record.ownerClass);
+                const classIdentity = getArkMainClassIdentity(record.ownerClass);
                 return classIdentity ? [classIdentity, record] as const : undefined;
             })
             .filter((item): item is readonly [string, ArkMainManagedOwnerRecord] => Boolean(item)),
     );
 
     const hasKind = (cls: ArkClass | null | undefined, kind: ArkMainManagedOwnerKind): boolean => {
-        const classIdentity = getClassIdentity(cls);
+        const classIdentity = getArkMainClassIdentity(cls);
         if (!classIdentity) return false;
         return recordByClassIdentity.get(classIdentity)?.ownerKinds.includes(kind) || false;
     };
@@ -99,7 +103,7 @@ export function collectFrameworkManagedOwners(
     return {
         records,
         isFrameworkManagedOwner: (cls: ArkClass | null | undefined): boolean => {
-            const classIdentity = getClassIdentity(cls);
+            const classIdentity = getArkMainClassIdentity(cls);
             if (!classIdentity) return false;
             return recordByClassIdentity.has(classIdentity);
         },
@@ -109,13 +113,13 @@ export function collectFrameworkManagedOwners(
         isComponentOwner: (cls: ArkClass | null | undefined): boolean => hasKind(cls, "component_owner"),
         isBuilderOwner: (cls: ArkClass | null | undefined): boolean => hasKind(cls, "builder_owner"),
         getEvidences: (cls: ArkClass | null | undefined): ArkMainManagedOwnerEvidence[] => {
-            const classIdentity = getClassIdentity(cls);
+            const classIdentity = getArkMainClassIdentity(cls);
             if (!classIdentity) return [];
             return [...(recordByClassIdentity.get(classIdentity)?.evidences || [])];
         },
         getPrimaryRecognitionLayer: (cls: ArkClass | null | undefined): string | undefined => {
             const evidences = cls
-                ? (recordByClassIdentity.get(getClassIdentity(cls) || "")?.evidences || [])
+                ? (recordByClassIdentity.get(getArkMainClassIdentity(cls) || "")?.evidences || [])
                 : [];
             if (evidences.some(evidence => evidence.recognitionLayer === "qualified_decorator_first_layer")) {
                 return "qualified_decorator_first_layer";
@@ -143,18 +147,6 @@ function ensureRecord(
     ownerMap.set(classIdentity, record);
     ownerOrder.push(classIdentity);
     return record;
-}
-
-function getClassIdentity(cls: ArkClass | null | undefined): string | undefined {
-    if (!cls) return undefined;
-    const signatureText = cls.getSignature?.()?.toString?.();
-    if (signatureText) return signatureText;
-    const fileSignatureText = cls.getDeclaringArkFile?.()?.getFileSignature?.()?.toString?.()
-        || cls.getSignature?.()?.getDeclaringFileSignature?.()?.toString?.()
-        || "";
-    const className = cls.getName?.() || "";
-    if (!className) return undefined;
-    return `${fileSignatureText}::${className}`;
 }
 
 function pushEvidence(record: ArkMainManagedOwnerRecord, evidence: ArkMainManagedOwnerEvidence): void {

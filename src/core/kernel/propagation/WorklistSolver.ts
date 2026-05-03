@@ -139,12 +139,28 @@ export interface WorklistSolverDeps {
     onCallEdge?: (event: CallEdgeEvent) => PropagationContributionBatch;
     onTaintFlow?: (event: TaintFlowEvent) => PropagationContributionBatch;
     onMethodReached?: (event: MethodReachedEvent) => PropagationContributionBatch;
+    budget?: WorklistBudget;
     log: (msg: string) => void;
 }
 
 export interface FactRuleChain {
     sourceRuleId?: string;
     transferRuleIds: string[];
+}
+
+export interface WorklistBudget {
+    maxDequeues?: number;
+    maxVisited?: number;
+    maxElapsedMs?: number;
+    onTruncated?: (event: WorklistBudgetTruncation) => void;
+}
+
+export interface WorklistBudgetTruncation {
+    reason: string;
+    queueHead: number;
+    queueLength: number;
+    visitedCount: number;
+    elapsedMs: number;
 }
 
 function cloneFactAcrossAbilityHandoffBoundary(
@@ -250,28 +266,64 @@ export class WorklistSolver {
             onCallEdge,
             onTaintFlow,
             onMethodReached,
+            budget,
             log
         } = this.deps;
-        const transferExecutor = new ConfigBasedTransferExecutor(transferRules || [], scene);
-        const unresolvedThisFieldLoadNodeIdsByFieldAndFile = buildUnresolvedThisFieldLoadNodeIdsByFieldAndFile(
+        const startedAt = Date.now();
+        let truncated = false;
+        const maybeTruncate = (): boolean => {
+            if (truncated) return true;
+            if (!budget) return false;
+            const elapsedMs = Date.now() - startedAt;
+            let reason = "";
+            if (budget.maxDequeues && queueHead >= budget.maxDequeues) {
+                reason = `maxDequeues:${budget.maxDequeues}`;
+            } else if (budget.maxVisited && visited.size >= budget.maxVisited) {
+                reason = `maxVisited:${budget.maxVisited}`;
+            } else if (budget.maxElapsedMs && elapsedMs >= budget.maxElapsedMs) {
+                reason = `maxElapsedMs:${budget.maxElapsedMs}`;
+            }
+            if (!reason) return false;
+            truncated = true;
+            const event = {
+                reason,
+                queueHead,
+                queueLength: worklist.length,
+                visitedCount: visited.size,
+                elapsedMs,
+            };
+            log(`[WorklistBudget] truncated reason=${reason} head=${queueHead} total=${worklist.length} visited=${visited.size} elapsedMs=${elapsedMs}`);
+            budget.onTruncated?.(event);
+            return true;
+        };
+        const measureSection = <T>(section: string, fn: () => T): T =>
+            profiler ? profiler.measure(section, fn) : fn();
+        const transferExecutor = measureSection(
+            "precompute_transfer_executor",
+            () => new ConfigBasedTransferExecutor(transferRules || [], scene),
+        );
+        const unresolvedThisFieldLoadNodeIdsByFieldAndFile = measureSection("precompute_unresolved_this_field", () => buildUnresolvedThisFieldLoadNodeIdsByFieldAndFile(
             scene,
             pag,
             allowedMethodSignatures
-        );
-        const classBySignature = buildClassSignatureIndex(scene);
+        ));
+        const classBySignature = measureSection("precompute_class_index", () => buildClassSignatureIndex(scene));
         const classRelationCache = new Map<string, boolean>();
         const preciseArrayLoadCache = new Map<string, number[]>();
-        const ordinarySharedStateIndex = buildOrdinarySharedStateIndex(scene, pag);
-        const objectNodeIdsByClassSignature = new Map<string, Set<number>>();
-        for (const rawNode of pag.getNodesIter()) {
-            const pagNode = rawNode as PagNode;
-            const classSig = resolveObjectClassSignatureByNode(pagNode);
-            if (!classSig) continue;
-            if (!objectNodeIdsByClassSignature.has(classSig)) {
-                objectNodeIdsByClassSignature.set(classSig, new Set<number>());
+        const ordinarySharedStateIndex = measureSection("precompute_shared_state_index", () => buildOrdinarySharedStateIndex(scene, pag));
+        const objectNodeIdsByClassSignature = measureSection("precompute_object_node_class_index", () => {
+            const out = new Map<string, Set<number>>();
+            for (const rawNode of pag.getNodesIter()) {
+                const pagNode = rawNode as PagNode;
+                const classSig = resolveObjectClassSignatureByNode(pagNode);
+                if (!classSig) continue;
+                if (!out.has(classSig)) {
+                    out.set(classSig, new Set<number>());
+                }
+                out.get(classSig)!.add(pagNode.getID());
             }
-            objectNodeIdsByClassSignature.get(classSig)!.add(pagNode.getID());
-        }
+            return out;
+        });
         if (unresolvedThisFieldLoadNodeIdsByFieldAndFile.size > 0) {
             let unresolvedLoadCount = 0;
             for (const fileMap of unresolvedThisFieldLoadNodeIdsByFieldAndFile.values()) {
@@ -292,6 +344,24 @@ export class WorklistSolver {
             if (!source.startsWith("source_rule:")) return undefined;
             const id = source.slice("source_rule:".length).trim();
             return id.length > 0 ? id : undefined;
+        };
+        const buildSyntheticEdgeChainOverride = (
+            baseChain: FactRuleChain,
+            edge: SyntheticInvokeEdgeInfo,
+        ): FactRuleChain | undefined => {
+            if (edge.originTag !== "execution_handoff") return undefined;
+            const suffix = edge.handoffId?.trim() || [
+                edge.callSiteId,
+                edge.callerSignature || "",
+                edge.calleeSignature || "",
+                edge.type,
+            ].join("|");
+            const marker = `ude.handoff.${edge.type === CallEdgeType.CALL ? "call" : "return"}:${suffix}`;
+            if (baseChain.transferRuleIds.includes(marker)) return undefined;
+            return {
+                sourceRuleId: baseChain.sourceRuleId,
+                transferRuleIds: [...baseChain.transferRuleIds, marker],
+            };
         };
         const initialChainForFact = (fact: TaintFact): FactRuleChain => {
             if (getInitialRuleChainForFact) {
@@ -451,9 +521,32 @@ export class WorklistSolver {
         let queueHead = 0;
         profiler?.onQueueSize(worklist.length - queueHead);
         const reachedMethodSignatures = new Set<string>();
+        const traceWorklist = process.env.ARKTAINT_TRACE_WORKLIST === "1";
+        const traceWorklistSections = process.env.ARKTAINT_TRACE_WORKLIST_SECTIONS === "1";
+        let lastTraceAt = 0;
+        const traceSection = (section: string, fact?: TaintFact): void => {
+            if (!traceWorklist) return;
+            const now = Date.now();
+            if (!traceWorklistSections) {
+                if (section !== "dequeue") return;
+                if (queueHead % 100 !== 0 && now - lastTraceAt < 5000) return;
+            }
+            lastTraceAt = now;
+            const f = fact;
+            const fieldText = f?.field && f.field.length > 0 ? `.${f.field.join(".")}` : "";
+            process.stderr.write(
+                `[worklist] section=${section} head=${queueHead} total=${worklist.length} visited=${visited.size}`
+                + (f ? ` node=${f.node.getID()} ctx=${f.contextID}${fieldText}` : "")
+                + "\n",
+            );
+        };
 
         while (queueHead < worklist.length) {
+            if (maybeTruncate()) {
+                break;
+            }
             const fact = worklist[queueHead++]!;
+            traceSection("dequeue", fact);
             profiler?.onDequeue(worklist.length - queueHead);
             propagationTrace?.recordFact(fact);
             const node = fact.node;
@@ -471,6 +564,9 @@ export class WorklistSolver {
                 chainOverride?: FactRuleChain,
                 allowUnreachableTarget: boolean = false,
             ): void => {
+                if (maybeTruncate()) {
+                    return;
+                }
                 if (
                     !allowUnreachableTarget
                     && !isNodeAllowedByReachability(newFact.node, allowedMethodSignatures)
@@ -509,7 +605,8 @@ export class WorklistSolver {
                 applyPluginPropagationBatch(methodReachedBatch, fact, currentChain, tryEnqueue);
             }
 
-            const moduleEmissions = moduleRuntime.emitForFact({
+            traceSection("module_fact", fact);
+            const moduleEmissions = measureSection("module_fact", () => moduleRuntime.emitForFact({
                 scene,
                 pag,
                 allowedMethodSignatures,
@@ -518,7 +615,7 @@ export class WorklistSolver {
                 log,
                 fact,
                 node,
-            } as InternalRawModuleFactEvent);
+            } as InternalRawModuleFactEvent));
             for (const emission of moduleEmissions) {
                 const newFact = emission.fact;
                 tryEnqueue(emission.reason, newFact, () => {
@@ -529,9 +626,10 @@ export class WorklistSolver {
 
             const stmt = (node as any).stmt;
             if (stmt?.containsInvokeExpr?.() && stmt.getInvokeExpr) {
+                traceSection("module_invoke", fact);
                 const invokeExpr = stmt.getInvokeExpr();
                 const methodSig = invokeExpr?.getMethodSignature?.();
-                const invokeEmissions = moduleRuntime.emitForInvoke({
+                const invokeEmissions = measureSection("module_invoke", () => moduleRuntime.emitForInvoke({
                     scene,
                     pag,
                     allowedMethodSignatures,
@@ -548,7 +646,7 @@ export class WorklistSolver {
                     args: invokeExpr?.getArgs ? invokeExpr.getArgs() : [],
                     baseValue: invokeExpr?.getBase ? invokeExpr.getBase() : undefined,
                     resultValue: stmt instanceof ArkAssignStmt ? stmt.getLeftOp?.() : undefined,
-                } as InternalRawModuleInvokeEvent);
+                } as InternalRawModuleInvokeEvent));
                 for (const emission of invokeEmissions) {
                     const newFact = emission.fact;
                     tryEnqueue(emission.reason, newFact, () => {
@@ -590,14 +688,15 @@ export class WorklistSolver {
                 }
             }
 
-            const exprTargetNodes = propagateExpressionTaint(
+            traceSection("expr", fact);
+            const exprTargetNodes = measureSection("expr", () => propagateExpressionTaint(
                 node.getID(),
                 node.getValue(),
                 currentCtx,
                 tracker,
                 pag,
                 fact.field,
-            );
+            ));
             for (const targetNodeId of exprTargetNodes) {
                 const targetNode = pag.getNode(targetNodeId) as PagNode;
                 const newFact = new TaintFact(targetNode, fact.source, currentCtx, fact.field);
@@ -607,12 +706,13 @@ export class WorklistSolver {
                 });
             }
 
-            const serializedStringFacts = collectOrdinarySerializedStringResultFactsFromTaintedLocal(
+            traceSection("copylike_stringify", fact);
+            const serializedStringFacts = measureSection("copylike_stringify", () => collectOrdinarySerializedStringResultFactsFromTaintedLocal(
                 node,
                 fact.source,
                 currentCtx,
                 pag,
-            );
+            ));
             for (const newFact of serializedStringFacts) {
                 tryEnqueue("CopyLike-Stringify", newFact, () => {
                     tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
@@ -620,11 +720,12 @@ export class WorklistSolver {
                 });
             }
 
-            const transferExec = transferExecutor.executeFromTaintedFactWithStats(
+            traceSection("rule_transfer", fact);
+            const transferExec = measureSection("rule_transfer", () => transferExecutor.executeFromTaintedFactWithStats(
                 fact,
                 pag,
                 tracker
-            );
+            ));
             profiler?.onTransferStats(transferExec.stats);
             const transferResults = transferExec.results;
             for (const transferResult of transferResults) {
@@ -742,10 +843,11 @@ export class WorklistSolver {
                         fact,
                     });
                     applyPluginPropagationBatch(pluginCallEdgeBatch, fact, currentChain, tryEnqueue);
+                    const syntheticEdgeChain = buildSyntheticEdgeChainOverride(currentChain, edge);
                     tryEnqueue(reason, newFact, () => {
                         tracker.markTainted(edge.dstNodeId, newCtx, fact.source, newFact.field, newFact.id);
                         log(`    [Synthetic-${edge.type === CallEdgeType.CALL ? "Call" : "Return"}] ${edge.callerMethodName} -> ${edge.calleeMethodName}, ${edge.srcNodeId} -> ${edge.dstNodeId}, ctx: ${currentCtx} -> ${newCtx}`);
-                    });
+                    }, syntheticEdgeChain);
                 }
             }
 
@@ -1239,7 +1341,8 @@ export class WorklistSolver {
             }
 
             if (fact.field && fact.field.length > 0) {
-                const carrierPrefixFacts = propagateCarrierLoadPrefixesByObj(
+                traceSection("carrier_load_prefix", fact);
+                const carrierPrefixFacts = measureSection("carrier_load_prefix", () => propagateCarrierLoadPrefixesByObj(
                     pag,
                     node.getID(),
                     fact.field,
@@ -1247,7 +1350,7 @@ export class WorklistSolver {
                     currentCtx,
                     tracker,
                     classBySignature,
-                );
+                ));
                 for (const newFact of carrierPrefixFacts) {
                     tryEnqueue("Carrier-LoadPrefix", newFact, () => {
                         tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
@@ -1257,7 +1360,8 @@ export class WorklistSolver {
             }
 
             if (fact.field && fact.field.length > 0) {
-                const reflectFacts = propagateReflectGetFieldLoadsByObj(
+                traceSection("reflect_get_load", fact);
+                const reflectFacts = measureSection("reflect_get_load", () => propagateReflectGetFieldLoadsByObj(
                     pag,
                     node.getID(),
                     fact.field,
@@ -1265,7 +1369,7 @@ export class WorklistSolver {
                     currentCtx,
                     tracker,
                     classBySignature,
-                );
+                ));
                 for (const newFact of reflectFacts) {
                     tryEnqueue("Reflect-Load", newFact, () => {
                         tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
@@ -1275,7 +1379,8 @@ export class WorklistSolver {
             }
 
             if (fact.field && fact.field.length > 0) {
-                const directFieldFacts = propagateDirectFieldLoadsByObj(
+                traceSection("direct_field_load", fact);
+                const directFieldFacts = measureSection("direct_field_load", () => propagateDirectFieldLoadsByObj(
                     pag,
                     node.getID(),
                     fact.field,
@@ -1283,7 +1388,7 @@ export class WorklistSolver {
                     currentCtx,
                     tracker,
                     classBySignature,
-                );
+                ));
                 for (const newFact of directFieldFacts) {
                     tryEnqueue("Load-DirectField", newFact, () => {
                         tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
@@ -1293,7 +1398,8 @@ export class WorklistSolver {
             }
 
             if (fact.field && fact.field.length > 0) {
-                const directFieldArgFacts = propagateDirectFieldArgUsesByObj(
+                traceSection("direct_field_arg", fact);
+                const directFieldArgFacts = measureSection("direct_field_arg", () => propagateDirectFieldArgUsesByObj(
                     pag,
                     node.getID(),
                     fact.field,
@@ -1301,7 +1407,7 @@ export class WorklistSolver {
                     currentCtx,
                     tracker,
                     classBySignature,
-                );
+                ));
                 for (const newFact of directFieldArgFacts) {
                     tryEnqueue("Load-DirectField-Arg", newFact, () => {
                         tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
@@ -1311,7 +1417,8 @@ export class WorklistSolver {
             }
 
             if (fact.field && fact.field.length > 0) {
-                const getterResultFacts = propagateReceiverGetterResultLoadsByObj(
+                traceSection("receiver_getter_result", fact);
+                const getterResultFacts = measureSection("receiver_getter_result", () => propagateReceiverGetterResultLoadsByObj(
                     scene,
                     pag,
                     node.getID(),
@@ -1320,7 +1427,7 @@ export class WorklistSolver {
                     currentCtx,
                     tracker,
                     classBySignature,
-                );
+                ));
                 for (const newFact of getterResultFacts) {
                     tryEnqueue("Load-ReceiverGetter", newFact, () => {
                         tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
@@ -1330,14 +1437,15 @@ export class WorklistSolver {
             }
 
             if (fact.field && fact.field.length > 0) {
-                const objectLiteralFieldCaptureFacts = collectObjectLiteralFieldCaptureFactsFromTaintedObj(
+                traceSection("object_literal_capture", fact);
+                const objectLiteralFieldCaptureFacts = measureSection("object_literal_capture", () => collectObjectLiteralFieldCaptureFactsFromTaintedObj(
                     node.getID(),
                     fact.field,
                     fact.source,
                     currentCtx,
                     pag,
                     classBySignature,
-                );
+                ));
                 for (const newFact of objectLiteralFieldCaptureFacts) {
                     tryEnqueue("Store-ObjectLiteralFieldCapture", newFact, () => {
                         tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
@@ -1347,14 +1455,15 @@ export class WorklistSolver {
             }
 
             if (fact.field && fact.field.length > 0) {
-                const nestedFieldStoreFacts = collectNestedFieldStoreFactsFromTaintedLocal(
+                traceSection("nested_field_store", fact);
+                const nestedFieldStoreFacts = measureSection("nested_field_store", () => collectNestedFieldStoreFactsFromTaintedLocal(
                     node,
                     fact.field,
                     fact.source,
                     currentCtx,
                     pag,
                     classBySignature,
-                );
+                ));
                 for (const newFact of nestedFieldStoreFacts) {
                     tryEnqueue("Store-NestedFieldFallback", newFact, () => {
                         tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
@@ -1364,6 +1473,7 @@ export class WorklistSolver {
             }
 
             if (fact.field && fact.field.length > 0) {
+                traceSection("receiver_local_field", fact);
                 const sharedStateCtx = normalizeSharedStateContext(ctxManager, currentCtx);
                 const writeEdges = node.getOutgoingWriteEdges();
                 if (writeEdges) {
@@ -1479,7 +1589,8 @@ export class WorklistSolver {
             }
 
             if (fact.field && fact.field.length > 0) {
-                const objectResultFacts = propagateObjectResultLoadsByObj(pag, node.getID(), fact.source, currentCtx, classBySignature);
+                traceSection("object_result_loads", fact);
+                const objectResultFacts = measureSection("object_result_loads", () => propagateObjectResultLoadsByObj(pag, node.getID(), fact.source, currentCtx, classBySignature));
                 for (const newFact of objectResultFacts) {
                     tryEnqueue("Object-Result", newFact, () => {
                         tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
@@ -1489,7 +1600,8 @@ export class WorklistSolver {
             }
 
             if (fact.field && fact.field.length > 0) {
-                const objectResultStoreFacts = propagateObjectResultContainerStoresByObj(pag, node.getID(), fact.source, currentCtx, classBySignature);
+                traceSection("object_result_stores", fact);
+                const objectResultStoreFacts = measureSection("object_result_stores", () => propagateObjectResultContainerStoresByObj(pag, node.getID(), fact.source, currentCtx, classBySignature));
                 for (const newFact of objectResultStoreFacts) {
                     tryEnqueue("Object-Result-Store", newFact, () => {
                         tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
@@ -1499,7 +1611,8 @@ export class WorklistSolver {
             }
 
             if (fact.field && fact.field.length > 0) {
-                const objectAssignFacts = propagateObjectAssignFieldBridgesByObj(pag, node.getID(), fact.field, fact.source, currentCtx, classBySignature);
+                traceSection("object_assign_bridges", fact);
+                const objectAssignFacts = measureSection("object_assign_bridges", () => propagateObjectAssignFieldBridgesByObj(pag, node.getID(), fact.field, fact.source, currentCtx, classBySignature));
                 for (const newFact of objectAssignFacts) {
                     tryEnqueue("Object-Assign", newFact, () => {
                         tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.id);
@@ -1509,6 +1622,7 @@ export class WorklistSolver {
             }
 
             if (fact.field && fact.field.length > 0) {
+                traceSection("container_field_loads", fact);
                 const objId = fact.node.getID();
                 const fieldName = fact.field[0];
 

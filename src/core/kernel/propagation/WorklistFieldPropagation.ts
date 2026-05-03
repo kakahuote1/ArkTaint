@@ -6,7 +6,7 @@ import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { Constant } from "../../../../arkanalyzer/out/src/core/base/Constant";
 import { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import { ArkCastExpr, ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
-import { TaintFact } from "../model/TaintFact";
+import { MAX_TAINT_FIELD_PATH_SEGMENTS, TaintFact } from "../model/TaintFact";
 import { TaintTracker } from "../model/TaintTracker";
 import { toContainerFieldKey } from "../model/ContainerSlotKeys";
 import { TaintContextManager } from "../context/TaintContext";
@@ -338,6 +338,9 @@ export function propagateCarrierLoadPrefixesByObj(
     classBySignature?: Map<string, any>,
 ): TaintFact[] {
     const results: TaintFact[] = [];
+    if (fieldPath.length >= MAX_TAINT_FIELD_PATH_SEGMENTS) {
+        return results;
+    }
     for (const val of collectAliasLocalsForCarrier(pag, taintedObjId, classBySignature)) {
         const declStmt = val.getDeclaringStmt?.();
         if (!(declStmt instanceof ArkAssignStmt) || declStmt.getLeftOp() !== val) continue;

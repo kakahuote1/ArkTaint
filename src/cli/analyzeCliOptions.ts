@@ -10,6 +10,7 @@ export type AnalyzeEntryModel = "arkMain" | "explicit";
 export interface CliOptions {
     repo: string;
     sourceDirs: string[];
+    executionHandoff?: "enabled" | "disabled";
     autoModel?: boolean;
     publishModel?: string;
     llmConfigPath?: string;
@@ -53,6 +54,9 @@ export interface CliOptions {
     incrementalCachePath?: string;
     stopOnFirstFlow: boolean;
     maxFlowsPerEntry?: number;
+    worklistBudgetMs?: number;
+    worklistMaxDequeues?: number;
+    worklistMaxVisited?: number;
     enableSecondarySinkSweep: boolean;
     showLoadWarnings?: boolean;
     ruleOptions: RuleLoaderOptions;
@@ -66,6 +70,7 @@ function splitCsv(value?: string): string[] {
 export function parseArgs(argv: string[]): CliOptions {
     let repo = "";
     let sourceDirs: string[] = [];
+    let executionHandoff: "enabled" | "disabled" = "enabled";
     let autoModel = false;
     let publishModel: string | undefined;
     let llmConfigPath: string | undefined;
@@ -109,6 +114,9 @@ export function parseArgs(argv: string[]): CliOptions {
     let incrementalCachePath: string | undefined;
     let stopOnFirstFlow = false;
     let maxFlowsPerEntryRaw: number | undefined;
+    let worklistBudgetMsRaw: number | undefined;
+    let worklistMaxDequeuesRaw: number | undefined;
+    let worklistMaxVisitedRaw: number | undefined;
     let secondarySinkSweepRaw: boolean | undefined;
     const ruleOptions: RuleLoaderOptions = {};
 
@@ -141,6 +149,12 @@ export function parseArgs(argv: string[]): CliOptions {
         if (sourceDirArg !== undefined) {
             sourceDirs.push(...splitCsv(sourceDirArg));
             if (arg === "--sourceDir") i++;
+            continue;
+        }
+        const executionHandoffArg = readValue("--executionHandoff") ?? readValue("--execution-handoff");
+        if (executionHandoffArg !== undefined) {
+            executionHandoff = executionHandoffArg.trim() === "disabled" ? "disabled" : "enabled";
+            if (arg === "--executionHandoff" || arg === "--execution-handoff") i++;
             continue;
         }
         const llmConfigArg = readValue("--llmConfig");
@@ -413,6 +427,24 @@ export function parseArgs(argv: string[]): CliOptions {
             if (arg === "--maxFlowsPerEntry") i++;
             continue;
         }
+        const worklistBudgetArg = readValue("--worklistBudgetMs") ?? readValue("--worklist-budget-ms");
+        if (worklistBudgetArg !== undefined) {
+            worklistBudgetMsRaw = Number(worklistBudgetArg);
+            if (arg === "--worklistBudgetMs" || arg === "--worklist-budget-ms") i++;
+            continue;
+        }
+        const worklistMaxDequeuesArg = readValue("--worklistMaxDequeues") ?? readValue("--worklist-max-dequeues");
+        if (worklistMaxDequeuesArg !== undefined) {
+            worklistMaxDequeuesRaw = Number(worklistMaxDequeuesArg);
+            if (arg === "--worklistMaxDequeues" || arg === "--worklist-max-dequeues") i++;
+            continue;
+        }
+        const worklistMaxVisitedArg = readValue("--worklistMaxVisited") ?? readValue("--worklist-max-visited");
+        if (worklistMaxVisitedArg !== undefined) {
+            worklistMaxVisitedRaw = Number(worklistMaxVisitedArg);
+            if (arg === "--worklistMaxVisited" || arg === "--worklist-max-visited") i++;
+            continue;
+        }
         if (arg === "--secondarySinkSweep") {
             secondarySinkSweepRaw = true;
             continue;
@@ -481,6 +513,29 @@ export function parseArgs(argv: string[]): CliOptions {
     const enableSecondarySinkSweep = secondarySinkSweepRaw !== undefined
         ? secondarySinkSweepRaw
         : profile === "fast";
+    const defaultWorklistBudgetMs = profile === "strict"
+        ? 0
+        : profile === "fast"
+            ? 15000
+            : 45000;
+    const worklistBudgetMs = worklistBudgetMsRaw === undefined
+        ? defaultWorklistBudgetMs
+        : Math.floor(worklistBudgetMsRaw);
+    const worklistMaxDequeues = worklistMaxDequeuesRaw === undefined
+        ? undefined
+        : Math.floor(worklistMaxDequeuesRaw);
+    const worklistMaxVisited = worklistMaxVisitedRaw === undefined
+        ? undefined
+        : Math.floor(worklistMaxVisitedRaw);
+    if (!Number.isFinite(worklistBudgetMs) || worklistBudgetMs < 0) {
+        throw new Error(`invalid --worklistBudgetMs: ${worklistBudgetMsRaw}`);
+    }
+    if (worklistMaxDequeues !== undefined && (!Number.isFinite(worklistMaxDequeues) || worklistMaxDequeues < 0)) {
+        throw new Error(`invalid --worklistMaxDequeues: ${worklistMaxDequeuesRaw}`);
+    }
+    if (worklistMaxVisited !== undefined && (!Number.isFinite(worklistMaxVisited) || worklistMaxVisited < 0)) {
+        throw new Error(`invalid --worklistMaxVisited: ${worklistMaxVisitedRaw}`);
+    }
     if (
         arkMainMaxCandidates !== undefined
         && (!Number.isFinite(arkMainMaxCandidates) || arkMainMaxCandidates <= 0)
@@ -536,6 +591,7 @@ export function parseArgs(argv: string[]): CliOptions {
     return {
         repo: normalizedRepo,
         sourceDirs,
+        executionHandoff,
         autoModel,
         publishModel: publishModel || undefined,
         llmConfigPath: llmConfigPath
@@ -581,6 +637,9 @@ export function parseArgs(argv: string[]): CliOptions {
         incrementalCachePath,
         stopOnFirstFlow,
         maxFlowsPerEntry,
+        worklistBudgetMs,
+        worklistMaxDequeues,
+        worklistMaxVisited,
         enableSecondarySinkSweep,
         showLoadWarnings: true,
         ruleOptions,

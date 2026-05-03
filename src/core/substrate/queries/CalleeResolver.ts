@@ -11,6 +11,9 @@ export interface ResolvedCallee {
 
 export interface CalleeResolveOptions {
     maxNameMatchCandidates?: number;
+    callableVisitKeys?: Set<string>;
+    callableResolveDepth?: number;
+    maxCallableResolveDepth?: number;
 }
 
 export interface CallableResolveOptions {
@@ -18,6 +21,9 @@ export interface CallableResolveOptions {
     enableLocalBacktrace?: boolean;
     maxBacktraceSteps?: number;
     maxVisitedDefs?: number;
+    callableVisitKeys?: Set<string>;
+    callableResolveDepth?: number;
+    maxCallableResolveDepth?: number;
 }
 
 type CallableCarrierValue = ArkInstanceFieldRef | ClosureFieldRef | ArkArrayRef | ArkStaticFieldRef;
@@ -32,6 +38,7 @@ export interface InvokeArgParamPair {
 const DEFAULT_MAX_NAME_MATCH_CANDIDATES = 4;
 const DEFAULT_MAX_BACKTRACE_STEPS = 5;
 const DEFAULT_MAX_VISITED_DEFS = 16;
+const DEFAULT_MAX_CALLABLE_RESOLVE_DEPTH = 8;
 
 interface SceneMethodIndex {
     bySignature: Map<string, any>;
@@ -46,7 +53,7 @@ function getSceneMethodIndex(scene: Scene): SceneMethodIndex {
     const bySignature = new Map<string, any>();
     const byNormalizedName = new Map<string, any[]>();
     for (const m of scene.getMethods()) {
-        const sig = m.getSignature?.()?.toString?.();
+        const sig = safeMethodSignatureText(m);
         if (sig) bySignature.set(sig, m);
         const name = normalizeMethodName(m.getName?.() || "");
         if (name) {
@@ -62,9 +69,9 @@ function getSceneMethodIndex(scene: Scene): SceneMethodIndex {
 
 export function resolveInvokeMethodName(invokeExpr: any): string {
     if (!invokeExpr) return "";
-    const fromSubSig = invokeExpr.getMethodSignature?.()?.getMethodSubSignature?.()?.getMethodName?.() || "";
+    const fromSubSig = safeInvokeMethodSubSignatureName(invokeExpr);
     if (fromSubSig) return normalizeMethodName(fromSubSig);
-    const sig = invokeExpr.getMethodSignature?.()?.toString?.() || "";
+    const sig = safeInvokeSignatureText(invokeExpr);
     return extractMethodNameFromSignature(sig);
 }
 
@@ -74,7 +81,7 @@ export function resolveCalleeCandidates(
     options: CalleeResolveOptions = {}
 ): ResolvedCallee[] {
     const maxNameMatchCandidates = options.maxNameMatchCandidates ?? DEFAULT_MAX_NAME_MATCH_CANDIDATES;
-    const invokeSig = invokeExpr?.getMethodSignature?.()?.toString?.() || "";
+    const invokeSig = safeInvokeSignatureText(invokeExpr);
     const reflectDispatch = isReflectDispatchInvoke(invokeExpr);
     const idx = getSceneMethodIndex(scene);
     const exact = invokeSig ? idx.bySignature.get(invokeSig) : undefined;
@@ -83,7 +90,7 @@ export function resolveCalleeCandidates(
     }
 
     if (reflectDispatch) {
-        const reflectTargets = resolveReflectDispatchTargets(scene, invokeExpr, maxNameMatchCandidates);
+        const reflectTargets = resolveReflectDispatchTargets(scene, invokeExpr, maxNameMatchCandidates, options);
         if (reflectTargets.length > 0) {
             return reflectTargets.map(method => ({ method, reason: "reflect_fallback" as const }));
         }
@@ -92,7 +99,7 @@ export function resolveCalleeCandidates(
         }
     }
 
-    const typeTargets = resolveDirectCallableTargets(scene, invokeExpr, maxNameMatchCandidates);
+    const typeTargets = resolveDirectCallableTargets(scene, invokeExpr, maxNameMatchCandidates, options);
     if (typeTargets.length > 0) {
         return typeTargets.map(method => ({ method, reason: "type_fallback" as const }));
     }
@@ -116,7 +123,7 @@ export function resolveCalleeCandidates(
     }
 
     if (expectedOwner) {
-        const ownerMatched = candidates.filter(m => extractOwnerNameFromSignature(m.getSignature().toString()) === expectedOwner);
+        const ownerMatched = candidates.filter(m => extractOwnerNameFromSignature(safeMethodSignatureText(m)) === expectedOwner);
         if (ownerMatched.length > 0) {
             candidates = ownerMatched;
         }
@@ -170,7 +177,16 @@ export function resolveMethodsFromCallable(
     options: CallableResolveOptions = {}
 ): any[] {
     const maxCandidates = options.maxCandidates ?? DEFAULT_MAX_NAME_MATCH_CANDIDATES;
-    const methods = resolveMethodsFromCallableValue(scene, callableValue, options, new Set<string>());
+    const visitKeys = options.callableVisitKeys || new Set<string>();
+    const methods = resolveMethodsFromCallableValue(
+        scene,
+        callableValue,
+        {
+            ...options,
+            callableVisitKeys: visitKeys,
+        },
+        visitKeys,
+    );
     if (methods.length === 0 || methods.length > maxCandidates) {
         return [];
     }
@@ -373,7 +389,7 @@ function isArgCountCompatible(paramCount: number, argCount: number): boolean {
 }
 
 function isStaticMethod(method: any): boolean {
-    const sig = method?.getSignature?.()?.toString?.() || "";
+        const sig = safeMethodSignatureText(method);
     return sig.includes(".[static]");
 }
 
@@ -470,7 +486,7 @@ function resolveExpectedOwnerForInvoke(invokeExpr: any, invokeSig: string): stri
     const baseType = base?.getType?.();
     const classSig = baseType?.getClassSignature?.();
     if (!classSig) return undefined;
-    const text = classSig.toString?.() || "";
+    const text = safeValueText(classSig);
     if (!text) return undefined;
 
     const normalized = text.replace(/^@/, "").trim();
@@ -481,7 +497,8 @@ function resolveExpectedOwnerForInvoke(invokeExpr: any, invokeSig: string): stri
 function resolveReflectDispatchTargets(
     scene: Scene,
     invokeExpr: any,
-    maxCandidates: number
+    maxCandidates: number,
+    options: CalleeResolveOptions = {},
 ): any[] {
     const kind = getReflectDispatchKind(invokeExpr);
     if (!kind) return [];
@@ -489,7 +506,13 @@ function resolveReflectDispatchTargets(
     const callableValue = kind.startsWith("reflect_")
         ? (args.length > 0 ? args[0] : undefined)
         : getInvokeCallableBase(invokeExpr);
-    const methods = resolveMethodsFromCallableValue(scene, callableValue, { maxCandidates });
+    const visitKeys = options.callableVisitKeys || new Set<string>();
+    const methods = resolveMethodsFromCallableValue(scene, callableValue, {
+        maxCandidates,
+        callableVisitKeys: visitKeys,
+        callableResolveDepth: options.callableResolveDepth,
+        maxCallableResolveDepth: options.maxCallableResolveDepth,
+    }, visitKeys);
     if (methods.length === 0 || methods.length > maxCandidates) return [];
     return methods;
 }
@@ -501,32 +524,52 @@ function resolveMethodsFromCallableValue(
     visitingFactoryMethods: Set<string> = new Set<string>(),
 ): any[] {
     if (!callableValue) return [];
-    const resolvedCallable = resolveCallableValueByLocalBacktrace(callableValue, options);
-    const carrierVisitKey = isCallableCarrierValue(resolvedCallable)
-        ? `carrier:${describeCallableCarrierValue(resolvedCallable)}`
-        : undefined;
-    if (carrierVisitKey) {
-        if (visitingFactoryMethods.has(carrierVisitKey)) {
+    const maxDepth = options.maxCallableResolveDepth ?? DEFAULT_MAX_CALLABLE_RESOLVE_DEPTH;
+    const currentDepth = options.callableResolveDepth ?? 0;
+    if (currentDepth > maxDepth) {
+        return [];
+    }
+    const visitKeys = options.callableVisitKeys || visitingFactoryMethods;
+    const valueVisitKey = getCallableResolveVisitKey(callableValue, options);
+    if (valueVisitKey) {
+        if (visitKeys.has(valueVisitKey)) {
             return [];
         }
-        visitingFactoryMethods.add(carrierVisitKey);
+        visitKeys.add(valueVisitKey);
     }
+    const resolvedCallable = resolveCallableValueByLocalBacktrace(callableValue, options);
+    const callableVisitKey = getCallableResolveVisitKey(resolvedCallable, options);
+    if (callableVisitKey && callableVisitKey !== valueVisitKey) {
+        if (visitKeys.has(callableVisitKey)) {
+            if (valueVisitKey) {
+                visitKeys.delete(valueVisitKey);
+            }
+            return [];
+        }
+        visitKeys.add(callableVisitKey);
+    }
+    const nestedOptions = nextCallableResolveOptions(options, visitKeys);
 
     const candidates: any[] = [];
     const seen = new Set<string>();
     const idx = getSceneMethodIndex(scene);
     const addMethod = (m: any): void => {
         if (!m || !m.getCfg || !m.getCfg()) return;
-        const sig = m.getSignature?.()?.toString?.();
+        const sig = safeMethodSignatureText(m);
         if (!sig || seen.has(sig)) return;
         seen.add(sig);
         candidates.push(m);
     };
 
     try {
-        const type = resolvedCallable?.getType?.();
-        const methodSig = type?.getMethodSignature?.();
-        const methodSigText = methodSig?.toString?.();
+        const type = safeGetValueType(resolvedCallable);
+        let methodSigText = "";
+        try {
+            const methodSig = type?.getMethodSignature?.();
+            methodSigText = safeValueText(methodSig);
+        } catch {
+            methodSigText = "";
+        }
         if (methodSigText) {
             addMethod(idx.bySignature.get(methodSigText));
             if (candidates.length > 0) {
@@ -537,8 +580,8 @@ function resolveMethodsFromCallableValue(
         for (const returnedMethod of resolveMethodsFromReturnedCallableFactory(
             scene,
             resolvedCallable,
-            options,
-            visitingFactoryMethods,
+            nestedOptions,
+            visitKeys,
         )) {
             addMethod(returnedMethod);
         }
@@ -549,8 +592,8 @@ function resolveMethodsFromCallableValue(
         for (const memberMethod of resolveMethodsFromCallableCarrierValue(
             scene,
             resolvedCallable,
-            options,
-            visitingFactoryMethods,
+            nestedOptions,
+            visitKeys,
         )) {
             addMethod(memberMethod);
         }
@@ -562,14 +605,22 @@ function resolveMethodsFromCallableValue(
             return candidates;
         }
 
-        const localName = resolvedCallable?.getName?.();
+        const localName = resolvedCallable instanceof Local
+            ? safeLocalName(resolvedCallable)
+            : (() => {
+                try {
+                    return resolvedCallable?.getName?.() || "";
+                } catch {
+                    return "";
+                }
+            })();
         if (localName) {
             for (const m of idx.byNormalizedName.get(normalizeMethodName(localName)) || []) {
                 addMethod(m);
             }
         }
 
-        const rawText = resolvedCallable?.toString?.();
+        const rawText = safeValueText(resolvedCallable);
         if (rawText && rawText !== localName) {
             for (const m of idx.byNormalizedName.get(normalizeMethodName(rawText)) || []) {
                 addMethod(m);
@@ -578,8 +629,11 @@ function resolveMethodsFromCallableValue(
 
         return candidates;
     } finally {
-        if (carrierVisitKey) {
-            visitingFactoryMethods.delete(carrierVisitKey);
+        if (callableVisitKey && callableVisitKey !== valueVisitKey) {
+            visitKeys.delete(callableVisitKey);
+        }
+        if (valueVisitKey) {
+            visitKeys.delete(valueVisitKey);
         }
     }
 }
@@ -608,17 +662,17 @@ export function resolveMethodsFromAnonymousObjectCarrier(
     options: CallableResolveOptions = {},
     visitingFactoryMethods: Set<string> = new Set<string>(),
 ): any[] {
-    const classSig = objectValue?.getType?.()?.getClassSignature?.()?.toString?.() || "";
+    const classSig = safeValueText(objectValue?.getType?.()?.getClassSignature?.());
     if (!classSig || !isAnonymousObjectCarrierClassSignature(classSig)) return [];
 
     const out: any[] = [];
     const seen = new Set<string>();
     for (const method of scene.getMethods()) {
-        const declaringClassSig = method.getDeclaringArkClass?.()?.getSignature?.()?.toString?.() || "";
+        const declaringClassSig = safeClassSignatureText(method.getDeclaringArkClass?.());
         if (declaringClassSig !== classSig) continue;
         const name = method.getName?.() || "";
         if (!isAnonymousObjectCallableMethodName(name)) continue;
-        const sig = method.getSignature?.()?.toString?.();
+        const sig = safeMethodSignatureText(method);
         if (!sig || seen.has(sig) || !method.getCfg?.()) continue;
         seen.add(sig);
         out.push(method);
@@ -635,14 +689,14 @@ export function resolveMethodsFromAnonymousObjectCarrierByField(
     options: CallableResolveOptions = {},
     visitingFactoryMethods: Set<string> = new Set<string>(),
 ): any[] {
-    const classSig = objectValue?.getType?.()?.getClassSignature?.()?.toString?.() || "";
+    const classSig = safeValueText(objectValue?.getType?.()?.getClassSignature?.());
     if (!classSig || !isAnonymousObjectCarrierClassSignature(classSig)) return [];
 
     const out: any[] = [];
     const seen = new Set<string>();
     const addResolvedMethods = (callable: any): void => {
         for (const method of resolveMethodsFromCallableValue(scene, callable, options, visitingFactoryMethods)) {
-            const sig = method.getSignature?.()?.toString?.();
+            const sig = safeMethodSignatureText(method);
             if (!sig || seen.has(sig)) continue;
             seen.add(sig);
             out.push(method);
@@ -650,11 +704,11 @@ export function resolveMethodsFromAnonymousObjectCarrierByField(
     };
 
     for (const method of scene.getMethods()) {
-        const declaringClassSig = method.getDeclaringArkClass?.()?.getSignature?.()?.toString?.() || "";
+        const declaringClassSig = safeClassSignatureText(method.getDeclaringArkClass?.());
         if (declaringClassSig !== classSig) continue;
         const name = method.getName?.() || "";
         if (matchesAnonymousCarrierFieldMethod(name, fieldName)) {
-            const sig = method.getSignature?.()?.toString?.();
+                const sig = safeMethodSignatureText(method);
             if (sig && !seen.has(sig) && method.getCfg?.()) {
                 seen.add(sig);
                 out.push(method);
@@ -689,7 +743,7 @@ function resolveMethodsFromCallableFieldCarrier(
     const out: any[] = [];
     const seen = new Set<string>();
     const addMethod = (method: any): void => {
-        const sig = method?.getSignature?.()?.toString?.();
+        const sig = safeMethodSignatureText(method);
         if (!sig || seen.has(sig)) return;
         seen.add(sig);
         out.push(method);
@@ -732,7 +786,7 @@ function resolveMethodsFromCallableArrayCarrier(
     const out: any[] = [];
     const seen = new Set<string>();
     const addMethod = (method: any): void => {
-        const sig = method?.getSignature?.()?.toString?.();
+        const sig = safeMethodSignatureText(method);
         if (!sig || seen.has(sig)) return;
         seen.add(sig);
         out.push(method);
@@ -755,7 +809,7 @@ function resolveMethodsFromCallableStaticFieldCarrier(
 ): any[] {
     const out: any[] = [];
     const seen = new Set<string>();
-    const fieldSigText = fieldRef.getFieldSignature?.().toString?.() || "";
+    const fieldSigText = safeValueText(fieldRef.getFieldSignature?.());
     if (!fieldSigText) return out;
 
     for (const method of scene.getMethods()) {
@@ -765,10 +819,10 @@ function resolveMethodsFromCallableStaticFieldCarrier(
             if (!(stmt instanceof ArkAssignStmt)) continue;
             const left = stmt.getLeftOp();
             if (!(left instanceof ArkStaticFieldRef)) continue;
-            const leftFieldSigText = left.getFieldSignature?.().toString?.() || "";
+            const leftFieldSigText = safeValueText(left.getFieldSignature?.());
             if (leftFieldSigText !== fieldSigText) continue;
             for (const candidate of resolveMethodsFromCallableValue(scene, stmt.getRightOp(), options, visitingFactoryMethods)) {
-                const sig = candidate.getSignature?.()?.toString?.();
+                const sig = safeMethodSignatureText(candidate);
                 if (!sig || seen.has(sig)) continue;
                 seen.add(sig);
                 out.push(candidate);
@@ -876,8 +930,8 @@ function areEquivalentCarrierBases(
 function getAliasRootLocalIdentity(local: Local, options: CallableResolveOptions): string {
     const root = resolveAliasRootLocal(local, options);
     const methodSig = getDeclaringMethodSignatureFromLocal(root) || "__unknown_method__";
-    const declIdentity = getDeclaringStmtIdentity(root.getDeclaringStmt?.());
-    return `${methodSig}::${root.getName?.() || ""}::${declIdentity}`;
+    const declIdentity = getDeclaringStmtIdentity(safeGetDeclaringStmt(root));
+    return `${methodSig}::${safeLocalName(root)}::${declIdentity}`;
 }
 
 function resolveAliasRootLocal(local: Local, options: CallableResolveOptions): Local {
@@ -896,9 +950,9 @@ function resolveAliasRootLocal(local: Local, options: CallableResolveOptions): L
         visitedDefs.add(key);
         if (visitedDefs.size > maxVisitedDefs) break;
 
-        const declStmt = current.getDeclaringStmt?.();
+        const declStmt = safeGetDeclaringStmt(current);
         if (!(declStmt instanceof ArkAssignStmt) || declStmt.getLeftOp() !== current) break;
-        const declMethodSig = declStmt.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.() || "";
+        const declMethodSig = getDeclaringMethodSignatureFromStmt(declStmt) || "";
         if (!declMethodSig || declMethodSig !== rootMethodSig) break;
 
         const rightOp = declStmt.getRightOp();
@@ -955,9 +1009,9 @@ function resolveSimpleAliasValue(value: any, options: CallableResolveOptions): a
         visitedDefs.add(key);
         if (visitedDefs.size > maxVisitedDefs) break;
 
-        const declStmt = current.getDeclaringStmt?.();
+        const declStmt = safeGetDeclaringStmt(current);
         if (!(declStmt instanceof ArkAssignStmt) || declStmt.getLeftOp() !== current) break;
-        const declMethodSig = declStmt.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.() || "";
+        const declMethodSig = getDeclaringMethodSignatureFromStmt(declStmt) || "";
         if (!declMethodSig || declMethodSig !== rootMethodSig) break;
 
         const rightOp = declStmt.getRightOp();
@@ -977,7 +1031,7 @@ function getCallableFieldIdentity(fieldRef: ArkInstanceFieldRef | ClosureFieldRe
         const fieldName = fieldRef.getFieldName?.();
         return fieldName ? `closure:${fieldName}` : undefined;
     }
-    const fieldSigText = fieldRef.getFieldSignature?.().toString?.();
+    const fieldSigText = safeValueText(fieldRef.getFieldSignature?.());
     if (fieldSigText) return `field_sig:${fieldSigText}`;
     const fieldName = fieldRef.getFieldSignature?.().getFieldName?.();
     return fieldName ? `field_name:${fieldName}` : undefined;
@@ -991,14 +1045,42 @@ function pushUniqueCarrierValue(out: any[], seen: Set<string>, value: any): void
     out.push(value);
 }
 
+function nextCallableResolveOptions(
+    options: CallableResolveOptions,
+    visitKeys: Set<string>,
+): CallableResolveOptions {
+    return {
+        ...options,
+        callableVisitKeys: visitKeys,
+        callableResolveDepth: (options.callableResolveDepth ?? 0) + 1,
+    };
+}
+
+function getCallableResolveVisitKey(value: any, options: CallableResolveOptions): string | undefined {
+    if (!value) return undefined;
+    if (value instanceof Local) {
+        const name = safeLocalName(value);
+        const methodSig = getDeclaringMethodSignatureFromLocal(value) || "__unknown_method__";
+        const stmtId = getDeclaringStmtIdentity(safeGetDeclaringStmt(value));
+        return `local:${methodSig}:${name}:${stmtId}`;
+    }
+    if (isCallableCarrierValue(value)) {
+        return `carrier:${describeCallableCarrierValue(value)}`;
+    }
+    const text = safeValueText(value);
+    if (!text) return undefined;
+    const typeText = safeValueText(safeGetValueType(value));
+    return `value:${text}:${typeText}`;
+}
+
 function describeCallableCarrierValue(value: any): string {
     if (value instanceof Local) {
         return getAliasRootLocalIdentity(value, {});
     }
     if (value instanceof ArkInstanceFieldRef || value instanceof ClosureFieldRef || value instanceof ArkArrayRef || value instanceof ArkStaticFieldRef) {
-        return String(value.toString?.() || value);
+        return safeValueText(value);
     }
-    return String(value?.toString?.() || value);
+    return safeValueText(value);
 }
 
 function isCallableCarrierValue(value: any): value is CallableCarrierValue {
@@ -1049,26 +1131,40 @@ function getReflectDispatchKind(invokeExpr: any): ReflectDispatchKind | undefine
 }
 
 function isReflectBase(value: any): boolean {
-    const name = value?.getName?.() || value?.toString?.() || "";
+    let name = "";
+    try {
+        name = value?.getName?.() || value?.toString?.() || "";
+    } catch {
+        name = "";
+    }
     return String(name).trim() === "Reflect";
 }
 
 export function isCallableValue(value: any): boolean {
     if (!value) return false;
-    const localName = String(value?.getName?.() || "");
+    let localName = "";
+    try {
+        localName = String(value?.getName?.() || "");
+    } catch {
+        localName = "";
+    }
     if (localName.startsWith("%AM")) {
         return true;
     }
-    const rawText = String(value?.toString?.() || "");
+    const rawText = safeValueText(value);
     if (rawText.startsWith("%AM")) {
         return true;
     }
-    const type = value?.getType?.();
+    const type = safeGetValueType(value);
     if (!type) return false;
-    if (typeof type.getMethodSignature === "function" && type.getMethodSignature()) {
-        return true;
+    try {
+        if (typeof type.getMethodSignature === "function" && type.getMethodSignature()) {
+            return true;
+        }
+    } catch {
+        return false;
     }
-    const text = type?.toString?.() || "";
+    const text = safeValueText(type);
     if (!text) return false;
     return text.includes("=>") || text.includes("Function") || text.includes("%AM");
 }
@@ -1108,10 +1204,11 @@ function parseArrayIndex(indexValue: any): number | undefined {
 function resolveDirectCallableTargets(
     scene: Scene,
     invokeExpr: any,
-    maxCandidates: number
+    maxCandidates: number,
+    options: CalleeResolveOptions = {},
 ): any[] {
     if (!invokeExpr || isReflectDispatchInvoke(invokeExpr)) return [];
-    const invokeSig = invokeExpr?.getMethodSignature?.()?.toString?.() || "";
+    const invokeSig = safeInvokeSignatureText(invokeExpr);
     const methodName = resolveInvokeMethodName(invokeExpr);
     if (!invokeSig.includes("%unk") && methodName) return [];
 
@@ -1120,7 +1217,13 @@ function resolveDirectCallableTargets(
 
     const args = invokeExpr?.getArgs ? invokeExpr.getArgs() : [];
     const argCount = args.length;
-    const targets = resolveMethodsFromCallableValue(scene, base, { maxCandidates })
+    const visitKeys = options.callableVisitKeys || new Set<string>();
+    const targets = resolveMethodsFromCallableValue(scene, base, {
+        maxCandidates,
+        callableVisitKeys: visitKeys,
+        callableResolveDepth: options.callableResolveDepth,
+        maxCallableResolveDepth: options.maxCallableResolveDepth,
+    }, visitKeys)
         .filter(m => isArgCountCompatible(getFormalParamCount(m), argCount));
     if (targets.length === 0 || targets.length > maxCandidates) return [];
     return targets;
@@ -1149,10 +1252,10 @@ function resolveCallableValueByLocalBacktrace(
         visitedDefs.add(key);
         if (visitedDefs.size > maxVisitedDefs) break;
 
-        const declStmt = current.getDeclaringStmt?.();
+        const declStmt = safeGetDeclaringStmt(current);
         if (!(declStmt instanceof ArkAssignStmt)) break;
         if (declStmt.getLeftOp() !== current) break;
-        const declMethodSig = declStmt.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.() || "";
+        const declMethodSig = getDeclaringMethodSignatureFromStmt(declStmt) || "";
         if (!declMethodSig || declMethodSig !== rootMethodSig) break;
 
         const rightOp = declStmt.getRightOp();
@@ -1197,7 +1300,7 @@ function resolveMethodsFromReturnedCallableFactory(
     visitingFactoryMethods: Set<string>,
 ): any[] {
     if (!(callableValue instanceof Local)) return [];
-    const declStmt = callableValue.getDeclaringStmt?.();
+    const declStmt = safeGetDeclaringStmt(callableValue);
     if (!(declStmt instanceof ArkAssignStmt) || declStmt.getLeftOp() !== callableValue) {
         return [];
     }
@@ -1213,17 +1316,22 @@ function resolveMethodsFromReturnedCallableFactory(
     const seen = new Set<string>();
     const addMethod = (method: any): void => {
         if (!method?.getCfg?.()) return;
-        const sig = method.getSignature?.()?.toString?.();
+        const sig = safeMethodSignatureText(method);
         if (!sig || seen.has(sig)) return;
         seen.add(sig);
         out.push(method);
     };
 
     const maxNameMatchCandidates = options.maxCandidates ?? DEFAULT_MAX_NAME_MATCH_CANDIDATES;
-    const resolvedCallees = resolveCalleeCandidates(scene, rightOp, { maxNameMatchCandidates });
+    const resolvedCallees = resolveCalleeCandidates(scene, rightOp, {
+        maxNameMatchCandidates,
+        callableVisitKeys: visitingFactoryMethods,
+        callableResolveDepth: options.callableResolveDepth,
+        maxCallableResolveDepth: options.maxCallableResolveDepth,
+    });
     for (const resolved of resolvedCallees) {
         const calleeMethod = resolved.method;
-        const calleeSig = calleeMethod?.getSignature?.()?.toString?.();
+        const calleeSig = safeMethodSignatureText(calleeMethod);
         if (!calleeSig || visitingFactoryMethods.has(calleeSig)) continue;
         visitingFactoryMethods.add(calleeSig);
         for (const returnedMethod of collectReturnedCallableMethods(
@@ -1250,7 +1358,7 @@ function collectReturnedCallableMethods(
     const seen = new Set<string>();
     const addMethod = (candidate: any): void => {
         if (!candidate?.getCfg?.()) return;
-        const sig = candidate.getSignature?.()?.toString?.();
+        const sig = safeMethodSignatureText(candidate);
         if (!sig || seen.has(sig)) return;
         seen.add(sig);
         out.push(candidate);
@@ -1275,13 +1383,94 @@ function collectReturnedCallableMethods(
 }
 
 function getDeclaringMethodSignatureFromLocal(local: Local): string | undefined {
-    const declStmt = local.getDeclaringStmt?.();
-    return declStmt?.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.();
+    return getDeclaringMethodSignatureFromStmt(safeGetDeclaringStmt(local));
+}
+
+function getDeclaringMethodSignatureFromStmt(stmt: any): string | undefined {
+    try {
+        return stmt?.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.();
+    } catch {
+        return undefined;
+    }
 }
 
 function getDeclaringStmtIdentity(stmt: any): string {
     if (!stmt) return "null";
-    const line = stmt.getOriginPositionInfo?.()?.getLineNo?.() ?? -1;
-    const text = stmt.toString?.() || "";
+    let line = -1;
+    let text = "";
+    try {
+        line = stmt.getOriginPositionInfo?.()?.getLineNo?.() ?? -1;
+    } catch {
+        line = -1;
+    }
+    try {
+        text = stmt.toString?.() || "";
+    } catch {
+        text = "[unprintable_stmt]";
+    }
     return `${line}:${text}`;
+}
+
+function safeGetDeclaringStmt(local: Local): any {
+    try {
+        return local.getDeclaringStmt?.();
+    } catch {
+        return undefined;
+    }
+}
+
+function safeLocalName(local: Local): string {
+    try {
+        return local.getName?.() || "";
+    } catch {
+        return "";
+    }
+}
+
+function safeValueText(value: any): string {
+    try {
+        return String(value?.toString?.() || value || "");
+    } catch {
+        return "[unprintable]";
+    }
+}
+
+function safeInvokeMethodSubSignatureName(invokeExpr: any): string {
+    try {
+        return invokeExpr?.getMethodSignature?.()?.getMethodSubSignature?.()?.getMethodName?.() || "";
+    } catch {
+        return "";
+    }
+}
+
+function safeInvokeSignatureText(invokeExpr: any): string {
+    try {
+        return invokeExpr?.getMethodSignature?.()?.toString?.() || "";
+    } catch {
+        return "";
+    }
+}
+
+function safeMethodSignatureText(method: any): string {
+    try {
+        return method?.getSignature?.()?.toString?.() || "";
+    } catch {
+        return "";
+    }
+}
+
+function safeClassSignatureText(arkClass: any): string {
+    try {
+        return arkClass?.getSignature?.()?.toString?.() || "";
+    } catch {
+        return "";
+    }
+}
+
+function safeGetValueType(value: any): any {
+    try {
+        return value?.getType?.();
+    } catch {
+        return undefined;
+    }
 }

@@ -349,6 +349,22 @@ async function main(): Promise<void> {
                 snippets: [{ label: "anchor", code: "broken.onCreateLike(want)" }],
             },
         },
+        {
+            anchor: {
+                id: "rule.arkmain.drift",
+                owner: "EntryAbility",
+                surface: "onWindowStageCreate",
+                methodSignature: "@project/semanticflow.ets: EntryAbility.onWindowStageCreate(WindowStage)",
+                metaTags: ["rule", "candidate"],
+            },
+            initialSlice: {
+                anchorId: "rule.arkmain.drift",
+                round: 0,
+                template: "callable-transfer",
+                observations: ["ordinary rule candidate around a lifecycle-looking method"],
+                snippets: [{ label: "method", code: "onWindowStageCreate(stage) { stage.loadContent('Index'); }" }],
+            },
+        },
     ];
 
     const decider = createSemanticFlowLlmDecider({
@@ -619,6 +635,30 @@ async function main(): Promise<void> {
                 });
             }
 
+            if (anchorId === "rule.arkmain.drift") {
+                return JSON.stringify({
+                    status: "done",
+                    classification: "arkmain",
+                    resolution: "resolved",
+                    summary: {
+                        inputs: ["arg0"],
+                        outputs: [],
+                        transfers: [],
+                        confidence: "high",
+                        relations: {
+                            entryPattern: {
+                                phase: "bootstrap",
+                                kind: "ability_lifecycle",
+                                ownerKind: "ability_owner",
+                                reason: "framework lifecycle callback",
+                                entryFamily: "ability_lifecycle",
+                                entryShape: "instance_method",
+                            },
+                        },
+                    },
+                });
+            }
+
             return JSON.stringify({
                 status: "need-more-evidence",
                 draft: {
@@ -691,10 +731,10 @@ async function main(): Promise<void> {
     };
 
     const preview = await runSemanticFlowPipeline(items, decider, expander, { maxRounds: 2 });
-    assert(preview.items.length === 13, `expected 13 preview items, got ${preview.items.length}`);
+    assert(preview.items.length === 14, `expected 14 preview items, got ${preview.items.length}`);
 
     const session = await runSemanticFlowSession(items, decider, expander, { maxRounds: 2 });
-    assert(session.run.items.length === 13, `expected 13 session items, got ${session.run.items.length}`);
+    assert(session.run.items.length === 14, `expected 14 session items, got ${session.run.items.length}`);
 
     const byId = new Map(session.run.items.map(item => [item.anchor.id, item]));
     assert(byId.get(items[0].anchor.id)?.classification === "arkmain", "arkmain item should classify as arkmain");
@@ -716,6 +756,9 @@ async function main(): Promise<void> {
     assert((byId.get("broken.response.anchor")?.history.length || 0) === 1, "malformed llm response should preserve the failed round slice");
     assert(!byId.get("broken.response.anchor")?.history[0]?.decision, "malformed llm response should not fabricate a decision");
     assert(String(byId.get("broken.response.anchor")?.history[0]?.error || "").includes("semanticflow llm response invalid"), "malformed llm response should preserve round error");
+    assert(byId.get("rule.arkmain.drift")?.resolution === "no-transfer", "non-arkmain arkmain drift should become no-transfer");
+    assert(byId.get("rule.arkmain.drift")?.classification === undefined, "non-arkmain arkmain drift should not keep classification");
+    assert(byId.get("rule.arkmain.drift")?.artifact === undefined, "non-arkmain arkmain drift should not emit artifact");
     assert((byId.get("module.deferred")?.history.length || 0) === 2, "deferred item should require one expansion");
     assert(byId.get("module.deferred")?.draftId === "draft.module.deferred", "module item should keep stable draft id");
     assert(byId.get("module.deferred")?.history[0]?.deficit?.kind === "q_comp", "round0 should materialize structured deficit");

@@ -284,32 +284,121 @@ function createAnalysisApi(raw: InternalRawModuleSetupContext): ModuleAnalysisAp
     };
 }
 
-function resolveActiveModuleMethods(raw: InternalRawModuleSetupContext): any[] {
+interface ModuleMethodIndexItem {
+    method: any;
+    signature: string;
+    methodName: string;
+    declaringClassName: string;
+}
+
+interface ActiveModuleMethodIndex {
+    methods: any[];
+    byName: Map<string, any[]>;
+    byClassName: Map<string, any[]>;
+}
+
+interface SceneModuleMethodIndex {
+    items: ModuleMethodIndexItem[];
+    all: ActiveModuleMethodIndex;
+    byAllowedSet: WeakMap<Set<string>, ActiveModuleMethodIndex>;
+}
+
+const emptyActiveModuleMethodIndex: ActiveModuleMethodIndex = {
+    methods: [],
+    byName: new Map(),
+    byClassName: new Map(),
+};
+
+const sceneModuleMethodIndexCache = new WeakMap<any, SceneModuleMethodIndex>();
+
+function pushIndexedMethod(map: Map<string, any[]>, key: string, method: any): void {
+    if (!key) return;
+    let methods = map.get(key);
+    if (!methods) {
+        methods = [];
+        map.set(key, methods);
+    }
+    methods.push(method);
+}
+
+function buildActiveModuleMethodIndex(
+    items: ModuleMethodIndexItem[],
+    allowedMethodSignatures?: Set<string>,
+): ActiveModuleMethodIndex {
+    const methods: any[] = [];
+    const byName = new Map<string, any[]>();
+    const byClassName = new Map<string, any[]>();
+    for (const item of items) {
+        if (allowedMethodSignatures && !allowedMethodSignatures.has(item.signature)) {
+            continue;
+        }
+        methods.push(item.method);
+        pushIndexedMethod(byName, item.methodName, item.method);
+        pushIndexedMethod(byClassName, item.declaringClassName, item.method);
+    }
+    return { methods, byName, byClassName };
+}
+
+function getSceneModuleMethodIndex(scene: any): SceneModuleMethodIndex {
+    let cached = sceneModuleMethodIndexCache.get(scene);
+    if (cached) return cached;
+    const items: ModuleMethodIndexItem[] = [];
+    for (const method of scene.getMethods?.() || []) {
+        if (method.getName?.() === "%dflt") continue;
+        const sig = method.getSignature?.();
+        const methodName = method.getName?.() || sig?.getMethodSubSignature?.()?.getMethodName?.() || "";
+        const declaringClassName = method.getDeclaringArkClass?.()?.getName?.()
+            || sig?.getDeclaringClassSignature?.()?.getClassName?.()
+            || "";
+        items.push({
+            method,
+            signature: sig?.toString?.() || "",
+            methodName,
+            declaringClassName,
+        });
+    }
+    cached = {
+        items,
+        all: buildActiveModuleMethodIndex(items),
+        byAllowedSet: new WeakMap(),
+    };
+    sceneModuleMethodIndexCache.set(scene, cached);
+    return cached;
+}
+
+function getActiveModuleMethodIndex(raw: InternalRawModuleSetupContext): ActiveModuleMethodIndex {
     if (!raw.scene) {
-        return [];
+        return emptyActiveModuleMethodIndex;
     }
-    const allMethods = raw.scene.getMethods().filter(method => method.getName() !== "%dflt");
-    if (!raw.allowedMethodSignatures || raw.allowedMethodSignatures.size === 0) {
-        return allMethods;
+    const sceneIndex = getSceneModuleMethodIndex(raw.scene);
+    const allowed = raw.allowedMethodSignatures;
+    if (!allowed || allowed.size === 0) {
+        return sceneIndex.all;
     }
-    return allMethods.filter(method => raw.allowedMethodSignatures!.has(method.getSignature().toString()));
+    let active = sceneIndex.byAllowedSet.get(allowed);
+    if (!active) {
+        active = buildActiveModuleMethodIndex(sceneIndex.items, allowed);
+        sceneIndex.byAllowedSet.set(allowed, active);
+    }
+    return active;
+}
+
+function resolveActiveModuleMethods(raw: InternalRawModuleSetupContext): any[] {
+    return getActiveModuleMethodIndex(raw).methods;
 }
 
 function createMethodsApi(raw: InternalRawModuleSetupContext): ModuleMethodsApi {
-    const methods = resolveActiveModuleMethods(raw);
     return {
         all(): any[] {
-            return methods;
+            return getActiveModuleMethodIndex(raw).methods;
         },
         byName(methodName: string): any[] {
-            return methods.filter(method => method.getName?.() === methodName);
+            const methods = getActiveModuleMethodIndex(raw).byName.get(methodName);
+            return methods ? [...methods] : [];
         },
         byClassName(className: string): any[] {
-            return methods.filter(method => {
-                const sig = method.getSignature?.();
-                const declaringClassName = sig?.getDeclaringClassSignature?.()?.getClassName?.() || "";
-                return declaringClassName === className;
-            });
+            const methods = getActiveModuleMethodIndex(raw).byClassName.get(className);
+            return methods ? [...methods] : [];
         },
     };
 }
@@ -494,12 +583,24 @@ function matchesDecoratedFieldScanFilter(
 }
 
 function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
-    const methods = resolveActiveModuleMethods(raw);
-    const analysis = createAnalysisApi(raw);
+    let methods: any[] | undefined;
+    const getMethods = (): any[] => {
+        if (!methods) {
+            methods = resolveActiveModuleMethods(raw);
+        }
+        return methods;
+    };
+    let analysis: ModuleAnalysisApi | undefined;
+    const getAnalysis = (): ModuleAnalysisApi => {
+        if (!analysis) {
+            analysis = createAnalysisApi(raw);
+        }
+        return analysis;
+    };
     return {
         invokes(filter?: ModuleInvokeScanFilter): ModuleScannedInvoke[] {
             const out: ModuleScannedInvoke[] = [];
-            for (const method of methods) {
+            for (const method of getMethods()) {
                 const ownerMethodSignature = method.getSignature?.().toString?.() || "";
                 const ownerDeclaringClassName = method.getDeclaringArkClass?.()?.getName?.()
                     || method.getSignature?.()?.getDeclaringClassSignature?.()?.getClassName?.()
@@ -567,36 +668,36 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
                         },
                         argNodeIds(index: number): number[] {
                             const value = index >= 0 && index < args.length ? args[index] : undefined;
-                            return analysis.nodeIdsForValue(value, stmt);
+                            return getAnalysis().nodeIdsForValue(value, stmt);
                         },
                         argObjectNodeIds(index: number): number[] {
                             const value = index >= 0 && index < args.length ? args[index] : undefined;
-                            return analysis.objectNodeIdsForValue(value);
+                            return getAnalysis().objectNodeIdsForValue(value);
                         },
                         argCarrierNodeIds(index: number): number[] {
                             const value = index >= 0 && index < args.length ? args[index] : undefined;
-                            return analysis.carrierNodeIdsForValue(value, stmt);
+                            return getAnalysis().carrierNodeIdsForValue(value, stmt);
                         },
                         baseNodeIds(): number[] {
                             if (!isInstanceInvoke) return [];
-                            return analysis.nodeIdsForValue(invokeExpr.getBase(), stmt);
+                            return getAnalysis().nodeIdsForValue(invokeExpr.getBase(), stmt);
                         },
                         baseObjectNodeIds(): number[] {
                             if (!isInstanceInvoke) return [];
-                            return analysis.objectNodeIdsForValue(invokeExpr.getBase());
+                            return getAnalysis().objectNodeIdsForValue(invokeExpr.getBase());
                         },
                         baseCarrierNodeIds(): number[] {
                             if (!isInstanceInvoke) return [];
-                            return analysis.carrierNodeIdsForValue(invokeExpr.getBase(), stmt);
+                            return getAnalysis().carrierNodeIdsForValue(invokeExpr.getBase(), stmt);
                         },
                         resultNodeIds(): number[] {
                             return resultValue !== undefined
-                                ? analysis.nodeIdsForValue(resultValue, stmt)
+                                ? getAnalysis().nodeIdsForValue(resultValue, stmt)
                                 : [];
                         },
                         resultCarrierNodeIds(): number[] {
                             return resultValue !== undefined
-                                ? analysis.carrierNodeIdsForValue(resultValue, stmt)
+                                ? getAnalysis().carrierNodeIdsForValue(resultValue, stmt)
                                 : [];
                         },
                         callbackParamNodeIds(
@@ -623,7 +724,7 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
         },
         parameterBindings(filter?: ModuleParameterBindingScanFilter): ModuleScannedParameterBinding[] {
             const out: ModuleScannedParameterBinding[] = [];
-            for (const method of methods) {
+            for (const method of getMethods()) {
                 const meta = resolveMethodMeta(method);
                 if (!matchesOwnerScanFilter(
                     meta.ownerMethodSignature,
@@ -663,13 +764,13 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
                             return localName;
                         },
                         localNodeIds(): number[] {
-                            return analysis.nodeIdsForValue(left, stmt);
+                            return getAnalysis().nodeIdsForValue(left, stmt);
                         },
                         localObjectNodeIds(): number[] {
-                            return analysis.objectNodeIdsForValue(left);
+                            return getAnalysis().objectNodeIdsForValue(left);
                         },
                         localCarrierNodeIds(): number[] {
-                            return analysis.carrierNodeIdsForValue(left, stmt);
+                            return getAnalysis().carrierNodeIdsForValue(left, stmt);
                         },
                     });
                 }
@@ -678,7 +779,7 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
         },
         assigns(filter?: ModuleAssignScanFilter): ModuleScannedAssign[] {
             const out: ModuleScannedAssign[] = [];
-            for (const method of methods) {
+            for (const method of getMethods()) {
                 const meta = resolveMethodMeta(method);
                 if (!matchesOwnerScanFilter(
                     meta.ownerMethodSignature,
@@ -714,16 +815,16 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
                             return rightLocalName;
                         },
                         leftNodeIds(): number[] {
-                            return analysis.nodeIdsForValue(left, stmt);
+                            return getAnalysis().nodeIdsForValue(left, stmt);
                         },
                         leftCarrierNodeIds(): number[] {
-                            return analysis.carrierNodeIdsForValue(left, stmt);
+                            return getAnalysis().carrierNodeIdsForValue(left, stmt);
                         },
                         rightNodeIds(): number[] {
-                            return analysis.nodeIdsForValue(right, stmt);
+                            return getAnalysis().nodeIdsForValue(right, stmt);
                         },
                         rightCarrierNodeIds(): number[] {
-                            return analysis.carrierNodeIdsForValue(right, stmt);
+                            return getAnalysis().carrierNodeIdsForValue(right, stmt);
                         },
                     });
                 }
@@ -732,7 +833,7 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
         },
         fieldLoads(filter?: ModuleFieldLoadScanFilter): ModuleScannedFieldLoad[] {
             const out: ModuleScannedFieldLoad[] = [];
-            for (const method of methods) {
+            for (const method of getMethods()) {
                 const meta = resolveMethodMeta(method);
                 if (!matchesOwnerScanFilter(
                     meta.ownerMethodSignature,
@@ -777,22 +878,22 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
                             return resolveLocalName(left);
                         },
                         baseNodeIds(): number[] {
-                            return analysis.nodeIdsForValue(base, stmt);
+                            return getAnalysis().nodeIdsForValue(base, stmt);
                         },
                         baseObjectNodeIds(): number[] {
-                            return analysis.objectNodeIdsForValue(base);
+                            return getAnalysis().objectNodeIdsForValue(base);
                         },
                         baseCarrierNodeIds(): number[] {
-                            return analysis.carrierNodeIdsForValue(base, stmt);
+                            return getAnalysis().carrierNodeIdsForValue(base, stmt);
                         },
                         resultNodeIds(): number[] {
-                            return analysis.nodeIdsForValue(left, stmt);
+                            return getAnalysis().nodeIdsForValue(left, stmt);
                         },
                         resultObjectNodeIds(): number[] {
-                            return analysis.objectNodeIdsForValue(left);
+                            return getAnalysis().objectNodeIdsForValue(left);
                         },
                         resultCarrierNodeIds(): number[] {
-                            return analysis.carrierNodeIdsForValue(left, stmt);
+                            return getAnalysis().carrierNodeIdsForValue(left, stmt);
                         },
                     });
                 }
@@ -801,7 +902,7 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
         },
         fieldStores(filter?: ModuleFieldStoreScanFilter): ModuleScannedFieldStore[] {
             const out: ModuleScannedFieldStore[] = [];
-            for (const method of methods) {
+            for (const method of getMethods()) {
                 const meta = resolveMethodMeta(method);
                 if (!matchesOwnerScanFilter(
                     meta.ownerMethodSignature,
@@ -847,22 +948,22 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
                             return resolveLocalName(right);
                         },
                         baseNodeIds(): number[] {
-                            return analysis.nodeIdsForValue(base, stmt);
+                            return getAnalysis().nodeIdsForValue(base, stmt);
                         },
                         baseObjectNodeIds(): number[] {
-                            return analysis.objectNodeIdsForValue(base);
+                            return getAnalysis().objectNodeIdsForValue(base);
                         },
                         baseCarrierNodeIds(): number[] {
-                            return analysis.carrierNodeIdsForValue(base, stmt);
+                            return getAnalysis().carrierNodeIdsForValue(base, stmt);
                         },
                         valueNodeIds(): number[] {
-                            return analysis.nodeIdsForValue(right, stmt);
+                            return getAnalysis().nodeIdsForValue(right, stmt);
                         },
                         valueObjectNodeIds(): number[] {
-                            return analysis.objectNodeIdsForValue(right);
+                            return getAnalysis().objectNodeIdsForValue(right);
                         },
                         valueCarrierNodeIds(): number[] {
-                            return analysis.carrierNodeIdsForValue(right, stmt);
+                            return getAnalysis().carrierNodeIdsForValue(right, stmt);
                         },
                     });
                 }
@@ -2048,6 +2149,9 @@ function createModuleAuditEntry(moduleId: string, sourcePath?: string): ModuleAu
         factHookCalls: 0,
         invokeHookCalls: 0,
         copyEdgeChecks: 0,
+        factHookMs: 0,
+        invokeHookMs: 0,
+        copyEdgeMs: 0,
         factEmissionCount: 0,
         invokeEmissionCount: 0,
         totalEmissionCount: 0,
@@ -2117,6 +2221,7 @@ class DefaultModuleRuntime implements ModuleRuntime {
             | (ModuleRuntime["emitForInvoke"] extends (event: infer E) => any ? E : never),
     ): ModuleEmission[] {
         const out: ModuleEmission[] = [];
+        const traceModules = process.env.ARKTAINT_TRACE_MODULE_HOOKS === "1";
         for (const { moduleId, session, sourcePath } of this.sessions) {
             if (this.failedModuleIds.has(moduleId)) continue;
             const callback = session[hook];
@@ -2128,7 +2233,11 @@ class DefaultModuleRuntime implements ModuleRuntime {
                 auditEntry.invokeHookCalls += 1;
             }
             const staged: ModuleEmission[] = [];
+            const hookStartedAt = process.hrtime.bigint();
             try {
+                if (traceModules) {
+                    process.stderr.write(`[module-hook] start hook=${hook} module=${moduleId}\n`);
+                }
                 (event as any).__moduleAuditEntry = auditEntry;
                 const authorEvent = hook === "onInvoke"
                     ? createInvokeEvent(moduleId, event as InternalRawModuleInvokeEvent)
@@ -2151,10 +2260,22 @@ class DefaultModuleRuntime implements ModuleRuntime {
                     auditEntry.invokeEmissionCount += staged.length;
                 }
                 auditEntry.totalEmissionCount += staged.length;
+                if (traceModules) {
+                    process.stderr.write(`[module-hook] done hook=${hook} module=${moduleId} emissions=${staged.length}\n`);
+                }
             } catch (error) {
+                if (traceModules) {
+                    process.stderr.write(`[module-hook] error hook=${hook} module=${moduleId}\n`);
+                }
                 this.disableModule(moduleId, hook, error, sourcePath);
                 continue;
             } finally {
+                const elapsedMs = Number(process.hrtime.bigint() - hookStartedAt) / 1_000_000;
+                if (hook === "onFact") {
+                    auditEntry.factHookMs += elapsedMs;
+                } else {
+                    auditEntry.invokeHookMs += elapsedMs;
+                }
                 delete (event as any).__moduleAuditEntry;
             }
             out.push(...staged);
@@ -2168,6 +2289,7 @@ class DefaultModuleRuntime implements ModuleRuntime {
             const auditEntry = this.audit.moduleStats[moduleId];
             auditEntry.copyEdgeChecks += 1;
             let shouldSkip = false;
+            const hookStartedAt = process.hrtime.bigint();
             try {
                 (event as any).__moduleAuditEntry = auditEntry;
                 shouldSkip = session.shouldSkipCopyEdge?.(createCopyEdgeEvent(moduleId, event)) === true;
@@ -2175,6 +2297,7 @@ class DefaultModuleRuntime implements ModuleRuntime {
                 this.disableModule(moduleId, "shouldSkipCopyEdge", error, sourcePath);
                 continue;
             } finally {
+                auditEntry.copyEdgeMs += Number(process.hrtime.bigint() - hookStartedAt) / 1_000_000;
                 delete (event as any).__moduleAuditEntry;
             }
             if (shouldSkip) {

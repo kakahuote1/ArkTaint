@@ -3,6 +3,8 @@ import {
     ArkMainSeedReport,
     RuleHitCounters,
 } from "../core/orchestration/TaintPropagationEngine";
+import { WorklistProfileSnapshot } from "../core/kernel/debug/WorklistProfiler";
+import { WorklistBudgetTruncation } from "../core/kernel/propagation/WorklistSolver";
 import { EnginePluginAuditSnapshot } from "../core/orchestration/plugins/EnginePluginRuntime";
 import { ExtensionModuleLoadIssue } from "../core/orchestration/ExtensionLoaderUtils";
 import {
@@ -47,12 +49,34 @@ export interface AnalyzeStageProfile {
     totalMs: number;
 }
 
+export interface AnalyzeMemoryProfile {
+    sampleIntervalMs: number;
+    sampleCount: number;
+    rssMiB: number;
+    heapUsedMiB: number;
+    heapTotalMiB: number;
+    externalMiB: number;
+    arrayBuffersMiB: number;
+    peakRssMiB: number;
+    peakHeapUsedMiB: number;
+    peakHeapTotalMiB: number;
+    peakExternalMiB: number;
+    peakArrayBuffersMiB: number;
+}
+
+export interface ExecutionHandoffAudit {
+    contracts: number;
+    syntheticEdges: number;
+    syntheticCallers: number;
+    syntheticCallees: number;
+}
+
 export interface EntryAnalyzeResult {
     sourceDir: string;
     entryName: string;
     entryPathHint?: string;
     score: number;
-    status: "ok" | "no_entry" | "no_body" | "no_seed" | "exception";
+    status: "ok" | "no_entry" | "no_body" | "no_seed" | "budget_exceeded" | "exception";
     seedCount: number;
     seedLocalNames: string[];
     seedStrategies: string[];
@@ -85,12 +109,16 @@ export interface EntryAnalyzeResult {
     stageProfile: EntryStageProfile;
     transferNoHitReasons: string[];
     pagNodeResolutionAudit: PagNodeResolutionAuditSnapshot;
+    executionHandoffAudit: ExecutionHandoffAudit;
     moduleAudit: ModuleAuditSnapshot;
     enginePluginAudit: EnginePluginAuditSnapshot;
     arkMainSeeds?: ArkMainSeedReport;
+    worklistProfile?: WorklistProfileSnapshot;
+    worklistTruncation?: WorklistBudgetTruncation;
     elapsedMs: number;
     fromCache?: boolean;
     error?: string;
+    errorStack?: string;
 }
 
 export interface AnalyzeErrorDiagnostics {
@@ -125,6 +153,7 @@ export interface NormalizedAnalyzeDiagnosticItem {
     line?: number;
     column?: number;
     fieldPath?: string;
+    stackExcerpt?: string;
 }
 
 export interface AnalyzeReport {
@@ -168,8 +197,10 @@ export interface AnalyzeReport {
         };
         detectProfile: DetectProfileSnapshot;
         stageProfile: AnalyzeStageProfile;
+        memoryProfile: AnalyzeMemoryProfile;
         transferNoHitReasons: Record<string, number>;
         pagNodeResolutionAudit: PagNodeResolutionAuditSnapshot;
+        executionHandoffAudit: ExecutionHandoffAudit;
         diagnostics: AnalyzeErrorDiagnostics;
         diagnosticItems: NormalizedAnalyzeDiagnosticItem[];
         moduleAudit: {
@@ -307,6 +338,32 @@ export function emptyAnalyzeStageProfile(): AnalyzeStageProfile {
     };
 }
 
+export function emptyAnalyzeMemoryProfile(): AnalyzeMemoryProfile {
+    return {
+        sampleIntervalMs: 0,
+        sampleCount: 0,
+        rssMiB: 0,
+        heapUsedMiB: 0,
+        heapTotalMiB: 0,
+        externalMiB: 0,
+        arrayBuffersMiB: 0,
+        peakRssMiB: 0,
+        peakHeapUsedMiB: 0,
+        peakHeapTotalMiB: 0,
+        peakExternalMiB: 0,
+        peakArrayBuffersMiB: 0,
+    };
+}
+
+export function emptyExecutionHandoffAudit(): ExecutionHandoffAudit {
+    return {
+        contracts: 0,
+        syntheticEdges: 0,
+        syntheticCallers: 0,
+        syntheticCallees: 0,
+    };
+}
+
 export function emptyEnginePluginAuditSnapshot(): EnginePluginAuditSnapshot {
     return {
         loadedPluginNames: [],
@@ -351,9 +408,13 @@ export function toReportEntry(entry: EntryAnalyzeResult, reportMode: ReportMode)
         ruleHitEndpoints: emptyRuleHitCounters(),
         transferProfile: emptyTransferProfile(),
         detectProfile: emptyDetectProfile(),
-        stageProfile: emptyEntryStageProfile(),
         transferNoHitReasons: [],
         pagNodeResolutionAudit: emptyPagNodeResolutionAuditSnapshot(),
+        // Keep lightweight numeric/structural audits in light mode so
+        // real-project measurements can be diagnosed without switching to
+        // full traces.
+        stageProfile: entry.stageProfile,
+        executionHandoffAudit: entry.executionHandoffAudit,
         moduleAudit: emptyModuleAuditSnapshot(),
         enginePluginAudit: emptyEnginePluginAuditSnapshot(),
     };

@@ -78,6 +78,14 @@ interface AnalyzeReportLike {
         ruleHitEndpoints: RuleHitCountersLike;
         transferProfile: any;
         detectProfile: any;
+        memoryProfile?: {
+            sampleIntervalMs: number;
+            sampleCount: number;
+            rssMiB: number;
+            heapUsedMiB: number;
+            peakRssMiB: number;
+            peakHeapUsedMiB: number;
+        };
         pagNodeResolutionAudit?: any;
         diagnostics?: {
             ruleLoadIssues?: Array<{ userMessage?: string; message: string }>;
@@ -272,6 +280,9 @@ export function renderMarkdownReport(report: AnalyzeReportLike): string {
     lines.push(`- ruleHitsTotal: source=${sourceRuleHits}, sink=${sinkRuleHits}, transfer=${transferRuleHits}`);
     lines.push(`- transferProfile: checks=${report.summary.transferProfile.ruleCheckCount}, matches=${report.summary.transferProfile.ruleMatchCount}, endpointMatches=${report.summary.transferProfile.endpointMatchCount}, results=${report.summary.transferProfile.resultCount}, dedupSkips=${report.summary.transferProfile.dedupSkipCount}, elapsedMs=${report.summary.transferProfile.elapsedMs}`);
     lines.push(`- detectProfile: calls=${report.summary.detectProfile.detectCallCount}, sinksChecked=${report.summary.detectProfile.sinksChecked}, sanitizerChecks=${report.summary.detectProfile.sanitizerGuardCheckCount}, sanitizerHits=${report.summary.detectProfile.sanitizerGuardHitCount}, totalMs=${report.summary.detectProfile.totalMs}`);
+    if (report.summary.memoryProfile) {
+        lines.push(`- memoryProfile: peakRssMiB=${report.summary.memoryProfile.peakRssMiB}, peakHeapUsedMiB=${report.summary.memoryProfile.peakHeapUsedMiB}, rssMiB=${report.summary.memoryProfile.rssMiB}, heapUsedMiB=${report.summary.memoryProfile.heapUsedMiB}, samples=${report.summary.memoryProfile.sampleCount}`);
+    }
     lines.push(`- pagNodeResolutionAudit: requests=${pagAudit.requestCount || 0}, directHits=${pagAudit.directHitCount || 0}, fallbacks=${pagAudit.fallbackResolveCount || 0}, addFailures=${pagAudit.addFailureCount || 0}, unresolved=${pagAudit.unresolvedCount || 0}`);
     if (report.summary.arkMainSeeds) {
         const arkmain = report.summary.arkMainSeeds;

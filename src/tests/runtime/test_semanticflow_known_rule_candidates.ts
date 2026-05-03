@@ -50,14 +50,41 @@ function main(): void {
 
     const builtinCandidates = [
         makeCandidate("@ohos/storage: LocalStorage.get(string)", "get", 1),
+        makeCandidate("@%unk/%unk: .setUIContent()", "setUIContent", 3),
         makeCandidate("@collections: Map.set(string,string)", "set", 2),
         makeCandidate("@ohos/preferences: Preferences.get(string)", "get", 1),
         makeCandidate("@project/demo: Vault.get(string)", "get", 1),
     ];
     const builtinFiltered = filterKnownSemanticFlowRuleCandidates(builtinCandidates);
-    assert(builtinFiltered.skippedKnown.length === 3, `expected three builtin known candidates, got ${builtinFiltered.skippedKnown.length}`);
+    assert(builtinFiltered.skippedKnown.length === 4, `expected four builtin known candidates, got ${builtinFiltered.skippedKnown.length}`);
     assert(builtinFiltered.candidates.length === 1, `expected one candidate after builtin filtering, got ${builtinFiltered.candidates.length}`);
     assert(builtinFiltered.candidates[0].method === "get" && builtinFiltered.candidates[0].callee_signature.includes("Vault.get"), "builtin filter should keep unknown Vault.get");
+
+    const contextFiltered = filterKnownSemanticFlowRuleCandidates([{
+        ...makeCandidate("@%unk/%unk: .SetOrCreate()", "SetOrCreate", 2),
+        contextSlices: [{
+            callerFile: "FolderListComp.ets",
+            invokeLine: 62,
+            invokeStmtText: "AppStorage.SetOrCreate<number>('ContinueSection', this.sectionStatus)",
+            windowLines: "AppStorage.SetOrCreate<number>('ContinueSection', this.sectionStatus)",
+            cfgNeighborStmts: [],
+        }],
+    } as any]);
+    assert(contextFiltered.skippedKnown.length === 1, `expected context AppStorage call to be known, got ${contextFiltered.skippedKnown.length}`);
+    assert(contextFiltered.candidates.length === 0, `expected context AppStorage call to be filtered, got ${contextFiltered.candidates.length}`);
+
+    const loggingFiltered = filterKnownSemanticFlowRuleCandidates([{
+        ...makeCandidate("@%unk/%unk: .showInfo()", "showInfo", 2),
+        contextSlices: [{
+            callerFile: "AppCenterStartAppHandler.ts",
+            invokeLine: 73,
+            invokeStmtText: "Log.showInfo(TAG, `calculateAppIconPosition index ${index}`)",
+            windowLines: "Log.showInfo(TAG, `calculateAppIconPosition index ${index}`)",
+            cfgNeighborStmts: [],
+        }],
+    } as any]);
+    assert(loggingFiltered.skippedKnown.length === 1, `expected context Log.showInfo call to be known, got ${loggingFiltered.skippedKnown.length}`);
+    assert(loggingFiltered.candidates.length === 0, `expected context Log.showInfo call to be filtered, got ${loggingFiltered.candidates.length}`);
 
     const projectFiltered = filterKnownSemanticFlowRuleCandidates(
         [makeCandidate("@project/demo: Vault.get(string)", "get", 1)],

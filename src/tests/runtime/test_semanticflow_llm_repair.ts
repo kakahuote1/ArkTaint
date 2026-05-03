@@ -82,6 +82,65 @@ async function main(): Promise<void> {
     assert(decision.summary.transfers.length === 0, "repaired decision should drop the invalid pseudo-slot transfer");
     assert(!decision.summary.relations?.companions?.length, "repaired rule decision must not keep companion relations");
 
+    const aliasCalls: string[] = [];
+    const aliasDecider = createSemanticFlowLlmDecider({
+        model: "mock-semanticflow-slot-alias",
+        async modelInvoker(input) {
+            aliasCalls.push(`${input.system}\n${input.user}`);
+            return JSON.stringify({
+                status: "done",
+                classification: "arkmain",
+                resolution: "resolved",
+                summary: {
+                    inputs: ["formId", "message"],
+                    outputs: [],
+                    transfers: [],
+                    confidence: "high",
+                    relations: {
+                        entryPattern: {
+                            phase: "interaction",
+                            kind: "callback",
+                            ownerKind: "ability_owner",
+                        },
+                    },
+                },
+            });
+        },
+    });
+    const aliasDecision = await aliasDecider.decide({
+        anchor: {
+            id: "formability.onevent",
+            owner: "FormAbility",
+            surface: "onEvent",
+        },
+        draftId: "draft.formability.onevent",
+        slice: {
+            anchorId: "formability.onevent",
+            round: 0,
+            template: "owner-slot",
+            observations: ["class=FormAbility", "superClass=FormExtensionAbility"],
+            snippets: [
+                {
+                    label: "method",
+                    code: "onEvent(formId, message): void {\n  Log.info(`${formId}:${message}`);\n}",
+                },
+            ],
+        },
+        draft: undefined,
+        lastMarker: undefined,
+        lastDelta: undefined,
+        round: 0,
+        history: [],
+    });
+
+    assert(aliasCalls.length === 1, `slot alias decision should parse without repair, got ${aliasCalls.length} invocations`);
+    assert(aliasCalls[0].includes("formId => arg0"), "prompt should expose formId slot alias");
+    assert(aliasCalls[0].includes("message => arg1"), "prompt should expose message slot alias");
+    assert(aliasDecision.status === "done", `unexpected alias decision status: ${(aliasDecision as any).status}`);
+    assert(aliasDecision.classification === "arkmain", `unexpected alias decision class: ${(aliasDecision as any).classification}`);
+    assert(aliasDecision.summary.inputs[0].slot === "arg" && aliasDecision.summary.inputs[0].index === 0, "formId should normalize to arg0");
+    assert(aliasDecision.summary.inputs[1].slot === "arg" && aliasDecision.summary.inputs[1].index === 1, "message should normalize to arg1");
+
     console.log("PASS test_semanticflow_llm_repair");
 }
 

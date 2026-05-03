@@ -22,6 +22,7 @@ import {
 import { getSemanticFlowItemCacheSemanticsFingerprint } from "./SemanticFlowSessionSemantics";
 import type {
     SemanticFlowAnchor,
+    SemanticFlowArtifactClass,
     SemanticFlowDecider,
     SemanticFlowDelta,
     SemanticFlowExpander,
@@ -177,6 +178,7 @@ async function runSemanticFlowItem(
                 history,
             });
         } catch (error) {
+            const errorMessage = String((error as any)?.message || error);
             history.push({
                 round,
                 draftId,
@@ -184,7 +186,7 @@ async function runSemanticFlowItem(
                 draft: currentDraft,
                 marker: lastMarker,
                 delta: lastDelta,
-                error: String((error as any)?.message || error),
+                error: errorMessage,
             });
             return finalize({
                 anchor,
@@ -195,7 +197,9 @@ async function runSemanticFlowItem(
                 lastDelta,
                 finalSlice: currentSlice,
                 history,
-                error: String((error as any)?.message || error),
+                error: errorMessage,
+            }, {
+                skipCacheWrite: isTransientSemanticFlowLlmError(errorMessage),
             });
         }
         onProgress?.({ type: "round-decision", index: index + 1, totalItems, anchorId: anchor.id, round, status: decision.status });
@@ -254,6 +258,19 @@ async function runSemanticFlowItem(
                 }
                 const classification = classifySemanticFlowSummary(anchor, summary, decision.classification);
                 if (!classification) {
+                    if (isNonArtifactArkMainDrift(anchor, summary, decision.classification)) {
+                        return finalize({
+                            anchor,
+                            draftId,
+                            resolution: "no-transfer",
+                            summary,
+                            draft: summary,
+                            lastMarker,
+                            lastDelta,
+                            finalSlice: currentSlice,
+                            history,
+                        });
+                    }
                     return finalize({
                         anchor,
                         draftId,
@@ -388,6 +405,44 @@ async function runSemanticFlowItem(
         history,
         error: "pipeline ended unexpectedly",
     });
+}
+
+function isNonArtifactArkMainDrift(
+    anchor: SemanticFlowAnchor,
+    summary: SemanticFlowSummary,
+    hint: SemanticFlowArtifactClass | undefined,
+): boolean {
+    if (hint !== "arkmain" || anchor.arkMainSelector) {
+        return false;
+    }
+    if (!summary.relations?.entryPattern) {
+        return false;
+    }
+    if (
+        summary.ruleKind
+        || summary.sourceKind
+        || summary.moduleKind
+        || summary.moduleSpec
+        || summary.transfers.length > 0
+        || summary.outputs.length > 0
+    ) {
+        return false;
+    }
+    return !(
+        summary.relations.companions?.length
+        || summary.relations.carrier
+        || summary.relations.trigger
+        || summary.relations.constraints?.length
+    );
+}
+
+function isTransientSemanticFlowLlmError(message: string): boolean {
+    const text = String(message || "");
+    if (!text) return false;
+    return /LLM request failed: status=(429|5\d\d)\b/i.test(text)
+        || /This operation was aborted/i.test(text)
+        || /semanticflow LLM circuit open/i.test(text)
+        || /UND_ERR_|ECONNRESET|ETIMEDOUT|ENOTFOUND|fetch failed|socket|ConnectTimeout|headers timeout|body timeout/i.test(text);
 }
 
 function restoreCachedItemResult(

@@ -11,6 +11,11 @@ implementation_plan.md
 arkanalyzer/out
 arkanalyzer/output
 internal_docs/
+arktaint-*.png
+overview-*.png
+workbench-*.png
+zhuan_*.png
+main.tex.pre_rewrite_*
 
 # Local agent instructions are machine-specific and should not be committed.
 AGENTS.md
@@ -26,3 +31,7 @@ src/tests/real_projects/test_real_project_execution_handoff_analyze_compare.ts
 src/tests/real_projects/test_real_project_execution_handoff_analyze_once.ts
 src/tests/real_projects/test_real_project_execution_handoff_merge_perf.ts
 src/tests/real_projects/test_real_project_execution_handoff_probe.ts
+src/tests/tools/test_real_project_paper_chain.ts
+src/tools/real_project_paper_chain.ts
+src/tools/real_project_paper_chain_lib.ts
+src/tools/real_project_paper_inventory.ts

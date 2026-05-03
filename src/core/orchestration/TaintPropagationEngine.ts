@@ -34,13 +34,19 @@ import {
     materializeEagerSyntheticInvokeSites,
     materializeSyntheticInvokeSitesForNode,
     materializeAllSyntheticInvokeSites,
+    EXCLUDE_ALL_DEFERRED_SYNTHETIC_INVOKE_SITES,
     SyntheticInvokeEdgeInfo,
     SyntheticConstructorStoreInfo,
     SyntheticFieldBridgeInfo,
     SyntheticStaticInitStoreInfo,
     SyntheticInvokeLazyMaterializer
 } from "../kernel/builders/SyntheticInvokeEdgeBuilder";
-import { FactRuleChain, WorklistSolver, WorklistSolverDeps } from "../kernel/propagation/WorklistSolver";
+import {
+    FactRuleChain,
+    WorklistBudgetTruncation,
+    WorklistSolver,
+    WorklistSolverDeps,
+} from "../kernel/propagation/WorklistSolver";
 import {
     createEmptySinkDetectProfile,
     detectSinks as runSinkDetector,
@@ -127,6 +133,9 @@ export interface DebugOptions {
     enableWorklistProfile?: boolean;
     enablePropagationTrace?: boolean;
     propagationTraceMaxEdges?: number;
+    worklistMaxDequeues?: number;
+    worklistMaxVisited?: number;
+    worklistMaxElapsedMs?: number;
 }
 
 export interface ArkMainSeedOptions {
@@ -142,6 +151,7 @@ export interface ArkMainSeedReport {
 
 export interface TaintEngineOptions {
     contextStrategy?: "fixed" | "adaptive";
+    executionHandoff?: "enabled" | "disabled";
     adaptiveContext?: AdaptiveContextSelectorOptions;
     transferRules?: TransferRule[];
     moduleSpecFiles?: string[];
@@ -275,6 +285,7 @@ export class TaintPropagationEngine {
     private detectProfile: SinkDetectProfile = createEmptySinkDetectProfile();
     private keyedRouteMismatchCache: Map<string, boolean> = new Map();
     private routePushKeyCache: Map<string, Set<string>> = new Map();
+    private lastWorklistTruncation?: WorklistBudgetTruncation;
     private activePagCacheEntry?: PagBuildCacheEntry;
     private executionHandoffSnapshot?: ExecutionHandoffContractSnapshot;
     private executionHandoffDeferredSiteKeys?: Set<string>;
@@ -476,7 +487,10 @@ export class TaintPropagationEngine {
         this.moduleRuntimeKey = nextKey;
         this.moduleRuntimePag = this.pag;
         if (this.activePagCacheEntry && this.cg && this.pag) {
-            this.rebuildExecutionHandoffLayer(this.activePagCacheEntry);
+            this.rebuildExecutionHandoffLayer(
+                this.activePagCacheEntry,
+                this.options.executionHandoff !== "disabled",
+            );
         }
     }
 
@@ -511,12 +525,12 @@ export class TaintPropagationEngine {
         };
     }
 
-    private configureExecutionHandoffLayer(cacheEntry: PagBuildCacheEntry): void {
+    private configureExecutionHandoffLayer(cacheEntry: PagBuildCacheEntry, emitEdges: boolean = true): void {
         this.refreshModuleRuntime();
-        this.rebuildExecutionHandoffLayer(cacheEntry);
+        this.rebuildExecutionHandoffLayer(cacheEntry, emitEdges);
     }
 
-    private rebuildExecutionHandoffLayer(cacheEntry: PagBuildCacheEntry): void {
+    private rebuildExecutionHandoffLayer(cacheEntry: PagBuildCacheEntry, emitEdges: boolean = true): void {
         const contracts = buildExecutionHandoffContracts(
             this.scene,
             this.cg,
@@ -528,6 +542,9 @@ export class TaintPropagationEngine {
             const siteKey = buildExecutionHandoffSiteKeyFromRecord(contract);
             deferredSiteKeys.add(siteKey);
         }
+        if (!emitEdges) {
+            deferredSiteKeys.add(EXCLUDE_ALL_DEFERRED_SYNTHETIC_INVOKE_SITES);
+        }
 
         this.executionHandoffDeferredSiteKeys = deferredSiteKeys;
         cacheEntry.executionHandoffDeferredSiteKeys = new Set(deferredSiteKeys);
@@ -536,6 +553,11 @@ export class TaintPropagationEngine {
         this.executionHandoffSnapshot = snapshot;
         cacheEntry.executionHandoffSnapshot = this.cloneExecutionHandoffSnapshot(snapshot);
         this.log(`[ExecutionHandoff] contracts=${snapshot.totalContracts}`);
+
+        if (!emitEdges) {
+            this.log("[ExecutionHandoff] edge emission disabled; deferred sites are retained for baseline filtering.");
+            return;
+        }
 
         const contractEdges = buildExecutionHandoffSyntheticInvokeEdges(
             contracts,
@@ -570,6 +592,8 @@ export class TaintPropagationEngine {
                     edge.callSiteId,
                     edge.callerSignature || "",
                     edge.calleeSignature || "",
+                    edge.originTag || "",
+                    edge.handoffId || "",
                 ].join("|")),
             );
             for (const edge of edges) {
@@ -580,6 +604,8 @@ export class TaintPropagationEngine {
                     edge.callSiteId,
                     edge.callerSignature || "",
                     edge.calleeSignature || "",
+                    edge.originTag || "",
+                    edge.handoffId || "",
                 ].join("|");
                 if (seen.has(key)) continue;
                 seen.add(key);
@@ -662,6 +688,7 @@ export class TaintPropagationEngine {
     }
 
     public async buildPAG(options: BuildPAGOptions = {}): Promise<void> {
+        this.log("[buildPAG] start");
         this.resetPropagationState();
         this.moduleRuntime = undefined;
         this.moduleRuntimeKey = undefined;
@@ -672,6 +699,7 @@ export class TaintPropagationEngine {
         this.currentEntryModel = entryModel;
         const explicitSyntheticEntries = this.normalizeSyntheticEntryMethods(options.syntheticEntryMethods);
         this.explicitEntryScopeMethodSignatures = this.resolveExplicitEntryScope(explicitSyntheticEntries);
+        this.log("[buildPAG] arkmain plan start");
         const arkMainPlan = entryModel === "arkMain"
             ? buildArkMainPlan(this.scene, {
                 seedMethods: explicitSyntheticEntries,
@@ -679,6 +707,7 @@ export class TaintPropagationEngine {
                 seededFacts: this.options.arkMainSeeds?.facts,
             })
             : undefined;
+        this.log("[buildPAG] arkmain plan done");
         this.arkMainSeedReport = entryModel === "arkMain"
             ? {
                 enabled: Boolean(
@@ -690,7 +719,7 @@ export class TaintPropagationEngine {
             }
             : undefined;
         this.activeOrderedMethodSignatures = entryModel === "arkMain"
-            ? (arkMainPlan?.orderedMethods || []).map(method => method?.getSignature?.()?.toString?.()).filter((sig): sig is string => !!sig)
+            ? (arkMainPlan?.orderedMethods || []).map(method => safeMethodSignatureText(method)).filter((sig): sig is string => !!sig)
             : undefined;
         this.autoEntrySourceRules = entryModel === "arkMain"
             ? this.buildAutoEntrySourceRules(arkMainPlan)
@@ -710,10 +739,12 @@ export class TaintPropagationEngine {
                 arkMainPlan,
             )
             : explicitSyntheticEntries;
+        const executionHandoffEnabled = this.options.executionHandoff !== "disabled";
+        const handoffKey = executionHandoffEnabled ? "handoff|enabled" : "handoff|disabled";
         const syntheticKey = syntheticEntryMethods.length > 0
-            ? `synthetic|${syntheticEntryMethods.map(method => method.getSignature().toString()).join("||")}`
+            ? `synthetic|${syntheticEntryMethods.map(method => safeMethodSignatureText(method)).filter(Boolean).join("||")}`
             : "pure";
-        const cacheKey = `entryModel|${entryModel}|${syntheticKey}|modules|${this.buildModulePlanCacheKey()}`;
+        const cacheKey = `entryModel|${entryModel}|${syntheticKey}|${handoffKey}|modules|${this.buildModulePlanCacheKey()}`;
         const sceneCache = this.getPagBuildCacheForScene();
         const cached = sceneCache.get(cacheKey);
         if (cached) {
@@ -745,20 +776,27 @@ export class TaintPropagationEngine {
             return;
         }
 
+        this.log("[buildPAG] callgraph scene start");
         const cg = new CallGraph(this.scene);
         const cgBuilder = new CallGraphBuilder(cg, this.scene);
         cgBuilder.buildDirectCallGraphForScene();
+        this.log("[buildPAG] callgraph scene done");
         const pag = new Pag();
         resetPagNodeResolutionAudit(pag);
         const config = PointerAnalysisConfig.create(0, "./out", false, false, false);
         this.pta = new PointerAnalysis(pag, cg, this.scene, config);
+        this.log("[buildPAG] synthetic root start");
         const { syntheticRootMethod, cleanup } = this.createSyntheticEntry(entryModel, syntheticEntryMethods);
         try {
+            this.log("[buildPAG] direct callgraph root start");
             cgBuilder.buildDirectCallGraph([syntheticRootMethod]);
+            this.log("[buildPAG] direct callgraph root done");
             const syntheticRootMethodId = cg.getCallGraphNodeByMethod(syntheticRootMethod.getSignature()).getID();
             cg.setDummyMainFuncID(syntheticRootMethodId);
             this.pta.setEntries([syntheticRootMethodId]);
+            this.log("[buildPAG] pointer analysis start");
             this.pta.start();
+            this.log("[buildPAG] pointer analysis done");
         } finally {
             cleanup();
         }
@@ -768,14 +806,18 @@ export class TaintPropagationEngine {
         this.log(`PAG nodes: ${this.pag.getNodeNum()}, edges: ${this.pag.getEdgeNum()}`);
         this.log(`CG nodes: ${this.cg.getNodeNum()}, edges: ${this.cg.getEdgeNum()}`);
 
+        this.log("[buildPAG] indexes start");
         this.fieldToVarIndex = buildFieldToVarIndex(this.pag, this.log.bind(this));
         this.callEdgeMap = buildCallEdgeMap(this.scene, this.cg, this.pag, this.log.bind(this));
         this.receiverFieldBridgeMap = buildReceiverFieldBridgeMap(this.scene, this.cg, this.pag, this.log.bind(this));
+        this.log("[buildPAG] indexes done");
         this.captureEdgeMap = new Map<number, CaptureEdgeInfo[]>();
         this.syntheticInvokeEdgeMap = new Map<number, SyntheticInvokeEdgeInfo[]>();
+        this.log("[buildPAG] synthetic summaries start");
         this.syntheticConstructorStoreMap = buildSyntheticConstructorStoreMap(this.scene, this.cg, this.pag, this.log.bind(this));
         this.syntheticStaticInitStoreMap = buildSyntheticStaticInitStoreMap(this.scene, this.cg, this.pag, this.log.bind(this));
         this.syntheticFieldBridgeMap = buildSyntheticFieldBridgeMap(this.scene, this.cg, this.pag, this.log.bind(this));
+        this.log("[buildPAG] synthetic summaries done");
         const cacheEntry: PagBuildCacheEntry = {
             pag: this.pag,
             cg: this.cg,
@@ -795,7 +837,10 @@ export class TaintPropagationEngine {
             executionHandoffDeferredSiteKeys: undefined,
         };
         this.activePagCacheEntry = cacheEntry;
-        this.configureExecutionHandoffLayer(cacheEntry);
+        this.log("[buildPAG] execution handoff start");
+        this.configureExecutionHandoffLayer(cacheEntry, executionHandoffEnabled);
+        this.log("[buildPAG] execution handoff done");
+        this.log("[buildPAG] lazy materializers start");
         this.captureLazyMaterializer = buildCaptureLazyMaterializer(
             this.scene,
             this.cg,
@@ -803,11 +848,14 @@ export class TaintPropagationEngine {
             this.executionHandoffDeferredSiteKeys,
         );
         this.syntheticInvokeLazyMaterializer = buildSyntheticInvokeLazyMaterializer(this.scene, this.cg, this.pag, this.log.bind(this));
+        this.log("[buildPAG] lazy materializers done");
         cacheEntry.captureLazyMaterializer = this.captureLazyMaterializer;
         cacheEntry.syntheticInvokeLazyMaterializer = this.syntheticInvokeLazyMaterializer;
         sceneCache.set(cacheKey, cacheEntry);
         this.configureContextStrategy();
+        this.log("[buildPAG] reachable start");
         this.setActiveReachableMethodSignatures(this.computeReachableMethodSignatures());
+        this.log("[buildPAG] reachable done");
     }
 
     private resolveSyntheticEntryMethods(
@@ -830,7 +878,7 @@ export class TaintPropagationEngine {
         if (!methods || methods.length === 0) return [];
         const dedup = new Map<string, ArkMethod>();
         for (const method of methods) {
-            const signature = method?.getSignature?.()?.toString?.();
+            const signature = safeMethodSignatureText(method);
             if (!signature || dedup.has(signature)) continue;
             dedup.set(signature, method);
         }
@@ -840,7 +888,7 @@ export class TaintPropagationEngine {
     private mergeSyntheticEntryMethods(primary: ArkMethod[], extra: ArkMethod[]): ArkMethod[] {
         const dedup = new Map<string, ArkMethod>();
         for (const method of [...primary, ...extra]) {
-            const signature = method?.getSignature?.()?.toString?.();
+            const signature = safeMethodSignatureText(method);
             if (!signature || dedup.has(signature)) continue;
             dedup.set(signature, method);
         }
@@ -919,13 +967,16 @@ export class TaintPropagationEngine {
 
             const methodSig = this.cg.getMethodByFuncID(nodeId);
             if (methodSig) {
-                reachable.add(methodSig.toString());
+                const methodSigText = safeValueText(methodSig);
+                if (methodSigText) {
+                    reachable.add(methodSigText);
+                }
             }
 
             const node = this.cg.getNode(nodeId);
             if (!node) continue;
             for (const edge of node.getOutgoingEdges()) {
-                const dstSignature = this.cg.getMethodByFuncID(edge.getDstID())?.toString?.();
+                const dstSignature = safeValueText(this.cg.getMethodByFuncID(edge.getDstID()));
                 if (dstSignature && deferredUnitSignatures.has(dstSignature)) {
                     continue;
                 }
@@ -960,20 +1011,20 @@ export class TaintPropagationEngine {
         }
 
         const reachableMethods = this.scene.getMethods().filter(method => {
-            const signature = method?.getSignature?.()?.toString?.();
+            const signature = safeMethodSignatureText(method);
             return !!signature && reachable.has(signature);
         });
         for (const method of expandMethodsByDirectCalls(this.scene, reachableMethods, {
             includeKeyedDispatchCallbacks: false,
         })) {
-            const signature = method?.getSignature?.()?.toString?.();
+            const signature = safeMethodSignatureText(method);
             if (!signature) continue;
             reachable.add(signature);
         }
 
         const methodsBySig = new Map<string, ArkMethod>();
         for (const method of this.scene.getMethods()) {
-            const signature = method?.getSignature?.()?.toString?.();
+            const signature = safeMethodSignatureText(method);
             if (!signature) continue;
             methodsBySig.set(signature, method);
         }
@@ -1337,6 +1388,7 @@ export class TaintPropagationEngine {
     }
 
     private runWorkList(worklist: TaintFact[], visited: Set<string>): void {
+        this.lastWorklistTruncation = undefined;
         this.prepareDebugCollectors();
         const orderedTransferRules = this.orderRulesByFamilyTier([
             ...this.normalizeRuntimeTransferRules(this.options.transferRules || [], "runtime_project"),
@@ -1407,7 +1459,26 @@ export class TaintPropagationEngine {
             onCallEdge: (event) => propagationHooks.onCallEdge(event),
             onTaintFlow: (event) => propagationHooks.onTaintFlow(event),
             onMethodReached: (event) => propagationHooks.onMethodReached(event),
+            budget: this.buildWorklistBudget(),
             log: this.log.bind(this),
+        };
+    }
+
+    private buildWorklistBudget(): WorklistSolverDeps["budget"] | undefined {
+        const maxDequeues = this.options.debug?.worklistMaxDequeues;
+        const maxVisited = this.options.debug?.worklistMaxVisited;
+        const maxElapsedMs = this.options.debug?.worklistMaxElapsedMs;
+        if (!maxDequeues && !maxVisited && !maxElapsedMs) {
+            return undefined;
+        }
+        this.log(`[WorklistBudget] enabled maxDequeues=${maxDequeues || 0} maxVisited=${maxVisited || 0} maxElapsedMs=${maxElapsedMs || 0}`);
+        return {
+            maxDequeues,
+            maxVisited,
+            maxElapsedMs,
+            onTruncated: (event) => {
+                this.lastWorklistTruncation = event;
+            },
         };
     }
 
@@ -1637,7 +1708,7 @@ export class TaintPropagationEngine {
             const declaringStmt: any = nodeValue?.getDeclaringStmt?.();
             const cfg = declaringStmt?.getCfg?.();
             const declaringMethod = cfg?.getDeclaringMethod?.();
-            const methodSig = declaringMethod?.getSignature?.()?.toString?.();
+            const methodSig = safeMethodSignatureText(declaringMethod);
             if (methodSig) {
                 recovered.add(methodSig);
             }
@@ -1645,7 +1716,7 @@ export class TaintPropagationEngine {
             if (clsName) {
                 recoveredClassNames.add(clsName);
             }
-            const methodSigText = declaringMethod?.getSignature?.()?.toString?.() || "";
+            const methodSigText = safeMethodSignatureText(declaringMethod);
             const filePath = extractFilePathFromSignature(methodSigText);
             if (filePath) {
                 recoveredFilePaths.add(filePath);
@@ -1655,7 +1726,7 @@ export class TaintPropagationEngine {
             for (const method of this.scene.getMethods()) {
                 const clsName = method.getDeclaringArkClass?.()?.getName?.();
                 if (!clsName || !recoveredClassNames.has(clsName)) continue;
-                const sig = method.getSignature?.()?.toString?.();
+                const sig = safeMethodSignatureText(method);
                 if (sig) {
                     recovered.add(sig);
                 }
@@ -1663,7 +1734,7 @@ export class TaintPropagationEngine {
         }
         if (recoveredFilePaths.size > 0) {
             for (const method of this.scene.getMethods()) {
-                const sig = method.getSignature?.()?.toString?.() || "";
+                const sig = safeMethodSignatureText(method);
                 const filePath = extractFilePathFromSignature(sig);
                 if (!filePath || !recoveredFilePaths.has(filePath)) continue;
                 if (sig) recovered.add(sig);
@@ -1728,7 +1799,8 @@ export class TaintPropagationEngine {
                 const className = signature?.getDeclaringClassSignature?.()?.getClassName?.() || "";
                 return methodName === "getParams" && (className === "Router" || className === "NavPathStack");
             })
-            .map(method => method.getSignature().toString());
+            .map(method => safeMethodSignatureText(method))
+            .filter((signature): signature is string => !!signature);
         for (const signature of navigationGetterSignatures) {
             addGlobalCallReturnRule(
                 "navigation_context",
@@ -1740,7 +1812,7 @@ export class TaintPropagationEngine {
         const lifecycleFacts = arkMainPlan?.facts || [];
         const lifecycleOwnerMethods = new Map<string, { className: string; methodName: string }>();
         for (const fact of lifecycleFacts) {
-            const methodSignature = fact.method.getSignature?.()?.toString?.();
+            const methodSignature = safeMethodSignatureText(fact.method);
             const className = fact.method.getDeclaringArkClass?.()?.getName?.() || "";
             const methodName = fact.method.getName?.() || "";
             if (!methodSignature || !className || !methodName) continue;
@@ -1754,7 +1826,8 @@ export class TaintPropagationEngine {
                 const className = signature?.getDeclaringClassSignature?.()?.getClassName?.() || "";
                 return methodName === "getContext" && className === "SystemEnv";
             })
-            .map(method => method.getSignature().toString());
+            .map(method => safeMethodSignatureText(method))
+            .filter((signature): signature is string => !!signature);
         for (const getterSignature of systemContextGetterSignatures) {
             for (const [ownerSignature, ownerMeta] of lifecycleOwnerMethods.entries()) {
                 if (ownerMeta.methodName !== "onCreate") continue;
@@ -2058,6 +2131,12 @@ export class TaintPropagationEngine {
         return this.worklistProfiler.snapshot();
     }
 
+    public getWorklistTruncation(): WorklistBudgetTruncation | undefined {
+        return this.lastWorklistTruncation
+            ? { ...this.lastWorklistTruncation }
+            : undefined;
+    }
+
     public getPropagationTraceDot(graphName: string = "arktaint_propagation"): string | undefined {
         if (!this.propagationTrace) return undefined;
         return this.propagationTrace.toDot(graphName);
@@ -2105,7 +2184,7 @@ export class TaintPropagationEngine {
         const expandedMethods = expandEntryMethodsByDirectCalls(this.scene, seedMethods);
         const signatures = new Set<string>();
         for (const method of expandedMethods) {
-            const signature = method.getSignature?.()?.toString?.();
+            const signature = safeMethodSignatureText(method);
             if (!signature) continue;
             signatures.add(signature);
         }
@@ -2136,6 +2215,22 @@ export class TaintPropagationEngine {
             .join("||");
     }
 
+}
+
+function safeMethodSignatureText(method: any): string {
+    try {
+        return method?.getSignature?.()?.toString?.() || "";
+    } catch {
+        return "";
+    }
+}
+
+function safeValueText(value: any): string {
+    try {
+        return String(value?.toString?.() || value || "");
+    } catch {
+        return "";
+    }
 }
 
 function extractFilePathFromSignature(signature: string): string {

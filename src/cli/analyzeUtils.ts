@@ -9,7 +9,10 @@ export interface FlowRuleTrace {
     sourceRuleId?: string;
     sinkRuleId?: string;
     sinkEndpoint?: string;
+    sinkNodeId?: number;
+    sinkFieldPath?: string[];
     transferRuleIds: string[];
+    handoffMarkers?: string[];
 }
 
 export function extractArkFileFromSignature(signature: string): string | undefined {
@@ -61,13 +64,17 @@ export function detectFlows(
 
     const pushFlowTrace = (key: string, flow: TaintFlow): void => {
         if (flowTraceMap.has(key)) return;
+        const transferRuleIds = [...new Set(flow.transferRuleIds || [])].sort();
         flowTraceMap.set(key, {
             source: flow.source,
             sink: flow.sink.toString(),
             sourceRuleId: flow.sourceRuleId || parseSourceRuleId(flow.source),
             sinkRuleId: flow.sinkRuleId,
             sinkEndpoint: flow.sinkEndpoint,
-            transferRuleIds: [...new Set(flow.transferRuleIds || [])].sort(),
+            sinkNodeId: flow.sinkNodeId,
+            sinkFieldPath: flow.sinkFieldPath ? [...flow.sinkFieldPath] : undefined,
+            transferRuleIds,
+            handoffMarkers: transferRuleIds.filter(ruleId => ruleId.startsWith("ude.handoff.")),
         });
     };
 

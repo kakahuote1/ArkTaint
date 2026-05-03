@@ -385,7 +385,7 @@ function inferModuleSpec(anchor: SemanticFlowAnchor, summary: SemanticFlowSummar
         from: toModuleEndpoint(anchor, transfer.from),
         to: toModuleEndpoint(anchor, transfer.to),
         constraints: normalizeModuleConstraints(summary.relations?.constraints),
-        dispatch: summary.relations?.trigger ? toModuleDispatch(anchor, summary) : undefined,
+        dispatch: summary.relations?.trigger ? toModuleDispatch(anchor, summary, transfer) : undefined,
     }));
     return canonicalizeAndValidate({
         id: sanitizeId(`semanticflow.${anchor.id}`),
@@ -411,14 +411,21 @@ function canonicalizeAndValidate(spec: ModuleSpec): ModuleSpec {
     return canonicalizeModuleSpec(spec);
 }
 
-function toModuleDispatch(anchor: SemanticFlowAnchor, summary: SemanticFlowSummary): ModuleDispatch {
+function toModuleDispatch(
+    anchor: SemanticFlowAnchor,
+    summary: SemanticFlowSummary,
+    transfer?: SemanticFlowSummary["transfers"][number],
+): ModuleDispatch {
     const trigger = summary.relations?.trigger;
     if (!trigger) {
         throw new Error(`missing trigger for ${anchor.id}`);
     }
+    const via = transfer?.to.slot === "callback_param"
+        ? undefined
+        : trigger.via ? toModuleEndpoint(anchor, trigger.via) : undefined;
     return {
         preset: trigger.preset,
-        via: trigger.via ? toModuleEndpoint(anchor, trigger.via) : undefined,
+        via,
         reason: trigger.reason,
     };
 }

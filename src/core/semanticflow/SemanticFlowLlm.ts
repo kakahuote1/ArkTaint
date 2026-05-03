@@ -13,6 +13,11 @@ import {
     SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION,
 } from "./SemanticFlowPrompt";
 import { buildSemanticFlowDecisionCacheKey, type SemanticFlowSessionCache } from "./SemanticFlowSessionCache";
+import {
+    buildSemanticFlowSlotAliasLookup,
+    canonicalSlotAliasKey,
+    cloneSlotRef,
+} from "./SemanticFlowSlotAliases";
 import type {
     SemanticFlowArtifactClass,
     SemanticFlowBudgetClass,
@@ -40,7 +45,11 @@ export interface SemanticFlowModelInvokerInput {
 export type SemanticFlowModelInvoker = (input: SemanticFlowModelInvokerInput) => Promise<string>;
 
 export const SEMANTIC_FLOW_LLM_TEMPERATURE = 0;
-export const SEMANTIC_FLOW_DECISION_PARSER_SCHEMA_VERSION = 2;
+export const SEMANTIC_FLOW_DECISION_PARSER_SCHEMA_VERSION = 11;
+
+export interface SemanticFlowParseOptions {
+    slotAliases?: Map<string, SemanticFlowSurfaceSlotRef>;
+}
 
 export interface CreateSemanticFlowLlmDeciderOptions {
     modelInvoker: SemanticFlowModelInvoker;
@@ -80,6 +89,9 @@ export function createSemanticFlowLlmDecider(options: CreateSemanticFlowLlmDecid
             if (cachedDecision) {
                 return cachedDecision;
             }
+            const parseOptions: SemanticFlowParseOptions = {
+                slotAliases: buildSemanticFlowSlotAliasLookup(input),
+            };
             let raw = await options.modelInvoker({
                 system: prompt.system,
                 user: prompt.user,
@@ -90,7 +102,7 @@ export function createSemanticFlowLlmDecider(options: CreateSemanticFlowLlmDecid
                 try {
                     const parseStartedAt = Date.now();
                     console.log(`semanticflow_llm=parse_start anchor=${input.anchor.id} round=${input.round} attempt=${attempt} raw_chars=${String(raw || "").length}`);
-                    const decision = parseSemanticFlowDecision(raw);
+                    const decision = parseSemanticFlowDecision(raw, parseOptions);
                     console.log(`semanticflow_llm=parse_done anchor=${input.anchor.id} round=${input.round} attempt=${attempt} elapsed_ms=${Date.now() - parseStartedAt} status=${decision.status}`);
                     if (decisionCacheKey) {
                         cache!.storeDecision(decisionCacheKey, decision);
@@ -118,9 +130,9 @@ export function createSemanticFlowLlmDecider(options: CreateSemanticFlowLlmDecid
     };
 }
 
-export function parseSemanticFlowDecision(raw: string): SemanticFlowDecision {
+export function parseSemanticFlowDecision(raw: string, options: SemanticFlowParseOptions = {}): SemanticFlowDecision {
     const parsed = parseLlmJsonObject(raw);
-    return normalizeDecision(parsed);
+    return normalizeDecision(parsed, options);
 }
 
 function parseLlmJsonObject(raw: string): unknown {
@@ -182,7 +194,7 @@ const SEMANTIC_FLOW_TRANSFER_RELATIONS = [
     "binding",
 ] as const;
 
-function normalizeDecision(value: unknown): SemanticFlowDecision {
+function normalizeDecision(value: unknown, options: SemanticFlowParseOptions): SemanticFlowDecision {
     const obj = expectRecord(value, "decision");
     const status = normalizeDecisionStatus(obj.status);
 
@@ -203,8 +215,8 @@ function normalizeDecision(value: unknown): SemanticFlowDecision {
     if (status === "need-more-evidence") {
         return {
             status: "need-more-evidence",
-            draft: normalizeSummary(obj.draft),
-            request: normalizeRequest(obj.request),
+            draft: normalizeSummary(obj.draft, undefined, options),
+            request: normalizeRequest(obj.request, options),
         };
     }
 
@@ -212,9 +224,12 @@ function normalizeDecision(value: unknown): SemanticFlowDecision {
         throw new Error(`decision.status must be "done", "need-more-evidence", or "reject". Got: ${status}`);
     }
 
-    const classification = normalizeClassification(obj.classification);
-    const summaryRuleKind = obj.summary && typeof obj.summary === "object" && !Array.isArray(obj.summary)
-        ? normalizeOptionalEnum((obj.summary as Record<string, unknown>).ruleKind, "decision.summary.ruleKind", [
+    let classification = normalizeClassification(obj.classification);
+    const normalizedShape = normalizeDoneDecisionShape(obj, classification);
+    classification = normalizedShape.classification;
+    const summaryInput = normalizedShape.summary;
+    const summaryRuleKind = summaryInput && typeof summaryInput === "object" && !Array.isArray(summaryInput)
+        ? normalizeOptionalEnum((summaryInput as Record<string, unknown>).ruleKind, "decision.summary.ruleKind", [
             "source",
             "sink",
             "sanitizer",
@@ -227,11 +242,19 @@ function normalizeDecision(value: unknown): SemanticFlowDecision {
     }
     const resolution = resolutionText as Exclude<SemanticFlowResolution, "rejected" | "unresolved">;
 
+    let artifactClassification = resolution === "resolved" ? classification : undefined;
+    const summaryForResolution = normalizeDoneSummaryForResolution(summaryInput, resolution);
+    let summary = normalizeSummary(summaryForResolution, artifactClassification, options);
+    const liftedSummary = tryLiftRuleTransferWithModuleOnlySlots(artifactClassification, summary);
+    if (liftedSummary) {
+        artifactClassification = "module";
+        summary = liftedSummary;
+    }
     const decision: SemanticFlowDecision = {
         status: "done",
         resolution,
-        classification,
-        summary: normalizeSummary(obj.summary, classification),
+        classification: artifactClassification,
+        summary,
         rationale: normalizeStringArray(obj.rationale),
     };
     if (resolution === "resolved" && !decision.classification) {
@@ -239,6 +262,88 @@ function normalizeDecision(value: unknown): SemanticFlowDecision {
     }
     validateDoneDecisionConsistency(decision);
     return decision;
+}
+
+function tryLiftRuleTransferWithModuleOnlySlots(
+    classification: SemanticFlowArtifactClass | undefined,
+    summary: SemanticFlowSummary,
+): SemanticFlowSummary | undefined {
+    const transfers = summary.transfers.map(transfer => normalizeBareDecoratedFieldTransfer(summary, transfer));
+    const convertedBareDecoratedField = transfers.some((transfer, index) => transfer !== summary.transfers[index]);
+    if (
+        classification !== "rule"
+        || summary.ruleKind !== "transfer"
+        || (
+            !convertedBareDecoratedField
+            && !transfers.some(transfer => isModuleOnlySlot(transfer.from) || isModuleOnlySlot(transfer.to))
+        )
+    ) {
+        return undefined;
+    }
+    return {
+        ...summary,
+        transfers,
+        ruleKind: undefined,
+        sourceKind: undefined,
+        moduleKind: summary.moduleKind ?? "bridge",
+    };
+}
+
+function normalizeBareDecoratedFieldTransfer(
+    summary: SemanticFlowSummary,
+    transfer: SemanticFlowTransfer,
+): SemanticFlowTransfer {
+    if (transfer.to.slot !== "decorated_field_value" || transfer.to.surface) {
+        return transfer;
+    }
+    const carrierPath = inferCarrierFieldPath(summary.relations?.carrier?.label);
+    if (carrierPath.length === 0) {
+        return transfer;
+    }
+    const sourceTail = Array.isArray(transfer.from.fieldPath) && transfer.from.fieldPath.length > 0
+        ? transfer.from.fieldPath[transfer.from.fieldPath.length - 1]
+        : undefined;
+    const fieldPath = sourceTail && carrierPath[carrierPath.length - 1] !== sourceTail
+        ? [...carrierPath, sourceTail]
+        : carrierPath;
+    return {
+        ...transfer,
+        to: {
+            slot: "base",
+            fieldPath,
+        },
+    };
+}
+
+function inferCarrierFieldPath(label?: string): string[] {
+    const normalized = String(label || "").trim().replace(/^this\./i, "");
+    if (!normalized) {
+        return [];
+    }
+    const parts = normalized.split(".").map(part => part.trim()).filter(Boolean);
+    if (parts.length === 0 || parts.some(part => !/^[A-Za-z_$][\w$]*$/.test(part))) {
+        return [];
+    }
+    return parts;
+}
+
+function normalizeDoneSummaryForResolution(
+    summary: unknown,
+    resolution: Exclude<SemanticFlowResolution, "rejected" | "unresolved">,
+): unknown {
+    if (resolution === "resolved" || !isPlainRecord(summary)) {
+        return summary;
+    }
+    const transfers = summary.transfers;
+    if (Array.isArray(transfers) && transfers.length > 0) {
+        return summary;
+    }
+    const out: Record<string, unknown> = { ...summary };
+    delete out.ruleKind;
+    delete out.sourceKind;
+    delete out.moduleKind;
+    delete out.moduleSpec;
+    return out;
 }
 
 function normalizeClassification(value: unknown): SemanticFlowArtifactClass | undefined {
@@ -256,7 +361,223 @@ function normalizeClassification(value: unknown): SemanticFlowArtifactClass | un
     throw new Error(`decision.classification invalid: ${text}`);
 }
 
-function normalizeRequest(value: unknown): SemanticFlowExpansionRequest {
+function normalizeDoneDecisionShape(
+    obj: Record<string, unknown>,
+    classification: SemanticFlowArtifactClass | undefined,
+): { classification: SemanticFlowArtifactClass | undefined; summary: unknown } {
+    const summary = normalizeTopLevelSummaryFields(obj);
+    if (classification !== "module") {
+        return {
+            classification,
+            summary,
+        };
+    }
+    const summaryObj = isPlainRecord(summary) ? summary : undefined;
+    const moduleSpecCandidate = obj.moduleSpec !== undefined
+        ? obj.moduleSpec
+        : summaryObj?.moduleSpec;
+    const sourceRuleSummary = tryBuildSourceRuleSummaryFromModuleSpecDrift(moduleSpecCandidate, summary);
+    if (sourceRuleSummary) {
+        return {
+            classification: "rule",
+            summary: sourceRuleSummary,
+        };
+    }
+    const transferSummary = tryBuildTransferSummaryFromModuleSpecDrift(moduleSpecCandidate, summary);
+    if (transferSummary) {
+        return transferSummary;
+    }
+    const sourceRuleOutputSummary = tryBuildSourceRuleSummaryFromModuleOutputDrift(summary);
+    if (sourceRuleOutputSummary) {
+        return {
+            classification: "rule",
+            summary: sourceRuleOutputSummary,
+        };
+    }
+    if (obj.moduleSpec !== undefined && summaryObj) {
+        return {
+            classification,
+            summary: {
+                ...summaryObj,
+                moduleSpec: Object.prototype.hasOwnProperty.call(summaryObj, "moduleSpec")
+                    ? summaryObj.moduleSpec
+                    : obj.moduleSpec,
+            },
+        };
+    }
+    return {
+        classification,
+        summary,
+    };
+}
+
+function normalizeTopLevelSummaryFields(obj: Record<string, unknown>): unknown {
+    if (!isPlainRecord(obj.summary)) {
+        return obj.summary;
+    }
+    let out: Record<string, unknown> | undefined;
+    const ensureOut = (): Record<string, unknown> => {
+        if (!out) {
+            out = { ...obj.summary as Record<string, unknown> };
+        }
+        return out;
+    };
+    for (const key of ["ruleKind", "sourceKind", "moduleKind"] as const) {
+        if (
+            obj[key] !== undefined
+            && !Object.prototype.hasOwnProperty.call(obj.summary, key)
+        ) {
+            ensureOut()[key] = obj[key];
+        }
+    }
+    return out || obj.summary;
+}
+
+function tryBuildSourceRuleSummaryFromModuleOutputDrift(
+    summary: unknown,
+): Record<string, unknown> | undefined {
+    if (!isPlainRecord(summary) || summary.moduleSpec !== undefined) {
+        return undefined;
+    }
+    const inputs = summary.inputs ?? [];
+    const outputs = summary.outputs ?? [];
+    const transfers = summary.transfers ?? [];
+    if (!Array.isArray(inputs) || inputs.length > 0) {
+        return undefined;
+    }
+    if (!Array.isArray(outputs) || outputs.length === 0) {
+        return undefined;
+    }
+    if (!Array.isArray(transfers) || transfers.length > 0) {
+        return undefined;
+    }
+    return {
+        ...summary,
+        inputs,
+        outputs,
+        transfers: [],
+        confidence: summary.confidence ?? "medium",
+        ruleKind: "source",
+        sourceKind: summary.sourceKind,
+        relations: undefined,
+        moduleKind: undefined,
+        moduleSpec: undefined,
+        entryPattern: undefined,
+    };
+}
+
+function tryBuildSourceRuleSummaryFromModuleSpecDrift(
+    moduleSpec: unknown,
+    summary: unknown,
+): Record<string, unknown> | undefined {
+    const semantic = extractSingleSourceLikeSemantic(moduleSpec);
+    if (!semantic) {
+        return undefined;
+    }
+    const summaryObj = isPlainRecord(summary) ? summary : {};
+    const inputs = summaryObj.inputs ?? [];
+    const transfers = summaryObj.transfers ?? [];
+    const outputs = summaryObj.outputs
+        ?? semantic.outputs
+        ?? semantic.output
+        ?? (semantic.ret !== undefined ? ["ret"] : undefined);
+    if (!Array.isArray(inputs) || inputs.length > 0) {
+        return undefined;
+    }
+    if (!Array.isArray(transfers) || transfers.length > 0) {
+        return undefined;
+    }
+    if (!Array.isArray(outputs) || outputs.length === 0) {
+        return undefined;
+    }
+    const confidence = summaryObj.confidence ?? semantic.confidence ?? "medium";
+    return {
+        ...summaryObj,
+        inputs,
+        outputs,
+        transfers: [],
+        confidence,
+        ruleKind: "source",
+        sourceKind: summaryObj.sourceKind ?? semantic.sourceKind,
+        relations: undefined,
+        moduleKind: undefined,
+        moduleSpec: undefined,
+    };
+}
+
+function extractSingleSourceLikeSemantic(value: unknown): Record<string, unknown> | undefined {
+    const semantic = extractSingleInlineSemantic(value);
+    return semantic && typeof semantic.kind === "string" && canonicalToken(semantic.kind) === "source"
+        ? semantic
+        : undefined;
+}
+
+function tryBuildTransferSummaryFromModuleSpecDrift(
+    moduleSpec: unknown,
+    summary: unknown,
+): { classification: SemanticFlowArtifactClass | undefined; summary: Record<string, unknown> } | undefined {
+    const semantic = extractSingleInlineSemantic(moduleSpec);
+    if (!semantic || typeof semantic.kind !== "string" || canonicalToken(semantic.kind) !== "transfer") {
+        return undefined;
+    }
+    const summaryObj = isPlainRecord(summary) ? summary : {};
+    const effect = typeof semantic.effect === "string" ? semantic.effect : "";
+    const inferred = inferCallbackTransferFromEffect(effect);
+    if (!inferred) {
+        return undefined;
+    }
+    return {
+        classification: "module",
+        summary: {
+            ...summaryObj,
+            inputs: [inferred.from],
+            outputs: [inferred.to],
+            transfers: [`${inferred.from} -> ${inferred.to}`],
+            confidence: summaryObj.confidence ?? semantic.confidence ?? "medium",
+            moduleKind: "bridge",
+            ruleKind: undefined,
+            sourceKind: undefined,
+            moduleSpec: undefined,
+            relations: undefined,
+        },
+    };
+}
+
+function extractSingleInlineSemantic(value: unknown): Record<string, unknown> | undefined {
+    if (!isPlainRecord(value)) {
+        return undefined;
+    }
+    const semantics = Array.isArray(value.semantics)
+        ? value.semantics
+        : typeof value.kind === "string"
+            ? [value]
+            : [];
+    if (semantics.length !== 1 || !isPlainRecord(semantics[0])) {
+        return undefined;
+    }
+    return semantics[0];
+}
+
+function inferCallbackTransferFromEffect(effect: string): { from: string; to: string } | undefined {
+    const text = String(effect || "");
+    const invoked = text.match(/\barg(\d+)\b[^.;,\n]*(?:is\s+)?(?:invoked|called|executed|callback)/i)
+        || text.match(/\bcallback\s*\(?\s*arg(\d+)/i);
+    if (!invoked) {
+        return undefined;
+    }
+    const callbackIndex = Number(invoked[1]);
+    const derived = text.match(/\bderived\s+from\s+(arg\d+(?:\.[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)?)/i)
+        || text.match(/\bfrom\s+(arg\d+(?:\.[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)?)/i);
+    if (!derived) {
+        return undefined;
+    }
+    return {
+        from: derived[1],
+        to: `callback${callbackIndex}.param0`,
+    };
+}
+
+function normalizeRequest(value: unknown, options: SemanticFlowParseOptions): SemanticFlowExpansionRequest {
     const obj = expectRecord(value, "decision.request");
     const kind = expectString(obj.kind, "decision.request.kind");
     if (!new Set(["q_ret", "q_recv", "q_cb", "q_comp", "q_meta", "q_wrap"]).has(kind)) {
@@ -264,7 +585,7 @@ function normalizeRequest(value: unknown): SemanticFlowExpansionRequest {
     }
     return {
         kind: kind as SemanticFlowExpansionRequest["kind"],
-        focus: normalizeDeficitFocus(obj.focus),
+        focus: normalizeDeficitFocus(obj.focus, options),
         scope: normalizeDeficitScope(obj.scope),
         budgetClass: normalizeBudgetClass(obj.budgetClass),
         why: normalizeRequiredStringArray(obj.why, "decision.request.why"),
@@ -272,11 +593,11 @@ function normalizeRequest(value: unknown): SemanticFlowExpansionRequest {
     };
 }
 
-function normalizeDeficitFocus(value: unknown): SemanticFlowDeficitFocus {
+function normalizeDeficitFocus(value: unknown, options: SemanticFlowParseOptions): SemanticFlowDeficitFocus {
     const obj = expectRecord(value, "decision.request.focus");
     const focus: SemanticFlowDeficitFocus = {
-        from: obj.from ? normalizeSlotRef(obj.from, "decision.request.focus.from") : undefined,
-        to: obj.to ? normalizeSlotRef(obj.to, "decision.request.focus.to") : undefined,
+        from: obj.from ? normalizeSlotRef(obj.from, "decision.request.focus.from", options) : undefined,
+        to: obj.to ? normalizeSlotRef(obj.to, "decision.request.focus.to", options) : undefined,
         companion: typeof obj.companion === "string" ? obj.companion.trim() || undefined : undefined,
         carrierHint: typeof obj.carrierHint === "string" ? obj.carrierHint.trim() || undefined : undefined,
         triggerHint: typeof obj.triggerHint === "string" ? obj.triggerHint.trim() || undefined : undefined,
@@ -313,7 +634,11 @@ function normalizeBudgetClass(value: unknown): SemanticFlowBudgetClass | undefin
     ) as SemanticFlowBudgetClass | undefined;
 }
 
-function normalizeSummary(value: unknown, classification?: SemanticFlowArtifactClass): SemanticFlowSummary {
+function normalizeSummary(
+    value: unknown,
+    classification: SemanticFlowArtifactClass | undefined,
+    options: SemanticFlowParseOptions,
+): SemanticFlowSummary {
     const obj = expectRecord(value, "decision.summary");
     const rawRuleKind = normalizeOptionalEnum(obj.ruleKind, "decision.summary.ruleKind", [
         "source",
@@ -321,12 +646,12 @@ function normalizeSummary(value: unknown, classification?: SemanticFlowArtifactC
         "sanitizer",
         "transfer",
     ]) as SemanticFlowSummary["ruleKind"];
-    const transfers = normalizeTransfers(obj.transfers, "decision.summary.transfers");
+    const transfers = normalizeTransfers(obj.transfers, "decision.summary.transfers", options);
     const ruleKind = normalizeRuleKindForTransfers(rawRuleKind, transfers, classification);
-    const relations = normalizeRelations(obj.relations);
+    const relations = normalizeRelations(obj.relations, options);
     const summary: SemanticFlowSummary = {
-        inputs: normalizeSlotRefs(obj.inputs, "decision.summary.inputs"),
-        outputs: normalizeSlotRefs(obj.outputs, "decision.summary.outputs"),
+        inputs: normalizeSlotRefs(obj.inputs, "decision.summary.inputs", options),
+        outputs: normalizeSlotRefs(obj.outputs, "decision.summary.outputs", options),
         transfers,
         confidence: normalizeConfidence(obj.confidence),
         ruleKind,
@@ -363,6 +688,16 @@ function normalizeRelationsForClassification(
         return relations;
     }
     if (
+        ruleKind
+        && !relations.trigger
+        && !relations.entryPattern
+        && transfers.every(transfer => !transfer.relation || transfer.relation === "direct")
+        && transfers.every(transfer => transfer.from.surface === undefined && transfer.to.surface === undefined)
+        && transfers.every(transfer => !isModuleOnlySlot(transfer.from) && !isModuleOnlySlot(transfer.to))
+    ) {
+        return undefined;
+    }
+    if (
         ruleKind === "transfer"
         && transfers.some(transfer => isFieldSensitiveTransferTarget(transfer.to))
         && !relations.trigger
@@ -388,6 +723,9 @@ function normalizeRuleKindForTransfers(
     transfers: SemanticFlowTransfer[],
     classification?: SemanticFlowArtifactClass,
 ): SemanticFlowSummary["ruleKind"] {
+    if (classification === "rule" && transfers.length > 0 && ruleKind && ruleKind !== "transfer") {
+        return "transfer";
+    }
     if (
         classification === "rule"
         && ruleKind === "sink"
@@ -417,14 +755,14 @@ function normalizeModuleSpec(value: unknown) {
     }
 }
 
-function normalizeRelations(value: unknown): SemanticFlowRelations | undefined {
+function normalizeRelations(value: unknown, options: SemanticFlowParseOptions): SemanticFlowRelations | undefined {
     if (value === undefined) return undefined;
     const obj = expectRecord(value, "decision.summary.relations");
     return {
         companions: normalizeStringArray(obj.companions),
         carrier: normalizeCarrier(obj.carrier),
-        trigger: normalizeDispatchHint(obj.trigger),
-        constraints: normalizeConstraints(obj.constraints),
+        trigger: normalizeDispatchHint(obj.trigger, options),
+        constraints: normalizeConstraints(obj.constraints, options),
         entryPattern: normalizeEntryPattern(obj.entryPattern),
     };
 }
@@ -438,7 +776,7 @@ function normalizeCarrier(value: unknown): SemanticFlowRelations["carrier"] | un
     };
 }
 
-function normalizeDispatchHint(value: unknown): SemanticFlowDispatchHint | undefined {
+function normalizeDispatchHint(value: unknown, options: SemanticFlowParseOptions): SemanticFlowDispatchHint | undefined {
     if (value === undefined) return undefined;
     const obj = expectRecord(value, "decision.summary.relations.trigger");
     const preset = normalizeOptionalEnum(
@@ -458,7 +796,7 @@ function normalizeDispatchHint(value: unknown): SemanticFlowDispatchHint | undef
     }
     return {
         preset: preset as ModuleDispatchPreset,
-        via: obj.via ? normalizeSlotRef(obj.via, "decision.summary.relations.trigger.via") : undefined,
+        via: obj.via ? normalizeSlotRef(obj.via, "decision.summary.relations.trigger.via", options) : undefined,
         reason: typeof obj.reason === "string" ? obj.reason : undefined,
     };
 }
@@ -489,19 +827,19 @@ function normalizeEntryPattern(value: unknown): SemanticFlowEntryPattern | undef
     };
 }
 
-function normalizeTransfers(value: unknown, path: string): SemanticFlowTransfer[] {
+function normalizeTransfers(value: unknown, path: string, options: SemanticFlowParseOptions): SemanticFlowTransfer[] {
     if (value === undefined) return [];
     if (!Array.isArray(value)) {
         throw new Error(`${path} must be an array`);
     }
     return value.map((item, index) => {
         if (typeof item === "string") {
-            return parseTransferShorthand(item, `${path}[${index}]`);
+            return parseTransferShorthand(item, `${path}[${index}]`, options);
         }
         const obj = expectRecord(item, `${path}[${index}]`);
         return {
-            from: normalizeSlotRef(obj.from, `${path}[${index}].from`),
-            to: normalizeSlotRef(obj.to, `${path}[${index}].to`),
+            from: normalizeSlotRef(obj.from, `${path}[${index}].from`, options),
+            to: normalizeSlotRef(obj.to, `${path}[${index}].to`, options),
             relation: normalizeOptionalEnum(
                 obj.relation,
                 `${path}[${index}].relation`,
@@ -512,17 +850,17 @@ function normalizeTransfers(value: unknown, path: string): SemanticFlowTransfer[
     });
 }
 
-function normalizeSlotRefs(value: unknown, path: string): SemanticFlowSurfaceSlotRef[] {
+function normalizeSlotRefs(value: unknown, path: string, options: SemanticFlowParseOptions): SemanticFlowSurfaceSlotRef[] {
     if (value === undefined) return [];
     if (!Array.isArray(value)) {
         throw new Error(`${path} must be an array`);
     }
-    return value.map((item, index) => normalizeSlotRef(item, `${path}[${index}]`));
+    return value.map((item, index) => normalizeSlotRef(item, `${path}[${index}]`, options));
 }
 
-function normalizeSlotRef(value: unknown, path: string): SemanticFlowSurfaceSlotRef {
+function normalizeSlotRef(value: unknown, path: string, options: SemanticFlowParseOptions): SemanticFlowSurfaceSlotRef {
     if (typeof value === "string") {
-        return parseSlotRefShorthand(value, path);
+        return parseSlotRefShorthand(value, path, options);
     }
     const obj = expectRecord(value, path);
     const slot = normalizeRequiredEnum(
@@ -621,7 +959,7 @@ function findEnumToken(tokens: string[], allowed: string[]): string | undefined 
     return undefined;
 }
 
-function normalizeConstraints(value: unknown): ModuleConstraint[] | undefined {
+function normalizeConstraints(value: unknown, options: SemanticFlowParseOptions): ModuleConstraint[] | undefined {
     if (value === undefined) return undefined;
     if (!Array.isArray(value)) {
         throw new Error("decision.summary.relations.constraints must be an array");
@@ -648,10 +986,12 @@ function normalizeConstraints(value: unknown): ModuleConstraint[] | undefined {
             left: normalizeModuleAddress(
                 obj.left,
                 `decision.summary.relations.constraints[${index}].left`,
+                options,
             ) as any,
             right: normalizeModuleAddress(
                 obj.right,
                 `decision.summary.relations.constraints[${index}].right`,
+                options,
             ) as any,
         } as ModuleConstraint);
     }
@@ -679,14 +1019,27 @@ function normalizeInlineModuleSpec(value: unknown): ModuleSpec | undefined {
 }
 
 function shouldIgnoreConstraintHint(value: unknown): boolean {
+    if (typeof value === "string") {
+        return value.trim().length > 0;
+    }
     if (!value || typeof value !== "object" || Array.isArray(value)) {
         return false;
     }
     const obj = value as Record<string, unknown>;
-    return typeof obj.description === "string" && obj.kind === undefined;
+    if (obj.kind !== undefined) {
+        return false;
+    }
+    return [
+        "description",
+        "condition",
+        "effect",
+        "reason",
+        "note",
+        "hint",
+    ].some(key => typeof obj[key] === "string" && String(obj[key]).trim().length > 0);
 }
 
-function normalizeModuleAddress(value: unknown, path: string): Record<string, unknown> {
+function normalizeModuleAddress(value: unknown, path: string, options: SemanticFlowParseOptions): Record<string, unknown> {
     const obj = expectRecord(value, path);
     const kind = normalizeRequiredEnum(
         obj.kind,
@@ -702,7 +1055,7 @@ function normalizeModuleAddress(value: unknown, path: string): Record<string, un
     if (kind === "endpoint") {
         return {
             kind,
-            endpoint: normalizeModuleEndpointAddress(obj.endpoint, `${path}.endpoint`),
+            endpoint: normalizeModuleEndpointAddress(obj.endpoint, `${path}.endpoint`, options),
         };
     }
     const surface = expectRecord(obj.surface, `${path}.surface`);
@@ -718,8 +1071,8 @@ function normalizeModuleAddress(value: unknown, path: string): Record<string, un
     };
 }
 
-function normalizeModuleEndpointAddress(value: unknown, path: string): Record<string, unknown> {
-    const ref = normalizeSlotRef(value, path);
+function normalizeModuleEndpointAddress(value: unknown, path: string, options: SemanticFlowParseOptions): Record<string, unknown> {
+    const ref = normalizeSlotRef(value, path, options);
     return {
         surface: ref.surface || "semanticflow.address",
         slot: ref.slot,
@@ -794,6 +1147,9 @@ function normalizeFieldPathPart(value: unknown, path: string): ModuleFieldPathPa
 
 function normalizeStringArray(value: unknown, path: string = "value"): string[] {
     if (value === undefined) return [];
+    if (typeof value === "string") {
+        return [expectString(value, path)];
+    }
     if (!Array.isArray(value)) {
         throw new Error(`${path} must be an array`);
     }
@@ -822,6 +1178,10 @@ function validateSummaryInternalConsistency(summary: SemanticFlowSummary): void 
 
 function validateDoneDecisionConsistency(decision: Extract<SemanticFlowDecision, { status: "done" }>): void {
     const { classification, summary } = decision;
+    if (decision.resolution !== "resolved") {
+        validateNonArtifactDoneDecision(summary);
+        return;
+    }
     if (!classification) {
         return;
     }
@@ -834,6 +1194,12 @@ function validateDoneDecisionConsistency(decision: Extract<SemanticFlowDecision,
         return;
     }
     validateModuleDoneDecision(summary);
+}
+
+function validateNonArtifactDoneDecision(summary: SemanticFlowSummary): void {
+    if (summary.transfers.length > 0) {
+        throw new Error("non-resolved decision must not include transfers; use resolution=resolved for artifact-bearing transfer summaries");
+    }
 }
 
 function validateArkMainDoneDecision(summary: SemanticFlowSummary): void {
@@ -1020,8 +1386,17 @@ function isStructuralModuleSummary(summary: SemanticFlowSummary): boolean {
         || transfer.relation === "deferred"
         || transfer.relation === "binding"
         || transfer.from.surface !== undefined
-        || transfer.to.surface !== undefined,
+        || transfer.to.surface !== undefined
+        || isModuleOnlySlot(transfer.from)
+        || isModuleOnlySlot(transfer.to),
     );
+}
+
+function isModuleOnlySlot(ref: SemanticFlowSurfaceSlotRef): boolean {
+    return ref.slot === "callback_param"
+        || ref.slot === "method_this"
+        || ref.slot === "method_param"
+        || ref.slot === "decorated_field_value";
 }
 
 function normalizeResolution(
@@ -1029,6 +1404,9 @@ function normalizeResolution(
     classification?: SemanticFlowArtifactClass,
     ruleKind?: SemanticFlowSummary["ruleKind"],
 ): string {
+    if (value === undefined && classification) {
+        return "resolved";
+    }
     const text = canonicalToken(expectString(value, "decision.resolution"));
     if (classification && ["rule", "module", "arkmain"].includes(text)) {
         return "resolved";
@@ -1043,7 +1421,7 @@ function canonicalToken(value: string): string {
     return value.trim().toLowerCase().replace(/\s+/g, "-").replace(/_/g, "-");
 }
 
-function parseTransferShorthand(value: string, path: string): SemanticFlowTransfer {
+function parseTransferShorthand(value: string, path: string, options: SemanticFlowParseOptions): SemanticFlowTransfer {
     const normalized = String(value || "").trim();
     const arrowIndex = normalized.indexOf("->");
     if (arrowIndex < 0) {
@@ -1061,8 +1439,8 @@ function parseTransferShorthand(value: string, path: string): SemanticFlowTransf
         relation = canonicalToken(relationMatch[1]) as SemanticFlowTransfer["relation"];
         fromRaw = relationMatch[2].trim();
     }
-    const from = parseSlotRefShorthand(fromRaw, `${path}.from`);
-    const to = parseSlotRefShorthand(rightRaw, `${path}.to`);
+    const from = parseSlotRefShorthand(fromRaw, `${path}.from`, options);
+    const to = parseSlotRefShorthand(rightRaw, `${path}.to`, options);
     return {
         from,
         to,
@@ -1071,11 +1449,15 @@ function parseTransferShorthand(value: string, path: string): SemanticFlowTransf
     };
 }
 
-function parseSlotRefShorthand(value: string, path: string): SemanticFlowSurfaceSlotRef {
+function parseSlotRefShorthand(value: string, path: string, options: SemanticFlowParseOptions): SemanticFlowSurfaceSlotRef {
     const normalized = String(value || "").trim();
     const bare = parseBareSlotRef(normalized);
     if (bare) {
         return bare;
+    }
+    const alias = parseContextualSlotAliasRef(normalized, options);
+    if (alias) {
+        return alias;
     }
     for (let i = normalized.lastIndexOf("."); i > 0; i = normalized.lastIndexOf(".", i - 1)) {
         const surfaceText = normalized.slice(0, i).trim();
@@ -1083,7 +1465,7 @@ function parseSlotRefShorthand(value: string, path: string): SemanticFlowSurface
         if (!surfaceText || !slotText) {
             continue;
         }
-        const suffix = parseBareSlotRef(slotText);
+        const suffix = parseBareSlotRef(slotText) || parseContextualSlotAliasRef(slotText, options);
         if (suffix) {
             return {
                 ...suffix,
@@ -1092,6 +1474,38 @@ function parseSlotRefShorthand(value: string, path: string): SemanticFlowSurface
         }
     }
     throw new Error(`${path} shorthand invalid: ${normalized}`);
+}
+
+function parseContextualSlotAliasRef(
+    value: string,
+    options: SemanticFlowParseOptions,
+): SemanticFlowSurfaceSlotRef | undefined {
+    if (!options.slotAliases || options.slotAliases.size === 0) {
+        return undefined;
+    }
+    const trimmed = String(value || "").trim();
+    const exact = options.slotAliases.get(canonicalSlotAliasKey(trimmed));
+    if (exact) {
+        return cloneSlotRef(exact);
+    }
+    const fieldMatch = trimmed.match(/^([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)$/);
+    if (!fieldMatch) {
+        return undefined;
+    }
+    const base = options.slotAliases.get(canonicalSlotAliasKey(fieldMatch[1]));
+    if (!base) {
+        return undefined;
+    }
+    const fieldPath = splitFieldPath(fieldMatch[2]);
+    if (fieldPath.length === 0) {
+        return undefined;
+    }
+    const out = cloneSlotRef(base);
+    out.fieldPath = [
+        ...(Array.isArray(out.fieldPath) ? out.fieldPath : []),
+        ...fieldPath,
+    ];
+    return out;
 }
 
 function parseBareSlotRef(value: string): SemanticFlowSurfaceSlotRef | undefined {
@@ -1170,6 +1584,10 @@ function expectRecord(value: unknown, path: string): Record<string, any> {
         throw new Error(`${path} must be an object`);
     }
     return value as Record<string, any>;
+}
+
+function isPlainRecord(value: unknown): value is Record<string, any> {
+    return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function expectString(value: unknown, path: string): string {

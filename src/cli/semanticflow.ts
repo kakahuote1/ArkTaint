@@ -53,6 +53,9 @@ export interface SemanticFlowCliOptions {
     k: number;
     stopOnFirstFlow: boolean;
     maxFlowsPerEntry?: number;
+    worklistBudgetMs?: number;
+    worklistMaxDequeues?: number;
+    worklistMaxVisited?: number;
     llmSessionCacheDir?: string;
     llmSessionCacheMode?: string;
     llmTimeoutMs?: number;
@@ -76,8 +79,14 @@ interface SemanticFlowSourceRunRecord {
     methods?: number;
     itemCount?: number;
     arkMainCandidateCount?: number;
+    arkMainIneligibleCount?: number;
     elapsedMs: number;
     error?: string;
+}
+
+interface BootstrapAnalyzeResult {
+    ruleInputPath: string;
+    run?: Awaited<ReturnType<typeof runAnalyze>>;
 }
 
 async function withAnalyzeHeartbeat<T>(
@@ -209,6 +218,9 @@ function parseArgs(argv: string[]): SemanticFlowCliOptions {
     let k = 1;
     let stopOnFirstFlow = false;
     let maxFlowsPerEntry: number | undefined;
+    let worklistBudgetMs: number | undefined;
+    let worklistMaxDequeues: number | undefined;
+    let worklistMaxVisited: number | undefined;
     let llmSessionCacheDir: string | undefined;
     let llmSessionCacheMode: string | undefined;
     let llmTimeoutMs: number | undefined;
@@ -382,6 +394,24 @@ function parseArgs(argv: string[]): SemanticFlowCliOptions {
             if (argv[i] === "--maxFlowsPerEntry") i++;
             continue;
         }
+        const worklistBudgetArg = readValue(argv, i, "--worklistBudgetMs") ?? readValue(argv, i, "--worklist-budget-ms");
+        if (worklistBudgetArg !== undefined) {
+            worklistBudgetMs = normalizeNonNegativeInt(worklistBudgetArg, "--worklistBudgetMs", 0);
+            if (argv[i] === "--worklistBudgetMs" || argv[i] === "--worklist-budget-ms") i++;
+            continue;
+        }
+        const worklistMaxDequeuesArg = readValue(argv, i, "--worklistMaxDequeues") ?? readValue(argv, i, "--worklist-max-dequeues");
+        if (worklistMaxDequeuesArg !== undefined) {
+            worklistMaxDequeues = normalizeNonNegativeInt(worklistMaxDequeuesArg, "--worklistMaxDequeues", 0);
+            if (argv[i] === "--worklistMaxDequeues" || argv[i] === "--worklist-max-dequeues") i++;
+            continue;
+        }
+        const worklistMaxVisitedArg = readValue(argv, i, "--worklistMaxVisited") ?? readValue(argv, i, "--worklist-max-visited");
+        if (worklistMaxVisitedArg !== undefined) {
+            worklistMaxVisited = normalizeNonNegativeInt(worklistMaxVisitedArg, "--worklistMaxVisited", 0);
+            if (argv[i] === "--worklistMaxVisited" || argv[i] === "--worklist-max-visited") i++;
+            continue;
+        }
         const llmSessionCacheDirArg = readValue(argv, i, "--llmSessionCacheDir");
         if (llmSessionCacheDirArg !== undefined) {
             llmSessionCacheDir = path.resolve(llmSessionCacheDirArg);
@@ -473,6 +503,9 @@ function parseArgs(argv: string[]): SemanticFlowCliOptions {
         k,
         stopOnFirstFlow,
         maxFlowsPerEntry,
+        worklistBudgetMs,
+        worklistMaxDequeues,
+        worklistMaxVisited,
         llmSessionCacheDir,
         llmSessionCacheMode,
         llmTimeoutMs,
@@ -544,22 +577,25 @@ function loadRuleCandidates(
     if (!Array.isArray(items)) {
         return { items: [], skippedKnown: 0 };
     }
-    const filtered = filterKnownSemanticFlowRuleCandidates(items as NormalizedCallsiteItem[], {
+    const filterOptions = {
         modelRoots: options.modelRoots,
         enabledModels: options.enabledModels,
         disabledModels: options.disabledModels,
+    };
+    const filtered = filterKnownSemanticFlowRuleCandidates(items as NormalizedCallsiteItem[], filterOptions);
+    const enriched = enrichNoCandidateItemsWithCallsiteSlices({
+        repoRoot: options.repo,
+        sourceDirs: options.sourceDirs,
+        items: filtered.candidates,
+        maxItems: options.maxSliceItems,
+        maxExamplesPerItem: options.examplesPerItem,
+        contextRadius: options.contextRadius,
+        cfgNeighborRadius: options.cfgNeighborRadius,
     });
+    const contextFiltered = filterKnownSemanticFlowRuleCandidates(enriched, filterOptions);
     return {
-        items: enrichNoCandidateItemsWithCallsiteSlices({
-            repoRoot: options.repo,
-            sourceDirs: options.sourceDirs,
-            items: filtered.candidates,
-            maxItems: options.maxSliceItems,
-            maxExamplesPerItem: options.examplesPerItem,
-            contextRadius: options.contextRadius,
-            cfgNeighborRadius: options.cfgNeighborRadius,
-        }),
-        skippedKnown: filtered.skippedKnown.length,
+        items: contextFiltered.candidates,
+        skippedKnown: filtered.skippedKnown.length + contextFiltered.skippedKnown.length,
     };
 }
 
@@ -582,6 +618,7 @@ function collectAggregateSummary(bundles: SemanticFlowSessionBundle[]) {
             ruleKnownCoveredCount: bundles.reduce((sum, bundle) => sum + bundle.skippedKnownRuleCandidates, 0),
             arkMainCandidateCount: bundles.reduce((sum, bundle) => sum + bundle.result.arkMainCandidates.length, 0),
             arkMainKernelCoveredCount: bundles.reduce((sum, bundle) => sum + bundle.result.skippedArkMainCandidates.length, 0),
+            arkMainIneligibleCount: bundles.reduce((sum, bundle) => sum + bundle.result.ineligibleArkMainCandidates.length, 0),
             moduleCount: augment.moduleSpecs.length,
             sourceRuleCount: (augment.ruleSet.sources || []).length,
             sinkRuleCount: (augment.ruleSet.sinks || []).length,
@@ -674,6 +711,7 @@ function writeSemanticFlowArtifacts(
             ruleCandidateCount: bundle.result.ruleCandidateCount,
             ruleKnownCoveredCount: bundle.skippedKnownRuleCandidates,
             arkMainCandidateCount: bundle.result.arkMainCandidates.length,
+            arkMainIneligibleCount: bundle.result.ineligibleArkMainCandidates.length,
             moduleCount: bundle.result.session.augment.moduleSpecs.length,
             sourceRuleCount: (bundle.result.session.augment.ruleSet.sources || []).length,
             sinkRuleCount: (bundle.result.session.augment.ruleSet.sinks || []).length,
@@ -731,6 +769,9 @@ function buildAnalyzeOptions(
         showLoadWarnings: false,
         stopOnFirstFlow: overrides.stopOnFirstFlow ?? options.stopOnFirstFlow,
         maxFlowsPerEntry: overrides.maxFlowsPerEntry ?? options.maxFlowsPerEntry,
+        worklistBudgetMs: overrides.worklistBudgetMs ?? options.worklistBudgetMs,
+        worklistMaxDequeues: overrides.worklistMaxDequeues ?? options.worklistMaxDequeues,
+        worklistMaxVisited: overrides.worklistMaxVisited ?? options.worklistMaxVisited,
         enableSecondarySinkSweep: overrides.enableSecondarySinkSweep ?? ((overrides.profile || options.profile) === "fast"),
         llmModel: overrides.llmModel,
         arkMainMaxCandidates: overrides.arkMainMaxCandidates,
@@ -759,14 +800,14 @@ function buildAnalyzeOptions(
     };
 }
 
-async function runBootstrapAnalyze(options: SemanticFlowCliOptions): Promise<string> {
+async function runBootstrapAnalyze(options: SemanticFlowCliOptions): Promise<BootstrapAnalyzeResult> {
     const phase1OutputDir = path.join(options.outputDir, "phase1");
     console.log(`semanticflow_phase=bootstrap_analyze start output_dir=${phase1OutputDir}`);
-    await withAnalyzeHeartbeat("bootstrap_analyze", () => runAnalyze(buildAnalyzeOptions(options, phase1OutputDir, {
-        profile: "fast",
+    const run = await withAnalyzeHeartbeat("bootstrap_analyze", () => runAnalyze(buildAnalyzeOptions(options, phase1OutputDir, {
+        profile: options.profile,
         entryModel: options.entryModel || "arkMain",
-        reportMode: "light",
-        maxEntries: Math.min(options.maxEntries, 12),
+        reportMode: options.reportMode,
+        maxEntries: options.maxEntries,
         llmModel: options.model,
         arkMainMaxCandidates: options.arkMainMaxCandidates,
         modelRoots: options.modelRoots || [],
@@ -781,11 +822,131 @@ async function runBootstrapAnalyze(options: SemanticFlowCliOptions): Promise<str
     const feedbackDir = path.join(phase1OutputDir, "feedback", "rule_feedback");
     const projectCandidatePath = path.join(feedbackDir, "no_candidate_project_candidates.json");
     const fallbackRuleInputPath = path.join(feedbackDir, "no_candidate_callsites.json");
-    const ruleInputPath = fs.existsSync(projectCandidatePath)
-        ? projectCandidatePath
-        : fallbackRuleInputPath;
-    console.log(`semanticflow_phase=bootstrap_analyze done rule_input=${ruleInputPath}`);
-    return ruleInputPath;
+    const selected = selectBootstrapRuleInput(projectCandidatePath, fallbackRuleInputPath);
+    console.log(
+        `semanticflow_phase=bootstrap_analyze done rule_input=${selected.path} `
+        + `selection=${selected.selection} project_candidates=${selected.projectCandidateCount ?? ""} `
+        + `fallback_candidates=${selected.fallbackCandidateCount ?? ""}`,
+    );
+    return {
+        ruleInputPath: selected.path,
+        run,
+    };
+}
+
+function selectBootstrapRuleInput(
+    projectCandidatePath: string,
+    fallbackRuleInputPath: string,
+): {
+    path: string;
+    selection: "project_candidates" | "fallback_callsites" | "missing";
+    projectCandidateCount: number | null;
+    fallbackCandidateCount: number | null;
+} {
+    const projectCandidateCount = readCandidatePayloadCount(projectCandidatePath);
+    const fallbackCandidateCount = readCandidatePayloadCount(fallbackRuleInputPath);
+    if (projectCandidateCount !== null && projectCandidateCount > 0) {
+        return {
+            path: projectCandidatePath,
+            selection: "project_candidates",
+            projectCandidateCount,
+            fallbackCandidateCount,
+        };
+    }
+    if (fallbackCandidateCount !== null && fallbackCandidateCount > 0) {
+        return {
+            path: fallbackRuleInputPath,
+            selection: "fallback_callsites",
+            projectCandidateCount,
+            fallbackCandidateCount,
+        };
+    }
+    if (projectCandidateCount !== null) {
+        return {
+            path: projectCandidatePath,
+            selection: "project_candidates",
+            projectCandidateCount,
+            fallbackCandidateCount,
+        };
+    }
+    if (fallbackCandidateCount !== null) {
+        return {
+            path: fallbackRuleInputPath,
+            selection: "fallback_callsites",
+            projectCandidateCount,
+            fallbackCandidateCount,
+        };
+    }
+    return {
+        path: fallbackRuleInputPath,
+        selection: "missing",
+        projectCandidateCount,
+        fallbackCandidateCount,
+    };
+}
+
+function readCandidatePayloadCount(filePath: string): number | null {
+    if (!fs.existsSync(filePath)) {
+        return null;
+    }
+    try {
+        const parsed = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+        if (Array.isArray(parsed)) {
+            return parsed.length;
+        }
+        if (Array.isArray(parsed?.items)) {
+            return parsed.items.length;
+        }
+        if (typeof parsed?.total === "number" && Number.isFinite(parsed.total)) {
+            return parsed.total;
+        }
+    } catch {
+        return null;
+    }
+    return null;
+}
+
+function hasModeledSemanticFlowArtifacts(summary: ReturnType<typeof collectAggregateSummary>["summary"]): boolean {
+    return summary.moduleCount > 0
+        || summary.sourceRuleCount > 0
+        || summary.sinkRuleCount > 0
+        || summary.sanitizerRuleCount > 0
+        || summary.transferRuleCount > 0
+        || summary.arkMainSpecCount > 0;
+}
+
+function canReuseBootstrapAnalyzeForFinal(
+    options: SemanticFlowCliOptions,
+    aggregate: ReturnType<typeof collectAggregateSummary>,
+    bootstrap?: BootstrapAnalyzeResult,
+): bootstrap is BootstrapAnalyzeResult & { run: Awaited<ReturnType<typeof runAnalyze>> } {
+    return !!bootstrap?.run
+        && !options.publishModel
+        && !hasModeledSemanticFlowArtifacts(aggregate.summary);
+}
+
+function materializeReusedFinalAnalyzeArtifacts(
+    outputDir: string,
+    run: Awaited<ReturnType<typeof runAnalyze>>,
+): Awaited<ReturnType<typeof runAnalyze>> {
+    const copyDir = (fromDir: string, toDir: string): void => {
+        if (!fs.existsSync(fromDir) || !fs.statSync(fromDir).isDirectory()) {
+            return;
+        }
+        fs.mkdirSync(path.dirname(toDir), { recursive: true });
+        fs.cpSync(fromDir, toDir, { recursive: true, force: true });
+    };
+    const finalSummaryDir = path.join(outputDir, "final", "summary");
+    const finalDiagnosticsDir = path.join(outputDir, "final", "diagnostics");
+    copyDir(path.dirname(run.jsonPath), finalSummaryDir);
+    copyDir(path.dirname(run.diagnosticsJsonPath), finalDiagnosticsDir);
+    return {
+        ...run,
+        jsonPath: path.join(finalSummaryDir, "summary.json"),
+        mdPath: path.join(finalSummaryDir, "summary.md"),
+        diagnosticsJsonPath: path.join(finalDiagnosticsDir, "diagnostics.json"),
+        diagnosticsTextPath: path.join(finalDiagnosticsDir, "diagnostics.txt"),
+    };
 }
 
 async function runFinalAnalyze(
@@ -925,9 +1086,10 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
         : undefined;
 
     const arkMainCandidateLimit = resolveArkMainCandidateLimit(options);
-    const bootstrapRuleInputPath = options.ruleInput && fs.existsSync(options.ruleInput)
-        ? options.ruleInput
+    const bootstrapAnalyze: BootstrapAnalyzeResult = options.ruleInput && fs.existsSync(options.ruleInput)
+        ? { ruleInputPath: options.ruleInput }
         : await runBootstrapAnalyze(options);
+    const bootstrapRuleInputPath = bootstrapAnalyze.ruleInputPath;
     const ruleCandidates = loadRuleCandidates(options, bootstrapRuleInputPath);
     console.log(`semanticflow_phase=load_candidates done rule_candidates=${ruleCandidates.items.length} rule_known_covered=${ruleCandidates.skippedKnown} arkmain_limit=${arkMainCandidateLimit} min_interval_ms=${profile.minIntervalMs} timeout_ms=${options.llmTimeoutMs ?? profile.timeoutMs} max_attempts=${options.llmMaxAttempts ?? 1}`);
 
@@ -975,7 +1137,7 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
                 sessionCache,
             });
             console.log(
-                `semanticflow_phase=source_dir done source_dir=${sourceDir} items=${result.session.run.items.length} rule_known_covered=${ruleCandidates.skippedKnown} arkmain_candidates=${result.arkMainCandidates.length} arkmain_kernel_covered=${result.skippedArkMainCandidates.length}`,
+                `semanticflow_phase=source_dir done source_dir=${sourceDir} items=${result.session.run.items.length} rule_known_covered=${ruleCandidates.skippedKnown} arkmain_candidates=${result.arkMainCandidates.length} arkmain_kernel_covered=${result.skippedArkMainCandidates.length} arkmain_ineligible=${result.ineligibleArkMainCandidates.length}`,
             );
             sourceRuns.push({
                 sourceDir,
@@ -984,6 +1146,7 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
                 methods: methodCount,
                 itemCount: result.session.run.items.length,
                 arkMainCandidateCount: result.arkMainCandidates.length,
+                arkMainIneligibleCount: result.ineligibleArkMainCandidates.length,
                 elapsedMs: Date.now() - sourceStartedAt,
             });
             bundles.push({ sourceDir, result, skippedKnownRuleCandidates: ruleCandidates.skippedKnown });
@@ -1004,8 +1167,9 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
     const sourceRunsPath = path.join(options.outputDir, "source_runs.json");
     fs.writeFileSync(sourceRunsPath, JSON.stringify(sourceRuns, null, 2), "utf-8");
     console.log(`semanticflow_phase=write_artifacts done session=${aggregatePaths.aggregateSessionPath}`);
+    const aggregateSummary = collectAggregateSummary(bundles);
     if (options.publishModel) {
-        const aggregate = collectAggregateSummary(bundles);
+        const aggregate = aggregateSummary;
         const published = publishSemanticFlowProjectAssets({
             projectId: options.publishModel,
             modelRoot: options.modelRoots?.[0],
@@ -1015,14 +1179,19 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
         });
         console.log(`semanticflow_phase=publish_model done pack=${options.publishModel} rules=${published.rulePath || "-"} modules=${published.moduleSpecPath || "-"} arkmain=${published.arkMainSpecPath || "-"}`);
     }
-    const finalRun = options.analyze
-        ? await runFinalAnalyze(options, aggregatePaths)
-        : undefined;
+    let finalRun: Awaited<ReturnType<typeof runAnalyze>> | undefined;
+    if (options.analyze) {
+        if (canReuseBootstrapAnalyzeForFinal(options, aggregateSummary, bootstrapAnalyze)) {
+            finalRun = materializeReusedFinalAnalyzeArtifacts(options.outputDir, bootstrapAnalyze.run);
+            console.log(`semanticflow_phase=final_analyze skipped reason=no_modeled_artifacts reuse=bootstrap summary_json=${finalRun.jsonPath}`);
+        } else {
+            finalRun = await runFinalAnalyze(options, aggregatePaths);
+        }
+    }
     if (finalRun) {
         console.log(`semanticflow_phase=final_analyze done summary_json=${finalRun.jsonPath}`);
     }
 
-    const aggregateSummary = collectAggregateSummary(bundles);
     const analysisSummaryPath = path.join(options.outputDir, "analysis.json");
     fs.writeFileSync(analysisSummaryPath, JSON.stringify(finalRun
         ? {
@@ -1071,6 +1240,7 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
     console.log(`rule_known_covered=${aggregateSummary.summary.ruleKnownCoveredCount}`);
     console.log(`items=${aggregateSummary.summary.itemCount}`);
     console.log(`arkmain_kernel_covered=${aggregateSummary.summary.arkMainKernelCoveredCount}`);
+    console.log(`arkmain_ineligible=${aggregateSummary.summary.arkMainIneligibleCount}`);
     console.log(`analyze=${options.analyze}`);
     console.log(`output_dir=${options.outputDir}`);
     if (finalRun) {

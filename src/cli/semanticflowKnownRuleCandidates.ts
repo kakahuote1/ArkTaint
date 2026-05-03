@@ -30,6 +30,8 @@ interface CandidateView {
     ownerLower: string;
     simpleOwnerLower: string;
     methodLower: string;
+    contextText: string;
+    contextLower: string;
 }
 
 const HIGH_RISK_METHOD_NAMES = new Set(["get", "set", "update", "request", "on"]);
@@ -113,7 +115,11 @@ function createBuiltinMatchers(): KnownMatcher[] {
     matchers.push({
         id: "builtin:harmony.appstorage",
         matches(view) {
-            return storageMethods.has(view.methodLower) && storageClasses.some(name => matchesDeclaringClass(view, name));
+            return storageMethods.has(view.methodLower)
+                && (
+                    storageClasses.some(name => matchesDeclaringClass(view, name))
+                    || receiverMethodAppearsInContext(view, storageClasses)
+                );
         },
     });
 
@@ -166,11 +172,30 @@ function createBuiltinMatchers(): KnownMatcher[] {
         },
     });
 
-    const loggingMethods = new Set(["log", "info", "warn", "error", "debug", "trace"]);
+    const loggingMethods = new Set([
+        "log",
+        "info",
+        "warn",
+        "error",
+        "debug",
+        "trace",
+        "showlog",
+        "showinfo",
+        "showwarn",
+        "showerror",
+        "showdebug",
+        "showtrace",
+        "showfatal",
+    ]);
     matchers.push({
         id: "builtin:logging",
         matches(view) {
             if (!loggingMethods.has(view.methodLower)) return false;
+            if (view.methodLower.startsWith("show")) {
+                return containsAny(view.signatureLower, ["console", "hilog", "logger", "logutil"])
+                    || containsAny(view.ownerLower, ["console", "hilog", "logger", "logutil"])
+                    || containsAny(view.contextLower, ["console.", "hilog.", "logger.", "log."]);
+            }
             return containsAny(view.signatureLower, ["console", "hilog", "logger", "logutil", "@%unk/%unk"])
                 || containsAny(view.ownerLower, ["console", "hilog", "logger", "logutil"]);
         },
@@ -197,6 +222,7 @@ function createBuiltinMatchers(): KnownMatcher[] {
         "getmainwindow",
         "getmainwindowsync",
         "loadcontent",
+        "setuicontent",
         "setdefaultorientation",
     ]);
     matchers.push({
@@ -498,6 +524,7 @@ function invokeSurfaceFromSurfaceRef(surface: ModuleSemanticSurfaceRef | string 
 function createCandidateView(item: NormalizedCallsiteItem): CandidateView {
     const signatureText = String(item.callee_signature || "");
     const ownerText = semanticFlowDeclaringClassFromSignature(signatureText) || "";
+    const contextText = buildCandidateContextText(item);
     return {
         item,
         signatureText,
@@ -506,7 +533,40 @@ function createCandidateView(item: NormalizedCallsiteItem): CandidateView {
         ownerLower: ownerText.toLowerCase(),
         simpleOwnerLower: extractSimpleClassName(ownerText).toLowerCase(),
         methodLower: lower(item.method),
+        contextText,
+        contextLower: contextText.toLowerCase(),
     };
+}
+
+function buildCandidateContextText(item: NormalizedCallsiteItem): string {
+    const parts: string[] = [];
+    const contextSlices = Array.isArray((item as any).contextSlices) ? (item as any).contextSlices : [];
+    for (const slice of contextSlices) {
+        if (typeof slice?.invokeStmtText === "string") parts.push(slice.invokeStmtText);
+        if (typeof slice?.windowLines === "string") parts.push(slice.windowLines);
+        if (Array.isArray(slice?.cfgNeighborStmts)) parts.push(...slice.cfgNeighborStmts.map((entry: unknown) => String(entry)));
+    }
+    for (const key of ["methodSnippet", "ownerSnippet", "carrierSnippet"]) {
+        const value = (item as any)[key];
+        if (typeof value === "string") parts.push(value);
+    }
+    const ownerMethodSnippets = Array.isArray((item as any).ownerMethodSnippets) ? (item as any).ownerMethodSnippets : [];
+    for (const snippet of ownerMethodSnippets) {
+        if (typeof snippet?.code === "string") parts.push(snippet.code);
+    }
+    return parts.join("\n");
+}
+
+function receiverMethodAppearsInContext(view: CandidateView, receiverNames: string[]): boolean {
+    if (!view.contextText) {
+        return false;
+    }
+    const compact = normalizeSpace(view.contextLower);
+    return receiverNames.some(name => {
+        const receiver = escapeRegExp(lower(name));
+        const method = escapeRegExp(view.methodLower);
+        return new RegExp(`${receiver}\\.${method}(?:<|\\()`).test(compact);
+    });
 }
 
 function matchesInvokeSelector(view: CandidateView, selector: ModuleInvokeSurfaceSelector): boolean {
@@ -608,6 +668,10 @@ function extractSimpleClassName(ownerText: string): string {
 
 function normalizeSpace(value: string): string {
     return String(value || "").replace(/\s+/g, "");
+}
+
+function escapeRegExp(value: string): string {
+    return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function containsAny(haystack: string, needles: string[]): boolean {

@@ -64,6 +64,8 @@ function emitExecutionHandoffEdges(
                     calleeMethodName,
                     callerSignature,
                     calleeSignature,
+                    originTag: "execution_handoff",
+                    handoffId: contract.id,
                 });
                 if (binding.edgeType === CallEdgeType.CALL) {
                     callCount += 1;
@@ -125,6 +127,8 @@ function dedupeSyntheticInvokeEdgeMap(edgeMap: Map<number, SyntheticInvokeEdgeIn
                 edge.callSiteId,
                 edge.callerSignature || "",
                 edge.calleeSignature || "",
+                edge.originTag || "",
+                edge.handoffId || "",
             ].join("|");
             if (seen.has(key)) continue;
             seen.add(key);

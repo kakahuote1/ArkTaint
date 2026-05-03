@@ -46,7 +46,7 @@ export interface EntrySmokeResult {
     entryPathHint?: string;
     signature: string;
     score: number;
-    status: "ok" | "no_entry" | "no_body" | "no_seed" | "exception";
+    status: "ok" | "no_entry" | "no_body" | "no_seed" | "budget_exceeded" | "exception";
     seedLocalNames: string[];
     seedStrategies: string[];
     seedCount: number;
