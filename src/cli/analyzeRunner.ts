@@ -455,10 +455,10 @@ async function analyzeSourceDir(
         verboseAnalyzeLog(`buildPAG done source_dir=${sourceDir || "."} elapsed_ms=${Math.round(stageProfile.buildPagMs)}`);
 
         const activeReachableMethodSignatures = engine.getActiveReachableMethodSignatures();
-        const reachableMethodSignatures = activeReachableMethodSignatures
-            || engine.computeReachableMethodSignatures();
+        let reachableMethodSignatures = activeReachableMethodSignatures;
         if (!activeReachableMethodSignatures) {
             verboseAnalyzeLog(`reachable recompute start source_dir=${sourceDir || "."}`);
+            reachableMethodSignatures = engine.computeReachableMethodSignatures();
             engine.setActiveReachableMethodSignatures(reachableMethodSignatures);
             verboseAnalyzeLog(`reachable recompute done source_dir=${sourceDir || "."} count=${reachableMethodSignatures.size}`);
         } else {

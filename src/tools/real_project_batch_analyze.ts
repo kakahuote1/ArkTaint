@@ -623,7 +623,7 @@ async function runProjectBySourceDir(
         repo,
         sourceDirs,
         status,
-        exitCode: failed.length === 0 ? 0 : null,
+        exitCode: projectTimedOut ? null : (failed.length === 0 ? 0 : null),
         elapsedMs: Date.now() - started,
         timeoutSeconds: opts.projectTimeoutSeconds,
         outputDir: projectOut,

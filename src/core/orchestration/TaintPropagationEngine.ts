@@ -5,9 +5,6 @@ import { Pag, PagNode } from "../../../arkanalyzer/out/src/callgraph/pointerAnal
 import { CallGraph } from "../../../arkanalyzer/out/src/callgraph/model/CallGraph";
 import { CallGraphBuilder } from "../../../arkanalyzer/out/src/callgraph/model/builder/CallGraphBuilder";
 import { ArkAssignStmt } from "../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkInstanceFieldRef } from "../../../arkanalyzer/out/src/core/base/Ref";
-import { Local } from "../../../arkanalyzer/out/src/core/base/Local";
-import { ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../arkanalyzer/out/src/core/base/Expr";
 import { ArkMethod } from "../../../arkanalyzer/out/src/core/model/ArkMethod";
 import { TaintFact } from "../kernel/model/TaintFact";
 import { TaintFlow } from "../kernel/model/TaintFlow";
@@ -62,10 +59,6 @@ import {
     expandEntryMethodsByDirectCalls,
     expandMethodsByDirectCalls,
 } from "../entry/shared/ExplicitEntryScopeResolver";
-import {
-    collectKnownKeyedDispatchKeysFromMethod,
-    resolveKnownKeyedCallbackRegistrationsFromStmt,
-} from "../entry/shared/FrameworkCallbackClassifier";
 import {
     collectParameterAssignStmts,
     resolveMethodsFromCallable,
@@ -128,6 +121,7 @@ import {
     resolveRuleFamily,
     resolveRuleTierWeight,
 } from "../rules/RulePriority";
+import { SinkFlowRefinement, extractFilePathFromSignature } from "./postsolve/SinkFlowRefinement";
 
 export interface DebugOptions {
     enableWorklistProfile?: boolean;
@@ -283,8 +277,7 @@ export class TaintPropagationEngine {
     private autoEntrySourceRules: SourceRule[] = [];
     private autoAmbientSourceRules: SourceRule[] = [];
     private detectProfile: SinkDetectProfile = createEmptySinkDetectProfile();
-    private keyedRouteMismatchCache: Map<string, boolean> = new Map();
-    private routePushKeyCache: Map<string, Set<string>> = new Map();
+    private sinkFlowRefinement: SinkFlowRefinement;
     private lastWorklistTruncation?: WorklistBudgetTruncation;
     private activePagCacheEntry?: PagBuildCacheEntry;
     private executionHandoffSnapshot?: ExecutionHandoffContractSnapshot;
@@ -299,6 +292,7 @@ export class TaintPropagationEngine {
         this.tracker = new TaintTracker();
         this.ctxManager = new TaintContextManager(k);
         this.options = options;
+        this.sinkFlowRefinement = new SinkFlowRefinement(scene);
         this.modules = this.initializeModules(options);
         const enginePluginState = this.initializeEnginePlugins(k, options, this.modules);
         this.enginePlugins = enginePluginState.plugins;
@@ -1366,10 +1360,7 @@ export class TaintPropagationEngine {
                         flow.transferRuleIds = [...transferSet].sort();
                     }
                 }
-                flows = flows.filter(flow =>
-                    !this.shouldSuppressSafeOverwriteFlow(flow)
-                    && !this.shouldSuppressKeyedRouteCallbackMismatchFlow(flow)
-                );
+                flows = this.sinkFlowRefinement.filterFlows(flows, this.pag);
                 if (family) {
                     flows = flows.filter(flow => {
                         const actualSignature = this.resolveSinkFlowCalleeSignature(flow);
@@ -1962,166 +1953,6 @@ export class TaintPropagationEngine {
         };
     }
 
-    private shouldSuppressSafeOverwriteFlow(flow: TaintFlow): boolean {
-        const sinkNodeId = flow.sinkNodeId;
-        if (sinkNodeId === undefined || sinkNodeId === null) return false;
-        const sinkNode: any = this.pag?.getNode?.(sinkNodeId);
-        const sinkValue: any = sinkNode?.getValue?.();
-        if (!(sinkValue instanceof Local)) return false;
-        const declStmt: any = sinkValue.getDeclaringStmt?.();
-        if (!(declStmt instanceof ArkAssignStmt)) return false;
-        const right: any = declStmt.getRightOp?.();
-        if (!(right instanceof ArkInstanceInvokeExpr)) return false;
-        const methodSig = right.getMethodSignature?.();
-        const methodName = methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "";
-        if (methodName !== "get" && methodName !== "getSync") return false;
-        const args = right.getArgs?.() || [];
-        if (args.length < 1) return false;
-        const keyArg = args[0];
-        const keyText = String(keyArg?.toString?.() || "").trim();
-        const keyLiteral = this.normalizeQuotedLiteral(keyText);
-        if (!keyLiteral) return false;
-
-        const cfg = declStmt.getCfg?.();
-        if (!cfg) return false;
-        const stmts: any[] = cfg.getStmts?.() || [];
-        const idx = stmts.indexOf(declStmt);
-        if (idx < 0) return false;
-
-        for (let i = idx - 1; i >= 0; i--) {
-            const stmt = stmts[i];
-            if (!stmt?.containsInvokeExpr?.()) continue;
-            const inv: any = stmt.getInvokeExpr?.();
-            if (!(inv instanceof ArkInstanceInvokeExpr)) continue;
-            const invName = inv.getMethodSignature?.()?.getMethodSubSignature?.()?.getMethodName?.() || "";
-            if (invName !== "put" && invName !== "putSync") continue;
-            const invArgs = inv.getArgs?.() || [];
-            if (invArgs.length < 2) continue;
-            const putKey = this.normalizeQuotedLiteral(String(invArgs[0]?.toString?.() || "").trim());
-            if (!putKey || putKey !== keyLiteral) continue;
-            const putVal = invArgs[1];
-            const putLiteral = this.normalizeQuotedLiteral(String(putVal?.toString?.() || "").trim());
-            if (!putLiteral) return false;
-            return true;
-        }
-        return false;
-    }
-
-    private shouldSuppressKeyedRouteCallbackMismatchFlow(flow: TaintFlow): boolean {
-        const ruleId = flow.sourceRuleId || this.parseSourceRuleId(flow.source) || "";
-        if (!ruleId.startsWith("source.auto.callback_param.")) return false;
-        const sinkMethodSig = flow.sink?.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.() || "";
-        const filePath = extractFilePathFromSignature(sinkMethodSig);
-        if (!filePath) return false;
-        const cached = this.keyedRouteMismatchCache.get(filePath);
-        if (cached !== undefined) return cached;
-        const result = this.hasKnownNavDestinationRouteMismatchInFile(filePath);
-        this.keyedRouteMismatchCache.set(filePath, result);
-        return result;
-    }
-
-    private hasKnownNavDestinationRouteMismatchInFile(filePath: string): boolean {
-        for (const sourceMethod of this.scene.getMethods()) {
-            const sourceMethodSig = sourceMethod.getSignature?.()?.toString?.() || "";
-            if (extractFilePathFromSignature(sourceMethodSig) !== filePath) continue;
-            const dispatchKeys = collectKnownKeyedDispatchKeysFromMethod(this.scene, sourceMethod).get("nav_destination");
-            if (!dispatchKeys || dispatchKeys.size === 0) continue;
-            const pushRouteKeys = this.collectKnownRoutePushKeysFromMethod(sourceMethod);
-            if (pushRouteKeys.size === 0) continue;
-
-            const cfg = sourceMethod.getCfg?.();
-            if (!cfg) continue;
-            const registrationKeys = new Set<string>();
-            for (const stmt of cfg.getStmts()) {
-                const registrations = resolveKnownKeyedCallbackRegistrationsFromStmt(stmt, this.scene, sourceMethod);
-                for (const reg of registrations) {
-                    if (reg.familyId !== "nav_destination") continue;
-                    for (const key of reg.dispatchKeys || []) registrationKeys.add(key);
-                }
-            }
-            const effectiveDispatchKeys = this.intersectStringSets(dispatchKeys, registrationKeys);
-            if (effectiveDispatchKeys.size === 0) continue;
-            if (!this.hasStringSetIntersection(effectiveDispatchKeys, pushRouteKeys)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private collectKnownRoutePushKeysFromMethod(method: ArkMethod): Set<string> {
-        const methodSig = method.getSignature?.()?.toString?.() || "";
-        if (!methodSig) return new Set<string>();
-        const cached = this.routePushKeyCache.get(methodSig);
-        if (cached) return cached;
-
-        const out = new Set<string>();
-        const cfg = method.getCfg?.();
-        const stmts = cfg?.getStmts?.() || [];
-        const knownPushMethods = new Map<string, string>([
-            ["pushNamedRoute", "name"],
-            ["pushPath", "name"],
-            ["pushPathByName", "name"],
-            ["replacePath", "name"],
-            ["pushUrl", "url"],
-            ["replaceUrl", "url"],
-        ]);
-
-        const addKeysFromValue = (value: any, routeFieldName: string): void => {
-            for (const literal of collectFiniteStringCandidatesFromValue(this.scene, value)) {
-                if (literal) out.add(literal);
-            }
-            if (!(value instanceof Local)) return;
-            for (const stmt of stmts) {
-                if (!(stmt instanceof ArkAssignStmt)) continue;
-                const left = stmt.getLeftOp?.();
-                if (!(left instanceof ArkInstanceFieldRef)) continue;
-                if (left.getBase?.() !== value) continue;
-                const fieldName = left.getFieldSignature?.().getFieldName?.() || left.getFieldName?.() || "";
-                if (fieldName !== routeFieldName) continue;
-                for (const literal of collectFiniteStringCandidatesFromValue(this.scene, stmt.getRightOp?.())) {
-                    if (literal) out.add(literal);
-                }
-            }
-        };
-
-        for (const stmt of stmts) {
-            if (!stmt?.containsInvokeExpr?.()) continue;
-            const invokeExpr = stmt.getInvokeExpr?.();
-            if (!(invokeExpr instanceof ArkStaticInvokeExpr || invokeExpr instanceof ArkInstanceInvokeExpr)) continue;
-            const methodName = invokeExpr.getMethodSignature?.()?.getMethodSubSignature?.()?.getMethodName?.() || "";
-            const routeFieldName = knownPushMethods.get(methodName);
-            if (!routeFieldName) continue;
-            const invokeArgs = invokeExpr.getArgs?.() || [];
-            for (const arg of invokeArgs) {
-                addKeysFromValue(arg, routeFieldName);
-            }
-        }
-
-        this.routePushKeyCache.set(methodSig, out);
-        return out;
-    }
-
-    private intersectStringSets(left: Set<string>, right: Set<string>): Set<string> {
-        const out = new Set<string>();
-        for (const value of left) {
-            if (right.has(value)) out.add(value);
-        }
-        return out;
-    }
-
-    private hasStringSetIntersection(left: Set<string>, right: Set<string>): boolean {
-        for (const value of left) {
-            if (right.has(value)) return true;
-        }
-        return false;
-    }
-
-    private normalizeQuotedLiteral(text: string): string | undefined {
-        const m = String(text || "").match(/^['"`]((?:\\.|[^'"`])+)['"`]$/);
-        if (!m) return undefined;
-        return m[1];
-    }
-
     public getAdaptiveContextSelector(): AdaptiveContextSelector | undefined {
         return this.adaptiveContextSelector;
     }
@@ -2231,13 +2062,5 @@ function safeValueText(value: any): string {
     } catch {
         return "";
     }
-}
-
-function extractFilePathFromSignature(signature: string): string {
-    const at = signature.indexOf("@");
-    if (at < 0) return "";
-    const methodSep = signature.indexOf(": ", at);
-    if (methodSep < 0) return "";
-    return signature.slice(at + 1, methodSep).replace(/\\/g, "/");
 }
 

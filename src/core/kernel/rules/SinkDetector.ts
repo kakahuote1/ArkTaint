@@ -680,6 +680,38 @@ interface PreciseCandidateDetectResult {
     fallbackFieldToVarIndex?: Map<string, Set<number>>;
 }
 
+function detectFieldPathSourceOrBlockGenericTaint(
+    rootValue: any,
+    fieldPath: string[],
+    sinkStmt: any,
+    pag: Pag,
+    tracker: TaintTracker,
+    fallbackFieldToVarIndex?: Map<string, Set<number>>,
+): PreciseCandidateDetectResult {
+    if (!fallbackFieldToVarIndex) {
+        fallbackFieldToVarIndex = buildFieldToVarIndexFromPag(pag);
+    }
+    const fieldPathResult = detectFieldPathSource(
+        rootValue,
+        fieldPath,
+        sinkStmt,
+        pag,
+        tracker,
+        fallbackFieldToVarIndex,
+    );
+    if (fieldPathResult) {
+        return {
+            result: fieldPathResult,
+            blockGenericNodeTaint: false,
+            fallbackFieldToVarIndex,
+        };
+    }
+    return {
+        blockGenericNodeTaint: true,
+        fallbackFieldToVarIndex,
+    };
+}
+
 function hasInterproceduralTaintTargetNode(
     value: Local,
     pag: Pag,
@@ -825,6 +857,16 @@ function detectPreciseCandidateSource(
                 };
             }
             if (hasOrderedConstantOverwrite && !hasPriorStore) {
+                if (isInstanceInitializerStore(orderedSafeOverwrite)) {
+                    return detectFieldPathSourceOrBlockGenericTaint(
+                        receiverBase,
+                        getterFieldPath,
+                        sinkStmt,
+                        pag,
+                        tracker,
+                        fallbackFieldToVarIndex,
+                    );
+                }
                 return {
                     blockGenericNodeTaint: true,
                     fallbackFieldToVarIndex,
@@ -937,6 +979,16 @@ function detectPreciseCandidateSource(
             };
         }
         if (hasOrderedConstantOverwrite && !hasPriorStore) {
+            if (isInstanceInitializerStore(orderedSafeOverwrite)) {
+                return detectFieldPathSourceOrBlockGenericTaint(
+                    receiverBase,
+                    [fieldName],
+                    sinkStmt,
+                    pag,
+                    tracker,
+                    fallbackFieldToVarIndex,
+                );
+            }
             return {
                 blockGenericNodeTaint: true,
                 fallbackFieldToVarIndex,
@@ -1058,6 +1110,16 @@ function detectReceiverFieldCandidateSource(
             };
         }
         if (hasOrderedConstantOverwrite && !hasPriorStore) {
+            if (isInstanceInitializerStore(orderedSafeOverwrite)) {
+                return detectFieldPathSourceOrBlockGenericTaint(
+                    receiverBase,
+                    fieldPath,
+                    sinkStmt,
+                    pag,
+                    tracker,
+                    fallbackFieldToVarIndex,
+                );
+            }
             return {
                 blockGenericNodeTaint: true,
                 fallbackFieldToVarIndex,
@@ -1120,6 +1182,8 @@ function detectReceiverFieldCandidateSource(
 
 interface OrderedFieldStore {
     kind: "constant" | "nonconstant";
+    methodName?: string;
+    methodSignature?: string;
 }
 
 function findLatestAssignStmtForLocalBefore(method: any, local: Local, anchorStmt: any): ArkAssignStmt | undefined {
@@ -1317,6 +1381,10 @@ function findLatestOrderedThisFieldStoreBeforeMethod(
 function findLastThisFieldStoreInMethod(method: any, fieldName: string): OrderedFieldStore | undefined {
     const cfg = method?.getCfg?.();
     const stmts = cfg?.getStmts?.() || [];
+    const storeMethodName = method?.getName?.()
+        || method?.getSignature?.()?.getMethodSubSignature?.()?.getMethodName?.()
+        || extractMethodNameFromSignature(method?.getSignature?.()?.toString?.() || "");
+    const storeMethodSignature = method?.getSignature?.()?.toString?.() || "";
     for (let i = stmts.length - 1; i >= 0; i--) {
         const stmt = stmts[i];
         if (stmt instanceof ArkAssignStmt) {
@@ -1327,6 +1395,8 @@ function findLastThisFieldStoreInMethod(method: any, fieldName: string): Ordered
                 if (leftField === fieldName && base instanceof Local && base.getName?.() === "this") {
                     return {
                         kind: stmt.getRightOp?.() instanceof Constant ? "constant" : "nonconstant",
+                        methodName: storeMethodName,
+                        methodSignature: storeMethodSignature,
                     };
                 }
             }
@@ -1342,9 +1412,16 @@ function findLastThisFieldStoreInMethod(method: any, fieldName: string): Ordered
         const args = invokeExpr.getArgs?.() || [];
         return {
             kind: args[0] instanceof Constant ? "constant" : "nonconstant",
+            methodName: storeMethodName,
+            methodSignature: storeMethodSignature,
         };
     }
     return undefined;
+}
+
+function isInstanceInitializerStore(store: OrderedFieldStore | undefined): boolean {
+    return store?.methodName === "%instInit"
+        || !!store?.methodSignature?.includes(".%instInit(");
 }
 
 function setterNameForField(fieldName: string): string {

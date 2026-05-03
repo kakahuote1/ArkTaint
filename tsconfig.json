@@ -20,6 +20,20 @@
     ],
     "exclude": [
         "node_modules",
-        "arkanalyzer"
+        "arkanalyzer",
+        "src/tests/execution_handoff/test_execution_handoff_baseline_compare.ts",
+        "src/tests/execution_handoff/test_execution_handoff_benchmark_inventory.ts",
+        "src/tests/execution_handoff/test_execution_handoff_benchmark_summary.ts",
+        "src/tests/execution_handoff/test_execution_handoff_induced_flows.ts",
+        "src/tests/execution_handoff/test_execution_handoff_programmatic_metamorphic.ts",
+        "src/tests/helpers/ExecutionHandoffBenchmarkCatalog.ts",
+        "src/tests/real_projects/test_real_project_execution_handoff_analyze_compare.ts",
+        "src/tests/real_projects/test_real_project_execution_handoff_analyze_once.ts",
+        "src/tests/real_projects/test_real_project_execution_handoff_merge_perf.ts",
+        "src/tests/real_projects/test_real_project_execution_handoff_probe.ts",
+        "src/tests/tools/test_real_project_paper_chain.ts",
+        "src/tools/real_project_paper_chain.ts",
+        "src/tools/real_project_paper_chain_lib.ts",
+        "src/tools/real_project_paper_inventory.ts"
     ]
 }

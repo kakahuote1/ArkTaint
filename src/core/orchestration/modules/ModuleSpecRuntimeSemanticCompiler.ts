@@ -14,7 +14,7 @@ import { createHarmonyKeyedStorageSemanticModule } from "./harmony_semantics/app
 import { createHarmonyEventEmitterSemanticModule } from "./harmony_semantics/emitter";
 import { createHarmonyRouteBridgeSemanticModule } from "./harmony_semantics/router";
 import { createHarmonyStateBindingSemanticModule } from "./harmony_semantics/state";
-import { createTsjsContainerSemanticModule } from "../../../models/kernel/modules/tsjs/container";
+import { createTsjsContainerSemanticModule } from "./tsjs_semantics/container";
 
 function compileContainerSemantic(spec: ModuleSpec, semantic: ModuleContainerSemantic): TaintModule {
     return createTsjsContainerSemanticModule({

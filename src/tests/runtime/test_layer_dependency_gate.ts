@@ -11,6 +11,7 @@ interface ImportEdge {
 }
 
 const CORE_ROOT = path.resolve("src/core");
+const MODEL_ROOT = path.resolve("src/models");
 const RULE_ROOT = path.resolve("src/models/kernel/rules");
 const MODULE_ROOT = path.resolve("src/models/kernel/modules");
 const PLUGIN_ROOT = path.resolve("src/plugins");
@@ -200,6 +201,28 @@ function isAllowedModuleImport(edge: ImportEdge): boolean {
     return ALLOWED_MODULE_CORE_IMPORTS.has(edge.toFile);
 }
 
+function collectCoreToModelImports(): Array<{ fromFile: string; toFile: string }> {
+    const files = collectTypeScriptFiles(CORE_ROOT);
+    const imports: Array<{ fromFile: string; toFile: string }> = [];
+    for (const file of files) {
+        const text = fs.readFileSync(file, "utf8");
+        for (const specifier of extractImportSpecifiers(text)) {
+            const targetFile = resolveImportTarget(file, specifier);
+            if (!targetFile) continue;
+            if (!targetFile.startsWith(MODEL_ROOT)) continue;
+            imports.push({
+                fromFile: normalizeFile(file),
+                toFile: normalizeFile(targetFile),
+            });
+        }
+    }
+    return imports.sort((a, b) => {
+        const left = `${a.fromFile} -> ${a.toFile}`;
+        const right = `${b.fromFile} -> ${b.toFile}`;
+        return left.localeCompare(right);
+    });
+}
+
 function isAllowedRuleImport(edge: ImportEdge): boolean {
     return edge.toFile === "src/core/rules/RuleSchema.ts";
 }
@@ -210,6 +233,7 @@ function isAllowedPluginImport(edge: ImportEdge): boolean {
 
 async function main(): Promise<void> {
     const illegalImports = collectIllegalImports();
+    const coreModelImports = collectCoreToModelImports();
     const ruleImports = collectCrossRootImports(RULE_ROOT);
     const moduleImports = collectCrossRootImports(MODULE_ROOT);
     const pluginImports = collectCrossRootImports(PLUGIN_ROOT);
@@ -234,6 +258,12 @@ async function main(): Promise<void> {
         unexpected.length === 0,
         `Layer dependency gate found unexpected cross-layer imports:\n${unexpected.map(edge =>
             `  ${edge.fromLayer} ${edge.fromFile} -> ${edge.toLayer} ${edge.toFile}`,
+        ).join("\n")}`,
+    );
+    assert(
+        coreModelImports.length === 0,
+        `Layer dependency gate found core -> model imports:\n${coreModelImports.map(edge =>
+            `  CORE ${edge.fromFile} -> MODEL ${edge.toFile}`,
         ).join("\n")}`,
     );
     assert(
@@ -264,6 +294,7 @@ async function main(): Promise<void> {
     console.log("PASS test_layer_dependency_gate");
     console.log(`legacy_violation_count=${illegalImports.length}`);
     console.log(`allowed_legacy_violations=${LEGACY_ALLOWED_VIOLATIONS.size}`);
+    console.log(`core_model_imports=${coreModelImports.length}`);
     console.log(`rule_core_imports=${ruleImports.length}`);
     console.log(`module_core_imports=${moduleImports.length}`);
     console.log(`plugin_core_imports=${pluginImports.length}`);
