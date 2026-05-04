@@ -64,7 +64,6 @@ const ArkClass_1 = require("../ArkClass");
 const ArkMethodBuilder_1 = require("./ArkMethodBuilder");
 const builderUtils_1 = require("./builderUtils");
 const ArkFieldBuilder_1 = require("./ArkFieldBuilder");
-const ArkIRTransformer_1 = require("../../common/ArkIRTransformer");
 const Stmt_1 = require("../../base/Stmt");
 const Ref_1 = require("../../base/Ref");
 const Const_1 = require("../../common/Const");
@@ -81,6 +80,9 @@ const ValueUtil_1 = require("../../common/ValueUtil");
 const Local_1 = require("../../base/Local");
 const ArkMetadata_1 = require("../ArkMetadata");
 const logger = logger_1.default.getLogger(logger_1.LOG_MODULE_TYPE.ARKANALYZER, 'ArkClassBuilder');
+function loadArkIRTransformer() {
+    return require('../../common/ArkIRTransformer');
+}
 function buildDefaultArkClassFromArkFile(arkFile, defaultClass, astRoot) {
     defaultClass.setDeclaringArkFile(arkFile);
     defaultClass.setCategory(ArkClass_1.ClassCategory.CLASS);
@@ -274,7 +276,7 @@ function buildObjectLiteralExpression2ArkClass(clsNode, cls, sourceFile, declari
     cls.setCategory(ArkClass_1.ClassCategory.OBJECT);
     let arkMethods = [];
     init4InstanceInitMethod(cls);
-    const instanceIRTransformer = new ArkIRTransformer_1.ArkIRTransformer(sourceFile, cls.getInstanceInitMethod());
+    const instanceIRTransformer = new (loadArkIRTransformer().ArkIRTransformer)(sourceFile, cls.getInstanceInitMethod());
     const instanceFieldInitializerStmts = [];
     clsNode.properties.forEach(property => {
         if (ohos_typescript_1.default.isPropertyAssignment(property) || ohos_typescript_1.default.isShorthandPropertyAssignment(property) || ohos_typescript_1.default.isSpreadAssignment(property)) {
@@ -314,11 +316,11 @@ function buildArkClassMembers(clsNode, cls, sourceFile) {
     let instanceIRTransformer;
     let staticIRTransformer;
     if (ohos_typescript_1.default.isClassDeclaration(clsNode) || ohos_typescript_1.default.isClassExpression(clsNode) || ohos_typescript_1.default.isStructDeclaration(clsNode)) {
-        instanceIRTransformer = new ArkIRTransformer_1.ArkIRTransformer(sourceFile, cls.getInstanceInitMethod());
-        staticIRTransformer = new ArkIRTransformer_1.ArkIRTransformer(sourceFile, cls.getStaticInitMethod());
+        instanceIRTransformer = new (loadArkIRTransformer().ArkIRTransformer)(sourceFile, cls.getInstanceInitMethod());
+        staticIRTransformer = new (loadArkIRTransformer().ArkIRTransformer)(sourceFile, cls.getStaticInitMethod());
     }
     if (ohos_typescript_1.default.isEnumDeclaration(clsNode)) {
-        staticIRTransformer = new ArkIRTransformer_1.ArkIRTransformer(sourceFile, cls.getStaticInitMethod());
+        staticIRTransformer = new (loadArkIRTransformer().ArkIRTransformer)(sourceFile, cls.getStaticInitMethod());
     }
     const staticInitStmts = [];
     const instanceInitStmts = [];

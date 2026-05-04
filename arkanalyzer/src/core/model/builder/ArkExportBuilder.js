@@ -27,12 +27,16 @@ exports.isExported = isExported;
 const ohos_typescript_1 = __importDefault(require("ohos-typescript"));
 const Position_1 = require("../../base/Position");
 const ArkExport_1 = require("../ArkExport");
-const builderUtils_1 = require("./builderUtils");
 const TSConst_1 = require("../../common/TSConst");
 const ArkBaseModel_1 = require("../ArkBaseModel");
 const IRUtils_1 = require("../../common/IRUtils");
 const ArkClass_1 = require("../ArkClass");
-const ArkClassBuilder_1 = require("./ArkClassBuilder");
+function loadBuilderUtils() {
+    return require('./builderUtils');
+}
+function loadArkClassBuilder() {
+    return require('./ArkClassBuilder');
+}
 let tempIndex = 0;
 function getTempAll() {
     return `${TSConst_1.TEMP_EXPORT_ALL_PREFIX}${tempIndex++}`;
@@ -120,7 +124,7 @@ function buildExportAssignment(node, sourceFile, arkFile) {
     }
     const originTsPosition = Position_1.LineColPosition.buildFromNode(node, sourceFile);
     const tsSourceCode = node.getText(sourceFile);
-    let modifiers = (0, builderUtils_1.buildModifiers)(node);
+    let modifiers = loadBuilderUtils().buildModifiers(node);
     if (isKeyword(node.getChildren(sourceFile), ohos_typescript_1.default.SyntaxKind.DefaultKeyword) || node.isExportEquals) {
         modifiers |= ArkBaseModel_1.ModifierType.DEFAULT;
     }
@@ -135,7 +139,7 @@ function buildExportAssignment(node, sourceFile, arkFile) {
         .setTrailingComments(IRUtils_1.IRUtils.getCommentsMetadata(node, sourceFile, arkFile.getScene().getOptions(), false));
     if (ohos_typescript_1.default.isNewExpression(node.expression) && ohos_typescript_1.default.isClassExpression(node.expression.expression)) {
         let cls = new ArkClass_1.ArkClass();
-        (0, ArkClassBuilder_1.buildNormalArkClassFromArkFile)(node.expression.expression, arkFile, cls, sourceFile);
+        loadArkClassBuilder().buildNormalArkClassFromArkFile(node.expression.expression, arkFile, cls, sourceFile);
     }
     if (ohos_typescript_1.default.isIdentifier(node.expression)) {
         // just like: export default xx
@@ -157,7 +161,7 @@ function buildExportAssignment(node, sourceFile, arkFile) {
 function buildExportVariableStatement(node, sourceFile, arkFile, namespace) {
     let exportInfos = [];
     const originTsPosition = Position_1.LineColPosition.buildFromNode(node, sourceFile);
-    const modifiers = node.modifiers ? (0, builderUtils_1.buildModifiers)(node) : 0;
+    const modifiers = node.modifiers ? loadBuilderUtils().buildModifiers(node) : 0;
     const tsSourceCode = node.getText(sourceFile);
     node.declarationList.declarations.forEach(dec => {
         const exportInfoBuilder = new ArkExport_1.ExportInfo.Builder()
@@ -183,7 +187,7 @@ function buildExportVariableStatement(node, sourceFile, arkFile, namespace) {
 function buildExportTypeAliasDeclaration(node, sourceFile, arkFile) {
     let exportInfos = [];
     const originTsPosition = Position_1.LineColPosition.buildFromNode(node, sourceFile);
-    let modifiers = node.modifiers ? (0, builderUtils_1.buildModifiers)(node) : 0;
+    let modifiers = node.modifiers ? loadBuilderUtils().buildModifiers(node) : 0;
     modifiers |= ArkBaseModel_1.ModifierType.TYPE;
     const tsSourceCode = node.getText(sourceFile);
     const exportInfo = new ArkExport_1.ExportInfo.Builder()

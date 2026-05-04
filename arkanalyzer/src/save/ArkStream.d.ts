@@ -1,4 +1,3 @@
-import fs from 'fs';
 export declare class ArkCodeBuffer {
     output: string[];
     indent: string;

@@ -7,6 +7,7 @@ import { WorklistProfileSnapshot } from "../core/kernel/debug/WorklistProfiler";
 import { WorklistBudgetTruncation } from "../core/kernel/propagation/WorklistSolver";
 import { EnginePluginAuditSnapshot } from "../core/orchestration/plugins/EnginePluginRuntime";
 import { ExtensionModuleLoadIssue } from "../core/orchestration/ExtensionLoaderUtils";
+import { SemanticSolveResult } from "../core/kernel/semantic_state/SemanticStateTypes";
 import {
     emptyModuleAuditSnapshot,
     ModuleAuditEntry,
@@ -112,6 +113,7 @@ export interface EntryAnalyzeResult {
     executionHandoffAudit: ExecutionHandoffAudit;
     moduleAudit: ModuleAuditSnapshot;
     enginePluginAudit: EnginePluginAuditSnapshot;
+    semanticState?: SemanticSolveResult;
     arkMainSeeds?: ArkMainSeedReport;
     worklistProfile?: WorklistProfileSnapshot;
     worklistTruncation?: WorklistBudgetTruncation;
@@ -201,6 +203,7 @@ export interface AnalyzeReport {
         transferNoHitReasons: Record<string, number>;
         pagNodeResolutionAudit: PagNodeResolutionAuditSnapshot;
         executionHandoffAudit: ExecutionHandoffAudit;
+        semanticState?: SemanticSolveResult;
         diagnostics: AnalyzeErrorDiagnostics;
         diagnosticItems: NormalizedAnalyzeDiagnosticItem[];
         moduleAudit: {

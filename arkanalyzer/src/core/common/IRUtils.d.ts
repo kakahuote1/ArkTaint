@@ -1,6 +1,5 @@
 import { Value } from '../base/Value';
 import { Scene } from '../../Scene';
-import ts from 'ohos-typescript';
 import { SceneOptions } from '../../Config';
 import { CommentsMetadata } from '../model/ArkMetadata';
 import { Stmt } from '../base/Stmt';

@@ -1,7 +1,6 @@
 import { BinaryOperator, UnaryOperator } from '../base/Expr';
 import { GlobalRef } from '../base/Ref';
 import { Value } from '../base/Value';
-import * as ts from 'ohos-typescript';
 import { Local } from '../base/Local';
 import { ArkAliasTypeDefineStmt, Stmt } from '../base/Stmt';
 import { AliasType } from '../base/Type';

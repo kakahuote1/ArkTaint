@@ -1,4 +1,3 @@
-import ts from 'ohos-typescript';
 import { Decorator } from '../base/Decorator';
 import { ArkError } from '../common/ArkError';
 import { ArkMetadata, ArkMetadataKind, ArkMetadataType } from './ArkMetadata';

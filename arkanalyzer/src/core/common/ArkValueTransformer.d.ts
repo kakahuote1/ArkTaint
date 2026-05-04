@@ -1,10 +1,9 @@
-import * as ts from 'ohos-typescript';
 import { Local } from '../base/Local';
 import { ArkAliasTypeDefineStmt } from '../base/Stmt';
 import { AliasType, Type } from '../base/Type';
 import { GlobalRef } from '../base/Ref';
 import { ArkMethod } from '../model/ArkMethod';
-import { ArkIRTransformer, ValueAndStmts } from './ArkIRTransformer';
+import type { ArkIRTransformer, ValueAndStmts } from './ArkIRTransformer';
 export declare class ArkValueTransformer {
     conditionalOperatorNo: number;
     private tempLocalNo;

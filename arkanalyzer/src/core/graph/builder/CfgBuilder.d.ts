@@ -1,4 +1,3 @@
-import * as ts from 'ohos-typescript';
 import { Local } from '../../base/Local';
 import { ArkAliasTypeDefineStmt } from '../../base/Stmt';
 import { BasicBlock } from '../BasicBlock';

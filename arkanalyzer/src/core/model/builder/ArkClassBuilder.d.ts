@@ -1,7 +1,6 @@
 import { ArkFile } from '../ArkFile';
 import { ArkMethod } from '../ArkMethod';
 import { ArkNamespace } from '../ArkNamespace';
-import ts from 'ohos-typescript';
 import { ArkClass } from '../ArkClass';
 export type ClassLikeNode = ts.ClassDeclaration | ts.InterfaceDeclaration | ts.EnumDeclaration | ts.ClassExpression | ts.TypeLiteralNode | ts.StructDeclaration | ts.ObjectLiteralExpression;
 export declare function buildDefaultArkClassFromArkFile(arkFile: ArkFile, defaultClass: ArkClass, astRoot: ts.SourceFile): void;

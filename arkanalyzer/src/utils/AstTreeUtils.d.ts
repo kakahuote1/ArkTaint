@@ -1,4 +1,4 @@
-import { ArkFile, ts } from '..';
+import { ArkFile } from '..';
 export declare class AstTreeUtils {
     /**
      * get source file from code segment

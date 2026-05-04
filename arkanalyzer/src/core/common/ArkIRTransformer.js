@@ -58,20 +58,26 @@ const ValueUtil_1 = require("./ValueUtil");
 const ArkSignature_1 = require("../model/ArkSignature");
 const IRUtils_1 = require("./IRUtils");
 const ArkMethod_1 = require("../model/ArkMethod");
-const ArkMethodBuilder_1 = require("../model/builder/ArkMethodBuilder");
 const ArkSignatureBuilder_1 = require("../model/builder/ArkSignatureBuilder");
 const EtsConst_1 = require("./EtsConst");
 const Position_1 = require("../base/Position");
 const ModelUtils_1 = require("./ModelUtils");
 const Builtin_1 = require("./Builtin");
 const TSConst_1 = require("./TSConst");
-const builderUtils_1 = require("../model/builder/builderUtils");
 const ArkValueTransformer_1 = require("./ArkValueTransformer");
 const ArkImport_1 = require("../model/ArkImport");
 const TypeExpr_1 = require("../base/TypeExpr");
-const ArkClassBuilder_1 = require("../model/builder/ArkClassBuilder");
 const ArkClass_1 = require("../model/ArkClass");
 const ArkBaseModel_1 = require("../model/ArkBaseModel");
+function loadArkMethodBuilder() {
+    return require('../model/builder/ArkMethodBuilder');
+}
+function loadArkClassBuilder() {
+    return require('../model/builder/ArkClassBuilder');
+}
+function loadBuilderUtils() {
+    return require('../model/builder/builderUtils');
+}
 class DummyStmt extends Stmt_1.Stmt {
     constructor(text) {
         super();
@@ -190,7 +196,7 @@ class ArkIRTransformer {
         if (this.builderMethodContextFlag) {
             ModelUtils_1.ModelUtils.implicitArkUIBuilderMethods.add(arkMethod);
         }
-        (0, ArkMethodBuilder_1.buildArkMethodFromArkClass)(functionDeclarationNode, declaringClass, arkMethod, this.sourceFile, this.declaringMethod);
+        loadArkMethodBuilder().buildArkMethodFromArkClass(functionDeclarationNode, declaringClass, arkMethod, this.sourceFile, this.declaringMethod);
         return [];
     }
     classDeclarationToStmts(node) {
@@ -200,7 +206,7 @@ class ArkIRTransformer {
             cls.setDeclaringArkNamespace(declaringArkNamespace);
         }
         cls.setDeclaringArkFile(this.declaringMethod.getDeclaringArkFile());
-        (0, ArkClassBuilder_1.buildNormalArkClassFromArkMethod)(node, cls, this.sourceFile, this.declaringMethod);
+        loadArkClassBuilder().buildNormalArkClassFromArkMethod(node, cls, this.sourceFile, this.declaringMethod);
         return [];
     }
     // This is only used to add class property assign stmts into constructor when it is with parameter property.
@@ -393,9 +399,10 @@ class ArkIRTransformer {
         }
         const aliasType = new Type_1.AliasType(aliasName, rightType, new ArkSignature_1.AliasTypeSignature(aliasName, this.declaringMethod.getSignature()));
         if (typeAliasDeclaration.typeParameters) {
-            const genericTypes = (0, builderUtils_1.buildTypeParameters)(typeAliasDeclaration.typeParameters, this.sourceFile, this.declaringMethod);
+            const builderUtils = loadBuilderUtils();
+            const genericTypes = builderUtils.buildTypeParameters(typeAliasDeclaration.typeParameters, this.sourceFile, this.declaringMethod);
             aliasType.setGenericTypes(genericTypes);
-            aliasType.setOriginalType((0, builderUtils_1.buildGenericType)(rightType, aliasType));
+            aliasType.setOriginalType(builderUtils.buildGenericType(rightType, aliasType));
             rightType = aliasType.getOriginalType();
         }
         let expr = this.generateAliasTypeExpr(rightOp, aliasType);
@@ -406,7 +413,7 @@ class ArkIRTransformer {
             });
             expr.setRealGenericTypes(realGenericTypes);
         }
-        const modifiers = typeAliasDeclaration.modifiers ? (0, builderUtils_1.buildModifiers)(typeAliasDeclaration) : 0;
+        const modifiers = typeAliasDeclaration.modifiers ? loadBuilderUtils().buildModifiers(typeAliasDeclaration) : 0;
         aliasType.setModifiers(modifiers);
         const aliasTypeDefineStmt = new Stmt_1.ArkAliasTypeDefineStmt(aliasType, expr);
         const leftPosition = Position_1.FullPosition.buildFromNode(typeAliasDeclaration.name, this.sourceFile);

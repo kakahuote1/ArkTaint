@@ -1,4 +1,3 @@
-import ts from 'ohos-typescript';
 import { LineColPosition } from '../../base/Position';
 import { ArkExport, ExportInfo, FromInfo } from '../ArkExport';
 import { ArkFile } from '../ArkFile';

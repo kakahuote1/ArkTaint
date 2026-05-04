@@ -40,6 +40,7 @@ export declare class PointerAnalysis extends AbstractAnalysis {
     private handleLoadWrite;
     private handleFieldInEdges;
     private handleFieldOutEdges;
+    private isFunctionLikePagNode;
     /**
      * If current node is a base of a called method, pointer in this node will be transfered into `this` Local in method
      */

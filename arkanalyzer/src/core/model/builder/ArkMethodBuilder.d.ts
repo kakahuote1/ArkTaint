@@ -1,7 +1,6 @@
 import { Type } from '../../base/Type';
 import { ArkClass } from '../ArkClass';
 import { ArkMethod } from '../ArkMethod';
-import ts from 'ohos-typescript';
 import { Stmt } from '../../base/Stmt';
 import { Local } from '../../base/Local';
 import { Value } from '../../base/Value';

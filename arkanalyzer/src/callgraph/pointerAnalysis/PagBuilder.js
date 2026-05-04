@@ -519,7 +519,7 @@ class PagBuilder {
         if (ptNode instanceof Pag_1.PagFuncNode) {
             // function ptr invoke
             let tempCallee = this.scene.getMethod(ptNode.getMethod());
-            if (!callee) {
+            if (!tempCallee) {
                 return callee;
             }
             callee.push(tempCallee);
@@ -534,11 +534,23 @@ class PagBuilder {
         // try to get callee by MethodSignature
         const getClassSignature = (value) => {
             if (value instanceof Expr_1.ArkNewExpr) {
-                return value.getType().getClassSignature();
+                const valueType = value.getType();
+                if (!valueType || typeof valueType.getClassSignature !== "function") {
+                    return undefined;
+                }
+                return valueType.getClassSignature();
             }
-            return this.scene.getSdkGlobal('Array').getSignature();
+            const arrayClass = this.scene.getSdkGlobal('Array');
+            if (!arrayClass) {
+                logger.warn(`[PagBuilder] missing SDK global 'Array' when resolving dynamic callee: ${ivkExpr.toString()}`);
+                return undefined;
+            }
+            return arrayClass.getSignature();
         };
         const clsSig = getClassSignature(value);
+        if (!clsSig) {
+            return callee;
+        }
         let cls = this.scene.getClass(clsSig);
         let tempCallee;
         while (!tempCallee && cls) {
@@ -556,7 +568,10 @@ class PagBuilder {
                 // TODO: anonymous method param and return value pointer pass
                 let argType = arg.getType();
                 if (argType instanceof Type_1.FunctionType) {
-                    callee.push(this.scene.getMethod(argType.getMethodSignature()));
+                    const argMethod = this.scene.getMethod(argType.getMethodSignature());
+                    if (argMethod) {
+                        callee.push(argMethod);
+                    }
                 }
             }
         }

@@ -1,4 +1,3 @@
-import ts from 'ohos-typescript';
 export type LineCol = number;
 export declare function setLine(lineCol: LineCol, lineNo: number): LineCol;
 export declare function setCol(lineCol: LineCol, colNo: number): LineCol;

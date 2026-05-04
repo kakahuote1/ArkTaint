@@ -4,7 +4,6 @@ import { ImportInfo } from './ArkImport';
 import { ArkClass } from './ArkClass';
 import { ArkNamespace } from './ArkNamespace';
 import { ClassSignature, FileSignature, NamespaceSignature } from './ArkSignature';
-import { ts } from '../../index';
 export declare const notStmtOrExprKind: string[];
 export declare enum Language {
     TYPESCRIPT = 0,

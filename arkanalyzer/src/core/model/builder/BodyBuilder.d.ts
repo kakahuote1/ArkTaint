@@ -2,7 +2,6 @@ import { ArkBody } from '../ArkBody';
 import { ArkMethod } from '../ArkMethod';
 import { MethodSignature } from '../ArkSignature';
 import { CfgBuilder } from '../../graph/builder/CfgBuilder';
-import * as ts from 'ohos-typescript';
 import { GlobalRef } from '../../base/Ref';
 import { FullPosition } from '../../base/Position';
 export declare class BodyBuilder {

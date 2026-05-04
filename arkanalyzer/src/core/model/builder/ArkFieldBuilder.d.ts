@@ -1,4 +1,3 @@
-import ts from 'ohos-typescript';
 import { ArkField } from '../ArkField';
 import { ArkClass } from '../ArkClass';
 import { ArkMethod } from '../ArkMethod';

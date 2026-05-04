@@ -7,14 +7,14 @@ import { ViewTree } from '../graph/ViewTree';
 import { ArkBody } from './ArkBody';
 import { ArkClass } from './ArkClass';
 import { MethodSignature, MethodSubSignature } from './ArkSignature';
-import { BodyBuilder } from './builder/BodyBuilder';
+import type { BodyBuilder } from './builder/BodyBuilder';
 import { ArkExport, ExportType } from './ArkExport';
 import { LineCol } from '../base/Position';
 import { ArkBaseModel } from './ArkBaseModel';
 import { ArkError } from '../common/ArkError';
 import { Local } from '../base/Local';
 import { ArkFile, Language } from './ArkFile';
-import { MethodParameter } from './builder/ArkMethodBuilder';
+import type { MethodParameter } from './builder/ArkMethodBuilder';
 export declare const arkMethodNodeKind: string[];
 /**
  * @category core/model

@@ -1,10 +1,10 @@
-import ts, { HeritageClause, ParameterDeclaration, TypeNode, TypeParameterDeclaration } from 'ohos-typescript';
+import { HeritageClause, ParameterDeclaration, TypeNode, TypeParameterDeclaration } from 'ohos-typescript';
 import { AliasType, GenericType, Type } from '../../base/Type';
 import { ArkField } from '../ArkField';
 import { ArkClass } from '../ArkClass';
 import { ArkMethod } from '../ArkMethod';
 import { Decorator } from '../../base/Decorator';
-import { MethodParameter } from './ArkMethodBuilder';
+import type { MethodParameter } from './ArkMethodBuilder';
 import { FullPosition } from '../../base/Position';
 export declare function handleQualifiedName(node: ts.QualifiedName): string;
 export declare function handlePropertyAccessExpression(node: ts.PropertyAccessExpression): string;

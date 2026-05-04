@@ -69,11 +69,8 @@ const logger_1 = __importStar(require("../../../utils/logger"));
 const ArkClass_1 = require("../ArkClass");
 const ArkMethod_1 = require("../ArkMethod");
 const Decorator_1 = require("../../base/Decorator");
-const ArkMethodBuilder_1 = require("./ArkMethodBuilder");
-const ArkClassBuilder_1 = require("./ArkClassBuilder");
 const Builtin_1 = require("../../common/Builtin");
 const ArkBaseModel_1 = require("../ArkBaseModel");
-const ArkValueTransformer_1 = require("../../common/ArkValueTransformer");
 const TypeExpr_1 = require("../../base/TypeExpr");
 const TSConst_1 = require("../../common/TSConst");
 const ArkSignatureBuilder_1 = require("./ArkSignatureBuilder");
@@ -81,6 +78,15 @@ const Ref_1 = require("../../base/Ref");
 const Local_1 = require("../../base/Local");
 const Position_1 = require("../../base/Position");
 const logger = logger_1.default.getLogger(logger_1.LOG_MODULE_TYPE.ARKANALYZER, 'builderUtils');
+function loadArkMethodBuilder() {
+    return require('./ArkMethodBuilder');
+}
+function loadArkClassBuilder() {
+    return require('./ArkClassBuilder');
+}
+function loadArkValueTransformer() {
+    return require('../../common/ArkValueTransformer');
+}
 function handleQualifiedName(node) {
     let right = node.right.text;
     let left = '';
@@ -198,7 +204,7 @@ function buildObjectBindingPatternParam(methodParameter, paramNameNode) {
     methodParameter.setName('ObjectBindingPattern');
     let elements = [];
     paramNameNode.elements.forEach(element => {
-        let paraElement = new ArkMethodBuilder_1.ObjectBindingPatternParameter();
+        let paraElement = new (loadArkMethodBuilder().ObjectBindingPatternParameter)();
         if (element.propertyName) {
             if (ohos_typescript_1.default.isIdentifier(element.propertyName)) {
                 paraElement.setPropertyName(element.propertyName.text);
@@ -253,7 +259,7 @@ function buildArrayBindingPatternParam(methodParameter, paramNameNode) {
     methodParameter.setName('ArrayBindingPattern');
     let elements = [];
     paramNameNode.elements.forEach(element => {
-        let paraElement = new ArkMethodBuilder_1.ArrayBindingPatternParameter();
+        let paraElement = new (loadArkMethodBuilder().ArrayBindingPatternParameter)();
         if (ohos_typescript_1.default.isBindingElement(element)) {
             buildBindingElementOfBindingPatternParam(element, paraElement);
         }
@@ -267,7 +273,7 @@ function buildArrayBindingPatternParam(methodParameter, paramNameNode) {
 function buildParameters(params, arkInstance, sourceFile, paramsPosition) {
     let parameters = [];
     params.forEach(parameter => {
-        let methodParameter = new ArkMethodBuilder_1.MethodParameter();
+        let methodParameter = new (loadArkMethodBuilder().MethodParameter)();
         // name
         if (ohos_typescript_1.default.isIdentifier(parameter.name)) {
             methodParameter.setName(parameter.name.text);
@@ -413,7 +419,7 @@ function tsNode2Type(typeNode, sourceFile, arkInstance) {
         }
     }
     else if (ohos_typescript_1.default.isLiteralTypeNode(typeNode)) {
-        return ArkValueTransformer_1.ArkValueTransformer.resolveLiteralTypeNode(typeNode, sourceFile);
+        return loadArkValueTransformer().ArkValueTransformer.resolveLiteralTypeNode(typeNode, sourceFile);
     }
     else if (ohos_typescript_1.default.isTypeLiteralNode(typeNode)) {
         let cls = new ArkClass_1.ArkClass();
@@ -434,7 +440,7 @@ function tsNode2Type(typeNode, sourceFile, arkInstance) {
         else {
             cls.setDeclaringArkFile(declaringClass.getDeclaringArkFile());
         }
-        (0, ArkClassBuilder_1.buildNormalArkClassFromArkMethod)(typeNode, cls, sourceFile);
+        loadArkClassBuilder().buildNormalArkClassFromArkMethod(typeNode, cls, sourceFile);
         return new Type_1.ClassType(cls.getSignature());
     }
     else if (ohos_typescript_1.default.isFunctionTypeNode(typeNode)) {
@@ -449,7 +455,7 @@ function tsNode2Type(typeNode, sourceFile, arkInstance) {
         else {
             cls = arkInstance.getDeclaringArkClass();
         }
-        (0, ArkMethodBuilder_1.buildArkMethodFromArkClass)(typeNode, cls, mtd, sourceFile);
+        loadArkMethodBuilder().buildArkMethodFromArkClass(typeNode, cls, mtd, sourceFile);
         return new Type_1.FunctionType(mtd.getSignature());
     }
     else if (ohos_typescript_1.default.isTypeParameterDeclaration(typeNode)) {

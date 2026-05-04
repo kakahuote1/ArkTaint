@@ -58,6 +58,7 @@ export interface CliOptions {
     worklistMaxDequeues?: number;
     worklistMaxVisited?: number;
     enableSecondarySinkSweep: boolean;
+    semanticStateSolver?: "off" | "on";
     showLoadWarnings?: boolean;
     ruleOptions: RuleLoaderOptions;
 }
@@ -118,6 +119,7 @@ export function parseArgs(argv: string[]): CliOptions {
     let worklistMaxDequeuesRaw: number | undefined;
     let worklistMaxVisitedRaw: number | undefined;
     let secondarySinkSweepRaw: boolean | undefined;
+    let semanticStateSolver: "off" | "on" | undefined;
     const ruleOptions: RuleLoaderOptions = {};
 
     for (let i = 0; i < argv.length; i++) {
@@ -453,6 +455,16 @@ export function parseArgs(argv: string[]): CliOptions {
             secondarySinkSweepRaw = false;
             continue;
         }
+        const semanticStateSolverArg = readValue("--semanticStateSolver") ?? readValue("--semantic-state-solver");
+        if (semanticStateSolverArg !== undefined) {
+            const normalized = semanticStateSolverArg.trim();
+            if (normalized !== "off" && normalized !== "on") {
+                throw new Error(`invalid --semanticStateSolver: ${semanticStateSolverArg}`);
+            }
+            semanticStateSolver = normalized;
+            if (arg === "--semanticStateSolver" || arg === "--semantic-state-solver") i++;
+            continue;
+        }
         if (arg.startsWith("--")) {
             throw new Error(`unknown option: ${arg}`);
         }
@@ -641,6 +653,7 @@ export function parseArgs(argv: string[]): CliOptions {
         worklistMaxDequeues,
         worklistMaxVisited,
         enableSecondarySinkSweep,
+        semanticStateSolver,
         showLoadWarnings: true,
         ruleOptions,
     };

@@ -126,16 +126,6 @@ export function detectFlows(
         }
     }
 
-    // Developer-friendly fallback for taint demo projects.
-    if (enableSecondarySinkSweep && uniqueFlowKeys.size === 0) {
-        const sinkByName = collect("sig", "Sink", engine.detectSinks("Sink", { sanitizerRules }));
-        const sinkBySig = collect("sig", "taint.%dflt.Sink", engine.detectSinks("taint.%dflt.Sink", { sanitizerRules }));
-        if (detailed) {
-            bySignature["Sink"] = sinkByName;
-            bySignature["taint.%dflt.Sink"] = sinkBySig;
-        }
-    }
-
     return {
         totalFlowCount: uniqueFlowKeys.size,
         sinkSamples,

@@ -54,7 +54,6 @@ const Position_1 = require("../base/Position");
 const Stmt_1 = require("../base/Stmt");
 const Expr_1 = require("../base/Expr");
 const ArkClass_1 = require("../model/ArkClass");
-const ArkClassBuilder_1 = require("../model/builder/ArkClassBuilder");
 const Type_1 = require("../base/Type");
 const ArkSignatureBuilder_1 = require("../model/builder/ArkSignatureBuilder");
 const TSConst_1 = require("./TSConst");
@@ -65,15 +64,22 @@ const IRUtils_1 = require("./IRUtils");
 const Ref_1 = require("../base/Ref");
 const ModelUtils_1 = require("./ModelUtils");
 const ArkMethod_1 = require("../model/ArkMethod");
-const ArkMethodBuilder_1 = require("../model/builder/ArkMethodBuilder");
 const Builtin_1 = require("./Builtin");
 const Constant_1 = require("../base/Constant");
 const Const_1 = require("./Const");
-const ArkIRTransformer_1 = require("./ArkIRTransformer");
 const logger_1 = __importStar(require("../../utils/logger"));
 const TypeInference_1 = require("./TypeInference");
 const TypeExpr_1 = require("../base/TypeExpr");
 const logger = logger_1.default.getLogger(logger_1.LOG_MODULE_TYPE.ARKANALYZER, 'ArkValueTransformer');
+function loadArkMethodBuilder() {
+    return require('../model/builder/ArkMethodBuilder');
+}
+function loadArkClassBuilder() {
+    return require('../model/builder/ArkClassBuilder');
+}
+function loadArkIRTransformerModule() {
+    return require('./ArkIRTransformer');
+}
 class ArkValueTransformer {
     constructor(arkIRTransformer, sourceFile, declaringMethod) {
         this.conditionalOperatorNo = 0;
@@ -243,7 +249,7 @@ class ArkValueTransformer {
         const ifStmt = new Stmt_1.ArkIfStmt(conditionValue);
         ifStmt.setOperandOriginalPositions(conditionPositions);
         stmts.push(ifStmt);
-        stmts.push(new ArkIRTransformer_1.DummyStmt(ArkIRTransformer_1.ArkIRTransformer.DUMMY_CONDITIONAL_OPERATOR_IF_TRUE_STMT + currConditionalOperatorIndex));
+        stmts.push(new (loadArkIRTransformerModule().DummyStmt)(loadArkIRTransformerModule().ArkIRTransformer.DUMMY_CONDITIONAL_OPERATOR_IF_TRUE_STMT + currConditionalOperatorIndex));
         const { value: whenTrueValue, valueOriginalPositions: whenTruePositions, stmts: whenTrueStmts, } = this.tsNodeToValueAndStmts(conditionalExpression.whenTrue);
         whenTrueStmts.forEach(stmt => stmts.push(stmt));
         const resultLocal = this.generateTempLocal();
@@ -251,13 +257,13 @@ class ArkValueTransformer {
         const resultLocalPosition = [whenTruePositions[0]];
         assignStmtWhenTrue.setOperandOriginalPositions([...resultLocalPosition, ...whenTruePositions]);
         stmts.push(assignStmtWhenTrue);
-        stmts.push(new ArkIRTransformer_1.DummyStmt(ArkIRTransformer_1.ArkIRTransformer.DUMMY_CONDITIONAL_OPERATOR_IF_FALSE_STMT + currConditionalOperatorIndex));
+        stmts.push(new (loadArkIRTransformerModule().DummyStmt)(loadArkIRTransformerModule().ArkIRTransformer.DUMMY_CONDITIONAL_OPERATOR_IF_FALSE_STMT + currConditionalOperatorIndex));
         const { value: whenFalseValue, valueOriginalPositions: whenFalsePositions, stmts: whenFalseStmts, } = this.tsNodeToValueAndStmts(conditionalExpression.whenFalse);
         whenFalseStmts.forEach(stmt => stmts.push(stmt));
         const assignStmt = new Stmt_1.ArkAssignStmt(resultLocal, whenFalseValue);
         assignStmt.setOperandOriginalPositions([...resultLocalPosition, ...whenFalsePositions]);
         stmts.push(assignStmt);
-        stmts.push(new ArkIRTransformer_1.DummyStmt(ArkIRTransformer_1.ArkIRTransformer.DUMMY_CONDITIONAL_OPERATOR_END_STMT + currConditionalOperatorIndex));
+        stmts.push(new (loadArkIRTransformerModule().DummyStmt)(loadArkIRTransformerModule().ArkIRTransformer.DUMMY_CONDITIONAL_OPERATOR_END_STMT + currConditionalOperatorIndex));
         return {
             value: resultLocal,
             valueOriginalPositions: resultLocalPosition,
@@ -269,11 +275,11 @@ class ArkValueTransformer {
         const declaringArkNamespace = declaringArkClass.getDeclaringArkNamespace();
         const anonymousClass = new ArkClass_1.ArkClass();
         if (declaringArkNamespace) {
-            (0, ArkClassBuilder_1.buildNormalArkClassFromArkNamespace)(objectLiteralExpression, declaringArkNamespace, anonymousClass, this.sourceFile, this.declaringMethod);
+            loadArkClassBuilder().buildNormalArkClassFromArkNamespace(objectLiteralExpression, declaringArkNamespace, anonymousClass, this.sourceFile, this.declaringMethod);
         }
         else {
             const declaringArkFile = declaringArkClass.getDeclaringArkFile();
-            (0, ArkClassBuilder_1.buildNormalArkClassFromArkFile)(objectLiteralExpression, declaringArkFile, anonymousClass, this.sourceFile, this.declaringMethod);
+            loadArkClassBuilder().buildNormalArkClassFromArkFile(objectLiteralExpression, declaringArkFile, anonymousClass, this.sourceFile, this.declaringMethod);
         }
         const objectLiteralExpressionPosition = Position_1.FullPosition.buildFromNode(objectLiteralExpression, this.sourceFile);
         const stmts = [];
@@ -377,11 +383,11 @@ class ArkValueTransformer {
         const declaringArkNamespace = declaringArkClass.getDeclaringArkNamespace();
         const newClass = new ArkClass_1.ArkClass();
         if (declaringArkNamespace) {
-            (0, ArkClassBuilder_1.buildNormalArkClassFromArkNamespace)(classExpression, declaringArkNamespace, newClass, this.sourceFile, this.declaringMethod);
+            loadArkClassBuilder().buildNormalArkClassFromArkNamespace(classExpression, declaringArkNamespace, newClass, this.sourceFile, this.declaringMethod);
         }
         else {
             const declaringArkFile = declaringArkClass.getDeclaringArkFile();
-            (0, ArkClassBuilder_1.buildNormalArkClassFromArkFile)(classExpression, declaringArkFile, newClass, this.sourceFile, this.declaringMethod);
+            loadArkClassBuilder().buildNormalArkClassFromArkFile(classExpression, declaringArkFile, newClass, this.sourceFile, this.declaringMethod);
         }
         const classValue = this.addNewLocal(newClass.getName(), new Type_1.ClassType(newClass.getSignature()));
         return {
@@ -789,7 +795,7 @@ class ArkValueTransformer {
         if (this.builderMethodContextFlag) {
             ModelUtils_1.ModelUtils.implicitArkUIBuilderMethods.add(arrowArkMethod);
         }
-        (0, ArkMethodBuilder_1.buildArkMethodFromArkClass)(callableNode, declaringClass, arrowArkMethod, this.sourceFile, this.declaringMethod);
+        loadArkMethodBuilder().buildArkMethodFromArkClass(callableNode, declaringClass, arrowArkMethod, this.sourceFile, this.declaringMethod);
         const callableType = new Type_1.FunctionType(arrowArkMethod.getSignature());
         const callableValue = this.addNewLocal(arrowArkMethod.getName(), callableType);
         return {
@@ -987,7 +993,7 @@ class ArkValueTransformer {
         }
         else {
             let unopExpr;
-            const operator = ArkIRTransformer_1.ArkIRTransformer.tokenToUnaryOperator(operatorToken);
+            const operator = loadArkIRTransformerModule().ArkIRTransformer.tokenToUnaryOperator(operatorToken);
             if (operator) {
                 unopExpr = new Expr_1.ArkUnopExpr(operandValue, operator);
                 exprPositions.push(...operandPositions);
@@ -1372,7 +1378,7 @@ class ArkValueTransformer {
             exprValue = opValue2;
         }
         else {
-            const operator = ArkIRTransformer_1.ArkIRTransformer.tokenToBinaryOperator(operatorToken.kind);
+            const operator = loadArkIRTransformerModule().ArkIRTransformer.tokenToBinaryOperator(operatorToken.kind);
             if (operator) {
                 if (this.isRelationalOperator(operator)) {
                     exprValue = new Expr_1.ArkConditionExpr(opValue1, opValue2, operator);
@@ -1780,17 +1786,17 @@ class ArkValueTransformer {
         const declaringClass = this.declaringMethod.getDeclaringArkClass();
         const declaringNamespace = declaringClass.getDeclaringArkNamespace();
         if (declaringNamespace) {
-            (0, ArkClassBuilder_1.buildNormalArkClassFromArkNamespace)(typeLiteralNode, declaringNamespace, anonymousClass, this.sourceFile);
+            loadArkClassBuilder().buildNormalArkClassFromArkNamespace(typeLiteralNode, declaringNamespace, anonymousClass, this.sourceFile);
         }
         else {
-            (0, ArkClassBuilder_1.buildNormalArkClassFromArkFile)(typeLiteralNode, declaringClass.getDeclaringArkFile(), anonymousClass, this.sourceFile);
+            loadArkClassBuilder().buildNormalArkClassFromArkFile(typeLiteralNode, declaringClass.getDeclaringArkFile(), anonymousClass, this.sourceFile);
         }
         return new Type_1.ClassType(anonymousClass.getSignature());
     }
     resolveFunctionTypeNode(functionTypeNode) {
         const anonymousMethod = new ArkMethod_1.ArkMethod();
         const declaringClass = this.declaringMethod.getDeclaringArkClass();
-        (0, ArkMethodBuilder_1.buildArkMethodFromArkClass)(functionTypeNode, declaringClass, anonymousMethod, this.sourceFile);
+        loadArkMethodBuilder().buildArkMethodFromArkClass(functionTypeNode, declaringClass, anonymousMethod, this.sourceFile);
         return new Type_1.FunctionType(anonymousMethod.getSignature());
     }
     static isCompoundAssignmentOperator(operator) {
