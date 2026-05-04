@@ -4,7 +4,8 @@
     "description": "Taint analysis framework for HarmonyOS",
     "main": "out/src/index.js",
     "scripts": {
-        "postinstall": "npm install --prefix arkanalyzer",
+        "prepare:arkanalyzer": "node scripts/prepare-arkanalyzer.js",
+        "prebuild": "node scripts/prepare-arkanalyzer.js",
         "build": "tsc",
         "skills:validate": "node out/tools/skills_validate.js",
         "context:pack": "node out/tools/context_pack.js",
