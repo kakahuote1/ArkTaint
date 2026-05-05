@@ -22,7 +22,8 @@ export type SemanticStateStatus =
     | "scheduled"
     | "resumed"
     | "active"
-    | "inactive";
+    | "inactive"
+    | "version";
 
 export type SemanticGuardKind =
     | "same_key"
@@ -102,19 +103,6 @@ export interface SemanticGapRecord {
     stmtText?: string;
 }
 
-export type SemanticPathAssumption = "true" | "false" | "unknown";
-
-export interface SemanticPathCondition {
-    id: string;
-    methodSignature?: string;
-    stmtText?: string;
-    conditionText: string;
-    normalizedCondition: string;
-    branchIndex: number;
-    assumption: SemanticPathAssumption;
-    certainty: "constant" | "assumed";
-}
-
 export interface SemanticCandidateSeed {
     factId: string;
     carrierKey: string;
@@ -141,6 +129,13 @@ export interface SemanticSolveBudget {
     maxElapsedMs?: number;
 }
 
+export interface SemanticStateStats {
+    dequeues: number;
+    visited: number;
+    elapsedMs: number;
+    transitionCounts: Record<string, number>;
+}
+
 export interface SemanticSolveOptions {
     sinkSignatures?: string[];
     sinkRuleIds?: string[];
@@ -151,6 +146,7 @@ export interface SemanticSolveInput {
     scene: Scene;
     pag: Pag;
     seeds: SemanticFact[];
+    transitions?: SemanticTransition[];
     sinkSignatures?: string[];
     sinkRuleIds?: string[];
     budget?: SemanticSolveBudget;
@@ -158,18 +154,19 @@ export interface SemanticSolveInput {
 
 export interface SemanticSolveResult {
     enabled: boolean;
+    truncated: boolean;
+    stats: SemanticStateStats;
     seedCount: number;
     sinkHitCount: number;
     candidateSeedCount: number;
     provenanceCount: number;
     gapCount: number;
-    pathConditionCount: number;
     sinkHits: SemanticSinkHit[];
     candidateSeeds: SemanticCandidateSeed[];
+    derivedFacts: SemanticFact[];
     provenance: SemanticProvenanceRecord[];
     gaps: SemanticGapRecord[];
-    pathConditions: SemanticPathCondition[];
-    truncated?: {
+    truncation?: {
         reason: string;
         dequeues: number;
         visited: number;
@@ -227,9 +224,9 @@ export interface SemanticTransition {
 export interface SemanticSolveResultMutable extends SemanticSolveResult {
     sinkHits: SemanticSinkHit[];
     candidateSeeds: SemanticCandidateSeed[];
+    derivedFacts: SemanticFact[];
     provenance: SemanticProvenanceRecord[];
     gaps: SemanticGapRecord[];
-    pathConditions: SemanticPathCondition[];
 }
 
 export function createDefaultSemanticSideState(): SemanticSideState {

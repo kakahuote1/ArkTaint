@@ -9,25 +9,86 @@ import {
 } from "../SemanticStateTypes";
 import { createSemanticFact } from "../SemanticFact";
 
+function readSemanticEffect(ctx: SemanticTransitionContext): any {
+    const invokeExpr = ctx.stmt.getInvokeExpr?.() as any;
+    return invokeExpr?.getSemanticEffect?.()
+        || invokeExpr?.semanticEffect
+        || (ctx.stmt as any).getSemanticEffect?.()
+        || (ctx.stmt as any).semanticEffect;
+}
+
 export function createEventTransitions(): SemanticTransition[] {
     const event: SemanticTransition = {
         id: "event.channel",
         label: "event-channel",
         match: (_fact, ctx) => ctx.stmt instanceof ArkInvokeStmt || ctx.stmt.containsInvokeExpr?.(),
         project: (fact, ctx) => {
-            const invokeExpr = ctx.stmt.getInvokeExpr?.();
-            const signature = invokeExpr?.getMethodSignature?.()?.toString?.() || "";
-            if (!signature) return [];
-            if (!/on|emit|callback|listener/i.test(signature)) return [];
+            const effect = readSemanticEffect(ctx);
+            if (!effect || effect.family !== "callback_event") return [];
+            const channel = effect.channel;
+            const callback = effect.callback;
+            if (!channel || !callback) return [];
+            const carrierKey = `event:${channel}:${callback}`;
+            if (effect.operation === "bind") {
+                return [{
+                    carrier: createSemanticCarrier("event", carrierKey, `${channel}:${callback}`, { channel, callback }),
+                    tainted: fact.tainted,
+                    state: "bound",
+                    sideState: { eventState: "bound" },
+                    reason: "event-bind",
+                    guard: {
+                        kind: "binding_active",
+                        enabled: true,
+                        left: channel,
+                        right: callback,
+                        description: "callback binding recorded",
+                    },
+                }];
+            }
+            if (effect.operation !== "emit") return [];
+            if (fact.carrier.kind !== "event") return [];
+            const sameChannel = fact.carrier.channel === channel;
+            const sameCallback = fact.carrier.callback === callback;
+            const bindingActive = fact.sideState.eventState === "bound" || fact.sideState.eventState === "active";
+            const blockedBy = !sameChannel
+                ? "same_channel"
+                : !sameCallback
+                    ? "same_callback"
+                    : !bindingActive
+                        ? "binding_active"
+                        : "";
+            if (blockedBy) {
+                return [{
+                    carrier: fact.carrier,
+                    tainted: fact.tainted,
+                    state: fact.state,
+                    reason: "event-guard-failed",
+                    guard: {
+                        kind: blockedBy as any,
+                        enabled: false,
+                        left: `${channel}:${callback}`,
+                        right: `${fact.carrier.channel || ""}:${fact.carrier.callback || ""}`,
+                        description: "event emit guard failed",
+                    },
+                    gap: { blockedBy },
+                }];
+            }
             return [{
-                carrier: createSemanticCarrier("event", `event:${signature}`, signature, { channel: signature, callback: signature }),
+                carrier: createSemanticCarrier("event", carrierKey, `${channel}:${callback}`, { channel, callback }),
                 tainted: fact.tainted,
-                state: fact.state,
-                sideState: { eventState: fact.tainted ? "bound" : "unbound" },
-                reason: "event-transition",
+                state: "active",
+                sideState: { eventState: "active" },
+                reason: "event-emit",
+                guard: {
+                    kind: "binding_active",
+                    enabled: true,
+                    left: `${channel}:${callback}`,
+                    right: `${fact.carrier.channel}:${fact.carrier.callback}`,
+                    description: "event emit binding active",
+                },
             }];
         },
-        check: () => true,
+        check: (_fact, _ctx, projection) => projection.guard?.enabled !== false,
         update: (_fact, _ctx, projection) => projection.carrier
             ? createSemanticFact({
                 source: "semantic_state",

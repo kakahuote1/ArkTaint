@@ -44,4 +44,4 @@ if (!fs.existsSync(path.join(outRoot, "Scene.js")) || !fs.existsSync(path.join(o
     throw new Error(`arkanalyzer out generation incomplete: ${outRoot}`);
 }
 
-console.log(`prepared arkanalyzer/out/src from arkanalyzer/src compiled artifacts`);
+console.log("prepared arkanalyzer/out/src from arkanalyzer/src compiled artifacts");

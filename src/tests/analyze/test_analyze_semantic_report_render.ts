@@ -59,26 +59,25 @@ function run(): void {
             },
             semanticState: {
                 enabled: true,
+                truncated: false,
+                stats: { dequeues: 1, visited: 1, elapsedMs: 1, transitionCounts: { "native.assignment": 1 } },
                 seedCount: 2,
                 sinkHitCount: 1,
                 candidateSeedCount: 2,
                 provenanceCount: 1,
                 gapCount: 1,
-                pathConditionCount: 1,
                 sinkHits: [
                     { factId: "f1", carrierKey: "carrier-1", source: "seed", sinkSignature: "Sink.foo", sinkRuleId: "sink-1" },
                 ],
                 candidateSeeds: [
                     { factId: "f1", carrierKey: "carrier-1", source: "seed", reason: "seed" },
                 ],
+                derivedFacts: [],
                 provenance: [
                     { fromFactId: "f1", toFactId: "f2", transitionId: "native.assignment", reason: "assign-tainted", carrierKey: "carrier-1", tainted: true },
                 ],
                 gaps: [
                     { factId: "f1", carrierKey: "carrier-1", transitionId: "native.branch", reason: "branch-unknown", blockedBy: "unresolved-branch-condition" },
-                ],
-                pathConditions: [
-                    { id: "p1", conditionText: "flag", normalizedCondition: "flag", branchIndex: 0, assumption: "true", certainty: "assumed" },
                 ],
             },
             memoryProfile: undefined,
@@ -100,12 +99,12 @@ function run(): void {
     };
 
     const markdown = renderMarkdownReport(report as any);
-    assert.ok(markdown.includes("semanticState: enabled=true, seeds=2, sinkHits=1, candidateSeeds=2, provenance=1, gaps=1"));
+    assert.ok(markdown.includes("semanticState: enabled=true, truncated=false, seeds=2, sinkHits=1, candidateSeeds=2, provenance=1, gaps=1"));
     assert.ok(markdown.includes("semantic sink hits: Sink.foo@carrier-1"));
     assert.ok(markdown.includes("semantic candidate seeds: seed@carrier-1"));
     assert.ok(markdown.includes("semantic provenance: native.assignment:assign-tainted"));
     assert.ok(markdown.includes("semantic gaps: native.branch:unresolved-branch-condition"));
-    assert.ok(markdown.includes("semantic path conditions: flag:true"));
+    assert.ok(!markdown.includes("semantic path conditions"));
 
     console.log("test_analyze_semantic_report_render=PASS");
 }

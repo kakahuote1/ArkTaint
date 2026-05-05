@@ -1,17 +1,14 @@
-import { ArkAssignStmt, ArkIfStmt, ArkReturnStmt, ArkReturnVoidStmt, ArkThrowStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
+import { ArkIfStmt, ArkReturnStmt, ArkReturnVoidStmt, ArkThrowStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
 import { ArkMethod } from "../../../../arkanalyzer/out/src/core/model/ArkMethod";
 import { BasicBlock } from "../../../../arkanalyzer/out/src/core/graph/BasicBlock";
 import {
     SemanticCarrier,
     SemanticFact as SemanticFactType,
-    SemanticPathAssumption,
-    SemanticPathCondition,
     SemanticSolveInput,
     SemanticSolveResult,
     SemanticSolveResultMutable,
     SemanticTransition,
     SemanticTransitionContext,
-    buildSemanticCarrierForValue,
     cloneSemanticFact,
     resolveMethodSignatureText,
     resolveStmtText,
@@ -28,11 +25,6 @@ interface WorkItem {
     block: BasicBlock;
     stmtIndex: number;
     facts: Map<string, SemanticFactType>;
-    pathConditions: SemanticPathCondition[];
-}
-
-function buildCarrierFromValue(method: ArkMethod, value: any, stmt?: any): SemanticCarrier | undefined {
-    return buildSemanticCarrierForValue(method, value, stmt);
 }
 
 function buildCarrierFromSeed(seed: SemanticFactType): SemanticCarrier {
@@ -57,96 +49,9 @@ function makeFactsKey(facts: Map<string, SemanticFactType>): string {
         .join("|");
 }
 
-function makePathConditionsKey(pathConditions: SemanticPathCondition[]): string {
-    return pathConditions
-        .map(item => `${item.normalizedCondition}:${item.assumption}`)
-        .sort()
-        .join("|");
-}
-
-function normalizeConditionText(stmt: ArkIfStmt): { conditionText: string; normalizedCondition: string } {
-    const conditionText = stmt.getConditionExpr?.()?.toString?.() || stmt.toString();
-    const normalizedCondition = conditionText.replace(/\s+/g, "").toLowerCase();
-    return { conditionText, normalizedCondition };
-}
-
-function isConstantConditionTrue(stmt: ArkIfStmt): boolean | undefined {
-    const { normalizedCondition } = normalizeConditionText(stmt);
-    if (normalizedCondition === "if(true)" || normalizedCondition === "true") return true;
-    if (normalizedCondition === "if(false)" || normalizedCondition === "false") return false;
-    return undefined;
-}
-
 function getFirstFact(facts: Map<string, SemanticFactType>): SemanticFactType | undefined {
     for (const fact of facts.values()) return fact;
     return undefined;
-}
-
-function buildPathConditionId(method: ArkMethod, stmt: ArkIfStmt, normalizedCondition: string, assumption: SemanticPathAssumption): string {
-    return `${resolveMethodSignatureText(method)}|${resolveStmtText(stmt)}|${normalizedCondition}|${assumption}`;
-}
-
-function appendPathCondition(
-    pathConditions: SemanticPathCondition[],
-    method: ArkMethod,
-    stmt: ArkIfStmt,
-    branchIndex: number,
-    assumption: SemanticPathAssumption,
-    certainty: SemanticPathCondition["certainty"],
-): { pathConditions: SemanticPathCondition[]; contradiction: boolean } {
-    const { conditionText, normalizedCondition } = normalizeConditionText(stmt);
-    const existing = pathConditions.find(item => item.normalizedCondition === normalizedCondition);
-    if (existing) {
-        if (existing.assumption !== "unknown" && assumption !== "unknown" && existing.assumption !== assumption) {
-            return { pathConditions, contradiction: true };
-        }
-        return { pathConditions, contradiction: false };
-    }
-    return {
-        pathConditions: [
-            ...pathConditions,
-            {
-                id: buildPathConditionId(method, stmt, normalizedCondition, assumption),
-                methodSignature: resolveMethodSignatureText(method),
-                stmtText: resolveStmtText(stmt),
-                conditionText,
-                normalizedCondition,
-                branchIndex,
-                assumption,
-                certainty,
-            },
-        ],
-        contradiction: false,
-    };
-}
-
-function assumptionForBranch(index: number, successorCount: number, condition: boolean | undefined): SemanticPathAssumption {
-    if (condition !== undefined) {
-        return condition ? "true" : "false";
-    }
-    if (successorCount === 1) {
-        return "true";
-    }
-    if (index === 0) return "true";
-    if (index === 1) return "false";
-    return "unknown";
-}
-
-function getAssignedLocalName(stmt: ArkAssignStmt): string | undefined {
-    const left = stmt.getLeftOp?.() as any;
-    const name = left?.getName?.();
-    return name === undefined ? undefined : String(name).replace(/\s+/g, "").toLowerCase();
-}
-
-function invalidatePathConditionsForAssignment(pathConditions: SemanticPathCondition[], stmt: ArkAssignStmt): SemanticPathCondition[] {
-    const assignedName = getAssignedLocalName(stmt);
-    if (!assignedName) {
-        return pathConditions;
-    }
-    return pathConditions.filter(item => {
-        const names = item.normalizedCondition.split(/[^a-z0-9_$]+/i).filter(Boolean);
-        return !names.includes(assignedName);
-    });
 }
 
 export class SemanticStateWorklistSolver {
@@ -168,19 +73,28 @@ export class SemanticStateWorklistSolver {
     public solve(input: SemanticSolveInput): SemanticSolveResult {
         const sinkSignatures = new Set<string>(input.sinkSignatures || []);
         const sinkRuleIds = new Set<string>(input.sinkRuleIds || []);
+        const transitions = input.transitions && input.transitions.length > 0
+            ? [...this.transitions, ...input.transitions]
+            : this.transitions;
         const result: SemanticSolveResultMutable = {
             enabled: true,
+            truncated: false,
+            stats: {
+                dequeues: 0,
+                visited: 0,
+                elapsedMs: 0,
+                transitionCounts: {},
+            },
             seedCount: input.seeds.length,
             sinkHitCount: 0,
             candidateSeedCount: 0,
             provenanceCount: 0,
             gapCount: 0,
-            pathConditionCount: 0,
             sinkHits: [],
             candidateSeeds: [],
+            derivedFacts: [],
             provenance: [],
             gaps: [],
-            pathConditions: [],
         };
 
         const methods = input.scene.getMethods().filter(method => method.getCfg?.());
@@ -222,7 +136,6 @@ export class SemanticStateWorklistSolver {
                 block: startBlock,
                 stmtIndex: 0,
                 facts: factMap,
-                pathConditions: [],
             });
         }
 
@@ -231,7 +144,7 @@ export class SemanticStateWorklistSolver {
         const seenCandidateSeeds = new Set<string>(result.candidateSeeds.map(item => `${item.factId}|${item.carrierKey}|${item.reason}`));
         const seenProvenance = new Set<string>();
         const seenGaps = new Set<string>();
-        const seenPathConditions = new Set<string>();
+        const seenDerivedFacts = new Set<string>();
         const startedAt = Date.now();
         let dequeues = 0;
         const budget = input.budget || {};
@@ -239,13 +152,14 @@ export class SemanticStateWorklistSolver {
         while (worklist.length > 0) {
             const item = worklist.shift()!;
             dequeues++;
-            const visitedKey = `${item.method.getSignature().toString()}|${item.block.toString()}|${item.stmtIndex}|${makeFactsKey(item.facts)}|${makePathConditionsKey(item.pathConditions)}`;
+            const visitedKey = `${item.method.getSignature().toString()}|${item.block.toString()}|${item.stmtIndex}|${makeFactsKey(item.facts)}`;
             if (visited.has(visitedKey)) {
                 continue;
             }
             visited.add(visitedKey);
             if (budget.maxDequeues !== undefined && dequeues > budget.maxDequeues) {
-                result.truncated = {
+                result.truncated = true;
+                result.truncation = {
                     reason: "max_dequeues",
                     dequeues,
                     visited: visited.size,
@@ -254,7 +168,8 @@ export class SemanticStateWorklistSolver {
                 break;
             }
             if (budget.maxVisited !== undefined && visited.size > budget.maxVisited) {
-                result.truncated = {
+                result.truncated = true;
+                result.truncation = {
                     reason: "max_visited",
                     dequeues,
                     visited: visited.size,
@@ -263,7 +178,8 @@ export class SemanticStateWorklistSolver {
                 break;
             }
             if (budget.maxElapsedMs !== undefined && Date.now() - startedAt > budget.maxElapsedMs) {
-                result.truncated = {
+                result.truncated = true;
+                result.truncation = {
                     reason: "max_elapsed",
                     dequeues,
                     visited: visited.size,
@@ -289,16 +205,47 @@ export class SemanticStateWorklistSolver {
                 };
 
                 for (const fact of [...facts.values()]) {
-                    for (const transition of this.transitions) {
+                    for (const transition of transitions) {
                         if (!transition.match(fact, ctx)) continue;
+                        result.stats.transitionCounts[transition.id] = (result.stats.transitionCounts[transition.id] || 0) + 1;
                         const projections = transition.project(fact, ctx);
                         for (const projection of projections) {
                             if (!transition.check(fact, ctx, projection)) {
+                                if (projection.gap) {
+                                    const gapKey = `${fact.id}|${transition.id}|${projection.reason}|${projection.gap.blockedBy}`;
+                                    if (!seenGaps.has(gapKey)) {
+                                        seenGaps.add(gapKey);
+                                        result.gaps.push({
+                                            factId: fact.id,
+                                            carrierKey: fact.carrier.key,
+                                            transitionId: transition.id,
+                                            reason: projection.reason,
+                                            blockedBy: projection.gap.blockedBy,
+                                            methodSignature: resolveMethodSignatureText(item.method),
+                                            stmtText: resolveStmtText(stmt),
+                                        });
+                                    }
+                                }
                                 continue;
                             }
                             const updated = transition.update(fact, ctx, projection) || fact;
                             const derivedFacts = transition.derive(updated, ctx, projection);
                             if (derivedFacts.length === 0) {
+                                if (projection.gap) {
+                                    const gapKey = `${fact.id}|${transition.id}|${projection.reason}|${projection.gap.blockedBy}`;
+                                    if (!seenGaps.has(gapKey)) {
+                                        seenGaps.add(gapKey);
+                                        result.gaps.push({
+                                            factId: fact.id,
+                                            carrierKey: fact.carrier.key,
+                                            transitionId: transition.id,
+                                            reason: projection.reason,
+                                            blockedBy: projection.gap.blockedBy,
+                                            methodSignature: resolveMethodSignatureText(item.method),
+                                            stmtText: resolveStmtText(stmt),
+                                        });
+                                    }
+                                }
                                 continue;
                             }
                             for (const derived of derivedFacts) {
@@ -311,6 +258,10 @@ export class SemanticStateWorklistSolver {
                                 derived.stmtText = derived.stmtText || resolveStmtText(stmt);
                                 derived.id = `${derived.carrier.key}|${derived.source}|${derived.contextId}|${derived.tainted ? "T" : "F"}|${derived.state}|${derived.order}`;
                                 facts.set(derived.carrier.key, derived);
+                                if (!seenDerivedFacts.has(derived.id)) {
+                                    seenDerivedFacts.add(derived.id);
+                                    result.derivedFacts.push(cloneSemanticFact(derived));
+                                }
                             }
                             const provenanceKey = `${fact.id}|${transition.id}|${projection.reason}|${resolveStmtText(stmt)}`;
                             if (!seenProvenance.has(provenanceKey)) {
@@ -366,76 +317,33 @@ export class SemanticStateWorklistSolver {
                     }
                 }
 
-                if (stmt instanceof ArkAssignStmt) {
-                    item.pathConditions = invalidatePathConditionsForAssignment(item.pathConditions, stmt);
-                }
-
                 if (stmt instanceof ArkIfStmt) {
-                    const condition = isConstantConditionTrue(stmt);
                     const successors = item.block.getSuccessors();
                     if (successors.length === 0) {
                         break;
                     }
-                    const nextBlocks = condition === undefined
-                        ? successors
-                        : [successors[condition ? 0 : 1] || successors[0]];
-                    for (let branchIndex = 0; branchIndex < nextBlocks.length; branchIndex++) {
-                        const nextBlock = nextBlocks[branchIndex];
+                    for (const nextBlock of successors) {
                         if (!nextBlock) continue;
-                        const assumption = assumptionForBranch(branchIndex, successors.length, condition);
-                        const pathUpdate = appendPathCondition(
-                            item.pathConditions,
-                            item.method,
-                            stmt,
-                            branchIndex,
-                            assumption,
-                            condition === undefined ? "assumed" : "constant",
-                        );
-                        if (pathUpdate.contradiction) {
-                            const firstFact = getFirstFact(facts);
-                            const gapKey = `${item.method.getSignature().toString()}|${resolveStmtText(stmt)}|path-contradiction|${assumption}`;
-                            if (!seenGaps.has(gapKey)) {
-                                seenGaps.add(gapKey);
-                                result.gaps.push({
-                                    factId: firstFact?.id || `${item.method.getSignature().toString()}|branch`,
-                                    carrierKey: firstFact?.carrier.key || `${item.method.getSignature().toString()}|branch`,
-                                    transitionId: "native.branch",
-                                    reason: "path-infeasible",
-                                    blockedBy: "contradictory-path-condition",
-                                    methodSignature: resolveMethodSignatureText(item.method),
-                                    stmtText: resolveStmtText(stmt),
-                                });
-                            }
-                            continue;
-                        }
-                        for (const pathCondition of pathUpdate.pathConditions) {
-                            if (seenPathConditions.has(pathCondition.id)) continue;
-                            seenPathConditions.add(pathCondition.id);
-                            result.pathConditions.push({ ...pathCondition });
-                        }
                         worklist.push({
                             method: item.method,
                             block: nextBlock,
                             stmtIndex: 0,
                             facts: cloneFactsMap(facts),
-                            pathConditions: pathUpdate.pathConditions.map(pathCondition => ({ ...pathCondition })),
                         });
                     }
-                    if (condition === undefined) {
-                        const gapKey = `${item.method.getSignature().toString()}|${resolveStmtText(stmt)}|branch`;
-                        if (!seenGaps.has(gapKey)) {
-                            seenGaps.add(gapKey);
-                            const firstFact = getFirstFact(facts);
-                            result.gaps.push({
-                                factId: firstFact?.id || `${item.method.getSignature().toString()}|branch`,
-                                carrierKey: firstFact?.carrier.key || `${item.method.getSignature().toString()}|branch`,
-                                transitionId: "native.branch",
-                                reason: "branch-unknown",
-                                blockedBy: "unresolved-branch-condition",
-                                methodSignature: resolveMethodSignatureText(item.method),
-                                stmtText: resolveStmtText(stmt),
-                            });
-                        }
+                    const gapKey = `${item.method.getSignature().toString()}|${resolveStmtText(stmt)}|branch`;
+                    if (!seenGaps.has(gapKey)) {
+                        seenGaps.add(gapKey);
+                        const firstFact = getFirstFact(facts);
+                        result.gaps.push({
+                            factId: firstFact?.id || `${item.method.getSignature().toString()}|branch`,
+                            carrierKey: firstFact?.carrier.key || `${item.method.getSignature().toString()}|branch`,
+                            transitionId: "native.branch",
+                            reason: "branch-unknown",
+                            blockedBy: "unresolved-branch-condition",
+                            methodSignature: resolveMethodSignatureText(item.method),
+                            stmtText: resolveStmtText(stmt),
+                        });
                     }
                     break;
                 }
@@ -455,7 +363,6 @@ export class SemanticStateWorklistSolver {
                             block: nextBlock,
                             stmtIndex: 0,
                             facts: cloneFactsMap(facts),
-                            pathConditions: item.pathConditions.map(pathCondition => ({ ...pathCondition })),
                         });
                     }
                 }
@@ -466,7 +373,9 @@ export class SemanticStateWorklistSolver {
         result.candidateSeedCount = result.candidateSeeds.length;
         result.provenanceCount = result.provenance.length;
         result.gapCount = result.gaps.length;
-        result.pathConditionCount = result.pathConditions.length;
+        result.stats.dequeues = dequeues;
+        result.stats.visited = visited.size;
+        result.stats.elapsedMs = Date.now() - startedAt;
         return result;
     }
 }

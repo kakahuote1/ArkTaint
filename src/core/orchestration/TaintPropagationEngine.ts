@@ -123,6 +123,7 @@ import {
 } from "../rules/RulePriority";
 import { SinkFlowRefinement, extractFilePathFromSignature } from "./postsolve/SinkFlowRefinement";
 import { SemanticFact, SemanticSolveResult, buildSemanticCarrierForValue, createDefaultSemanticSideState, normalizeSemanticFieldPath, resolveMethodSignatureText, resolveStmtText } from "../kernel/semantic_state/SemanticStateTypes";
+import { FiniteSemanticSolverEffect, compileSemanticSolverEffects } from "../kernel/semantic_state/SemanticEffectCompiler";
 import { createSemanticFact } from "../kernel/semantic_state/SemanticFact";
 import { SemanticStateWorklistSolver } from "../kernel/semantic_state/SemanticStateWorklistSolver";
 
@@ -1243,6 +1244,7 @@ export class TaintPropagationEngine {
                 maxVisited?: number;
                 maxElapsedMs?: number;
             };
+            solverEffects?: FiniteSemanticSolverEffect[];
         },
     ): SemanticSolveResult {
         if (!this.pag) {
@@ -1273,10 +1275,12 @@ export class TaintPropagationEngine {
         }
 
         const solver = new SemanticStateWorklistSolver();
+        const compiledEffects = compileSemanticSolverEffects(options?.solverEffects || []);
         return solver.solve({
             scene: this.scene,
             pag: this.pag,
             seeds: semanticSeeds,
+            transitions: compiledEffects.map(effect => effect.transition),
             sinkSignatures: [...sinkSignatures],
             sinkRuleIds: [...sinkRuleIds],
             budget: options?.budget,

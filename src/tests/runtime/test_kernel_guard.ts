@@ -9,8 +9,7 @@
  * Optional perf (off by default; set ARKTAINT_PERF_GUARD=1):
  *   ARKTAINT_PERF_GUARD_MS caps median wall time per case (default 45000).
  *
- * Requires root `npm install` (Node typings) and `arkanalyzer` deps
- * (`ohos-typescript`); root package.json postinstall installs arkanalyzer.
+ * Requires root `npm install` (Node typings) and prepared `arkanalyzer/out/src`.
  */
 import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";

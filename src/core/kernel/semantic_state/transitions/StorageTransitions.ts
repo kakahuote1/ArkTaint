@@ -1,5 +1,5 @@
 import { ArkAssignStmt } from "../../../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkArrayRef, ArkInstanceFieldRef, ArkStaticFieldRef } from "../../../../../arkanalyzer/out/src/core/base/Ref";
+import { ArkInstanceFieldRef, ArkStaticFieldRef } from "../../../../../arkanalyzer/out/src/core/base/Ref";
 import { createSemanticFact } from "../SemanticFact";
 import {
     SemanticFact,
@@ -10,6 +10,7 @@ import {
     createSemanticCarrier,
     resolveMethodSignatureText,
     resolveStmtText,
+    buildSemanticCarrierForValue,
 } from "../SemanticStateTypes";
 
 function resolveStorageCarrierKey(value: any, ctx: SemanticTransitionContext): string | undefined {
@@ -19,10 +20,6 @@ function resolveStorageCarrierKey(value: any, ctx: SemanticTransitionContext): s
     }
     if (value instanceof ArkStaticFieldRef) {
         return `storage:${ctx.method.getSignature().toString()}:static.${value.getFieldName?.() || value.toString()}`;
-    }
-    if (value instanceof ArkArrayRef) {
-        const baseName = String(value.getBase?.()?.getName?.() || "array");
-        return `slot:${ctx.method.getSignature().toString()}:${baseName}[${value.getIndex?.()?.toString?.() || "?"}]`;
     }
     return undefined;
 }
@@ -38,6 +35,7 @@ export function createStorageTransitions(): SemanticTransition[] {
             const right = stmt.getRightOp();
             const leftKey = resolveStorageCarrierKey(left, ctx);
             const rightKey = resolveStorageCarrierKey(right, ctx);
+            const leftCarrier = buildSemanticCarrierForValue(ctx.method, left, ctx.stmt);
             const projections: SemanticTransitionProjection[] = [];
             if (leftKey && rightKey === fact.carrier.key && fact.tainted) {
                 projections.push({
@@ -46,20 +44,49 @@ export function createStorageTransitions(): SemanticTransition[] {
                     state: "written",
                     sideState: { storageState: "written", slotState: "written" },
                     reason: "storage-write",
+                    guard: {
+                        kind: "same_key",
+                        enabled: true,
+                        left: rightKey,
+                        right: fact.carrier.key,
+                        description: "storage write source matches fact carrier",
+                    },
                 });
             }
-            if (rightKey && leftKey === fact.carrier.key && fact.tainted) {
+            if (rightKey && rightKey === fact.carrier.key && fact.tainted && leftCarrier) {
                 projections.push({
-                    carrier: createSemanticCarrier("same_lvalue", leftKey, leftKey),
+                    carrier: createSemanticCarrier(leftCarrier.kind, leftCarrier.key, leftCarrier.label, leftCarrier),
                     tainted: true,
                     state: "dirty",
                     sideState: { storageState: "written", slotState: "written" },
                     reason: "storage-read",
+                    guard: {
+                        kind: "same_key",
+                        enabled: true,
+                        left: rightKey,
+                        right: fact.carrier.key,
+                        description: "storage read key matches fact carrier",
+                    },
+                });
+            } else if (rightKey && fact.carrier.kind === "storage" && rightKey !== fact.carrier.key) {
+                projections.push({
+                    carrier: fact.carrier,
+                    tainted: fact.tainted,
+                    state: fact.state,
+                    reason: "storage-read-key-mismatch",
+                    guard: {
+                        kind: "same_key",
+                        enabled: false,
+                        left: rightKey,
+                        right: fact.carrier.key,
+                        description: "storage read key mismatch",
+                    },
+                    gap: { blockedBy: "same_key" },
                 });
             }
             return projections;
         },
-        check: () => true,
+        check: (_fact, _ctx, projection) => projection.guard?.enabled !== false,
         update: (_fact, _ctx, projection) => projection.carrier
             ? createSemanticFact({
                 source: "semantic_state",

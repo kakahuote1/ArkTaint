@@ -1,6 +1,7 @@
-import { ArkAssignStmt, ArkIfStmt, ArkInvokeStmt, ArkReturnStmt, ArkReturnVoidStmt, ArkThrowStmt } from "../../../../../arkanalyzer/out/src/core/base/Stmt";
+import { ArkAssignStmt, ArkInvokeStmt, ArkReturnStmt, ArkReturnVoidStmt } from "../../../../../arkanalyzer/out/src/core/base/Stmt";
 import { Constant } from "../../../../../arkanalyzer/out/src/core/base/Constant";
-import { AbstractInvokeExpr, ArkDeleteExpr, ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../../arkanalyzer/out/src/core/base/Expr";
+import { AbstractInvokeExpr, ArkDeleteExpr } from "../../../../../arkanalyzer/out/src/core/base/Expr";
+import { ArkArrayRef, ArkInstanceFieldRef, ArkStaticFieldRef } from "../../../../../arkanalyzer/out/src/core/base/Ref";
 import {
     SemanticFact,
     SemanticSolveResultMutable,
@@ -17,6 +18,10 @@ import { createSemanticFact } from "../SemanticFact";
 
 function isCleanValue(value: any): boolean {
     return value instanceof Constant;
+}
+
+function isStructuredCarrierValue(value: any): boolean {
+    return value instanceof ArkArrayRef || value instanceof ArkInstanceFieldRef || value instanceof ArkStaticFieldRef;
 }
 
 function buildOverwriteProjection(
@@ -75,7 +80,7 @@ export function createNativeTransitions(): SemanticTransition[] {
             if (!leftKey) {
                 return projections;
             }
-            if (rightKey && rightKey === fact.carrier.key) {
+            if (rightKey && rightKey === fact.carrier.key && !isStructuredCarrierValue(right)) {
                 projections.push(buildOverwriteProjection(fact, ctx, leftCarrier!, "assign-tainted", fact.tainted));
             } else if (right instanceof ArkDeleteExpr) {
                 projections.push(buildOverwriteProjection(fact, ctx, leftCarrier!, "delete-before-read", false));
@@ -120,61 +125,6 @@ export function createNativeTransitions(): SemanticTransition[] {
                 carrierKey: derived.carrier.key,
                 tainted: derived.tainted,
             });
-        },
-    };
-
-    const branch: SemanticTransition = {
-        id: "native.branch",
-        label: "branch",
-        match: (_fact, ctx) => ctx.stmt instanceof ArkIfStmt,
-        project: (fact, ctx) => {
-            const ifStmt = ctx.stmt as ArkIfStmt;
-            const condText = ifStmt.getConditionExpr?.()?.toString?.() || ifStmt.toString();
-            const normalized = condText.replace(/\s+/g, "").toLowerCase();
-            const isConstTrue = normalized === "if(true)" || normalized === "true";
-            const isConstFalse = normalized === "if(false)" || normalized === "false";
-            if (isConstTrue || isConstFalse) {
-                return [{
-                    carrier: fact.carrier,
-                    tainted: fact.tainted,
-                    state: fact.state,
-                    reason: isConstTrue ? "branch-true" : "branch-false",
-                    guard: {
-                        kind: "binding_active",
-                        enabled: true,
-                        left: condText,
-                        right: isConstTrue ? "true" : "false",
-                        description: condText,
-                    },
-                }];
-            }
-            return [{
-                carrier: fact.carrier,
-                tainted: fact.tainted,
-                state: fact.state,
-                reason: "branch-unknown",
-            }];
-        },
-        check: (_fact, _ctx, projection) => {
-            if (projection.guard && projection.guard.enabled === false) return false;
-            return true;
-        },
-        update: (fact) => fact,
-        derive: (fact) => [fact],
-        record: (fact, ctx, projection, derivedFacts, result) => {
-            const derived = derivedFacts[0];
-            if (derived && projection.guard) {
-                result.provenance.push({
-                    fromFactId: fact.id,
-                    toFactId: derived.id,
-                    transitionId: branch.id,
-                    reason: projection.reason,
-                    methodSignature: resolveMethodSignatureText(ctx.method),
-                    stmtText: resolveStmtText(ctx.stmt),
-                    carrierKey: derived.carrier.key,
-                    tainted: derived.tainted,
-                });
-            }
         },
     };
 
@@ -240,8 +190,21 @@ export function createNativeTransitions(): SemanticTransition[] {
         check: () => true,
         update: (fact) => fact,
         derive: (fact) => [fact],
-        record: () => {},
+        record: (fact, ctx, projection, derivedFacts, result) => {
+            const derived = derivedFacts[0];
+            if (!derived) return;
+            result.provenance.push({
+                fromFactId: fact.id,
+                toFactId: derived.id,
+                transitionId: call.id,
+                reason: projection.reason,
+                methodSignature: resolveMethodSignatureText(ctx.method),
+                stmtText: resolveStmtText(ctx.stmt),
+                carrierKey: derived.carrier.key,
+                tainted: derived.tainted,
+            });
+        },
     };
 
-    return [assignment, branch, returnFlow, call];
+    return [assignment, returnFlow, call];
 }

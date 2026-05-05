@@ -20,7 +20,6 @@
     ],
     "exclude": [
         "node_modules",
-        "src/tests/**/*",
         "src/tests/execution_handoff/test_execution_handoff_baseline_compare.ts",
         "src/tests/execution_handoff/test_execution_handoff_benchmark_inventory.ts",
         "src/tests/execution_handoff/test_execution_handoff_benchmark_summary.ts",

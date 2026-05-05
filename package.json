@@ -4,8 +4,8 @@
     "description": "Taint analysis framework for HarmonyOS",
     "main": "out/src/index.js",
     "scripts": {
-        "postinstall": "npm install --prefix arkanalyzer",
-        "prebuild": "node scripts/prepare_arkanalyzer_out.js",
+        "prepare:arkanalyzer": "node scripts/prepare-arkanalyzer.js",
+        "prebuild": "node scripts/prepare-arkanalyzer.js",
         "build": "tsc",
         "skills:validate": "node out/tools/skills_validate.js",
         "context:pack": "node out/tools/context_pack.js",
@@ -150,6 +150,7 @@
         "test:analyze-extension-diagnostics": "node out/tests/analyze/test_analyze_extension_diagnostics_cli.js",
         "test:analyze-top-level-diagnostics": "node out/tests/analyze/test_analyze_top_level_diagnostics_cli.js",
         "test:analyze-invalid-flags": "node out/tests/analyze/test_analyze_invalid_flags.js",
+        "test:semantic-state": "node out/tests/semantic_state/test_semantic_state_solver.js && node out/tests/analyze/test_analyze_semantic_state_flag.js && node out/tests/analyze/test_analyze_semantic_report_render.js",
         "test:no-candidate-project-pool": "node out/tests/analyze/test_no_candidate_project_candidate_pool.js",
         "test:analyze-single-command": "node out/tests/analyze/test_analyze_single_command.js",
         "test:source-discovery": "node out/tests/analyze/test_source_discovery.js",

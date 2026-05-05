@@ -1,10 +1,12 @@
 import * as assert from "assert";
 import { SemanticStateWorklistSolver } from "../../core/kernel/semantic_state/SemanticStateWorklistSolver";
-import { createSemanticCarrier, createDefaultSemanticSideState } from "../../core/kernel/semantic_state/SemanticStateTypes";
+import { createSemanticCarrier, createDefaultSemanticSideState, SemanticCarrier, SemanticFact } from "../../core/kernel/semantic_state/SemanticStateTypes";
 import { createSemanticFact } from "../../core/kernel/semantic_state/SemanticFact";
+import { compileSemanticSolverEffect } from "../../core/kernel/semantic_state/SemanticEffectCompiler";
 import { ArkAssignStmt, ArkIfStmt, ArkInvokeStmt } from "../../../arkanalyzer/out/src/core/base/Stmt";
 import { Constant } from "../../../arkanalyzer/out/src/core/base/Constant";
 import { ArkDeleteExpr } from "../../../arkanalyzer/out/src/core/base/Expr";
+import { ArkArrayRef, ArkInstanceFieldRef } from "../../../arkanalyzer/out/src/core/base/Ref";
 
 function makeStmt<T>(ctor: new (...args: any[]) => T, props: Record<string, any>): T {
     return Object.assign(Object.create(ctor.prototype), props);
@@ -30,6 +32,31 @@ function makeDeleteExpr(text: string): any {
     });
 }
 
+function makeField(base: string, field: string): any {
+    return Object.assign(Object.create(ArkInstanceFieldRef.prototype), {
+        getBase: () => makeLocal(base),
+        getFieldName: () => field,
+        toString: () => `${base}.${field}`,
+    });
+}
+
+function makeArray(base: string, index: string): any {
+    return Object.assign(Object.create(ArkArrayRef.prototype), {
+        getBase: () => makeLocal(base),
+        getIndex: () => ({ toString: () => index }),
+        toString: () => `${base}[${index}]`,
+    });
+}
+
+function makeAssign(left: any, right: any, text?: string): any {
+    return makeStmt(ArkAssignStmt, {
+        getLeftOp: () => left,
+        getRightOp: () => right,
+        containsInvokeExpr: () => false,
+        toString: () => text || `${left} = ${right}`,
+    });
+}
+
 function makeMethod(signature: string, block: any): any {
     return {
         getName: () => signature.split(".").pop() || signature,
@@ -46,11 +73,13 @@ function buildBasicScene(method: any): any {
     };
 }
 
-function makeSinkInvoke(signature: string, arg: any): any {
+function makeInvoke(signature: string, args: any[] = [], semanticEffect?: any): any {
     const invokeExpr = {
         getMethodSignature: () => ({ toString: () => signature }),
-        getArgs: () => [arg],
-        toString: () => `${signature}(${arg.toString ? arg.toString() : "arg"})`,
+        getArgs: () => args,
+        getSemanticEffect: () => semanticEffect,
+        semanticEffect,
+        toString: () => `${signature}(${args.map(arg => arg.toString ? arg.toString() : "arg").join(",")})`,
     };
     return makeStmt(ArkInvokeStmt, {
         containsInvokeExpr: () => true,
@@ -59,352 +88,254 @@ function makeSinkInvoke(signature: string, arg: any): any {
     });
 }
 
-function runAssignmentAndSinkCase(): void {
-    const right = makeLocal("input");
-    const left = makeLocal("output");
-    const assign = makeStmt(ArkAssignStmt, {
-        getLeftOp: () => left,
-        getRightOp: () => right,
-        containsInvokeExpr: () => false,
-        toString: () => "output = input",
-    });
-    const sink = makeSinkInvoke("Sink.foo", left);
-    const block = {
-        getID: () => 1,
-        toString: () => "b1",
-        getStmts: () => [assign, sink],
-        getSuccessors: () => [],
-    };
-    const methodSig = "TestCase.foo";
-    const method = makeMethod(methodSig, block);
-    const scene = buildBasicScene(method);
-    const seed = createSemanticFact({
+function seed(methodSig: string, carrier: SemanticCarrier, extra: Partial<SemanticFact> = {}): SemanticFact {
+    return createSemanticFact({
         source: "seed",
-        carrier: createSemanticCarrier("same_lvalue", `local:${methodSig}:input`, "input"),
-        tainted: true,
-        state: "dirty",
-        contextId: 0,
+        carrier,
+        tainted: extra.tainted ?? true,
+        state: extra.state || "dirty",
+        contextId: extra.contextId || 0,
         order: 0,
-        sideState: createDefaultSemanticSideState(),
+        sideState: extra.sideState || createDefaultSemanticSideState(),
         methodSignature: methodSig,
     });
+}
 
-    const solver = new SemanticStateWorklistSolver();
-    const result = solver.solve({
-        scene,
+function run(methodSig: string, stmts: any[], seeds: SemanticFact[], sinkSignatures: string[] = [], transitions: any[] = []) {
+    const block = {
+        getID: () => 1,
+        toString: () => methodSig,
+        getStmts: () => stmts,
+        getSuccessors: () => [],
+    };
+    return new SemanticStateWorklistSolver().solve({
+        scene: buildBasicScene(makeMethod(methodSig, block)),
         pag: {} as any,
-        seeds: [seed],
-        sinkSignatures: ["Sink.foo"],
-        sinkRuleIds: ["sink-rule"],
+        seeds,
+        sinkSignatures,
+        sinkRuleIds: sinkSignatures.map(signature => `rule:${signature}`),
+        transitions,
     });
+}
 
-    assert.strictEqual(result.enabled, true);
-    assert.strictEqual(result.seedCount, 1);
+function assertHasDerived(result: any, carrierKey: string, reason?: string): void {
+    assert.ok(result.derivedFacts.some((fact: SemanticFact) => fact.carrier.key === carrierKey && (!reason || fact.reason === reason)));
+}
+
+function testNativeMatrix(): void {
+    const methodSig = "Semantic.native";
+    const input = makeLocal("input");
+    const output = makeLocal("output");
+    const inputCarrier = createSemanticCarrier("same_lvalue", `local:${methodSig}:input`, "input");
+    const outputCarrierKey = `local:${methodSig}:output`;
+
+    const flow = run(methodSig, [
+        makeAssign(output, input),
+        makeInvoke("Sink.native", [output]),
+    ], [seed(methodSig, inputCarrier)], ["Sink.native"]);
+    assert.strictEqual(flow.sinkHitCount, 1);
+    assertHasDerived(flow, outputCarrierKey, "assign-tainted");
+
+    const clean = run(methodSig, [
+        makeAssign(output, input),
+        makeAssign(output, makeConstant("\"safe\"")),
+        makeInvoke("Sink.native", [output]),
+    ], [seed(methodSig, inputCarrier)], ["Sink.native"]);
+    assert.strictEqual(clean.sinkHitCount, 0);
+    assert.ok(clean.provenance.some((item: any) => item.reason === "assign-clean" && item.tainted === false));
+
+    const latest = run(methodSig, [
+        makeAssign(output, makeConstant("\"safe\"")),
+        makeAssign(output, input),
+        makeInvoke("Sink.native", [output]),
+    ], [seed(methodSig, inputCarrier)], ["Sink.native"]);
+    assert.strictEqual(latest.sinkHitCount, 1);
+
+    const deleted = run(methodSig, [
+        makeAssign(output, input),
+        makeAssign(output, makeDeleteExpr("output")),
+        makeInvoke("Sink.native", [output]),
+    ], [seed(methodSig, inputCarrier)], ["Sink.native"]);
+    assert.strictEqual(deleted.sinkHitCount, 0);
+}
+
+function testStorageAndSlotMatrix(): void {
+    const methodSig = "Semantic.storage";
+    const input = makeLocal("input");
+    const out = makeLocal("out");
+    const inputCarrier = createSemanticCarrier("same_lvalue", `local:${methodSig}:input`, "input");
+
+    const fieldFlow = run(methodSig, [
+        makeAssign(makeField("obj", "token"), input),
+        makeAssign(out, makeField("obj", "token")),
+        makeInvoke("Sink.storage", [out]),
+    ], [seed(methodSig, inputCarrier)], ["Sink.storage"]);
+    assert.strictEqual(fieldFlow.sinkHitCount, 1);
+
+    const fieldMismatch = run(methodSig, [
+        makeAssign(makeField("obj", "token"), input),
+        makeAssign(out, makeField("obj", "other")),
+        makeInvoke("Sink.storage", [out]),
+    ], [seed(methodSig, inputCarrier)], ["Sink.storage"]);
+    assert.strictEqual(fieldMismatch.sinkHitCount, 0);
+    assert.ok(fieldMismatch.gaps.some((gap: any) => gap.blockedBy === "same_key"));
+
+    const fieldCleanOverwrite = run(methodSig, [
+        makeAssign(makeField("obj", "token"), input),
+        makeAssign(makeField("obj", "token"), makeConstant("\"safe\"")),
+        makeAssign(out, makeField("obj", "token")),
+        makeInvoke("Sink.storage", [out]),
+    ], [seed(methodSig, inputCarrier)], ["Sink.storage"]);
+    assert.strictEqual(fieldCleanOverwrite.sinkHitCount, 0);
+
+    const slotFlow = run(methodSig, [
+        makeAssign(makeArray("slots", "0"), input),
+        makeAssign(out, makeArray("slots", "0")),
+        makeInvoke("Sink.slot", [out]),
+    ], [seed(methodSig, inputCarrier)], ["Sink.slot"]);
+    assert.strictEqual(slotFlow.sinkHitCount, 1);
+
+    const slotUninitialized = run(methodSig, [
+        makeAssign(out, makeArray("slots", "1")),
+        makeInvoke("Sink.slot", [out]),
+    ], [seed(methodSig, createSemanticCarrier("unique_slot", `slot:${methodSig}:slots[1]`, "slots[1]"))], ["Sink.slot"]);
+    assert.strictEqual(slotUninitialized.sinkHitCount, 0);
+    assert.ok(slotUninitialized.gaps.some((gap: any) => gap.blockedBy === "slot_initialized"));
+}
+
+function testHiddenChannelMatrix(): void {
+    const methodSig = "Semantic.hidden";
+    const eventCarrier = createSemanticCarrier("event", "event:login:cb", "login:cb", { channel: "login", callback: "cb" });
+    const eventFlow = run(methodSig, [
+        makeInvoke("Framework.emit", [], { family: "callback_event", operation: "emit", channel: "login", callback: "cb" }),
+    ], [seed(methodSig, eventCarrier, { sideState: { ...createDefaultSemanticSideState(), eventState: "bound" } })]);
+    assertHasDerived(eventFlow, "event:login:cb", "event-emit");
+
+    const eventNoBind = run(methodSig, [
+        makeInvoke("Framework.emit", [], { family: "callback_event", operation: "emit", channel: "login", callback: "cb" }),
+    ], [seed(methodSig, eventCarrier)]);
+    assert.ok(eventNoBind.gaps.some((gap: any) => gap.blockedBy === "binding_active"));
+
+    const eventMismatch = run(methodSig, [
+        makeInvoke("Framework.emit", [], { family: "callback_event", operation: "emit", channel: "other", callback: "cb" }),
+    ], [seed(methodSig, eventCarrier, { sideState: { ...createDefaultSemanticSideState(), eventState: "bound" } })]);
+    assert.ok(eventMismatch.gaps.some((gap: any) => gap.blockedBy === "same_channel"));
+
+    const routeCarrier = createSemanticCarrier("route", "route:home:token", "home:token", { routeId: "home", paramKey: "token" });
+    const routeFlow = run(methodSig, [
+        makeInvoke("Framework.readRoute", [], { family: "router_param", operation: "read", routeId: "home", paramKey: "token" }),
+    ], [seed(methodSig, routeCarrier)]);
+    assertHasDerived(routeFlow, "route:home:token", "route-read");
+
+    const routeMismatch = run(methodSig, [
+        makeInvoke("Framework.readRoute", [], { family: "router_param", operation: "read", routeId: "home", paramKey: "other" }),
+    ], [seed(methodSig, routeCarrier)]);
+    assert.ok(routeMismatch.gaps.some((gap: any) => gap.blockedBy === "same_key"));
+
+    const taskCarrier = createSemanticCarrier("task", "task:t1", "t1", { taskId: "t1" });
+    const asyncFlow = run(methodSig, [
+        makeInvoke("Framework.resume", [], { family: "async_task", operation: "resume", taskId: "t1" }),
+    ], [seed(methodSig, taskCarrier, { sideState: { ...createDefaultSemanticSideState(), asyncState: "scheduled" } })]);
+    assertHasDerived(asyncFlow, "task:t1", "async-resume");
+
+    const asyncMismatch = run(methodSig, [
+        makeInvoke("Framework.resume", [], { family: "async_task", operation: "resume", taskId: "t2" }),
+    ], [seed(methodSig, taskCarrier, { sideState: { ...createDefaultSemanticSideState(), asyncState: "scheduled" } })]);
+    assert.ok(asyncMismatch.gaps.some((gap: any) => gap.blockedBy === "same_key"));
+}
+
+function testBudgetProvenanceAndStage2(): void {
+    const methodSig = "Semantic.stage2";
+    const inputCarrier = createSemanticCarrier("same_lvalue", `local:${methodSig}:input`, "input");
+    const outputCarrier = createSemanticCarrier("same_lvalue", `local:${methodSig}:output`, "output");
+    const compiled = compileSemanticSolverEffect({
+        id: "finite-storage",
+        family: "keyed_storage",
+        fromCarrier: inputCarrier,
+        toCarrier: outputCarrier,
+        state: "dirty",
+        provenance: { source: "stage2", recordId: "effect-1", replayable: true },
+    });
+    assert.ok(compiled);
+
+    const result = run(methodSig, [
+        makeInvoke("Noop", []),
+        makeInvoke("Sink.stage2", [makeLocal("output")]),
+    ], [seed(methodSig, inputCarrier)], ["Sink.stage2"], [compiled!.transition]);
     assert.strictEqual(result.sinkHitCount, 1);
-    assert.strictEqual(result.candidateSeedCount >= 1, true);
-    assert.strictEqual(result.provenanceCount >= 1, true);
-    assert.strictEqual(result.gapCount, 0);
-    assert.strictEqual(result.sinkHits[0].sinkSignature, "Sink.foo");
-    assert.strictEqual(result.sinkHits[0].carrierKey, `local:${methodSig}:output`);
-}
+    assert.ok(result.derivedFacts.every((fact: SemanticFact) => result.provenance.some((record: any) => record.toFactId === fact.id)));
+    assert.ok(result.stats.dequeues > 0);
+    assert.ok(result.stats.transitionCounts["solver.finite-storage"] > 0);
 
-function runLatestWriteWinsCase(): void {
-    const right = makeLocal("input");
-    const left = makeLocal("output");
-    const assignTainted = makeStmt(ArkAssignStmt, {
-        getLeftOp: () => left,
-        getRightOp: () => right,
-        containsInvokeExpr: () => false,
-        toString: () => "output = input",
-    });
-    const assignClean = makeStmt(ArkAssignStmt, {
-        getLeftOp: () => left,
-        getRightOp: () => makeConstant("\"safe\""),
-        containsInvokeExpr: () => false,
-        toString: () => "output = \"safe\"",
-    });
-    const sink = makeSinkInvoke("Sink.latest", left);
-    const block = {
-        getID: () => 1,
-        toString: () => "latest",
-        getStmts: () => [assignTainted, assignClean, sink],
-        getSuccessors: () => [],
-    };
-    const methodSig = "TestCase.latest";
-    const seed = createSemanticFact({
-        source: "seed",
-        carrier: createSemanticCarrier("same_lvalue", `local:${methodSig}:input`, "input"),
-        tainted: true,
+    const invalid = compileSemanticSolverEffect({
+        id: "invalid",
+        family: "keyed_storage",
+        fromCarrier: inputCarrier,
+        toCarrier: outputCarrier,
         state: "dirty",
-        contextId: 0,
-        order: 0,
-        sideState: createDefaultSemanticSideState(),
-        methodSignature: methodSig,
+        freeTextReasoning: "trust this explanation",
+        provenance: { source: "stage2", recordId: "effect-2", replayable: true },
     });
-    const result = new SemanticStateWorklistSolver().solve({
-        scene: buildBasicScene(makeMethod(methodSig, block)),
+    assert.strictEqual(invalid, undefined);
+
+    const truncated = new SemanticStateWorklistSolver().solve({
+        scene: buildBasicScene(makeMethod(methodSig, {
+            getID: () => 1,
+            toString: () => "budget",
+            getStmts: () => [makeInvoke("Noop", [])],
+            getSuccessors: () => [],
+        })),
         pag: {} as any,
-        seeds: [seed],
-        sinkSignatures: ["Sink.latest"],
-        sinkRuleIds: ["sink-latest"],
-    });
-
-    assert.strictEqual(result.sinkHitCount, 0);
-    assert.ok(result.provenance.some(item => item.reason === "assign-clean" && item.tainted === false));
-}
-
-function runDeleteBeforeReadCase(): void {
-    const right = makeLocal("input");
-    const left = makeLocal("output");
-    const assignTainted = makeStmt(ArkAssignStmt, {
-        getLeftOp: () => left,
-        getRightOp: () => right,
-        containsInvokeExpr: () => false,
-        toString: () => "output = input",
-    });
-    const deleteOutput = makeStmt(ArkAssignStmt, {
-        getLeftOp: () => left,
-        getRightOp: () => makeDeleteExpr("output"),
-        containsInvokeExpr: () => false,
-        toString: () => "output = delete output",
-    });
-    const sink = makeSinkInvoke("Sink.delete", left);
-    const block = {
-        getID: () => 1,
-        toString: () => "delete",
-        getStmts: () => [assignTainted, deleteOutput, sink],
-        getSuccessors: () => [],
-    };
-    const methodSig = "TestCase.delete";
-    const seed = createSemanticFact({
-        source: "seed",
-        carrier: createSemanticCarrier("same_lvalue", `local:${methodSig}:input`, "input"),
-        tainted: true,
-        state: "dirty",
-        contextId: 0,
-        order: 0,
-        sideState: createDefaultSemanticSideState(),
-        methodSignature: methodSig,
-    });
-    const result = new SemanticStateWorklistSolver().solve({
-        scene: buildBasicScene(makeMethod(methodSig, block)),
-        pag: {} as any,
-        seeds: [seed],
-        sinkSignatures: ["Sink.delete"],
-        sinkRuleIds: ["sink-delete"],
-    });
-
-    assert.strictEqual(result.sinkHitCount, 0);
-    assert.ok(result.provenance.some(item => item.reason === "delete-before-read" && item.tainted === false));
-}
-
-function runBranchAndBudgetCases(): void {
-    const condStmt = makeStmt(ArkIfStmt, {
-        getConditionExpr: () => ({ toString: () => "flag" }),
-        containsInvokeExpr: () => false,
-        toString: () => "if flag",
-    });
-    const block = {
-        getID: () => 1,
-        toString: () => "b2",
-        getStmts: () => [condStmt],
-        getSuccessors: () => [{ getID: () => 2, toString: () => "b3", getStmts: () => [], getSuccessors: () => [] }],
-    };
-    const methodSig = "TestCase.branch";
-    const method = makeMethod(methodSig, block);
-    const scene = buildBasicScene(method);
-    const seed = createSemanticFact({
-        source: "seed",
-        carrier: createSemanticCarrier("same_lvalue", `local:${methodSig}:flag`, "flag"),
-        tainted: true,
-        state: "dirty",
-        contextId: 0,
-        order: 0,
-        sideState: createDefaultSemanticSideState(),
-        methodSignature: methodSig,
-    });
-
-    const solver = new SemanticStateWorklistSolver();
-    const branchResult = solver.solve({
-        scene,
-        pag: {} as any,
-        seeds: [seed],
-        sinkSignatures: [],
-        sinkRuleIds: [],
-    });
-    assert.ok(branchResult.gapCount >= 1);
-    assert.ok(branchResult.gaps.some(item => item.reason === "branch-unknown"));
-    assert.ok(branchResult.pathConditions.some(item => item.normalizedCondition === "flag" && item.assumption === "true"));
-
-    const truncated = solver.solve({
-        scene,
-        pag: {} as any,
-        seeds: [seed],
-        sinkSignatures: [],
-        sinkRuleIds: [],
+        seeds: [seed(methodSig, inputCarrier)],
         budget: { maxDequeues: 0 },
     });
-    assert.strictEqual(truncated.truncated?.reason, "max_dequeues");
+    assert.strictEqual(truncated.truncated, true);
+    assert.strictEqual(truncated.truncation?.reason, "max_dequeues");
 }
 
-function runPathContradictionPruningCase(): void {
-    const input = makeLocal("input");
-    const cond = () => ({ toString: () => "flag" });
-    const firstIf = makeStmt(ArkIfStmt, {
-        getConditionExpr: cond,
-        containsInvokeExpr: () => false,
-        toString: () => "if flag",
-    });
-    const secondIf = makeStmt(ArkIfStmt, {
-        getConditionExpr: cond,
-        containsInvokeExpr: () => false,
-        toString: () => "if flag",
-    });
-    const sink = makeSinkInvoke("Sink.path", input);
+function testBranchGapWithoutPathPruning(): void {
+    const methodSig = "Semantic.branch";
+    const inputCarrier = createSemanticCarrier("same_lvalue", `local:${methodSig}:input`, "input");
+    const sink = makeInvoke("Sink.branch", [makeLocal("input")]);
     const sinkBlock = {
-        getID: () => 4,
-        toString: () => "sinkPath",
-        getStmts: () => [sink],
-        getSuccessors: () => [],
-    };
-    const safeBlock = {
-        getID: () => 3,
-        toString: () => "safePath",
-        getStmts: () => [],
-        getSuccessors: () => [],
-    };
-    const trueBlock = {
         getID: () => 2,
-        toString: () => "truePath",
-        getStmts: () => [secondIf],
-        getSuccessors: () => [safeBlock, sinkBlock],
-    };
-    const falseBlock = {
-        getID: () => 5,
-        toString: () => "falsePath",
-        getStmts: () => [],
+        toString: () => "sink",
+        getStmts: () => [sink],
         getSuccessors: () => [],
     };
     const startBlock = {
         getID: () => 1,
-        toString: () => "startPath",
-        getStmts: () => [firstIf],
-        getSuccessors: () => [trueBlock, falseBlock],
+        toString: () => "start",
+        getStmts: () => [makeStmt(ArkIfStmt, {
+            getConditionExpr: () => ({ toString: () => "flag" }),
+            containsInvokeExpr: () => false,
+            toString: () => "if flag",
+        })],
+        getSuccessors: () => [sinkBlock],
     };
-    const methodSig = "TestCase.path";
-    const seed = createSemanticFact({
-        source: "seed",
-        carrier: createSemanticCarrier("same_lvalue", `local:${methodSig}:input`, "input"),
-        tainted: true,
-        state: "dirty",
-        contextId: 0,
-        order: 0,
-        sideState: createDefaultSemanticSideState(),
-        methodSignature: methodSig,
-    });
-
     const result = new SemanticStateWorklistSolver().solve({
         scene: buildBasicScene(makeMethod(methodSig, startBlock)),
         pag: {} as any,
-        seeds: [seed],
-        sinkSignatures: ["Sink.path"],
-        sinkRuleIds: ["sink-path"],
+        seeds: [seed(methodSig, inputCarrier)],
+        sinkSignatures: ["Sink.branch"],
     });
-
-    assert.strictEqual(result.sinkHitCount, 0);
-    assert.ok(result.pathConditions.some(item => item.normalizedCondition === "flag" && item.assumption === "true"));
-    assert.ok(result.pathConditions.some(item => item.normalizedCondition === "flag" && item.assumption === "false"));
-    assert.ok(result.gaps.some(item => item.reason === "path-infeasible" && item.blockedBy === "contradictory-path-condition"));
-}
-
-function runPathConditionInvalidationCase(): void {
-    const input = makeLocal("input");
-    const flag = makeLocal("flag");
-    const cond = () => ({ toString: () => "flag" });
-    const firstIf = makeStmt(ArkIfStmt, {
-        getConditionExpr: cond,
-        containsInvokeExpr: () => false,
-        toString: () => "if flag",
-    });
-    const resetFlag = makeStmt(ArkAssignStmt, {
-        getLeftOp: () => flag,
-        getRightOp: () => makeConstant("false"),
-        containsInvokeExpr: () => false,
-        toString: () => "flag = false",
-    });
-    const secondIf = makeStmt(ArkIfStmt, {
-        getConditionExpr: cond,
-        containsInvokeExpr: () => false,
-        toString: () => "if flag",
-    });
-    const sink = makeSinkInvoke("Sink.reassignedPath", input);
-    const sinkBlock = {
-        getID: () => 4,
-        toString: () => "reassignedSink",
-        getStmts: () => [sink],
-        getSuccessors: () => [],
-    };
-    const emptyBlock = {
-        getID: () => 3,
-        toString: () => "reassignedEmpty",
-        getStmts: () => [],
-        getSuccessors: () => [],
-    };
-    const trueBlock = {
-        getID: () => 2,
-        toString: () => "reassignedTrue",
-        getStmts: () => [resetFlag, secondIf],
-        getSuccessors: () => [emptyBlock, sinkBlock],
-    };
-    const falseBlock = {
-        getID: () => 5,
-        toString: () => "reassignedFalse",
-        getStmts: () => [],
-        getSuccessors: () => [],
-    };
-    const startBlock = {
-        getID: () => 1,
-        toString: () => "reassignedStart",
-        getStmts: () => [firstIf],
-        getSuccessors: () => [trueBlock, falseBlock],
-    };
-    const methodSig = "TestCase.pathReassigned";
-    const seed = createSemanticFact({
-        source: "seed",
-        carrier: createSemanticCarrier("same_lvalue", `local:${methodSig}:input`, "input"),
-        tainted: true,
-        state: "dirty",
-        contextId: 0,
-        order: 0,
-        sideState: createDefaultSemanticSideState(),
-        methodSignature: methodSig,
-    });
-
-    const result = new SemanticStateWorklistSolver().solve({
-        scene: buildBasicScene(makeMethod(methodSig, startBlock)),
-        pag: {} as any,
-        seeds: [seed],
-        sinkSignatures: ["Sink.reassignedPath"],
-        sinkRuleIds: ["sink-reassigned-path"],
-    });
-
     assert.strictEqual(result.sinkHitCount, 1);
-    assert.ok(!result.gaps.some(item => item.reason === "path-infeasible"));
+    assert.ok(result.gaps.some((gap: any) => gap.reason === "branch-unknown"));
+    assert.ok(!("pathConditions" in result));
 }
 
-function run(): void {
-    runAssignmentAndSinkCase();
-    runLatestWriteWinsCase();
-    runDeleteBeforeReadCase();
-    runBranchAndBudgetCases();
-    runPathContradictionPruningCase();
-    runPathConditionInvalidationCase();
+function runAll(): void {
+    testNativeMatrix();
+    testStorageAndSlotMatrix();
+    testHiddenChannelMatrix();
+    testBudgetProvenanceAndStage2();
+    testBranchGapWithoutPathPruning();
     console.log("test_semantic_state_solver=PASS");
 }
 
 if (require.main === module) {
     try {
-        run();
+        runAll();
     } catch (error) {
         console.error("test_semantic_state_solver=FAIL");
         console.error(error);

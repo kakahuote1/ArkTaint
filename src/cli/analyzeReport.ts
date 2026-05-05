@@ -80,17 +80,16 @@ interface AnalyzeReportLike {
         detectProfile: any;
         semanticState?: {
             enabled: boolean;
+            truncated?: boolean;
             seedCount: number;
             sinkHitCount: number;
             candidateSeedCount: number;
             provenanceCount: number;
             gapCount: number;
-            pathConditionCount?: number;
             sinkHits: Array<{ sinkSignature: string; carrierKey: string }>;
             candidateSeeds: Array<{ reason: string; carrierKey: string }>;
             provenance: Array<{ transitionId: string; reason: string }>;
             gaps: Array<{ transitionId: string; blockedBy: string }>;
-            pathConditions?: Array<{ normalizedCondition: string; assumption: string }>;
         };
         memoryProfile?: {
             sampleIntervalMs: number;
@@ -296,7 +295,7 @@ export function renderMarkdownReport(report: AnalyzeReportLike): string {
     lines.push(`- detectProfile: calls=${report.summary.detectProfile.detectCallCount}, sinksChecked=${report.summary.detectProfile.sinksChecked}, sanitizerChecks=${report.summary.detectProfile.sanitizerGuardCheckCount}, sanitizerHits=${report.summary.detectProfile.sanitizerGuardHitCount}, totalMs=${report.summary.detectProfile.totalMs}`);
     if (report.summary.semanticState) {
         const semantic = report.summary.semanticState;
-        lines.push(`- semanticState: enabled=${semantic.enabled}, seeds=${semantic.seedCount}, sinkHits=${semantic.sinkHitCount}, candidateSeeds=${semantic.candidateSeedCount}, provenance=${semantic.provenanceCount}, gaps=${semantic.gapCount}, pathConditions=${semantic.pathConditionCount || 0}`);
+        lines.push(`- semanticState: enabled=${semantic.enabled}, truncated=${semantic.truncated || false}, seeds=${semantic.seedCount}, sinkHits=${semantic.sinkHitCount}, candidateSeeds=${semantic.candidateSeedCount}, provenance=${semantic.provenanceCount}, gaps=${semantic.gapCount}`);
     }
     if (report.summary.memoryProfile) {
         lines.push(`- memoryProfile: peakRssMiB=${report.summary.memoryProfile.peakRssMiB}, peakHeapUsedMiB=${report.summary.memoryProfile.peakHeapUsedMiB}, rssMiB=${report.summary.memoryProfile.rssMiB}, heapUsedMiB=${report.summary.memoryProfile.heapUsedMiB}, samples=${report.summary.memoryProfile.sampleCount}`);
@@ -325,7 +324,6 @@ export function renderMarkdownReport(report: AnalyzeReportLike): string {
         lines.push(`- semantic candidate seeds: ${semantic.candidateSeeds.slice(0, 10).map(item => `${item.reason}@${item.carrierKey}`).join(", ") || "[]"}`);
         lines.push(`- semantic provenance: ${semantic.provenance.slice(0, 10).map(item => `${item.transitionId}:${item.reason}`).join(", ") || "[]"}`);
         lines.push(`- semantic gaps: ${semantic.gaps.slice(0, 10).map(item => `${item.transitionId}:${item.blockedBy}`).join(", ") || "[]"}`);
-        lines.push(`- semantic path conditions: ${(semantic.pathConditions || []).slice(0, 10).map(item => `${item.normalizedCondition}:${item.assumption}`).join(", ") || "[]"}`);
     }
     lines.push("");
     lines.push(...renderGuidance(report));

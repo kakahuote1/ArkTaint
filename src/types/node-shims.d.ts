@@ -48,11 +48,13 @@ declare module "path" {
         function resolve(...parts: any[]): string;
         function join(...parts: any[]): string;
         function relative(from: string, to: string): string;
+        function normalize(p: string): string;
         function dirname(p: string): string;
         function basename(p: string, ext?: string): string;
         function extname(p: string): string;
         function isAbsolute(p: string): boolean;
         const sep: string;
+        const delimiter: string;
     }
     export = path;
 }
