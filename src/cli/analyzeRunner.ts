@@ -489,6 +489,13 @@ async function analyzeSourceDir(
         for (const x of sourceRuleResult.seededLocals) seedLocalNames.add(x);
         if (sourceRuleResult.seedCount > 0) seedStrategies.add("rule:source");
         stageProfile.propagateHeuristicSeedMs = 0;
+        const semanticState = engine.solveSemanticState(getAnalyzeSourceRules(loadedRules), loadedRules.ruleSet.sinks || [], {
+            budget: {
+                maxDequeues: options.worklistMaxDequeues && options.worklistMaxDequeues > 0 ? options.worklistMaxDequeues : undefined,
+                maxVisited: options.worklistMaxVisited && options.worklistMaxVisited > 0 ? options.worklistMaxVisited : undefined,
+                maxElapsedMs: options.worklistBudgetMs && options.worklistBudgetMs > 0 ? options.worklistBudgetMs : undefined,
+            },
+        });
 
         if (seedCount === 0) {
             stageProfile.totalMs = elapsedMsSince(t0);
@@ -514,6 +521,7 @@ async function analyzeSourceDir(
                 executionHandoffAudit,
                 moduleAudit: engine.getModuleAuditSnapshot(),
                 enginePluginAudit: engine.getEnginePluginAuditSnapshot(),
+                semanticState,
                 arkMainSeeds: engine.getArkMainSeedReport(),
                 elapsedMs: stageProfile.totalMs
             };
@@ -554,6 +562,7 @@ async function analyzeSourceDir(
                 executionHandoffAudit,
                 moduleAudit: engine.getModuleAuditSnapshot(),
                 enginePluginAudit: engine.getEnginePluginAuditSnapshot(),
+                semanticState,
                 arkMainSeeds: engine.getArkMainSeedReport(),
                 worklistProfile,
                 worklistTruncation,
@@ -561,6 +570,9 @@ async function analyzeSourceDir(
             };
         }
 
+        let detected: ReturnType<typeof detectFlows> | undefined;
+        let detectProfile = emptyDetectProfile();
+        let detectElapsedMs = 0;
         const detectT0 = process.hrtime.bigint();
         engine.resetDetectProfile();
         verboseAnalyzeLog(`detect start source_dir=${sourceDir || "."}`);
@@ -573,15 +585,16 @@ async function analyzeSourceDir(
                 stopOnFirstFlow: false,
                 maxFlowsPerEntry: undefined,
             };
-        const detected = detectFlows(engine, loadedRules, {
+        detected = detectFlows(engine, loadedRules, {
             detailed: options.reportMode === "full",
             stopOnFirstFlow: detectStopPolicy.stopOnFirstFlow,
             maxFlowsPerEntry: detectStopPolicy.maxFlowsPerEntry,
             enableSecondarySinkSweep: seedingPolicy.enableSecondarySinkSweep,
         });
-        const detectProfile = engine.getDetectProfile();
+        detectProfile = engine.getDetectProfile();
+        detectElapsedMs = elapsedMsSince(detectT0);
         verboseAnalyzeLog(
-            `detect done source_dir=${sourceDir || "."} elapsed_ms=${Math.round(elapsedMsSince(detectT0))} flows=${detected.totalFlowCount}`,
+            `detect done source_dir=${sourceDir || "."} elapsed_ms=${Math.round(detectElapsedMs)} flows=${detected.totalFlowCount}`,
         );
         const ruleHits = engine.getRuleHitCounters();
         const ruleHitEndpoints = buildRuleEndpointHits(ruleHits, loadedRules);
@@ -594,7 +607,7 @@ async function analyzeSourceDir(
             transferNoHitReasons.push("propagation_budget_exceeded");
             transferNoHitReasons.push(`propagation_budget_exceeded:${worklistTruncation.reason}`);
         }
-        stageProfile.detectMs = elapsedMsSince(detectT0);
+        stageProfile.detectMs = detectElapsedMs;
         engine.finishEnginePlugins({
             sourceDir,
             elapsedMs: stageProfile.detectMs,
@@ -612,9 +625,9 @@ async function analyzeSourceDir(
             seedCount,
             seedLocalNames: [...seedLocalNames].sort(),
             seedStrategies: [...seedStrategies].sort(),
-            flowCount: detected.totalFlowCount,
-            sinkSamples: detected.sinkSamples,
-            flowRuleTraces: detected.flowRuleTraces,
+            flowCount: detected?.totalFlowCount || 0,
+            sinkSamples: detected?.sinkSamples || [],
+            flowRuleTraces: detected?.flowRuleTraces || [],
             ruleHits,
             ruleHitEndpoints,
             transferProfile,
@@ -625,6 +638,7 @@ async function analyzeSourceDir(
             executionHandoffAudit,
             moduleAudit: engine.getModuleAuditSnapshot(),
             enginePluginAudit: engine.getEnginePluginAuditSnapshot(),
+            semanticState,
             arkMainSeeds: engine.getArkMainSeedReport(),
             worklistProfile,
             worklistTruncation,
@@ -661,6 +675,7 @@ async function analyzeSourceDir(
                 : emptyExecutionHandoffAudit(),
             moduleAudit: engine?.getModuleAuditSnapshot() || emptyModuleAuditSnapshot(),
             enginePluginAudit: engine?.getEnginePluginAuditSnapshot() || emptyEnginePluginAuditSnapshot(),
+            semanticState: undefined,
             arkMainSeeds: engine?.getArkMainSeedReport(),
             elapsedMs: stageProfile.totalMs,
             error: formatAnalyzeErrorMessage(err),
@@ -746,6 +761,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         stopOnFirstFlow: options.stopOnFirstFlow,
         maxFlowsPerEntry: options.maxFlowsPerEntry ?? null,
         enableSecondarySinkSweep: options.enableSecondarySinkSweep,
+        semanticStateKernelVersion: "algorithm-e-mandatory-v1",
     });
     const incrementalCacheScope: IncrementalCacheScope = {
         repo: options.repo,
@@ -1108,6 +1124,77 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     transferProfile.noCandidateCallsites = [...noCandidateSummaryMap.values()]
         .sort((a, b) => b.count - a.count || a.calleeSignature.localeCompare(b.calleeSignature))
         .slice(0, 200);
+    const semanticEntries = entries
+        .map(entry => entry.semanticState)
+        .filter((item): item is NonNullable<EntryAnalyzeResult["semanticState"]> => !!item && item.enabled);
+    const semanticSinkSeen = new Set<string>();
+    const semanticCandidateSeen = new Set<string>();
+    const semanticProvenanceSeen = new Set<string>();
+    const semanticGapSeen = new Set<string>();
+    const semanticState = semanticEntries.length > 0
+        ? semanticEntries.reduce((acc, item) => {
+            acc.enabled = true;
+            acc.seedCount += item.seedCount;
+            acc.sinkHitCount += item.sinkHitCount;
+            acc.candidateSeedCount += item.candidateSeedCount;
+            acc.provenanceCount += item.provenanceCount;
+            acc.gapCount += item.gapCount;
+            acc.truncated = acc.truncated || item.truncated;
+            acc.stats.dequeues += item.stats?.dequeues || 0;
+            acc.stats.visited += item.stats?.visited || 0;
+            acc.stats.elapsedMs += item.stats?.elapsedMs || 0;
+            for (const [transitionId, count] of Object.entries(item.stats?.transitionCounts || {})) {
+                acc.stats.transitionCounts[transitionId] = (acc.stats.transitionCounts[transitionId] || 0) + count;
+            }
+            for (const hit of item.sinkHits || []) {
+                const key = `${hit.factId}|${hit.sinkSignature}|${hit.sinkRuleId || ""}|${hit.argIndex ?? ""}`;
+                if (semanticSinkSeen.has(key)) continue;
+                semanticSinkSeen.add(key);
+                acc.sinkHits.push({ ...hit });
+            }
+            for (const candidate of item.candidateSeeds || []) {
+                const key = `${candidate.factId}|${candidate.carrierKey}|${candidate.reason}`;
+                if (semanticCandidateSeen.has(key)) continue;
+                semanticCandidateSeen.add(key);
+                acc.candidateSeeds.push({ ...candidate });
+            }
+            for (const fact of item.derivedFacts || []) {
+                acc.derivedFacts.push({ ...fact });
+            }
+            for (const record of item.provenance || []) {
+                const key = `${record.fromFactId}|${record.toFactId}|${record.transitionId}|${record.reason}`;
+                if (semanticProvenanceSeen.has(key)) continue;
+                semanticProvenanceSeen.add(key);
+                acc.provenance.push({ ...record });
+            }
+            for (const gap of item.gaps || []) {
+                const key = `${gap.factId}|${gap.transitionId}|${gap.reason}|${gap.blockedBy}`;
+                if (semanticGapSeen.has(key)) continue;
+                semanticGapSeen.add(key);
+                acc.gaps.push({ ...gap });
+            }
+            return acc;
+        }, {
+            enabled: true,
+            truncated: false,
+            stats: {
+                dequeues: 0,
+                visited: 0,
+                elapsedMs: 0,
+                transitionCounts: {},
+            },
+            seedCount: 0,
+            sinkHitCount: 0,
+            candidateSeedCount: 0,
+            provenanceCount: 0,
+            gapCount: 0,
+            sinkHits: [] as NonNullable<EntryAnalyzeResult["semanticState"]>["sinkHits"],
+            candidateSeeds: [] as NonNullable<EntryAnalyzeResult["semanticState"]>["candidateSeeds"],
+            derivedFacts: [] as NonNullable<EntryAnalyzeResult["semanticState"]>["derivedFacts"],
+            provenance: [] as NonNullable<EntryAnalyzeResult["semanticState"]>["provenance"],
+            gaps: [] as NonNullable<EntryAnalyzeResult["semanticState"]>["gaps"],
+        })
+        : undefined;
     const reportEntries = entries.map(e => toReportEntry(e, options.reportMode));
     const ruleFeedback = buildRuleFeedback(
         options.repo,
@@ -1144,6 +1231,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
             memoryProfile: emptyAnalyzeMemoryProfile(),
             pagNodeResolutionAudit,
             executionHandoffAudit,
+            semanticState,
             diagnostics,
             diagnosticItems,
             moduleAudit: moduleAuditSummary,

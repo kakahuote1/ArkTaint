@@ -34,6 +34,7 @@
         "test:callee-resolver": "node out/tests/language/test_callee_resolver.js",
         "test:algorithm-validation": "node out/tests/runtime/test_algorithm_validation.js",
         "test:kernel-guard": "node out/tests/runtime/test_kernel_guard.js",
+        "test:semantic-state": "node out/tests/semantic_state/test_semantic_state_solver.js && node out/tests/analyze/test_analyze_semantic_state_mandatory.js && node out/tests/analyze/test_analyze_semantic_report_render.js",
         "test:layer-dependency-gate": "node out/tests/runtime/test_layer_dependency_gate.js",
         "test:module-runtime": "node out/tests/runtime/test_module_runtime.js",
         "test:engine-plugin-runtime": "node out/tests/runtime/test_engine_plugin_runtime.js",
@@ -195,7 +196,7 @@
         "test:sink-inventory-boundary": "node out/tests/rules/test_sink_inventory_boundary.js",
         "test:sink-inventory-scoring-contract": "node out/tests/rules/test_sink_inventory_scoring_contract.js",
         "test:framework-source-exactness-gate": "node out/tests/rules/test_framework_api_source_exactness_gate.js",
-        "verify": "npm run build && npm run test:layer-dependency-gate && npm run test:rule-governance && npm run test:module-runtime && npm run test:engine-plugin-runtime && npm run test:algorithm-validation && npm run test:kernel-guard && npm run test:ordinary-language-core && npm run test:capability-pack-b && npm run test:capability-pack-c && npm run test:capability-pack-d && npm run test:capability-pack-e && npm run test:execution-handoff-necessity && npm run test:entry-model && npm run test:analyze-single-command && npm run test:analyze-guidance && npm run test:analyze-module-cli && npm run test:analyze-module-inspection-cli && npm run test:analyze-plugin-inspection-cli && npm run test:analyze-engine-plugin-cli && npm run test:analyze-incremental && npm run test:analyze-invalid-flags",
+        "verify": "npm run build && npm run test:layer-dependency-gate && npm run test:rule-governance && npm run test:module-runtime && npm run test:engine-plugin-runtime && npm run test:algorithm-validation && npm run test:kernel-guard && npm run test:semantic-state && npm run test:ordinary-language-core && npm run test:capability-pack-b && npm run test:capability-pack-c && npm run test:capability-pack-d && npm run test:capability-pack-e && npm run test:execution-handoff-necessity && npm run test:entry-model && npm run test:analyze-single-command && npm run test:analyze-guidance && npm run test:analyze-module-cli && npm run test:analyze-module-inspection-cli && npm run test:analyze-plugin-inspection-cli && npm run test:analyze-engine-plugin-cli && npm run test:analyze-incremental && npm run test:analyze-invalid-flags",
         "verify:dev": "npm run verify && npm run test:smoke",
         "clean": "rimraf out"
     },
