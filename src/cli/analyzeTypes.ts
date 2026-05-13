@@ -84,6 +84,13 @@ export interface EntryAnalyzeResult {
     flowCount: number;
     sinkSamples: string[];
     flowRuleTraces: FlowRuleTrace[];
+    materializedTaintFlows?: Array<{
+        sinkFactId: string;
+        paths: Array<{
+            factIds: string[];
+            truncated?: boolean;
+        }>;
+    }>;
     ruleHits: RuleHitCounters;
     ruleHitEndpoints: RuleHitCounters;
     transferProfile: {
@@ -407,6 +414,7 @@ export function toReportEntry(entry: EntryAnalyzeResult, reportMode: ReportMode)
         ...entry,
         sinkSamples: [],
         flowRuleTraces: [],
+        materializedTaintFlows: [],
         ruleHits: emptyRuleHitCounters(),
         ruleHitEndpoints: emptyRuleHitCounters(),
         transferProfile: emptyTransferProfile(),

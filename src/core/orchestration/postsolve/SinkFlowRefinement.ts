@@ -6,11 +6,13 @@ import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
 import { ArkMethod } from "../../../../arkanalyzer/out/src/core/model/ArkMethod";
 import { TaintFlow } from "../../kernel/model/TaintFlow";
+import { PostsolveContext } from "./PostsolveTypes";
 import {
     collectKnownKeyedDispatchKeysFromMethod,
     resolveKnownKeyedCallbackRegistrationsFromStmt,
 } from "../../entry/shared/FrameworkCallbackClassifier";
 import { collectFiniteStringCandidatesFromValue } from "../../substrate/queries/FiniteStringCandidateResolver";
+import { evaluateTypeNarrowingGuardSuppression } from "./TypeNarrowingGuardRefinement";
 
 /**
  * Deterministic sink-flow refinements that are currently applied after the main
@@ -23,11 +25,16 @@ export class SinkFlowRefinement {
 
     constructor(private readonly scene: Scene) {}
 
-    filterFlows(flows: TaintFlow[], pag?: Pag): TaintFlow[] {
-        return flows.filter(flow => !this.shouldSuppressFlow(flow, pag));
+    filterFlows(flows: TaintFlow[], pag?: Pag, context?: PostsolveContext): TaintFlow[] {
+        return flows.filter(flow => !this.shouldSuppressFlow(flow, pag, context));
     }
 
-    private shouldSuppressFlow(flow: TaintFlow, pag?: Pag): boolean {
+    private shouldSuppressFlow(flow: TaintFlow, pag?: Pag, context?: PostsolveContext): boolean {
+        const typeGuardEvidence = evaluateTypeNarrowingGuardSuppression(flow, context);
+        if (typeGuardEvidence) {
+            flow.suppressionReason = typeGuardEvidence.reason;
+            return true;
+        }
         return this.shouldSuppressSafeOverwriteFlow(flow, pag)
             || this.shouldSuppressKeyedRouteCallbackMismatchFlow(flow);
     }

@@ -9,6 +9,7 @@ import { ArkParameterRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
 import { ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
 import { TaintFact } from "../model/TaintFact";
 import { TaintTracker } from "../model/TaintTracker";
+import { FactPredecessorRecord } from "./PropagationTypes";
 import { TaintContextManager, CallEdgeInfo, CallEdgeType } from "../context/TaintContext";
 import { propagateExpressionTaint } from "./ExpressionPropagation";
 import { CaptureEdgeInfo, ReceiverFieldBridgeInfo } from "../builders/CallEdgeMapBuilder";
@@ -136,6 +137,7 @@ export interface WorklistSolverDeps {
     moduleRuntime: ModuleRuntime;
     moduleQueries: InternalModuleQueryApi;
     onFactObserved?: (fact: TaintFact) => void;
+    onFactPredecessor?: (record: FactPredecessorRecord) => void;
     onCallEdge?: (event: CallEdgeEvent) => PropagationContributionBatch;
     onTaintFlow?: (event: TaintFlowEvent) => PropagationContributionBatch;
     onMethodReached?: (event: MethodReachedEvent) => PropagationContributionBatch;
@@ -263,6 +265,7 @@ export class WorklistSolver {
             moduleRuntime,
             moduleQueries,
             onFactObserved,
+            onFactPredecessor,
             onCallEdge,
             onTaintFlow,
             onMethodReached,
@@ -574,6 +577,11 @@ export class WorklistSolver {
                     return;
                 }
                 profiler?.onEnqueueAttempt(reason);
+                onFactPredecessor?.({
+                    toFactId: newFact.id,
+                    fromFactId: fact.id,
+                    reason,
+                });
                 if (visited.has(newFact.id)) {
                     profiler?.onDedupDrop(reason);
                     return;

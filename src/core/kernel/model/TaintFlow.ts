@@ -8,6 +8,8 @@ export interface TaintFlowMeta {
     sinkNodeId?: number;
     sinkFieldPath?: string[];
     transferRuleIds?: string[];
+    sinkFactId?: string;
+    suppressionReason?: string;
 }
 
 export class TaintFlow {
@@ -19,6 +21,8 @@ export class TaintFlow {
     public sinkNodeId?: number;
     public sinkFieldPath?: string[];
     public transferRuleIds?: string[];
+    public sinkFactId?: string;
+    public suppressionReason?: string;
 
     constructor(source: string, sink: Stmt, meta: TaintFlowMeta = {}) {
         this.source = source;
@@ -29,6 +33,8 @@ export class TaintFlow {
         this.sinkNodeId = meta.sinkNodeId;
         this.sinkFieldPath = meta.sinkFieldPath;
         this.transferRuleIds = meta.transferRuleIds;
+        this.sinkFactId = meta.sinkFactId;
+        this.suppressionReason = meta.suppressionReason;
     }
 
     public toString(): string {

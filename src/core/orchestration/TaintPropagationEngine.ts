@@ -122,6 +122,9 @@ import {
     resolveRuleTierWeight,
 } from "../rules/RulePriority";
 import { SinkFlowRefinement, extractFilePathFromSignature } from "./postsolve/SinkFlowRefinement";
+import { PostsolveContext, PathMaterializationOptions, MaterializedTaintFlow } from "./postsolve/PostsolveTypes";
+import { FactPredecessorRecord } from "../kernel/propagation/PropagationTypes";
+import { materializeTaintFlowPaths } from "./postsolve/WitnessMaterializer";
 import { SemanticFact, SemanticSolveResult, buildSemanticCarrierForValue, createDefaultSemanticSideState, normalizeSemanticFieldPath, resolveMethodSignatureText, resolveStmtText } from "../kernel/semantic_state/SemanticStateTypes";
 import { FiniteSemanticSolverEffect, compileSemanticSolverEffects } from "../kernel/semantic_state/SemanticEffectCompiler";
 import { createSemanticFact } from "../kernel/semantic_state/SemanticFact";
@@ -282,6 +285,7 @@ export class TaintPropagationEngine {
     private autoAmbientSourceRules: SourceRule[] = [];
     private detectProfile: SinkDetectProfile = createEmptySinkDetectProfile();
     private sinkFlowRefinement: SinkFlowRefinement;
+    private factPredecessorsByFactId: Map<string, FactPredecessorRecord[]> = new Map();
     private lastWorklistTruncation?: WorklistBudgetTruncation;
     private activePagCacheEntry?: PagBuildCacheEntry;
     private executionHandoffSnapshot?: ExecutionHandoffContractSnapshot;
@@ -638,6 +642,7 @@ export class TaintPropagationEngine {
 
     private clearFactRuleChains(): void {
         this.factRuleChains.clear();
+        this.factPredecessorsByFactId.clear();
     }
 
     public resetPropagationState(): void {
@@ -683,6 +688,19 @@ export class TaintPropagationEngine {
             out.push(this.cloneFlowRuleChain(chain));
         }
         return out;
+    }
+
+    private resolveBestSinkFactId(nodeId: number, fieldPath?: string[], sourceRuleId?: string): string | undefined {
+        const factIds = this.tracker.getTaintFactIdsAnyContext(nodeId, fieldPath);
+        if (factIds.length === 0) return undefined;
+        if (!sourceRuleId) return factIds[0];
+        for (const factId of factIds) {
+            const chain = this.factRuleChains.get(factId);
+            if (chain?.sourceRuleId === sourceRuleId) {
+                return factId;
+            }
+        }
+        return factIds[0];
     }
 
     public async buildPAG(options: BuildPAGOptions = {}): Promise<void> {
@@ -1235,6 +1253,44 @@ export class TaintPropagationEngine {
         return finalized;
     }
 
+    public materializeDetectedSinkFlows(
+        sinkRules: SinkRule[],
+        options?: {
+            stopOnFirstFlow?: boolean;
+            maxFlowsPerEntry?: number;
+            sanitizerRules?: SanitizerRule[];
+            materialize?: PathMaterializationOptions;
+        }
+    ): {
+        flows: TaintFlow[];
+        materialized: MaterializedTaintFlow[];
+    } {
+        const flows = this.detectSinksByRules(sinkRules, {
+            stopOnFirstFlow: options?.stopOnFirstFlow,
+            maxFlowsPerEntry: options?.maxFlowsPerEntry,
+            sanitizerRules: options?.sanitizerRules,
+        });
+        return this.materializeDetectedSinkFlowPaths(flows, options?.materialize);
+    }
+
+    public materializeDetectedSinkFlowPaths(
+        flows: TaintFlow[],
+        materializeOptions?: PathMaterializationOptions,
+    ): {
+        flows: TaintFlow[];
+        materialized: MaterializedTaintFlow[];
+    } {
+        const context = this.buildPostsolveContext();
+        const materialized: MaterializedTaintFlow[] = [];
+        for (const flow of flows) {
+            const item = materializeTaintFlowPaths(flow, context, materializeOptions);
+            if (item) {
+                materialized.push(item);
+            }
+        }
+        return { flows, materialized };
+    }
+
     public solveSemanticState(
         sourceRules: SourceRule[],
         sinkRules: SinkRule[],
@@ -1310,6 +1366,8 @@ export class TaintPropagationEngine {
                 sinkNodeId: flow.sinkNodeId,
                 sinkFieldPath: flow.sinkFieldPath ? [...flow.sinkFieldPath] : undefined,
                 transferRuleIds: flow.transferRuleIds ? [...flow.transferRuleIds] : undefined,
+                sinkFactId: flow.sinkFactId,
+                suppressionReason: flow.suppressionReason,
             });
         };
         const buildDetectCacheKey = (
@@ -1414,9 +1472,10 @@ export class TaintPropagationEngine {
                             }
                         }
                         flow.transferRuleIds = [...transferSet].sort();
+                        flow.sinkFactId = this.resolveBestSinkFactId(flow.sinkNodeId, flow.sinkFieldPath, flow.sourceRuleId);
                     }
                 }
-                flows = this.sinkFlowRefinement.filterFlows(flows, this.pag);
+                flows = this.sinkFlowRefinement.filterFlows(flows, this.pag, this.buildPostsolveContext());
                 if (family) {
                     flows = flows.filter(flow => {
                         const actualSignature = this.resolveSinkFlowCalleeSignature(flow);
@@ -1503,6 +1562,7 @@ export class TaintPropagationEngine {
             moduleRuntime,
             moduleQueries,
             onFactObserved: (fact) => this.recordObservedFact(fact),
+            onFactPredecessor: (record) => this.recordFactPredecessor(record),
             onCallEdge: (event) => propagationHooks.onCallEdge(event),
             onTaintFlow: (event) => propagationHooks.onTaintFlow(event),
             onMethodReached: (event) => propagationHooks.onMethodReached(event),
@@ -1531,6 +1591,25 @@ export class TaintPropagationEngine {
 
     private recordObservedFact(fact: TaintFact): void {
         this.observedFacts.set(fact.id, fact);
+    }
+
+    private recordFactPredecessor(record: FactPredecessorRecord): void {
+        if (!record.toFactId || !record.fromFactId) return;
+        const bucket = this.factPredecessorsByFactId.get(record.toFactId) || [];
+        if (!this.factPredecessorsByFactId.has(record.toFactId)) {
+            this.factPredecessorsByFactId.set(record.toFactId, bucket);
+        }
+        if (bucket.some(item => item.fromFactId === record.fromFactId && item.reason === record.reason)) {
+            return;
+        }
+        bucket.push({ ...record });
+    }
+
+    private buildPostsolveContext(): PostsolveContext {
+        return {
+            observedFactsById: this.observedFacts,
+            factPredecessorsByFactId: this.factPredecessorsByFactId,
+        };
     }
 
     public getObservedTaintFacts(): ReadonlyMap<number, readonly TaintFact[]> {

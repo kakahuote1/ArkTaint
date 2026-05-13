@@ -499,19 +499,20 @@ async function analyzeSourceDir(
 
         if (seedCount === 0) {
             stageProfile.totalMs = elapsedMsSince(t0);
-            return {
-                sourceDir,
-                entryName: arkMainEntryName,
-                entryPathHint: sourceDir,
-                score: 100,
-                status: "no_seed",
-                seedCount: 0,
-                seedLocalNames: [],
-                seedStrategies: [],
-                flowCount: 0,
-                sinkSamples: [],
-                flowRuleTraces: [],
-                ruleHits: emptyRuleHitCounters(),
+        return {
+            sourceDir,
+            entryName: arkMainEntryName,
+            entryPathHint: sourceDir,
+            score: 100,
+            status: "no_seed",
+            seedCount: 0,
+            seedLocalNames: [],
+            seedStrategies: [],
+            flowCount: 0,
+            sinkSamples: [],
+            flowRuleTraces: [],
+            materializedTaintFlows: [],
+            ruleHits: emptyRuleHitCounters(),
                 ruleHitEndpoints: emptyRuleHitCounters(),
                 transferProfile: emptyTransferProfile(),
                 detectProfile: emptyDetectProfile(),
@@ -549,6 +550,7 @@ async function analyzeSourceDir(
                 flowCount: 0,
                 sinkSamples: [],
                 flowRuleTraces: [],
+                materializedTaintFlows: [],
                 ruleHits,
                 ruleHitEndpoints,
                 transferProfile,
@@ -591,6 +593,13 @@ async function analyzeSourceDir(
             maxFlowsPerEntry: detectStopPolicy.maxFlowsPerEntry,
             enableSecondarySinkSweep: seedingPolicy.enableSecondarySinkSweep,
         });
+        const materializedFlows = engine.materializeDetectedSinkFlowPaths(
+            detected.flows,
+            {
+                maxPaths: 64,
+                maxDepth: 128,
+            },
+        );
         detectProfile = engine.getDetectProfile();
         detectElapsedMs = elapsedMsSince(detectT0);
         verboseAnalyzeLog(
@@ -628,6 +637,13 @@ async function analyzeSourceDir(
             flowCount: detected?.totalFlowCount || 0,
             sinkSamples: detected?.sinkSamples || [],
             flowRuleTraces: detected?.flowRuleTraces || [],
+            materializedTaintFlows: materializedFlows.materialized.map(item => ({
+                sinkFactId: item.sinkFactId,
+                paths: item.paths.map(path => ({
+                    factIds: path.factIds,
+                    truncated: path.truncated,
+                })),
+            })),
             ruleHits,
             ruleHitEndpoints,
             transferProfile,

@@ -13,6 +13,10 @@ export interface FlowRuleTrace {
     sinkFieldPath?: string[];
     transferRuleIds: string[];
     handoffMarkers?: string[];
+    materializedPaths?: Array<{
+        factIds: string[];
+        truncated?: boolean;
+    }>;
 }
 
 export function extractArkFileFromSignature(signature: string): string | undefined {
@@ -37,6 +41,7 @@ export function detectFlows(
     sinkSamples: string[];
     byKeyword: Record<string, number>;
     bySignature: Record<string, number>;
+    flows: TaintFlow[];
     flowRuleTraces: FlowRuleTrace[];
 } {
     const detailed = options?.detailed !== false;
@@ -48,6 +53,7 @@ export function detectFlows(
     const byKeyword: Record<string, number> = {};
     const bySignature: Record<string, number> = {};
     const uniqueFlowKeys = new Set<string>();
+    const uniqueFlows: TaintFlow[] = [];
     const flowTraceMap = new Map<string, FlowRuleTrace>();
 
     const sourcePattern = buildSmokeRuleConfig(loadedRules);
@@ -87,6 +93,7 @@ export function detectFlows(
             bucket.add(key);
             if (!uniqueFlowKeys.has(key)) {
                 uniqueFlowKeys.add(key);
+                uniqueFlows.push(flow);
                 if (sinkSamples.length < 8) sinkSamples.push(`[${label}:${token}] ${sinkText}`);
             }
             if (detailed) {
@@ -111,6 +118,7 @@ export function detectFlows(
             sinkSamples,
             byKeyword,
             bySignature,
+            flows: uniqueFlows,
             flowRuleTraces: detailed ? [...flowTraceMap.values()] : [],
         };
     }
@@ -141,6 +149,7 @@ export function detectFlows(
         sinkSamples,
         byKeyword,
         bySignature,
+        flows: uniqueFlows,
         flowRuleTraces: detailed ? [...flowTraceMap.values()] : [],
     };
 }
