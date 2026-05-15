@@ -21,6 +21,36 @@ interface EntryAnalyzeResultLike {
     flowCount: number;
     sinkSamples: string[];
     flowRuleTraces: FlowRuleTraceLike[];
+    postsolveResults?: Array<{
+        flow: {
+            source: string;
+            sinkText: string;
+            sinkFactId?: string;
+        };
+        skeleton?: {
+            nodes: Array<unknown>;
+            edges: Array<unknown>;
+        };
+        paths: Array<{
+            factIds: string[];
+            truncated?: boolean;
+            evidence: Array<{
+                kind: string;
+            }>;
+            judgement: {
+                kind: string;
+                primaryReason?: string;
+            };
+        }>;
+        evidenceSummary: {
+            evidenceKinds: string[];
+            primaryReason?: string;
+        };
+        judgement: {
+            kind: string;
+            primaryReason?: string;
+        };
+    }>;
     ruleHits: RuleHitCountersLike;
     transferProfile: {
         ruleCheckCount: number;
@@ -396,6 +426,18 @@ export function renderMarkdownReport(report: AnalyzeReportLike): string {
         }
         for (const trace of e.flowRuleTraces.slice(0, 2)) {
             lines.push(`  - flowRuleChain: sourceRule=${trace.sourceRuleId || "N/A"}, sinkRule=${trace.sinkRuleId || "N/A"}, sinkEndpoint=${trace.sinkEndpoint || "N/A"}, transferRules=${trace.transferRuleIds.join(" -> ") || "N/A"}`);
+        }
+        for (const result of (e.postsolveResults || []).slice(0, 2)) {
+            lines.push(`  - postsolve: sinkFactId=${result.flow.sinkFactId || "N/A"}, judgement=${result.judgement.kind}, primaryReason=${result.evidenceSummary.primaryReason || "N/A"}, evidenceKinds=${result.evidenceSummary.evidenceKinds.join(",") || "N/A"}, skeletonNodes=${result.skeleton?.nodes.length || 0}, pathCount=${result.paths.length}`);
+            lines.push(`    - flow: source=${result.flow.source} | sink=${result.flow.sinkText}`);
+            if (result.skeleton) {
+                lines.push(`    - skeleton: nodes=${result.skeleton.nodes.length}, edges=${result.skeleton.edges.length}`);
+            }
+            for (const pathItem of result.paths.slice(0, 5)) {
+                const evidenceKinds = [...new Set((pathItem.evidence || []).map(item => item.kind))];
+                lines.push(`    - path: judgement=${pathItem.judgement.kind}, primaryReason=${pathItem.judgement.primaryReason || "N/A"}, evidenceKinds=${evidenceKinds.join(",") || "N/A"}, truncated=${pathItem.truncated ? "true" : "false"}`);
+                lines.push(`      - factIds: ${pathItem.factIds.join(" -> ") || "N/A"}`);
+            }
         }
     }
     return lines.join("\n");

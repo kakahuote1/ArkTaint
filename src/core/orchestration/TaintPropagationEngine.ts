@@ -122,9 +122,15 @@ import {
     resolveRuleTierWeight,
 } from "../rules/RulePriority";
 import { SinkFlowRefinement, extractFilePathFromSignature } from "./postsolve/SinkFlowRefinement";
-import { PostsolveContext, PathMaterializationOptions, MaterializedTaintFlow } from "./postsolve/PostsolveTypes";
+import {
+    PostsolveContext,
+    PathMaterializationOptions,
+    MaterializedTaintFlow,
+    PostsolveFlowResult,
+} from "./postsolve/PostsolveTypes";
 import { FactPredecessorRecord } from "../kernel/propagation/PropagationTypes";
 import { materializeTaintFlowPaths } from "./postsolve/WitnessMaterializer";
+import { evaluatePostsolveFlow, materializePostsolveFlowResult } from "./postsolve/PostsolveEvaluator";
 import { SemanticFact, SemanticSolveResult, buildSemanticCarrierForValue, createDefaultSemanticSideState, normalizeSemanticFieldPath, resolveMethodSignatureText, resolveStmtText } from "../kernel/semantic_state/SemanticStateTypes";
 import { FiniteSemanticSolverEffect, compileSemanticSolverEffects } from "../kernel/semantic_state/SemanticEffectCompiler";
 import { createSemanticFact } from "../kernel/semantic_state/SemanticFact";
@@ -1291,6 +1297,30 @@ export class TaintPropagationEngine {
         return { flows, materialized };
     }
 
+    public evaluatePostsolveFlowResults(flows: TaintFlow[]): {
+        results: PostsolveFlowResult[];
+        suppressed: PostsolveFlowResult[];
+        survivingFlows: TaintFlow[];
+    } {
+        const context = this.buildPostsolveContext();
+        const results: PostsolveFlowResult[] = [];
+        const suppressed: PostsolveFlowResult[] = [];
+        const survivingFlows: TaintFlow[] = [];
+
+        for (const flow of flows) {
+            const seedResult = evaluatePostsolveFlow(flow, context);
+            const flowResult = materializePostsolveFlowResult(flow, seedResult);
+            results.push(flowResult);
+            if (flowResult.judgement.kind === "Refuted-Strong") {
+                suppressed.push(flowResult);
+                continue;
+            }
+            survivingFlows.push(flow);
+        }
+
+        return { results, suppressed, survivingFlows };
+    }
+
     public solveSemanticState(
         sourceRules: SourceRule[],
         sinkRules: SinkRule[],
@@ -1475,7 +1505,6 @@ export class TaintPropagationEngine {
                         flow.sinkFactId = this.resolveBestSinkFactId(flow.sinkNodeId, flow.sinkFieldPath, flow.sourceRuleId);
                     }
                 }
-                flows = this.sinkFlowRefinement.filterFlows(flows, this.pag, this.buildPostsolveContext());
                 if (family) {
                     flows = flows.filter(flow => {
                         const actualSignature = this.resolveSinkFlowCalleeSignature(flow);

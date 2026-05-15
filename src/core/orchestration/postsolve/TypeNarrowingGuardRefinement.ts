@@ -31,11 +31,13 @@ import {
 import { TaintFlow } from "../../kernel/model/TaintFlow";
 import {
     PostsolveContext,
+    PostsolveEvidence,
     TaintFactWitness,
     TypeofDeadBranchEvidence,
     TypeofGuardFormula,
     TypeofGuardObligation,
     TypeofTag,
+    WitnessPath,
 } from "./PostsolveTypes";
 import { FactPredecessorRecord } from "../../kernel/propagation/PropagationTypes";
 import { materializeTaintFlowPaths } from "./WitnessMaterializer";
@@ -76,6 +78,19 @@ export function evaluateTypeNarrowingGuardSuppression(
         }
     }
     return firstEvidence;
+}
+
+export function evaluateTypeNarrowingGuardPath(
+    flow: TaintFlow,
+    path: WitnessPath,
+    context: PostsolveContext,
+): PostsolveEvidence[] {
+    if (path.truncated) return [];
+    const witness = buildWitnessFromPath(path, context);
+    if (!witness || witness.facts.length === 0) return [];
+    const evidence = evaluateWitnessPath(flow, witness);
+    if (!evidence) return [];
+    return [toPostsolveEvidence(flow, evidence)];
 }
 
 function buildWitnessFromPath(path: { factIds: string[]; edges: { fromFactId: string; toFactId: string; reason: string }[] }, context: PostsolveContext): TaintFactWitness | undefined {
@@ -362,6 +377,30 @@ function parseAllowedTypesFormula(expr: any): TypeofGuardFormula | undefined {
     }
 
     return parseAtomicAllowedTypesFormula(expr);
+}
+
+function toPostsolveEvidence(
+    flow: TaintFlow,
+    evidence: TypeofDeadBranchEvidence,
+): PostsolveEvidence {
+    return {
+        kind: "type_narrowing_guard",
+        polarity: "negative",
+        strength: "strong",
+        stability: "overridable",
+        target: {
+            sinkFactId: flow.sinkFactId || "",
+            sinkNodeId: flow.sinkNodeId,
+        },
+        meta: {
+            branchTaken: evidence.branchTaken,
+            variableName: evidence.variableName,
+            allowedTypes: evidence.allowedTypes,
+            possibleTypes: evidence.possibleTypes,
+            guardText: evidence.guardText,
+            reason: evidence.reason,
+        },
+    };
 }
 
 function parseAllowedTypesOperand(value: any): TypeofGuardFormula | undefined {

@@ -30,6 +30,103 @@ export interface MaterializedTaintFlow {
     paths: WitnessPath[];
 }
 
+export type PostsolveJudgementKind =
+    | "Confirmed"
+    | "Refuted-Strong"
+    | "Refuted-Weak"
+    | "Unresolved";
+
+export interface PostsolveEvidence {
+    kind: string;
+    polarity: "positive" | "negative";
+    strength: "strong" | "weak";
+    stability: "stable" | "overridable";
+    position?: {
+        factId?: string;
+        stmtText?: string;
+        methodSignature?: string;
+        pathIndex?: number;
+    };
+    target?: {
+        sinkFactId: string;
+        sinkNodeId?: number;
+    };
+    meta: Record<string, unknown>;
+}
+
+export interface PostsolveJudgement {
+    kind: PostsolveJudgementKind;
+    primaryReason?: string;
+    evidenceKinds: string[];
+}
+
+export interface PostsolveSkeleton {
+    sinkFactId: string;
+    nodes: Array<{
+        factId: string;
+        stmtText?: string;
+        methodSignature?: string;
+    }>;
+    edges: Array<{
+        fromFactId: string;
+        toFactId: string;
+        reason: string;
+    }>;
+}
+
+export interface PostsolveReport {
+    sinkFactId: string;
+    witness?: MaterializedTaintFlow;
+    skeleton?: PostsolveSkeleton;
+    evidence: PostsolveEvidence[];
+    judgement: PostsolveJudgement;
+    temporalFingerprint?: {
+        sinkFactId: string;
+        pathCount: number;
+    };
+}
+
+export interface PostsolveSeedResult {
+    sinkFactId: string;
+    witness?: MaterializedTaintFlow;
+    skeleton?: PostsolveSkeleton;
+    judgement: PostsolveJudgement;
+    pathResults: Array<{
+        factIds: string[];
+        truncated?: boolean;
+        evidence: PostsolveEvidence[];
+        judgement: PostsolveJudgement;
+    }>;
+    evidenceSummary: {
+        evidenceKinds: string[];
+        primaryReason?: string;
+    };
+    report: PostsolveReport;
+}
+
+export interface PostsolveFlowResult {
+    flow: {
+        source: string;
+        sinkText: string;
+        sinkFactId?: string;
+        sinkNodeId?: number;
+        sinkFieldPath?: string[];
+    };
+    skeleton?: PostsolveSkeleton;
+    paths: Array<{
+        factIds: string[];
+        truncated?: boolean;
+        evidence: PostsolveEvidence[];
+        judgement: PostsolveJudgement;
+    }>;
+    evidenceSummary: {
+        evidenceKinds: string[];
+        primaryReason?: string;
+    };
+    judgement: PostsolveJudgement;
+    report: PostsolveReport;
+}
+
 export interface TaintFactWitness {
     facts: TaintFact[];
     predecessorRecords: FactPredecessorRecord[];

@@ -21,6 +21,13 @@ import { RuleLoadIssue } from "../core/rules/RuleLoader";
 import { RuleInvokeKind } from "../core/rules/RuleSchema";
 import { AnalyzeProfile, ReportMode } from "./analyzeCliOptions";
 import { FlowRuleTrace } from "./analyzeUtils";
+import {
+    PostsolveEvidence,
+    PostsolveFlowResult,
+    PostsolveJudgement,
+    PostsolveReport,
+    PostsolveSkeleton,
+} from "../core/orchestration/postsolve/PostsolveTypes";
 
 export interface EntryStageProfile {
     buildPagMs: number;
@@ -91,6 +98,7 @@ export interface EntryAnalyzeResult {
             truncated?: boolean;
         }>;
     }>;
+    postsolveResults?: PostsolveFlowResult[];
     ruleHits: RuleHitCounters;
     ruleHitEndpoints: RuleHitCounters;
     transferProfile: {
@@ -415,6 +423,7 @@ export function toReportEntry(entry: EntryAnalyzeResult, reportMode: ReportMode)
         sinkSamples: [],
         flowRuleTraces: [],
         materializedTaintFlows: [],
+        postsolveResults: [],
         ruleHits: emptyRuleHitCounters(),
         ruleHitEndpoints: emptyRuleHitCounters(),
         transferProfile: emptyTransferProfile(),

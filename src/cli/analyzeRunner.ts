@@ -512,6 +512,7 @@ async function analyzeSourceDir(
             sinkSamples: [],
             flowRuleTraces: [],
             materializedTaintFlows: [],
+            postsolveResults: [],
             ruleHits: emptyRuleHitCounters(),
                 ruleHitEndpoints: emptyRuleHitCounters(),
                 transferProfile: emptyTransferProfile(),
@@ -551,6 +552,7 @@ async function analyzeSourceDir(
                 sinkSamples: [],
                 flowRuleTraces: [],
                 materializedTaintFlows: [],
+                postsolveResults: [],
                 ruleHits,
                 ruleHitEndpoints,
                 transferProfile,
@@ -623,6 +625,36 @@ async function analyzeSourceDir(
             reachableMethodCount: engine.getActiveReachableMethodSignatures()?.size,
         });
         const postProcessT0 = process.hrtime.bigint();
+        const postsolveResults = engine.evaluatePostsolveFlowResults(materializedFlows.flows);
+        const survivingFlows = postsolveResults.survivingFlows;
+        const survivingSinkTexts = new Set<string>(survivingFlows.map(flow => flow.sink.toString()));
+        const survivingSinkSamples = (detected?.sinkSamples || []).filter(sample =>
+            [...survivingSinkTexts].some(text => sample.includes(text)),
+        );
+        const survivingFlowRuleTraces = (detected?.flowRuleTraces || []).filter(trace =>
+            survivingFlows.some(flow =>
+                flow.source === trace.source
+                && flow.sink.toString() === trace.sink,
+            ),
+        );
+        const survivingMaterialized = postsolveResults.results
+            .filter(result =>
+                result.judgement.kind !== "Refuted-Strong"
+                && result.judgement.kind !== "Refuted-Weak",
+            )
+            .map(result => ({
+                sinkFactId: result.flow.sinkFactId || "",
+                paths: result.paths
+                    .filter(path =>
+                        path.judgement.kind !== "Refuted-Strong"
+                        && path.judgement.kind !== "Refuted-Weak",
+                    )
+                    .map(path => ({
+                        factIds: path.factIds,
+                        truncated: path.truncated,
+                    })),
+            }))
+            .filter(item => item.sinkFactId && item.paths.length > 0);
         stageProfile.postProcessMs = elapsedMsSince(postProcessT0);
         stageProfile.totalMs = elapsedMsSince(t0);
         return {
@@ -634,16 +666,17 @@ async function analyzeSourceDir(
             seedCount,
             seedLocalNames: [...seedLocalNames].sort(),
             seedStrategies: [...seedStrategies].sort(),
-            flowCount: detected?.totalFlowCount || 0,
-            sinkSamples: detected?.sinkSamples || [],
-            flowRuleTraces: detected?.flowRuleTraces || [],
-            materializedTaintFlows: materializedFlows.materialized.map(item => ({
+            flowCount: survivingFlows.length,
+            sinkSamples: survivingSinkSamples,
+            flowRuleTraces: survivingFlowRuleTraces,
+            materializedTaintFlows: survivingMaterialized.map(item => ({
                 sinkFactId: item.sinkFactId,
                 paths: item.paths.map(path => ({
                     factIds: path.factIds,
                     truncated: path.truncated,
                 })),
             })),
+            postsolveResults: postsolveResults.results,
             ruleHits,
             ruleHitEndpoints,
             transferProfile,
@@ -674,6 +707,8 @@ async function analyzeSourceDir(
             flowCount: 0,
             sinkSamples: [],
             flowRuleTraces: [],
+            materializedTaintFlows: [],
+            postsolveResults: [],
             ruleHits: emptyRuleHitCounters(),
             ruleHitEndpoints: emptyRuleHitCounters(),
             transferProfile: emptyTransferProfile(),
