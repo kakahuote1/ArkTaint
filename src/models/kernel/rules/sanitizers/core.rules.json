@@ -2,6 +2,158 @@
   "schemaVersion": "2.0",
   "sources": [],
   "sinks": [],
-  "sanitizers": [],
+  "sanitizers": [
+    {
+      "id": "sanitizer.harmony.crypto.md.digest.result",
+      "enabled": true,
+      "description": "CryptoFramework Md.digest returns the message digest result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "digest",
+        "invokeKind": "instance",
+        "argCount": 0
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(^|[.:\\s$])Md$"
+        }
+      },
+      "category": "cryptographic_derivation",
+      "target": "result"
+    },
+    {
+      "id": "sanitizer.harmony.crypto.md.digestSync.result",
+      "enabled": true,
+      "description": "CryptoFramework Md.digestSync returns the message digest result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "digestSync",
+        "invokeKind": "instance",
+        "argCount": 0
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(^|[.:\\s$])Md$"
+        }
+      },
+      "category": "cryptographic_derivation",
+      "target": "result"
+    },
+    {
+      "id": "sanitizer.harmony.crypto.mac.doFinal.result",
+      "enabled": true,
+      "description": "CryptoFramework Mac.doFinal returns a message-authentication code.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "doFinal",
+        "invokeKind": "instance",
+        "argCount": 0
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(^|[.:\\s$])Mac$"
+        }
+      },
+      "category": "cryptographic_derivation",
+      "target": "result"
+    },
+    {
+      "id": "sanitizer.harmony.crypto.mac.doFinalSync.result",
+      "enabled": true,
+      "description": "CryptoFramework Mac.doFinalSync returns a message-authentication code.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "doFinalSync",
+        "invokeKind": "instance",
+        "argCount": 0
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(^|[.:\\s$])Mac$"
+        }
+      },
+      "category": "cryptographic_derivation",
+      "target": "result"
+    },
+    {
+      "id": "sanitizer.harmony.crypto.sign.sign.result",
+      "enabled": true,
+      "description": "CryptoFramework Sign.sign returns a signature value.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "sign",
+        "invokeKind": "instance",
+        "argCount": 1
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(^|[.:\\s$])Sign$"
+        }
+      },
+      "category": "cryptographic_derivation",
+      "target": "result"
+    },
+    {
+      "id": "sanitizer.harmony.crypto.sign.signSync.result",
+      "enabled": true,
+      "description": "CryptoFramework Sign.signSync returns a signature value.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "signSync",
+        "invokeKind": "instance",
+        "argCount": 1
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(^|[.:\\s$])Sign$"
+        }
+      },
+      "category": "cryptographic_derivation",
+      "target": "result"
+    },
+    {
+      "id": "sanitizer.harmony.file.hash.hash.result",
+      "enabled": true,
+      "description": "ohos.file.hash.hash returns the hash string for file content.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "hash",
+        "argCount": 2
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(^|[.:\\s$])hash$"
+        }
+      },
+      "category": "cryptographic_derivation",
+      "target": "result"
+    },
+    {
+      "id": "sanitizer.harmony.file.hashstream.digest.result",
+      "enabled": true,
+      "description": "ohos.file.hash.HashStream.digest returns a hexadecimal digest string.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "digest",
+        "invokeKind": "instance",
+        "argCount": 0
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(^|[.:\\s$])HashStream$"
+        }
+      },
+      "category": "cryptographic_derivation",
+      "target": "result"
+    }
+  ],
   "transfers": []
 }

@@ -138,11 +138,6 @@ async function main(): Promise<void> {
     assert(entry.status === "ok", `expected entry status ok, got ${entry.status}`);
     assert(entry.seedCount > 0, `expected seedCount > 0, got ${entry.seedCount}`);
     assert(entry.flowCount === 0, `expected surviving flowCount=0, got ${entry.flowCount}`);
-    assert(
-        !entry.materializedTaintFlows || entry.materializedTaintFlows.length === 0,
-        `expected no surviving materialized flows, got ${(entry.materializedTaintFlows || []).length}`,
-    );
-
     const postsolveResults = entry.postsolveResults || [];
     const suppressed = postsolveResults.filter(item => item.judgement.kind === "Refuted-Strong");
     assert(postsolveResults.length > 0, "expected postsolveResults to contain at least one flow");
@@ -160,6 +155,10 @@ async function main(): Promise<void> {
     assert(
         suppressed[0].paths.some(pathItem => pathItem.evidence.some(evidence => evidence.kind === "type_narrowing_guard")),
         "expected suppressed path evidence to include type_narrowing_guard",
+    );
+    assert(
+        (entry.materializedTaintFlows || []).length > 0,
+        "expected materializedTaintFlows to retain refuted path judgement details",
     );
 
     console.log("PASS test_analyze_suppressed_flows");

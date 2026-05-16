@@ -179,10 +179,10 @@ async function main(): Promise<void> {
         suppressed[0].paths.some(pathItem => pathItem.evidence.some(evidence => evidence.kind === "safe_overwrite")),
         "expected path evidence to include safe_overwrite",
     );
-    const survivingMaterialized = entry.materializedTaintFlows || [];
+    const materialized = entry.materializedTaintFlows || [];
     assert(
-        !survivingMaterialized.some((item: any) => item?.sinkFactId === suppressed[0].flow.sinkFactId),
-        `expected suppressed sinkFactId ${suppressed[0].flow.sinkFactId || "<empty>"} to be absent from surviving materializedTaintFlows`,
+        materialized.some((item: any) => item?.sinkFactId === suppressed[0].flow.sinkFactId && item?.judgement === "Refuted-Strong"),
+        `expected suppressed sinkFactId ${suppressed[0].flow.sinkFactId || "<empty>"} to be present with Refuted-Strong materialized judgement`,
     );
 
     console.log("PASS test_analyze_safe_overwrite_suppressed");

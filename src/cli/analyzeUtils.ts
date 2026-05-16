@@ -35,6 +35,7 @@ export function detectFlows(
         stopOnFirstFlow?: boolean;
         maxFlowsPerEntry?: number;
         enableSecondarySinkSweep?: boolean;
+        applyPreSinkSanitizers?: boolean;
     }
 ): {
     totalFlowCount: number;
@@ -60,7 +61,9 @@ export function detectFlows(
     const sinkKeywords = sourcePattern.sinkKeywords;
     const sinkSignatures = sourcePattern.sinkSignatures;
     const sinkRules = loadedRules?.ruleSet.sinks || [];
-    const sanitizerRules: SanitizerRule[] = loadedRules?.ruleSet.sanitizers || [];
+    const sanitizerRules: SanitizerRule[] = options?.applyPreSinkSanitizers === false
+        ? []
+        : (loadedRules?.ruleSet.sanitizers || []);
 
     const parseSourceRuleId = (source: string): string | undefined => {
         if (!source.startsWith("source_rule:")) return undefined;

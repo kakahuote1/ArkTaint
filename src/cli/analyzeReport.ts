@@ -209,6 +209,17 @@ function rankCounters(record: Record<string, number>, limit: number): RankedCoun
         .map(([key, count]) => ({ key, count }));
 }
 
+function countPostsolveJudgements(entries: EntryAnalyzeResultLike[]): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const entry of entries) {
+        for (const result of entry.postsolveResults || []) {
+            const kind = result.judgement?.kind || "Unknown";
+            out[kind] = (out[kind] || 0) + 1;
+        }
+    }
+    return out;
+}
+
 function noHitReasonAdvice(reason: string): string {
     const map: Record<string, string> = {
         no_transfer_rules_loaded: "Add transfer rules for the relevant from/to endpoints.",
@@ -319,6 +330,10 @@ export function renderMarkdownReport(report: AnalyzeReportLike): string {
     lines.push(`- withSeeds: ${report.summary.withSeeds}`);
     lines.push(`- withFlows: ${report.summary.withFlows}`);
     lines.push(`- totalFlows: ${report.summary.totalFlows}`);
+    const postsolveJudgementCounts = countPostsolveJudgements(report.entries || []);
+    if (Object.keys(postsolveJudgementCounts).length > 0) {
+        lines.push(`- postsolveJudgements: ${JSON.stringify(postsolveJudgementCounts)}`);
+    }
     lines.push(`- statusCount: ${JSON.stringify(report.summary.statusCount)}`);
     lines.push(`- ruleHitsTotal: source=${sourceRuleHits}, sink=${sinkRuleHits}, transfer=${transferRuleHits}`);
     lines.push(`- transferProfile: checks=${report.summary.transferProfile.ruleCheckCount}, matches=${report.summary.transferProfile.ruleMatchCount}, endpointMatches=${report.summary.transferProfile.endpointMatchCount}, results=${report.summary.transferProfile.resultCount}, dedupSkips=${report.summary.transferProfile.dedupSkipCount}, elapsedMs=${report.summary.transferProfile.elapsedMs}`);

@@ -12,7 +12,46 @@ export interface FrameworkSanitizerFamilyContract {
     schemas: FrameworkSanitizerSchemaContract[];
 }
 
-export const FRAMEWORK_SANITIZER_FAMILY_CONTRACTS: readonly FrameworkSanitizerFamilyContract[] = [];
+const SANITIZER_TAGS = ["harmony", "framework_sanitizer"];
+
+export const FRAMEWORK_SANITIZER_FAMILY_CONTRACTS: readonly FrameworkSanitizerFamilyContract[] = [
+    {
+        family: "sanitizer.harmony.crypto.digest",
+        description: "CryptoFramework message-digest APIs return derived digest values rather than the original input bytes.",
+        tags: [...SANITIZER_TAGS, "crypto", "digest"],
+        schemas: [
+            { id: "sanitizer.harmony.crypto.md.digest.result" },
+            { id: "sanitizer.harmony.crypto.md.digestSync.result", tier: "A" },
+        ],
+    },
+    {
+        family: "sanitizer.harmony.crypto.mac",
+        description: "CryptoFramework MAC APIs return keyed authentication codes derived from input bytes.",
+        tags: [...SANITIZER_TAGS, "crypto", "mac"],
+        schemas: [
+            { id: "sanitizer.harmony.crypto.mac.doFinal.result" },
+            { id: "sanitizer.harmony.crypto.mac.doFinalSync.result", tier: "A" },
+        ],
+    },
+    {
+        family: "sanitizer.harmony.crypto.signature",
+        description: "CryptoFramework signing APIs return signature bytes derived from signed input bytes.",
+        tags: [...SANITIZER_TAGS, "crypto", "signature"],
+        schemas: [
+            { id: "sanitizer.harmony.crypto.sign.sign.result" },
+            { id: "sanitizer.harmony.crypto.sign.signSync.result", tier: "A" },
+        ],
+    },
+    {
+        family: "sanitizer.harmony.file.hash",
+        description: "File hash APIs return digest strings for file content or stream content.",
+        tags: [...SANITIZER_TAGS, "file", "hash"],
+        schemas: [
+            { id: "sanitizer.harmony.file.hash.hash.result" },
+            { id: "sanitizer.harmony.file.hashstream.digest.result" },
+        ],
+    },
+];
 
 const FRAMEWORK_SANITIZER_SCHEMA_BY_ID = new Map<string, { family: string; tags: string[]; tier: RuleTier }>();
 for (const contract of FRAMEWORK_SANITIZER_FAMILY_CONTRACTS) {

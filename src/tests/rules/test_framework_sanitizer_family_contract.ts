@@ -30,12 +30,25 @@ function readKernelSanitizerRules(): SanitizerRule[] {
 async function main(): Promise<void> {
     const rawKernelSanitizers = readKernelSanitizerRules();
     const generatedKernelSanitizers = buildFrameworkSanitizerRules(rawKernelSanitizers);
-    assert(
-        FRAMEWORK_SANITIZER_FAMILY_CONTRACTS.length === 0,
-        "kernel sanitizer family catalog should stay empty until official sanitizer contracts exist",
-    );
-    assert(rawKernelSanitizers.length === 0, "kernel sanitizer authoring inventory should currently be empty");
-    assert(generatedKernelSanitizers.length === 0, "kernel sanitizer catalog should not synthesize phantom rules");
+    const contractIds = new Set<string>();
+    for (const contract of FRAMEWORK_SANITIZER_FAMILY_CONTRACTS) {
+        assert(contract.family.startsWith("sanitizer."), `sanitizer family must use sanitizer.* namespace: ${contract.family}`);
+        assert(contract.description.trim().length > 0, `sanitizer family missing description: ${contract.family}`);
+        assert(contract.schemas.length > 0, `sanitizer family missing schemas: ${contract.family}`);
+        for (const schema of contract.schemas) {
+            assert(schema.id.startsWith("sanitizer."), `sanitizer schema must use sanitizer.* namespace: ${schema.id}`);
+            contractIds.add(schema.id);
+        }
+    }
+    const rawKernelIds = new Set(rawKernelSanitizers.map(rule => rule.id));
+    for (const id of contractIds) {
+        assert(rawKernelIds.has(id), `sanitizer contract has no authoring rule: ${id}`);
+    }
+    for (const rule of generatedKernelSanitizers) {
+        assert(isFrameworkSanitizerCatalogRule(rule), `generated sanitizer is not recognized by catalog: ${rule.id}`);
+        assert(rule.family && rule.family.startsWith("sanitizer."), `generated sanitizer missing sanitizer family: ${rule.id}`);
+        assert(rule.tier === "A" || rule.tier === "B" || rule.tier === "C", `generated sanitizer missing tier: ${rule.id}`);
+    }
 
     const kernelLoaded = loadRuleSet({
         kernelRulePath: path.resolve("tests/rules/minimal.rules.json"),
@@ -45,7 +58,10 @@ async function main(): Promise<void> {
         allowMissingCandidate: true,
     });
     const loadedKernelCatalogSanitizers = (kernelLoaded.ruleSet.sanitizers || []).filter(rule => isFrameworkSanitizerCatalogRule(rule));
-    assert(loadedKernelCatalogSanitizers.length === 0, "loaded kernel sanitizers should not contain phantom framework catalog rules");
+    assert(
+        loadedKernelCatalogSanitizers.length === generatedKernelSanitizers.length,
+        `loaded kernel sanitizer catalog mismatch: loaded=${loadedKernelCatalogSanitizers.length}, generated=${generatedKernelSanitizers.length}`,
+    );
 
     const projectLoaded = loadRuleSet({
         kernelRulePath: path.resolve("tests/rules/minimal.rules.json"),
@@ -54,9 +70,14 @@ async function main(): Promise<void> {
         autoDiscoverLayers: false,
     });
     const projectSanitizers = projectLoaded.ruleSet.sanitizers || [];
-    assert(projectSanitizers.length > 0, "project sanitizer rules should still load");
-    assert(projectSanitizers.every(rule => !isFrameworkSanitizerCatalogRule(rule)), "project sanitizers must not be misclassified as kernel catalog rules");
-    for (const rule of projectSanitizers) {
+    const projectOnlySanitizers = projectSanitizers.filter(rule => !isFrameworkSanitizerCatalogRule(rule));
+    const projectKernelCatalogSanitizers = projectSanitizers.filter(rule => isFrameworkSanitizerCatalogRule(rule));
+    assert(projectOnlySanitizers.length > 0, "project sanitizer rules should still load");
+    assert(
+        projectKernelCatalogSanitizers.length === generatedKernelSanitizers.length,
+        `project load should preserve kernel catalog sanitizers: loaded=${projectKernelCatalogSanitizers.length}, expected=${generatedKernelSanitizers.length}`,
+    );
+    for (const rule of projectOnlySanitizers) {
         assert(rule.family && rule.family.trim().length > 0, `project sanitizer missing family after governance normalization: ${rule.id}`);
         assert(rule.tier === "A" || rule.tier === "B" || rule.tier === "C", `project sanitizer missing tier: ${rule.id}`);
     }
@@ -65,7 +86,7 @@ async function main(): Promise<void> {
     console.log(`kernel_contract_families=${FRAMEWORK_SANITIZER_FAMILY_CONTRACTS.length}`);
     console.log(`kernel_authoring_sanitizers=${rawKernelSanitizers.length}`);
     console.log(`kernel_catalog_sanitizers=${loadedKernelCatalogSanitizers.length}`);
-    console.log(`project_sanitizers=${projectSanitizers.length}`);
+    console.log(`project_sanitizers=${projectOnlySanitizers.length}`);
     console.log("PASS kernel_sanitizer_catalog_alignment");
     console.log("PASS project_sanitizer_governance_preserved");
 }

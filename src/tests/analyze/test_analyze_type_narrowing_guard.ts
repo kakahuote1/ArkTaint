@@ -27,10 +27,18 @@ interface AnalyzeReport {
         flowCount: number;
         materializedTaintFlows?: Array<{
             sinkFactId: string;
+            judgement?: string;
             paths: Array<{
                 factIds: string[];
                 truncated?: boolean;
+                judgement?: string;
+                evidenceKinds?: string[];
             }>;
+        }>;
+        postsolveResults?: Array<{
+            judgement: {
+                kind: string;
+            };
         }>;
     }>;
 }
@@ -306,10 +314,12 @@ async function main(): Promise<void> {
             `expected flowCount=${spec.expectedTotalFlows} for ${spec.name}, got ${entry.flowCount}`,
         );
         if (spec.expectedTotalFlows === 0) {
-            assert(
-                !entry.materializedTaintFlows || entry.materializedTaintFlows.length === 0,
-                `expected no materialized flows for ${spec.name}`,
-            );
+            if ((entry.postsolveResults || []).length > 0) {
+                assert(
+                    Array.isArray(entry.materializedTaintFlows) && entry.materializedTaintFlows.length > 0,
+                    `expected refuted materialized path details for ${spec.name}`,
+                );
+            }
         } else {
             assert(
                 Array.isArray(entry.materializedTaintFlows) && entry.materializedTaintFlows.length > 0,

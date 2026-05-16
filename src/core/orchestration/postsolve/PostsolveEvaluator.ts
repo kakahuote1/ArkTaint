@@ -1,6 +1,9 @@
 import { TaintFlow } from "../../kernel/model/TaintFlow";
 import { evaluateKeyedRouteCallbackMismatchPath } from "./KeyedRouteMismatchRefinement";
 import { evaluateSafeOverwritePath } from "./SafeOverwriteRefinement";
+import { evaluateDeleteBeforeReadPath } from "./DeleteBeforeReadRefinement";
+import { evaluateParameterizedQueryPath } from "./ParameterizedQueryRefinement";
+import { evaluateSanitizerPath } from "./SanitizerPathRefinement";
 import { evaluateTypeNarrowingGuardPath } from "./TypeNarrowingGuardRefinement";
 import { materializeTaintFlowPaths } from "./WitnessMaterializer";
 import { buildPostsolveSkeleton } from "./PostsolveSkeleton";
@@ -27,7 +30,10 @@ export function evaluatePostsolveFlow(
     const pathResults = (witness?.paths || []).map(path => {
         const evidence = [
             ...evaluateTypeNarrowingGuardPath(flow, path, context),
+            ...evaluateSanitizerPath(flow, path, context),
+            ...evaluateParameterizedQueryPath(flow, path, context),
             ...evaluateSafeOverwritePath(flow, path, context),
+            ...evaluateDeleteBeforeReadPath(flow, path, context),
             ...evaluateKeyedRouteCallbackMismatchPath(flow, path, context),
         ];
         const judgement = decidePostsolveJudgement(evidence);

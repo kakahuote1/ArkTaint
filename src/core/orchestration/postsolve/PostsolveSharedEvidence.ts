@@ -1,92 +1,20 @@
 import { Scene } from "../../../../arkanalyzer/out/src/Scene";
-import { Pag } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { ArkAssignStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
 import { ArkInstanceFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
 import { ArkMethod } from "../../../../arkanalyzer/out/src/core/model/ArkMethod";
 import { TaintFlow } from "../../kernel/model/TaintFlow";
-import { PostsolveContext, SafeOverwriteHit } from "./PostsolveTypes";
+import { SafeOverwriteHit } from "./PostsolveTypes";
 import {
     collectKnownKeyedDispatchKeysFromMethod,
     resolveKnownKeyedCallbackRegistrationsFromStmt,
 } from "../../entry/shared/FrameworkCallbackClassifier";
 import { collectFiniteStringCandidatesFromValue } from "../../substrate/queries/FiniteStringCandidateResolver";
-import { evaluateTypeNarrowingGuardSuppression } from "./TypeNarrowingGuardRefinement";
-
-/**
- * Deterministic sink-flow refinements that are currently applied after the main
- * propagation and sink matching pass. Keep this layer local and evidence-based:
- * it must not create propagation edges or discover new flows.
- */
-export class SinkFlowRefinement {
-    private keyedRouteMismatchCache: Map<string, boolean> = new Map();
-    private routePushKeyCache: Map<string, Set<string>> = new Map();
-
-    constructor(private readonly scene: Scene) {}
-
-    filterFlows(flows: TaintFlow[], pag?: Pag, context?: PostsolveContext): TaintFlow[] {
-        return flows.filter(flow => !this.shouldSuppressFlow(flow, pag, context));
-    }
-
-    private shouldSuppressFlow(flow: TaintFlow, pag?: Pag, context?: PostsolveContext): boolean {
-        const typeGuardEvidence = evaluateTypeNarrowingGuardSuppression(flow, context);
-        if (typeGuardEvidence) {
-            flow.suppressionReason = typeGuardEvidence.reason;
-            return true;
-        }
-        return this.shouldSuppressSafeOverwriteFlow(flow, pag)
-            || this.shouldSuppressKeyedRouteCallbackMismatchFlow(flow);
-    }
-
-    private shouldSuppressSafeOverwriteFlow(flow: TaintFlow, pag?: Pag): boolean {
-        return !!resolveSafeOverwriteHit(flow, pag);
-    }
-
-    private shouldSuppressKeyedRouteCallbackMismatchFlow(flow: TaintFlow): boolean {
-        const ruleId = flow.sourceRuleId || parseSourceRuleId(flow.source) || "";
-        if (!ruleId.startsWith("source.auto.callback_param.")) return false;
-        const filePath = resolveFlowFilePath(flow);
-        if (!filePath) return false;
-        const cached = this.keyedRouteMismatchCache.get(filePath);
-        if (cached !== undefined) return cached;
-        const result = this.hasKnownNavDestinationRouteMismatchInFile(filePath);
-        this.keyedRouteMismatchCache.set(filePath, result);
-        return result;
-    }
-
-    private hasKnownNavDestinationRouteMismatchInFile(filePath: string): boolean {
-        const facts = collectKnownNavDestinationRouteFactsInFile(this.scene, filePath, this.routePushKeyCache);
-        if (facts.effectiveDispatchKeys.size === 0) return false;
-        if (facts.pushRouteKeys.size === 0) return false;
-        return !hasStringSetIntersection(facts.effectiveDispatchKeys, facts.pushRouteKeys);
-    }
-}
 
 export interface SafeOverwriteResolution {
     hit: SafeOverwriteHit;
     overwriteStmt: any;
-}
-
-export function resolveSafeOverwriteHit(flow: TaintFlow, pag?: Pag): SafeOverwriteHit | undefined {
-        return resolveSafeOverwriteResolution(flow, pag)?.hit;
-}
-
-export function resolveSafeOverwriteResolution(flow: TaintFlow, pag?: Pag): SafeOverwriteResolution | undefined {
-        const sinkNodeId = flow.sinkNodeId;
-        if (sinkNodeId === undefined || sinkNodeId === null || !pag) return undefined;
-        const sinkNode: any = pag.getNode?.(sinkNodeId);
-        const sinkValue: any = sinkNode?.getValue?.();
-        if (!(sinkValue instanceof Local)) return undefined;
-        const declStmt: any = sinkValue.getDeclaringStmt?.();
-        if (!(declStmt instanceof ArkAssignStmt)) return undefined;
-        const right: any = declStmt.getRightOp?.();
-        if (!(right instanceof ArkInstanceInvokeExpr)) return undefined;
-        return resolveSafeOverwriteFromReadExpr(right, {
-            declStmt,
-            sinkNodeId: flow.sinkNodeId,
-            sinkFieldPath: flow.sinkFieldPath ? [...flow.sinkFieldPath] : undefined,
-        });
 }
 
 export function resolveSafeOverwriteFromReadExpr(
@@ -154,12 +82,6 @@ export function resolveFlowFilePath(flow: TaintFlow): string {
     return extractFilePathFromSignature(sinkMethodSig);
 }
 
-export function parseSourceRuleId(source: string): string | undefined {
-    if (!source.startsWith("source_rule:")) return undefined;
-    const id = source.slice("source_rule:".length).trim();
-    return id || undefined;
-}
-
 function normalizeQuotedLiteral(text: string): string | undefined {
     const m = String(text || "").match(/^['"`]((?:\\.|[^'"`])+)['"`]$/);
     return m ? m[1] : undefined;
@@ -187,13 +109,6 @@ function intersectStringSets(left: Set<string>, right: Set<string>): Set<string>
         if (right.has(value)) out.add(value);
     }
     return out;
-}
-
-function hasStringSetIntersection(left: Set<string>, right: Set<string>): boolean {
-    for (const value of left) {
-        if (right.has(value)) return true;
-    }
-    return false;
 }
 
 export interface NavDestinationRouteFacts {

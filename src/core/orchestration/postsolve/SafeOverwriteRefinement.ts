@@ -1,6 +1,6 @@
-import { TaintFlow } from "../../kernel/model/TaintFlow";
+﻿import { TaintFlow } from "../../kernel/model/TaintFlow";
 import { PostsolveContext, PostsolveEvidence, WitnessPath } from "./PostsolveTypes";
-import { resolveSafeOverwriteFromReadExpr } from "./SinkFlowRefinement";
+import { resolveSafeOverwriteFromReadExpr } from "./PostsolveSharedEvidence";
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 
 export function evaluateSafeOverwritePath(
@@ -43,7 +43,7 @@ export function evaluateSafeOverwritePath(
     return [];
 }
 
-function collectCandidateReadSites(
+export function collectCandidateReadSites(
     path: WitnessPath,
     context: PostsolveContext,
 ): Array<{
@@ -145,3 +145,4 @@ function resolveAnchorStmtFromFact(fact: any): any | undefined {
     if (value?.getDeclaringStmt) return value.getDeclaringStmt?.();
     return undefined;
 }
+

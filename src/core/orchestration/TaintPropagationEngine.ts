@@ -121,7 +121,7 @@ import {
     resolveRuleFamily,
     resolveRuleTierWeight,
 } from "../rules/RulePriority";
-import { SinkFlowRefinement, extractFilePathFromSignature } from "./postsolve/SinkFlowRefinement";
+import { extractFilePathFromSignature } from "./postsolve/PostsolveSharedEvidence";
 import {
     PostsolveContext,
     PathMaterializationOptions,
@@ -290,7 +290,6 @@ export class TaintPropagationEngine {
     private autoEntrySourceRules: SourceRule[] = [];
     private autoAmbientSourceRules: SourceRule[] = [];
     private detectProfile: SinkDetectProfile = createEmptySinkDetectProfile();
-    private sinkFlowRefinement: SinkFlowRefinement;
     private factPredecessorsByFactId: Map<string, FactPredecessorRecord[]> = new Map();
     private lastWorklistTruncation?: WorklistBudgetTruncation;
     private activePagCacheEntry?: PagBuildCacheEntry;
@@ -306,7 +305,6 @@ export class TaintPropagationEngine {
         this.tracker = new TaintTracker();
         this.ctxManager = new TaintContextManager(k);
         this.options = options;
-        this.sinkFlowRefinement = new SinkFlowRefinement(scene);
         this.modules = this.initializeModules(options);
         const enginePluginState = this.initializeEnginePlugins(k, options, this.modules);
         this.enginePlugins = enginePluginState.plugins;
@@ -1297,12 +1295,17 @@ export class TaintPropagationEngine {
         return { flows, materialized };
     }
 
-    public evaluatePostsolveFlowResults(flows: TaintFlow[]): {
+    public evaluatePostsolveFlowResults(
+        flows: TaintFlow[],
+        options?: {
+            sanitizerRules?: SanitizerRule[];
+        },
+    ): {
         results: PostsolveFlowResult[];
         suppressed: PostsolveFlowResult[];
         survivingFlows: TaintFlow[];
     } {
-        const context = this.buildPostsolveContext();
+        const context = this.buildPostsolveContext(options);
         const results: PostsolveFlowResult[] = [];
         const suppressed: PostsolveFlowResult[] = [];
         const survivingFlows: TaintFlow[] = [];
@@ -1634,11 +1637,12 @@ export class TaintPropagationEngine {
         bucket.push({ ...record });
     }
 
-    private buildPostsolveContext(): PostsolveContext {
+    private buildPostsolveContext(options?: { sanitizerRules?: SanitizerRule[] }): PostsolveContext {
         return {
             pag: this.pag,
             observedFactsById: this.observedFacts,
             factPredecessorsByFactId: this.factPredecessorsByFactId,
+            sanitizerRules: options?.sanitizerRules || [],
         };
     }
 

@@ -1,6 +1,7 @@
 import { Pag } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { TaintFact } from "../../kernel/model/TaintFact";
 import { FactPredecessorRecord } from "../../kernel/propagation/PropagationTypes";
+import { SanitizerRule } from "../../rules/RuleSchema";
 
 export interface PathMaterializationOptions {
     maxPaths?: number;
@@ -28,6 +29,8 @@ export interface WitnessPath {
 
 export interface MaterializedTaintFlow {
     sinkFactId: string;
+    judgement?: PostsolveJudgementKind;
+    evidenceKinds?: string[];
     paths: WitnessPath[];
 }
 
@@ -144,6 +147,7 @@ export interface PostsolveContext {
     pag?: Pag;
     observedFactsById: ReadonlyMap<string, TaintFact>;
     factPredecessorsByFactId: ReadonlyMap<string, readonly FactPredecessorRecord[]>;
+    sanitizerRules?: readonly SanitizerRule[];
 }
 
 export type TypeofTag =

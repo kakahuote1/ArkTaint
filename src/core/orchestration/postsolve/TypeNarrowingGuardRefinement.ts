@@ -40,7 +40,6 @@ import {
     WitnessPath,
 } from "./PostsolveTypes";
 import { FactPredecessorRecord } from "../../kernel/propagation/PropagationTypes";
-import { materializeTaintFlowPaths } from "./WitnessMaterializer";
 
 const ALL_TYPEOF_TAGS: TypeofTag[] = [
     "string",
@@ -51,34 +50,6 @@ const ALL_TYPEOF_TAGS: TypeofTag[] = [
     "object",
     "function",
 ];
-
-export function evaluateTypeNarrowingGuardSuppression(
-    flow: TaintFlow,
-    context?: PostsolveContext,
-): TypeofDeadBranchEvidence | undefined {
-    if (!context || !flow.sinkFactId) return undefined;
-    const materialized = materializeTaintFlowPaths(flow, context, {
-        maxPaths: 128,
-        maxDepth: 128,
-    });
-    if (!materialized || materialized.paths.length === 0) return undefined;
-
-    let firstEvidence: TypeofDeadBranchEvidence | undefined;
-    for (const path of materialized.paths) {
-        if (path.truncated) return undefined;
-        const witness = buildWitnessFromPath(path, context);
-        if (!witness || witness.facts.length === 0) return undefined;
-
-        const evidence = evaluateWitnessPath(flow, witness);
-        if (!evidence) {
-            return undefined;
-        }
-        if (!firstEvidence) {
-            firstEvidence = evidence;
-        }
-    }
-    return firstEvidence;
-}
 
 export function evaluateTypeNarrowingGuardPath(
     flow: TaintFlow,

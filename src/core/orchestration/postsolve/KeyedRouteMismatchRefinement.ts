@@ -1,10 +1,10 @@
-import { TaintFlow } from "../../kernel/model/TaintFlow";
+﻿import { TaintFlow } from "../../kernel/model/TaintFlow";
 import { PostsolveContext, PostsolveEvidence, WitnessPath } from "./PostsolveTypes";
 import {
     collectKnownNavDestinationRouteFactsInFile,
     extractFilePathFromSignature,
     resolveFlowFilePath,
-} from "./SinkFlowRefinement";
+} from "./PostsolveSharedEvidence";
 
 export function evaluateKeyedRouteCallbackMismatchPath(
     flow: TaintFlow,

@@ -24,6 +24,7 @@ interface AnalyzeSummary {
         flowCount: number;
         materializedTaintFlows?: Array<{
             sinkFactId?: string;
+            judgement?: string;
             paths?: Array<{ factIds: string[] }>;
         }>;
         postsolveResults?: Array<{
@@ -188,8 +189,8 @@ async function main(): Promise<void> {
         "expected path evidence to include keyed_route_callback_mismatch",
     );
     assert(
-        !(entry!.materializedTaintFlows || []).some(item => item.sinkFactId === refuted!.flow.sinkFactId),
-        `expected refuted sinkFactId ${refuted!.flow.sinkFactId || "<empty>"} to be absent from surviving materializedTaintFlows`,
+        (entry!.materializedTaintFlows || []).some(item => item.sinkFactId === refuted!.flow.sinkFactId && item.judgement === "Refuted-Strong"),
+        `expected refuted sinkFactId ${refuted!.flow.sinkFactId || "<empty>"} to be present with Refuted-Strong materialized judgement`,
     );
 
     console.log("PASS test_analyze_keyed_route_callback_mismatch_suppressed");

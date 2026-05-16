@@ -594,6 +594,7 @@ async function analyzeSourceDir(
             stopOnFirstFlow: detectStopPolicy.stopOnFirstFlow,
             maxFlowsPerEntry: detectStopPolicy.maxFlowsPerEntry,
             enableSecondarySinkSweep: seedingPolicy.enableSecondarySinkSweep,
+            applyPreSinkSanitizers: false,
         });
         const materializedFlows = engine.materializeDetectedSinkFlowPaths(
             detected.flows,
@@ -625,7 +626,9 @@ async function analyzeSourceDir(
             reachableMethodCount: engine.getActiveReachableMethodSignatures()?.size,
         });
         const postProcessT0 = process.hrtime.bigint();
-        const postsolveResults = engine.evaluatePostsolveFlowResults(materializedFlows.flows);
+        const postsolveResults = engine.evaluatePostsolveFlowResults(materializedFlows.flows, {
+            sanitizerRules: loadedRules.ruleSet.sanitizers || [],
+        });
         const survivingFlows = postsolveResults.survivingFlows;
         const survivingSinkTexts = new Set<string>(survivingFlows.map(flow => flow.sink.toString()));
         const survivingSinkSamples = (detected?.sinkSamples || []).filter(sample =>
@@ -637,21 +640,17 @@ async function analyzeSourceDir(
                 && flow.sink.toString() === trace.sink,
             ),
         );
-        const survivingMaterialized = postsolveResults.results
-            .filter(result =>
-                result.judgement.kind !== "Refuted-Strong"
-                && result.judgement.kind !== "Refuted-Weak",
-            )
+        const materializedForReport = postsolveResults.results
             .map(result => ({
                 sinkFactId: result.flow.sinkFactId || "",
+                judgement: result.judgement.kind,
+                evidenceKinds: [...result.evidenceSummary.evidenceKinds],
                 paths: result.paths
-                    .filter(path =>
-                        path.judgement.kind !== "Refuted-Strong"
-                        && path.judgement.kind !== "Refuted-Weak",
-                    )
                     .map(path => ({
                         factIds: path.factIds,
                         truncated: path.truncated,
+                        judgement: path.judgement.kind,
+                        evidenceKinds: [...new Set((path.evidence || []).map(item => item.kind))],
                     })),
             }))
             .filter(item => item.sinkFactId && item.paths.length > 0);
@@ -669,11 +668,15 @@ async function analyzeSourceDir(
             flowCount: survivingFlows.length,
             sinkSamples: survivingSinkSamples,
             flowRuleTraces: survivingFlowRuleTraces,
-            materializedTaintFlows: survivingMaterialized.map(item => ({
+            materializedTaintFlows: materializedForReport.map(item => ({
                 sinkFactId: item.sinkFactId,
+                judgement: item.judgement,
+                evidenceKinds: item.evidenceKinds,
                 paths: item.paths.map(path => ({
                     factIds: path.factIds,
                     truncated: path.truncated,
+                    judgement: path.judgement,
+                    evidenceKinds: path.evidenceKinds,
                 })),
             })),
             postsolveResults: postsolveResults.results,

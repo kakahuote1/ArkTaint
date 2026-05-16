@@ -93,9 +93,13 @@ export interface EntryAnalyzeResult {
     flowRuleTraces: FlowRuleTrace[];
     materializedTaintFlows?: Array<{
         sinkFactId: string;
+        judgement?: string;
+        evidenceKinds?: string[];
         paths: Array<{
             factIds: string[];
             truncated?: boolean;
+            judgement?: string;
+            evidenceKinds?: string[];
         }>;
     }>;
     postsolveResults?: PostsolveFlowResult[];
