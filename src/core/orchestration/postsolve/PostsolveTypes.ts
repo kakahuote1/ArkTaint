@@ -1,3 +1,4 @@
+import { Pag } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { TaintFact } from "../../kernel/model/TaintFact";
 import { FactPredecessorRecord } from "../../kernel/propagation/PropagationTypes";
 
@@ -127,12 +128,20 @@ export interface PostsolveFlowResult {
     report: PostsolveReport;
 }
 
+export interface SafeOverwriteHit {
+    sinkNodeId?: number;
+    sinkFieldPath?: string[];
+    keyLiteral?: string;
+    overwriteStmtText?: string;
+}
+
 export interface TaintFactWitness {
     facts: TaintFact[];
     predecessorRecords: FactPredecessorRecord[];
 }
 
 export interface PostsolveContext {
+    pag?: Pag;
     observedFactsById: ReadonlyMap<string, TaintFact>;
     factPredecessorsByFactId: ReadonlyMap<string, readonly FactPredecessorRecord[]>;
 }

@@ -1636,6 +1636,7 @@ export class TaintPropagationEngine {
 
     private buildPostsolveContext(): PostsolveContext {
         return {
+            pag: this.pag,
             observedFactsById: this.observedFacts,
             factPredecessorsByFactId: this.factPredecessorsByFactId,
         };

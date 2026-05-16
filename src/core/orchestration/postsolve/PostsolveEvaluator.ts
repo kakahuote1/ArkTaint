@@ -1,4 +1,6 @@
 import { TaintFlow } from "../../kernel/model/TaintFlow";
+import { evaluateKeyedRouteCallbackMismatchPath } from "./KeyedRouteMismatchRefinement";
+import { evaluateSafeOverwritePath } from "./SafeOverwriteRefinement";
 import { evaluateTypeNarrowingGuardPath } from "./TypeNarrowingGuardRefinement";
 import { materializeTaintFlowPaths } from "./WitnessMaterializer";
 import { buildPostsolveSkeleton } from "./PostsolveSkeleton";
@@ -23,7 +25,11 @@ export function evaluatePostsolveFlow(
         : undefined;
     const skeleton = buildPostsolveSkeleton(witness, context);
     const pathResults = (witness?.paths || []).map(path => {
-        const evidence = evaluateTypeNarrowingGuardPath(flow, path, context);
+        const evidence = [
+            ...evaluateTypeNarrowingGuardPath(flow, path, context),
+            ...evaluateSafeOverwritePath(flow, path, context),
+            ...evaluateKeyedRouteCallbackMismatchPath(flow, path, context),
+        ];
         const judgement = decidePostsolveJudgement(evidence);
         return {
             factIds: [...path.factIds],
@@ -133,9 +139,10 @@ export function aggregateFlowJudgement(
     const allRefutedStrong = pathResults.every(item => item.judgement.kind === "Refuted-Strong");
     if (allRefutedStrong) {
         const evidenceKinds = [...new Set(pathResults.flatMap(item => item.judgement.evidenceKinds))];
+        const reason = pathResults.find(item => item.judgement.primaryReason)?.judgement.primaryReason;
         return {
             kind: "Refuted-Strong",
-            primaryReason: String(pathResults.find(item => item.judgement.primaryReason)?.judgement?.primaryReason || "all_paths_refuted"),
+            primaryReason: reason || "all_paths_refuted",
             evidenceKinds,
         };
     }
@@ -150,17 +157,19 @@ export function aggregateFlowJudgement(
     const evidenceKinds = [...new Set(pathResults.flatMap(item => item.judgement.evidenceKinds))];
 
     if (allRefuted) {
+        const reason = pathResults.find(item => item.judgement.primaryReason)?.judgement.primaryReason;
         return {
             kind: "Refuted-Weak",
-            primaryReason: String(pathResults.find(item => item.judgement.primaryReason)?.judgement?.primaryReason || "all_paths_refuted_weak"),
+            primaryReason: reason || "all_paths_refuted_weak",
             evidenceKinds,
         };
     }
 
     if (hasConfirmed && !hasRefuted) {
+        const reason = pathResults.find(item => item.judgement.primaryReason)?.judgement.primaryReason;
         return {
             kind: "Confirmed",
-            primaryReason: String(pathResults.find(item => item.judgement.primaryReason)?.judgement?.primaryReason || "path_confirmed"),
+            primaryReason: reason || "path_confirmed",
             evidenceKinds,
         };
     }
