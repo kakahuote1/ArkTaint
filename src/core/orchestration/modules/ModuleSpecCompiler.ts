@@ -90,9 +90,21 @@ import type {
     ModuleTrigger,
 } from "./ModuleSpecLoweringTypes";
 import { getMethodBySignature } from "../../kernel/contracts/MethodLookup";
-import { validateModuleSpecOrThrow } from "./ModuleSpecValidator";
-import { canonicalizeModuleSpec, normalizeSurfaceRef } from "./ModuleSpecCanonicalizer";
+import { canonicalizeModuleSpec, normalizeSurfaceRef } from "../../kernel/contracts/ModuleSpecCanonicalizer";
+import { validateModuleSpecOrThrow } from "../../kernel/contracts/ModuleSpecValidator";
 import { compileRuntimeSemanticModule } from "./ModuleSpecRuntimeSemanticCompiler";
+import { createHandoffPropagationSession } from "../../kernel/semantic_handoff/SemanticHandoffPropagation";
+import {
+    handoffInvokeEffectMeta,
+    handoffTargetForDecoratedField,
+    handoffTargetFromEmitSpec,
+    moduleHandoffHandle,
+    type NormalizedBridgeEmitSpec,
+    pushHandoffKillThenPut,
+} from "./ModuleHandoffEffectUtils";
+import {
+    HandoffEffect,
+} from "../../kernel/semantic_handoff/SemanticHandoffTypes";
 
 type ModuleSpec = Omit<MaterializedModuleSpec, "description" | "semantics"> & {
     description: string;
@@ -360,7 +372,6 @@ type LoweredModuleSpec =
     | CrossMethodParamBridgeModuleSpec
     | SemanticAddressedBridgeModuleSpec;
 
-type NormalizedBridgeEmitSpec = Required<ModuleBridgeEmitSpec>;
 type NormalizedFieldBridgeEmitSpec = Required<ModuleFieldBridgeEmitSpec>;
 
 function normalizeEmitSpec(spec?: ModuleBridgeEmitSpec): NormalizedBridgeEmitSpec {
@@ -469,55 +480,6 @@ function resolveAddressKeys(
         return [];
     }
     return resolveStringCandidates(analysis, call, spec.slot);
-}
-
-function addMapSetValue(map: Map<string, Set<number>>, key: string, value: number): void {
-    let bucket = map.get(key);
-    if (!bucket) {
-        bucket = new Set<number>();
-        map.set(key, bucket);
-    }
-    bucket.add(value);
-}
-
-function addMapSetText(map: Map<string, Set<string>>, key: string, value: string): void {
-    let bucket = map.get(key);
-    if (!bucket) {
-        bucket = new Set<string>();
-        map.set(key, bucket);
-    }
-    bucket.add(value);
-}
-
-function addMapEndpointValue(
-    map: Map<string, Map<string, { objectNodeId: number; fieldName: string }>>,
-    key: string,
-    endpoint: { objectNodeId: number; fieldName: string },
-): void {
-    let bucket = map.get(key);
-    if (!bucket) {
-        bucket = new Map<string, { objectNodeId: number; fieldName: string }>();
-        map.set(key, bucket);
-    }
-    bucket.set(`${endpoint.objectNodeId}#${endpoint.fieldName}`, endpoint);
-}
-
-function addMapFieldPathValue(
-    map: Map<string, Map<number, string[][]>>,
-    key: string,
-    nodeId: number,
-    fieldPath: string[],
-): void {
-    let nodeMap = map.get(key);
-    if (!nodeMap) {
-        nodeMap = new Map<number, string[][]>();
-        map.set(key, nodeMap);
-    }
-    const existing = nodeMap.get(nodeId) || [];
-    if (!existing.some(item => item.length === fieldPath.length && item.every((part, index) => part === fieldPath[index]))) {
-        existing.push([...fieldPath]);
-        nodeMap.set(nodeId, existing);
-    }
 }
 
 function startsWithFieldPath(fieldPath: string[] | undefined, prefix: string[]): boolean {
@@ -1524,86 +1486,6 @@ function resolveDecoratedFieldFacts(
     };
 }
 
-function emitSemanticAddressedTargetNodes(
-    event: ModuleFactEvent,
-    targetNodeIds: Iterable<number>,
-    targetFieldPath: ModuleFieldPathSpec | undefined,
-    emitSpec: NormalizedBridgeEmitSpec,
-): ModuleEmission[] | undefined {
-    const nodeIds = [...new Set<number>(targetNodeIds)];
-    if (nodeIds.length === 0) return undefined;
-    const options = {
-        allowUnreachableTarget: emitSpec.allowUnreachableTarget,
-    };
-    if (hasFieldPathSpec(targetFieldPath)) {
-        const projectedFieldPath = buildProjectedTargetFieldPath(event, targetFieldPath, emitSpec.mode);
-        if (projectedFieldPath.length === 0) {
-            if (emitSpec.boundary === "clone_copy") {
-                return event.emit.loadLikeToNodes(nodeIds, emitSpec.reason, [], options);
-            }
-            return event.emit.toNodes(nodeIds, emitSpec.reason, options);
-        }
-        if (emitSpec.boundary === "clone_copy") {
-            return event.emit.loadLikeToNodes(nodeIds, emitSpec.reason, projectedFieldPath, options);
-        }
-        return event.emit.toFields(nodeIds, projectedFieldPath, emitSpec.reason, options);
-    }
-    if (emitSpec.boundary === "clone_copy") {
-        switch (emitSpec.mode) {
-            case "plain":
-                return event.emit.toNodes(nodeIds, emitSpec.reason, options);
-            case "current_field_tail":
-                return event.emit.loadLikeCurrentFieldTailToNodes(nodeIds, emitSpec.reason, options);
-            case "preserve":
-            default:
-                return event.emit.loadLikeToNodes(nodeIds, emitSpec.reason, event.current.cloneField(), options);
-        }
-    }
-    if (emitSpec.boundary === "stringify_result") {
-        const collector = event.emit.collector();
-        collector.push(event.emit.toNodes(nodeIds, emitSpec.reason, options));
-        pushStructuredBridgeEmission(collector, event, nodeIds, emitSpec);
-        return collector.done();
-    }
-    switch (emitSpec.mode) {
-        case "plain":
-            return event.emit.toNodes(nodeIds, emitSpec.reason, options);
-        case "current_field_tail":
-            return event.emit.toCurrentFieldTailNodes(nodeIds, emitSpec.reason, options);
-        case "preserve":
-        default:
-            return event.emit.preserveToNodes(nodeIds, emitSpec.reason, options);
-    }
-}
-
-function buildDecoratedTargetFieldPath(
-    event: ModuleFactEvent,
-    fieldName: string,
-    mode: ModuleTransferMode,
-    boundary: ModuleBoundaryKind,
-): string[] {
-    if (boundary === "stringify_result" || boundary === "clone_copy") {
-        return [fieldName];
-    }
-    switch (mode) {
-        case "plain":
-            return [fieldName];
-        case "current_field_tail": {
-            const tail = event.current.fieldTail();
-            return tail && tail.length > 0
-                ? [fieldName, ...tail]
-                : [fieldName];
-        }
-        case "preserve":
-        default: {
-            const fieldPath = event.current.cloneField();
-            return fieldPath && fieldPath.length > 0
-                ? [fieldName, ...fieldPath]
-                : [fieldName];
-        }
-    }
-}
-
 function buildProjectedTargetFieldPath(
     event: ModuleFactEvent,
     targetFieldPath: ModuleFieldPathSpec,
@@ -1631,29 +1513,6 @@ function buildProjectedTargetFieldPath(
     }
 }
 
-function emitSemanticAddressedTargetEndpoints(
-    event: ModuleFactEvent,
-    endpoints: Iterable<{ objectNodeId: number; fieldName: string }>,
-    emitSpec: NormalizedBridgeEmitSpec,
-): ModuleEmission[] | undefined {
-    const out: ModuleEmission[] = [];
-    const options = {
-        allowUnreachableTarget: emitSpec.allowUnreachableTarget,
-    };
-    for (const endpoint of endpoints) {
-        const isSelfEcho = event.current.nodeId === endpoint.objectNodeId
-            && event.current.fieldHead() === endpoint.fieldName;
-        if (isSelfEcho) continue;
-        out.push(...event.emit.toField(
-            endpoint.objectNodeId,
-            buildDecoratedTargetFieldPath(event, endpoint.fieldName, emitSpec.mode, emitSpec.boundary),
-            emitSpec.reason,
-            options,
-        ));
-    }
-    return out.length > 0 ? out : undefined;
-}
-
 function compileKeyedBridgeModule(spec: KeyedBridgeModuleSpec): TaintModule {
     const emitSpec = normalizeEmitSpec(spec.emit);
     return defineModule({
@@ -1661,7 +1520,7 @@ function compileKeyedBridgeModule(spec: KeyedBridgeModuleSpec): TaintModule {
         description: spec.description,
         enabled: spec.enabled,
         setup(ctx) {
-            const relay = ctx.bridge.keyedNodeRelay();
+            const effects: HandoffEffect[] = [];
 
             for (const call of ctx.scan.invokes({ ...spec.target.surface })) {
                 const keys = resolveStringCandidates(ctx.analysis, call, spec.target.key);
@@ -1669,7 +1528,20 @@ function compileKeyedBridgeModule(spec: KeyedBridgeModuleSpec): TaintModule {
                 const targetNodeIds = resolveInvokeNodeIds(call, spec.target.value);
                 if (targetNodeIds.length === 0) continue;
                 for (const key of keys) {
-                    relay.addTargets(key, targetNodeIds);
+                    const handle = moduleHandoffHandle(spec.id, key);
+                    for (const nodeId of targetNodeIds) {
+                        effects.push({
+                            kind: "get",
+                            handle,
+                            target: handoffTargetFromEmitSpec(nodeId, emitSpec),
+                            reason: emitSpec.reason,
+                            originModel: spec.id,
+                            updateStrength: "strong",
+                            handlePrecision: "exact",
+                            confidence: "certain",
+                            ...handoffInvokeEffectMeta(call, 0),
+                        });
+                    }
                 }
                 if (spec.targetDeferredBinding?.kind === "imperative") {
                     ctx.deferred.imperativeFromInvoke(
@@ -1686,14 +1558,23 @@ function compileKeyedBridgeModule(spec: KeyedBridgeModuleSpec): TaintModule {
                 const sourceNodeIds = resolveInvokeNodeIds(call, spec.source.value);
                 if (sourceNodeIds.length === 0) continue;
                 for (const key of keys) {
-                    relay.addSources(key, sourceNodeIds);
+                    const handle = moduleHandoffHandle(spec.id, key);
+                    for (const nodeId of sourceNodeIds) {
+                        pushHandoffKillThenPut(effects, {
+                            handle,
+                            source: { nodeId },
+                            reason: emitSpec.reason,
+                            originModel: spec.id,
+                            call,
+                        });
+                    }
                 }
             }
 
-            relay.materialize();
+            const handoff = createHandoffPropagationSession(effects);
             return {
                 onFact(event) {
-                    return emitViaRelay(relay, event, emitSpec);
+                    return handoff.emitForFact(event);
                 },
             };
         },
@@ -1761,7 +1642,7 @@ function compileScopedAddressedBridgeModule(spec: ScopedAddressedBridgeModuleSpe
         description: spec.description,
         enabled: spec.enabled,
         setup(ctx) {
-            const relay = ctx.bridge.keyedNodeRelay();
+            const effects: HandoffEffect[] = [];
 
             for (const call of ctx.scan.invokes({ ...spec.targetSurface })) {
                 const targetNodeIds = resolveInvokeNodeIds(call, spec.targetValue);
@@ -1772,7 +1653,20 @@ function compileScopedAddressedBridgeModule(spec: ScopedAddressedBridgeModuleSpe
                 if (keys.length === 0) continue;
                 for (const scopeNodeId of scopeNodeIds) {
                     for (const key of keys) {
-                        relay.addTargets(`${scopeNodeId}::${key}`, targetNodeIds);
+                        const handle = moduleHandoffHandle(spec.id, key, String(scopeNodeId));
+                        for (const nodeId of targetNodeIds) {
+                            effects.push({
+                                kind: "get",
+                                handle,
+                                target: handoffTargetFromEmitSpec(nodeId, emitSpec),
+                                reason: emitSpec.reason,
+                                originModel: spec.id,
+                                updateStrength: "strong",
+                                handlePrecision: "exact",
+                                confidence: "certain",
+                                ...handoffInvokeEffectMeta(call, 0),
+                            });
+                        }
                     }
                 }
                 if (spec.targetDeferredBinding?.kind === "imperative") {
@@ -1793,15 +1687,24 @@ function compileScopedAddressedBridgeModule(spec: ScopedAddressedBridgeModuleSpe
                 if (keys.length === 0) continue;
                 for (const scopeNodeId of scopeNodeIds) {
                     for (const key of keys) {
-                        relay.addSources(`${scopeNodeId}::${key}`, sourceNodeIds);
+                        const handle = moduleHandoffHandle(spec.id, key, String(scopeNodeId));
+                        for (const nodeId of sourceNodeIds) {
+                            pushHandoffKillThenPut(effects, {
+                                handle,
+                                source: { nodeId },
+                                reason: emitSpec.reason,
+                                originModel: spec.id,
+                                call,
+                            });
+                        }
                     }
                 }
             }
 
-            relay.materialize();
+            const handoff = createHandoffPropagationSession(effects);
             return {
                 onFact(event) {
-                    return emitViaRelay(relay, event, emitSpec);
+                    return handoff.emitForFact(event);
                 },
             };
         },
@@ -1815,12 +1718,7 @@ function compileSemanticAddressedBridgeModule(spec: SemanticAddressedBridgeModul
         description: spec.description,
         enabled: spec.enabled,
         setup(ctx) {
-            const sourceNodeIdsByKey = new Map<string, Set<number>>();
-            const sourceProjectedNodeIdsByKey = new Map<string, Map<number, string[][]>>();
-            const sourceFieldKeysByKey = new Map<string, Set<string>>();
-            const targetNodeIdsByKey = new Map<string, Set<number>>();
-            const targetEndpointsByKey = new Map<string, Map<string, { objectNodeId: number; fieldName: string }>>();
-            const emittedFactStates = new Set<string>();
+            const effects: HandoffEffect[] = [];
 
             if (spec.target.kind === "invoke") {
                 for (const call of ctx.scan.invokes({ ...spec.target.surface })) {
@@ -1829,8 +1727,19 @@ function compileSemanticAddressedBridgeModule(spec: SemanticAddressedBridgeModul
                     const targetNodeIds = resolveInvokeNodeIds(call, spec.target.value);
                     if (targetNodeIds.length === 0) continue;
                     for (const key of keys) {
+                        const handle = moduleHandoffHandle(spec.id, key);
                         for (const nodeId of targetNodeIds) {
-                            addMapSetValue(targetNodeIdsByKey, key, nodeId);
+                            effects.push({
+                                kind: "get",
+                                handle,
+                                target: handoffTargetFromEmitSpec(nodeId, emitSpec, spec.target.fieldPath),
+                                reason: emitSpec.reason,
+                                originModel: spec.id,
+                                updateStrength: "strong",
+                                handlePrecision: "exact",
+                                confidence: "certain",
+                                ...handoffInvokeEffectMeta(call, 0),
+                            });
                         }
                     }
                     if (spec.target.deferredBinding?.kind === "imperative") {
@@ -1848,11 +1757,30 @@ function compileSemanticAddressedBridgeModule(spec: SemanticAddressedBridgeModul
                 );
                 const resolvedTarget = resolveDecoratedFieldFacts(ctx, spec.target.surface, spec.targetAddress);
                 for (const [key, bucket] of resolvedTarget.byAddress.entries()) {
+                    const handle = moduleHandoffHandle(spec.id, key);
                     for (const nodeId of bucket.loadNodeIds) {
-                        addMapSetValue(targetNodeIdsByKey, key, nodeId);
+                        effects.push({
+                            kind: "get",
+                            handle,
+                            target: handoffTargetFromEmitSpec(nodeId, emitSpec),
+                            reason: emitSpec.reason,
+                            originModel: spec.id,
+                            updateStrength: "strong",
+                            handlePrecision: "exact",
+                            confidence: "certain",
+                        });
                     }
                     for (const endpoint of bucket.endpoints.values()) {
-                        addMapEndpointValue(targetEndpointsByKey, key, endpoint);
+                        effects.push({
+                            kind: "get",
+                            handle,
+                            target: handoffTargetForDecoratedField(endpoint.objectNodeId, endpoint.fieldName, emitSpec),
+                            reason: emitSpec.reason,
+                            originModel: spec.id,
+                            updateStrength: "strong",
+                            handlePrecision: "exact",
+                            confidence: "certain",
+                        });
                     }
                 }
             }
@@ -1872,14 +1800,17 @@ function compileSemanticAddressedBridgeModule(spec: SemanticAddressedBridgeModul
                         : resolveInvokeNodeIds(call, spec.source.value);
                     if (sourceNodeIds.length === 0) continue;
                     for (const key of keys) {
-                        if (sourceFieldPath) {
-                            for (const nodeId of sourceNodeIds) {
-                                addMapFieldPathValue(sourceProjectedNodeIdsByKey, key, nodeId, sourceFieldPath);
-                            }
-                        } else {
-                            for (const nodeId of sourceNodeIds) {
-                                addMapSetValue(sourceNodeIdsByKey, key, nodeId);
-                            }
+                        const handle = moduleHandoffHandle(spec.id, key);
+                        for (const nodeId of sourceNodeIds) {
+                            pushHandoffKillThenPut(effects, {
+                                handle,
+                                source: sourceFieldPath
+                                    ? { nodeId, fieldPathPrefix: [...sourceFieldPath] }
+                                    : { nodeId },
+                                reason: emitSpec.reason,
+                                originModel: spec.id,
+                                call,
+                            });
                         }
                     }
                 }
@@ -1890,70 +1821,41 @@ function compileSemanticAddressedBridgeModule(spec: SemanticAddressedBridgeModul
                 );
                 const resolvedSource = resolveDecoratedFieldFacts(ctx, spec.source.surface, spec.sourceAddress);
                 for (const [key, bucket] of resolvedSource.byAddress.entries()) {
+                    const handle = moduleHandoffHandle(spec.id, key);
                     for (const nodeId of bucket.writeNodeIds) {
-                        addMapSetValue(sourceNodeIdsByKey, key, nodeId);
+                        effects.push({
+                            kind: "put",
+                            handle,
+                            source: { nodeId },
+                            reason: emitSpec.reason,
+                            originModel: spec.id,
+                            updateStrength: "strong",
+                            handlePrecision: "exact",
+                            confidence: "certain",
+                        });
                     }
-                    for (const endpointKey of bucket.endpoints.keys()) {
-                        addMapSetText(sourceFieldKeysByKey, key, endpointKey);
+                    for (const endpoint of bucket.endpoints.values()) {
+                        effects.push({
+                            kind: "put",
+                            handle,
+                            source: {
+                                nodeId: endpoint.objectNodeId,
+                                fieldHead: endpoint.fieldName,
+                            },
+                            reason: emitSpec.reason,
+                            originModel: spec.id,
+                            updateStrength: "strong",
+                            handlePrecision: "exact",
+                            confidence: "certain",
+                        });
                     }
                 }
             }
 
+            const handoff = createHandoffPropagationSession(effects);
             return {
                 onFact(event) {
-                    const matchedKeys = new Set<string>();
-                    for (const [key, sourceNodeIds] of sourceNodeIdsByKey.entries()) {
-                        if (sourceNodeIds.has(event.current.nodeId)) {
-                            matchedKeys.add(key);
-                        }
-                    }
-                    const currentFieldPath = event.current.cloneField();
-                    for (const [key, nodeMap] of sourceProjectedNodeIdsByKey.entries()) {
-                        const prefixes = nodeMap.get(event.current.nodeId);
-                        if (!prefixes || prefixes.length === 0) continue;
-                        if (prefixes.some(prefix => startsWithFieldPath(currentFieldPath, prefix))) {
-                            matchedKeys.add(key);
-                        }
-                    }
-                    const fieldHead = event.current.fieldHead();
-                    if (fieldHead) {
-                        const endpointKey = `${event.current.nodeId}#${fieldHead}`;
-                        for (const [key, sourceFieldKeys] of sourceFieldKeysByKey.entries()) {
-                            if (sourceFieldKeys.has(endpointKey)) {
-                                matchedKeys.add(key);
-                            }
-                        }
-                    }
-                    if (matchedKeys.size === 0) {
-                        return;
-                    }
-
-                    const emissions = event.emit.collector();
-                    for (const key of matchedKeys) {
-                        const factStateKey = [
-                            key,
-                            String(event.current.nodeId),
-                            String(event.current.source),
-                            String(event.current.contextId),
-                            currentFieldPath ? currentFieldPath.join(".") : "",
-                        ].join("|");
-                        if (emittedFactStates.has(factStateKey)) {
-                            continue;
-                        }
-                        emittedFactStates.add(factStateKey);
-                        emissions.push(emitSemanticAddressedTargetNodes(
-                            event,
-                            targetNodeIdsByKey.get(key) || [],
-                            spec.target.kind === "invoke" ? spec.target.fieldPath : undefined,
-                            emitSpec,
-                        ));
-                        emissions.push(emitSemanticAddressedTargetEndpoints(
-                            event,
-                            targetEndpointsByKey.get(key)?.values() || [],
-                            emitSpec,
-                        ));
-                    }
-                    return emissions.done();
+                    return handoff.emitForFact(event);
                 },
             };
         },

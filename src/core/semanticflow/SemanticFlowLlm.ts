@@ -1,4 +1,4 @@
-import { validateModuleSpecOrThrow } from "../orchestration/modules/ModuleSpecValidator";
+import { validateModuleSpecOrThrow } from "../kernel/contracts/ModuleSpecValidator";
 import type {
     ModuleConstraint,
     ModuleDispatchPreset,

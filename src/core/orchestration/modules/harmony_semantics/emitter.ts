@@ -4,9 +4,12 @@ import { Local } from "../../../../../arkanalyzer/out/src/core/base/Local";
 import { ArkInstanceFieldRef, ArkStaticFieldRef } from "../../../../../arkanalyzer/out/src/core/base/Ref";
 import { ArkAssignStmt } from "../../../../../arkanalyzer/out/src/core/base/Stmt";
 import { defineModule, TaintModule } from "../../../kernel/contracts/ModuleApi";
+import { createHandoffPropagationSession } from "../../../kernel/semantic_handoff/SemanticHandoffPropagation";
+import { createExactHandoffHandle, HandoffEffect } from "../../../kernel/semantic_handoff/SemanticHandoffTypes";
 
 const MAX_EVENT_BACKTRACE_STEPS = 6;
 const MAX_EVENT_BACKTRACE_VISITED = 24;
+const EMITTER_HANDOFF_FAMILY = "harmony.emitter.payload";
 
 interface EmitterClassProfile {
     hasOn: boolean;
@@ -86,6 +89,7 @@ export function createHarmonyEventEmitterSemanticModule(
             let emitCount = 0;
             let dynamicEventSkipCount = 0;
             let deferredBindingCount = 0;
+            const handoffEffects: HandoffEffect[] = [];
 
             const declaredProfiles = buildEmitterClassProfiles(ctx.methods.all(), onMethodNames, emitMethodNames);
             const observedProfiles = buildEmitterCallsiteProfiles(
@@ -137,6 +141,11 @@ export function createHarmonyEventEmitterSemanticModule(
                     { maxCandidates: resolved.maxCandidates },
                 );
                 if (callbackMethods.length === 0) continue;
+                const callbackParamNodeIds = call.callbackParamNodeIds(
+                    resolved.callbackArgIndex,
+                    resolved.callbackParamIndex,
+                    { maxCandidates: resolved.maxCandidates },
+                );
                 onRegistrationCount++;
                 for (const eventKey of buildEmitterEventKeys(call, classKey, channelKey)) {
                     let bucket = callbackMethodsByEventKey.get(eventKey);
@@ -146,6 +155,20 @@ export function createHarmonyEventEmitterSemanticModule(
                     }
                     for (const callbackMethod of callbackMethods) {
                         bucket.set(callbackMethod.methodSignature, callbackMethod.method);
+                    }
+                    for (const targetNodeId of callbackParamNodeIds) {
+                        handoffEffects.push({
+                            kind: "get",
+                            handle: createExactHandoffHandle(EMITTER_HANDOFF_FAMILY, eventKey),
+                            target: {
+                                nodeId: targetNodeId,
+                                allowUnreachableTarget: true,
+                            },
+                            reason: `Harmony event payload ${eventKey}`,
+                            originModel: "harmony.emitter",
+                            programPoint: emitterProgramPoint(call),
+                            confidence: "certain",
+                        });
                     }
                 }
             }
@@ -184,7 +207,19 @@ export function createHarmonyEventEmitterSemanticModule(
                 emitCount++;
                 const sourceMethod = call.stmt?.getCfg?.()?.getDeclaringMethod?.();
                 if (!sourceMethod?.getCfg?.()) continue;
+                const payloadNodeIds = call.argNodeIds(resolved.payloadArgIndex);
                 for (const eventKey of buildEmitterEventKeys(call, classKey, channelKey)) {
+                    for (const nodeId of payloadNodeIds) {
+                        handoffEffects.push({
+                            kind: "put",
+                            handle: createExactHandoffHandle(EMITTER_HANDOFF_FAMILY, eventKey),
+                            source: { nodeId },
+                            reason: `Harmony event payload ${eventKey}`,
+                            originModel: "harmony.emitter",
+                            programPoint: emitterProgramPoint(call),
+                            confidence: "certain",
+                        });
+                    }
                     const callbackMethods = callbackMethodsByEventKey.get(eventKey);
                     if (!callbackMethods || callbackMethods.size === 0) continue;
                     for (const handlerMethod of callbackMethods.values()) {
@@ -208,6 +243,12 @@ export function createHarmonyEventEmitterSemanticModule(
                 deferred_bindings: deferredBindingCount,
                 dynamic_event_skips: dynamicEventSkipCount,
             });
+            const handoff = createHandoffPropagationSession(handoffEffects);
+            return {
+                onFact(event) {
+                    return handoff.emitForFact(event);
+                },
+            };
         },
     });
 }
@@ -265,6 +306,12 @@ function buildEmitterEventKeys(call: any, classKey: string, channelKey: string):
         keys.add(`${classKey}::${channelKey}`);
     }
     return [...keys];
+}
+
+function emitterProgramPoint(call: { ownerMethodSignature?: string; stmt?: any; call?: { signature?: string } }): string {
+    const owner = call.ownerMethodSignature || "";
+    const stmt = String(call.stmt?.toString?.() || call.call?.signature || "").trim();
+    return `${owner}#${stmt}`;
 }
 
 function resolveFieldBackedEmitterReceiverKey(call: any): string | undefined {

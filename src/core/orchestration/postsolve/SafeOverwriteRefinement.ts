@@ -1,11 +1,12 @@
 ﻿import { TaintFlow } from "../../kernel/model/TaintFlow";
-import { PostsolveContext, PostsolveEvidence, WitnessPath } from "./PostsolveTypes";
+import { ProvenancePath } from "../../provenance/ProvenancePathTypes";
+import { PostsolveContext, PostsolveEvidence } from "./PostsolveTypes";
 import { resolveSafeOverwriteFromReadExpr } from "./PostsolveSharedEvidence";
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 
 export function evaluateSafeOverwritePath(
     flow: TaintFlow,
-    path: WitnessPath,
+    path: ProvenancePath,
     context: PostsolveContext,
 ): PostsolveEvidence[] {
     const readSites = collectCandidateReadSites(path, context);
@@ -44,7 +45,7 @@ export function evaluateSafeOverwritePath(
 }
 
 export function collectCandidateReadSites(
-    path: WitnessPath,
+    path: ProvenancePath,
     context: PostsolveContext,
 ): Array<{
     factId?: string;

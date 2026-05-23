@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import * as fs from "fs";
 import * as path from "path";
+import { getSemanticFlowRuntimeSkillsFingerprint } from "./SemanticFlowRuntimeSkills";
 
 const ITEM_CACHE_SEMANTIC_MODULE_IDS = [
     "./SemanticFlowArtifacts",
@@ -9,6 +10,7 @@ const ITEM_CACHE_SEMANTIC_MODULE_IDS = [
     "./SemanticFlowLlm",
     "./SemanticFlowPipeline",
     "./SemanticFlowPrompt",
+    "./SemanticFlowRuntimeSkills",
     "./SemanticFlowSessionCache",
 ] as const;
 
@@ -26,7 +28,10 @@ export function getSemanticFlowItemCacheSemanticsFingerprint(): string {
             sha256: sha256Hex(fs.readFileSync(modulePath)),
         };
     });
-    cachedSemanticFlowItemCacheSemanticsFingerprint = sha256Hex(JSON.stringify(moduleFingerprints));
+    cachedSemanticFlowItemCacheSemanticsFingerprint = sha256Hex(JSON.stringify({
+        moduleFingerprints,
+        runtimeSkills: getSemanticFlowRuntimeSkillsFingerprint(),
+    }));
     return cachedSemanticFlowItemCacheSemanticsFingerprint;
 }
 

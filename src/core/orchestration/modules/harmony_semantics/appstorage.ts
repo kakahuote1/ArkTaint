@@ -14,6 +14,7 @@ import {
 import type {
     AppStorageDynamicKeyWarning,
     AppStorageFieldEndpoint,
+    AppStorageNodeOperation,
     AppStorageSemanticModel,
     BuildAppStorageSemanticModelArgs,
 } from "../../../kernel/contracts/AppStorageModuleProvider";
@@ -21,6 +22,8 @@ import {
     collectObjectNodeIdsFromValueInMethod,
     resolveHarmonyMethods,
 } from "../../../kernel/contracts/HarmonyModuleUtils";
+import { createHandoffPropagationSession } from "../../../kernel/semantic_handoff/SemanticHandoffPropagation";
+import { HandoffEffect, createExactHandoffHandle } from "../../../kernel/semantic_handoff/SemanticHandoffTypes";
 
 export interface HarmonyKeyedStorageSemanticsOptions {
     id?: string;
@@ -112,35 +115,7 @@ export function createHarmonyKeyedStorageSemanticModule(
                 analysis: ctx.analysis,
                 scan: ctx.scan,
             }, internalOptions);
-            const writeKeysByNodeId = new Map<number, string[]>();
-            const writeKeysByFieldEndpoint = new Map<string, string[]>();
-            const slotTaintStates = new Set<string>();
-
-            for (const [key, nodeIds] of model.writeNodeIdsByKey.entries()) {
-                for (const nodeId of nodeIds) {
-                    if (!writeKeysByNodeId.has(nodeId)) {
-                        writeKeysByNodeId.set(nodeId, []);
-                    }
-                    writeKeysByNodeId.get(nodeId)!.push(key);
-                }
-            }
-            for (const [key, nodeIds] of model.writeFieldNodeIdsByKey.entries()) {
-                for (const nodeId of nodeIds) {
-                    if (!writeKeysByNodeId.has(nodeId)) {
-                        writeKeysByNodeId.set(nodeId, []);
-                    }
-                    writeKeysByNodeId.get(nodeId)!.push(key);
-                }
-            }
-            for (const [key, endpoints] of model.writeFieldEndpointsByKey.entries()) {
-                for (const endpoint of endpoints) {
-                    const endpointKey = `${endpoint.objectNodeId}#${endpoint.fieldName}`;
-                    if (!writeKeysByFieldEndpoint.has(endpointKey)) {
-                        writeKeysByFieldEndpoint.set(endpointKey, []);
-                    }
-                    writeKeysByFieldEndpoint.get(endpointKey)!.push(key);
-                }
-            }
+            const handoff = createHandoffPropagationSession(buildAppStorageHandoffEffects(model));
 
             if (model.dynamicKeyWarnings.length > 0) {
                 ctx.log(`[Harmony-AppStorage] dynamic key warnings=${model.dynamicKeyWarnings.length} (only constant-ish keys are modeled).`);
@@ -153,46 +128,7 @@ export function createHarmonyKeyedStorageSemanticModule(
 
             return {
                 onFact(event) {
-                    const writeKeySet = new Set<string>(writeKeysByNodeId.get(event.current.nodeId) || []);
-                    const fieldHead = event.current.fieldHead();
-                    if (fieldHead) {
-                        const endpointKey = `${event.current.nodeId}#${fieldHead}`;
-                        for (const key of writeKeysByFieldEndpoint.get(endpointKey) || []) {
-                            writeKeySet.add(key);
-                        }
-                    }
-                    if (writeKeySet.size === 0) return;
-
-                    const emissions = event.emit.collector();
-
-                    for (const key of writeKeySet) {
-                        const slotStateKey = `${key}|${event.current.source}|${event.current.contextId}|${event.current.field ? event.current.field.join(".") : ""}`;
-                        if (slotTaintStates.has(slotStateKey)) continue;
-                        slotTaintStates.add(slotStateKey);
-
-                        const readNodeIds = model.readNodeIdsByKey.get(key);
-                        if (readNodeIds) {
-                            for (const readNodeId of readNodeIds) {
-                                emissions.push(event.emit.preserveToNode(readNodeId, "AppStorage-Read"));
-                            }
-                        }
-
-                        const readFieldNodeIds = model.readFieldNodeIdsByKey.get(key);
-                        if (readFieldNodeIds) {
-                            for (const fieldNodeId of readFieldNodeIds) {
-                                emissions.push(event.emit.preserveToNode(fieldNodeId, "AppStorage-DecorFieldNode"));
-                            }
-                        }
-
-                        for (const endpoint of model.readFieldEndpointsByKey.get(key) || []) {
-                            const isSelfEndpointEcho = event.current.nodeId === endpoint.objectNodeId
-                                && fieldHead === endpoint.fieldName;
-                            if (isSelfEndpointEcho) continue;
-                            emissions.push(event.emit.toField(endpoint.objectNodeId, [endpoint.fieldName], "AppStorage-Decor"));
-                        }
-                    }
-
-                    return emissions.done();
+                    return handoff.emitForFact(event);
                 },
             };
         },
@@ -204,6 +140,142 @@ export const harmonyAppStorageModule: TaintModule = harmonyAppStorageSemanticMod
 
 export type AppStorageModel = AppStorageSemanticModel;
 export type BuildAppStorageModelArgs = BuildAppStorageSemanticModelArgs;
+
+const APPSTORAGE_HANDOFF_FAMILY = "harmony.keyed_storage";
+
+function buildAppStorageHandoffEffects(model: AppStorageModel): HandoffEffect[] {
+    const effects: HandoffEffect[] = [];
+    const sequencedWriteNodes = new Set<string>();
+    const sequencedReadNodes = new Set<string>();
+
+    for (const [key, operations] of model.writeOperationsByKey.entries()) {
+        for (const op of operations) {
+            const handle = createExactHandoffHandle(APPSTORAGE_HANDOFF_FAMILY, key);
+            sequencedWriteNodes.add(`${key}#${op.nodeId}`);
+            effects.push({
+                kind: "kill",
+                handle,
+                reason: "AppStorage-Write",
+                originModel: "harmony.appstorage",
+                programPoint: appStorageProgramPoint(op),
+                flowScope: op.methodSignature,
+                sequence: op.stmtIndex * 10,
+                updateStrength: "strong",
+                confidence: "certain",
+            });
+            effects.push({
+                kind: "put",
+                handle,
+                source: { nodeId: op.nodeId },
+                reason: "AppStorage-Write",
+                originModel: "harmony.appstorage",
+                programPoint: appStorageProgramPoint(op),
+                flowScope: op.methodSignature,
+                sequence: op.stmtIndex * 10 + 1,
+                updateStrength: "strong",
+                confidence: "certain",
+            });
+        }
+    }
+
+    for (const [key, nodeIds] of model.writeNodeIdsByKey.entries()) {
+        for (const nodeId of nodeIds) {
+            if (sequencedWriteNodes.has(`${key}#${nodeId}`)) continue;
+            effects.push({
+                kind: "put",
+                handle: createExactHandoffHandle(APPSTORAGE_HANDOFF_FAMILY, key),
+                source: { nodeId },
+                reason: "AppStorage-Write",
+            });
+        }
+    }
+
+    for (const [key, nodeIds] of model.writeFieldNodeIdsByKey.entries()) {
+        for (const nodeId of nodeIds) {
+            effects.push({
+                kind: "put",
+                handle: createExactHandoffHandle(APPSTORAGE_HANDOFF_FAMILY, key),
+                source: { nodeId },
+                reason: "AppStorage-DecorFieldWrite",
+            });
+        }
+    }
+
+    for (const [key, endpoints] of model.writeFieldEndpointsByKey.entries()) {
+        for (const endpoint of endpoints) {
+            effects.push({
+                kind: "put",
+                handle: createExactHandoffHandle(APPSTORAGE_HANDOFF_FAMILY, key),
+                source: {
+                    nodeId: endpoint.objectNodeId,
+                    fieldHead: endpoint.fieldName,
+                },
+                reason: "AppStorage-DecorFieldEndpointWrite",
+            });
+        }
+    }
+
+    for (const [key, operations] of model.readOperationsByKey.entries()) {
+        for (const op of operations) {
+            sequencedReadNodes.add(`${key}#${op.nodeId}`);
+            effects.push({
+                kind: "get",
+                handle: createExactHandoffHandle(APPSTORAGE_HANDOFF_FAMILY, key),
+                target: { nodeId: op.nodeId },
+                reason: "AppStorage-Read",
+                originModel: "harmony.appstorage",
+                programPoint: appStorageProgramPoint(op),
+                flowScope: op.methodSignature,
+                sequence: op.stmtIndex * 10,
+                updateStrength: "strong",
+                confidence: "certain",
+            });
+        }
+    }
+
+    for (const [key, nodeIds] of model.readNodeIdsByKey.entries()) {
+        for (const nodeId of nodeIds) {
+            if (sequencedReadNodes.has(`${key}#${nodeId}`)) continue;
+            effects.push({
+                kind: "get",
+                handle: createExactHandoffHandle(APPSTORAGE_HANDOFF_FAMILY, key),
+                target: { nodeId },
+                reason: "AppStorage-Read",
+            });
+        }
+    }
+
+    for (const [key, nodeIds] of model.readFieldNodeIdsByKey.entries()) {
+        for (const nodeId of nodeIds) {
+            effects.push({
+                kind: "get",
+                handle: createExactHandoffHandle(APPSTORAGE_HANDOFF_FAMILY, key),
+                target: { nodeId },
+                reason: "AppStorage-DecorFieldNode",
+            });
+        }
+    }
+
+    for (const [key, endpoints] of model.readFieldEndpointsByKey.entries()) {
+        for (const endpoint of endpoints) {
+            effects.push({
+                kind: "get",
+                handle: createExactHandoffHandle(APPSTORAGE_HANDOFF_FAMILY, key),
+                target: {
+                    nodeId: endpoint.objectNodeId,
+                    fieldPath: [endpoint.fieldName],
+                },
+                reason: "AppStorage-Decor",
+            });
+        }
+    }
+
+    return effects;
+}
+
+function appStorageProgramPoint(op: AppStorageNodeOperation): string {
+    return `${op.methodSignature}#${op.stmtIndex}:${op.callSignature || op.apiName}`;
+}
 
 interface DecoratedStorageFieldInfo {
     key: string;
@@ -233,9 +305,11 @@ export function buildAppStorageModel(
     },
 ): AppStorageModel {
     const writeNodeIdsByKey = new Map<string, Set<number>>();
+    const writeOperationsByKey = new Map<string, AppStorageNodeOperation[]>();
     const writeFieldNodeIdsByKey = new Map<string, Set<number>>();
     const writeFieldEndpointsByKey = new Map<string, AppStorageFieldEndpoint[]>();
     const readNodeIdsByKey = new Map<string, Set<number>>();
+    const readOperationsByKey = new Map<string, AppStorageNodeOperation[]>();
     const readFieldEndpointsByKey = new Map<string, AppStorageFieldEndpoint[]>();
     const readFieldNodeIdsByKey = new Map<string, Set<number>>();
     const warningByKey = new Map<string, AppStorageDynamicKeyWarning>();
@@ -252,9 +326,17 @@ export function buildAppStorageModel(
         if (!writeNodeIdsByKey.has(key)) writeNodeIdsByKey.set(key, new Set<number>());
         writeNodeIdsByKey.get(key)!.add(nodeId);
     };
+    const addWriteOperation = (key: string, operation: AppStorageNodeOperation): void => {
+        if (!writeOperationsByKey.has(key)) writeOperationsByKey.set(key, []);
+        writeOperationsByKey.get(key)!.push(operation);
+    };
     const addReadNodeId = (key: string, nodeId: number): void => {
         if (!readNodeIdsByKey.has(key)) readNodeIdsByKey.set(key, new Set<number>());
         readNodeIdsByKey.get(key)!.add(nodeId);
+    };
+    const addReadOperation = (key: string, operation: AppStorageNodeOperation): void => {
+        if (!readOperationsByKey.has(key)) readOperationsByKey.set(key, []);
+        readOperationsByKey.get(key)!.push(operation);
     };
     const addWriteFieldNodeId = (key: string, nodeId: number): void => {
         if (!writeFieldNodeIdsByKey.has(key)) writeFieldNodeIdsByKey.set(key, new Set<number>());
@@ -305,7 +387,9 @@ export function buildAppStorageModel(
         const cfg = method.getCfg();
         if (!cfg) continue;
 
-        for (const stmt of cfg.getStmts()) {
+        const stmts = cfg.getStmts();
+        for (let stmtIndex = 0; stmtIndex < stmts.length; stmtIndex++) {
+            const stmt = stmts[stmtIndex];
             if (!stmt.containsInvokeExpr || !stmt.containsInvokeExpr()) continue;
             const invokeExpr = stmt.getInvokeExpr();
             if (!(invokeExpr instanceof ArkStaticInvokeExpr || invokeExpr instanceof ArkInstanceInvokeExpr)) {
@@ -354,6 +438,13 @@ export function buildAppStorageModel(
                     for (const key of scopedKeys) {
                         for (const nodeId of writeNodeIds) {
                             addWriteNodeId(key, nodeId);
+                            addWriteOperation(key, {
+                                nodeId,
+                                methodSignature,
+                                stmtIndex,
+                                callSignature,
+                                apiName,
+                            });
                         }
                     }
                 }
@@ -366,6 +457,13 @@ export function buildAppStorageModel(
                     for (const key of scopedKeys) {
                         for (const nodeId of readNodeIds) {
                             addReadNodeId(key, nodeId);
+                            addReadOperation(key, {
+                                nodeId,
+                                methodSignature,
+                                stmtIndex,
+                                callSignature,
+                                apiName,
+                            });
                         }
                     }
                 }
@@ -391,9 +489,11 @@ export function buildAppStorageModel(
 
     return {
         writeNodeIdsByKey,
+        writeOperationsByKey,
         writeFieldNodeIdsByKey,
         writeFieldEndpointsByKey,
         readNodeIdsByKey,
+        readOperationsByKey,
         readFieldEndpointsByKey,
         readFieldNodeIdsByKey,
         dynamicKeyWarnings: [...warningByKey.values()],

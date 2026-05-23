@@ -1,4 +1,0 @@
-export {
-    SemanticGapRecord,
-} from "./SemanticStateTypes";
-

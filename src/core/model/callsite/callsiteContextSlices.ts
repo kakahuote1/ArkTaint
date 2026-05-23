@@ -3,7 +3,7 @@ import * as path from "path";
 import { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../../arkanalyzer/out/src/Config";
 import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
-import { injectArkUiSdk } from "../../orchestration/ArkUiSdkConfig";
+import { injectArkUiSdk } from "../../substrate/ArkUiSdkConfig";
 import {
     extractSharedCarrierContextFromFile,
     type SharedCarrierMethodSnippet,

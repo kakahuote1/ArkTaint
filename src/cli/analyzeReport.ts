@@ -33,6 +33,7 @@ interface EntryAnalyzeResultLike {
         };
         paths: Array<{
             factIds: string[];
+            status?: string;
             truncated?: boolean;
             evidence: Array<{
                 kind: string;
@@ -49,6 +50,11 @@ interface EntryAnalyzeResultLike {
         judgement: {
             kind: string;
             primaryReason?: string;
+        };
+        report?: {
+            witness?: {
+                status?: string;
+            };
         };
     }>;
     ruleHits: RuleHitCountersLike;
@@ -108,19 +114,6 @@ interface AnalyzeReportLike {
         ruleHitEndpoints: RuleHitCountersLike;
         transferProfile: any;
         detectProfile: any;
-        semanticState?: {
-            enabled: boolean;
-            truncated?: boolean;
-            seedCount: number;
-            sinkHitCount: number;
-            candidateSeedCount: number;
-            provenanceCount: number;
-            gapCount: number;
-            sinkHits: Array<{ sinkSignature: string; carrierKey: string }>;
-            candidateSeeds: Array<{ reason: string; carrierKey: string }>;
-            provenance: Array<{ transitionId: string; reason: string }>;
-            gaps: Array<{ transitionId: string; blockedBy: string }>;
-        };
         memoryProfile?: {
             sampleIntervalMs: number;
             sampleCount: number;
@@ -338,10 +331,6 @@ export function renderMarkdownReport(report: AnalyzeReportLike): string {
     lines.push(`- ruleHitsTotal: source=${sourceRuleHits}, sink=${sinkRuleHits}, transfer=${transferRuleHits}`);
     lines.push(`- transferProfile: checks=${report.summary.transferProfile.ruleCheckCount}, matches=${report.summary.transferProfile.ruleMatchCount}, endpointMatches=${report.summary.transferProfile.endpointMatchCount}, results=${report.summary.transferProfile.resultCount}, dedupSkips=${report.summary.transferProfile.dedupSkipCount}, elapsedMs=${report.summary.transferProfile.elapsedMs}`);
     lines.push(`- detectProfile: calls=${report.summary.detectProfile.detectCallCount}, sinksChecked=${report.summary.detectProfile.sinksChecked}, sanitizerChecks=${report.summary.detectProfile.sanitizerGuardCheckCount}, sanitizerHits=${report.summary.detectProfile.sanitizerGuardHitCount}, totalMs=${report.summary.detectProfile.totalMs}`);
-    if (report.summary.semanticState) {
-        const semantic = report.summary.semanticState;
-        lines.push(`- semanticState: enabled=${semantic.enabled}, truncated=${semantic.truncated || false}, seeds=${semantic.seedCount}, sinkHits=${semantic.sinkHitCount}, candidateSeeds=${semantic.candidateSeedCount}, provenance=${semantic.provenanceCount}, gaps=${semantic.gapCount}`);
-    }
     if (report.summary.memoryProfile) {
         lines.push(`- memoryProfile: peakRssMiB=${report.summary.memoryProfile.peakRssMiB}, peakHeapUsedMiB=${report.summary.memoryProfile.peakHeapUsedMiB}, rssMiB=${report.summary.memoryProfile.rssMiB}, heapUsedMiB=${report.summary.memoryProfile.heapUsedMiB}, samples=${report.summary.memoryProfile.sampleCount}`);
     }
@@ -362,13 +351,6 @@ export function renderMarkdownReport(report: AnalyzeReportLike): string {
     if (report.summary.ruleFeedback) {
         const zeroHit = report.summary.ruleFeedback.zeroHitRules || { source: {}, sink: {}, transfer: {} };
         lines.push(`- ruleFeedback.zeroHitRules: source=${Object.keys(zeroHit.source || {}).length}, sink=${Object.keys(zeroHit.sink || {}).length}, transfer=${Object.keys(zeroHit.transfer || {}).length}`);
-    }
-    if (report.summary.semanticState) {
-        const semantic = report.summary.semanticState;
-        lines.push(`- semantic sink hits: ${semantic.sinkHits.slice(0, 10).map(item => `${item.sinkSignature}@${item.carrierKey}`).join(", ") || "[]"}`);
-        lines.push(`- semantic candidate seeds: ${semantic.candidateSeeds.slice(0, 10).map(item => `${item.reason}@${item.carrierKey}`).join(", ") || "[]"}`);
-        lines.push(`- semantic provenance: ${semantic.provenance.slice(0, 10).map(item => `${item.transitionId}:${item.reason}`).join(", ") || "[]"}`);
-        lines.push(`- semantic gaps: ${semantic.gaps.slice(0, 10).map(item => `${item.transitionId}:${item.blockedBy}`).join(", ") || "[]"}`);
     }
     lines.push("");
     lines.push(...renderGuidance(report));
@@ -443,14 +425,14 @@ export function renderMarkdownReport(report: AnalyzeReportLike): string {
             lines.push(`  - flowRuleChain: sourceRule=${trace.sourceRuleId || "N/A"}, sinkRule=${trace.sinkRuleId || "N/A"}, sinkEndpoint=${trace.sinkEndpoint || "N/A"}, transferRules=${trace.transferRuleIds.join(" -> ") || "N/A"}`);
         }
         for (const result of (e.postsolveResults || []).slice(0, 2)) {
-            lines.push(`  - postsolve: sinkFactId=${result.flow.sinkFactId || "N/A"}, judgement=${result.judgement.kind}, primaryReason=${result.evidenceSummary.primaryReason || "N/A"}, evidenceKinds=${result.evidenceSummary.evidenceKinds.join(",") || "N/A"}, skeletonNodes=${result.skeleton?.nodes.length || 0}, pathCount=${result.paths.length}`);
+            lines.push(`  - postsolve: sinkFactId=${result.flow.sinkFactId || "N/A"}, judgement=${result.judgement.kind}, primaryReason=${result.evidenceSummary.primaryReason || "N/A"}, evidenceKinds=${result.evidenceSummary.evidenceKinds.join(",") || "N/A"}, skeletonNodes=${result.skeleton?.nodes.length || 0}, pathCount=${result.paths.length}, materialization=${result.report.witness?.status || "N/A"}`);
             lines.push(`    - flow: source=${result.flow.source} | sink=${result.flow.sinkText}`);
             if (result.skeleton) {
                 lines.push(`    - skeleton: nodes=${result.skeleton.nodes.length}, edges=${result.skeleton.edges.length}`);
             }
             for (const pathItem of result.paths.slice(0, 5)) {
                 const evidenceKinds = [...new Set((pathItem.evidence || []).map(item => item.kind))];
-                lines.push(`    - path: judgement=${pathItem.judgement.kind}, primaryReason=${pathItem.judgement.primaryReason || "N/A"}, evidenceKinds=${evidenceKinds.join(",") || "N/A"}, truncated=${pathItem.truncated ? "true" : "false"}`);
+                lines.push(`    - path: judgement=${pathItem.judgement.kind}, primaryReason=${pathItem.judgement.primaryReason || "N/A"}, evidenceKinds=${evidenceKinds.join(",") || "N/A"}, status=${pathItem.status || "complete"}, truncated=${pathItem.truncated ? "true" : "false"}`);
                 lines.push(`      - factIds: ${pathItem.factIds.join(" -> ") || "N/A"}`);
             }
         }

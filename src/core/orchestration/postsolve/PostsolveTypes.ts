@@ -2,37 +2,12 @@ import { Pag } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/P
 import { TaintFact } from "../../kernel/model/TaintFact";
 import { FactPredecessorRecord } from "../../kernel/propagation/PropagationTypes";
 import { SanitizerRule } from "../../rules/RuleSchema";
-
-export interface PathMaterializationOptions {
-    maxPaths?: number;
-    maxDepth?: number;
-}
-
-export interface WitnessDagEdge {
-    fromFactId: string;
-    toFactId: string;
-    reason: string;
-}
-
-export interface WitnessDag {
-    sinkFactId: string;
-    factIds: Set<string>;
-    edges: WitnessDagEdge[];
-    sourceFactIds: Set<string>;
-}
-
-export interface WitnessPath {
-    factIds: string[];
-    edges: WitnessDagEdge[];
-    truncated?: boolean;
-}
-
-export interface MaterializedTaintFlow {
-    sinkFactId: string;
-    judgement?: PostsolveJudgementKind;
-    evidenceKinds?: string[];
-    paths: WitnessPath[];
-}
+import {
+    MaterializedTaintFlow,
+    ProvenancePathIncompleteReason,
+    ProvenancePathStatus,
+    ProvenancePathContext,
+} from "../../provenance/ProvenancePathTypes";
 
 export type PostsolveJudgementKind =
     | "Confirmed"
@@ -97,6 +72,8 @@ export interface PostsolveSeedResult {
     judgement: PostsolveJudgement;
     pathResults: Array<{
         factIds: string[];
+        status?: ProvenancePathStatus;
+        incompleteReasons?: ProvenancePathIncompleteReason[];
         truncated?: boolean;
         evidence: PostsolveEvidence[];
         judgement: PostsolveJudgement;
@@ -119,6 +96,8 @@ export interface PostsolveFlowResult {
     skeleton?: PostsolveSkeleton;
     paths: Array<{
         factIds: string[];
+        status?: ProvenancePathStatus;
+        incompleteReasons?: ProvenancePathIncompleteReason[];
         truncated?: boolean;
         evidence: PostsolveEvidence[];
         judgement: PostsolveJudgement;
@@ -143,10 +122,8 @@ export interface TaintFactWitness {
     predecessorRecords: FactPredecessorRecord[];
 }
 
-export interface PostsolveContext {
+export interface PostsolveContext extends ProvenancePathContext {
     pag?: Pag;
-    observedFactsById: ReadonlyMap<string, TaintFact>;
-    factPredecessorsByFactId: ReadonlyMap<string, readonly FactPredecessorRecord[]>;
     sanitizerRules?: readonly SanitizerRule[];
 }
 

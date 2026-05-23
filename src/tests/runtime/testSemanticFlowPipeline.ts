@@ -7,7 +7,7 @@ import { buildArkMainEntryCandidates } from "../../core/entry/arkmain/llm/ArkMai
 import { buildSemanticFlowArkMainCandidateItem, buildSemanticFlowRuleCandidateItem } from "../../core/semanticflow/SemanticFlowAdapters";
 import { createSemanticFlowLlmDecider } from "../../core/semanticflow/SemanticFlowLlm";
 import { runSemanticFlowPipeline, runSemanticFlowSession, type SemanticFlowPipelineItemInput } from "../../core/semanticflow/SemanticFlowPipeline";
-import { runSemanticFlowAnalysis } from "../../core/semanticflow/SemanticFlowRuntime";
+import { runSemanticFlowAnalysis } from "../../core/orchestration/semanticflow/SemanticFlowRuntime";
 import type { SemanticFlowExpander } from "../../core/semanticflow/SemanticFlowTypes";
 import { compileModuleSpec } from "../../core/orchestration/modules/ModuleSpecCompiler";
 import { normalizeNoCandidateItem } from "../../core/model/callsite/callsiteContextSlices";

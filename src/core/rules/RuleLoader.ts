@@ -710,10 +710,14 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
         .filter(Boolean);
     const explicitRuleCatalogPath = options.ruleCatalogPath ? path.resolve(options.ruleCatalogPath) : undefined;
     const defaultRuleCatalogPath = getRuleCatalogPath();
+    const hasExplicitRuleCatalogPath = explicitRuleCatalogPaths.length > 0 || !!explicitRuleCatalogPath;
+    const shouldLoadDefaultRuleCatalog =
+        options.autoDiscoverLayers !== false
+        || (!explicitKernelRulePath && !hasExplicitRuleCatalogPath);
     const ruleCatalogRoots = [...new Set([
         ...explicitRuleCatalogPaths,
         ...(explicitRuleCatalogPath ? [explicitRuleCatalogPath] : []),
-        defaultRuleCatalogPath,
+        ...(shouldLoadDefaultRuleCatalog ? [defaultRuleCatalogPath] : []),
     ])].filter(root => fs.existsSync(root));
     if (!explicitKernelRulePath && ruleCatalogRoots.length === 0) {
         throwRuleLoadError({

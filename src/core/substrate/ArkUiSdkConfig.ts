@@ -22,12 +22,6 @@ export function getArkUiBuiltinSdk(): { name: string; path: string; moduleName: 
     return { name: ARKUI_SDK_NAME, path: sdkPath, moduleName: "" };
 }
 
-/**
- * Injects the bundled ArkUI SDK into a SceneConfig before scene construction.
- * This adds the SDK to both the SDK list (for file parsing) and
- * sdkGlobalFolders (for global type registration), so that arkanalyzer
- * recognizes ArkUI component types and their methods.
- */
 export function injectArkUiSdk(config: { getSdksObj(): any[]; getOptions(): Record<string, any> }): void {
     const sdk = getArkUiBuiltinSdk();
     if (!sdk) return;

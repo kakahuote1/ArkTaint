@@ -1,38 +1,44 @@
-import { TaintFlow } from "../../kernel/model/TaintFlow";
+import { TaintFlow } from "../kernel/model/TaintFlow";
 import {
     MaterializedTaintFlow,
-    PostsolveContext,
-    WitnessDag,
-    WitnessDagEdge,
-    WitnessPath,
-} from "./PostsolveTypes";
-import { FactPredecessorRecord } from "../../kernel/propagation/PropagationTypes";
+    PathMaterializationOptions,
+    ProvenanceDag,
+    ProvenanceDagEdge,
+    ProvenancePath,
+    ProvenancePathContext,
+    ProvenancePathEnumeration,
+    ProvenancePathIncompleteReason,
+} from "./ProvenancePathTypes";
 
 const DEFAULT_MAX_PATHS = 128;
 const DEFAULT_MAX_DEPTH = 128;
 
 export function materializeTaintFlowPaths(
     flow: TaintFlow,
-    context: PostsolveContext,
-    options?: {
-        maxPaths?: number;
-        maxDepth?: number;
-    },
+    context: ProvenancePathContext,
+    options?: PathMaterializationOptions,
 ): MaterializedTaintFlow | undefined {
     if (!flow.sinkFactId) return undefined;
-    const dag = buildWitnessDag(flow.sinkFactId, context);
+    const dag = buildProvenanceDag(flow.sinkFactId, context);
     if (dag.factIds.size === 0) return undefined;
-    const paths = enumerateWitnessPaths(dag, context, options);
+    const enumeration = enumerateProvenancePaths(dag, options);
+    const paths = deduplicateProvenancePaths(enumeration.paths);
     if (paths.length === 0) return undefined;
+    const incompleteReasons = mergeIncompleteReasons([
+        ...enumeration.incompleteReasons,
+        ...paths.flatMap(path => path.incompleteReasons || []),
+    ]);
     return {
         sinkFactId: flow.sinkFactId,
-        paths: deduplicateWitnessPaths(paths),
+        status: incompleteReasons.length > 0 ? "incomplete" : "complete",
+        incompleteReasons,
+        paths,
     };
 }
 
-export function buildWitnessDag(sinkFactId: string, context: PostsolveContext): WitnessDag {
+export function buildProvenanceDag(sinkFactId: string, context: ProvenancePathContext): ProvenanceDag {
     const factIds = new Set<string>();
-    const edges: WitnessDagEdge[] = [];
+    const edges: ProvenanceDagEdge[] = [];
     const sourceFactIds = new Set<string>();
     const visited = new Set<string>();
     const stack = [sinkFactId];
@@ -68,41 +74,45 @@ export function buildWitnessDag(sinkFactId: string, context: PostsolveContext): 
     };
 }
 
-export function enumerateWitnessPaths(
-    dag: WitnessDag,
-    context: PostsolveContext,
-    options?: {
-        maxPaths?: number;
-        maxDepth?: number;
-    },
-): WitnessPath[] {
+export function enumerateProvenancePaths(
+    dag: ProvenanceDag,
+    options?: PathMaterializationOptions,
+): ProvenancePathEnumeration {
     const maxPaths = options?.maxPaths || DEFAULT_MAX_PATHS;
     const maxDepth = options?.maxDepth || DEFAULT_MAX_DEPTH;
-    const predecessorAdjacency = new Map<string, WitnessDagEdge[]>();
+    const predecessorAdjacency = new Map<string, ProvenanceDagEdge[]>();
     for (const edge of dag.edges) {
         const bucket = predecessorAdjacency.get(edge.toFactId) || [];
         if (!predecessorAdjacency.has(edge.toFactId)) predecessorAdjacency.set(edge.toFactId, bucket);
         bucket.push(edge);
     }
 
-    const paths: WitnessPath[] = [];
+    const paths: ProvenancePath[] = [];
     const pathFactIds: string[] = [];
-    const pathEdges: WitnessDagEdge[] = [];
+    const pathEdges: ProvenanceDagEdge[] = [];
     const visitedOnPath = new Set<string>();
+    const incompleteReasons = new Set<ProvenancePathIncompleteReason>();
 
     const dfs = (currentFactId: string, depth: number): void => {
-        if (paths.length >= maxPaths) return;
+        if (paths.length >= maxPaths) {
+            incompleteReasons.add("max_paths");
+            return;
+        }
         if (depth > maxDepth) {
+            incompleteReasons.add("max_depth");
             const orderedFactIds = [...pathFactIds, currentFactId].reverse();
             const orderedEdges = [...pathEdges].reverse();
             paths.push({
                 factIds: orderedFactIds,
                 edges: orderedEdges,
+                status: "incomplete",
+                incompleteReasons: ["max_depth"],
                 truncated: true,
             });
             return;
         }
         if (visitedOnPath.has(currentFactId)) {
+            incompleteReasons.add("cycle_skipped");
             return;
         }
 
@@ -116,10 +126,14 @@ export function enumerateWitnessPaths(
             paths.push({
                 factIds: orderedFactIds,
                 edges: orderedEdges,
+                status: "complete",
             });
         } else {
             for (const edge of predecessors) {
-                if (paths.length >= maxPaths) break;
+                if (paths.length >= maxPaths) {
+                    incompleteReasons.add("max_paths");
+                    break;
+                }
                 pathEdges.push(edge);
                 dfs(edge.fromFactId, depth + 1);
                 pathEdges.pop();
@@ -131,11 +145,16 @@ export function enumerateWitnessPaths(
     };
 
     dfs(dag.sinkFactId, 0);
-    return paths;
+    const reasons = mergeIncompleteReasons([...incompleteReasons]);
+    return {
+        paths,
+        status: reasons.length > 0 ? "incomplete" : "complete",
+        incompleteReasons: reasons,
+    };
 }
 
-function deduplicateWitnessPaths(paths: WitnessPath[]): WitnessPath[] {
-    const dedup = new Map<string, WitnessPath>();
+function deduplicateProvenancePaths(paths: ProvenancePath[]): ProvenancePath[] {
+    const dedup = new Map<string, ProvenancePath>();
     for (const path of paths) {
         const key = path.factIds.join("->");
         const existing = dedup.get(key);
@@ -143,18 +162,29 @@ function deduplicateWitnessPaths(paths: WitnessPath[]): WitnessPath[] {
             dedup.set(key, {
                 factIds: [...path.factIds],
                 edges: [...path.edges],
+                status: path.status,
+                incompleteReasons: [...(path.incompleteReasons || [])],
                 truncated: path.truncated,
             });
             continue;
         }
         existing.truncated = existing.truncated || path.truncated;
+        existing.incompleteReasons = mergeIncompleteReasons([
+            ...(existing.incompleteReasons || []),
+            ...(path.incompleteReasons || []),
+        ]);
+        existing.status = existing.incompleteReasons.length > 0 ? "incomplete" : existing.status;
     }
     return [...dedup.values()];
 }
 
-export function materializeWitnessFactSummaries(
-    path: WitnessPath,
-    context: PostsolveContext,
+function mergeIncompleteReasons(reasons: ProvenancePathIncompleteReason[]): ProvenancePathIncompleteReason[] {
+    return [...new Set(reasons)].sort();
+}
+
+export function materializeProvenanceFactSummaries(
+    path: ProvenancePath,
+    context: ProvenancePathContext,
 ): Array<{
     factId: string;
     methodSignature?: string;

@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 
-type LayerId = "L1" | "L2" | "L4" | "L6" | "L7";
+type LayerId = "L1" | "L2" | "L3" | "L4" | "L6" | "L7";
 
 interface ImportEdge {
     fromFile: string;
@@ -33,6 +33,28 @@ const ALLOWED_MODULE_CORE_IMPORTS = new Set<string>([
 ]);
 const LEGACY_ALLOWED_VIOLATIONS = new Set<string>([
 ]);
+const FORBIDDEN_LEGACY_PATHS = [
+    "src/core/orchestration/ArkUiSdkConfig.ts",
+    "src/core/orchestration/modules/ModuleSpecCanonicalizer.ts",
+    "src/core/orchestration/modules/ModuleSpecValidator.ts",
+    "src/core/semanticflow/SemanticFlowRuntime.ts",
+    "src/core/kernel/semantic_state",
+    "src/tests/semantic_state",
+    "src/core/orchestration/postsolve/WitnessMaterializer.ts",
+    "src/tests/runtime/test_witness_materializer.ts",
+    "src/tests/analyze/test_analyze_semantic_state_mandatory.ts",
+    "src/tests/analyze/test_analyze_semantic_report_render.ts",
+];
+const FORBIDDEN_LEGACY_TOKENS = [
+    "semantic_state",
+    "SemanticState",
+    "solveSemanticState",
+    "semanticState",
+    "WitnessMaterializer",
+    "WitnessPath",
+    "WitnessDag",
+    "materializeWitness",
+];
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -99,7 +121,11 @@ function resolveLayerId(absPath: string): LayerId | null {
     if (normalized.startsWith("src/core/orchestration/")) return "L7";
     if (normalized.startsWith("src/core/substrate/")) return "L1";
     if (normalized.startsWith("src/core/entry/")) return "L2";
+    if (normalized.startsWith("src/core/model/")) return "L3";
+    if (normalized.startsWith("src/core/llm/")) return "L3";
+    if (normalized.startsWith("src/core/semanticflow/")) return "L3";
     if (normalized.startsWith("src/core/rules/")) return "L6";
+    if (normalized.startsWith("src/core/provenance/")) return "L4";
     if (normalized.startsWith("src/core/kernel/")) return "L4";
     return null;
 }
@@ -139,6 +165,7 @@ function isAllowedLayerDependency(fromLayer: LayerId, toLayer: LayerId): boolean
     const allowed: Record<Exclude<LayerId, "L7">, Set<LayerId>> = {
         L1: new Set(["L1"]),
         L2: new Set(["L1", "L2"]),
+        L3: new Set(["L1", "L2", "L3", "L4", "L6"]),
         L4: new Set(["L1", "L4", "L6"]),
         L6: new Set(["L6"]),
     };
@@ -223,6 +250,30 @@ function collectCoreToModelImports(): Array<{ fromFile: string; toFile: string }
     });
 }
 
+function collectForbiddenLegacyArtifacts(): string[] {
+    const violations: string[] = [];
+    for (const item of FORBIDDEN_LEGACY_PATHS) {
+        if (fs.existsSync(path.resolve(item))) {
+            violations.push(`legacy path remains: ${item}`);
+        }
+    }
+
+    const textFiles = [
+        ...collectTypeScriptFiles(path.resolve("src")),
+        path.resolve("package.json"),
+    ].filter(file => fs.existsSync(file) && normalizeFile(file) !== "src/tests/runtime/test_layer_dependency_gate.ts");
+
+    for (const file of textFiles) {
+        const text = fs.readFileSync(file, "utf8");
+        for (const token of FORBIDDEN_LEGACY_TOKENS) {
+            if (!text.includes(token)) continue;
+            violations.push(`legacy token ${token} remains in ${normalizeFile(file)}`);
+        }
+    }
+
+    return violations.sort((a, b) => a.localeCompare(b));
+}
+
 function isAllowedRuleImport(edge: ImportEdge): boolean {
     return edge.toFile === "src/core/rules/RuleSchema.ts";
 }
@@ -246,6 +297,7 @@ async function main(): Promise<void> {
     const unexpectedModuleImports = moduleImports.filter(edge => !isAllowedModuleImport(edge));
     const unexpectedPluginImports = pluginImports.filter(edge => !isAllowedPluginImport(edge));
     const forbiddenModuleSupportSpecifiers = collectForbiddenModuleSupportSpecifiers(MODULE_ROOT);
+    const forbiddenLegacyArtifacts = collectForbiddenLegacyArtifacts();
 
     if (resolvedLegacy.length > 0) {
         console.log(`resolved_legacy_violations=${resolvedLegacy.length}`);
@@ -290,6 +342,12 @@ async function main(): Promise<void> {
             `  MODULE ${item.fromFile} -> ${item.specifier}`,
         ).join("\n")}`,
     );
+    assert(
+        forbiddenLegacyArtifacts.length === 0,
+        `Layer dependency gate found old semantic/postsolve entry artifacts:\n${forbiddenLegacyArtifacts.map(item =>
+            `  ${item}`,
+        ).join("\n")}`,
+    );
 
     console.log("PASS test_layer_dependency_gate");
     console.log(`legacy_violation_count=${illegalImports.length}`);
@@ -298,6 +356,7 @@ async function main(): Promise<void> {
     console.log(`rule_core_imports=${ruleImports.length}`);
     console.log(`module_core_imports=${moduleImports.length}`);
     console.log(`plugin_core_imports=${pluginImports.length}`);
+    console.log(`forbidden_legacy_artifacts=${forbiddenLegacyArtifacts.length}`);
 }
 
 main().catch(error => {

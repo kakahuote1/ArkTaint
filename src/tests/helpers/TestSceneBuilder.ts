@@ -1,7 +1,7 @@
 import * as path from "path";
 import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
-import { injectArkUiSdk } from "../../core/orchestration/ArkUiSdkConfig";
+import { injectArkUiSdk } from "../../core/substrate/ArkUiSdkConfig";
 
 /**
  * Registers taint_mock files as SDK files in the Scene's internal map.

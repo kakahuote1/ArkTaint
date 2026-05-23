@@ -19,6 +19,8 @@ import {
     resolveClassKeyFromMethodSig,
     resolveHarmonyMethods,
 } from "../../../kernel/contracts/HarmonyModuleUtils";
+import { createHandoffPropagationSession } from "../../../kernel/semantic_handoff/SemanticHandoffPropagation";
+import { createExactHandoffHandle, HandoffEffect } from "../../../kernel/semantic_handoff/SemanticHandoffTypes";
 
 export interface HarmonyRoutePushMethodOption {
     methodName: string;
@@ -156,129 +158,15 @@ export function createHarmonyRouteBridgeSemanticModule(
             nav_deferred_bindings: navDeferredBindingCount,
         });
 
-        const loggedRouterConservativeSkips = new Set<string>();
+        const handoff = createHandoffPropagationSession(buildRouterHandoffEffects(
+            model,
+            navTriggerSitesByRouteKey,
+            internalOptions,
+        ));
 
         return {
             onFact(event) {
-                const emissions = event.emit.collector();
-
-                const fieldHead = event.current.fieldHead();
-                const currentField = event.current.cloneField();
-                const resultField = unwrapRouterPayloadField(currentField, internalOptions.payloadUnwrapPrefixes);
-                const routerKeys = new Set<string>(model.pushArgNodeIdToRouterKeys.get(event.current.nodeId) || []);
-                const endpointKey = fieldHead
-                    ? `${event.current.nodeId}#${fieldHead}`
-                    : undefined;
-                if (endpointKey) {
-                    for (const routerKey of model.pushFieldEndpointToRouterKeys.get(endpointKey) || []) {
-                        routerKeys.add(routerKey);
-                    }
-                }
-
-                const valueFieldTargets = model.pushValueFieldTargetsByNodeId.get(event.current.nodeId) || [];
-                for (const target of valueFieldTargets) {
-                    const resultObjectIds = model.getResultObjectNodeIdsByRouterKey.get(target.routerKey);
-                    const fieldPath = target.passthrough
-                        ? currentField
-                        : (currentField && currentField.length > 0
-                            ? [target.fieldName, ...currentField]
-                            : [target.fieldName]);
-                    const normalizedFieldPath = unwrapRouterPayloadField(fieldPath, internalOptions.payloadUnwrapPrefixes);
-                    const emissionField = normalizedFieldPath && normalizedFieldPath.length > 0
-                        ? normalizedFieldPath
-                        : [];
-                    if (!resultObjectIds || resultObjectIds.size === 0) {
-                        const targetNodeIds = model.getResultNodeIdsByRouterKey.get(target.routerKey);
-                        if (!targetNodeIds || targetNodeIds.size === 0) continue;
-                        emissions.push(
-                            emissionField.length > 0
-                                ? event.emit.toFields(
-                                    targetNodeIds,
-                                    emissionField,
-                                    "Harmony-RouterField",
-                                    { allowUnreachableTarget: true },
-                                )
-                                : event.emit.toNodes(
-                                    targetNodeIds,
-                                    "Harmony-RouterField",
-                                    { allowUnreachableTarget: true },
-                                ),
-                        );
-                        continue;
-                    }
-                    for (const objectNodeId of resultObjectIds) {
-                        if (!normalizedFieldPath || normalizedFieldPath.length === 0) {
-                            emissions.push(event.emit.toNode(objectNodeId, "Harmony-RouterField"));
-                            continue;
-                        }
-                        emissions.push(event.emit.toField(objectNodeId, normalizedFieldPath, "Harmony-RouterField"));
-                    }
-                }
-
-                for (const routerKey of routerKeys) {
-                    const triggerSites = navTriggerSitesByRouteKey.get(routerKey);
-                    if (triggerSites && triggerSites.length > 0) {
-                        const triggerArgNodeIds = new Set<number>();
-                        for (const triggerSite of triggerSites) {
-                            for (const nodeId of triggerSite.argNodeIds) {
-                                triggerArgNodeIds.add(nodeId);
-                            }
-                        }
-                        if (triggerArgNodeIds.size > 0) {
-                            emissions.push(event.emit.toNodes(
-                                triggerArgNodeIds,
-                                "Harmony-RouterTrigger",
-                                { allowUnreachableTarget: true },
-                            ));
-                        }
-                    }
-                    const targetNodeIds = model.getResultNodeIdsByRouterKey.get(routerKey);
-                    if (targetNodeIds && targetNodeIds.size > 0) {
-                        const isUngroupedPush = model.ungroupedPushNodeIds.has(event.current.nodeId)
-                            || (!!endpointKey && model.ungroupedPushFieldEndpoints.has(endpointKey));
-                        if (isUngroupedPush) {
-                            const pushCount = model.pushCallCountByRouterKey.get(routerKey) || 0;
-                            const routeCount = model.distinctRouteKeyCountByRouterKey.get(routerKey) || 0;
-                            const hasAmbiguousTargets = targetNodeIds.size > 1;
-                            const hasAmbiguousRoutes = routeCount === 0 || routeCount > 1;
-                            if (pushCount > 1 && hasAmbiguousTargets && hasAmbiguousRoutes) {
-                                const skipKey = `${routerKey}:${event.current.nodeId}:${endpointKey || "-"}`;
-                                if (!loggedRouterConservativeSkips.has(skipKey)) {
-                                    loggedRouterConservativeSkips.add(skipKey);
-                                    event.debug.skip(
-                                        `[Harmony-Router] conservative skip for ungrouped push node=${event.current.nodeId} `
-                                        + `(router=${routerKey}, pushCount=${pushCount}, routeCount=${routeCount})`,
-                                    );
-                                }
-                                continue;
-                            }
-                        }
-
-                        if (currentField && currentField.length > 0) {
-                            emissions.push(
-                                resultField && resultField.length > 0
-                                    ? event.emit.toFields(targetNodeIds, resultField, "Harmony-RouterBridge")
-                                    : event.emit.toNodes(targetNodeIds, "Harmony-RouterBridge"),
-                            );
-                        } else {
-                            emissions.push(event.emit.toNodes(targetNodeIds, "Harmony-RouterBridge"));
-                        }
-                    }
-
-                    if (endpointKey) {
-                        const resultObjectIds = model.getResultObjectNodeIdsByRouterKey.get(routerKey);
-                        if (!resultObjectIds || resultObjectIds.size === 0) continue;
-                        for (const objectNodeId of resultObjectIds) {
-                            if (!resultField || resultField.length === 0) {
-                                emissions.push(event.emit.toNode(objectNodeId, "Harmony-RouterField"));
-                                continue;
-                            }
-                            emissions.push(event.emit.toField(objectNodeId, resultField, "Harmony-RouterField"));
-                        }
-                    }
-                }
-
-                return emissions.done();
+                return handoff.emitForFact(event);
             },
         };
         },
@@ -290,6 +178,213 @@ export const harmonyRouterModule: TaintModule = harmonyRouterSemanticModule;
 
 type RouterModel = RouterSemanticModel;
 type BuildRouterModelArgs = BuildRouterSemanticModelArgs;
+
+const ROUTER_BRIDGE_HANDOFF_FAMILY = "harmony.router.bridge";
+const ROUTER_FIELD_HANDOFF_FAMILY = "harmony.router.field";
+const ROUTER_TRIGGER_HANDOFF_FAMILY = "harmony.router.trigger";
+
+function buildRouterHandoffEffects(
+    model: RouterModel,
+    navTriggerSitesByRouteKey: Map<string, Array<{ argNodeIds: number[] }>>,
+    options: BuildRouterInternalOptions,
+): HandoffEffect[] {
+    const effects: HandoffEffect[] = [];
+
+    for (const [nodeId, routerKeys] of model.pushArgNodeIdToRouterKeys.entries()) {
+        for (const routerKey of routerKeys) {
+            addRouterSourceEffects(effects, model, routerKey, { nodeId }, navTriggerSitesByRouteKey, options);
+        }
+    }
+
+    for (const [endpointKey, routerKeys] of model.pushFieldEndpointToRouterKeys.entries()) {
+        const [nodeIdText, fieldHead] = endpointKey.split("#");
+        const nodeId = Number(nodeIdText);
+        if (!Number.isFinite(nodeId) || !fieldHead) continue;
+        for (const routerKey of routerKeys) {
+            addRouterSourceEffects(
+                effects,
+                model,
+                routerKey,
+                { nodeId, fieldHead, endpointKey },
+                navTriggerSitesByRouteKey,
+                options,
+            );
+        }
+    }
+
+    for (const [sourceNodeId, targets] of model.pushValueFieldTargetsByNodeId.entries()) {
+        for (const target of targets) {
+            const handle = createExactHandoffHandle(
+                ROUTER_FIELD_HANDOFF_FAMILY,
+                `value:${sourceNodeId}:${target.routerKey}:${target.fieldName}:${target.passthrough ? "pass" : "prefix"}`,
+            );
+            effects.push({
+                kind: "put",
+                handle,
+                source: { nodeId: sourceNodeId },
+                reason: "Harmony-RouterField",
+                originModel: "harmony.router",
+            });
+            const resultObjectIds = model.getResultObjectNodeIdsByRouterKey.get(target.routerKey);
+            const resultNodeIds = model.getResultNodeIdsByRouterKey.get(target.routerKey);
+            const currentField = target.passthrough
+                ? { mode: "preserve" as const, unwrapPrefixes: options.payloadUnwrapPrefixes }
+                : { mode: "prefix" as const, prefix: [target.fieldName], unwrapPrefixes: options.payloadUnwrapPrefixes };
+            if (resultObjectIds && resultObjectIds.size > 0) {
+                for (const objectNodeId of resultObjectIds) {
+                    effects.push({
+                        kind: "get",
+                        handle,
+                        target: {
+                            nodeId: objectNodeId,
+                            currentField,
+                            preserveSourceField: false,
+                        },
+                        reason: "Harmony-RouterField",
+                        originModel: "harmony.router",
+                    });
+                }
+                continue;
+            }
+            if (resultNodeIds && resultNodeIds.size > 0) {
+                for (const targetNodeId of resultNodeIds) {
+                    effects.push({
+                        kind: "get",
+                        handle,
+                        target: {
+                            nodeId: targetNodeId,
+                            currentField,
+                            allowUnreachableTarget: true,
+                            preserveSourceField: false,
+                        },
+                        reason: "Harmony-RouterField",
+                        originModel: "harmony.router",
+                    });
+                }
+            }
+        }
+    }
+
+    return effects;
+}
+
+function addRouterSourceEffects(
+    effects: HandoffEffect[],
+    model: RouterModel,
+    routerKey: string,
+    source: { nodeId: number; fieldHead?: string; endpointKey?: string },
+    navTriggerSitesByRouteKey: Map<string, Array<{ argNodeIds: number[] }>>,
+    options: BuildRouterInternalOptions,
+): void {
+    const triggerHandle = createExactHandoffHandle(ROUTER_TRIGGER_HANDOFF_FAMILY, routerKey);
+    effects.push({
+        kind: "put",
+        handle: triggerHandle,
+        source: { nodeId: source.nodeId, fieldHead: source.fieldHead },
+        reason: "Harmony-RouterTrigger",
+        originModel: "harmony.router",
+    });
+    const triggerSites = navTriggerSitesByRouteKey.get(routerKey);
+    if (triggerSites && triggerSites.length > 0) {
+        const triggerArgNodeIds = new Set<number>();
+        for (const triggerSite of triggerSites) {
+            for (const nodeId of triggerSite.argNodeIds) {
+                triggerArgNodeIds.add(nodeId);
+            }
+        }
+        for (const targetNodeId of triggerArgNodeIds) {
+            effects.push({
+                kind: "get",
+                handle: triggerHandle,
+                target: {
+                    nodeId: targetNodeId,
+                    allowUnreachableTarget: true,
+                    preserveSourceField: false,
+                },
+                reason: "Harmony-RouterTrigger",
+                originModel: "harmony.router",
+            });
+        }
+    }
+
+    if (!shouldSkipRouterBridgeSource(model, routerKey, source)) {
+        const bridgeHandle = createExactHandoffHandle(ROUTER_BRIDGE_HANDOFF_FAMILY, routerKey);
+        effects.push({
+            kind: "put",
+            handle: bridgeHandle,
+            source: { nodeId: source.nodeId, fieldHead: source.fieldHead },
+            reason: "Harmony-RouterBridge",
+            originModel: "harmony.router",
+        });
+        const targetNodeIds = model.getResultNodeIdsByRouterKey.get(routerKey);
+        if (targetNodeIds && targetNodeIds.size > 0) {
+            for (const targetNodeId of targetNodeIds) {
+                effects.push({
+                    kind: "get",
+                    handle: bridgeHandle,
+                    target: {
+                        nodeId: targetNodeId,
+                        currentField: {
+                            mode: "preserve",
+                            unwrapPrefixes: options.payloadUnwrapPrefixes,
+                        },
+                        preserveSourceField: false,
+                    },
+                    reason: "Harmony-RouterBridge",
+                    originModel: "harmony.router",
+                });
+            }
+        }
+    }
+
+    if (source.fieldHead) {
+        const objectHandle = createExactHandoffHandle(ROUTER_FIELD_HANDOFF_FAMILY, `object:${routerKey}`);
+        effects.push({
+            kind: "put",
+            handle: objectHandle,
+            source: { nodeId: source.nodeId, fieldHead: source.fieldHead },
+            reason: "Harmony-RouterField",
+            originModel: "harmony.router",
+        });
+        const resultObjectIds = model.getResultObjectNodeIdsByRouterKey.get(routerKey);
+        if (resultObjectIds && resultObjectIds.size > 0) {
+            for (const objectNodeId of resultObjectIds) {
+                effects.push({
+                    kind: "get",
+                    handle: objectHandle,
+                    target: {
+                        nodeId: objectNodeId,
+                        currentField: {
+                            mode: "preserve",
+                            unwrapPrefixes: options.payloadUnwrapPrefixes,
+                            requireField: true,
+                        },
+                        preserveSourceField: false,
+                    },
+                    reason: "Harmony-RouterField",
+                    originModel: "harmony.router",
+                });
+            }
+        }
+    }
+}
+
+function shouldSkipRouterBridgeSource(
+    model: RouterModel,
+    routerKey: string,
+    source: { nodeId: number; endpointKey?: string },
+): boolean {
+    const targetNodeIds = model.getResultNodeIdsByRouterKey.get(routerKey);
+    if (!targetNodeIds || targetNodeIds.size === 0) return false;
+    const isUngroupedPush = model.ungroupedPushNodeIds.has(source.nodeId)
+        || (!!source.endpointKey && model.ungroupedPushFieldEndpoints.has(source.endpointKey));
+    if (!isUngroupedPush) return false;
+    const pushCount = model.pushCallCountByRouterKey.get(routerKey) || 0;
+    const routeCount = model.distinctRouteKeyCountByRouterKey.get(routerKey) || 0;
+    const hasAmbiguousTargets = targetNodeIds.size > 1;
+    const hasAmbiguousRoutes = routeCount === 0 || routeCount > 1;
+    return pushCount > 1 && hasAmbiguousTargets && hasAmbiguousRoutes;
+}
 
 function unwrapRouterPayloadField(fieldPath?: string[], unwrapPrefixes: string[] = DEFAULT_ROUTER_OPTIONS.payloadUnwrapPrefixes): string[] | undefined {
     if (!fieldPath || fieldPath.length === 0) {

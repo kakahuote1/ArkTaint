@@ -2,13 +2,14 @@ import { ArkInstanceInvokeExpr } from "../../../../arkanalyzer/out/src/core/base
 import { ArkAssignStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { TaintFlow } from "../../kernel/model/TaintFlow";
-import { PostsolveContext, PostsolveEvidence, WitnessPath } from "./PostsolveTypes";
+import { ProvenancePath } from "../../provenance/ProvenancePathTypes";
+import { PostsolveContext, PostsolveEvidence } from "./PostsolveTypes";
 import { collectCandidateReadSites } from "./SafeOverwriteRefinement";
 import { methodSignatureTextFromStmt, normalizeQuotedLiteral, sameValueLike } from "./PostsolveRuleUtils";
 
 export function evaluateDeleteBeforeReadPath(
     flow: TaintFlow,
-    path: WitnessPath,
+    path: ProvenancePath,
     context: PostsolveContext,
 ): PostsolveEvidence[] {
     const readSites = collectCandidateReadSites(path, context);

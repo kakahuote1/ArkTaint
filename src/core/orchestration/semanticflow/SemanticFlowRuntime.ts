@@ -1,24 +1,24 @@
-import type { Scene } from "../../../arkanalyzer/out/src/Scene";
-import type { TaintFlow } from "../kernel/model/TaintFlow";
-import type { ModuleSpec } from "../kernel/contracts/ModuleSpec";
-import type { ArkMainSpec } from "../entry/arkmain/ArkMainSpec";
-import { loadArkMainSeeds } from "../entry/arkmain/ArkMainLoader";
-import { TaintPropagationEngine, type BuildPAGOptions, type TaintEngineOptions } from "../orchestration/TaintPropagationEngine";
+import type { Scene } from "../../../../arkanalyzer/out/src/Scene";
+import type { TaintFlow } from "../../kernel/model/TaintFlow";
+import type { ModuleSpec } from "../../kernel/contracts/ModuleSpec";
+import type { ArkMainSpec } from "../../entry/arkmain/ArkMainSpec";
+import { loadArkMainSeeds } from "../../entry/arkmain/ArkMainLoader";
+import { TaintPropagationEngine, type BuildPAGOptions, type TaintEngineOptions } from "../TaintPropagationEngine";
 import {
     buildSemanticFlowEngineAugment,
     consolidateSemanticFlowAnalysisAugmentByFootprint,
-} from "./SemanticFlowArtifacts";
+} from "../../semanticflow/SemanticFlowArtifacts";
 import type {
     SemanticFlowAnalysisAugment,
     SemanticFlowEngineAugment,
     SemanticFlowSessionResult,
-} from "./SemanticFlowTypes";
+} from "../../semanticflow/SemanticFlowTypes";
 import type {
     SanitizerRule,
     SinkRule,
     SourceRule,
     TransferRule,
-} from "../rules/RuleSchema";
+} from "../../rules/RuleSchema";
 
 export interface SemanticFlowAnalysisOptions {
     k?: number;

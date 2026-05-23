@@ -3,9 +3,10 @@ import {
     collectSemanticFlowSlotAliases,
     formatSemanticFlowSlotAlias,
 } from "./SemanticFlowSlotAliases";
+import { formatSemanticFlowRuntimeSkills } from "./SemanticFlowRuntimeSkills";
 
 /** Bump when prompt instructions / JSON shape expectations change (invalidates on-disk session cache keys). */
-export const SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION = 6;
+export const SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION = 8;
 
 export interface SemanticFlowPrompt {
     system: string;
@@ -29,11 +30,13 @@ function truncateRepairText(value: string, max: number): string {
 export function buildSemanticFlowPrompt(input: SemanticFlowDecisionInput): SemanticFlowPrompt {
     const { anchor, draftId, slice, draft, lastMarker, lastDelta, round, history } = input;
     const slotAliases = collectSemanticFlowSlotAliases(input);
+    const runtimeSkills = formatSemanticFlowRuntimeSkills();
 
     const system = [
-        "You classify one API semantic slice for static taint modeling.",
-        "Your job is not to recover a full source-to-sink path.",
-        "Your job is to recover a local transfer summary candidate for the anchor surface.",
+        "You are ArkTaint's runtime LLM modeling harness for one API/framework semantic slice.",
+        "Your output is a candidate model asset in exactly one of three planes when evidence is sufficient: rules, modules, or arkmain.",
+        "Your job is not to recover a full source-to-sink path, decide whether a report is a vulnerability, or write solver logic.",
+        "Your job is to describe stable API semantics that ArkTaint can load as model assets; propagation, path reconstruction, and postsolve filtering are handled by the engine.",
         "",
         "Return JSON only. No markdown fences. No commentary.",
         "",
@@ -43,6 +46,15 @@ export function buildSemanticFlowPrompt(input: SemanticFlowDecisionInput): Seman
         '- "reject": only when the candidate itself should be dropped without a usable summary',
         "",
         'Valid classifications: "arkmain", "rule", "module".',
+        "",
+        "Model asset planes:",
+        '- classification=rule produces the rules plane: source, sink, sanitizer, or direct visible transfer for one surface.',
+        '- classification=module produces the modules plane: cross-surface, hidden-state, semantic-handoff, callback, declarative, container, storage, route, event, async, or wrapper semantics that cannot be expressed as a one-surface rule.',
+        '- classification=arkmain produces the arkmain plane: framework-managed entry, lifecycle, page, ability, extension, or callback scheduling semantics.',
+        "- These are model assets, not final security conclusions. A source-to-sink report is judged later by the analysis and postsolve stages.",
+        "",
+        "Loaded runtime LLM skills from src/core/semanticflow/llm_skills:",
+        runtimeSkills,
         "",
         "When status=done, return:",
         "{",
@@ -111,18 +123,20 @@ export function buildSemanticFlowPrompt(input: SemanticFlowDecisionInput): Seman
         '{ "status": "reject", "reason": string }',
         "",
         "Rules:",
+        "- Treat this as ArkTaint's project-modeling harness, not an IDE/Codex engineering skill. The answer must constrain ArkTaint model generation only.",
         "- Use resolution=resolved only when the summary is specific enough to generate a stable ArkMain artifact, Rule artifact, or ModuleSpec.",
         '- The only valid positive resolution token is "resolved". Do not use "source", "sink", "transfer", "rule", or "module" as resolution values.',
         "- Use resolution=irrelevant, no-transfer, wrapper-only, or need-human-check when no final artifact should be emitted.",
         "- If resolution is not resolved, classification may be omitted.",
         "- If resolution is not resolved, do not leave residual ruleKind/sourceKind/moduleKind/moduleSpec; use transfers=[] and explain the non-artifact reason in rationale.",
-        "- Decision order: first ask whether this is a framework-managed external entry. If yes, use arkmain. Otherwise ask whether one visible anchor surface is enough. If yes, use rule. Only use module when hidden mechanism or cross-surface semantics are necessary.",
+        "- Decision order: first ask whether this is a framework-managed external entry. If yes, use arkmain. Otherwise ask whether one visible anchor surface is enough. If yes, use rule. Only use module when hidden mechanism, semantic handoff, framework carrier, callback/async dispatch, or cross-surface semantics are necessary.",
         "- Choose classification=rule only when one anchor surface is sufficient and no hidden mechanism is needed.",
         "- For classification=rule, ruleKind is mandatory and moduleSpec/moduleKind must be absent.",
         "- ruleKind=source means taint originates from API output with no tainted input slot; use outputs only and no transfers.",
         "- ruleKind=sink means tainted input is consumed; use inputs only and no transfers.",
         "- If a wrapper passes an argument, field, or derived string into a network/storage/log/navigation/IPC API and does not return that data, summarize the wrapper as ruleKind=sink over the consumed input slot.",
         "- ruleKind=sanitizer means taint is stopped or neutralized at this anchor. Do not also model it as a transfer. If taint still reaches a visible output slot, it is not a sanitizer.",
+        "- Only emit sanitizer when the API is a semantically certain sanitizer for this sink family. Formatting, stringify, toString, substring, encoding, logging, or validation-style names alone are not sanitizers.",
         "- ruleKind=transfer means visible slot-to-slot propagation inside the anchor surface only. Use anchor-local slots only; do not use companion surfaces, carrier state, dispatch, or constraints.",
         "- ruleKind=transfer must not use callback_param, method_this, method_param, or decorated_field_value endpoints; those require classification=module with moduleKind=bridge.",
         "- For field-sensitive slots, use shorthands such as arg0.data.items -> field:listDataSource or result.data -> ret.",
@@ -131,11 +145,13 @@ export function buildSemanticFlowPrompt(input: SemanticFlowDecisionInput): Seman
         "- If a method has no tainted input and returns data from a framework call, model it as classification=rule, ruleKind=source, outputs=[\"ret\"]. Do not use module for this.",
         "- A local owner-field or storage write is not a sink unless it writes to an external sensitive API. If it must be modeled as state propagation, use valid slots such as base.storage.key instead of pseudo slots like storage.key.",
         "- A wrapper around an already-known framework source/sink/transfer should summarize only the wrapper-visible effect. Do not invent hidden internal slots for the wrapped framework state.",
+        "- Project or third-party wrappers belong in generated project assets. Do not turn project-private helper behavior into universal kernel assumptions.",
         "- A boolean/status return is not a data transfer from request arguments unless the returned value itself contains the argument payload. Prefer sink or no-transfer for request helpers that return success/failure.",
         "- If the rationale says the return value does not carry the original payload, do not emit arg -> ret transfer for that method.",
         "- If hidden state or carrier reasoning is only explanatory and not needed for a valid artifact, omit relations entirely rather than attaching carrier/companions to classification=rule.",
-        "- Choose classification=module only when single-surface rule semantics are insufficient because of companion surfaces, carrier state, deferred callback dispatch, or structural constraints.",
+        "- Choose classification=module only when single-surface rule semantics are insufficient because of companion surfaces, carrier state, semantic handoff handles, deferred callback dispatch, wrapper protocols, or structural constraints.",
         "- classification=module must not include ruleKind/sourceKind or entryPattern.",
+        "- A module asset describes semantics that the engine compiles into normalized effects or module behavior; do not describe final taint reachability as if the LLM were the solver.",
         "- For classification=module, prefer returning an explicit moduleSpec whenever the summary already supports one.",
         '- moduleSpec may be either a full ModuleSpec root: { "id": "...", "semantics": [ { ... } ] } or one single semantic object such as { "kind": "keyed_storage", ... }.',
         "- Do not return legacy free-form keys such as writeSurface/readSurface/keySlot/valueSlot/returnSlot/persistence.",
@@ -164,6 +180,7 @@ export function buildSemanticFlowPrompt(input: SemanticFlowDecisionInput): Seman
         "- relations.constraints accepts only structural constraints with kind=same_receiver or kind=same_address. Put informal condition/effect notes in rationale instead.",
         "- If a hidden carrier is necessary but cannot yet be described in valid summary/module terms, ask for more evidence instead of forcing a resolved answer.",
         "- You may use transfer shorthand: arg0 -> ret, companion:set.arg1 -> ret.",
+        "- Never include credentials, API keys, environment variables, local secret paths, or copied secret values in rationale or generated artifacts.",
     ].join("\n");
 
     const user = [
@@ -223,11 +240,12 @@ export function buildSemanticFlowPrompt(input: SemanticFlowDecisionInput): Seman
 
 export function buildSemanticFlowRepairPrompt(input: SemanticFlowRepairPromptInput): SemanticFlowPrompt {
     const system = [
-        "You are repairing a previously invalid JSON response for one API semantic slice.",
+        "You are repairing a previously invalid JSON response for ArkTaint's runtime LLM modeling harness.",
         "Return JSON only. No markdown fences. No commentary.",
         "Keep the original semantic intent when it can be expressed by the allowed schema.",
         "If the previous answer used unsupported slot notation or inconsistent structure, minimally rewrite it into valid schema form.",
         "If it cannot be repaired into a stable resolved artifact, return need-more-evidence instead of forcing resolved.",
+        "The repaired answer must still be one of ArkTaint's model asset planes: rule, module, or arkmain. It must not contain solver logic, vulnerability judgement, path reconstruction, or postsolve filtering decisions.",
         "",
         "Allowed slot shorthand only:",
         "- arg0, arg1, ...",
@@ -239,6 +257,7 @@ export function buildSemanticFlowRepairPrompt(input: SemanticFlowRepairPromptInp
         "- decorated_field_value",
         "",
         "Hard rules:",
+        "- Treat this as ArkTaint model generation, not an IDE/Codex engineering skill.",
         "- Never invent pseudo slots such as router.state, storage.cell, bus.queue, hidden.value, or carrier.anything.",
         "- Hidden carrier/state semantics belong in relations.carrier, relations.constraints, or moduleSpec, not in slot refs.",
         "- relations.constraints accepts only structural constraints with kind=same_receiver or kind=same_address. Put informal condition/effect notes in rationale instead.",
@@ -257,10 +276,12 @@ export function buildSemanticFlowRepairPrompt(input: SemanticFlowRepairPromptInp
         "- If a source rule returns a framework value, keep classification=rule with ruleKind=source and outputs=[\"ret\"]; do not repair it into module.",
         "- For local owner-field or storage writes, do not use pseudo endpoints such as storage.key. Use base.storage.key when that field path is visible, or ask for more evidence.",
         "- If the answer is sanitizer, do not also encode transfer to visible outputs.",
+        "- Only keep sanitizer when the API has certain cleaning semantics. Formatting, stringify, toString, substring, encoding, or validation names alone do not justify sanitizer.",
         "- If the answer is a module, keep ruleKind/sourceKind/entryPattern absent.",
         "- If the answer is a simple one-surface direct bridge, do not repair it into classification=module.",
         "- If the answer is arkmain, keep ruleKind/moduleKind/moduleSpec/transfers absent and provide a full entryPattern object.",
         "- classification=arkmain requires relations.entryPattern to be a full object with phase and kind.",
+        "- Never include credentials, API keys, environment variables, local secret paths, or copied secret values.",
     ].join("\n");
 
     const user = [

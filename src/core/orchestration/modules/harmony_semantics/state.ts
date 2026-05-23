@@ -22,6 +22,8 @@ import {
     resolveHarmonyMethods,
 } from "../../../kernel/contracts/HarmonyModuleUtils";
 import { safeGetOrCreatePagNodes } from "../../../kernel/contracts/PagNodeResolution";
+import { createHandoffPropagationSession } from "../../../kernel/semantic_handoff/SemanticHandoffPropagation";
+import { createExactHandoffHandle, HandoffEffect } from "../../../kernel/semantic_handoff/SemanticHandoffTypes";
 
 export interface HarmonyStateBindingSemanticsOptions {
     id?: string;
@@ -98,6 +100,7 @@ export function createHarmonyStateBindingSemanticModule(
                 allowedMethodSignatures: ctx.raw.allowedMethodSignatures,
                 callbacks: ctx.callbacks,
             }, internalOptions);
+            const handoff = createHandoffPropagationSession(buildStateHandoffEffects(model));
             for (const binding of model.eventDeferredBindings) {
                 ctx.deferred.declarative({
                     sourceMethod: binding.sourceMethod,
@@ -118,45 +121,7 @@ export function createHarmonyStateBindingSemanticModule(
             });
             return {
                 onFact(event) {
-                    const emissions = event.emit.collector();
-
-                    const eventTargets = model.eventInvokeBridges.get(event.current.nodeId);
-                    if (eventTargets && eventTargets.size > 0) {
-                        emissions.push(event.emit.preserveToNodes(
-                            eventTargets,
-                            "Harmony-StateEvent",
-                            { allowUnreachableTarget: true },
-                        ));
-                    }
-
-                    const sourceFieldName = event.current.fieldHead();
-                    if (sourceFieldName) {
-                        const sourceKey = `${event.current.nodeId}#${sourceFieldName}`;
-                        const bridgeEdges = model.edgesBySourceField.get(sourceKey) || [];
-                        const targetLoadNodeIds = model.targetFieldLoadNodeIdsBySourceField.get(sourceKey);
-                        for (const edge of bridgeEdges) {
-                            const fieldTail = event.current.fieldTail();
-                            const targetFieldPath = fieldTail && fieldTail.length > 0
-                                ? [edge.targetFieldName, ...fieldTail]
-                                : [edge.targetFieldName];
-                            emissions.push(event.emit.toField(
-                                edge.targetNodeId,
-                                targetFieldPath,
-                                "Harmony-StateProp",
-                            ));
-                        }
-                        if (targetLoadNodeIds && targetLoadNodeIds.size > 0) {
-                            emissions.push(event.emit.toCurrentFieldTailNodes(
-                                targetLoadNodeIds,
-                                "Harmony-StateLoad",
-                                {
-                                    allowUnreachableTarget: true,
-                                },
-                            ));
-                        }
-                    }
-
-                    return emissions.done();
+                    return handoff.emitForFact(event);
                 },
             };
         },
@@ -168,6 +133,125 @@ export const harmonyStateModule: TaintModule = harmonyStateSemanticModule;
 
 export type StateManagementModel = StateManagementSemanticModel;
 export type BuildStateManagementModelArgs = BuildStateManagementSemanticModelArgs;
+
+const STATE_SLOT_HANDOFF_FAMILY = "harmony.state.slot";
+const STATE_EVENT_HANDOFF_FAMILY = "harmony.state.event";
+
+function buildStateHandoffEffects(model: StateManagementModel): HandoffEffect[] {
+    const effects: HandoffEffect[] = [];
+
+    for (const [sourceNodeId, targetNodeIds] of model.eventInvokeBridges.entries()) {
+        const handle = createExactHandoffHandle(STATE_EVENT_HANDOFF_FAMILY, `event-source:${sourceNodeId}`);
+        effects.push({
+            kind: "put",
+            handle,
+            source: { nodeId: sourceNodeId },
+            reason: "Harmony-StateEvent",
+            originModel: "harmony.state",
+        });
+        for (const targetNodeId of targetNodeIds) {
+            effects.push({
+                kind: "get",
+                handle,
+                target: {
+                    nodeId: targetNodeId,
+                    allowUnreachableTarget: true,
+                },
+                reason: "Harmony-StateEvent",
+                originModel: "harmony.state",
+            });
+        }
+    }
+
+    const linkedPairs = new Set<string>();
+    for (const [sourceKey, bridgeEdges] of model.edgesBySourceField.entries()) {
+        const [sourceNodeIdText, sourceFieldName] = sourceKey.split("#");
+        const sourceNodeId = Number(sourceNodeIdText);
+        if (!Number.isFinite(sourceNodeId) || !sourceFieldName) continue;
+        const sourceHandle = createExactHandoffHandle(
+            STATE_SLOT_HANDOFF_FAMILY,
+            `node:${sourceNodeId}#field:${sourceFieldName}`,
+        );
+        effects.push({
+            kind: "put",
+            handle: sourceHandle,
+            source: { nodeId: sourceNodeId, fieldHead: sourceFieldName },
+            reason: "Harmony-StateProp",
+            originModel: "harmony.state",
+        });
+
+        for (const edge of bridgeEdges) {
+            const targetHandle = createExactHandoffHandle(
+                STATE_SLOT_HANDOFF_FAMILY,
+                `node:${edge.targetNodeId}#field:${edge.targetFieldName}`,
+            );
+            addScopedLinkEffect(effects, linkedPairs, sourceHandle, targetHandle, "Harmony-StateProp", edge.methodSignature);
+            effects.push({
+                kind: "get",
+                handle: targetHandle,
+                target: {
+                    nodeId: edge.targetNodeId,
+                    currentField: {
+                        mode: "tail-prefix",
+                        prefix: [edge.targetFieldName],
+                        requireField: true,
+                    },
+                },
+                reason: "Harmony-StateProp",
+                originModel: "harmony.state",
+            });
+        }
+
+        const targetLoadNodeIds = model.targetFieldLoadNodeIdsBySourceField.get(sourceKey);
+        if (targetLoadNodeIds && targetLoadNodeIds.size > 0) {
+            const loadHandle = createExactHandoffHandle(
+                STATE_SLOT_HANDOFF_FAMILY,
+                `load:${sourceKey}`,
+            );
+            addScopedLinkEffect(effects, linkedPairs, sourceHandle, loadHandle, "Harmony-StateLoad", sourceKey);
+            for (const targetNodeId of targetLoadNodeIds) {
+                effects.push({
+                    kind: "get",
+                    handle: loadHandle,
+                    target: {
+                        nodeId: targetNodeId,
+                        currentField: {
+                            mode: "tail",
+                            requireField: true,
+                        },
+                        allowUnreachableTarget: true,
+                        preserveSourceField: false,
+                    },
+                    reason: "Harmony-StateLoad",
+                    originModel: "harmony.state",
+                });
+            }
+        }
+    }
+
+    return effects;
+}
+
+function addScopedLinkEffect(
+    effects: HandoffEffect[],
+    seen: Set<string>,
+    left: ReturnType<typeof createExactHandoffHandle>,
+    right: ReturnType<typeof createExactHandoffHandle>,
+    reason: string,
+    scopeId: string,
+): void {
+    const key = `${left.family}|${left.scope}|${left.key}->${right.family}|${right.scope}|${right.key}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    effects.push({
+        kind: "scoped-link",
+        left,
+        right,
+        reason,
+        scopeId,
+        originModel: "harmony.state",
+    });
+}
 
 interface DecoratedFieldSets {
     bridgeSourceFieldSignatures: Set<string>;

@@ -15,11 +15,21 @@ export interface AppStorageDynamicKeyWarning {
     keyExprText: string;
 }
 
+export interface AppStorageNodeOperation {
+    nodeId: number;
+    methodSignature: string;
+    stmtIndex: number;
+    callSignature: string;
+    apiName: string;
+}
+
 export interface AppStorageSemanticModel {
     writeNodeIdsByKey: Map<string, Set<number>>;
+    writeOperationsByKey: Map<string, AppStorageNodeOperation[]>;
     writeFieldNodeIdsByKey: Map<string, Set<number>>;
     writeFieldEndpointsByKey: Map<string, AppStorageFieldEndpoint[]>;
     readNodeIdsByKey: Map<string, Set<number>>;
+    readOperationsByKey: Map<string, AppStorageNodeOperation[]>;
     readFieldEndpointsByKey: Map<string, AppStorageFieldEndpoint[]>;
     readFieldNodeIdsByKey: Map<string, Set<number>>;
     dynamicKeyWarnings: AppStorageDynamicKeyWarning[];

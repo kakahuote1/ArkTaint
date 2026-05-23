@@ -7,7 +7,7 @@ import type {
     ModuleSemantic,
     ModuleSemanticSurfaceRef,
     ModuleSpec,
-} from "../../kernel/contracts/ModuleSpec";
+} from "./ModuleSpec";
 
 function stableSerialize(value: unknown): string {
     if (Array.isArray(value)) {

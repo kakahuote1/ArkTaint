@@ -5,7 +5,9 @@ import { evaluateDeleteBeforeReadPath } from "./DeleteBeforeReadRefinement";
 import { evaluateParameterizedQueryPath } from "./ParameterizedQueryRefinement";
 import { evaluateSanitizerPath } from "./SanitizerPathRefinement";
 import { evaluateTypeNarrowingGuardPath } from "./TypeNarrowingGuardRefinement";
-import { materializeTaintFlowPaths } from "./WitnessMaterializer";
+import { evaluatePathGuardPath } from "./PathGuardRefinement";
+import { materializeTaintFlowPaths } from "../../provenance/ProvenancePathRecorder";
+import { MaterializedTaintFlow } from "../../provenance/ProvenancePathTypes";
 import { buildPostsolveSkeleton } from "./PostsolveSkeleton";
 import {
     PostsolveContext,
@@ -35,17 +37,23 @@ export function evaluatePostsolveFlow(
             ...evaluateSafeOverwritePath(flow, path, context),
             ...evaluateDeleteBeforeReadPath(flow, path, context),
             ...evaluateKeyedRouteCallbackMismatchPath(flow, path, context),
+            ...evaluatePathGuardPath(flow, path, context),
         ];
-        const judgement = decidePostsolveJudgement(evidence);
+        const judgement = constrainPathJudgementForMaterialization(
+            decidePostsolveJudgement(evidence),
+            path.truncated || path.status === "incomplete",
+        );
         return {
             factIds: [...path.factIds],
+            status: path.status,
+            incompleteReasons: [...(path.incompleteReasons || [])],
             truncated: path.truncated,
             evidence,
             judgement,
         };
     });
 
-    const judgement = aggregateFlowJudgement(pathResults);
+    const judgement = aggregateFlowJudgement(pathResults, witness);
     const evidenceSummary = buildEvidenceSummary(pathResults, judgement);
     const report: PostsolveReport = {
         sinkFactId: flow.sinkFactId || "",
@@ -87,6 +95,8 @@ export function materializePostsolveFlowResult(
         skeleton: seedResult.skeleton,
         paths: seedResult.pathResults.map(path => ({
             factIds: [...path.factIds],
+            status: path.status,
+            incompleteReasons: [...(path.incompleteReasons || [])],
             truncated: path.truncated,
             evidence: [...path.evidence],
             judgement: path.judgement,
@@ -94,6 +104,19 @@ export function materializePostsolveFlowResult(
         evidenceSummary: seedResult.evidenceSummary,
         judgement: seedResult.judgement,
         report: seedResult.report,
+    };
+}
+
+function constrainPathJudgementForMaterialization(
+    judgement: PostsolveJudgement,
+    pathIncomplete: boolean,
+): PostsolveJudgement {
+    if (!pathIncomplete) return judgement;
+    if (judgement.kind !== "Refuted-Strong" && judgement.kind !== "Refuted-Weak") return judgement;
+    return {
+        kind: "Unresolved",
+        primaryReason: "incomplete_path_materialization",
+        evidenceKinds: judgement.evidenceKinds,
     };
 }
 
@@ -133,7 +156,11 @@ export function aggregateFlowJudgement(
     pathResults: Array<{
         evidence: PostsolveEvidence[];
         judgement: PostsolveJudgement;
+        truncated?: boolean;
+        status?: "complete" | "incomplete";
+        incompleteReasons?: string[];
     }>,
+    materialized?: MaterializedTaintFlow,
 ): PostsolveJudgement {
     if (pathResults.length === 0) {
         return {
@@ -142,9 +169,24 @@ export function aggregateFlowJudgement(
         };
     }
 
+    const materializationIncomplete = materialized?.status === "incomplete"
+        || (materialized?.incompleteReasons || []).length > 0
+        || pathResults.some(item =>
+            item.truncated
+            || item.status === "incomplete"
+            || (item.incompleteReasons || []).length > 0,
+        );
+
     const allRefutedStrong = pathResults.every(item => item.judgement.kind === "Refuted-Strong");
     if (allRefutedStrong) {
         const evidenceKinds = [...new Set(pathResults.flatMap(item => item.judgement.evidenceKinds))];
+        if (materializationIncomplete) {
+            return {
+                kind: "Unresolved",
+                primaryReason: "incomplete_path_materialization",
+                evidenceKinds,
+            };
+        }
         const reason = pathResults.find(item => item.judgement.primaryReason)?.judgement.primaryReason;
         return {
             kind: "Refuted-Strong",
@@ -164,6 +206,13 @@ export function aggregateFlowJudgement(
 
     if (allRefuted) {
         const reason = pathResults.find(item => item.judgement.primaryReason)?.judgement.primaryReason;
+        if (materializationIncomplete) {
+            return {
+                kind: "Unresolved",
+                primaryReason: "incomplete_path_materialization",
+                evidenceKinds,
+            };
+        }
         return {
             kind: "Refuted-Weak",
             primaryReason: reason || "all_paths_refuted_weak",

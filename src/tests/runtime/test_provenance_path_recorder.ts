@@ -1,7 +1,8 @@
-import { materializeTaintFlowPaths } from "../../core/orchestration/postsolve/WitnessMaterializer";
-import { PostsolveContext } from "../../core/orchestration/postsolve/PostsolveTypes";
+import { materializeTaintFlowPaths } from "../../core/provenance/ProvenancePathRecorder";
+import { ProvenancePathContext } from "../../core/provenance/ProvenancePathTypes";
 import { TaintFlow } from "../../core/kernel/model/TaintFlow";
 import { FactPredecessorRecord } from "../../core/kernel/propagation/PropagationTypes";
+import { aggregateFlowJudgement } from "../../core/orchestration/postsolve/PostsolveEvaluator";
 
 function makeStmt(text: string): any {
     return {
@@ -28,7 +29,7 @@ function makeFact(id: string, stmtText: string): any {
     };
 }
 
-function buildContext(records: FactPredecessorRecord[]): PostsolveContext {
+function buildContext(records: FactPredecessorRecord[]): ProvenancePathContext {
     const observedFacts = new Map<string, any>([
         ["source", makeFact("source", "source_stmt")],
         ["tmp1", makeFact("tmp1", "tmp1_stmt")],
@@ -66,7 +67,7 @@ async function main(): Promise<void> {
     ]);
 
     const materialized = materializeTaintFlowPaths(flow, context, { maxPaths: 8, maxDepth: 8 });
-    assert(!!materialized, "expected materialized witness paths");
+    assert(!!materialized, "expected materialized provenance paths");
     const paths = materialized!.paths;
     assert(paths.length === 2, `expected 2 paths, got ${paths.length}`);
 
@@ -76,16 +77,58 @@ async function main(): Promise<void> {
     assert(
         normalized[0] === "source -> tmp1 -> tmp3 -> sink"
         || normalized[1] === "source -> tmp1 -> tmp3 -> sink",
-        `expected left path, got ${JSON.stringify(normalized)}`
+        `expected left path, got ${JSON.stringify(normalized)}`,
     );
     assert(
         normalized[0] === "source -> tmp2 -> tmp3 -> sink"
         || normalized[1] === "source -> tmp2 -> tmp3 -> sink",
-        `expected right path, got ${JSON.stringify(normalized)}`
+        `expected right path, got ${JSON.stringify(normalized)}`,
     );
     assert(paths.every(path => path.edges.length === path.factIds.length - 1), "expected edge count to match path length");
+    assert(materialized!.status === "complete", `expected complete materialization, got ${materialized!.status}`);
+    assert(materialized!.incompleteReasons.length === 0, "expected no incomplete reasons for complete materialization");
 
-    console.log("PASS test_witness_materializer");
+    const limitedByDepth = materializeTaintFlowPaths(flow, context, { maxPaths: 8, maxDepth: 1 });
+    assert(!!limitedByDepth, "expected depth-limited materialization");
+    assert(limitedByDepth!.status === "incomplete", `expected depth-limited materialization to be incomplete, got ${limitedByDepth!.status}`);
+    assert(
+        limitedByDepth!.incompleteReasons.includes("max_depth"),
+        `expected max_depth incomplete reason, got ${JSON.stringify(limitedByDepth!.incompleteReasons)}`,
+    );
+    assert(
+        limitedByDepth!.paths.some(path => path.truncated && path.status === "incomplete"),
+        "expected at least one truncated incomplete path",
+    );
+
+    const limitedByPaths = materializeTaintFlowPaths(flow, context, { maxPaths: 1, maxDepth: 8 });
+    assert(!!limitedByPaths, "expected path-limited materialization");
+    assert(limitedByPaths!.status === "incomplete", `expected path-limited materialization to be incomplete, got ${limitedByPaths!.status}`);
+    assert(
+        limitedByPaths!.incompleteReasons.includes("max_paths"),
+        `expected max_paths incomplete reason, got ${JSON.stringify(limitedByPaths!.incompleteReasons)}`,
+    );
+    assert(limitedByPaths!.paths.length === 1, `expected one materialized path under maxPaths=1, got ${limitedByPaths!.paths.length}`);
+
+    const guardedJudgement = aggregateFlowJudgement([
+        {
+            evidence: [],
+            judgement: {
+                kind: "Refuted-Strong",
+                primaryReason: "test_refutation",
+                evidenceKinds: ["test"],
+            },
+        },
+    ], limitedByPaths!);
+    assert(
+        guardedJudgement.kind === "Unresolved",
+        `expected incomplete materialization to prevent strong flow refutation, got ${guardedJudgement.kind}`,
+    );
+    assert(
+        guardedJudgement.primaryReason === "incomplete_path_materialization",
+        `expected incomplete_path_materialization, got ${guardedJudgement.primaryReason}`,
+    );
+
+    console.log("PASS test_provenance_path_recorder");
     console.log(`path_count=${paths.length}`);
     for (const path of normalized) {
         console.log(`path=${path}`);
@@ -93,7 +136,7 @@ async function main(): Promise<void> {
 }
 
 main().catch(err => {
-    console.error("FAIL test_witness_materializer");
+    console.error("FAIL test_provenance_path_recorder");
     console.error(err);
     process.exitCode = 1;
 });

@@ -1,7 +1,8 @@
 import { ArkAssignStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { TaintFlow } from "../../kernel/model/TaintFlow";
-import { PostsolveContext, PostsolveEvidence, WitnessPath } from "./PostsolveTypes";
+import { ProvenancePath } from "../../provenance/ProvenancePathTypes";
+import { PostsolveContext, PostsolveEvidence } from "./PostsolveTypes";
 import {
     invokeMethodName,
     methodSignatureTextFromStmt,
@@ -20,7 +21,7 @@ const SQL_TEMPLATE_ARG_METHODS = new Set([
 
 export function evaluateParameterizedQueryPath(
     flow: TaintFlow,
-    path: WitnessPath,
+    path: ProvenancePath,
     context: PostsolveContext,
 ): PostsolveEvidence[] {
     if (!context.pag || flow.sinkNodeId === undefined) return [];

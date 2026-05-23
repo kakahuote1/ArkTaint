@@ -1,6 +1,7 @@
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { TaintFlow } from "../../kernel/model/TaintFlow";
-import { PostsolveContext, PostsolveEvidence, WitnessPath } from "./PostsolveTypes";
+import { ProvenancePath } from "../../provenance/ProvenancePathTypes";
+import { PostsolveContext, PostsolveEvidence } from "./PostsolveTypes";
 import {
     hasLocalReassignmentBetween,
     matchesSanitizerRuleInvoke,
@@ -14,7 +15,7 @@ import {
 
 export function evaluateSanitizerPath(
     flow: TaintFlow,
-    path: WitnessPath,
+    path: ProvenancePath,
     context: PostsolveContext,
 ): PostsolveEvidence[] {
     const sanitizerRules = context.sanitizerRules || [];

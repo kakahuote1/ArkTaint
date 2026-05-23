@@ -124,17 +124,15 @@ import {
 import { extractFilePathFromSignature } from "./postsolve/PostsolveSharedEvidence";
 import {
     PostsolveContext,
-    PathMaterializationOptions,
-    MaterializedTaintFlow,
     PostsolveFlowResult,
 } from "./postsolve/PostsolveTypes";
+import {
+    MaterializedTaintFlow,
+    PathMaterializationOptions,
+} from "../provenance/ProvenancePathTypes";
 import { FactPredecessorRecord } from "../kernel/propagation/PropagationTypes";
-import { materializeTaintFlowPaths } from "./postsolve/WitnessMaterializer";
+import { materializeTaintFlowPaths } from "../provenance/ProvenancePathRecorder";
 import { evaluatePostsolveFlow, materializePostsolveFlowResult } from "./postsolve/PostsolveEvaluator";
-import { SemanticFact, SemanticSolveResult, buildSemanticCarrierForValue, createDefaultSemanticSideState, normalizeSemanticFieldPath, resolveMethodSignatureText, resolveStmtText } from "../kernel/semantic_state/SemanticStateTypes";
-import { FiniteSemanticSolverEffect, compileSemanticSolverEffects } from "../kernel/semantic_state/SemanticEffectCompiler";
-import { createSemanticFact } from "../kernel/semantic_state/SemanticFact";
-import { SemanticStateWorklistSolver } from "../kernel/semantic_state/SemanticStateWorklistSolver";
 
 export interface DebugOptions {
     enableWorklistProfile?: boolean;
@@ -1324,58 +1322,6 @@ export class TaintPropagationEngine {
         return { results, suppressed, survivingFlows };
     }
 
-    public solveSemanticState(
-        sourceRules: SourceRule[],
-        sinkRules: SinkRule[],
-        options?: {
-            budget?: {
-                maxDequeues?: number;
-                maxVisited?: number;
-                maxElapsedMs?: number;
-            };
-            solverEffects?: FiniteSemanticSolverEffect[];
-        },
-    ): SemanticSolveResult {
-        if (!this.pag) {
-            throw new Error("PAG not built. Call buildPAG() first.");
-        }
-        const effectiveSourceRules = this.mergeAutoEntrySourceRules([
-            ...this.normalizeRuntimeSourceRules(sourceRules || [], "runtime_project"),
-            ...this.normalizeRuntimeSourceRules(this.enginePluginRuntime.getAdditionalSourceRules(), "plugin_runtime"),
-        ]);
-        const semanticSeeds = this.collectSourceRuleSeeds(effectiveSourceRules, this.activeReachableMethodSignatures)
-            .facts
-            .map(fact => this.convertTaintFactToSemanticFact(fact))
-            .filter((fact): fact is SemanticFact => !!fact);
-
-        const effectiveSinkRules = this.orderRulesByFamilyTier([
-            ...this.normalizeRuntimeSinkRules(sinkRules || [], "runtime_project"),
-            ...this.normalizeRuntimeSinkRules(this.enginePluginRuntime.getAdditionalSinkRules(), "plugin_runtime"),
-        ]);
-        const sinkSignatures = new Set<string>();
-        const sinkRuleIds = new Set<string>();
-        for (const rule of effectiveSinkRules) {
-            if (rule?.id) {
-                sinkRuleIds.add(rule.id);
-            }
-            for (const signature of resolveSinkRuleSignaturesByRule(this.scene, rule)) {
-                sinkSignatures.add(signature);
-            }
-        }
-
-        const solver = new SemanticStateWorklistSolver();
-        const compiledEffects = compileSemanticSolverEffects(options?.solverEffects || []);
-        return solver.solve({
-            scene: this.scene,
-            pag: this.pag,
-            seeds: semanticSeeds,
-            transitions: compiledEffects.map(effect => effect.transition),
-            sinkSignatures: [...sinkSignatures],
-            sinkRuleIds: [...sinkRuleIds],
-            budget: options?.budget,
-        });
-    }
-
     private detectSinksByRulesCore(
         sinkRules: SinkRule[],
         options?: {
@@ -1791,30 +1737,6 @@ export class TaintPropagationEngine {
             }
         }
         return out;
-    }
-
-    private convertTaintFactToSemanticFact(fact: TaintFact): SemanticFact | undefined {
-        const nodeValue: any = fact.node?.getValue?.();
-        const declaringStmt: any = nodeValue?.getDeclaringStmt?.();
-        const declaringMethod: any = declaringStmt?.getCfg?.()?.getDeclaringMethod?.();
-        const methodSignature = safeMethodSignatureText(declaringMethod);
-        const carrier = buildSemanticCarrierForValue(declaringMethod, nodeValue, declaringStmt, fact.node?.getID?.());
-        if (!carrier) {
-            return undefined;
-        }
-        return createSemanticFact({
-            source: fact.source,
-            carrier,
-            tainted: true,
-            state: "dirty",
-            contextId: fact.contextID,
-            order: 0,
-            nodeId: fact.node?.getID?.(),
-            fieldPath: normalizeSemanticFieldPath(fact.field),
-            methodSignature: methodSignature || undefined,
-            stmtText: resolveStmtText(declaringStmt),
-            sideState: createDefaultSemanticSideState(),
-        });
     }
 
     private collectSourceRuleSeeds(

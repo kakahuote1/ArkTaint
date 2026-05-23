@@ -213,6 +213,17 @@ function main(): void {
         "unexpected non-rule files in the rules directory should trigger a soft warning",
     );
 
+    const isolatedExplicitKernel = loadRuleSet({
+        autoDiscoverLayers: false,
+        kernelRulePath: path.resolve("tests/rules/minimal.rules.json"),
+    });
+    assert(
+        isolatedExplicitKernel.ruleSet.sources.length === 0
+            && isolatedExplicitKernel.ruleSet.sinks.length === 0
+            && isolatedExplicitKernel.ruleSet.transfers.length === 0,
+        "autoDiscoverLayers=false with an explicit kernel file should not merge the default model catalog",
+    );
+
     console.log("PASS test_rule_loader_diagnostics");
 }
 

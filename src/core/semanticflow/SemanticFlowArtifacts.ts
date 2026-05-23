@@ -5,8 +5,8 @@ import type {
     ModuleEndpoint,
     ModuleSpec,
 } from "../kernel/contracts/ModuleSpec";
-import { canonicalizeModuleSpec } from "../orchestration/modules/ModuleSpecCanonicalizer";
-import { validateModuleSpecOrThrow } from "../orchestration/modules/ModuleSpecValidator";
+import { canonicalizeModuleSpec } from "../kernel/contracts/ModuleSpecCanonicalizer";
+import { validateModuleSpecOrThrow } from "../kernel/contracts/ModuleSpecValidator";
 import type {
     RuleEndpoint,
     RuleEndpointOrRef,

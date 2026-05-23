@@ -37,8 +37,8 @@ import {
     TypeofGuardFormula,
     TypeofGuardObligation,
     TypeofTag,
-    WitnessPath,
 } from "./PostsolveTypes";
+import { ProvenancePath } from "../../provenance/ProvenancePathTypes";
 import { FactPredecessorRecord } from "../../kernel/propagation/PropagationTypes";
 
 const ALL_TYPEOF_TAGS: TypeofTag[] = [
@@ -53,13 +53,13 @@ const ALL_TYPEOF_TAGS: TypeofTag[] = [
 
 export function evaluateTypeNarrowingGuardPath(
     flow: TaintFlow,
-    path: WitnessPath,
+    path: ProvenancePath,
     context: PostsolveContext,
 ): PostsolveEvidence[] {
     if (path.truncated) return [];
     const witness = buildWitnessFromPath(path, context);
     if (!witness || witness.facts.length === 0) return [];
-    const evidence = evaluateWitnessPath(flow, witness);
+    const evidence = evaluateProvenanceFactPath(flow, witness);
     if (!evidence) return [];
     return [toPostsolveEvidence(flow, evidence)];
 }
@@ -77,7 +77,7 @@ function buildWitnessFromPath(path: { factIds: string[]; edges: { fromFactId: st
     return { facts, predecessorRecords };
 }
 
-function evaluateWitnessPath(
+function evaluateProvenanceFactPath(
     flow: TaintFlow,
     witness: TaintFactWitness,
 ): TypeofDeadBranchEvidence | undefined {

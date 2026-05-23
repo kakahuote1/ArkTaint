@@ -9,7 +9,7 @@ import type {
     ModuleSemantic,
     ModuleSemanticSurfaceRef,
     ModuleSpec,
-} from "../../kernel/contracts/ModuleSpec";
+} from "./ModuleSpec";
 
 const VALID_SEMANTIC_KINDS = new Set([
     "bridge",

@@ -1,4 +1,9 @@
 import { parseSemanticFlowDecision } from "../../core/semanticflow/SemanticFlowLlm";
+import {
+    buildSemanticFlowPrompt,
+    SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION,
+} from "../../core/semanticflow/SemanticFlowPrompt";
+import { loadSemanticFlowRuntimeSkills } from "../../core/semanticflow/SemanticFlowRuntimeSkills";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -23,6 +28,39 @@ function expectThrows(fn: () => unknown, contains: string): void {
 }
 
 async function main(): Promise<void> {
+    const prompt = buildSemanticFlowPrompt({
+        anchor: {
+            id: "prompt_guard",
+            surface: "ApiClient.request",
+            methodSignature: "ApiClient.request(string)",
+        },
+        draftId: "draft.prompt.guard",
+        round: 0,
+        history: [],
+        slice: {
+            anchorId: "prompt_guard",
+            round: 0,
+            template: "call-return",
+            observations: ["third-party wrapper candidate"],
+            snippets: [{ label: "body", code: "request(url) { return http.request(url); }" }],
+        },
+    });
+    const runtimeSkills = loadSemanticFlowRuntimeSkills();
+    assert(runtimeSkills.length === 3, "expected three runtime LLM skills");
+    assert(runtimeSkills.some(skill => skill.id === "semanticflow/asset-plane-selection"), "expected asset-plane runtime skill");
+    assert(runtimeSkills.some(skill => skill.id === "semanticflow/project-api-modeling"), "expected project API runtime skill");
+    assert(runtimeSkills.some(skill => skill.id === "semanticflow/evidence-and-safety"), "expected evidence runtime skill");
+    assert(SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION >= 8, "prompt schema should reflect runtime skill harness update");
+    assert(prompt.system.includes("runtime LLM modeling harness"), "prompt should identify ArkTaint runtime modeling harness");
+    assert(prompt.system.includes("Loaded runtime LLM skills from src/core/semanticflow/llm_skills"), "prompt should include runtime LLM skills");
+    assert(prompt.system.includes("semanticflow/asset-plane-selection"), "prompt should include asset-plane skill");
+    assert(prompt.system.includes("semanticflow/project-api-modeling"), "prompt should include project API modeling skill");
+    assert(prompt.system.includes("semanticflow/evidence-and-safety"), "prompt should include evidence and safety skill");
+    assert(prompt.system.includes("classification=rule produces the rules plane"), "prompt should define rules plane");
+    assert(prompt.system.includes("classification=module produces the modules plane"), "prompt should define modules plane");
+    assert(prompt.system.includes("classification=arkmain produces the arkmain plane"), "prompt should define arkmain plane");
+    assert(!prompt.system.includes("local transfer summary candidate"), "prompt should not use old local-transfer-only framing");
+
     const decision = parseSemanticFlowDecision(JSON.stringify({
         status: "done",
         resolution: "resolved",

@@ -1,5 +1,6 @@
 ﻿import { TaintFlow } from "../../kernel/model/TaintFlow";
-import { PostsolveContext, PostsolveEvidence, WitnessPath } from "./PostsolveTypes";
+import { ProvenancePath } from "../../provenance/ProvenancePathTypes";
+import { PostsolveContext, PostsolveEvidence } from "./PostsolveTypes";
 import {
     collectKnownNavDestinationRouteFactsInFile,
     extractFilePathFromSignature,
@@ -8,7 +9,7 @@ import {
 
 export function evaluateKeyedRouteCallbackMismatchPath(
     flow: TaintFlow,
-    path: WitnessPath,
+    path: ProvenancePath,
     context: PostsolveContext,
 ): PostsolveEvidence[] {
     const filePath = resolveFlowFilePath(flow);
@@ -50,7 +51,7 @@ export function evaluateKeyedRouteCallbackMismatchPath(
 }
 
 function findPathMethodSignatureForFile(
-    path: WitnessPath,
+    path: ProvenancePath,
     context: PostsolveContext,
     filePath: string,
 ): string | undefined {

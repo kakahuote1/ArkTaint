@@ -1,5 +1,5 @@
+import { MaterializedTaintFlow } from "../../provenance/ProvenancePathTypes";
 import {
-    MaterializedTaintFlow,
     PostsolveContext,
     PostsolveSkeleton,
 } from "./PostsolveTypes";
