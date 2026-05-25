@@ -737,11 +737,14 @@ function isPageActionOrValidationHelper(
     if (!/\/(pages?|components?|views?)\//.test(source) && !/\/(pages?|components?|views?)\//.test(sigLower)) {
         return false;
     }
-    if (site.argCount > 0) {
+    if (isProjectApiWrapperSurface(site, sigLower) || isProjectModelMapperSurface(site, sigLower)) {
         return false;
     }
-    return /^(check|is|has|validate|get|back|scroll|header|footer|tab|render|build|login|register|update|change|pick|select|open|close|confirm|cancel)[a-z0-9_$]*/.test(methodLower)
-        || /builder$/.test(methodLower);
+    if (site.argCount > 4 && !/builder$/.test(methodLower)) {
+        return false;
+    }
+    return /^(check|is|has|validate|get|back|scroll|header|footer|tab|render|build|layout|item|login|register|update|change|pick|select|open|close|confirm|cancel|save|set)[a-z0-9_$]*/.test(methodLower)
+        || /(layout|builder|component|cell)$/.test(methodLower);
 }
 
 function isProjectApiWrapperSurface(site: NoCandidateCallsiteStat, sigLower: string): boolean {
