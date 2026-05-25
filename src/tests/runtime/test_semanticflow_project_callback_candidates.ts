@@ -113,6 +113,13 @@ function main(): void {
         "  backRouteBuilder() { return undefined; }",
         "}",
     ]);
+    writeFile(path.join(root, sourceDir, "api/sdk.d.ts"), [
+        "export function get(path: string): Promise<string>;",
+        "export function post(path: string, value: string): Promise<void>;",
+    ]);
+    writeFile(path.join(root, sourceDir, "api/arkts-sdk.d.ets"), [
+        "export function request(path: string): Promise<string>;",
+    ]);
 
     const candidates = discoverProjectCallbackRuleCandidates(root, [sourceDir], {
         maxCandidates: 20,
@@ -183,6 +190,7 @@ function main(): void {
         item.method === "from" && String(item.sourceFile).endsWith("models/user.ets"));
     assert(userFromCandidates.length >= 2, `model mapper static/instance from methods should become proactive candidates, got ${userFromCandidates.length}`);
     assert(userFromCandidates.every(item => item.argCount === 1), "model mapper candidates should preserve one payload parameter");
+    assert(!apiMethods.has("get") && !apiMethods.has("post") && !apiMethods.has("request"), "declaration-only .d.ts/.d.ets APIs must not become proactive project modeling candidates");
 
     console.log("PASS test_semanticflow_project_callback_candidates");
 }

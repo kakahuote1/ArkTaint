@@ -569,7 +569,7 @@ function walkSourceFiles(absDir: string, out: string[], seen: Set<string>): void
             }
             continue;
         }
-        if (!entry.isFile() || !/\.(ets|ts)$/i.test(entry.name)) continue;
+        if (!entry.isFile() || !/\.(ets|ts)$/i.test(entry.name) || /\.d\.(ets|ts)$/i.test(entry.name)) continue;
         const resolved = path.resolve(abs);
         if (!seen.has(resolved)) {
             seen.add(resolved);
