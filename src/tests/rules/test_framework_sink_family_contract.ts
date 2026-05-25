@@ -42,6 +42,12 @@ const PROBE_SPECS: SinkFamilyProbeSpec[] = [
         sourceLocalPattern: "^userInput$",
     },
     {
+        family: "sink.harmony.appAccount",
+        sourceDir: "tests/demo/sink_callee_scope",
+        caseName: "appaccount_manager_sdk_scope_005_T",
+        sourceLocalPattern: "^input$",
+    },
+    {
         family: "sink.harmony.network.axios",
         sourceDir: "tests/demo/sdk_signature_probe",
         caseName: "sdk_signature_probe_001_T",
@@ -69,6 +75,18 @@ const PROBE_SPECS: SinkFamilyProbeSpec[] = [
         family: "sink.harmony.logging.hilog_info",
         sourceDir: "tests/demo/sdk_signature_probe",
         caseName: "sdk_signature_probe_001_T",
+        sourceLocalPattern: "^userInput$",
+    },
+    {
+        family: "sink.harmony.wearengine.p2p",
+        sourceDir: "tests/demo/harmony_wearengine_p2p",
+        caseName: "wearengine_p2p_send_message_002_T",
+        sourceLocalPattern: "^userInput$",
+    },
+    {
+        family: "sink.harmony.wearengine.p2p",
+        sourceDir: "tests/demo/harmony_wearengine_p2p",
+        caseName: "wearengine_p2p_unresolved_send_message_005_T",
         sourceLocalPattern: "^userInput$",
     },
 ];

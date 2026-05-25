@@ -45,6 +45,16 @@ export const FRAMEWORK_SINK_FAMILY_CONTRACTS: readonly FrameworkSinkFamilyContra
         ],
     },
     {
+        family: "sink.harmony.appAccount",
+        description: "AppAccount APIs persist account names and credential values through framework account storage.",
+        tags: [...SINK_TAGS, "account", "credential_store"],
+        schemas: [
+            { id: "sink.harmony.appAccount.createAccount.name.arg0" },
+            { id: "sink.harmony.appAccount.setCredential.name.arg0" },
+            { id: "sink.harmony.appAccount.setCredential.credential.arg2" },
+        ],
+    },
+    {
         family: "sink.harmony.globalcontext",
         description: "GlobalContext writes propagate tainted values into framework-managed object state.",
         tags: [...SINK_TAGS, "global_context"],
@@ -92,6 +102,7 @@ export const FRAMEWORK_SINK_FAMILY_CONTRACTS: readonly FrameworkSinkFamilyContra
             { id: "sink.harmony.fs.unlink.arg0" },
             { id: "sink.harmony.fs.writeSync" },
             { id: "sink.harmony.fs.copyFile" },
+            { id: "sink.harmony.fs.copyFileSync" },
             { id: "sink.harmony.fs.moveFile" },
         ],
     },
@@ -175,6 +186,14 @@ export const FRAMEWORK_SINK_FAMILY_CONTRACTS: readonly FrameworkSinkFamilyContra
         schemas: [
             { id: "sink.harmony.request.download.arg0" },
             { id: "sink.harmony.request.upload.arg1" },
+        ],
+    },
+    {
+        family: "sink.harmony.wearengine.p2p",
+        description: "WearEngine P2P APIs send tainted payloads across paired devices.",
+        tags: [...SINK_TAGS, "wearengine", "p2p", "cross_device"],
+        schemas: [
+            { id: "sink.harmony.wearengine.p2p.sendMessage.message.content" },
         ],
     },
     {

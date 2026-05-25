@@ -59,6 +59,13 @@ async function main(): Promise<void> {
     assert(prompt.system.includes("classification=rule produces the rules plane"), "prompt should define rules plane");
     assert(prompt.system.includes("classification=module produces the modules plane"), "prompt should define modules plane");
     assert(prompt.system.includes("classification=arkmain produces the arkmain plane"), "prompt should define arkmain plane");
+    assert(prompt.system.includes("RdbPredicates"), "prompt should tell the runtime LLM not to treat RDB predicates as payload sinks");
+    assert(prompt.system.includes("values bucket"), "prompt should identify database values buckets as payload sinks");
+    assert(prompt.system.includes("keyed_storage moduleSpec requires storageClasses"), "prompt should require current keyed_storage ModuleSpec schema fields");
+    assert(prompt.system.includes("semanticFocus=external_response_source"), "prompt should define focused returned-response source modeling");
+    assert(prompt.system.includes("returned response data is a source item"), "prompt should keep dual-role wrappers single-purpose");
+    assert(prompt.system.includes("ordinary wrapper candidate without semanticFocus=external_response_source"), "prompt should keep ordinary dual-role wrappers on the request/input side");
+    assert(!prompt.system.includes("Example keyed_storage moduleSpec shorthand"), "prompt should not show invalid keyed_storage examples without storageClasses");
     assert(!prompt.system.includes("local transfer summary candidate"), "prompt should not use old local-transfer-only framing");
 
     const decision = parseSemanticFlowDecision(JSON.stringify({
@@ -133,6 +140,24 @@ async function main(): Promise<void> {
     assert(requestDecision.request.focus.companion === "Cache.get", "expected structured companion focus");
     assert(requestDecision.request.scope.locality === "owner", "expected structured scope locality");
     assert(requestDecision.request.budgetClass === "owner_local", "expected structured budget class");
+
+    const inferredDirectTransfer = parseSemanticFlowDecision(JSON.stringify({
+        status: "done",
+        classification: "rule",
+        resolution: "resolved",
+        summary: {
+            inputs: ["arg0"],
+            outputs: ["ret"],
+            transfers: [],
+            confidence: "high",
+            ruleKind: "transfer",
+        },
+        rationale: ["DTO mapper copies input fields into a returned object."],
+    }));
+    assert(inferredDirectTransfer.status === "done", "expected inferred direct transfer decision");
+    assert(inferredDirectTransfer.summary.transfers.length === 1, "ruleKind=transfer with one input/output should infer direct transfer");
+    assert(inferredDirectTransfer.summary.transfers[0].from.slot === "arg", "expected inferred transfer from arg0");
+    assert(inferredDirectTransfer.summary.transfers[0].to.slot === "result", "expected inferred transfer to result");
 
     const shorthandModuleDecision = parseSemanticFlowDecision(JSON.stringify({
         status: "done",

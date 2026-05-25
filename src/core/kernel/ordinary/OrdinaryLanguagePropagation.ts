@@ -52,12 +52,23 @@ interface OrdinaryCopyLikeSpec {
 interface ObjectLiteralCaptureCandidate {
     candidateLine: number;
     nodeIds: number[];
-    fieldNames: string[];
+    captures: ObjectLiteralCapturedField[];
 }
 
 type ObjectLiteralCaptureIndex = Map<string, ObjectLiteralCaptureCandidate[]>;
+interface ObjectLiteralCapturedField {
+    targetFieldName: string;
+    sourceFieldPath?: string[];
+}
 
 const objectLiteralCaptureIndexCache = new WeakMap<Pag, WeakMap<Map<string, any>, ObjectLiteralCaptureIndex>>();
+interface CarrierCopyLikeUse {
+    value: Local;
+    stmt: ArkAssignStmt;
+}
+
+const defaultCarrierCopyLikeUseIndexCache: WeakMap<Pag, Map<number, CarrierCopyLikeUse[]>> = new WeakMap();
+const carrierCopyLikeUseIndexCacheByClassIndex: WeakMap<Pag, WeakMap<Map<string, any>, Map<number, CarrierCopyLikeUse[]>>> = new WeakMap();
 
 const ORDINARY_COPY_LIKE_SPECS: OrdinaryCopyLikeSpec[] = [
     {
@@ -369,13 +380,17 @@ export function collectObjectLiteralFieldCaptureFactsFromTaintedObj(
                     hasPointTo = true;
                     const objNode = pag.getNode(objId) as PagNode;
                     if (!objNode) continue;
-                    for (const capturedFieldName of candidate.fieldNames) {
-                        results.push(new TaintFact(objNode, source, currentCtx, [capturedFieldName, ...fieldPath]));
+                    for (const capture of candidate.captures) {
+                        const projectedFieldPath = projectCapturedObjectLiteralFieldPath(fieldPath, capture);
+                        if (!projectedFieldPath) continue;
+                        results.push(new TaintFact(objNode, source, currentCtx, projectedFieldPath));
                     }
                 }
                 if (!hasPointTo) {
-                    for (const capturedFieldName of candidate.fieldNames) {
-                        results.push(new TaintFact(carrierNode, source, currentCtx, [capturedFieldName, ...fieldPath]));
+                    for (const capture of candidate.captures) {
+                        const projectedFieldPath = projectCapturedObjectLiteralFieldPath(fieldPath, capture);
+                        if (!projectedFieldPath) continue;
+                        results.push(new TaintFact(carrierNode, source, currentCtx, projectedFieldPath));
                     }
                 }
             }
@@ -437,43 +452,163 @@ export function collectOrdinaryCopyLikeResultFactsFromTaintedObj(
     classBySignature?: Map<string, any>,
 ): TaintFact[] {
     const results: TaintFact[] = [];
-    for (const value of collectAliasLocalsForCarrier(pag, taintedObjId, classBySignature)) {
-        for (const stmt of value.getUsedStmts()) {
-            if (!(stmt instanceof ArkAssignStmt)) continue;
-            const rightOp = stmt.getRightOp();
-            const kind = resolveOrdinaryCopyLikeInvokeKind(rightOp, value);
-            if (!kind) continue;
+    const aliasLocals = collectAliasLocalsForCarrier(pag, taintedObjId, classBySignature);
+    const directValue = (pag.getNode(taintedObjId) as PagNode | undefined)?.getValue?.();
+    if (directValue instanceof Local) {
+        const key = localCopyLikeIdentityKey(directValue);
+        if (!aliasLocals.some(local => localCopyLikeIdentityKey(local) === key)) {
+            aliasLocals.push(directValue);
+        }
+    }
 
-            const resultNodes = safeGetOrCreatePagNodes(pag, stmt.getLeftOp(), stmt);
-            if (!resultNodes || resultNodes.size === 0) continue;
-            for (const resultNodeId of resultNodes.values()) {
-                const resultNode = pag.getNode(resultNodeId) as PagNode;
-                if (!resultNode) continue;
-                if (kind === "stringify_result") {
-                    results.push(new TaintFact(resultNode, source, currentCtx));
-                    results.push(new TaintFact(resultNode, source, currentCtx, [...fieldPath]));
-                    continue;
-                }
-                if (kind === "serialized_copy") {
-                    results.push(new TaintFact(resultNode, source, currentCtx, [...fieldPath]));
-                    continue;
-                }
+    const copyLikeUses: CarrierCopyLikeUse[] = [];
+    const seenUses = new Set<string>();
+    const addUse = (value: Local, stmt: ArkAssignStmt): void => {
+        const key = `${localCopyLikeIdentityKey(value)}#${stmt.toString?.() || ""}`;
+        if (seenUses.has(key)) return;
+        seenUses.add(key);
+        copyLikeUses.push({ value, stmt });
+    };
 
-                let hasPointTo = false;
-                for (const objId of resultNode.getPointTo()) {
-                    hasPointTo = true;
-                    const objNode = pag.getNode(objId) as PagNode;
-                    if (!objNode) continue;
-                    results.push(new TaintFact(objNode, source, currentCtx, [...fieldPath]));
-                }
-                if (!hasPointTo) {
-                    results.push(new TaintFact(resultNode, source, currentCtx, [...fieldPath]));
-                }
+    for (const value of aliasLocals) {
+        for (const stmt of collectCopyLikeAssignStmtsForLocal(value)) {
+            addUse(value, stmt);
+        }
+    }
+    for (const use of collectCarrierCopyLikeUses(pag, taintedObjId, classBySignature)) {
+        addUse(use.value, use.stmt);
+    }
+
+    for (const use of copyLikeUses) {
+        const stmt = use.stmt;
+        const value = use.value;
+        const rightOp = stmt.getRightOp();
+        const kind = resolveOrdinaryCopyLikeInvokeKind(rightOp, value);
+        if (!kind) continue;
+
+        const resultNodes = safeGetOrCreatePagNodes(pag, stmt.getLeftOp(), stmt);
+        if (!resultNodes || resultNodes.size === 0) continue;
+        for (const resultNodeId of resultNodes.values()) {
+            const resultNode = pag.getNode(resultNodeId) as PagNode;
+            if (!resultNode) continue;
+            if (kind === "stringify_result") {
+                results.push(new TaintFact(resultNode, source, currentCtx));
+                results.push(new TaintFact(resultNode, source, currentCtx, [...fieldPath]));
+                continue;
+            }
+            if (kind === "serialized_copy") {
+                results.push(new TaintFact(resultNode, source, currentCtx, [...fieldPath]));
+                continue;
+            }
+
+            let hasPointTo = false;
+            for (const objId of resultNode.getPointTo()) {
+                hasPointTo = true;
+                const objNode = pag.getNode(objId) as PagNode;
+                if (!objNode) continue;
+                results.push(new TaintFact(objNode, source, currentCtx, [...fieldPath]));
+            }
+            if (!hasPointTo) {
+                results.push(new TaintFact(resultNode, source, currentCtx, [...fieldPath]));
             }
         }
     }
 
     return dedupFacts(results);
+}
+
+function collectCarrierCopyLikeUses(
+    pag: Pag,
+    carrierNodeId: number,
+    classBySignature?: Map<string, any>,
+): CarrierCopyLikeUse[] {
+    const index = getCarrierCopyLikeUseIndex(pag, classBySignature);
+    return index.get(carrierNodeId) || [];
+}
+
+function getCarrierCopyLikeUseIndex(
+    pag: Pag,
+    classBySignature?: Map<string, any>,
+): Map<number, CarrierCopyLikeUse[]> {
+    if (!classBySignature) {
+        const cached = defaultCarrierCopyLikeUseIndexCache.get(pag);
+        if (cached) return cached;
+        const built = buildCarrierCopyLikeUseIndex(pag, classBySignature);
+        defaultCarrierCopyLikeUseIndexCache.set(pag, built);
+        return built;
+    }
+
+    let byClassIndex = carrierCopyLikeUseIndexCacheByClassIndex.get(pag);
+    if (!byClassIndex) {
+        byClassIndex = new WeakMap<Map<string, any>, Map<number, CarrierCopyLikeUse[]>>();
+        carrierCopyLikeUseIndexCacheByClassIndex.set(pag, byClassIndex);
+    }
+    const cached = byClassIndex.get(classBySignature);
+    if (cached) return cached;
+    const built = buildCarrierCopyLikeUseIndex(pag, classBySignature);
+    byClassIndex.set(classBySignature, built);
+    return built;
+}
+
+function buildCarrierCopyLikeUseIndex(
+    pag: Pag,
+    classBySignature?: Map<string, any>,
+): Map<number, CarrierCopyLikeUse[]> {
+    const index = new Map<number, CarrierCopyLikeUse[]>();
+    const seen = new Set<string>();
+    const methodLocalIndex = new Map<string, Map<string, Local[]>>();
+    for (const rawNode of pag.getNodesIter()) {
+        const value = (rawNode as PagNode).getValue?.();
+        if (!(value instanceof Local)) continue;
+        for (const stmt of collectCopyLikeAssignStmtsForLocal(value)) {
+            if (!resolveOrdinaryCopyLikeInvokeKind(stmt.getRightOp(), value)) continue;
+            const carrierNodeIds = collectCarrierNodeIdsForValueAtStmt(
+                pag,
+                value,
+                stmt,
+                classBySignature,
+                methodLocalIndex,
+            );
+            if (carrierNodeIds.length === 0) continue;
+            for (const carrierNodeId of carrierNodeIds) {
+                const key = `${carrierNodeId}#${localCopyLikeIdentityKey(value)}#${stmt.toString?.() || ""}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                if (!index.has(carrierNodeId)) {
+                    index.set(carrierNodeId, []);
+                }
+                index.get(carrierNodeId)!.push({ value, stmt });
+            }
+        }
+    }
+    return index;
+}
+
+function localCopyLikeIdentityKey(value: Local): string {
+    return `${value.getName?.() || ""}#${value.getDeclaringStmt?.()?.toString?.() || ""}`;
+}
+
+function collectCopyLikeAssignStmtsForLocal(value: Local): ArkAssignStmt[] {
+    const out: ArkAssignStmt[] = [];
+    const seen = new Set<any>();
+    for (const stmt of value.getUsedStmts()) {
+        if (!(stmt instanceof ArkAssignStmt)) continue;
+        if (!resolveOrdinaryCopyLikeInvokeKind(stmt.getRightOp(), value)) continue;
+        if (seen.has(stmt)) continue;
+        seen.add(stmt);
+        out.push(stmt);
+    }
+
+    const cfg = value.getDeclaringStmt?.()?.getCfg?.();
+    const stmts = cfg?.getStmts?.() || [];
+    for (const stmt of stmts) {
+        if (!(stmt instanceof ArkAssignStmt)) continue;
+        if (!resolveOrdinaryCopyLikeInvokeKind(stmt.getRightOp(), value)) continue;
+        if (seen.has(stmt)) continue;
+        seen.add(stmt);
+        out.push(stmt);
+    }
+    return out;
 }
 
 export function collectOrdinarySerializedStringResultFactsFromTaintedLocal(
@@ -928,14 +1063,14 @@ function buildObjectLiteralCaptureIndex(pag: Pag, classBySignature: Map<string, 
         if (!candidateNodes || candidateNodes.size === 0) continue;
         const nodeIds = [...candidateNodes.values()];
         const candidateLine = getDeclaringStmtLine(candidateValue.getDeclaringStmt?.());
-        for (const [aliasName, fieldNames] of capturedFieldMap.entries()) {
-            if (!aliasName || fieldNames.length === 0) continue;
+        for (const [aliasName, captures] of capturedFieldMap.entries()) {
+            if (!aliasName || captures.length === 0) continue;
             const key = objectLiteralCaptureIndexKey(candidateMethodSig, aliasName);
             const bucket = index.get(key) || [];
             bucket.push({
                 candidateLine,
                 nodeIds,
-                fieldNames,
+                captures,
             });
             index.set(key, bucket);
         }
@@ -947,48 +1082,192 @@ function objectLiteralCaptureIndexKey(methodSignature: string, aliasName: string
     return `${methodSignature}${OBJECT_LITERAL_CAPTURE_KEY_SEPARATOR}${aliasName}`;
 }
 
-function resolveObjectLiteralCapturedFieldMap(arkClass: any): Map<string, string[]> {
-    const out = new Map<string, Set<string>>();
+function resolveObjectLiteralCapturedFieldMap(arkClass: any): Map<string, ObjectLiteralCapturedField[]> {
+    const out = new Map<string, Map<string, ObjectLiteralCapturedField>>();
     const fields = arkClass?.getFields?.() || [];
-    const add = (aliasName: string | undefined, fieldName: string | undefined): void => {
+    const add = (
+        aliasName: string | undefined,
+        fieldName: string | undefined,
+        sourceFieldPath?: string[],
+    ): void => {
         const alias = String(aliasName || "").trim();
         const field = String(fieldName || "").trim();
         if (!alias || !field) return;
-        const current = out.get(alias) || new Set<string>();
-        current.add(field);
+        const sourcePath = sourceFieldPath?.filter(Boolean);
+        const key = `${field}${OBJECT_LITERAL_CAPTURE_KEY_SEPARATOR}${sourcePath?.join(".") || ""}`;
+        const current = out.get(alias) || new Map<string, ObjectLiteralCapturedField>();
+        current.set(key, {
+            targetFieldName: field,
+            sourceFieldPath: sourcePath && sourcePath.length > 0 ? sourcePath : undefined,
+        });
         out.set(alias, current);
     };
     for (const field of fields) {
         const candidateName = field?.getSignature?.()?.getFieldName?.() || field?.getName?.();
         const initializer = field?.getInitializer?.();
-        const capturedLocalName = resolveCapturedLocalNameFromInitializer(initializer);
-        if (!capturedLocalName && candidateName) {
+        const capturedSources = resolveCapturedSourcesFromInitializer(initializer, candidateName);
+        if (capturedSources.length === 0
+            && candidateName
+            && (!Array.isArray(initializer) || initializer.length === 0)) {
             add(candidateName, candidateName);
             continue;
         }
-        add(capturedLocalName, candidateName);
+        for (const capturedSource of capturedSources) {
+            add(capturedSource.aliasName, candidateName, capturedSource.sourceFieldPath);
+        }
     }
-    return new Map([...out.entries()].map(([aliasName, fieldNames]) => [aliasName, [...fieldNames]]));
+    return new Map([...out.entries()].map(([aliasName, captures]) => [aliasName, [...captures.values()]]));
 }
 
-function resolveCapturedLocalNameFromInitializer(initializer: any): string | undefined {
-    if (!initializer) return undefined;
+function resolveCapturedSourcesFromInitializer(
+    initializer: any,
+    fieldName?: string,
+): Array<{ aliasName: string; sourceFieldPath?: string[] }> {
+    if (!initializer) return [];
+    if (Array.isArray(initializer)) {
+        return resolveCapturedSourcesFromInitializerStatements(initializer, fieldName);
+    }
     if (initializer instanceof ArkAssignStmt) {
         const right = initializer.getRightOp?.();
-        if (right instanceof Local) {
-            return right.getName?.() || undefined;
-        }
-        return normalizeCapturedInitializerRhs(String(initializer.toString?.() || ""));
+        const fromValue = resolveCapturedSourcesFromValue(right, [initializer], new Set<string>());
+        if (fromValue.length > 0) return fromValue;
+        return asArray(resolveCapturedSourceFromInitializerText(String(initializer.toString?.() || "")));
     }
     const text = String(initializer.toString?.() || "").trim();
-    if (!text) return undefined;
-    return normalizeCapturedInitializerRhs(text);
+    if (!text) return [];
+    return asArray(resolveCapturedSourceFromInitializerText(text));
 }
 
-function normalizeCapturedInitializerRhs(text: string): string | undefined {
-    const rhs = text.includes("=") ? text.slice(text.indexOf("=") + 1).trim() : text.trim();
+function resolveCapturedSourceFromInitializerText(text: string): { aliasName: string; sourceFieldPath?: string[] } | undefined {
+    const fieldRefMatch = text.match(/=\s*([%A-Za-z_$][%A-Za-z0-9_$]*)\.<[^>]*\.([A-Za-z_$][A-Za-z0-9_$]*)>/);
+    if (fieldRefMatch) {
+        return { aliasName: fieldRefMatch[1], sourceFieldPath: [fieldRefMatch[2]] };
+    }
+    const rhs = extractFirstInitializerRhsText(text);
     if (!rhs || /^['"`].*['"`]$/.test(rhs)) return undefined;
-    return /^[%A-Za-z_$][%A-Za-z0-9_$]*$/.test(rhs) ? rhs : undefined;
+    return /^[%A-Za-z_$][%A-Za-z0-9_$]*$/.test(rhs) ? { aliasName: rhs } : undefined;
+}
+
+function resolveCapturedSourcesFromInitializerStatements(
+    stmts: any[],
+    fieldName?: string,
+): Array<{ aliasName: string; sourceFieldPath?: string[] }> {
+    const finalSources: Array<{ aliasName: string; sourceFieldPath?: string[] }> = [];
+    for (const stmt of stmts) {
+        if (!(stmt instanceof ArkAssignStmt)) continue;
+        if (!assignsCurrentField(stmt.getLeftOp?.(), fieldName)) continue;
+        finalSources.push(...resolveCapturedSourcesFromValue(stmt.getRightOp?.(), stmts, new Set<string>()));
+    }
+    return dedupCapturedSources(finalSources);
+}
+
+function assignsCurrentField(left: any, fieldName?: string): boolean {
+    if (!(left instanceof ArkInstanceFieldRef)) return false;
+    const currentField = left.getFieldSignature?.().getFieldName?.() || left.getFieldName?.();
+    if (!currentField) return false;
+    return !fieldName || currentField === fieldName;
+}
+
+function resolveCapturedSourcesFromValue(
+    value: any,
+    stmts: any[],
+    visiting: Set<string>,
+): Array<{ aliasName: string; sourceFieldPath?: string[] }> {
+    if (!value) return [];
+    if (value instanceof Local) {
+        const localKey = `${value.getName?.() || ""}#${value.getDeclaringStmt?.()?.toString?.() || ""}`;
+        if (visiting.has(localKey)) return [];
+        visiting.add(localKey);
+
+        const traced: Array<{ aliasName: string; sourceFieldPath?: string[] }> = [];
+        let hasLocalDefinition = false;
+        for (const stmt of stmts) {
+            if (!(stmt instanceof ArkAssignStmt)) continue;
+            const left = stmt.getLeftOp?.();
+            if (!(left instanceof Local) || !isSameLocal(left, value)) continue;
+            hasLocalDefinition = true;
+            traced.push(...resolveCapturedSourcesFromValue(stmt.getRightOp?.(), stmts, visiting));
+        }
+        visiting.delete(localKey);
+        if (traced.length > 0) return dedupCapturedSources(traced);
+        if (hasLocalDefinition) return [];
+
+        const aliasName = value.getName?.() || "";
+        return aliasName ? [{ aliasName }] : [];
+    }
+
+    if (value instanceof ArkInstanceFieldRef) {
+        const base = value.getBase?.();
+        const capturedFieldName = value.getFieldSignature?.().getFieldName?.() || value.getFieldName?.();
+        if (base instanceof Local && capturedFieldName) {
+            const aliasName = base.getName?.() || "";
+            return aliasName ? [{ aliasName, sourceFieldPath: [capturedFieldName] }] : [];
+        }
+        return [];
+    }
+
+    if (value instanceof ArkAwaitExpr) {
+        return resolveCapturedSourcesFromValue(value.getPromise?.(), stmts, visiting);
+    }
+
+    if (value instanceof ArkCastExpr
+        || value instanceof ArkUnopExpr) {
+        return resolveCapturedSourcesFromValue(value.getOp?.(), stmts, visiting);
+    }
+
+    if (value instanceof ArkNormalBinopExpr
+        || value instanceof ArkPhiExpr
+        || value instanceof ArkArrayRef) {
+        return dedupCapturedSources((value.getUses?.() || [])
+            .flatMap((use: any) => resolveCapturedSourcesFromValue(use, stmts, visiting)));
+    }
+
+    return [];
+}
+
+function asArray<T>(value: T | undefined): T[] {
+    return value === undefined ? [] : [value];
+}
+
+function dedupCapturedSources(
+    sources: Array<{ aliasName: string; sourceFieldPath?: string[] }>,
+): Array<{ aliasName: string; sourceFieldPath?: string[] }> {
+    const out: Array<{ aliasName: string; sourceFieldPath?: string[] }> = [];
+    const seen = new Set<string>();
+    for (const source of sources) {
+        const aliasName = String(source.aliasName || "").trim();
+        if (!aliasName) continue;
+        const path = source.sourceFieldPath?.filter(Boolean);
+        const key = `${aliasName}${OBJECT_LITERAL_CAPTURE_KEY_SEPARATOR}${path?.join(".") || ""}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push({
+            aliasName,
+            sourceFieldPath: path && path.length > 0 ? path : undefined,
+        });
+    }
+    return out;
+}
+
+function extractFirstInitializerRhsText(text: string): string {
+    const afterEquals = text.includes("=") ? text.slice(text.indexOf("=") + 1).trim() : text.trim();
+    const commaIndex = afterEquals.indexOf(",");
+    return (commaIndex >= 0 ? afterEquals.slice(0, commaIndex) : afterEquals).trim();
+}
+
+function projectCapturedObjectLiteralFieldPath(
+    sourceFieldPath: string[],
+    capture: ObjectLiteralCapturedField,
+): string[] | undefined {
+    const requiredSource = capture.sourceFieldPath;
+    if (!requiredSource || requiredSource.length === 0) {
+        return [capture.targetFieldName, ...sourceFieldPath];
+    }
+    if (sourceFieldPath.length < requiredSource.length) return undefined;
+    for (let i = 0; i < requiredSource.length; i++) {
+        if (sourceFieldPath[i] !== requiredSource[i]) return undefined;
+    }
+    return [capture.targetFieldName, ...sourceFieldPath.slice(requiredSource.length)];
 }
 
 function resolveStaticMethodName(expr: ArkStaticInvokeExpr): string {
@@ -1060,6 +1339,27 @@ function resolveOrdinaryCopyLikeInvokeKind(
     }
 
     return undefined;
+}
+
+export function collectOrdinaryCopyLikeConsumedLocals(
+    invokeExpr: ArkStaticInvokeExpr | ArkInstanceInvokeExpr | ArkPtrInvokeExpr | any,
+): Local[] {
+    const out: Local[] = [];
+    const seen = new Set<string>();
+    const addIfConsumed = (candidate: any): void => {
+        if (!(candidate instanceof Local)) return;
+        if (!resolveOrdinaryCopyLikeInvokeKind(invokeExpr, candidate)) return;
+        const key = localCopyLikeIdentityKey(candidate);
+        if (seen.has(key)) return;
+        seen.add(key);
+        out.push(candidate);
+    };
+
+    addIfConsumed(invokeExpr?.getBase?.());
+    for (const arg of invokeExpr?.getArgs?.() || []) {
+        addIfConsumed(arg);
+    }
+    return out;
 }
 
 function ordinaryCopyLikeConsumesLocal(

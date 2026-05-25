@@ -194,8 +194,12 @@ function populateLifecycleSourceSchemas(
         const paramName = String(parameter?.getName?.() || "").toLowerCase();
         const paramType = String(parameter?.getType?.()?.toString?.() || "").toLowerCase();
         const wantLikeParam = isWantLikeParam(paramName, paramType);
+        const formBindingLikeParam = isFormBindingLikeParam(paramName, paramType);
+        const payloadLikeParam = isLifecyclePayloadLikeParam(paramName, paramType);
 
-        if (!(isWantHandoffTarget && wantLikeParam)) {
+        if ((wantLikeParam || formBindingLikeParam || payloadLikeParam)
+            && !(isWantHandoffTarget && wantLikeParam)
+        ) {
             contract.sourceSchemas.push({
                 id: `source.arkmain.contract.lifecycle.param.${signature}.${endpoint}`,
                 sourceKind: "entry_param",
@@ -221,7 +225,7 @@ function populateLifecycleSourceSchemas(
             });
         }
 
-        if (isFormBindingLikeParam(paramName, paramType)) {
+        if (formBindingLikeParam) {
             contract.sourceSchemas.push({
                 id: `source.arkmain.contract.lifecycle.formbinding.${signature}.${endpoint}.root`,
                 sourceKind: "entry_param",
@@ -279,4 +283,12 @@ function isFormBindingLikeParam(paramName: string, paramType: string): boolean {
         || paramName.includes("form_binding_data")
         || paramName.includes("formdata")
         || paramType.includes("formbindingdata");
+}
+
+function isLifecyclePayloadLikeParam(paramName: string, paramType: string): boolean {
+    const joined = `${paramName} ${paramType}`;
+    if (/\b(windowstage|launchparam|bundleversion|grantstatus|permission|permissions)\b/.test(joined)) {
+        return false;
+    }
+    return /\b(data|payload|params|parameters|message|event|uri|url|query|record|object|json|result)\b/.test(joined);
 }

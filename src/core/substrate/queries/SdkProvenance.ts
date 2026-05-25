@@ -171,6 +171,7 @@ export function resolveSdkImportScopeCandidates(
         return { classTexts: [], moduleTexts: [], fileTexts: [] };
     }
 
+    const sourceFile = getSourceFile(sourceMethod);
     const symbols = new Set<string>();
     const methodSig = invokeExpr.getMethodSignature?.();
     const className = methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";
@@ -182,6 +183,7 @@ export function resolveSdkImportScopeCandidates(
     if (baseName) {
         symbols.add(baseName);
     }
+    addSdkTypeScopeCandidates(sourceFile, invokeExpr.getBase?.(), classTexts, moduleTexts, fileTexts);
 
     walkInvokeBaseChain(invokeExpr, (rhs) => {
         const ancestorSig = rhs.getMethodSignature?.();
@@ -193,10 +195,10 @@ export function resolveSdkImportScopeCandidates(
         if (ancestorBaseName) {
             symbols.add(ancestorBaseName);
         }
+        addSdkTypeScopeCandidates(sourceFile, rhs, classTexts, moduleTexts, fileTexts);
         return false;
     });
 
-    const sourceFile = getSourceFile(sourceMethod);
     for (const symbol of symbols) {
         if (!symbol) continue;
         const importFrom = sourceFile?.getImportInfoBy?.(symbol)?.getFrom?.() || "";
@@ -214,6 +216,68 @@ export function resolveSdkImportScopeCandidates(
         moduleTexts: [...moduleTexts.values()],
         fileTexts: [...fileTexts.values()],
     };
+}
+
+function addSdkTypeScopeCandidates(
+    sourceFile: any,
+    value: any,
+    classTexts: Set<string>,
+    moduleTexts: Set<string>,
+    fileTexts: Set<string>,
+): void {
+    if (!sourceFile || !value) return;
+    addSdkNamespaceQualifiedTypeCandidates(
+        sourceFile,
+        safeToString(value?.getType?.()),
+        classTexts,
+        moduleTexts,
+        fileTexts,
+    );
+
+    const defStmt = value?.getDeclaringStmt?.();
+    const rhs = defStmt?.getRightOp?.();
+    if (!rhs || rhs === value) return;
+    addSdkNamespaceQualifiedTypeCandidates(
+        sourceFile,
+        safeToString(rhs?.getType?.()),
+        classTexts,
+        moduleTexts,
+        fileTexts,
+    );
+
+    const fieldSig = rhs?.getFieldSignature?.();
+    addSdkNamespaceQualifiedTypeCandidates(
+        sourceFile,
+        safeToString(fieldSig?.getType?.()),
+        classTexts,
+        moduleTexts,
+        fileTexts,
+    );
+}
+
+function addSdkNamespaceQualifiedTypeCandidates(
+    sourceFile: any,
+    typeText: string,
+    classTexts: Set<string>,
+    moduleTexts: Set<string>,
+    fileTexts: Set<string>,
+): void {
+    if (!typeText) return;
+    const re = /(?:^|[^A-Za-z0-9_$])([A-Za-z_$][A-Za-z0-9_$]*)\.([A-Za-z_$][A-Za-z0-9_$]*)/g;
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(typeText)) !== null) {
+        const namespace = match[1] || "";
+        const typeName = match[2] || "";
+        const importFrom = sourceFile?.getImportInfoBy?.(namespace)?.getFrom?.() || "";
+        if (!namespace || !typeName || !isSdkImportFrom(importFrom)) {
+            continue;
+        }
+        addClassLikeCandidates(classTexts, namespace);
+        addClassLikeCandidates(classTexts, typeName);
+        moduleTexts.add(importFrom);
+        fileTexts.add(importFrom);
+        addImportPathCandidates(classTexts, importFrom);
+    }
 }
 
 function walkInvokeBaseChain(
@@ -258,6 +322,14 @@ function getSourceFile(sourceMethod: ArkMethod | undefined): any {
 
 function resolveValueSymbolName(value: any): string {
     return value?.getName?.() || value?.toString?.() || "";
+}
+
+function safeToString(value: any): string {
+    try {
+        return String(value?.toString?.() || "").trim();
+    } catch {
+        return "";
+    }
 }
 
 function addClassLikeCandidates(target: Set<string>, raw: string): void {

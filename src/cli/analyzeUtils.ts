@@ -86,13 +86,22 @@ export function detectFlows(
             handoffMarkers: transferRuleIds.filter(ruleId => ruleId.startsWith("ude.handoff.")),
         });
     };
+    const buildFlowSummaryKey = (flow: TaintFlow): string => {
+        const sinkText = flow.sink.toString();
+        const sinkEndpoint = flow.sinkEndpoint || "";
+        const sinkNodeId = flow.sinkNodeId === undefined ? "" : String(flow.sinkNodeId);
+        const sinkFieldPath = flow.sinkFieldPath && flow.sinkFieldPath.length > 0
+            ? flow.sinkFieldPath.join(".")
+            : "";
+        return `${flow.source} -> ${sinkText} -> ${sinkEndpoint} -> ${sinkNodeId} -> ${sinkFieldPath}`;
+    };
 
     const collect = (label: string, token: string, flows: TaintFlow[]): number => {
         const bucket = new Set<string>();
         for (const flow of flows) {
             if (maxFlowLimit !== undefined && uniqueFlowKeys.size >= maxFlowLimit) break;
             const sinkText = flow.sink.toString();
-            const key = `${flow.source} -> ${sinkText}`;
+            const key = buildFlowSummaryKey(flow);
             bucket.add(key);
             if (!uniqueFlowKeys.has(key)) {
                 uniqueFlowKeys.add(key);

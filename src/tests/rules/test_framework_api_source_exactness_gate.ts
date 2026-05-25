@@ -56,6 +56,19 @@ const EXACTNESS_PROBES: ExactnessProbeSpec[] = [
         },
     },
     {
+        family: "source.harmony.appAccount",
+        positiveCase: "api_appaccount_getcredential_016_T",
+        negativeCase: "api_projectaccount_getcredential_017_F",
+        weakFallback: {
+            id: "source.framework.api.appaccount.weak_getCredential",
+            family: "source.harmony.appAccount",
+            tier: "C",
+            sourceKind: "call_return",
+            match: { kind: "method_name_equals", value: "getCredential" },
+            target: "result",
+        },
+    },
+    {
         family: "source.harmony.rdb",
         positiveCase: "api_rdb_query_005_T",
         negativeCase: "api_myrdb_query_006_F",

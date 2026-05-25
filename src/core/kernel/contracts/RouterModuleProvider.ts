@@ -8,6 +8,7 @@ export interface RouterValueFieldTarget {
     routerKey: string;
     ungrouped: boolean;
     passthrough?: boolean;
+    sourceFieldPath?: string[];
 }
 
 export interface RouterSemanticModel {

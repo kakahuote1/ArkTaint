@@ -18,7 +18,7 @@ const harmonyRouterModuleSpec: ModuleSpec = {
             getMethods: ["getParams"],
             navDestinationClassNames: ["NavDestination"],
             navDestinationRegisterMethods: ["register", "setBuilder", "setDestinationBuilder"],
-            frameworkSignatureHints: ["@ohos", "@ohossdk", "ohos.router", "ohos/router"],
+            frameworkSignatureHints: ["@ohos", "@ohossdk", "@kit", "kit.arkui", "ohos.router", "ohos/router"],
             payloadUnwrapPrefixes: ["param", "params"],
         },
     ],

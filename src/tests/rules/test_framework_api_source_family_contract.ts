@@ -37,6 +37,7 @@ const SINK_RULES: SinkRule[] = [
 const API_FAMILY_PROBE_SPECS: ApiFamilyProbeSpec[] = [
     { family: "source.harmony.network.http", caseName: "api_http_request_001_T" },
     { family: "source.harmony.preferences", caseName: "api_preferences_get_003_T" },
+    { family: "source.harmony.appAccount", caseName: "api_appaccount_getcredential_016_T" },
     { family: "source.harmony.rdb", caseName: "api_rdb_query_005_T" },
     { family: "source.harmony.globalcontext", caseName: "api_globalcontext_getobject_007_T" },
     { family: "source.harmony.file", caseName: "api_fs_read_008_T" },
@@ -133,7 +134,7 @@ async function main(): Promise<void> {
         assert(rule.tier === "A" || rule.tier === "B" || rule.tier === "C", `API source rule missing tier: ${rule.id}`);
         if (rule.match.kind === "method_name_equals") {
             const methodName = rule.match.value;
-            const highRisk = new Set(["get", "getSync", "query", "querySql", "read", "readSync", "request", "download", "upload"]);
+            const highRisk = new Set(["get", "getSync", "getCredential", "query", "querySql", "read", "readSync", "request", "download", "upload"]);
             if (highRisk.has(methodName)) {
                 assert(
                     !!rule.calleeScope?.className || !!rule.calleeScope?.methodName,

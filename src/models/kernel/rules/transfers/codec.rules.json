@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "2.0",
+  "sources": [],
+  "sinks": [],
+  "sanitizers": [],
+  "transfers": [
+    {
+      "id": "transfer.harmony.textdecoder.decodeToString.base_to_result",
+      "description": "TextDecoder.decodeToString(buffer): encoded bytes taint decoded string result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "decodeToString",
+        "invokeKind": "instance",
+        "argCount": 2
+      },
+      "from": "base",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.textdecoder.decodeToString.arg0_to_result",
+      "description": "TextDecoder.decodeToString(buffer): buffer argument taints decoded string result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "decodeToString",
+        "invokeKind": "instance",
+        "argCount": 2
+      },
+      "from": "arg0",
+      "to": "result"
+    },
+    {
+      "id": "transfer.harmony.textencoder.encodeInto.arg0_to_result",
+      "description": "TextEncoder.encodeInto(text): source text taints encoded byte result.",
+      "match": {
+        "kind": "method_name_equals",
+        "value": "encodeInto",
+        "invokeKind": "instance",
+        "argCount": 1
+      },
+      "from": "arg0",
+      "to": "result"
+    }
+  ]
+}

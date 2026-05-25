@@ -21,6 +21,26 @@ function transferSummary(): SemanticFlowSummary {
     };
 }
 
+function sinkSummary(): SemanticFlowSummary {
+    return {
+        inputs: [{ slot: "arg", index: 0 }],
+        outputs: [],
+        transfers: [],
+        confidence: "high",
+        ruleKind: "sink",
+    };
+}
+
+function returnSourceSummary(): SemanticFlowSummary {
+    return {
+        inputs: [],
+        outputs: [{ slot: "result" }],
+        transfers: [],
+        confidence: "high",
+        ruleKind: "source",
+    };
+}
+
 function bridgeSummary(): SemanticFlowSummary {
     return {
         inputs: [{ surface: "publish", slot: "arg", index: 1 }],
@@ -95,6 +115,105 @@ async function main(): Promise<void> {
     const ruleBId = ruleB.ruleSet.transfers[0]?.id;
     assert(ruleAId !== ruleBId, `same-surface rules must not share ids: ${ruleAId}`);
 
+    const restSink = buildSemanticFlowArtifact({
+        id: "rule.logger.info",
+        owner: "Logger",
+        surface: "info",
+        methodSignature: "@ets/common/utils/Logger.ets: Logger.info(string[])",
+    }, sinkSummary(), "rule");
+    assert(restSink.kind === "rule", "expected rest sink rule artifact");
+    assert(restSink.ruleSet.sinks.length === 1, "expected one rest sink rule");
+    assert(restSink.ruleSet.sinks[0].target === "arg0", "rest-array sink should stay bound to the rest formal instead of widening to any argument");
+
+    const proactiveSource = buildSemanticFlowArtifact({
+        id: "rule.project.servicer.getCredential.source",
+        owner: "Servicer",
+        surface: "getUserCredential",
+        methodSignature: "@entry/src/main/ets/configure/service.ets: Servicer.[static]getUserCredential(Unknown)",
+        filePath: "entry/src/main/ets/configure/service.ets",
+        metaTags: ["rule", "candidate", "static", "focus-external_response_source"],
+    }, returnSourceSummary(), "rule");
+    assert(proactiveSource.kind === "rule", "expected proactive return source artifact");
+    const proactiveSourceRule = proactiveSource.ruleSet.sources[0];
+    assert(proactiveSourceRule.match.kind === "method_name_equals", "Unknown proactive source should not use brittle signature_equals");
+    assert(proactiveSourceRule.match.value === "getUserCredential", "expected stable method name match");
+    assert(proactiveSourceRule.match.invokeKind === "static", "expected static invoke shape");
+    assert(proactiveSourceRule.match.argCount === 1, "expected parsed argument count");
+    assert(proactiveSourceRule.calleeScope?.className?.value === "Servicer", "source call_return should scope the callee class");
+    assert(!proactiveSourceRule.scope, "source call_return should not scope the caller method");
+
+    const proactiveSink = buildSemanticFlowArtifact({
+        id: "rule.project.servicer.getProfile.sink",
+        owner: "Servicer",
+        surface: "getUserProfile",
+        methodSignature: "@entry/src/main/ets/configure/service.ets: Servicer.[static]getUserProfile(Unknown)",
+        filePath: "entry/src/main/ets/configure/service.ets",
+        metaTags: ["rule", "candidate", "static"],
+    }, sinkSummary(), "rule");
+    assert(proactiveSink.kind === "rule", "expected proactive sink artifact");
+    const proactiveSinkRule = proactiveSink.ruleSet.sinks[0];
+    assert(proactiveSinkRule.match.kind === "method_name_equals", "Unknown proactive sink should not use brittle signature_equals");
+    assert(proactiveSinkRule.match.argCount === 1, "expected proactive sink argument count");
+    assert(proactiveSinkRule.scope?.className?.value === "Servicer", "sink should scope the invoked class");
+
+    const projectLocalSink = buildSemanticFlowArtifact({
+        id: "rule.project.appevent.createUser.sink",
+        owner: "AppEvent",
+        surface: "createUser",
+        methodSignature: "@entry/src/main/ets/globals/event.ets: AppEvent.createUser(IUser)",
+        filePath: "entry/src/main/ets/globals/event.ets",
+        metaTags: ["rule", "candidate", "instance"],
+    }, sinkSummary(), "rule");
+    assert(projectLocalSink.kind === "rule", "expected project local sink artifact");
+    const projectLocalSinkRule = projectLocalSink.ruleSet.sinks[0];
+    assert(projectLocalSinkRule.match.kind === "method_name_equals", "project local candidates should avoid brittle signature_equals even with concrete local types");
+    assert(projectLocalSinkRule.match.argCount === 1, "project local method rule should preserve argument count");
+    assert(projectLocalSinkRule.match.invokeKind === "instance", "project local method rule should preserve invoke kind");
+    assert(projectLocalSinkRule.scope?.className?.value === "AppEvent", "project local sink should be scoped by owner class");
+
+    const projectLocalTransfer = buildSemanticFlowArtifact({
+        id: "rule.project.user.from.transfer",
+        owner: "User",
+        surface: "from",
+        methodSignature: "@entry/src/main/ets/models/user.ets: User.[static]from(Partial<IUser>)",
+        filePath: "entry/src/main/ets/models/user.ets",
+        metaTags: ["rule", "candidate", "static"],
+    }, transferSummary(), "rule");
+    assert(projectLocalTransfer.kind === "rule", "expected project local transfer artifact");
+    const projectLocalTransferRule = projectLocalTransfer.ruleSet.transfers[0];
+    assert(projectLocalTransferRule.match.kind === "method_name_equals", "project local transfer should use method+scope matching");
+    assert(projectLocalTransferRule.match.value === "from", "project local transfer should keep stable surface method name");
+    assert(projectLocalTransferRule.match.argCount === 1, "project local transfer should parse local concrete parameter list");
+    assert(projectLocalTransferRule.scope?.className?.value === "User", "project local transfer should be scoped by owner class");
+
+    const methodCallbackSource = buildSemanticFlowArtifact({
+        id: "rule.project.axios.interceptor.source",
+        owner: "%unk",
+        surface: "use",
+        methodSignature: "@%unk/%unk: .use(Unknown, Unknown)",
+        filePath: "entry/src/main/ets/configure/axios.ets",
+        metaTags: ["rule", "candidate", "instance"],
+        callbackArgIndexes: [0, 1],
+        typeHint: "interceptors.response",
+    }, {
+        inputs: [],
+        outputs: [{ slot: "callback_param", callbackArgIndex: 1, paramIndex: 0 }],
+        transfers: [],
+        confidence: "high",
+        ruleKind: "source",
+        sourceKind: "callback_param",
+    }, "rule");
+    assert(methodCallbackSource.kind === "rule", "expected method callback source artifact");
+    const methodCallbackSourceRule = methodCallbackSource.ruleSet.sources[0];
+    assert(methodCallbackSourceRule.match.kind === "method_name_equals", "method callback source should use stable method fallback");
+    assert(methodCallbackSourceRule.match.value === "use", "method callback source should match the registration method");
+    assert(methodCallbackSourceRule.match.invokeKind === "instance", "method callback source should preserve invoke kind");
+    assert(methodCallbackSourceRule.match.argCount === 2, "method callback source should preserve registration arg count");
+    assert(methodCallbackSourceRule.match.typeHint === "interceptors.response", "method callback source should keep receiver typeHint to avoid broad use(...) matching");
+    assert(methodCallbackSourceRule.callbackArgIndexes?.[0] === 1, "method callback source should preserve selected callback arg index");
+    assert(methodCallbackSourceRule.scope?.file?.value === "configure/axios.ets", "unknown method callback source should scope the registration caller file");
+    assert(!methodCallbackSourceRule.calleeScope, "unknown method callback source should not scope the unknown external callee file");
+
     const moduleA = buildSemanticFlowArtifact({
         id: "module.alpha.publish",
         owner: "AlphaBus",
@@ -152,6 +271,48 @@ async function main(): Promise<void> {
     ]);
 
     assert(merged.ruleSet.transfers.length === 1, `duplicate rule ids should dedupe, got ${merged.ruleSet.transfers.length}`);
+
+    const scopedSinkA = buildSemanticFlowArtifact({
+        id: "rule.project.cacheA.write",
+        owner: "CacheA",
+        surface: "write",
+        methodSignature: "@entry/src/main/ets/cache/a.ets: CacheA.write(string)",
+        filePath: "entry/src/main/ets/cache/a.ets",
+        metaTags: ["rule", "candidate", "instance"],
+    }, sinkSummary(), "rule");
+    const scopedSinkB = buildSemanticFlowArtifact({
+        id: "rule.project.cacheB.write",
+        owner: "CacheB",
+        surface: "write",
+        methodSignature: "@entry/src/main/ets/cache/b.ets: CacheB.write(string)",
+        filePath: "entry/src/main/ets/cache/b.ets",
+        metaTags: ["rule", "candidate", "instance"],
+    }, sinkSummary(), "rule");
+    const scopedMerged = buildSemanticFlowAnalysisAugment([
+        {
+            anchor: { id: "scoped.a", surface: "write" },
+            draftId: "draft.scoped.a",
+            classification: "rule",
+            resolution: "resolved",
+            summary: sinkSummary(),
+            draft: sinkSummary(),
+            artifact: scopedSinkA,
+            finalSlice: { anchorId: "scoped.a", round: 0, template: "call-return", observations: [], snippets: [] },
+            history: [],
+        } satisfies SemanticFlowItemResult,
+        {
+            anchor: { id: "scoped.b", surface: "write" },
+            draftId: "draft.scoped.b",
+            classification: "rule",
+            resolution: "resolved",
+            summary: sinkSummary(),
+            draft: sinkSummary(),
+            artifact: scopedSinkB,
+            finalSlice: { anchorId: "scoped.b", round: 0, template: "call-return", observations: [], snippets: [] },
+            history: [],
+        } satisfies SemanticFlowItemResult,
+    ]);
+    assert(scopedMerged.ruleSet.sinks.length === 2, `same method/target with different scopes must not dedupe, got ${scopedMerged.ruleSet.sinks.length}`);
 
     console.log("PASS test_semanticflow_artifact_ids");
 }

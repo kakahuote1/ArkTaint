@@ -5,6 +5,10 @@ import {
     classifySemanticFlowSummary,
 } from "./SemanticFlowArtifacts";
 import {
+    suppressInvalidResolvedSemanticFlowArtifact,
+    suppressKnownNonArtifactSemanticFlowCandidate,
+} from "./SemanticFlowArtifactGuards";
+import {
     createSemanticFlowDraftId,
     createSemanticFlowExpandPlan,
     createSemanticFlowMarker,
@@ -162,6 +166,17 @@ async function runSemanticFlowItem(
             );
         }
     }
+    const preLlmSuppression = suppressKnownNonArtifactSemanticFlowCandidate(anchor, initialSlice);
+    if (preLlmSuppression) {
+        return finalize({
+            anchor,
+            draftId,
+            resolution: preLlmSuppression.resolution,
+            finalSlice: initialSlice,
+            history,
+            error: preLlmSuppression.reason,
+        });
+    }
 
     for (let round = 0; round <= maxRounds; round++) {
         onProgress?.({ type: "round-start", index: index + 1, totalItems, anchorId: anchor.id, round });
@@ -282,6 +297,21 @@ async function runSemanticFlowItem(
                         finalSlice: currentSlice,
                         history,
                         error: "unable to classify summary",
+                    });
+                }
+                const suppression = suppressInvalidResolvedSemanticFlowArtifact(anchor, summary, classification, currentSlice);
+                if (suppression) {
+                    return finalize({
+                        anchor,
+                        draftId,
+                        resolution: suppression.resolution,
+                        summary,
+                        draft: summary,
+                        lastMarker,
+                        lastDelta,
+                        finalSlice: currentSlice,
+                        history,
+                        error: suppression.reason,
                     });
                 }
                 const artifact = buildSemanticFlowArtifact(anchor, summary, classification);

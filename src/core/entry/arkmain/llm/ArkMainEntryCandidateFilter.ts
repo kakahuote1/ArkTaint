@@ -23,6 +23,10 @@ export function splitArkMainEntryCandidatesForSemanticFlow(
             kernelCoveredCandidates.push(candidate);
             continue;
         }
+        if (isRuntimeOwnerCandidateWithoutOverrideEvidence(candidate)) {
+            ineligibleCandidates.push(candidate);
+            continue;
+        }
         if (isComponentCandidateOutsideFormalArkMain(candidate)) {
             ineligibleCandidates.push(candidate);
             continue;
@@ -52,6 +56,17 @@ export function isArkMainCandidateCoveredByKernelContracts(candidate: ArkMainEnt
         return true;
     }
     return false;
+}
+
+function isRuntimeOwnerCandidateWithoutOverrideEvidence(candidate: ArkMainEntryCandidate): boolean {
+    const ownerKinds = inferOwnerKinds(candidate);
+    const hasRuntimeOwner = ownerKinds.has("ability_owner")
+        || ownerKinds.has("stage_owner")
+        || ownerKinds.has("extension_owner");
+    if (!hasRuntimeOwner) {
+        return false;
+    }
+    return (candidate.overrideSignals || []).length === 0;
 }
 
 function isComponentCandidateOutsideFormalArkMain(candidate: ArkMainEntryCandidate): boolean {

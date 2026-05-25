@@ -15,4 +15,3 @@ export const localHttp = {
         return "safe-response";
     },
 };
-

@@ -140,7 +140,7 @@ const FRAMEWORK_GOVERNANCE_HINTS: readonly FrameworkGovernanceFamilyHint[] = [
     },
     {
         kind: "sink",
-        pattern: /^sink\.harmony\.fs\.(writeSync|copyFile|moveFile)$/,
+        pattern: /^sink\.harmony\.fs\.(writeSync|copyFile|copyFileSync|moveFile)$/,
         family: "sink.harmony.file",
         defaultTier: "B",
     },

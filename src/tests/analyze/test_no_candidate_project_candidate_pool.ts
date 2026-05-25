@@ -65,11 +65,11 @@ function main(): void {
 
     assert(classified.total === classified.items.length, "classified total/items mismatch");
     assert(projectCandidates.total === projectCandidates.items.length, "project candidate total/items mismatch");
-    assert(projectCandidates.policy === "include_only_C2_PROJECT_WRAPPER", `unexpected policy: ${projectCandidates.policy}`);
+    assert(projectCandidates.policy === "include_project_wrappers_proactive_surfaces_and_selected_external_sdk_gaps", `unexpected policy: ${projectCandidates.policy}`);
     assert(classified.total === summaryNoCandidate.length, "classified total should align with summary.ruleFeedback.noCandidateCallsites");
 
-    const invalid = projectCandidates.items.filter(item => item.category !== "C2_PROJECT_WRAPPER");
-    assert(invalid.length === 0, "project candidate pool should only contain C2_PROJECT_WRAPPER");
+    const invalid = projectCandidates.items.filter(item => !["C2_PROJECT_WRAPPER", "C3_FRAMEWORK_GAP"].includes(item.category));
+    assert(invalid.length === 0, "project candidate pool should only contain project wrappers or selected external SDK gaps");
 
     console.log("====== No Candidate Project Candidate Pool Test ======");
     console.log(`classified_total=${classified.total}`);

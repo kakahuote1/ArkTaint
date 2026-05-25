@@ -135,6 +135,20 @@ export class TaintTracker {
         return undefined;
     }
 
+    public getFieldSourcesAnyContext(nodeId: number): Array<{ source: string; fieldPath: string[] }> {
+        const byFieldPath = this.taintedFieldSourcesAnyContext.get(nodeId);
+        if (!byFieldPath) return [];
+        const out: Array<{ source: string; fieldPath: string[] }> = [];
+        for (const [fieldPathKey, source] of byFieldPath.entries()) {
+            if (!fieldPathKey) continue;
+            out.push({
+                source,
+                fieldPath: fieldPathKey.split("."),
+            });
+        }
+        return out;
+    }
+
     public getTaintFactIds(nodeId: number, contextId: ContextID, fieldPath?: string[]): string[] {
         if (fieldPath && fieldPath.length > 0) {
             const ids = this.taintedFieldFactIds.get(this.makeFieldKey(nodeId, contextId, fieldPath));

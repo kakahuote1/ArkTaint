@@ -192,12 +192,13 @@ function createBuiltinMatchers(): KnownMatcher[] {
         matches(view) {
             if (!loggingMethods.has(view.methodLower)) return false;
             if (view.methodLower.startsWith("show")) {
-                return containsAny(view.signatureLower, ["console", "hilog", "logger", "logutil"])
-                    || containsAny(view.ownerLower, ["console", "hilog", "logger", "logutil"])
-                    || containsAny(view.contextLower, ["console.", "hilog.", "logger.", "log."]);
+                return containsAny(view.signatureLower, ["console", "hilog"])
+                    || containsAny(view.ownerLower, ["console", "hilog"])
+                    || containsAny(view.contextLower, ["console.", "hilog."]);
             }
-            return containsAny(view.signatureLower, ["console", "hilog", "logger", "logutil", "@%unk/%unk"])
-                || containsAny(view.ownerLower, ["console", "hilog", "logger", "logutil"]);
+            return containsAny(view.signatureLower, ["console", "hilog"])
+                || containsAny(view.ownerLower, ["console", "hilog"])
+                || (view.signatureLower.includes("@%unk/%unk") && containsAny(view.contextLower, ["console.", "hilog."]));
         },
     });
 

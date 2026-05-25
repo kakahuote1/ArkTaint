@@ -63,12 +63,16 @@ import {
     collectParameterAssignStmts,
     resolveMethodsFromCallable,
 } from "../substrate/queries/CalleeResolver";
+import { resolveCallbackRegistrationsFromStmt } from "../substrate/queries/CallbackBindingQuery";
 import { collectFiniteStringCandidatesFromValue } from "../substrate/queries/FiniteStringCandidateResolver";
+import { resolveKnownOptionCallbackRegistrationsFromStmt } from "../substrate/semantics/KnownOptionCallbackRegistration";
+import { resolveKnownFrameworkCallbackRegistration } from "../entry/shared/FrameworkCallbackClassifier";
 import { collectOrdinaryHigherOrderCallbackMethodSignaturesFromMethod } from "../kernel/ordinary/OrdinaryArrayPropagation";
 import { buildOrdinarySharedStateIndex } from "../kernel/ordinary/OrdinarySharedStatePropagation";
 import { buildArkMainPlan } from "../entry/arkmain/ArkMainPlanner";
 import { ArkMainEntryFact } from "../entry/arkmain/ArkMainTypes";
 import { ArkMainSyntheticRootBuilder } from "../entry/arkmain/ArkMainSyntheticRootBuilder";
+import { expandReachableComponentEntrypoints } from "../entry/arkmain/facts/ArkMainComponentInstantiationResolver";
 import {
     emptyModuleAuditSnapshot,
     ModuleAuditSnapshot,
@@ -109,6 +113,7 @@ import {
     RuleEndpoint,
     RuleEndpointOrRef,
     RuleInvokeKind,
+    RuleScopeConstraint,
     SanitizerRule,
     SinkRule,
     SourceRule,
@@ -1028,16 +1033,47 @@ export class TaintPropagationEngine {
             }
         }
 
-        const reachableMethods = this.scene.getMethods().filter(method => {
-            const signature = safeMethodSignatureText(method);
-            return !!signature && reachable.has(signature);
-        });
-        for (const method of expandMethodsByDirectCalls(this.scene, reachableMethods, {
-            includeKeyedDispatchCallbacks: false,
-        })) {
+        for (let round = 0; round < 6; round++) {
+            let changed = false;
+            const reachableMethods = this.scene.getMethods().filter(method => {
+                const signature = safeMethodSignatureText(method);
+                return !!signature && reachable.has(signature);
+            });
+            for (const method of expandMethodsByDirectCalls(this.scene, reachableMethods, {
+                includeKeyedDispatchCallbacks: false,
+            })) {
+                const signature = safeMethodSignatureText(method);
+                if (!signature || reachable.has(signature)) continue;
+                reachable.add(signature);
+                changed = true;
+            }
+            for (const method of expandReachableComponentEntrypoints(this.scene, reachable)) {
+                const signature = safeMethodSignatureText(method);
+                if (!signature || reachable.has(signature)) continue;
+                reachable.add(signature);
+                changed = true;
+            }
+            if (!changed) break;
+        }
+
+        const frameworkCallbackMethodsBySig = new Map<string, ArkMethod>();
+        for (const method of this.scene.getMethods()) {
             const signature = safeMethodSignatureText(method);
             if (!signature) continue;
-            reachable.add(signature);
+            frameworkCallbackMethodsBySig.set(signature, method);
+        }
+        const frameworkCallbackQueue = [...reachable];
+        const frameworkCallbackVisited = new Set<string>(reachable);
+        for (let head = 0; head < frameworkCallbackQueue.length; head++) {
+            const signature = frameworkCallbackQueue[head];
+            const method = frameworkCallbackMethodsBySig.get(signature);
+            if (!method) continue;
+            for (const callbackSignature of collectKnownFrameworkCallbackMethodSignaturesFromMethod(this.scene, method)) {
+                if (frameworkCallbackVisited.has(callbackSignature)) continue;
+                frameworkCallbackVisited.add(callbackSignature);
+                reachable.add(callbackSignature);
+                frameworkCallbackQueue.push(callbackSignature);
+            }
         }
 
         const methodsBySig = new Map<string, ArkMethod>();
@@ -1058,6 +1094,47 @@ export class TaintPropagationEngine {
                 reachable.add(callbackSignature);
                 ordinaryCallbackQueue.push(callbackSignature);
             }
+        }
+
+        for (let round = 0; round < 6; round++) {
+            let changed = false;
+            const reachableMethods = this.scene.getMethods().filter(method => {
+                const signature = safeMethodSignatureText(method);
+                return !!signature && reachable.has(signature);
+            });
+            for (const method of expandMethodsByDirectCalls(this.scene, reachableMethods, {
+                includeKeyedDispatchCallbacks: false,
+            })) {
+                const signature = safeMethodSignatureText(method);
+                if (!signature || reachable.has(signature)) continue;
+                reachable.add(signature);
+                changed = true;
+            }
+            for (const method of expandReachableComponentEntrypoints(this.scene, reachable)) {
+                const signature = safeMethodSignatureText(method);
+                if (!signature || reachable.has(signature)) continue;
+                reachable.add(signature);
+                changed = true;
+            }
+            for (const signature of [...reachable]) {
+                const method = frameworkCallbackMethodsBySig.get(signature);
+                if (!method) continue;
+                for (const callbackSignature of collectKnownFrameworkCallbackMethodSignaturesFromMethod(this.scene, method)) {
+                    if (reachable.has(callbackSignature)) continue;
+                    reachable.add(callbackSignature);
+                    changed = true;
+                }
+            }
+            for (const signature of [...reachable]) {
+                const method = methodsBySig.get(signature);
+                if (!method) continue;
+                for (const callbackSignature of collectOrdinaryHigherOrderCallbackMethodSignaturesFromMethod(this.scene, method)) {
+                    if (reachable.has(callbackSignature)) continue;
+                    reachable.add(callbackSignature);
+                    changed = true;
+                }
+            }
+            if (!changed) break;
         }
 
         return reachable;
@@ -1156,6 +1233,7 @@ export class TaintPropagationEngine {
             ...pluginSourceRules,
         ]);
         let ruleSeeds = this.collectSourceRuleSeeds(effectiveSourceRules, this.activeReachableMethodSignatures);
+        this.invalidateModuleRuntimeAfterPagMutation();
         if (ruleSeeds.activatedMethodSignatures.length > 0) {
             const mergedReachable = new Set<string>(this.activeReachableMethodSignatures || []);
             for (const sig of ruleSeeds.activatedMethodSignatures) {
@@ -1196,6 +1274,12 @@ export class TaintPropagationEngine {
             seededLocals: [...seededLocals].sort(),
             sourceRuleHits: this.toRecord(this.ruleHits.source),
         };
+    }
+
+    private invalidateModuleRuntimeAfterPagMutation(): void {
+        this.moduleRuntime = undefined;
+        this.moduleRuntimeKey = undefined;
+        this.moduleRuntimePag = undefined;
     }
 
     public getAutoEntrySourceRules(): SourceRule[] {
@@ -1358,7 +1442,8 @@ export class TaintPropagationEngine {
                 argCount?: number;
                 typeHint?: string;
             },
-            signatureMatchMode: "contains" | "equals"
+            signatureMatchMode: "contains" | "equals",
+            effectiveCalleeScope?: RuleScopeConstraint,
         ): string => {
             const endpoint = target.targetEndpoint || "";
             const path = target.targetPath && target.targetPath.length > 0
@@ -1367,15 +1452,17 @@ export class TaintPropagationEngine {
             const invokeKind = target.invokeKind || "";
             const argCount = target.argCount === undefined ? "" : String(target.argCount);
             const typeHint = target.typeHint || "";
-            return `${signature}|${endpoint}|${path}|${invokeKind}|${argCount}|${typeHint}|${signatureMatchMode}`;
+            const calleeScope = stringifyRuleScope(effectiveCalleeScope);
+            return `${signature}|${endpoint}|${path}|${invokeKind}|${argCount}|${typeHint}|${calleeScope}|${signatureMatchMode}`;
         };
         const buildFlowDedupKey = (flow: TaintFlow): string => {
             const sinkMethodSig = flow.sink?.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.() || "";
+            const sinkEndpoint = flow.sinkEndpoint || "";
             const sinkNodeId = flow.sinkNodeId === undefined ? "" : String(flow.sinkNodeId);
             const sinkFieldPath = flow.sinkFieldPath && flow.sinkFieldPath.length > 0
                 ? flow.sinkFieldPath.join(".")
                 : "";
-            return `${flow.source} -> ${sinkMethodSig} -> ${flow.sink.toString()} -> ${sinkNodeId} -> ${sinkFieldPath}`;
+            return `${flow.source} -> ${sinkMethodSig} -> ${flow.sink.toString()} -> ${sinkEndpoint} -> ${sinkNodeId} -> ${sinkFieldPath}`;
         };
         const addFlows = (ruleId: string, flows: TaintFlow[]): void => {
             let added = 0;
@@ -1408,18 +1495,9 @@ export class TaintPropagationEngine {
                 : "";
             const family = resolveRuleFamily(rule);
             const tier = resolveRuleTierWeight(rule);
+            const effectiveCalleeScope = rule.scope ? { ...rule.scope } : undefined;
             for (const signature of signatures) {
-                const cacheKey = buildDetectCacheKey(signature, target, signatureMatchMode);
-                const signatureFamilyKey = family ? `${signature}|${family}` : "";
-                const bestTier = signatureFamilyKey
-                    ? (bestTierBySignatureFamily.get(signatureFamilyKey) || 0)
-                    : 0;
-                if (signatureFamilyKey && tier < bestTier) {
-                    continue;
-                }
-                if (signatureFamilyKey && tier > bestTier) {
-                    bestTierBySignatureFamily.set(signatureFamilyKey, tier);
-                }
+                const cacheKey = buildDetectCacheKey(signature, target, signatureMatchMode, effectiveCalleeScope);
                 let flows: TaintFlow[];
                 const cached = detectCache.get(cacheKey);
                 if (cached) {
@@ -1427,6 +1505,7 @@ export class TaintPropagationEngine {
                 } else {
                     const computed = this.detectSinks(signature, {
                         ...target,
+                        calleeScope: effectiveCalleeScope,
                         signatureMatchMode,
                         sanitizerRules: options?.sanitizerRules || [],
                     });
@@ -1462,6 +1541,17 @@ export class TaintPropagationEngine {
                         const bestActualTier = bestTierBySignatureFamily.get(actualSignatureFamilyKey) || 0;
                         return tier >= bestActualTier;
                     });
+                }
+                if (family && flows.length > 0) {
+                    for (const flow of flows) {
+                        const actualSignature = this.resolveSinkFlowCalleeSignature(flow);
+                        if (!actualSignature) continue;
+                        const actualSignatureFamilyKey = `${actualSignature}|${family}`;
+                        const bestActualTier = bestTierBySignatureFamily.get(actualSignatureFamilyKey) || 0;
+                        if (tier > bestActualTier) {
+                            bestTierBySignatureFamily.set(actualSignatureFamilyKey, tier);
+                        }
+                    }
                 }
                 addFlows(rule.id, flows);
                 if (reachedFlowLimit()) break;
@@ -1971,11 +2061,16 @@ export class TaintPropagationEngine {
             invokeKind?: RuleInvokeKind;
             argCount?: number;
             typeHint?: string;
+            calleeScope?: RuleScopeConstraint;
             signatureMatchMode?: "contains" | "equals";
             sanitizerRules?: SanitizerRule[];
         }
     ): TaintFlow[] {
         if (!this.cg) return [];
+        const orderedTransferRules = this.orderRulesByFamilyTier([
+            ...this.normalizeRuntimeTransferRules(this.options.transferRules || [], "runtime_project"),
+            ...this.normalizeRuntimeTransferRules(this.enginePluginRuntime.getAdditionalTransferRules(), "plugin_runtime"),
+        ]);
         const scoped = runSinkDetector(
             this.scene,
             this.cg,
@@ -1989,6 +2084,7 @@ export class TaintPropagationEngine {
                 allowedMethodSignatures: this.activeReachableMethodSignatures,
                 orderedMethodSignatures: this.activeOrderedMethodSignatures,
                 interproceduralTaintTargetNodeIds: this.collectInterproceduralTaintTargetNodeIds(),
+                transferRules: orderedTransferRules,
                 onProfile: (profile) => this.mergeDetectProfile(profile),
             }
         );
@@ -2169,6 +2265,48 @@ function safeMethodSignatureText(method: any): string {
     } catch {
         return "";
     }
+}
+
+function stringifyRuleScope(scope: RuleScopeConstraint | undefined): string {
+    if (!scope) return "";
+    const encode = (field?: { mode?: string; value?: string }) => {
+        if (!field) return "";
+        return `${field.mode || ""}:${field.value || ""}`;
+    };
+    return [
+        encode(scope.file),
+        encode(scope.module),
+        encode(scope.className),
+        encode(scope.methodName),
+    ].join("|");
+}
+
+function collectKnownFrameworkCallbackMethodSignaturesFromMethod(scene: Scene, method: ArkMethod): string[] {
+    const cfg = method.getCfg?.();
+    if (!cfg) return [];
+
+    const out = new Set<string>();
+    for (const stmt of cfg.getStmts()) {
+        if (!stmt.containsInvokeExpr?.()) continue;
+        const registrations = resolveCallbackRegistrationsFromStmt(
+            stmt,
+            scene,
+            method,
+            args => resolveKnownFrameworkCallbackRegistration(args),
+            { maxDepth: 4 },
+        );
+        for (const registration of registrations) {
+            const signature = safeMethodSignatureText(registration.callbackMethod);
+            if (!signature) continue;
+            out.add(signature);
+        }
+        for (const registration of resolveKnownOptionCallbackRegistrationsFromStmt(stmt, scene, method)) {
+            const signature = safeMethodSignatureText(registration.callbackMethod);
+            if (!signature) continue;
+            out.add(signature);
+        }
+    }
+    return [...out.values()];
 }
 
 function safeValueText(value: any): string {

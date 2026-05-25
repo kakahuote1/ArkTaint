@@ -225,7 +225,15 @@ function sourceFilePathVariants(normalized: string): string[] {
             out.push(normalized.slice(prefix.length));
         }
     }
+    const segments = normalized.split("/").filter(Boolean);
+    if (segments.length > 1 && isLikelyProjectRelativeRootSegment(segments[1])) {
+        out.push(segments.slice(1).join("/"));
+    }
     return [...new Set(out.filter(Boolean))];
+}
+
+function isLikelyProjectRelativeRootSegment(segment: string): boolean {
+    return /^(entry|feature|features|core|common|commons|library|libraries|module|modules|src|ets)$/i.test(segment);
 }
 
 function sourceMethodNameCandidates(methodName: string): string[] {
@@ -239,6 +247,65 @@ function sourceMethodNameCandidates(methodName: string): string[] {
         out.push(syntheticHost[1]);
     }
     return [...new Set(out.filter(Boolean))];
+}
+
+function inferSyntheticFunctionNameCandidates(
+    absPath: string | undefined,
+    methodName: string,
+    argCount: number,
+): string[] {
+    if (!absPath || !/^%[A-Za-z]+\d*/.test(String(methodName || "").trim())) {
+        return [];
+    }
+    const lines = readSourceLines(absPath);
+    if (!lines) {
+        return [];
+    }
+    const out: string[] = [];
+    const seen = new Set<string>();
+    const push = (name: string, params: string): void => {
+        const normalized = String(name || "").trim();
+        if (!normalized || seen.has(normalized)) {
+            return;
+        }
+        if (countTopLevelParameters(params) !== argCount) {
+            return;
+        }
+        seen.add(normalized);
+        out.push(normalized);
+    };
+    const patterns = [
+        /^\s*(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?\(([^)]*)\)\s*(?::|=>)/,
+        /^\s*(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(([^)]*)\)/,
+    ];
+    for (const line of lines) {
+        for (const pattern of patterns) {
+            const match = line.match(pattern);
+            if (match) {
+                push(match[1], match[2]);
+            }
+        }
+    }
+    return out;
+}
+
+function countTopLevelParameters(params: string): number {
+    const text = String(params || "").trim();
+    if (!text) {
+        return 0;
+    }
+    let depth = 0;
+    let count = 1;
+    for (const ch of text) {
+        if (ch === "<" || ch === "(" || ch === "[" || ch === "{") {
+            depth++;
+        } else if ((ch === ">" || ch === ")" || ch === "]" || ch === "}") && depth > 0) {
+            depth--;
+        } else if (ch === "," && depth === 0) {
+            count++;
+        }
+    }
+    return count;
 }
 
 function extractPreferredMethodSnippet(
@@ -255,6 +322,21 @@ function extractPreferredMethodSnippet(
         }
     }
     return undefined;
+}
+
+function extractPreferredOwnerMethodSnippet(
+    ownerMethods: OwnerMethodSnippet[],
+    methodNames: string[],
+): { methodName: string; code: string } | undefined {
+    if (ownerMethods.length === 0) {
+        return undefined;
+    }
+    const nameSet = new Set(methodNames.map(name => String(name || "").trim()).filter(Boolean));
+    if (nameSet.size === 0) {
+        return undefined;
+    }
+    const exact = ownerMethods.find(entry => nameSet.has(entry.method));
+    return exact ? { methodName: exact.method, code: exact.code } : undefined;
 }
 
 function extractOwnerClassNameFromMethodSignature(signature: string): string | undefined {
@@ -285,7 +367,7 @@ function extractMethodSnippetFromFile(absPath: string, methodName: string): stri
         `^\\s*(?:export\\s+)?(?:async\\s+)?function\\s+${escapeRegExp(normalizedMethod)}\\s*\\(`,
     );
     const propertyPattern = new RegExp(
-        `^\\s*${modifiers}${escapeRegExp(normalizedMethod)}\\s*=\\s*(?:async\\s*)?\\(`,
+        `^\\s*(?:export\\s+)?(?:(?:const|let|var)\\s+)?${modifiers}${escapeRegExp(normalizedMethod)}\\s*=\\s*(?:async\\s*)?\\(`,
     );
     let startIndex = -1;
     for (let i = 0; i < lines.length; i++) {
@@ -526,6 +608,10 @@ function scoreOwnerMethodSnippet(
             score += 5;
         }
     }
+    const currentMethodText = String(currentMethod || "").trim();
+    if (currentMethodText && candidate.code.includes(currentMethodText)) {
+        score += 6;
+    }
     const wrapperTokens = ["push", "replace", "back", "get", "set", "post", "emit", "bind", "subscribe", "publish"];
     if (wrapperTokens.some(token => candidate.method.toLowerCase().includes(token))) {
         score += 1;
@@ -563,10 +649,16 @@ function compactOwnerMethodSnippet(
 ): OwnerMethodSnippet {
     const lines = String(snippet.code || "").split(/\r?\n/).filter(Boolean);
     const currentReceivers = extractDelegateReceivers(currentCode);
+    const currentTokens = collectEvidenceTokens([currentCode])
+        .filter(token => token.length >= 4 && !["this", "return", "const", "let", "var"].includes(token));
     const keep = new Set<number>([0]);
     for (let index = 0; index < lines.length; index++) {
         const line = lines[index];
         if (/\breturn\b/.test(line)) {
+            keep.add(index);
+            continue;
+        }
+        if (currentTokens.some(token => line.includes(token))) {
             keep.add(index);
             continue;
         }
@@ -594,6 +686,23 @@ function compactOwnerMethodSnippet(
         ...snippet,
         code: compact.join("\n"),
     };
+}
+
+function buildCallsiteEvidenceCode(slices: CallsiteContextSlice[]): string | undefined {
+    const parts: string[] = [];
+    for (const slice of slices.slice(0, 2)) {
+        if (slice.invokeStmtText) {
+            parts.push(slice.invokeStmtText);
+        }
+        if (Array.isArray(slice.cfgNeighborStmts)) {
+            parts.push(...slice.cfgNeighborStmts);
+        }
+        if (slice.windowLines) {
+            parts.push(slice.windowLines);
+        }
+    }
+    const text = parts.join("\n").trim();
+    return text || undefined;
 }
 
 function collectCfgNeighborTexts(stmt: any, radius: number): string[] | undefined {
@@ -676,7 +785,7 @@ export interface EnrichCallsiteSlicesOptions {
     repoRoot: string;
     sourceDirs: string[];
     items: any[];
-    /** Max feedback items (after sort by count) to enrich */
+    /** Max feedback items, preserving the priority order chosen by the caller */
     maxItems: number;
     /** Example callsites per item */
     maxExamplesPerItem: number;
@@ -697,8 +806,7 @@ export function enrichNoCandidateItemsWithCallsiteSlices(options: EnrichCallsite
         cfgNeighborRadius,
     } = options;
     const normalized = items.map(normalizeNoCandidateItem);
-    const ranked = [...normalized].sort((a, b) => (b.count || 0) - (a.count || 0) || a.callee_signature.localeCompare(b.callee_signature));
-    const picked = ranked.slice(0, Math.max(0, maxItems));
+    const picked = normalized.slice(0, Math.max(0, maxItems));
     const pickedKeys = new Set(
         picked.map(p => `${p.callee_signature}|${p.method}|${p.invokeKind}|${p.argCount}|${p.sourceFile}`),
     );
@@ -720,27 +828,36 @@ export function enrichNoCandidateItemsWithCallsiteSlices(options: EnrichCallsite
         if (!shouldEnrich) {
             return item;
         }
+        const seedContextSlices = Array.isArray((item as any).contextSlices)
+            ? ((item as any).contextSlices as CallsiteContextSlice[])
+            : [];
         const methodNameCandidates = sourceMethodNameCandidates(item.method);
         const sourceAbsPath = resolveProjectSourceFile(repoRoot, sourceDirs, item.sourceFile, methodNameCandidates);
-        const preferredMethodSnippet = extractPreferredMethodSnippet(sourceAbsPath, methodNameCandidates);
-        const methodSnippet = preferredMethodSnippet?.code;
-        const methodSnippetSource = preferredMethodSnippet && preferredMethodSnippet.methodName !== item.method
-            ? preferredMethodSnippet.methodName
-            : undefined;
+        const effectiveMethodNameCandidates = [
+            ...methodNameCandidates,
+            ...inferSyntheticFunctionNameCandidates(sourceAbsPath, item.method, item.argCount),
+        ];
         const ownerClassName = extractOwnerClassNameFromMethodSignature(item.callee_signature);
         const ownerMethods = sourceAbsPath && ownerClassName
             ? extractOwnerMethodSnippetsFromFile(sourceAbsPath, ownerClassName)
             : [];
-        const ownerMethodSnippets = methodSnippet
-            ? selectOwnerFamilySnippets(ownerMethods, preferredMethodSnippet?.methodName || item.method, methodSnippet, 2)
-                .map(snippet => compactOwnerMethodSnippet(methodSnippet, snippet))
+        const preferredMethodSnippet = extractPreferredOwnerMethodSnippet(ownerMethods, effectiveMethodNameCandidates)
+            || extractPreferredMethodSnippet(sourceAbsPath, effectiveMethodNameCandidates);
+        const methodSnippet = preferredMethodSnippet?.code;
+        const methodSnippetSource = preferredMethodSnippet && preferredMethodSnippet.methodName !== item.method
+            ? preferredMethodSnippet.methodName
+            : undefined;
+        const ownerEvidenceCode = methodSnippet || buildCallsiteEvidenceCode(seedContextSlices);
+        const ownerMethodSnippets = ownerEvidenceCode
+            ? selectOwnerFamilySnippets(ownerMethods, preferredMethodSnippet?.methodName || item.method, ownerEvidenceCode, 2)
+                .map(snippet => compactOwnerMethodSnippet(ownerEvidenceCode, snippet))
             : [];
-        const ownerSnippet = sourceAbsPath && methodSnippet
+        const ownerSnippet = sourceAbsPath && ownerEvidenceCode
             ? buildCompactOwnerSnippet(
                 sourceAbsPath,
                 ownerMethods,
                 [item.method, ...ownerMethodSnippets.map(entry => entry.method)],
-                [methodSnippet, ...ownerMethodSnippets.map(entry => entry.code)],
+                [ownerEvidenceCode, ...ownerMethodSnippets.map(entry => entry.code)],
             )
             : undefined;
         const carrierContext = sourceAbsPath
@@ -749,7 +866,7 @@ export function enrichNoCandidateItemsWithCallsiteSlices(options: EnrichCallsite
         if (scenes.length === 0) {
             return {
                 ...item,
-                contextSlices: [],
+                contextSlices: seedContextSlices,
                 ...(methodSnippet ? { methodSnippet } : {}),
                 ...(methodSnippetSource ? { methodSnippetSource } : {}),
                 ...(ownerSnippet ? { ownerSnippet } : {}),
@@ -780,7 +897,7 @@ export function enrichNoCandidateItemsWithCallsiteSlices(options: EnrichCallsite
         if (slices.length === 0) {
             return {
                 ...item,
-                contextSlices: [],
+                contextSlices: seedContextSlices,
                 methodSnippet,
                 ...(methodSnippetSource ? { methodSnippetSource } : {}),
                 ownerSnippet,
@@ -794,13 +911,27 @@ export function enrichNoCandidateItemsWithCallsiteSlices(options: EnrichCallsite
                 contextError: "no_matching_invoke_found_in_scene",
             };
         }
+        const mergedSlices = mergeCallsiteContextSlices(seedContextSlices, slices);
+        const mergedOwnerEvidenceCode = ownerEvidenceCode || buildCallsiteEvidenceCode(mergedSlices);
+        const effectiveOwnerMethodSnippets = ownerMethodSnippets.length > 0 || !mergedOwnerEvidenceCode
+            ? ownerMethodSnippets
+            : selectOwnerFamilySnippets(ownerMethods, preferredMethodSnippet?.methodName || item.method, mergedOwnerEvidenceCode, 2)
+                .map(snippet => compactOwnerMethodSnippet(mergedOwnerEvidenceCode, snippet));
+        const effectiveOwnerSnippet = ownerSnippet || (sourceAbsPath && mergedOwnerEvidenceCode
+            ? buildCompactOwnerSnippet(
+                sourceAbsPath,
+                ownerMethods,
+                [item.method, ...effectiveOwnerMethodSnippets.map(entry => entry.method)],
+                [mergedOwnerEvidenceCode, ...effectiveOwnerMethodSnippets.map(entry => entry.code)],
+            )
+            : undefined);
         return {
             ...item,
-            contextSlices: slices,
+            contextSlices: mergedSlices,
             ...(methodSnippet ? { methodSnippet } : {}),
             ...(methodSnippetSource ? { methodSnippetSource } : {}),
-            ...(ownerSnippet ? { ownerSnippet } : {}),
-            ...(ownerMethodSnippets.length > 0 ? { ownerMethodSnippets } : {}),
+            ...(effectiveOwnerSnippet ? { ownerSnippet: effectiveOwnerSnippet } : {}),
+            ...(effectiveOwnerMethodSnippets.length > 0 ? { ownerMethodSnippets: effectiveOwnerMethodSnippets } : {}),
             ...(carrierContext ? {
                 methodSnippet: methodSnippet || item.methodSnippet,
                 carrierRoots: carrierContext.roots,
@@ -810,4 +941,22 @@ export function enrichNoCandidateItemsWithCallsiteSlices(options: EnrichCallsite
             } : {}),
         };
     });
+}
+
+function mergeCallsiteContextSlices(
+    seed: CallsiteContextSlice[],
+    found: CallsiteContextSlice[],
+): CallsiteContextSlice[] {
+    const out: CallsiteContextSlice[] = [];
+    const seen = new Set<string>();
+    const add = (slice: CallsiteContextSlice): void => {
+        const key = `${slice.callerFile}|${slice.invokeLine}|${slice.invokeStmtText}`;
+        if (!seen.has(key)) {
+            seen.add(key);
+            out.push(slice);
+        }
+    };
+    seed.forEach(add);
+    found.forEach(add);
+    return out;
 }

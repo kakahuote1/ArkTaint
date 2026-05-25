@@ -25,6 +25,22 @@ function main(): void {
         "feature/src/main/ets",
     ]);
 
+    const multiModuleRoot = path.join(root, "multi_module");
+    writeFile(path.join(multiModuleRoot, "build-profile.json5"), `{
+      modules: [
+        { name: "entry", srcPath: "./entry" },
+        { name: "feature", srcPath: "./feature" }
+      ]
+    }\n`);
+    writeFile(path.join(multiModuleRoot, "entry", "src", "main", "ets", "Entry.ets"), "export class Entry {}\n");
+    writeFile(path.join(multiModuleRoot, "feature", "src", "main", "ets", "Feature.ets"), "export class Feature {}\n");
+    assert.deepStrictEqual(discoverArkTsSourceDirs(multiModuleRoot), ["."], "Harmony multi-module projects should keep one project-level Scene");
+    assert.deepStrictEqual(
+        discoverArkTsSourceDirs(multiModuleRoot, { preferProjectRootForMultiModule: false }),
+        ["entry/src/main/ets", "feature/src/main/ets"],
+        "callers can still request raw source directories for sharded probes",
+    );
+
     assert.deepStrictEqual(
         normalizeSourceDirsForCli(["entry\\src\\main\\ets\\", "entry/src/main/ets", "."]),
         ["entry/src/main/ets", "."],

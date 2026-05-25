@@ -144,6 +144,7 @@ async function main(): Promise<void> {
             maxSliceItems: 48,
             examplesPerItem: 2,
             analyze: true,
+            incremental: false,
             profile: "default",
             reportMode: "light",
             maxEntries: 12,
@@ -170,6 +171,9 @@ async function main(): Promise<void> {
         const finalDiagnosticsPath = path.join(root, "final", "diagnostics", "diagnostics.json");
         assert(fs.existsSync(finalSummaryPath), "expected reused final summary artifact");
         assert(fs.existsSync(finalDiagnosticsPath), "expected reused final diagnostics artifact");
+        const finalSummary = JSON.parse(fs.readFileSync(finalSummaryPath, "utf8"));
+        assert(finalSummary.summary.stageProfile.incrementalCacheHitCount === 0, `expected no bootstrap cache hit when incremental is disabled, got ${finalSummary.summary.stageProfile.incrementalCacheHitCount}`);
+        assert(finalSummary.summary.stageProfile.incrementalCacheWriteCount === 0, `expected no bootstrap cache write when incremental is disabled, got ${finalSummary.summary.stageProfile.incrementalCacheWriteCount}`);
 
         const analysis = JSON.parse(fs.readFileSync(path.join(root, "analysis.json"), "utf8"));
         assert(path.resolve(analysis.summaryJsonPath) === path.resolve(finalSummaryPath), `expected analysis summary to point at final summary, got ${analysis.summaryJsonPath}`);

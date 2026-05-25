@@ -24,6 +24,7 @@ import {
 } from "../../substrate/queries/CalleeResolver";
 import { getMethodBySignature } from "../contracts/MethodLookup";
 import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
+import { collectCarrierNodeIdsForValueAtStmt } from "../ordinary/OrdinaryAliasPropagation";
 import {
     collectCallbackBindingTriggerNodeIds,
     collectResolvedInvokeTargets,
@@ -54,6 +55,7 @@ export interface SyntheticInvokeEdgeInfo {
     calleeSignature?: string;
     originTag?: string;
     handoffId?: string;
+    preserveFieldPath?: boolean;
 }
 
 export interface SyntheticConstructorStoreInfo {
@@ -319,17 +321,24 @@ function collectSyntheticInvokeTriggerNodeIds(
     resolvedBindings?: AsyncCallbackBinding[],
 ): Set<number> {
     const triggerNodeIds = new Set<number>();
+    const addTriggerNodesForValue = (value: any): void => {
+        for (const nodeId of safeGetOrCreatePagNodes(pag, value, stmt)?.values?.() || []) {
+            triggerNodeIds.add(nodeId);
+            for (const objId of collectPointToNodeIds(pag, [nodeId])) {
+                triggerNodeIds.add(objId);
+            }
+        }
+        for (const carrierNodeId of collectCarrierNodeIdsForValueAtStmt(pag, value, stmt)) {
+            triggerNodeIds.add(carrierNodeId);
+        }
+    };
     const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
     for (const arg of args) {
-        for (const nodeId of safeGetOrCreatePagNodes(pag, arg, stmt)?.values?.() || []) {
-            triggerNodeIds.add(nodeId);
-        }
+        addTriggerNodesForValue(arg);
     }
     const base = invokeExpr.getBase?.();
     if (base) {
-        for (const nodeId of safeGetOrCreatePagNodes(pag, base, stmt)?.values?.() || []) {
-            triggerNodeIds.add(nodeId);
-        }
+        addTriggerNodesForValue(base);
     }
 
     const resolvedTargets = collectResolvedInvokeTargets(scene, cg, stmt, invokeExpr);
@@ -337,9 +346,7 @@ function collectSyntheticInvokeTriggerNodeIds(
         const explicitArgs = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
         const paramStmts = collectParameterAssignStmts(callee);
         for (const pair of mapInvokeArgsToParamAssigns(invokeExpr, explicitArgs, paramStmts)) {
-            for (const nodeId of safeGetOrCreatePagNodes(pag, pair.arg, stmt)?.values?.() || []) {
-                triggerNodeIds.add(nodeId);
-            }
+            addTriggerNodesForValue(pair.arg);
         }
     }
 
@@ -358,6 +365,17 @@ function collectSyntheticInvokeTriggerNodeIds(
     }
 
     return triggerNodeIds;
+}
+
+function collectPointToNodeIds(pag: Pag, nodeIds: Iterable<number>): Set<number> {
+    const out = new Set<number>();
+    for (const nodeId of nodeIds) {
+        const node = pag.getNode(Number(nodeId));
+        for (const objId of (node as any)?.getPointTo?.() || []) {
+            out.add(Number(objId));
+        }
+    }
+    return out;
 }
 
 export const EXCLUDE_ALL_DEFERRED_SYNTHETIC_INVOKE_SITES = "__arktaint_exclude_all_deferred_synthetic_invoke_sites__";
@@ -452,11 +470,14 @@ function materializeDirectSyntheticInvokeEdges(
     const allowUnknownInvokeFallback = isUnknownInvokeSignature(invokeExpr);
     const callerSignature = caller?.getSignature?.()?.toString?.() || "";
     const forceDirectFallback = !!callerSignature && !!forceDirectCallerSignatures?.has(callerSignature);
-    if (callSites.length > 0 && !forceFallback && !allowUnknownInvokeFallback && !forceDirectFallback) {
-        return { callCount, returnCount, fallbackCalleeCount };
-    }
+    const repairResolvedCallSiteCopies = callSites.length > 0
+        && !forceFallback
+        && !allowUnknownInvokeFallback
+        && !forceDirectFallback;
 
-    let callees = resolveCalleeCandidates(scene, invokeExpr);
+    let callees = repairResolvedCallSiteCopies
+        ? collectCalleesFromCallSites(cg, callSites)
+        : resolveCalleeCandidates(scene, invokeExpr);
     if (forceFallback) {
         const oneHopFallback = resolveReflectDispatchOneHopFallbackCallees(
             scene,
@@ -509,7 +530,7 @@ function materializeDirectSyntheticInvokeEdges(
         for (const pair of pairs) {
             const arg = pair.arg;
             const paramStmt = pair.paramStmt;
-            const srcNodes = pag.getNodesByValue(arg);
+            const srcNodes = pag.getNodesByValue(arg) || safeGetOrCreatePagNodes(pag, arg, stmt);
 
             let dstNodes = pag.getNodesByValue(paramStmt.getLeftOp());
             if (!dstNodes || dstNodes.size === 0) {
@@ -522,6 +543,9 @@ function materializeDirectSyntheticInvokeEdges(
 
             for (const srcNodeId of srcNodes.values()) {
                 for (const dstNodeId of dstNodes.values()) {
+                    if (repairResolvedCallSiteCopies && hasPagCopyEdge(pag, srcNodeId, dstNodeId)) {
+                        continue;
+                    }
                     pushEdge(edgeMap, srcNodeId, {
                         type: CallEdgeType.CALL,
                         srcNodeId,
@@ -531,7 +555,8 @@ function materializeDirectSyntheticInvokeEdges(
                         calleeMethodName: callee.getName(),
                         callerSignature: caller.getSignature?.().toString?.(),
                         calleeSignature: calleeSig,
-                        originTag: "synthetic_invoke",
+                        originTag: repairResolvedCallSiteCopies ? "resolved_callsite_missing_pag_copy" : "synthetic_invoke",
+                        preserveFieldPath: true,
                     });
                     callCount++;
                 }
@@ -552,6 +577,9 @@ function materializeDirectSyntheticInvokeEdges(
 
             for (const srcNodeId of srcNodes.values()) {
                 for (const dstNodeId of dstNodes.values()) {
+                    if (repairResolvedCallSiteCopies && hasPagCopyEdge(pag, srcNodeId, dstNodeId)) {
+                        continue;
+                    }
                     pushEdge(edgeMap, srcNodeId, {
                         type: CallEdgeType.RETURN,
                         srcNodeId,
@@ -561,7 +589,8 @@ function materializeDirectSyntheticInvokeEdges(
                         calleeMethodName: callee.getName(),
                         callerSignature: caller.getSignature?.().toString?.(),
                         calleeSignature: calleeSig,
-                        originTag: "synthetic_invoke",
+                        originTag: repairResolvedCallSiteCopies ? "resolved_callsite_missing_pag_copy" : "synthetic_invoke",
+                        preserveFieldPath: true,
                     });
                     returnCount++;
                 }
@@ -570,5 +599,35 @@ function materializeDirectSyntheticInvokeEdges(
     }
 
     return { callCount, returnCount, fallbackCalleeCount };
+}
+
+function collectCalleesFromCallSites(
+    cg: CallGraph,
+    callSites: any[],
+): Array<{ method: any; reason: "exact" }> {
+    const out: Array<{ method: any; reason: "exact" }> = [];
+    const seen = new Set<string>();
+    for (const cs of callSites) {
+        const calleeFuncID = cs.getCalleeFuncID?.();
+        if (!calleeFuncID) continue;
+        const method = cg.getArkMethodByFuncID(calleeFuncID);
+        const sig = method?.getSignature?.()?.toString?.();
+        if (!method?.getCfg?.() || !sig || seen.has(sig)) continue;
+        seen.add(sig);
+        out.push({ method, reason: "exact" });
+    }
+    return out;
+}
+
+function hasPagCopyEdge(pag: Pag, srcNodeId: number, dstNodeId: number): boolean {
+    const srcNode = pag.getNode(srcNodeId) as PagNode;
+    const copyEdges = srcNode?.getOutgoingCopyEdges?.()?.values?.();
+    if (!copyEdges) return false;
+    for (const edge of copyEdges) {
+        if (edge.getDstID?.() === dstNodeId) {
+            return true;
+        }
+    }
+    return false;
 }
 

@@ -19,9 +19,12 @@ interface IndexedHandoffEffect<T extends HandoffEffect> {
 interface HandoffPropagationIndexes {
     putsByNodeId: Map<number, Array<IndexedHandoffEffect<HandoffPutEffect>>>;
     putsByFieldEndpoint: Map<string, Array<IndexedHandoffEffect<HandoffPutEffect>>>;
+    getsByHandleKey: Map<string, Array<IndexedHandoffEffect<HandoffGetEffect>>>;
+    exactLinksByHandleKey: Map<string, Set<string>>;
     gets: Array<IndexedHandoffEffect<HandoffGetEffect>>;
     kills: Array<IndexedHandoffEffect<HandoffKillEffect>>;
     links: Array<IndexedHandoffEffect<HandoffScopedLinkEffect>>;
+    hasNonExactHandles: boolean;
 }
 
 export interface HandoffPropagationOptions {
@@ -83,6 +86,9 @@ export class HandoffPropagationSession {
     private resolveGetEffects(
         put: IndexedHandoffEffect<HandoffPutEffect>,
     ): Array<IndexedHandoffEffect<HandoffGetEffect>> {
+        if (put.effect.handle.precision === "exact" && !this.indexes.hasNonExactHandles) {
+            return this.resolveExactGetEffects(put);
+        }
         const out: Array<IndexedHandoffEffect<HandoffGetEffect>> = [];
         const seen = new Set<string>();
         for (const get of this.indexes.gets) {
@@ -90,6 +96,31 @@ export class HandoffPropagationSession {
             const compatibility = this.resolveCompatibility(put.effect.handle, get.effect.handle);
             if (compatibility === "no") continue;
             if (compatibility === "may" && this.mayCompatibilityPolicy === "block") continue;
+            if (this.isKilledBetween(put, get)) continue;
+            const key = `${get.order}|${getEffectKey(get.effect)}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            out.push(get);
+        }
+        return out;
+    }
+
+    private resolveExactGetEffects(
+        put: IndexedHandoffEffect<HandoffPutEffect>,
+    ): Array<IndexedHandoffEffect<HandoffGetEffect>> {
+        const handleKey = handoffHandleKey(put.effect.handle);
+        const candidateKeys = new Set<string>([handleKey]);
+        for (const linked of this.indexes.exactLinksByHandleKey.get(handleKey) || []) {
+            candidateKeys.add(linked);
+        }
+        const candidates: Array<IndexedHandoffEffect<HandoffGetEffect>> = [];
+        for (const key of candidateKeys) {
+            candidates.push(...(this.indexes.getsByHandleKey.get(key) || []));
+        }
+        const out: Array<IndexedHandoffEffect<HandoffGetEffect>> = [];
+        const seen = new Set<string>();
+        for (const get of candidates) {
+            if (isDefiniteReverseSameScope(put, get)) continue;
             if (this.isKilledBetween(put, get)) continue;
             const key = `${get.order}|${getEffectKey(get.effect)}`;
             if (seen.has(key)) continue;
@@ -158,12 +189,18 @@ export function createHandoffPropagationSession(
 function buildIndexes(effects: readonly HandoffEffect[]): HandoffPropagationIndexes {
     const putsByNodeId = new Map<number, Array<IndexedHandoffEffect<HandoffPutEffect>>>();
     const putsByFieldEndpoint = new Map<string, Array<IndexedHandoffEffect<HandoffPutEffect>>>();
+    const getsByHandleKey = new Map<string, Array<IndexedHandoffEffect<HandoffGetEffect>>>();
+    const exactLinksByHandleKey = new Map<string, Set<string>>();
     const gets: Array<IndexedHandoffEffect<HandoffGetEffect>> = [];
     const kills: Array<IndexedHandoffEffect<HandoffKillEffect>> = [];
     const links: Array<IndexedHandoffEffect<HandoffScopedLinkEffect>> = [];
+    let hasNonExactHandles = false;
 
     for (let index = 0; index < effects.length; index++) {
         const effect = effects[index];
+        if (effectHasNonExactHandle(effect)) {
+            hasNonExactHandles = true;
+        }
         const order = effect.sequence === undefined ? index : effect.sequence;
         if (effect.kind === "put") {
             const indexed: IndexedHandoffEffect<HandoffPutEffect> = { effect, order };
@@ -176,21 +213,29 @@ function buildIndexes(effects: readonly HandoffEffect[]): HandoffPropagationInde
         } else if (effect.kind === "get") {
             const indexed: IndexedHandoffEffect<HandoffGetEffect> = { effect, order };
             gets.push(indexed);
+            addToMap(getsByHandleKey, handoffHandleKey(effect.handle), indexed);
         } else if (effect.kind === "kill") {
             const indexed: IndexedHandoffEffect<HandoffKillEffect> = { effect, order };
             kills.push(indexed);
         } else if (effect.kind === "scoped-link") {
             const indexed: IndexedHandoffEffect<HandoffScopedLinkEffect> = { effect, order };
             links.push(indexed);
+            if (effect.left.precision === "exact" && effect.right.precision === "exact") {
+                addLinkedHandleKey(exactLinksByHandleKey, handoffHandleKey(effect.left), handoffHandleKey(effect.right));
+                addLinkedHandleKey(exactLinksByHandleKey, handoffHandleKey(effect.right), handoffHandleKey(effect.left));
+            }
         }
     }
 
     return {
         putsByNodeId,
         putsByFieldEndpoint,
+        getsByHandleKey,
+        exactLinksByHandleKey,
         gets,
         kills,
         links,
+        hasNonExactHandles,
     };
 }
 
@@ -198,6 +243,19 @@ function addToMap<K, V>(map: Map<K, V[]>, key: K, value: V): void {
     const bucket = map.get(key) || [];
     if (!map.has(key)) map.set(key, bucket);
     bucket.push(value);
+}
+
+function addLinkedHandleKey(map: Map<string, Set<string>>, left: string, right: string): void {
+    const bucket = map.get(left) || new Set<string>();
+    if (!map.has(left)) map.set(left, bucket);
+    bucket.add(right);
+}
+
+function effectHasNonExactHandle(effect: HandoffEffect): boolean {
+    if (effect.kind === "scoped-link") {
+        return effect.left.precision !== "exact" || effect.right.precision !== "exact";
+    }
+    return effect.handle.precision !== "exact";
 }
 
 function isExactPair(left: "exact" | "may" | "no", right: "exact" | "may" | "no"): boolean {

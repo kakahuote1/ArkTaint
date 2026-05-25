@@ -224,7 +224,7 @@ async function main(): Promise<void> {
     const withModule = readAnalyzeSummary<AnalyzeSummary>(moduleOutput);
 
     assert(withModule.reportMode === "full", `expected reportMode=full, got ${withModule.reportMode}`);
-    assert(baseline.summary.totalFlows >= 1, `expected baseline to contain sink flows, got ${baseline.summary.totalFlows}`);
+    assert(baseline.summary.totalFlows === 0, `expected baseline without Merge bridge to contain no sink flows, got ${baseline.summary.totalFlows}`);
     assert(withModule.summary.totalFlows >= 1, `expected module run to retain surviving flows, got ${withModule.summary.totalFlows}`);
 
     const entry = (withModule.entries || []).find(item =>

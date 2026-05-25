@@ -26,6 +26,7 @@ import {
 import { resolveKnownOptionCallbackRegistrationsFromStmt } from "../../substrate/semantics/KnownOptionCallbackRegistration";
 import { isSdkBackedMethodSignature } from "../../substrate/queries/SdkProvenance";
 import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
+import { collectCarrierNodeIdsForValueAtStmt } from "../ordinary/OrdinaryAliasPropagation";
 import type { SyntheticInvokeEdgeInfo } from "./SyntheticInvokeEdgeBuilder";
 
 export interface SyntheticInvokeLookupStats {
@@ -188,7 +189,9 @@ export function injectResolvedCallbackParameterEdges(
                 continue;
             }
             seenBindings.add(bindingKey);
-            count += injectCallbackBindingEdges(pag, caller, stmt, edgeMap, reg.callbackMethod, reg.sourceMethod || caller);
+            count += injectCallbackBindingEdges(pag, caller, stmt, edgeMap, reg.callbackMethod, reg.sourceMethod || caller, {
+                explicitParamSourceValuesByIndex: collectInvokeArgsByCallbackParamIndex(invokeExpr, reg.callbackMethod),
+            });
         }
     };
 
@@ -489,6 +492,26 @@ function resolveSyntheticCallbackMethodsForArg(
     return out;
 }
 
+function collectInvokeArgsByCallbackParamIndex(invokeExpr: any, callbackMethod: any): Map<number, any> {
+    const explicitArgs = invokeExpr?.getArgs ? invokeExpr.getArgs() : [];
+    const paramStmts = collectParameterAssignStmts(callbackMethod);
+    const out = new Map<number, any>();
+    for (const pair of mapInvokeArgsToParamAssigns(invokeExpr, explicitArgs, paramStmts)) {
+        if (!out.has(pair.paramIndex)) {
+            out.set(pair.paramIndex, pair.arg);
+        }
+    }
+    return out;
+}
+
+function resolveParamIndexFromAssignStmt(stmt: any): number | undefined {
+    const right = stmt?.getRightOp?.();
+    if (right instanceof ArkParameterRef) {
+        return right.getIndex();
+    }
+    return undefined;
+}
+
 export function injectCallbackBindingEdges(
     pag: Pag,
     caller: any,
@@ -497,7 +520,7 @@ export function injectCallbackBindingEdges(
     cbMethod: any,
     sourceMethod: any,
     options?: {
-        explicitParamSourceNodeIds?: Map<number, number>;
+        explicitParamSourceValuesByIndex?: Map<number, any>;
         allowFallback?: boolean;
     },
 ): number {
@@ -515,11 +538,21 @@ export function injectCallbackBindingEdges(
         for (const paramStmt of paramStmts) {
             const paramLocal = paramStmt.getLeftOp();
             if (!(paramLocal instanceof Local)) continue;
-            let srcNodes = options?.explicitParamSourceNodeIds;
+            const paramIndex = resolveParamIndexFromAssignStmt(paramStmt);
+            const explicitSource = paramIndex !== undefined
+                ? options?.explicitParamSourceValuesByIndex?.get(paramIndex)
+                : undefined;
+            let srcNodes = explicitSource !== undefined
+                ? safeGetOrCreatePagNodes(pag, explicitSource, stmt)
+                : undefined;
+            let callerLocalForCarrier: Local | undefined;
             if (!srcNodes || srcNodes.size === 0) {
                 const callerLocal = sourceLocals.get(paramLocal.getName());
                 if (!(callerLocal instanceof Local)) continue;
+                callerLocalForCarrier = callerLocal;
                 srcNodes = safeGetOrCreatePagNodes(pag, callerLocal, stmt);
+            } else if (explicitSource instanceof Local) {
+                callerLocalForCarrier = explicitSource;
             }
             let dstNodes = safeGetOrCreatePagNodes(pag, paramLocal, paramStmt);
             if ((!dstNodes || dstNodes.size === 0) && paramStmt.getRightOp() instanceof ArkParameterRef) {
@@ -540,6 +573,42 @@ export function injectCallbackBindingEdges(
                         calleeSignature: calleeSig,
                     });
                     count++;
+                }
+            }
+            for (const srcNodeId of collectPointToNodeIds(pag, srcNodes.values())) {
+                for (const dstNodeId of dstNodes.values()) {
+                    pushEdge(edgeMap, srcNodeId, {
+                        type: CallEdgeType.CALL,
+                        srcNodeId,
+                        dstNodeId,
+                        callSiteId,
+                        callerMethodName: sourceMethod.getName?.() || caller.getName(),
+                        calleeMethodName: cbMethod.getName(),
+                        callerSignature: sourceMethod.getSignature?.().toString?.() || caller.getSignature?.().toString?.(),
+                        calleeSignature: calleeSig,
+                        originTag: "synthetic.callback.object_arg",
+                        preserveFieldPath: true,
+                    });
+                    count++;
+                }
+            }
+            if (callerLocalForCarrier) {
+                for (const srcNodeId of collectCarrierNodeIdsForValueAtStmt(pag, callerLocalForCarrier, stmt)) {
+                    for (const dstNodeId of dstNodes.values()) {
+                        pushEdge(edgeMap, srcNodeId, {
+                            type: CallEdgeType.CALL,
+                            srcNodeId,
+                            dstNodeId,
+                            callSiteId,
+                            callerMethodName: sourceMethod.getName?.() || caller.getName(),
+                            calleeMethodName: cbMethod.getName(),
+                            callerSignature: sourceMethod.getSignature?.().toString?.() || caller.getSignature?.().toString?.(),
+                            calleeSignature: calleeSig,
+                            originTag: "synthetic.callback.carrier_arg",
+                            preserveFieldPath: true,
+                        });
+                        count++;
+                    }
                 }
             }
         }
@@ -596,6 +665,17 @@ export function injectCallbackBindingEdges(
 function pushEdge(map: Map<number, SyntheticInvokeEdgeInfo[]>, key: number, edge: SyntheticInvokeEdgeInfo): void {
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(edge);
+}
+
+function collectPointToNodeIds(pag: Pag, nodeIds: Iterable<number>): Set<number> {
+    const out = new Set<number>();
+    for (const nodeId of nodeIds) {
+        const node = pag.getNode(Number(nodeId));
+        for (const objId of (node as any)?.getPointTo?.() || []) {
+            out.add(Number(objId));
+        }
+    }
+    return out;
 }
 
 function simpleHash(s: string): number {

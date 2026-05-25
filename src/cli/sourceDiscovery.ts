@@ -4,6 +4,7 @@ import * as path from "path";
 export interface SourceDiscoveryOptions {
     maxDepth?: number;
     includeRootFallback?: boolean;
+    preferProjectRootForMultiModule?: boolean;
 }
 
 const DEFAULT_MAX_DEPTH = 8;
@@ -57,6 +58,14 @@ export function discoverArkTsSourceDirs(
     const specific = normalizeSourceDirsForCli(candidates)
         .filter(rel => hasArkSourceFile(path.resolve(root, rel)))
         .sort(compareSourceDir);
+    if (
+        specific.length > 1
+        && options.preferProjectRootForMultiModule !== false
+        && hasHarmonyModuleManifest(root)
+        && hasArkSourceFile(root)
+    ) {
+        return ["."];
+    }
     if (specific.length > 0) {
         return specific;
     }
@@ -65,6 +74,25 @@ export function discoverArkTsSourceDirs(
         return ["."];
     }
     return [];
+}
+
+function hasHarmonyModuleManifest(root: string): boolean {
+    for (const fileName of ["build-profile.json5", "build-profile.json"]) {
+        const filePath = path.join(root, fileName);
+        if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+            continue;
+        }
+        let text = "";
+        try {
+            text = fs.readFileSync(filePath, "utf-8");
+        } catch {
+            continue;
+        }
+        if (/"?modules"?\s*:/.test(text) && /"?srcPath"?\s*:/.test(text)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function collectSrcMainEtsDirs(root: string, dir: string, remainingDepth: number, out: string[]): void {

@@ -10,17 +10,22 @@ import { TaintTracker } from "../model/TaintTracker";
 import { TaintFlow } from "../model/TaintFlow";
 import { isCarrierFieldPathLiveAtStmt } from "../ordinary/OrdinaryObjectInvalidation";
 import { collectAliasLocalsForCarrier, collectCarrierNodeIdsForValueAtStmt } from "../ordinary/OrdinaryAliasPropagation";
-import { resolveOrdinaryArraySlotName } from "../ordinary/OrdinaryLanguagePropagation";
+import {
+    collectOrdinaryCopyLikeConsumedLocals,
+    resolveOrdinaryArraySlotName,
+} from "../ordinary/OrdinaryLanguagePropagation";
 import {
     normalizeEndpoint,
     RuleEndpoint,
     RuleInvokeKind,
     RuleScopeConstraint,
     RuleStringConstraint,
-    SanitizerRule
+    SanitizerRule,
+    TransferRule
 } from "../../rules/RuleSchema";
 import { filterBestTierRulesByFamily } from "../../rules/RulePriority";
 import { resolveReceiverGetterReturnFieldPath } from "../propagation/WorklistFieldPropagation";
+import { resolveSdkImportScopeCandidates } from "../../substrate/queries/SdkProvenance";
 
 export interface SinkDetectOptions {
     targetEndpoint?: RuleEndpoint;
@@ -28,6 +33,7 @@ export interface SinkDetectOptions {
     invokeKind?: RuleInvokeKind;
     argCount?: number;
     typeHint?: string;
+    calleeScope?: RuleScopeConstraint;
     signatureMatchMode?: "contains" | "equals";
     fieldToVarIndex?: Map<string, Set<number>>;
     allowedMethodSignatures?: Set<string>;
@@ -35,6 +41,7 @@ export interface SinkDetectOptions {
     /** PAG node ids that receive capture / synthetic / module-fan-in taint; exempts locals from strict const-reassignment kill. */
     interproceduralTaintTargetNodeIds?: Set<number>;
     sanitizerRules?: SanitizerRule[];
+    transferRules?: TransferRule[];
     onProfile?: (profile: SinkDetectProfile) => void;
 }
 
@@ -48,6 +55,7 @@ interface FieldPathDetectResult {
     source: string;
     nodeId?: number;
     fieldPath?: string[];
+    transferRuleIds?: string[];
 }
 
 interface IndexedInvokeSite {
@@ -186,7 +194,7 @@ export function detectSinks(
         log(`Checking method "${method.getName()}" for sinks...`);
 
         const constraintT0 = process.hrtime.bigint();
-        if (!matchesInvokeConstraints(invokeExpr, calleeSignature, options)) {
+        if (!matchesInvokeConstraints(invokeExpr, calleeSignature, options, method)) {
             profile.signatureMatchMs += elapsedMsSince(constraintT0);
             profile.constraintRejectedInvokeCount++;
             continue;
@@ -248,6 +256,7 @@ export function detectSinks(
                 tracker,
                 options.orderedMethodSignatures,
                 options.interproceduralTaintTargetNodeIds,
+                options.transferRules,
                 fallbackFieldToVarIndex,
             );
             fallbackFieldToVarIndex = preciseCandidate.fallbackFieldToVarIndex;
@@ -271,6 +280,7 @@ export function detectSinks(
                     sinkEndpoint: candidate.endpoint,
                     sinkNodeId: preciseCandidate.result.nodeId,
                     sinkFieldPath: preciseCandidate.result.fieldPath,
+                    transferRuleIds: preciseCandidate.result.transferRuleIds,
                 }));
                 sinkDetected = true;
                 break;
@@ -489,7 +499,44 @@ export function detectSinks(
                 const isTainted = tracker.isTaintedAnyContext(nodeId);
                 profile.taintEvalMs += elapsedMsSince(taintCheckT0);
                 log(`    Checking ${candidate.endpoint}, node ${nodeId}, tainted: ${isTainted}`);
-                if (!isTainted) continue;
+                if (!isTainted) {
+                    profile.fieldPathCheckCount++;
+                    const nodeFieldT0 = process.hrtime.bigint();
+                    const nodeFieldResults = detectCarrierFieldSources(
+                        nodeId,
+                        stmt,
+                        pag,
+                        tracker,
+                    );
+                    profile.taintEvalMs += elapsedMsSince(nodeFieldT0);
+                    if (nodeFieldResults.length === 0) continue;
+
+                    profile.sanitizerGuardCheckCount++;
+                    const sanitizerT0 = process.hrtime.bigint();
+                    const sanitizerResult = isSinkCandidateSanitizedByRules(
+                        method,
+                        stmt,
+                        candidate,
+                        options.sanitizerRules || [],
+                        log
+                    );
+                    profile.sanitizerGuardMs += elapsedMsSince(sanitizerT0);
+                    if (sanitizerResult.sanitized) {
+                        profile.sanitizerGuardHitCount++;
+                        continue;
+                    }
+                    profile.fieldPathHitCount += nodeFieldResults.length;
+                    for (const nodeFieldResult of nodeFieldResults) {
+                        log(`    *** TAINT FLOW DETECTED! Source: ${nodeFieldResult.source} (node field fallback: ${nodeFieldResult.fieldPath?.join(".")}) ***`);
+                        flows.push(new TaintFlow(nodeFieldResult.source, stmt, {
+                            sinkEndpoint: candidate.endpoint,
+                            sinkNodeId: nodeFieldResult.nodeId,
+                            sinkFieldPath: nodeFieldResult.fieldPath,
+                        }));
+                    }
+                    sinkDetected = true;
+                    break;
+                }
                 const source = tracker.getSourceAnyContext(nodeId)!;
 
                 profile.sanitizerGuardCheckCount++;
@@ -528,9 +575,43 @@ export function detectSinks(
                         const isTainted = tracker.isTaintedAnyContext(carrierNodeId);
                         profile.taintEvalMs += elapsedMsSince(taintCheckT0);
                         log(`    Checking ${candidate.endpoint} carrier, node ${carrierNodeId}, tainted: ${isTainted}`);
-                        if (!isTainted) continue;
-                        const source = tracker.getSourceAnyContext(carrierNodeId);
-                        if (!source) continue;
+                        if (isTainted) {
+                            const source = tracker.getSourceAnyContext(carrierNodeId);
+                            if (!source) continue;
+
+                            profile.sanitizerGuardCheckCount++;
+                            const sanitizerT0 = process.hrtime.bigint();
+                            const sanitizerResult = isSinkCandidateSanitizedByRules(
+                                method,
+                                stmt,
+                                candidate,
+                                options.sanitizerRules || [],
+                                log
+                            );
+                            profile.sanitizerGuardMs += elapsedMsSince(sanitizerT0);
+                            if (sanitizerResult.sanitized) {
+                                profile.sanitizerGuardHitCount++;
+                                continue;
+                            }
+                            log(`    *** TAINT FLOW DETECTED! Source: ${source} (local carrier fallback) ***`);
+                            flows.push(new TaintFlow(source, stmt, {
+                                sinkEndpoint: candidate.endpoint,
+                                sinkNodeId: carrierNodeId,
+                            }));
+                            sinkDetected = true;
+                            break;
+                        }
+
+                        profile.fieldPathCheckCount++;
+                        const carrierFieldT0 = process.hrtime.bigint();
+                        const carrierFieldResults = detectCarrierFieldSources(
+                            carrierNodeId,
+                            stmt,
+                            pag,
+                            tracker,
+                        );
+                        profile.taintEvalMs += elapsedMsSince(carrierFieldT0);
+                        if (carrierFieldResults.length === 0) continue;
 
                         profile.sanitizerGuardCheckCount++;
                         const sanitizerT0 = process.hrtime.bigint();
@@ -546,11 +627,15 @@ export function detectSinks(
                             profile.sanitizerGuardHitCount++;
                             continue;
                         }
-                        log(`    *** TAINT FLOW DETECTED! Source: ${source} (local carrier fallback) ***`);
-                        flows.push(new TaintFlow(source, stmt, {
-                            sinkEndpoint: candidate.endpoint,
-                            sinkNodeId: carrierNodeId,
-                        }));
+                        profile.fieldPathHitCount += carrierFieldResults.length;
+                        for (const carrierFieldResult of carrierFieldResults) {
+                            log(`    *** TAINT FLOW DETECTED! Source: ${carrierFieldResult.source} (local carrier field fallback: ${carrierFieldResult.fieldPath?.join(".")}) ***`);
+                            flows.push(new TaintFlow(carrierFieldResult.source, stmt, {
+                                sinkEndpoint: candidate.endpoint,
+                                sinkNodeId: carrierFieldResult.nodeId,
+                                sinkFieldPath: carrierFieldResult.fieldPath,
+                            }));
+                        }
                         sinkDetected = true;
                         break;
                     }
@@ -664,6 +749,52 @@ function detectLoadedLocalCarrierFieldSource(
     return undefined;
 }
 
+function detectAnyCarrierFieldSourceFromValue(
+    baseValue: any,
+    anchorStmt: any,
+    pag: Pag,
+    tracker: TaintTracker,
+): FieldPathDetectResult | undefined {
+    if (!baseValue) return undefined;
+    const carrierNodeIds = collectCarrierNodeIdsForValueAtStmt(pag, baseValue, anchorStmt);
+    for (const carrierNodeId of carrierNodeIds) {
+        const fieldSource = detectAnyCarrierFieldSource(carrierNodeId, anchorStmt, pag, tracker);
+        if (fieldSource) return fieldSource;
+    }
+    return undefined;
+}
+
+function detectWholeOrFieldValueSource(
+    value: any,
+    anchorStmt: any,
+    pag: Pag,
+    tracker: TaintTracker,
+): FieldPathDetectResult | undefined {
+    const nodes = pag.getNodesByValue(value);
+    if (nodes) {
+        for (const nodeId of nodes.values()) {
+            const source = tracker.getSourceAnyContext(nodeId);
+            if (source) {
+                return { source, nodeId };
+            }
+        }
+    }
+    return detectAnyCarrierFieldSourceFromValue(value, anchorStmt, pag, tracker);
+}
+
+function detectOrdinaryCopyLikeInvokeSource(
+    invokeExpr: any,
+    anchorStmt: any,
+    pag: Pag,
+    tracker: TaintTracker,
+): FieldPathDetectResult | undefined {
+    for (const local of collectOrdinaryCopyLikeConsumedLocals(invokeExpr)) {
+        const source = detectWholeOrFieldValueSource(local, anchorStmt, pag, tracker);
+        if (source) return source;
+    }
+    return undefined;
+}
+
 function isLoadedFieldOrArrayLocal(value: any): boolean {
     if (!(value instanceof Local)) return false;
     const declStmt = value.getDeclaringStmt?.();
@@ -712,6 +843,234 @@ function detectFieldPathSourceOrBlockGenericTaint(
     };
 }
 
+function detectInlineInvokeTransferCandidateSource(
+    method: any,
+    sinkStmt: any,
+    invokeExpr: ArkInstanceInvokeExpr,
+    pag: Pag,
+    tracker: TaintTracker,
+    transferRules: TransferRule[],
+    fallbackFieldToVarIndex?: Map<string, Set<number>>,
+): PreciseCandidateDetectResult {
+    if (!transferRules || transferRules.length === 0) {
+        return {
+            blockGenericNodeTaint: false,
+            fallbackFieldToVarIndex,
+        };
+    }
+
+    for (const rule of transferRules) {
+        if (rule.enabled === false) continue;
+        const to = normalizeEndpoint(rule.to);
+        if (to.endpoint !== "result" || to.path || to.pathFrom) continue;
+        if (!matchesTransferRuleInvoke(rule, invokeExpr, method)) continue;
+
+        const from = normalizeEndpoint(rule.from);
+        const endpointValue = resolveInvokeEndpointValue(sinkStmt, invokeExpr, from.endpoint);
+        if (!endpointValue) continue;
+
+        let sourceResult: FieldPathDetectResult | undefined;
+        const resolvedPath = resolveRuleEndpointPath(from, sinkStmt, invokeExpr);
+        if (resolvedPath && resolvedPath.length > 0) {
+            if (!fallbackFieldToVarIndex) {
+                fallbackFieldToVarIndex = buildFieldToVarIndexFromPag(pag);
+            }
+            sourceResult = detectFieldPathSource(
+                endpointValue,
+                resolvedPath,
+                sinkStmt,
+                pag,
+                tracker,
+                fallbackFieldToVarIndex,
+            );
+        } else {
+            sourceResult = detectWholeOrFieldValueSource(endpointValue, sinkStmt, pag, tracker);
+        }
+
+        if (sourceResult) {
+            return {
+                result: {
+                    ...sourceResult,
+                    transferRuleIds: [rule.id],
+                },
+                blockGenericNodeTaint: false,
+                fallbackFieldToVarIndex,
+            };
+        }
+    }
+
+    return {
+        blockGenericNodeTaint: false,
+        fallbackFieldToVarIndex,
+    };
+}
+
+function hasTaintedInlineInvokeOperand(
+    invokeExpr: ArkInstanceInvokeExpr,
+    sinkStmt: any,
+    pag: Pag,
+    tracker: TaintTracker,
+): boolean {
+    const operands: any[] = [];
+    operands.push(invokeExpr.getBase());
+    for (const arg of invokeExpr.getArgs ? invokeExpr.getArgs() : []) {
+        operands.push(arg);
+    }
+    return operands.some(operand => !!detectWholeOrFieldValueSource(operand, sinkStmt, pag, tracker));
+}
+
+function isLocalResultAlreadyTainted(
+    value: Local,
+    pag: Pag,
+    tracker: TaintTracker,
+): boolean {
+    const nodes = pag.getNodesByValue(value);
+    if (!nodes || nodes.size === 0) return false;
+    for (const nodeId of nodes.values()) {
+        if (tracker.isTaintedAnyContext(nodeId)) {
+            return true;
+        }
+        if (tracker.hasAnyFieldTaintAnyContext(nodeId)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function isSelfConstructorInitialization(assignStmt: ArkAssignStmt, invokeExpr: ArkInstanceInvokeExpr): boolean {
+    const methodName = invokeExpr.getMethodSignature?.()?.getMethodSubSignature?.()?.getMethodName?.()
+        || extractMethodNameFromSignature(invokeExpr.getMethodSignature?.().toString?.() || "");
+    if (methodName !== "constructor" && !String(invokeExpr.getMethodSignature?.().toString?.() || "").includes(".constructor(")) {
+        return false;
+    }
+    const left = assignStmt.getLeftOp?.();
+    const base = invokeExpr.getBase?.();
+    return left instanceof Local && base instanceof Local && left.getName?.() === base.getName?.();
+}
+
+function resolveRuleEndpointPath(
+    endpoint: ReturnType<typeof normalizeEndpoint>,
+    stmt: any,
+    invokeExpr: any,
+): string[] | undefined {
+    if (endpoint.path && endpoint.path.length > 0) {
+        return [...endpoint.path];
+    }
+    if (!endpoint.pathFrom || !endpoint.slotKind) {
+        return undefined;
+    }
+    const pathValue = resolveInvokeEndpointValue(stmt, invokeExpr, endpoint.pathFrom);
+    const key = resolveRuntimePathKey(pathValue);
+    if (key === undefined) return undefined;
+    return [`${endpoint.slotKind}:${key}`];
+}
+
+function resolveRuntimePathKey(value: any): string | undefined {
+    if (!value) return undefined;
+    const text = value.toString?.();
+    if (typeof text !== "string" || text.length === 0) return undefined;
+    if (/^['"`].*['"`]$/.test(text)) return text.slice(1, -1);
+    if (value instanceof Constant) {
+        return text.replace(/^['"`]/, "").replace(/['"`]$/, "");
+    }
+    if (value instanceof Local) {
+        const decl = value.getDeclaringStmt?.();
+        if (decl instanceof ArkAssignStmt) {
+            const right = decl.getRightOp?.();
+            const rightText = right?.toString?.();
+            if (typeof rightText === "string" && /^['"`].*['"`]$/.test(rightText)) {
+                return rightText.slice(1, -1);
+            }
+        }
+        return value.getName?.();
+    }
+    return undefined;
+}
+
+function matchesTransferRuleInvoke(
+    rule: TransferRule,
+    invokeExpr: ArkInstanceInvokeExpr,
+    sourceMethod?: any,
+): boolean {
+    const calleeSignature = invokeExpr.getMethodSignature?.()?.toString?.() || "";
+    if (!matchesTransferRuleShape(rule, invokeExpr, calleeSignature)) return false;
+    if (!matchesTransferRuleMatch(rule, invokeExpr, calleeSignature)) return false;
+    return matchesInvokeCalleeScope(rule.scope, invokeExpr, calleeSignature, sourceMethod);
+}
+
+function matchesTransferRuleShape(
+    rule: TransferRule,
+    invokeExpr: ArkInstanceInvokeExpr,
+    calleeSignature: string,
+): boolean {
+    const m = rule.match;
+    if (m.invokeKind && m.invokeKind !== "any") {
+        const actualKind: RuleInvokeKind = invokeExpr instanceof ArkInstanceInvokeExpr ? "instance" : "static";
+        if (actualKind !== m.invokeKind) return false;
+    }
+    if (m.argCount !== undefined) {
+        const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
+        if (args.length !== m.argCount) return false;
+    }
+    if (m.typeHint && m.typeHint.trim().length > 0) {
+        const hint = m.typeHint.trim().toLowerCase();
+        const declaringClass = invokeExpr.getMethodSignature?.().getDeclaringClassSignature?.()?.toString?.() || "";
+        const baseText = invokeExpr.getBase()?.toString?.() || "";
+        const haystack = `${calleeSignature} ${declaringClass} ${baseText}`.toLowerCase();
+        if (!haystack.includes(hint)) return false;
+    }
+    return true;
+}
+
+function matchesTransferRuleMatch(
+    rule: TransferRule,
+    invokeExpr: ArkInstanceInvokeExpr,
+    calleeSignature: string,
+): boolean {
+    const matchValue = rule.match.value || "";
+    const methodName = invokeExpr.getMethodSignature?.().getMethodSubSignature?.().getMethodName?.()
+        || extractMethodNameFromSignature(calleeSignature);
+    switch (rule.match.kind) {
+        case "signature_contains":
+            return calleeSignature.includes(matchValue);
+        case "signature_equals":
+            return exactTextMatch(calleeSignature, matchValue);
+        case "signature_regex":
+            try {
+                return new RegExp(matchValue).test(calleeSignature);
+            } catch {
+                return false;
+            }
+        case "declaring_class_equals": {
+            const classSignature = invokeExpr.getMethodSignature?.().getDeclaringClassSignature?.()?.toString?.() || "";
+            const className = invokeExpr.getMethodSignature?.().getDeclaringClassSignature?.()?.getClassName?.() || "";
+            return exactDeclaringClassMatch(classSignature, className, matchValue);
+        }
+        case "method_name_equals":
+            return methodName === matchValue;
+        case "method_name_regex":
+            try {
+                return new RegExp(matchValue).test(methodName);
+            } catch {
+                return false;
+            }
+        case "local_name_regex": {
+            const texts = [
+                invokeExpr.getBase()?.toString?.() || "",
+                ...(invokeExpr.getArgs ? invokeExpr.getArgs() : []).map((arg: any) => arg?.toString?.() || ""),
+            ];
+            try {
+                const re = new RegExp(matchValue);
+                return texts.some(text => re.test(text));
+            } catch {
+                return false;
+            }
+        }
+        default:
+            return false;
+    }
+}
+
 function hasInterproceduralTaintTargetNode(
     value: Local,
     pag: Pag,
@@ -741,6 +1100,7 @@ function detectPreciseCandidateSource(
     tracker: TaintTracker,
     orderedMethodSignatures?: string[],
     interproceduralTaintTargetNodeIds?: Set<number>,
+    transferRules?: TransferRule[],
     fallbackFieldToVarIndex?: Map<string, Set<number>>,
 ): PreciseCandidateDetectResult {
     const value = candidate.value;
@@ -774,6 +1134,32 @@ function detectPreciseCandidateSource(
                 orderedMethodSignatures,
                 fallbackFieldToVarIndex,
             );
+        }
+        const transferResult = detectInlineInvokeTransferCandidateSource(
+            method,
+            sinkStmt,
+            value,
+            pag,
+            tracker,
+            transferRules || [],
+            fallbackFieldToVarIndex,
+        );
+        if (transferResult.result || transferResult.fallbackFieldToVarIndex) {
+            return transferResult;
+        }
+        const copyLikeSource = detectOrdinaryCopyLikeInvokeSource(value, sinkStmt, pag, tracker);
+        if (copyLikeSource) {
+            return {
+                result: copyLikeSource,
+                blockGenericNodeTaint: false,
+                fallbackFieldToVarIndex,
+            };
+        }
+        if (hasTaintedInlineInvokeOperand(value, sinkStmt, pag, tracker)) {
+            return {
+                blockGenericNodeTaint: true,
+                fallbackFieldToVarIndex,
+            };
         }
     }
     if (!(value instanceof Local)) {
@@ -809,6 +1195,44 @@ function detectPreciseCandidateSource(
             rightOp.getMethodSignature?.()?.toString?.() || "",
         );
         if (!getterFieldPath || getterFieldPath.length === 0) {
+            if (isSelfConstructorInitialization(latestAssign, rightOp)) {
+                return {
+                    blockGenericNodeTaint: false,
+                    fallbackFieldToVarIndex,
+                };
+            }
+            const transferResult = detectInlineInvokeTransferCandidateSource(
+                method,
+                latestAssign,
+                rightOp,
+                pag,
+                tracker,
+                transferRules || [],
+                fallbackFieldToVarIndex,
+            );
+            if (transferResult.result || transferResult.fallbackFieldToVarIndex) {
+                return transferResult;
+            }
+            const copyLikeSource = detectOrdinaryCopyLikeInvokeSource(rightOp, latestAssign, pag, tracker);
+            if (copyLikeSource) {
+                return {
+                    result: copyLikeSource,
+                    blockGenericNodeTaint: false,
+                    fallbackFieldToVarIndex,
+                };
+            }
+            if (hasTaintedInlineInvokeOperand(rightOp, latestAssign, pag, tracker)) {
+                if (isLocalResultAlreadyTainted(value, pag, tracker)) {
+                    return {
+                        blockGenericNodeTaint: false,
+                        fallbackFieldToVarIndex,
+                    };
+                }
+                return {
+                    blockGenericNodeTaint: true,
+                    fallbackFieldToVarIndex,
+                };
+            }
             return {
                 blockGenericNodeTaint: false,
                 fallbackFieldToVarIndex,
@@ -1419,6 +1843,35 @@ function findLastThisFieldStoreInMethod(method: any, fieldName: string): Ordered
     return undefined;
 }
 
+function detectAnyCarrierFieldSource(
+    carrierNodeId: number,
+    anchorStmt: any,
+    pag: Pag,
+    tracker: TaintTracker,
+): FieldPathDetectResult | undefined {
+    return detectCarrierFieldSources(carrierNodeId, anchorStmt, pag, tracker)[0];
+}
+
+function detectCarrierFieldSources(
+    carrierNodeId: number,
+    anchorStmt: any,
+    pag: Pag,
+    tracker: TaintTracker,
+): FieldPathDetectResult[] {
+    const out: FieldPathDetectResult[] = [];
+    for (const fieldSource of tracker.getFieldSourcesAnyContext(carrierNodeId)) {
+        if (!isCarrierFieldPathLiveAtStmt(pag, tracker, carrierNodeId, fieldSource.fieldPath, anchorStmt)) {
+            continue;
+        }
+        out.push({
+            source: fieldSource.source,
+            nodeId: carrierNodeId,
+            fieldPath: fieldSource.fieldPath,
+        });
+    }
+    return out;
+}
+
 function isInstanceInitializerStore(store: OrderedFieldStore | undefined): boolean {
     return store?.methodName === "%instInit"
         || !!store?.methodSignature?.includes(".%instInit(");
@@ -1583,7 +2036,8 @@ function resolveSinkCandidates(
 function matchesInvokeConstraints(
     invokeExpr: any,
     calleeSignature: string,
-    options: SinkDetectOptions
+    options: SinkDetectOptions,
+    sourceMethod?: any,
 ): boolean {
     if (options.invokeKind && options.invokeKind !== "any") {
         const actualKind: RuleInvokeKind = invokeExpr instanceof ArkInstanceInvokeExpr ? "instance" : "static";
@@ -1608,6 +2062,10 @@ function matchesInvokeConstraints(
         if (!haystack.includes(hint)) {
             return false;
         }
+    }
+
+    if (options.calleeScope && !matchesInvokeCalleeScope(options.calleeScope, invokeExpr, calleeSignature, sourceMethod)) {
+        return false;
     }
 
     return true;
@@ -1821,6 +2279,32 @@ function matchesScope(method: any, scope?: RuleScopeConstraint): boolean {
     return true;
 }
 
+function matchesInvokeCalleeScope(
+    scope: RuleScopeConstraint | undefined,
+    invokeExpr: any,
+    calleeSignature: string,
+    sourceMethod?: any,
+): boolean {
+    if (!scope) return true;
+    const methodSig = invokeExpr.getMethodSignature?.();
+    const classSig = methodSig?.getDeclaringClassSignature?.();
+    const className = classSig?.getClassName?.() || "";
+    const classText = classSig?.toString?.() || "";
+    const fileText = classSig?.getDeclaringFileSignature?.()?.toString?.()
+        || extractFilePathFromSignature(calleeSignature);
+    const moduleText = calleeSignature || fileText;
+    const calleeName = methodSig?.getMethodSubSignature?.()?.getMethodName?.()
+        || extractMethodNameFromSignature(calleeSignature);
+
+    if (!matchStringConstraint(scope.methodName, calleeName)) return false;
+
+    const fallback = resolveSdkImportScopeCandidates(sourceMethod, invokeExpr);
+    if (!matchConstraintAgainstCandidates(scope.file, [fileText, ...fallback.fileTexts])) return false;
+    if (!matchConstraintAgainstCandidates(scope.module, [moduleText, ...fallback.moduleTexts])) return false;
+    if (!matchConstraintAgainstCandidates(scope.className, [classText, className, ...fallback.classTexts])) return false;
+    return true;
+}
+
 function extractFilePathFromSignature(signature: string): string {
     const m = signature.match(/@([^:>]+):/);
     return m ? m[1].replace(/\\/g, "/") : signature;
@@ -1836,6 +2320,23 @@ function matchStringConstraint(constraint: RuleStringConstraint | undefined, tex
     } catch {
         return false;
     }
+}
+
+function matchConstraintAgainstCandidates(
+    constraint: RuleStringConstraint | undefined,
+    candidates: string[],
+): boolean {
+    if (!constraint) return true;
+    const seen = new Set<string>();
+    for (const candidate of candidates) {
+        const text = String(candidate || "").trim();
+        if (!text || seen.has(text)) continue;
+        seen.add(text);
+        if (matchStringConstraint(constraint, text)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function buildFieldToVarIndexFromPag(pag: Pag): Map<string, Set<number>> {

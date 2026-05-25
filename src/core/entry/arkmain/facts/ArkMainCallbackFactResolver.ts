@@ -5,6 +5,7 @@ import {
     resolveKnownChannelCallbackRegistration,
     resolveKnownFrameworkCallbackRegistrationWithPolicy,
 } from "../../shared/FrameworkCallbackClassifier";
+import { resolveKnownOptionCallbackRegistrationsFromStmt } from "../../../substrate/semantics/KnownOptionCallbackRegistration";
 import { ArkMainFactCollectionContext } from "./ArkMainFactContext";
 import { dedupeMethods } from "./ArkMainFactResolverUtils";
 import {
@@ -46,7 +47,10 @@ export function collectCallbackFacts(scene: Scene, context: ArkMainFactCollectio
         scannedSignatures.add(methodSignature);
         const cfg = method.getCfg?.();
         if (!cfg) continue;
-        for (const stmt of cfg.getStmts()) {
+        for (const stmt of [
+            ...cfg.getStmts(),
+            ...collectDeclaringClassInitializerStmts(method),
+        ]) {
             if (!stmt?.getInvokeExpr?.()) continue;
             const callbackBindings = resolveCallbackRegistrationsFromStmt(
                 stmt,
@@ -60,7 +64,8 @@ export function collectCallbackFacts(scene: Scene, context: ArkMainFactCollectio
                     || resolveKnownChannelCallbackRegistration(args),
                 { maxDepth: 2 },
             );
-            for (const binding of callbackBindings) {
+            const optionBindings = resolveKnownOptionCallbackRegistrationsFromStmt(stmt, scene, method);
+            for (const binding of [...callbackBindings, ...optionBindings]) {
                 const sourceSignature = binding.sourceMethod?.getSignature?.()?.toString?.();
                 const sourcePhase = sourceSignature ? context.phaseByMethodSignature.get(sourceSignature) : undefined;
                 if (!shouldArkMainPromoteCallbackBinding(binding, sourcePhase)) {
@@ -81,13 +86,16 @@ export function collectCallbackFacts(scene: Scene, context: ArkMainFactCollectio
                     callbackRecognitionLayer: binding.recognitionLayer,
                     callbackRegistrationSignature: binding.registrationSignature,
                     callbackArgIndex: binding.callbackArgIndex,
-                    callbackStructuralEvidenceFamily: binding.structuralEvidenceFamily,
+                    callbackStructuralEvidenceFamily: (binding as any).structuralEvidenceFamily,
                     entryFamily: resolveArkMainCallbackEntryFamily(binding.recognitionLayer, binding.slotFamily),
                     entryShape: binding.registrationShape,
                     recognitionLayer: binding.recognitionLayer,
                 });
                 const addedNewFact = context.facts.length > factCountBefore;
-                if (shouldArkMainQueueOpaqueExternalCallback(binding, addedNewFact, callbackSignature, queuedSignatures)) {
+                if (
+                    shouldArkMainQueueOpaqueExternalCallback(binding, addedNewFact, callbackSignature, queuedSignatures)
+                    || shouldQueueKnownOptionCallback(binding, addedNewFact, callbackSignature, queuedSignatures)
+                ) {
                     queuedSignatures.add(callbackSignature);
                     context.phaseByMethodSignature.set(callbackSignature, "interaction");
                     pendingMethods.push(binding.callbackMethod);
@@ -95,5 +103,34 @@ export function collectCallbackFacts(scene: Scene, context: ArkMainFactCollectio
             }
         }
     }
+}
+
+function collectDeclaringClassInitializerStmts(method: any): any[] {
+    const cls = method?.getDeclaringArkClass?.();
+    const fields = cls?.getFields?.() || [];
+    const out: any[] = [];
+    for (const field of fields) {
+        const initializer = field?.getInitializer?.();
+        if (Array.isArray(initializer)) {
+            out.push(...initializer);
+        } else if (initializer) {
+            out.push(initializer);
+        }
+    }
+    return out;
+}
+
+function shouldQueueKnownOptionCallback(
+    binding: { recognitionLayer?: string },
+    addedNewFact: boolean,
+    callbackSignature: string | undefined,
+    queuedSignatures: ReadonlySet<string>,
+): boolean {
+    return !!(
+        addedNewFact
+        && (binding.recognitionLayer === "controller_options" || binding.recognitionLayer === "component_options")
+        && callbackSignature
+        && !queuedSignatures.has(callbackSignature)
+    );
 }
 

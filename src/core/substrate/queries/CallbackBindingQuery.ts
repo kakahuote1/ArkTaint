@@ -5,6 +5,7 @@ import {
     mapInvokeArgsToParamAssigns,
     resolveCalleeCandidates,
     resolveMethodsFromCallable,
+    resolveMethodsFromAnonymousObjectCarrierByField,
 } from "./CalleeResolver";
 
 export interface CallbackRegistrationMatchArgs {
@@ -17,6 +18,7 @@ export interface CallbackRegistrationMatchArgs {
 
 export interface CallbackRegistrationMatchBase {
     callbackArgIndexes: number[];
+    callbackFieldNames?: string[];
     reason?: string;
 }
 
@@ -159,9 +161,10 @@ function collectDirectCallbackRegistrations<TMatch extends CallbackRegistrationM
     for (const callbackArgIndex of match.callbackArgIndexes) {
         const callbackValue = explicitArgs[callbackArgIndex];
         if (!callbackValue) continue;
-        const callbackMethods = resolveCallbackMethodBindingsPreferReturnedOrigins(
+        const callbackMethods = resolveCallbackMethodsForRegistrationMatch(
             scene,
             callbackValue,
+            match,
             depth + 1,
             visited,
             maxDepth,
@@ -188,6 +191,48 @@ function collectDirectCallbackRegistrations<TMatch extends CallbackRegistrationM
     }
 
     return [...out.values()];
+}
+
+function resolveCallbackMethodsForRegistrationMatch<TMatch extends CallbackRegistrationMatchBase>(
+    scene: Scene,
+    callbackValue: any,
+    match: TMatch,
+    depth: number,
+    visited: Set<string>,
+    maxDepth: number,
+): ArkMethod[] {
+    const fieldNames = normalizeCallbackFieldNames(match.callbackFieldNames);
+    if (fieldNames.length === 0) {
+        return resolveCallbackMethodBindingsPreferReturnedOrigins(scene, callbackValue, depth, visited, maxDepth);
+    }
+
+    const out = new Map<string, ArkMethod>();
+    for (const fieldName of fieldNames) {
+        for (const method of resolveMethodsFromAnonymousObjectCarrierByField(scene, callbackValue, fieldName, {
+            maxCandidates: 16,
+            enableLocalBacktrace: true,
+            maxBacktraceSteps: 6,
+            maxVisitedDefs: 24,
+            callableVisitKeys: visited,
+            callableResolveDepth: depth,
+            maxCallableResolveDepth: maxDepth,
+        })) {
+            const sig = method.getSignature?.().toString?.();
+            if (!sig || out.has(sig)) continue;
+            out.set(sig, method);
+        }
+    }
+    return [...out.values()];
+}
+
+function normalizeCallbackFieldNames(fieldNames: string[] | undefined): string[] {
+    if (!Array.isArray(fieldNames)) return [];
+    const out = new Set<string>();
+    for (const raw of fieldNames) {
+        const text = String(raw || "").trim();
+        if (text) out.add(text);
+    }
+    return [...out.values()].sort((a, b) => a.localeCompare(b));
 }
 
 function collectHelperCallbackRegistrations<TMatch extends CallbackRegistrationMatchBase>(

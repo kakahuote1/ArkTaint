@@ -14,15 +14,20 @@ export function buildSemanticFlowRuleCandidateItem(
     item: NormalizedCallsiteItem,
     options: SemanticFlowRuleCandidateAdapterOptions = {},
 ): SemanticFlowPipelineItemInput {
+    const semanticFocus = normalizeSemanticFocus(item);
     const anchorId = sanitizeKey([
         "rule",
         item.callee_signature,
         item.sourceFile,
         String(item.argCount),
         item.invokeKind,
+        semanticFocus,
     ].join("."));
 
     const companions = buildRuleCompanionNames(options.companionCandidates);
+    const callbackProperties = normalizeStringList((item as any).callbackProperties);
+    const callbackArgIndexes = normalizeNumberList((item as any).callbackArgIndexes);
+    const typeHint = normalizeTypeHint((item as any).typeHint);
     return {
         anchor: {
             id: anchorId,
@@ -31,7 +36,10 @@ export function buildSemanticFlowRuleCandidateItem(
             methodSignature: item.callee_signature,
             filePath: item.sourceFile,
             importSource: item.sourceFile,
-            metaTags: ["rule", "candidate", item.invokeKind],
+            callbackProperties,
+            callbackArgIndexes,
+            typeHint,
+            metaTags: ["rule", "candidate", item.invokeKind, ...(semanticFocus ? [`focus-${semanticFocus}`] : [])],
         },
         initialSlice: {
             anchorId,
@@ -43,6 +51,34 @@ export function buildSemanticFlowRuleCandidateItem(
             notes: buildRuleNotes(item),
         },
     };
+}
+
+function normalizeStringList(values: unknown): string[] | undefined {
+    if (!Array.isArray(values)) return undefined;
+    const out = new Set<string>();
+    for (const value of values) {
+        const text = String(value || "").trim();
+        if (text) out.add(text);
+    }
+    return out.size > 0 ? [...out.values()].sort((a, b) => a.localeCompare(b)) : undefined;
+}
+
+function normalizeNumberList(values: unknown): number[] | undefined {
+    if (!Array.isArray(values)) return undefined;
+    const out = new Set<number>();
+    for (const value of values) {
+        const num = Number(value);
+        if (Number.isInteger(num) && num >= 0) out.add(num);
+    }
+    return out.size > 0 ? [...out.values()].sort((a, b) => a - b) : undefined;
+}
+
+function normalizeTypeHint(value: unknown): string | undefined {
+    const text = String(value || "").trim();
+    if (!/^[A-Za-z0-9_.:-]+$/.test(text)) {
+        return undefined;
+    }
+    return text;
 }
 
 export function buildSemanticFlowArkMainCandidateItem(
@@ -209,6 +245,38 @@ function buildRuleObservations(item: NormalizedCallsiteItem): string[] {
     }
     if (typeof item.count === "number") {
         observations.push(`count=${item.count}`);
+    }
+    const semanticFocus = normalizeSemanticFocus(item);
+    if (semanticFocus) {
+        observations.push(`semanticFocus=${semanticFocus}`);
+    }
+    const candidateOrigin = typeof (item as any).candidateOrigin === "string"
+        ? String((item as any).candidateOrigin).trim()
+        : "";
+    if (candidateOrigin) {
+        observations.push(`candidateOrigin=${candidateOrigin}`);
+    }
+    const callbackProperties = Array.isArray((item as any).callbackProperties)
+        ? ((item as any).callbackProperties as unknown[]).map(value => String(value || "").trim()).filter(Boolean)
+        : [];
+    if (callbackProperties.length > 0) {
+        observations.push(`callbackProperties=${callbackProperties.join(",")}`);
+    }
+    const callbackArgIndexes = Array.isArray((item as any).callbackArgIndexes)
+        ? ((item as any).callbackArgIndexes as unknown[]).map(value => Number(value)).filter(value => Number.isInteger(value) && value >= 0)
+        : [];
+    if (callbackArgIndexes.length > 0) {
+        observations.push(`callbackArgIndexes=${[...new Set(callbackArgIndexes)].sort((a, b) => a - b).join(",")}`);
+    }
+    const typeHint = normalizeTypeHint((item as any).typeHint);
+    if (typeHint) {
+        observations.push(`typeHint=${typeHint}`);
+    }
+    const importSource = typeof (item as any).importSource === "string"
+        ? String((item as any).importSource).trim()
+        : "";
+    if (importSource) {
+        observations.push(`importSource=${importSource}`);
     }
     for (const entry of item.topEntries || []) {
         observations.push(`topEntry=${entry}`);
@@ -378,7 +446,18 @@ function buildRuleNotes(item: NormalizedCallsiteItem): string[] | undefined {
     if (typeof (item as any).contextError === "string" && (item as any).contextError.trim()) {
         notes.push((item as any).contextError.trim());
     }
+    const semanticFocus = normalizeSemanticFocus(item);
+    if (semanticFocus === "external_response_source") {
+        notes.push("Focus this modeling item on the returned external/framework response value. If the method returns fetched response data that is not derived from caller inputs, emit ruleKind=source with outputs=[\"ret\"]. Do not model request arguments as sink inputs in this focused item.");
+    }
     return notes.length > 0 ? notes : undefined;
+}
+
+function normalizeSemanticFocus(item: NormalizedCallsiteItem): string {
+    const raw = typeof (item as any).semanticFocus === "string"
+        ? String((item as any).semanticFocus).trim()
+        : "";
+    return /^[a-z0-9_:-]+$/i.test(raw) ? raw : "";
 }
 
 function selectRuleTemplate(

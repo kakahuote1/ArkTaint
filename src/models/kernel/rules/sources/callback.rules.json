@@ -14,7 +14,8 @@
       ],
       "match": {
         "kind": "method_name_equals",
-        "value": "onChange"
+        "value": "onChange",
+        "typeHint": "Input"
       },
       "sourceKind": "callback_param",
       "target": {
@@ -37,7 +38,8 @@
       ],
       "match": {
         "kind": "method_name_equals",
-        "value": "onInput"
+        "value": "onInput",
+        "typeHint": "Input"
       },
       "sourceKind": "callback_param",
       "target": {
@@ -60,7 +62,56 @@
       ],
       "match": {
         "kind": "method_name_equals",
-        "value": "onSubmit"
+        "value": "onSubmit",
+        "typeHint": "Input"
+      },
+      "sourceKind": "callback_param",
+      "target": {
+        "endpoint": "arg0"
+      },
+      "callbackArgIndexes": [
+        0
+      ]
+    },
+    {
+      "id": "source.harmony.textarea.onChange.arg0",
+      "enabled": true,
+      "description": "TextArea callback parameter for onChange.",
+      "tags": [
+        "harmony",
+        "t3",
+        "t4",
+        "t6",
+        "t7"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "onChange",
+        "typeHint": "TextArea"
+      },
+      "sourceKind": "callback_param",
+      "target": {
+        "endpoint": "arg0"
+      },
+      "callbackArgIndexes": [
+        0
+      ]
+    },
+    {
+      "id": "source.harmony.search.onChange.arg0",
+      "enabled": true,
+      "description": "Search callback parameter for onChange.",
+      "tags": [
+        "harmony",
+        "t3",
+        "t4",
+        "t6",
+        "t7"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "onChange",
+        "typeHint": "Search"
       },
       "sourceKind": "callback_param",
       "target": {
@@ -255,6 +306,35 @@
       "target": "arg0",
       "callbackArgIndexes": [
         0
+      ]
+    },
+    {
+      "id": "source.harmony.wearengine.p2p.registerMessageReceiver.message.content",
+      "enabled": true,
+      "description": "WearEngine registerMessageReceiver callback P2pMessage.content as cross-device source.",
+      "tags": [
+        "harmony",
+        "framework_callback_source",
+        "callback_param",
+        "wearengine",
+        "p2p",
+        "cross_device"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "registerMessageReceiver",
+        "invokeKind": "instance",
+        "argCount": 3
+      },
+      "sourceKind": "callback_param",
+      "target": {
+        "endpoint": "arg0",
+        "path": [
+          "content"
+        ]
+      },
+      "callbackArgIndexes": [
+        2
       ]
     },
     {

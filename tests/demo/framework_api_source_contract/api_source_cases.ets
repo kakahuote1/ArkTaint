@@ -1,5 +1,6 @@
 import {
     CachePreferences,
+    AppAccountManager,
     deviceInfo,
     deviceInfoProxy,
     DistributedKVStore,
@@ -11,6 +12,7 @@ import {
     MyDistributedKVStore,
     MyRdbStore,
     Preferences,
+    ProjectAccountManager,
     RdbStore,
     request,
     RequestAgentWrapper,
@@ -38,6 +40,18 @@ export function api_preferences_get_003_T(): void {
 export function api_cachepreferences_get_004_F(): void {
     const prefs = new CachePreferences();
     const out = prefs.get("token");
+    taint.Sink(out);
+}
+
+export function api_appaccount_getcredential_016_T(): void {
+    const manager = new AppAccountManager();
+    const out = manager.getCredential("alice", "password");
+    taint.Sink(out);
+}
+
+export function api_projectaccount_getcredential_017_F(): void {
+    const manager = new ProjectAccountManager();
+    const out = manager.getCredential("alice", "password");
     taint.Sink(out);
 }
 

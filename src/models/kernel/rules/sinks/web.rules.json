@@ -20,12 +20,13 @@
       "enabled": true,
       "match": {
         "kind": "method_name_equals",
-        "value": "loadUrl"
+        "value": "loadUrl",
+        "invokeKind": "instance"
       },
       "scope": {
         "className": {
           "mode": "regex",
-          "value": "WebController"
+          "value": "^(WebController|WebviewController|AtomicServiceWebController)$"
         }
       },
       "category": "webview_injection",
@@ -39,12 +40,13 @@
       "enabled": true,
       "match": {
         "kind": "method_name_equals",
-        "value": "runJavaScript"
+        "value": "runJavaScript",
+        "invokeKind": "instance"
       },
       "scope": {
         "className": {
           "mode": "regex",
-          "value": "WebController"
+          "value": "^(WebController|WebviewController|AtomicServiceWebController)$"
         }
       },
       "category": "webview_injection",

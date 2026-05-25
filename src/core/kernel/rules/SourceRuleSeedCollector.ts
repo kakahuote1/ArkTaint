@@ -6,7 +6,11 @@ import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr } from "../../../../arkanalyzer
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { ArkMethod } from "../../../../arkanalyzer/out/src/core/model/ArkMethod";
 import { resolveCallbackRegistrationsFromStmt } from "../../substrate/queries/CallbackBindingQuery";
-import { resolveMethodsFromCallable } from "../../substrate/queries/CalleeResolver";
+import { resolveKnownOptionCallbackRegistrationsFromStmt } from "../../substrate/semantics/KnownOptionCallbackRegistration";
+import {
+    resolveMethodsFromAnonymousObjectCarrierByField,
+    resolveMethodsFromCallable,
+} from "../../substrate/queries/CalleeResolver";
 import { resolveSdkImportScopeCandidates } from "../../substrate/queries/SdkProvenance";
 import { getMethodBySignature } from "../contracts/MethodLookup";
 import { TaintFact } from "../model/TaintFact";
@@ -156,13 +160,60 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
                 continue;
             }
 
+            if (kind === "bound_state") {
+                for (const stmt of cfg.getStmts()) {
+                    if (!stmt.containsInvokeExpr || !stmt.containsInvokeExpr()) continue;
+                    const invokeExpr = stmt.getInvokeExpr();
+                    if (!invokeExpr) continue;
+
+                    const calleeSignature = invokeExpr.getMethodSignature?.().toString?.() || "";
+                    const calleeName = resolveInvokeMethodName(invokeExpr, calleeSignature);
+                    if (!matchesSourceCallRule(rule, calleeSignature, calleeName, invokeExpr, method)) continue;
+
+                    const optionsValue = resolveInvokeTargetValue(stmt, invokeExpr, target.endpoint);
+                    if (!optionsValue) continue;
+
+                    const boundFieldNames = collectBoundStateFieldNamesFromOptions(
+                        args.scene,
+                        optionsValue,
+                        target.path || [],
+                    );
+                    if (boundFieldNames.length === 0) continue;
+
+                    const line = stmt.getOriginPositionInfo?.().getLineNo?.() ?? -1;
+                    const siteKey = `${method.getSignature().toString()}|bound_state:${calleeSignature}|line:${line}`;
+                    if (!canApplyRuleAtSite(rule, siteKey)) continue;
+
+                    let applied = false;
+                    for (const fieldName of boundFieldNames) {
+                        const facts = seedDeclaringClassFieldNameFacts(
+                            args.pag,
+                            method,
+                            fieldName,
+                            sourceTag,
+                            args.emptyContextId,
+                        );
+                        for (const fact of facts) {
+                            if (pushFact(fact, `${method.getName()}:${fieldName}@bound_state`, rule.id)) {
+                                applied = true;
+                            }
+                        }
+                    }
+                    if (applied) {
+                        markRuleAppliedAtSite(rule, siteKey);
+                    }
+                }
+                continue;
+            }
+
             if (kind === "callback_param") {
                 const targetParamIndex = resolveCallbackTargetParamIndex(rule);
                 if (targetParamIndex === undefined) continue;
 
                 for (const stmt of cfg.getStmts()) {
                     if (!stmt.containsInvokeExpr || !stmt.containsInvokeExpr()) continue;
-                    const registrations = resolveCallbackRegistrationsFromStmt(
+                    const registrations = [
+                        ...resolveCallbackRegistrationsFromStmt(
                         stmt,
                         args.scene,
                         method,
@@ -185,15 +236,23 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
 
                             return {
                                 callbackArgIndexes,
+                                callbackFieldNames: normalizeCallbackFieldNames(rule),
                                 reason: `Source callback registration ${calleeName || calleeSignature} from ${sourceMethod.getName()}`,
                             };
                         }
-                    );
+                        ),
+                        ...resolveKnownOptionCallbackRegistrationsForSourceRule(
+                            stmt,
+                            args.scene,
+                            method,
+                            rule,
+                        ),
+                    ];
 
                     for (const registration of registrations) {
                         activatedMethodSignatures.add(registration.callbackMethod.getSignature().toString());
                         const callbackParams = getParameterLocals(registration.callbackMethod);
-                        const callbackParam = callbackParams.find(p => p.index === targetParamIndex);
+                        const callbackParam = resolveCallbackUserParam(callbackParams, targetParamIndex);
                         if (!callbackParam) continue;
 
                         const line = registration.registrationInvokeExpr?.getOriginPositionInfo?.().getLineNo?.()
@@ -322,8 +381,15 @@ function resolveSourceScopeMethods(
     return allMethods;
 }
 
-function getParameterLocals(method: ArkMethod): Array<{ index: number; local: Local }> {
-    const out: Array<{ index: number; local: Local }> = [];
+interface ParameterLocalInfo {
+    index: number;
+    local: Local;
+    refText: string;
+    hiddenClosureCarrier: boolean;
+}
+
+function getParameterLocals(method: ArkMethod): ParameterLocalInfo[] {
+    const out: ParameterLocalInfo[] = [];
     const cfg = method.getCfg();
     if (!cfg) return out;
 
@@ -340,10 +406,30 @@ function getParameterLocals(method: ArkMethod): Array<{ index: number; local: Lo
         out.push({
             index: Number(m[1]),
             local: leftOp,
+            refText,
+            hiddenClosureCarrier: isHiddenClosureCarrierParam(leftOp, refText),
         });
     }
     out.sort((a, b) => a.index - b.index);
     return out;
+}
+
+function isHiddenClosureCarrierParam(local: Local, refText: string): boolean {
+    const localName = local.getName?.() || "";
+    if (/^%closures\d*$/.test(localName)) return true;
+    return /parameter\d+\s*:\s*\[[^\]]+\]/.test(refText);
+}
+
+function resolveCallbackUserParam(
+    callbackParams: ParameterLocalInfo[],
+    userParamIndex: number
+): ParameterLocalInfo | undefined {
+    if (!Number.isInteger(userParamIndex) || userParamIndex < 0) return undefined;
+    const visibleParams = callbackParams.filter(param => !param.hiddenClosureCarrier);
+    if (visibleParams.length > 0) {
+        return visibleParams[userParamIndex];
+    }
+    return callbackParams.find(param => param.index === userParamIndex);
 }
 
 function resolveSourceRuleKind(rule: SourceRule): SourceRuleKind {
@@ -459,7 +545,7 @@ function matchesSourceCallRule(
     invokeExpr: any,
     sourceMethod?: ArkMethod,
 ): boolean {
-    if (!matchesInvokeShape(rule, invokeExpr, calleeSignature)) return false;
+    if (!matchesInvokeShape(rule, invokeExpr, calleeSignature, sourceMethod)) return false;
     if (!matchesInvokeCalleeScope(rule.calleeScope, invokeExpr, calleeSignature, calleeName, sourceMethod)) return false;
 
     const value = rule.match.value || "";
@@ -467,7 +553,15 @@ function matchesSourceCallRule(
     const normalizedValue = normalizeInvokeSignatureForRuleMatch(value);
     switch (rule.match.kind) {
         case "method_name_equals":
-            return calleeName === value;
+            if (calleeName === value) {
+                return true;
+            }
+            if (calleeName === "constructor") {
+                const classSignature = invokeExpr.getMethodSignature?.().getDeclaringClassSignature?.()?.toString?.() || "";
+                const className = invokeExpr.getMethodSignature?.().getDeclaringClassSignature?.()?.getClassName?.() || "";
+                return exactDeclaringClassMatch(classSignature, className, value);
+            }
+            return false;
         case "method_name_regex":
             try {
                 return new RegExp(value).test(calleeName);
@@ -618,7 +712,12 @@ function matchesFieldReadCalleeScope(
     return true;
 }
 
-function matchesInvokeShape(rule: SourceRule, invokeExpr: any, calleeSignature: string): boolean {
+function matchesInvokeShape(
+    rule: SourceRule,
+    invokeExpr: any,
+    calleeSignature: string,
+    sourceMethod?: ArkMethod,
+): boolean {
     const invokeKind = rule.match.invokeKind;
     if (invokeKind && invokeKind !== "any") {
         const actualKind: RuleInvokeKind = invokeExpr instanceof ArkInstanceInvokeExpr ? "instance" : "static";
@@ -636,11 +735,81 @@ function matchesInvokeShape(rule: SourceRule, invokeExpr: any, calleeSignature: 
         const declaringClass = invokeExpr.getMethodSignature?.().getDeclaringClassSignature?.()?.toString?.() || "";
         const baseText = invokeExpr instanceof ArkInstanceInvokeExpr ? (invokeExpr.getBase()?.toString?.() || "") : "";
         const ptrText = invokeExpr instanceof ArkPtrInvokeExpr ? (invokeExpr.toString?.() || "") : "";
-        const haystack = `${calleeSignature} ${declaringClass} ${baseText} ${ptrText}`.toLowerCase();
-        if (!haystack.includes(hint)) return false;
+        const invokeText = invokeExpr.toString?.() || "";
+        const receiverTraceText = collectReceiverTypeHintTrace(sourceMethod, invokeExpr).join(" ");
+        const haystack = `${calleeSignature} ${declaringClass} ${baseText} ${ptrText} ${invokeText} ${receiverTraceText}`.toLowerCase();
+        if (!matchesTypeHint(haystack, hint)) return false;
     }
 
     return true;
+}
+
+function matchesTypeHint(haystack: string, hint: string): boolean {
+    if (haystack.includes(hint)) {
+        return true;
+    }
+    const parts = hint
+        .split(/[.\s:/\\]+/)
+        .map(part => part.trim())
+        .filter(Boolean);
+    if (parts.length <= 1) {
+        return false;
+    }
+    return parts.every(part => haystack.includes(part));
+}
+
+function collectReceiverTypeHintTrace(sourceMethod: ArkMethod | undefined, invokeExpr: any): string[] {
+    if (!sourceMethod || !(invokeExpr instanceof ArkInstanceInvokeExpr)) return [];
+    const base = invokeExpr.getBase?.();
+    if (!(base instanceof Local)) return [];
+    const out: string[] = [];
+    collectLocalProducerTrace(sourceMethod, base, out, new Set<string>(), 16);
+    return out;
+}
+
+function collectLocalProducerTrace(
+    method: ArkMethod,
+    local: Local,
+    out: string[],
+    seen: Set<string>,
+    depth: number,
+): void {
+    if (depth <= 0) return;
+    const localKey = local.toString?.() || "";
+    if (!localKey || seen.has(localKey)) return;
+    seen.add(localKey);
+
+    const cfg = method.getCfg?.();
+    const stmts = cfg?.getStmts?.() || [];
+    for (const stmt of stmts) {
+        if (!(stmt instanceof ArkAssignStmt)) continue;
+        const left = stmt.getLeftOp?.();
+        if (!(left instanceof Local)) continue;
+        if ((left.toString?.() || "") !== localKey) continue;
+
+        out.push(stmt.toString?.() || "");
+        const right = stmt.getRightOp?.();
+        if (right instanceof ArkInstanceFieldRef) {
+            const fieldSignature = right.getFieldSignature?.()?.toString?.() || "";
+            if (fieldSignature) {
+                out.push(fieldSignature);
+            }
+            const nextBase = right.getBase?.();
+            if (nextBase instanceof Local) {
+                collectLocalProducerTrace(method, nextBase, out, seen, depth - 1);
+            }
+        }
+        if (!stmt.containsInvokeExpr?.()) continue;
+        const invoke = stmt.getInvokeExpr?.();
+        const sig = invoke?.getMethodSignature?.()?.toString?.() || "";
+        if (sig) out.push(sig);
+        if (invoke instanceof ArkInstanceInvokeExpr) {
+            const nextBase = invoke.getBase?.();
+            if (nextBase instanceof Local) {
+                collectLocalProducerTrace(method, nextBase, out, seen, depth - 1);
+            }
+        }
+    }
 }
 
 function resolveInvokeTargetValue(stmt: any, invokeExpr: any, endpoint?: RuleEndpoint): any | undefined {
@@ -701,7 +870,7 @@ function resolveCallbackArgIndexes(
     if (explicit.length > 0) {
         const resolvedExplicit = explicit.filter(idx => {
             if (idx < 0 || idx >= callArgs.length) return false;
-            const callbackMethods = resolveCallbackMethodsFromArg(scene, callArgs[idx], callerMethod);
+            const callbackMethods = resolveCallbackMethodsFromRuleArg(scene, callArgs[idx], rule, callerMethod);
             return callbackMethods.length > 0;
         });
         if (resolvedExplicit.length > 0) {
@@ -712,7 +881,7 @@ function resolveCallbackArgIndexes(
     const inferred: number[] = [];
     for (let i = 0; i < callArgs.length; i++) {
         const arg = callArgs[i];
-        const callbackMethods = resolveCallbackMethodsFromArg(scene, arg, callerMethod);
+        const callbackMethods = resolveCallbackMethodsFromRuleArg(scene, arg, rule, callerMethod);
         if (callbackMethods.length > 0) {
             inferred.push(i);
         }
@@ -729,6 +898,44 @@ function normalizeCallbackArgIndexes(rule: SourceRule, argCount: number): number
         }
     }
     return [...result.values()].sort((a, b) => a - b);
+}
+
+function normalizeCallbackFieldNames(rule: SourceRule): string[] | undefined {
+    if (!Array.isArray(rule.callbackFieldNames)) {
+        return undefined;
+    }
+    const out = new Set<string>();
+    for (const raw of rule.callbackFieldNames) {
+        const text = String(raw || "").trim();
+        if (text) out.add(text);
+    }
+    return out.size > 0 ? [...out.values()].sort((a, b) => a.localeCompare(b)) : undefined;
+}
+
+function resolveKnownOptionCallbackRegistrationsForSourceRule(
+    stmt: any,
+    scene: Scene,
+    sourceMethod: ArkMethod,
+    rule: SourceRule,
+): any[] {
+    if (rule.callbackResolution !== "known_option") {
+        return [];
+    }
+
+    const invokeExpr = stmt?.getInvokeExpr?.();
+    if (!invokeExpr) return [];
+    const calleeSignature = invokeExpr.getMethodSignature?.().toString?.() || "";
+    const calleeName = resolveInvokeMethodName(invokeExpr, calleeSignature);
+    if (!matchesSourceCallRule(rule, calleeSignature, calleeName, invokeExpr, sourceMethod)) {
+        return [];
+    }
+
+    const fieldNames = new Set(normalizeCallbackFieldNames(rule) || []);
+    return resolveKnownOptionCallbackRegistrationsFromStmt(stmt, scene, sourceMethod)
+        .filter(registration =>
+            fieldNames.size === 0
+            || fieldNames.has(String(registration.callbackFieldName || "")),
+        );
 }
 
 function resolveCallbackMethodsFromArg(scene: Scene, callbackArg: any, callerMethod?: ArkMethod): ArkMethod[] {
@@ -879,7 +1086,15 @@ function seedFactsFromValue(
     }
     if ((!pagNodes || pagNodes.size === 0) && value instanceof ArkInstanceFieldRef) {
         const base = value.getBase?.();
-        const baseNodes = base ? pag.getNodesByValue(base) : undefined;
+        let baseNodes = base ? pag.getNodesByValue(base) : undefined;
+        if ((!baseNodes || baseNodes.size === 0) && base instanceof Local) {
+            try {
+                pag.getOrNewNode(contextId, base, base.getDeclaringStmt?.() || undefined);
+                baseNodes = pag.getNodesByValue(base);
+            } catch {
+                baseNodes = undefined;
+            }
+        }
         const fieldName = value.getFieldSignature?.().getFieldName?.() || value.getFieldName?.();
         if (baseNodes && baseNodes.size > 0 && fieldName) {
             const fieldPath = targetPath && targetPath.length > 0
@@ -913,10 +1128,16 @@ function seedFactsFromValue(
         let hasFieldFact = false;
         for (const nodeId of pagNodes.values()) {
             const rootNode: any = pag.getNode(nodeId);
+            let hasPointTo = false;
             for (const objId of rootNode.getPointTo()) {
+                hasPointTo = true;
                 hasFieldFact = true;
                 const objNode: any = pag.getNode(objId);
                 add(new TaintFact(objNode, sourceTag, contextId, [...targetPath]));
+            }
+            if (!hasPointTo) {
+                hasFieldFact = true;
+                add(new TaintFact(rootNode as any, sourceTag, contextId, [...targetPath]));
             }
         }
         if (hasFieldFact) {
@@ -1034,8 +1255,8 @@ function seedLocalAliasFactsInMethod(
     if (!cfg || !body) return out;
 
     const aliasNames = collectAliasLocalNames(cfg.getStmts(), seedLocal);
+    const allAliasNames = new Set<string>(aliasNames);
     aliasNames.delete(seedLocal.getName());
-    if (aliasNames.size === 0) return out;
 
     const locals = [...body.getLocals().values()];
     for (const aliasName of aliasNames) {
@@ -1045,6 +1266,219 @@ function seedLocalAliasFactsInMethod(
         for (const fact of facts) add(fact);
     }
 
+    for (const stmt of cfg.getStmts()) {
+        if (!(stmt instanceof ArkAssignStmt)) continue;
+        const left = stmt.getLeftOp();
+        if (!(left instanceof ArkInstanceFieldRef)) continue;
+        const right = stmt.getRightOp();
+        if (!(right instanceof Local)) continue;
+        if (!allAliasNames.has(right.getName())) continue;
+        const facts = seedFactsFromValue(pag, left, sourceTag, contextId, targetPath);
+        for (const fact of facts) add(fact);
+        const classFacts = seedDeclaringClassFieldFacts(pag, method, left, sourceTag, contextId, targetPath);
+        for (const fact of classFacts) add(fact);
+    }
+
+    return out;
+}
+
+function resolveCallbackMethodsFromRuleArg(
+    scene: Scene,
+    callbackArg: any,
+    rule: SourceRule,
+    callerMethod?: ArkMethod,
+): ArkMethod[] {
+    const fieldNames = normalizeCallbackFieldNames(rule);
+    if (!fieldNames || fieldNames.length === 0) {
+        return resolveCallbackMethodsFromArg(scene, callbackArg, callerMethod);
+    }
+    const out = new Map<string, ArkMethod>();
+    for (const fieldName of fieldNames) {
+        for (const method of resolveMethodsFromAnonymousObjectCarrierByField(scene, callbackArg, fieldName, {
+            maxCandidates: 16,
+            enableLocalBacktrace: true,
+            maxBacktraceSteps: 6,
+            maxVisitedDefs: 24,
+        }) as ArkMethod[]) {
+            const sig = method.getSignature?.().toString?.();
+            if (!sig || out.has(sig)) continue;
+            out.set(sig, method);
+        }
+    }
+    return [...out.values()];
+}
+
+function seedDeclaringClassFieldFacts(
+    pag: Pag,
+    method: ArkMethod,
+    fieldRef: ArkInstanceFieldRef,
+    sourceTag: string,
+    contextId: number,
+    targetPath?: string[]
+): TaintFact[] {
+    const base = fieldRef.getBase?.();
+    if (!(base instanceof Local) || base.getName() !== "this") {
+        return [];
+    }
+    const fieldName = fieldRef.getFieldSignature?.().getFieldName?.() || "";
+    if (!fieldName) {
+        return [];
+    }
+    const fieldPath = targetPath && targetPath.length > 0
+        ? [fieldName, ...targetPath]
+        : [fieldName];
+    const declaringClass = method.getDeclaringArkClass?.();
+    const methods = declaringClass?.getMethods?.() || [];
+    const out: TaintFact[] = [];
+    const seen = new Set<string>();
+    const add = (nodeId: number): void => {
+        const node: any = pag.getNode(nodeId);
+        if (!node) return;
+        const fact = new TaintFact(node, sourceTag, contextId, [...fieldPath]);
+        if (seen.has(fact.id)) return;
+        seen.add(fact.id);
+        out.push(fact);
+    };
+    for (const classMethod of methods) {
+        for (const nodeId of collectMethodThisCarrierAndObjectNodeIds(pag, classMethod)) {
+            add(nodeId);
+        }
+    }
+    return out;
+}
+
+function seedDeclaringClassFieldNameFacts(
+    pag: Pag,
+    method: ArkMethod,
+    fieldName: string,
+    sourceTag: string,
+    contextId: number,
+    targetPath?: string[],
+): TaintFact[] {
+    const normalizedFieldName = String(fieldName || "").trim();
+    if (!normalizedFieldName) {
+        return [];
+    }
+    const fieldPath = targetPath && targetPath.length > 0
+        ? [normalizedFieldName, ...targetPath]
+        : [normalizedFieldName];
+    const declaringClass = method.getDeclaringArkClass?.();
+    const methods = declaringClass?.getMethods?.() || [];
+    const out: TaintFact[] = [];
+    const seen = new Set<string>();
+    const add = (nodeId: number): void => {
+        const node: any = pag.getNode(nodeId);
+        if (!node) return;
+        const fact = new TaintFact(node, sourceTag, contextId, [...fieldPath]);
+        if (seen.has(fact.id)) return;
+        seen.add(fact.id);
+        out.push(fact);
+    };
+    for (const classMethod of methods) {
+        for (const nodeId of collectMethodThisCarrierAndObjectNodeIds(pag, classMethod)) {
+            add(nodeId);
+        }
+    }
+    return out;
+}
+
+function collectBoundStateFieldNamesFromOptions(
+    scene: Scene,
+    optionsValue: any,
+    optionPath: string[],
+): string[] {
+    const classSignature = String(optionsValue?.getType?.()?.getClassSignature?.()?.toString?.() || "");
+    if (!classSignature) return [];
+
+    const optionFieldName = optionPath.length > 0 ? optionPath[0] : "text";
+    if (!optionFieldName) return [];
+
+    const out = new Set<string>();
+    for (const method of scene.getMethods()) {
+        if (!isAnonymousOptionsInitializerFor(method, classSignature)) continue;
+        const cfg = method.getCfg?.();
+        if (!cfg) continue;
+        const boundLocalFieldNames = collectBoundThisLocalFieldNames(cfg.getStmts?.() || []);
+        for (const stmt of cfg.getStmts?.() || []) {
+            if (!(stmt instanceof ArkAssignStmt)) continue;
+            const left = stmt.getLeftOp?.();
+            const right = stmt.getRightOp?.();
+            if (!(left instanceof ArkInstanceFieldRef)) continue;
+            if (!isThisFieldRef(left, optionFieldName)) continue;
+            const boundFieldName = right instanceof ArkInstanceFieldRef
+                ? (isBoundThisFieldRef(right)
+                    ? (right.getFieldSignature?.().getFieldName?.() || right.getFieldName?.())
+                    : undefined)
+                : (right instanceof Local
+                    ? boundLocalFieldNames.get(right.getName?.() || "")
+                    : undefined);
+            if (boundFieldName) out.add(boundFieldName);
+        }
+    }
+    return [...out].sort((left, right) => left.localeCompare(right));
+}
+
+function collectBoundThisLocalFieldNames(stmts: any[]): Map<string, string> {
+    const out = new Map<string, string>();
+    for (const stmt of stmts) {
+        if (!(stmt instanceof ArkAssignStmt)) continue;
+        const left = stmt.getLeftOp?.();
+        const right = stmt.getRightOp?.();
+        if (!(left instanceof Local) || !(right instanceof ArkInstanceFieldRef)) continue;
+        if (!isBoundThisFieldRef(right)) continue;
+        const fieldName = right.getFieldSignature?.().getFieldName?.() || right.getFieldName?.();
+        if (fieldName) out.set(left.getName(), fieldName);
+    }
+    return out;
+}
+
+function isAnonymousOptionsInitializerFor(method: ArkMethod, classSignature: string): boolean {
+    const methodClassSignature = method.getDeclaringArkClass?.()?.getSignature?.()?.toString?.() || "";
+    if (methodClassSignature !== classSignature) return false;
+    const methodName = method.getName?.() || "";
+    return methodName === "%instInit" || methodName.includes("%instInit");
+}
+
+function isThisFieldRef(fieldRef: ArkInstanceFieldRef, expectedFieldName: string): boolean {
+    const baseName = fieldRef.getBase?.()?.getName?.() || "";
+    const fieldName = fieldRef.getFieldSignature?.().getFieldName?.() || fieldRef.getFieldName?.();
+    return baseName === "this" && fieldName === expectedFieldName;
+}
+
+function isBoundThisFieldRef(fieldRef: ArkInstanceFieldRef): boolean {
+    const baseName = fieldRef.getBase?.()?.getName?.() || "";
+    return baseName === "$$this";
+}
+
+function collectMethodThisCarrierAndObjectNodeIds(pag: Pag, method: any): Set<number> {
+    const out = new Set<number>();
+    const addThisLocal = (value: any): void => {
+        const carrierNodes = pag.getNodesByValue(value);
+        if (carrierNodes) {
+            for (const nodeId of carrierNodes.values()) {
+                out.add(Number(nodeId));
+                const node: any = pag.getNode(nodeId);
+                for (const objectNodeId of node?.getPointTo?.() || []) {
+                    out.add(Number(objectNodeId));
+                }
+            }
+        }
+    };
+
+    const body = method?.getBody?.();
+    const bodyThis = body?.getLocals?.()?.get?.("this");
+    if (bodyThis instanceof Local) {
+        addThisLocal(bodyThis);
+    }
+
+    const cfg = method?.getCfg?.();
+    if (!cfg) return out;
+    for (const stmt of cfg.getStmts()) {
+        if (!(stmt instanceof ArkAssignStmt)) continue;
+        const left = stmt.getLeftOp();
+        if (!(left instanceof Local) || left.getName() !== "this") continue;
+        addThisLocal(left);
+    }
     return out;
 }
 

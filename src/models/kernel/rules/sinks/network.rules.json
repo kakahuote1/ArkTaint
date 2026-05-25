@@ -165,6 +165,31 @@
       }
     },
     {
+      "id": "sink.harmony.wearengine.p2p.sendMessage.message.content",
+      "description": "WearEngine P2P sendMessage message.content cross-device payload send.",
+      "tags": [
+        "harmony",
+        "framework_sink",
+        "wearengine",
+        "p2p",
+        "cross_device"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "sendMessage",
+        "invokeKind": "instance",
+        "argCount": 3
+      },
+      "target": {
+        "endpoint": "arg2",
+        "path": [
+          "content"
+        ]
+      },
+      "severity": "high",
+      "category": "cross_device_data_leak"
+    },
+    {
       "id": "sink.harmony.sms.sendMessage",
       "description": "SMS send (data exfiltration)",
       "tags": [

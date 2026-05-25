@@ -171,6 +171,11 @@ interface AnalyzeReport {
     summary: {
         withSeeds: number;
         totalFlows: number;
+        stageProfile: {
+            incrementalCacheHitCount: number;
+            incrementalCacheMissCount: number;
+            incrementalCacheWriteCount: number;
+        };
     };
 }
 
@@ -212,6 +217,11 @@ async function main(): Promise<void> {
         const report = readAnalyzeSummary<AnalyzeReport>(root);
         assert(report.summary.withSeeds > 0, `expected withSeeds > 0, got ${report.summary.withSeeds}`);
         assert(report.summary.totalFlows > 0, `expected totalFlows > 0, got ${report.summary.totalFlows}`);
+        assert(report.summary.stageProfile.incrementalCacheHitCount === 0, `--no-incremental should disable final cache hits, got ${report.summary.stageProfile.incrementalCacheHitCount}`);
+        assert(report.summary.stageProfile.incrementalCacheWriteCount === 0, `--no-incremental should disable final cache writes, got ${report.summary.stageProfile.incrementalCacheWriteCount}`);
+        const phase1Report = JSON.parse(fs.readFileSync(path.join(root, "phase1", "summary", "summary.json"), "utf8")) as AnalyzeReport;
+        assert(phase1Report.summary.stageProfile.incrementalCacheHitCount === 0, `--no-incremental should disable phase1 cache hits, got ${phase1Report.summary.stageProfile.incrementalCacheHitCount}`);
+        assert(phase1Report.summary.stageProfile.incrementalCacheWriteCount === 0, `--no-incremental should disable phase1 cache writes, got ${phase1Report.summary.stageProfile.incrementalCacheWriteCount}`);
         assert(fs.existsSync(path.join(root, "phase1", "feedback", "rule_feedback", "no_candidate_callsites.json")), "missing phase1 rule feedback");
         assert(fs.existsSync(path.join(root, "rules.json")), "missing modeled rules artifact");
         assert(fs.existsSync(path.join(root, "modules.json")), "missing modeled modules artifact");

@@ -147,6 +147,20 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
         ],
     },
     {
+        family: "source.harmony.appAccount",
+        tier: "B",
+        description: "AppAccount APIs surface framework-managed account credentials.",
+        tags: [...API_SOURCE_TAGS, "account", "credential_store"],
+        schemas: [
+            apiCallReturn(
+                "source.harmony.appAccount.getCredential.result",
+                "AppAccountManager.getCredential() return value as an account credential source.",
+                { kind: "method_name_equals", value: "getCredential", invokeKind: "instance", argCount: 2 },
+                exactClassRegexScope("AppAccountManager", "appAccount", "AppAccount"),
+            ),
+        ],
+    },
+    {
         family: "source.harmony.rdb",
         tier: "B",
         description: "RDB query APIs surface database-backed rows and result views.",

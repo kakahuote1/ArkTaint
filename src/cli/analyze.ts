@@ -249,6 +249,8 @@ export async function runAnalyzeCliCommand(options: CliOptions): Promise<void> {
             maxSliceItems: 48,
             examplesPerItem: 2,
             analyze: true,
+            incremental: options.incremental,
+            incrementalCachePath: options.incrementalCachePath,
             profile: options.profile,
             entryModel: options.entryModel,
             reportMode: options.reportMode,

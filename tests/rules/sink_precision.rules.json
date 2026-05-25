@@ -42,6 +42,28 @@
             }
         },
         {
+            "id": "sink.precision.multi.arg0",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "SinkMulti"
+            },
+            "severity": "medium",
+            "target": {
+                "endpoint": "arg0"
+            }
+        },
+        {
+            "id": "sink.precision.multi.arg1",
+            "match": {
+                "kind": "method_name_equals",
+                "value": "SinkMulti"
+            },
+            "severity": "medium",
+            "target": {
+                "endpoint": "arg1"
+            }
+        },
+        {
             "id": "sink.precision.field.secret",
             "match": {
                 "kind": "method_name_equals",

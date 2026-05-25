@@ -30,6 +30,92 @@ async function main(): Promise<void> {
     assert(decision.summary.transfers[0].relation === undefined, "direct shorthand should not force relation");
     assert(decision.summary.transfers[0].from.slot === "arg" && decision.summary.transfers[0].from.index === 0, "expected arg0 source");
     assert(decision.summary.transfers[0].to.slot === "result", "expected ret target");
+
+    const objectShorthandDecision = parseSemanticFlowDecision(JSON.stringify({
+        status: "done",
+        classification: "rule",
+        resolution: "resolved",
+        summary: {
+            inputs: [{ slot: "arg0", index: 0 }, { slot: "arg1", index: 1 }],
+            outputs: [{ slot: "ret" }],
+            transfers: [],
+            confidence: "high",
+            ruleKind: "sink",
+        },
+    }));
+    assert(objectShorthandDecision.status === "done", "expected object shorthand to parse");
+    assert(objectShorthandDecision.summary.inputs[0].slot === "arg", "expected object arg0 shorthand to normalize");
+    assert(objectShorthandDecision.summary.inputs[0].index === 0, "expected object arg0 index to normalize");
+    assert(objectShorthandDecision.summary.inputs[1].slot === "arg", "expected object arg1 shorthand to normalize");
+    assert(objectShorthandDecision.summary.inputs[1].index === 1, "expected object arg1 index to normalize");
+    assert(objectShorthandDecision.summary.outputs[0].slot === "result", "expected object ret shorthand to normalize");
+
+    const needMoreEvidenceMultiFocus = parseSemanticFlowDecision(JSON.stringify({
+        status: "need-more-evidence",
+        draft: {
+            inputs: ["arg0", "arg1"],
+            outputs: ["ret"],
+            transfers: [],
+            confidence: "low",
+        },
+        request: {
+            kind: "q_recv",
+            focus: {
+                from: ["arg0", "arg1"],
+                to: "ret",
+            },
+            scope: {
+                owner: "%dflt",
+                locality: "method",
+                surface: "%AM1",
+            },
+            budgetClass: "body_local",
+            why: ["The wrapper may forward several inputs and return a response."],
+            ask: "Check whether the inputs are forwarded to the returned result or to an external sink.",
+        },
+    }));
+    assert(needMoreEvidenceMultiFocus.status === "need-more-evidence", "expected multi-focus request to parse");
+    assert(needMoreEvidenceMultiFocus.request?.focus.from?.slot === "arg", "expected first focus source to normalize");
+    assert(needMoreEvidenceMultiFocus.request?.focus.from?.index === 0, "expected first focus source index to normalize");
+    assert(needMoreEvidenceMultiFocus.request?.focus.to?.slot === "result", "expected focus target to normalize");
+
+    const nullOptionalEnums = parseSemanticFlowDecision(JSON.stringify({
+        status: "done",
+        classification: "rule",
+        resolution: "resolved",
+        summary: {
+            inputs: ["arg0"],
+            outputs: [],
+            transfers: [],
+            confidence: "high",
+            ruleKind: "sink",
+            sourceKind: null,
+            moduleKind: null,
+            relations: {},
+        },
+    }));
+    assert(nullOptionalEnums.status === "done", "expected null optional enum fields to parse as absent");
+    assert(nullOptionalEnums.summary.ruleKind === "sink", "expected sink rule kind");
+    assert(nullOptionalEnums.summary.sourceKind === undefined, "expected null sourceKind to become undefined");
+    assert(nullOptionalEnums.summary.moduleKind === undefined, "expected null moduleKind to become undefined");
+
+    const nullRelations = parseSemanticFlowDecision(JSON.stringify({
+        status: "done",
+        classification: "rule",
+        resolution: "resolved",
+        summary: {
+            inputs: ["arg0"],
+            outputs: [],
+            transfers: [],
+            confidence: "high",
+            ruleKind: "sink",
+            relations: null,
+        },
+    }));
+    assert(nullRelations.status === "done", "expected null relations to parse as absent");
+    assert(nullRelations.summary.ruleKind === "sink", "expected null relations sink rule kind");
+    assert(nullRelations.summary.relations === undefined, "expected null relations to become undefined");
+
     const proseWrapped = parseSemanticFlowDecision(`模型判断如下：
 {"status":"done","classification":"rule","resolution":"resolved","summary":{"inputs":["arg0"],"outputs":["ret"],"transfers":["arg0 -> ret"],"confidence":"high","ruleKind":"transfer"},"rationale":["valid json embedded in prose"]}
 以上为结果。`);
@@ -157,6 +243,41 @@ async function main(): Promise<void> {
     assert(repairedSourceLikeSummaryModuleSpec.summary.confidence === "medium", "missing drift confidence should default to medium");
     assert(repairedSourceLikeSummaryModuleSpec.summary.outputs[0].slot === "result", "summary.moduleSpec source drift should keep ret output");
 
+    const sinkLikeModuleSpecDrift = parseSemanticFlowDecision(JSON.stringify({
+        status: "done",
+        classification: "module",
+        resolution: "resolved",
+        summary: {
+            inputs: ["arg0", "arg1"],
+            outputs: ["ret"],
+            transfers: [
+                {
+                    from: "arg0",
+                    to: "http.post payload (phone)",
+                },
+            ],
+            confidence: "high",
+            moduleKind: "bridge",
+            moduleSpec: {
+                kind: "bridge",
+                methodName: "%AM1",
+                underlyingSink: "http.post",
+                sinkPath: "/login",
+                dualRole: true,
+                sinkInputSlots: ["arg0", "arg1"],
+                sourceOutputSlot: "ret",
+            },
+        },
+    }));
+    assert(sinkLikeModuleSpecDrift.status === "done", "expected sink-like moduleSpec drift to parse");
+    assert(sinkLikeModuleSpecDrift.classification === "rule", "sink-like moduleSpec drift should normalize to rule");
+    assert(sinkLikeModuleSpecDrift.summary.ruleKind === "sink", "sink-like moduleSpec drift should become sink rule");
+    assert(sinkLikeModuleSpecDrift.summary.inputs.length === 2, "sink-like moduleSpec drift should preserve sink input slots");
+    assert(sinkLikeModuleSpecDrift.summary.inputs[0].slot === "arg" && sinkLikeModuleSpecDrift.summary.inputs[0].index === 0, "expected sink arg0");
+    assert(sinkLikeModuleSpecDrift.summary.inputs[1].slot === "arg" && sinkLikeModuleSpecDrift.summary.inputs[1].index === 1, "expected sink arg1");
+    assert(sinkLikeModuleSpecDrift.summary.transfers.length === 0, "sink-like moduleSpec drift should drop natural-language transfers");
+    assert(!sinkLikeModuleSpecDrift.summary.moduleSpec, "sink-like moduleSpec drift must not keep moduleSpec");
+
     const topLevelRuleKindDrift = parseSemanticFlowDecision(JSON.stringify({
         status: "done",
         classification: "rule",
@@ -271,6 +392,42 @@ async function main(): Promise<void> {
     assert(callbackParamRuleDrift.summary.moduleKind === "bridge", "callback_param transfer should become bridge module");
     assert(callbackParamRuleDrift.summary.ruleKind === undefined, "lifted callback_param transfer should drop ruleKind");
     assert(callbackParamRuleDrift.summary.transfers[0].to.slot === "callback_param", "lifted transfer should preserve callback_param target");
+
+    const callbackFieldRelayModule = parseSemanticFlowDecision(JSON.stringify({
+        status: "done",
+        classification: "module",
+        resolution: "resolved",
+        summary: {
+            inputs: ["incomingHandler.arg0"],
+            outputs: [],
+            transfers: ["incomingHandler.arg0 -> setIncomingHandler.callback0.param0"],
+            confidence: "medium",
+            moduleKind: "bridge",
+            relations: {
+                companions: ["setIncomingHandler"],
+                trigger: {
+                    preset: "callback_event",
+                    via: "base.incomingHandler",
+                    reason: "registered callback field receives the relay payload",
+                },
+                constraints: [
+                    { kind: "same_receiver" },
+                ],
+            },
+        },
+    }));
+    assert(callbackFieldRelayModule.status === "done", "expected callback field relay module to parse");
+    assert(callbackFieldRelayModule.classification === "module", "callback field relay should stay module");
+    assert(callbackFieldRelayModule.summary.moduleKind === "bridge", "callback field relay should be bridge module");
+    assert(callbackFieldRelayModule.summary.transfers.length === 1, "callback field relay should keep one transfer");
+    assert(callbackFieldRelayModule.summary.transfers[0].from.surface === "incomingHandler", "relay source surface should be incomingHandler");
+    assert(callbackFieldRelayModule.summary.transfers[0].from.slot === "arg", "relay source should be argument slot");
+    assert(callbackFieldRelayModule.summary.transfers[0].from.index === 0, "relay source should be arg0");
+    assert(callbackFieldRelayModule.summary.transfers[0].to.surface === "setIncomingHandler", "relay target surface should be setter");
+    assert(callbackFieldRelayModule.summary.transfers[0].to.slot === "callback_param", "relay target should be callback parameter");
+    assert(callbackFieldRelayModule.summary.transfers[0].to.callbackArgIndex === 0, "relay target callback arg should be callback0");
+    assert(callbackFieldRelayModule.summary.relations?.trigger?.via?.slot === "base", "relay trigger via should use base field");
+    assert(callbackFieldRelayModule.summary.relations?.constraints?.[0]?.kind === "same_receiver", "relay should preserve same_receiver constraint");
 
     const sinkWithModuleOnlyTransferDrift = parseSemanticFlowDecision(JSON.stringify({
         status: "done",
@@ -389,6 +546,46 @@ async function main(): Promise<void> {
                 transfers: [".arg0 -> ret"],
                 confidence: "high",
                 ruleKind: "transfer",
+            },
+        },
+        {
+            status: "done",
+            classification: "module",
+            resolution: "resolved",
+            summary: {
+                inputs: ["arg0"],
+                outputs: [{ slot: "ret", surface: "companion:waitFor" }],
+                transfers: ["arg0 -> companion:waitFor.ret"],
+                confidence: "high",
+                moduleKind: "deferred",
+                relations: {
+                    companions: ["waitFor"],
+                    trigger: {
+                        preset: "promise_fulfilled",
+                        reason: "companion is only an evidence hint, not an endpoint surface",
+                    },
+                },
+            },
+        },
+        {
+            status: "done",
+            classification: "module",
+            resolution: "resolved",
+            summary: {
+                inputs: ["onIncoming.arg0"],
+                outputs: ["waitFor.ret"],
+                transfers: ["onIncoming.arg0 -> waitFor.ret"],
+                confidence: "high",
+                moduleKind: "deferred",
+                relations: {
+                    companions: ["waitFor"],
+                    carrier: { kind: "map", label: "this.pending" },
+                    trigger: {
+                        preset: "promise_fulfilled",
+                        via: "base.pending",
+                        reason: "pending Map plus promise resolve requires explicit handoff semantics",
+                    },
+                },
             },
         },
     ];

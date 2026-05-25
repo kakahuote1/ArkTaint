@@ -108,12 +108,13 @@
       ],
       "match": {
         "kind": "method_name_equals",
-        "value": "writeSync"
+        "value": "writeSync",
+        "invokeKind": "instance"
       },
       "scope": {
         "className": {
-          "mode": "contains",
-          "value": "fs"
+          "mode": "regex",
+          "value": "(fs|fileio|FileIo)"
         }
       },
       "target": "arg1",
@@ -131,12 +132,37 @@
       ],
       "match": {
         "kind": "method_name_equals",
-        "value": "copyFile"
+        "value": "copyFile",
+        "invokeKind": "instance"
       },
       "scope": {
         "className": {
-          "mode": "contains",
-          "value": "fs"
+          "mode": "regex",
+          "value": "(fs|fileio|FileIo)"
+        }
+      },
+      "target": "arg1",
+      "severity": "low",
+      "category": "file_operation_injection"
+    },
+    {
+      "id": "sink.harmony.fs.copyFileSync",
+      "description": "File sync copy path injection",
+      "tags": [
+        "harmony",
+        "phase7118",
+        "file",
+        "P2"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "copyFileSync",
+        "invokeKind": "instance"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(fs|fileio|FileIo)"
         }
       },
       "target": "arg1",
@@ -154,12 +180,13 @@
       ],
       "match": {
         "kind": "method_name_equals",
-        "value": "moveFile"
+        "value": "moveFile",
+        "invokeKind": "instance"
       },
       "scope": {
         "className": {
-          "mode": "contains",
-          "value": "fs"
+          "mode": "regex",
+          "value": "(fs|fileio|FileIo)"
         }
       },
       "target": "arg1",

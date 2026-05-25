@@ -124,6 +124,7 @@ export function summarizeConstructorCapturedLocalToFields(
     }
 
     const paramLocalNames = new Set<string>();
+    const localCapturedAliases = new Map<string, string>();
     for (const stmt of cfg.getStmts()) {
         if (!(stmt instanceof ArkAssignStmt)) continue;
         const left = stmt.getLeftOp();
@@ -133,18 +134,44 @@ export function summarizeConstructorCapturedLocalToFields(
         }
     }
 
+    const resolveCapturedLocalName = (value: any): string | undefined => {
+        if (value instanceof Local) {
+            const localName = value.getName();
+            if (!localName || localName === "this" || paramLocalNames.has(localName)) {
+                return undefined;
+            }
+            return localCapturedAliases.get(localName) || (localName.startsWith("%") ? undefined : localName);
+        }
+        if (value instanceof ArkInstanceFieldRef) {
+            const base = value.getBase();
+            if (!(base instanceof Local)) return undefined;
+            const baseName = base.getName();
+            if (!baseName || baseName === "this" || paramLocalNames.has(baseName)) {
+                return undefined;
+            }
+            return localCapturedAliases.get(baseName) || (baseName.startsWith("%") ? undefined : baseName);
+        }
+        return undefined;
+    };
+
     for (const stmt of cfg.getStmts()) {
         if (!(stmt instanceof ArkAssignStmt)) continue;
         const left = stmt.getLeftOp();
         const right = stmt.getRightOp();
+
+        if (left instanceof Local) {
+            const captured = resolveCapturedLocalName(right);
+            if (captured) {
+                localCapturedAliases.set(left.getName(), captured);
+            }
+        }
+
         if (!(left instanceof ArkInstanceFieldRef)) continue;
         const leftBase = left.getBase();
         if (!(leftBase instanceof Local) || leftBase.getName() !== "this") continue;
-        if (!(right instanceof Local)) continue;
 
-        const localName = right.getName();
-        if (paramLocalNames.has(localName)) continue;
-        if (localName.startsWith("%")) continue;
+        const localName = resolveCapturedLocalName(right);
+        if (!localName) continue;
 
         const fieldName = left.getFieldSignature().getFieldName();
         if (!result.has(localName)) result.set(localName, new Set<string>());

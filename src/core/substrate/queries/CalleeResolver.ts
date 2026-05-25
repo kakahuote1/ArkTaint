@@ -1,7 +1,7 @@
 import { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import { ArkAssignStmt, ArkReturnStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
 import { ArkArrayRef, ArkInstanceFieldRef, ArkParameterRef, ArkStaticFieldRef, ClosureFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
-import { ArkAwaitExpr, ArkCastExpr, ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
+import { ArkAwaitExpr, ArkCastExpr, ArkInstanceInvokeExpr, ArkNewExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 
 export interface ResolvedCallee {
@@ -43,6 +43,7 @@ const DEFAULT_MAX_CALLABLE_RESOLVE_DEPTH = 8;
 interface SceneMethodIndex {
     bySignature: Map<string, any>;
     byNormalizedName: Map<string, any[]>;
+    byInterfaceMethod: Map<string, any[]>;
 }
 
 const _sceneMethodIndexCache = new WeakMap<Scene, SceneMethodIndex>();
@@ -52,6 +53,7 @@ function getSceneMethodIndex(scene: Scene): SceneMethodIndex {
     if (index) return index;
     const bySignature = new Map<string, any>();
     const byNormalizedName = new Map<string, any[]>();
+    const byInterfaceMethod = new Map<string, any[]>();
     for (const m of scene.getMethods()) {
         const sig = safeMethodSignatureText(m);
         if (sig) bySignature.set(sig, m);
@@ -62,7 +64,27 @@ function getSceneMethodIndex(scene: Scene): SceneMethodIndex {
             list.push(m);
         }
     }
-    index = { bySignature, byNormalizedName };
+    for (const cls of scene.getClasses?.() || []) {
+        const interfaceNames = safeImplementedInterfaceNames(cls);
+        if (interfaceNames.length === 0) continue;
+        for (const method of cls.getMethods?.() || []) {
+            if (!method?.getCfg?.()) continue;
+            if (isStaticMethod(method)) continue;
+            const methodName = normalizeMethodName(method.getName?.() || "");
+            if (!methodName) continue;
+            const paramCount = getFormalParamCount(method);
+            for (const interfaceName of interfaceNames) {
+                const key = interfaceDispatchKey(interfaceName, methodName, paramCount);
+                let list = byInterfaceMethod.get(key);
+                if (!list) {
+                    list = [];
+                    byInterfaceMethod.set(key, list);
+                }
+                list.push(method);
+            }
+        }
+    }
+    index = { bySignature, byNormalizedName, byInterfaceMethod };
     _sceneMethodIndexCache.set(scene, index);
     return index;
 }
@@ -85,8 +107,21 @@ export function resolveCalleeCandidates(
     const reflectDispatch = isReflectDispatchInvoke(invokeExpr);
     const idx = getSceneMethodIndex(scene);
     const exact = invokeSig ? idx.bySignature.get(invokeSig) : undefined;
-    if (exact && !reflectDispatch) {
+    if (exact && !reflectDispatch && exact.getCfg?.()) {
         return [{ method: exact, reason: "exact" }];
+    }
+
+    if (exact && !reflectDispatch && isInstanceInvokeLike(invokeExpr)) {
+        const interfaceTargets = resolveInterfaceDispatchTargets(scene, idx, exact, invokeExpr, maxNameMatchCandidates);
+        if (interfaceTargets.length > 0) {
+            const receiverOwner = resolveConcreteReceiverOwnerForInvoke(scene, invokeExpr, options);
+            const narrowed = receiverOwner
+                ? interfaceTargets.filter(method => methodOwnerMatches(method, receiverOwner))
+                : interfaceTargets;
+            if (narrowed.length > 0) {
+                return narrowed.map(method => ({ method, reason: "type_fallback" as const }));
+            }
+        }
     }
 
     if (reflectDispatch) {
@@ -94,7 +129,7 @@ export function resolveCalleeCandidates(
         if (reflectTargets.length > 0) {
             return reflectTargets.map(method => ({ method, reason: "reflect_fallback" as const }));
         }
-        if (exact) {
+        if (exact && exact.getCfg?.()) {
             return [{ method: exact, reason: "exact" }];
         }
     }
@@ -108,6 +143,7 @@ export function resolveCalleeCandidates(
     if (!methodName) return [];
 
     const expectedOwner = resolveExpectedOwnerForInvoke(invokeExpr, invokeSig);
+    const expectedDeclaringFile = extractDeclaringFileFromSignature(invokeSig);
     const argCount = invokeExpr?.getArgs ? invokeExpr.getArgs().length : 0;
     const isInstanceInvoke = isInstanceInvokeLike(invokeExpr);
     const isStaticInvoke = isStaticInvokeLike(invokeExpr);
@@ -126,6 +162,23 @@ export function resolveCalleeCandidates(
         const ownerMatched = candidates.filter(m => extractOwnerNameFromSignature(safeMethodSignatureText(m)) === expectedOwner);
         if (ownerMatched.length > 0) {
             candidates = ownerMatched;
+        }
+    }
+
+    if (expectedDeclaringFile) {
+        const fileMatched = candidates.filter(m => extractDeclaringFileFromSignature(safeMethodSignatureText(m)) === expectedDeclaringFile);
+        if (fileMatched.length > 0) {
+            candidates = fileMatched;
+        }
+    }
+
+    if (isInstanceInvoke) {
+        const receiverOwner = resolveConcreteReceiverOwnerForInvoke(scene, invokeExpr, options);
+        if (receiverOwner) {
+            const receiverMatched = candidates.filter(m => methodOwnerMatches(m, receiverOwner));
+            if (receiverMatched.length > 0) {
+                candidates = receiverMatched;
+            }
         }
     }
 
@@ -379,6 +432,76 @@ function collectInvokedThisFields(
     return invokedFields;
 }
 
+function resolveInterfaceDispatchTargets(
+    _scene: Scene,
+    index: SceneMethodIndex,
+    interfaceMethod: any,
+    invokeExpr: any,
+    maxCandidates: number,
+): any[] {
+    const methodName = normalizeMethodName(interfaceMethod?.getName?.() || "");
+    const interfaceMethodSig = safeMethodSignatureText(interfaceMethod);
+    const ownerName = extractOwnerScopeKeyFromSignature(interfaceMethodSig)
+        || extractOwnerNameFromSignature(interfaceMethodSig);
+    if (!methodName || !ownerName) return [];
+    const argCount = invokeExpr?.getArgs ? invokeExpr.getArgs().length : 0;
+    const exactKey = interfaceDispatchKey(ownerName, methodName, argCount);
+    let candidates = index.byInterfaceMethod.get(exactKey) || [];
+    if (candidates.length === 0) {
+        candidates = (index.byInterfaceMethod.get(interfaceDispatchKey(ownerName, methodName, -1)) || [])
+            .filter(method => isArgCountCompatible(getFormalParamCount(method), argCount));
+    }
+    const dedup = dedupeByMethodSignature(candidates)
+        .filter(method => !!method?.getCfg?.())
+        .filter(method => !isStaticMethod(method));
+    if (dedup.length === 0 || dedup.length > maxCandidates) return [];
+    return dedup;
+}
+
+function interfaceDispatchKey(interfaceName: string, methodName: string, paramCount: number): string {
+    return `${normalizeDispatchOwnerName(interfaceName)}#${normalizeMethodName(methodName)}#${paramCount}`;
+}
+
+function safeImplementedInterfaceNames(arkClass: any): string[] {
+    try {
+        const classFile = extractDeclaringFileFromSignature(safeClassSignatureText(arkClass));
+        const names = arkClass?.getImplementedInterfaceNames?.() || [];
+        return [...new Set<string>(
+            names.flatMap((name: unknown) => {
+                const simple = normalizeOwnerName(String(name || ""));
+                if (!simple) return [];
+                const scoped = classFile ? `${classFile}:${simple}` : "";
+                return scoped ? [simple, scoped] : [simple];
+            }).filter((name: string): name is string => name.length > 0),
+        )];
+    } catch {
+        return [];
+    }
+}
+
+function normalizeDispatchOwnerName(ownerName: string): string {
+    return String(ownerName || "").replace(/\[static\]/g, "").replace(/^@/, "").trim();
+}
+
+function normalizeOwnerName(ownerName: string): string {
+    const text = String(ownerName || "").replace(/\[static\]/g, "").trim();
+    if (!text) return "";
+    const slashIdx = text.lastIndexOf("/");
+    const dotIdx = text.lastIndexOf(".");
+    const cutIdx = Math.max(slashIdx, dotIdx);
+    return cutIdx >= 0 ? text.slice(cutIdx + 1).trim() : text;
+}
+
+function dedupeByMethodSignature(methods: any[]): any[] {
+    const out = new Map<string, any>();
+    for (const method of methods) {
+        const sig = safeMethodSignatureText(method);
+        if (!sig || out.has(sig)) continue;
+        out.set(sig, method);
+    }
+    return [...out.values()];
+}
+
 function getFormalParamCount(method: any): number {
     return collectParameterAssignStmts(method).length;
 }
@@ -492,6 +615,150 @@ function resolveExpectedOwnerForInvoke(invokeExpr: any, invokeSig: string): stri
     const normalized = text.replace(/^@/, "").trim();
     if (!normalized || normalized.includes("%unk")) return undefined;
     return normalized;
+}
+
+function extractOwnerScopeKeyFromSignature(signature: string): string | undefined {
+    const owner = extractOwnerNameFromSignature(signature);
+    const file = extractDeclaringFileFromSignature(signature);
+    if (!owner) return undefined;
+    const simpleOwner = normalizeOwnerName(owner);
+    if (!simpleOwner) return undefined;
+    return file ? `${file}:${simpleOwner}` : simpleOwner;
+}
+
+function extractDeclaringFileFromSignature(signature: string | undefined): string | undefined {
+    const text = String(signature || "").trim();
+    if (!text || text.includes("%unk")) return undefined;
+    const colonIdx = text.indexOf(":");
+    if (colonIdx <= 0) return undefined;
+    const file = text.slice(0, colonIdx).replace(/^@/, "").trim();
+    return file || undefined;
+}
+
+function resolveConcreteReceiverOwnerForInvoke(
+    scene: Scene,
+    invokeExpr: any,
+    options: CalleeResolveOptions = {},
+): string | undefined {
+    if (!isInstanceInvokeLike(invokeExpr)) return undefined;
+    const base = invokeExpr.getBase?.();
+    if (!base) return undefined;
+    return resolveConcreteOwnerFromValue(scene, base, options, new Set<string>());
+}
+
+function resolveConcreteOwnerFromValue(
+    scene: Scene,
+    value: any,
+    options: CalleeResolveOptions,
+    visiting: Set<string>,
+): string | undefined {
+    if (!value) return undefined;
+    if (visiting.size > (options.maxCallableResolveDepth ?? DEFAULT_MAX_CALLABLE_RESOLVE_DEPTH)) {
+        return undefined;
+    }
+
+    const visitKey = getConcreteOwnerVisitKey(value);
+    if (visitKey) {
+        if (visiting.has(visitKey)) return undefined;
+        visiting.add(visitKey);
+    }
+
+    try {
+        if (value instanceof ArkNewExpr) {
+            return resolveOwnerFromNewExpr(value);
+        }
+        if (value instanceof ArkCastExpr) {
+            return resolveConcreteOwnerFromValue(scene, value.getOp?.(), options, visiting);
+        }
+        if (value instanceof ArkAwaitExpr) {
+            return resolveConcreteOwnerFromValue(scene, value.getPromise?.(), options, visiting);
+        }
+        if (value instanceof ArkInstanceInvokeExpr || value instanceof ArkStaticInvokeExpr) {
+            const constructorOwner = resolveConstructorOwnerFromInvoke(value);
+            if (constructorOwner) return constructorOwner;
+            return resolveConcreteOwnerFromFactoryInvoke(scene, value, options, visiting);
+        }
+        if (value instanceof Local) {
+            const decl = safeGetDeclaringStmt(value);
+            if (!(decl instanceof ArkAssignStmt) || decl.getLeftOp() !== value) {
+                return undefined;
+            }
+            const rightOp = decl.getRightOp();
+            return resolveConcreteOwnerFromValue(scene, rightOp, options, visiting);
+        }
+        return undefined;
+    } finally {
+        if (visitKey) visiting.delete(visitKey);
+    }
+}
+
+function resolveConcreteOwnerFromFactoryInvoke(
+    scene: Scene,
+    invokeExpr: ArkInstanceInvokeExpr | ArkStaticInvokeExpr,
+    options: CalleeResolveOptions,
+    visiting: Set<string>,
+): string | undefined {
+    const sig = safeInvokeSignatureText(invokeExpr);
+    if (!sig) return undefined;
+    const method = getSceneMethodIndex(scene).bySignature.get(sig);
+    if (!method?.getCfg?.()) return undefined;
+    const methodSig = safeMethodSignatureText(method);
+    if (methodSig) {
+        const methodKey = `factory:${methodSig}`;
+        if (visiting.has(methodKey)) return undefined;
+        visiting.add(methodKey);
+    }
+    try {
+        for (const retStmt of method.getReturnStmt?.() || []) {
+            if (!(retStmt instanceof ArkReturnStmt)) continue;
+            const returnedValue = retStmt.getOp?.();
+            const owner = resolveConcreteOwnerFromValue(scene, returnedValue, options, visiting);
+            if (owner) return owner;
+        }
+        return undefined;
+    } finally {
+        if (methodSig) visiting.delete(`factory:${methodSig}`);
+    }
+}
+
+function resolveOwnerFromNewExpr(expr: ArkNewExpr): string | undefined {
+    const typeText = safeValueText(safeGetValueType(expr));
+    const fromType = extractOwnerFromTypeText(typeText);
+    if (fromType) return fromType;
+    return extractOwnerFromTypeText(safeValueText(expr));
+}
+
+function resolveConstructorOwnerFromInvoke(invokeExpr: ArkInstanceInvokeExpr | ArkStaticInvokeExpr): string | undefined {
+    const sig = safeInvokeSignatureText(invokeExpr);
+    const methodName = resolveInvokeMethodName(invokeExpr);
+    if (methodName !== "constructor" && !sig.includes(".constructor(")) {
+        return undefined;
+    }
+    return normalizeOwnerName(extractOwnerNameFromSignature(sig) || extractOwnerFromTypeText(sig) || "");
+}
+
+function extractOwnerFromTypeText(text: string | undefined): string | undefined {
+    const raw = String(text || "").trim();
+    if (!raw || raw.includes("%unk")) return undefined;
+    const colonIdx = raw.lastIndexOf(":");
+    const candidate = colonIdx >= 0 ? raw.slice(colonIdx + 1).trim() : raw;
+    const normalized = normalizeOwnerName(candidate.replace(/[<>].*$/g, "").trim());
+    return normalized || undefined;
+}
+
+function methodOwnerMatches(method: any, ownerName: string): boolean {
+    const expected = normalizeOwnerName(ownerName);
+    if (!expected) return false;
+    const actual = normalizeOwnerName(extractOwnerNameFromSignature(safeMethodSignatureText(method)) || "");
+    return actual === expected;
+}
+
+function getConcreteOwnerVisitKey(value: any): string | undefined {
+    if (value instanceof Local) {
+        return `local:${safeLocalName(value)}#${getDeclaringStmtIdentity(safeGetDeclaringStmt(value))}`;
+    }
+    const text = safeValueText(value);
+    return text ? `value:${text}` : undefined;
 }
 
 function resolveReflectDispatchTargets(
@@ -734,6 +1001,54 @@ export function resolveMethodsFromAnonymousObjectCarrierByField(
     return out;
 }
 
+function resolveMethodsFromSameFileAnonymousObjectFieldInitializers(
+    scene: Scene,
+    fieldRef: ArkInstanceFieldRef | ClosureFieldRef,
+    fieldName: string,
+    options: CallableResolveOptions,
+    visitingFactoryMethods: Set<string>,
+): any[] {
+    const fileHint = extractCarrierFileHint(fieldRef);
+    if (!fileHint) return [];
+
+    const out: any[] = [];
+    const seen = new Set<string>();
+    const addResolvedMethods = (callable: any): void => {
+        for (const method of resolveMethodsFromCallableValue(scene, callable, options, visitingFactoryMethods)) {
+            const sig = safeMethodSignatureText(method);
+            if (!sig || seen.has(sig)) continue;
+            seen.add(sig);
+            out.push(method);
+        }
+    };
+
+    for (const method of scene.getMethods()) {
+        const declaringClassSig = safeClassSignatureText(method.getDeclaringArkClass?.());
+        if (!declaringClassSig || !isAnonymousObjectCarrierClassSignature(declaringClassSig)) continue;
+        if (!signatureMatchesFileHint(declaringClassSig, fileHint)) continue;
+
+        const name = method.getName?.() || "";
+        if (!(name.includes("constructor(") || name.includes("%instInit"))) continue;
+        const cfg = method.getCfg?.();
+        if (!cfg) continue;
+
+        for (const stmt of cfg.getStmts()) {
+            if (!(stmt instanceof ArkAssignStmt)) continue;
+            const left = stmt.getLeftOp();
+            if (!(left instanceof ArkInstanceFieldRef)) continue;
+            const leftBase = left.getBase?.();
+            if (!(leftBase instanceof Local) || leftBase.getName() !== "this") continue;
+            const leftFieldName = left.getFieldSignature?.().getFieldName?.() || "";
+            if (leftFieldName !== fieldName) continue;
+            addResolvedMethods(stmt.getRightOp());
+        }
+    }
+
+    const maxCandidates = options.maxCandidates ?? DEFAULT_MAX_NAME_MATCH_CANDIDATES;
+    if (out.length > maxCandidates) return [];
+    return out;
+}
+
 function resolveMethodsFromCallableFieldCarrier(
     scene: Scene,
     fieldRef: ArkInstanceFieldRef | ClosureFieldRef,
@@ -770,6 +1085,18 @@ function resolveMethodsFromCallableFieldCarrier(
     const assignedValues = collectAssignedFieldCarrierValues(fieldRef, options);
     for (const assignedValue of assignedValues) {
         for (const method of resolveMethodsFromCallableValue(scene, assignedValue, options, visitingFactoryMethods)) {
+            addMethod(method);
+        }
+    }
+
+    if (out.length === 0) {
+        for (const method of resolveMethodsFromSameFileAnonymousObjectFieldInitializers(
+            scene,
+            fieldRef,
+            fieldName,
+            options,
+            visitingFactoryMethods,
+        )) {
             addMethod(method);
         }
     }
@@ -1107,6 +1434,40 @@ function matchesAnonymousCarrierFieldMethod(methodName: string, fieldName: strin
     return methodName.startsWith("%AM") && methodName.includes(`$${fieldName}`);
 }
 
+function extractCarrierFileHint(fieldRef: ArkInstanceFieldRef | ClosureFieldRef): string | undefined {
+    const candidates: string[] = [];
+    if (fieldRef instanceof ArkInstanceFieldRef) {
+        candidates.push(safeValueText(fieldRef.getFieldSignature?.()));
+    }
+    candidates.push(safeValueText(fieldRef));
+    const base = fieldRef.getBase?.();
+    const declaringMethodSig = resolveDeclaringMethodForCarrierBase(base);
+    candidates.push(safeMethodSignatureText(declaringMethodSig));
+
+    for (const candidate of candidates) {
+        const file = extractFilePathFromSignatureText(candidate);
+        if (file) return file;
+    }
+    return undefined;
+}
+
+function extractFilePathFromSignatureText(text: string): string | undefined {
+    if (!text) return undefined;
+    const match = text.match(/@([^:>]+):/);
+    if (!match) return undefined;
+    return normalizeSignatureFilePath(match[1]);
+}
+
+function signatureMatchesFileHint(signatureText: string, fileHint: string): boolean {
+    const sigFile = extractFilePathFromSignatureText(signatureText);
+    if (!sigFile || !fileHint) return false;
+    return sigFile === normalizeSignatureFilePath(fileHint);
+}
+
+function normalizeSignatureFilePath(value: string): string {
+    return value.replace(/\\/g, "/").replace(/^@/, "").trim().toLowerCase();
+}
+
 type ReflectDispatchKind = "reflect_call" | "reflect_apply" | "function_call" | "function_apply";
 
 function getReflectDispatchKind(invokeExpr: any): ReflectDispatchKind | undefined {
@@ -1210,7 +1571,7 @@ function resolveDirectCallableTargets(
     if (!invokeExpr || isReflectDispatchInvoke(invokeExpr)) return [];
     const invokeSig = safeInvokeSignatureText(invokeExpr);
     const methodName = resolveInvokeMethodName(invokeExpr);
-    if (!invokeSig.includes("%unk") && methodName) return [];
+    if (!(invokeExpr instanceof ArkPtrInvokeExpr) && !invokeSig.includes("%unk") && methodName) return [];
 
     const base = getInvokeCallableBase(invokeExpr);
     if (!base || isReflectBase(base)) return [];

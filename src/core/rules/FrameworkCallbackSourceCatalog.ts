@@ -1,6 +1,7 @@
 import {
     RuleEndpointOrRef,
     RuleMatch,
+    RuleScopeConstraint,
     SourceRule,
     RuleTier,
 } from "./RuleSchema";
@@ -18,11 +19,14 @@ interface FrameworkCallbackSourceFamilyContract {
     description: string;
     tags: string[];
     match: RuleMatch;
+    scope?: RuleScopeConstraint;
     callbackArgIndexes: number[];
+    callbackResolution?: SourceRule["callbackResolution"];
     schemas: FrameworkCallbackSourceSchema[];
 }
 
 const CALLBACK_SOURCE_TAGS = ["harmony", "framework_callback_source", "callback_param"];
+const BOUND_STATE_SOURCE_TAGS = ["harmony", "framework_callback_source", "ui_input", "bound_state"];
 
 export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallbackSourceFamilyContract[] = [
     {
@@ -30,7 +34,8 @@ export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallb
         tier: "B",
         description: "Framework text-input callbacks carry untrusted user input.",
         tags: [...CALLBACK_SOURCE_TAGS, "ui_input"],
-        match: { kind: "signature_regex", value: "(TextInput|UIInput).*(onChange|onInput|onSubmit)" },
+        match: { kind: "method_name_regex", value: "^(onChange|onInput|onSubmit)$", typeHint: "Input" },
+        scope: { methodName: { mode: "regex", value: "^(build|.*\\$build)$" } },
         callbackArgIndexes: [0],
         schemas: [
             {
@@ -47,6 +52,38 @@ export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallb
                 id: "source.harmony.input.onSubmit.arg0",
                 target: { endpoint: "arg0" },
                 description: "Text input callback parameter for onSubmit.",
+            },
+        ],
+    },
+    {
+        family: "source.harmony.callback.input",
+        tier: "B",
+        description: "Framework text-area callbacks carry untrusted user input.",
+        tags: [...CALLBACK_SOURCE_TAGS, "ui_input"],
+        match: { kind: "method_name_equals", value: "onChange", typeHint: "TextArea" },
+        scope: { methodName: { mode: "regex", value: "^(build|.*\\$build)$" } },
+        callbackArgIndexes: [0],
+        schemas: [
+            {
+                id: "source.harmony.textarea.onChange.arg0",
+                target: { endpoint: "arg0" },
+                description: "TextArea callback parameter for onChange.",
+            },
+        ],
+    },
+    {
+        family: "source.harmony.callback.input",
+        tier: "B",
+        description: "Framework search callbacks carry untrusted user input.",
+        tags: [...CALLBACK_SOURCE_TAGS, "ui_input"],
+        match: { kind: "method_name_equals", value: "onChange", typeHint: "Search" },
+        scope: { methodName: { mode: "regex", value: "^(build|.*\\$build)$" } },
+        callbackArgIndexes: [0],
+        schemas: [
+            {
+                id: "source.harmony.search.onChange.arg0",
+                target: { endpoint: "arg0" },
+                description: "Search callback parameter for onChange.",
             },
         ],
     },
@@ -107,6 +144,22 @@ export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallb
                 id: "source.harmony.worker.onMessage.callback.arg0",
                 target: { endpoint: "arg0" },
                 description: "Worker onMessage callback payload as untrusted source.",
+            },
+        ],
+    },
+    {
+        family: "source.harmony.callback.web.js_proxy",
+        tier: "B",
+        description: "Web javaScriptProxy exposes JavaScript-provided values through registered native object methods.",
+        tags: [...CALLBACK_SOURCE_TAGS, "webview", "js_proxy", "web_bridge"],
+        match: { kind: "method_name_equals", value: "javaScriptProxy", invokeKind: "instance", argCount: 1 },
+        callbackArgIndexes: [0],
+        callbackResolution: "known_option",
+        schemas: [
+            {
+                id: "source.harmony.webview.javaScriptProxy.callback.arg0",
+                target: { endpoint: "arg0" },
+                description: "First parameter of Web javaScriptProxy methodList callback as JavaScript bridge source.",
             },
         ],
     },
@@ -173,6 +226,26 @@ export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallb
                 id: "source.harmony.http.onDataReceive",
                 target: { endpoint: "arg0" },
                 description: "HttpRequest onDataReceive callback payload as network source.",
+            },
+        ],
+    },
+    {
+        family: "source.harmony.callback.wearengine.p2p",
+        tier: "B",
+        description: "WearEngine P2P message receiver callbacks surface cross-device payloads.",
+        tags: [...CALLBACK_SOURCE_TAGS, "wearengine", "p2p", "cross_device"],
+        match: {
+            kind: "method_name_equals",
+            value: "registerMessageReceiver",
+            invokeKind: "instance",
+            argCount: 3,
+        },
+        callbackArgIndexes: [2],
+        schemas: [
+            {
+                id: "source.harmony.wearengine.p2p.registerMessageReceiver.message.content",
+                target: { endpoint: "arg0", path: ["content"] },
+                description: "WearEngine registerMessageReceiver callback P2pMessage.content as cross-device source.",
             },
         ],
     },
@@ -295,17 +368,56 @@ export function buildFrameworkCallbackSourceRules(): SourceRule[] {
                 family: contract.family,
                 tier: contract.tier,
                 match: contract.match,
+                scope: contract.scope,
                 sourceKind: "callback_param",
                 target: schema.target,
                 callbackArgIndexes: [...contract.callbackArgIndexes],
+                callbackResolution: contract.callbackResolution,
             });
         }
     }
     return out;
 }
 
+export function buildFrameworkBoundStateSourceRules(): SourceRule[] {
+    return [
+        {
+            id: "source.harmony.input.textinput.text_binding",
+            enabled: true,
+            description: "TextInput text two-way binding updates the bound component state with user input.",
+            tags: [...BOUND_STATE_SOURCE_TAGS, "textinput"],
+            family: "source.harmony.callback.input",
+            tier: "B",
+            match: {
+                kind: "signature_regex",
+                value: "(TextInput\\.create|\\.TextInput\\()",
+                invokeKind: "static",
+                argCount: 1,
+            },
+            sourceKind: "bound_state",
+            target: { endpoint: "arg0", path: ["text"] },
+        },
+        {
+            id: "source.harmony.textarea.text_binding",
+            enabled: true,
+            description: "TextArea text two-way binding updates the bound component state with user input.",
+            tags: [...BOUND_STATE_SOURCE_TAGS, "textarea"],
+            family: "source.harmony.callback.input",
+            tier: "B",
+            match: {
+                kind: "signature_regex",
+                value: "(TextArea\\.create|\\.TextArea\\()",
+                invokeKind: "static",
+                argCount: 1,
+            },
+            sourceKind: "bound_state",
+            target: { endpoint: "arg0", path: ["text"] },
+        },
+    ];
+}
+
 export function isFrameworkCallbackSourceRule(rule: SourceRule): boolean {
-    return rule.sourceKind === "callback_param"
+    return (rule.sourceKind === "callback_param" || rule.sourceKind === "bound_state")
         && typeof rule.family === "string"
         && rule.family.startsWith("source.harmony.callback.");
 }

@@ -40,6 +40,8 @@ export function buildBaselineRootEdges(
             isComponentLifecycleFact(fact)
             && hasEntryComponentRoot
             && !hasEntryDecorator(fact.method)
+            && !hasRouteDecorator(fact.method)
+            && fact.entryFamily !== "navigation_destination_builder"
             && !matchesSeedMethod
             && !matchesSeedFile
         ) {
@@ -82,6 +84,14 @@ function isComponentLifecycleFact(fact: ArkMainEntryFact): boolean {
 function hasEntryDecorator(method: ArkMethod): boolean {
     const decorators = method.getDeclaringArkClass?.()?.getDecorators?.() || [];
     return decorators.some(decorator => normalizeDecoratorKind(decorator?.getKind?.()) === "Entry");
+}
+
+function hasRouteDecorator(method: ArkMethod): boolean {
+    const decorators = method.getDeclaringArkClass?.()?.getDecorators?.() || [];
+    return decorators.some(decorator => {
+        const kind = normalizeDecoratorKind(decorator?.getKind?.());
+        return !!kind && /(?:router|route|navigation|nav)/i.test(kind);
+    });
 }
 
 function normalizeDecoratorKind(raw: string | undefined): string | undefined {

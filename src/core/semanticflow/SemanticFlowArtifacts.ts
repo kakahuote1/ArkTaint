@@ -10,6 +10,8 @@ import { validateModuleSpecOrThrow } from "../kernel/contracts/ModuleSpecValidat
 import type {
     RuleEndpoint,
     RuleEndpointOrRef,
+    RuleMatch,
+    RuleScopeConstraint,
     SinkRule,
     SanitizerRule,
     SourceRule,
@@ -228,26 +230,26 @@ function buildRuleArtifact(anchor: SemanticFlowAnchor, summary: SemanticFlowSumm
             throw new Error(`source rule summary requires at least one output slot: ${anchor.id}`);
         }
         ruleSet.sources.push(...targets.map((target, index) =>
-            buildSourceRule(signature, sourceRuleId(idBase, index), summary, target),
+            buildSourceRule(anchor, signature, sourceRuleId(idBase, index), summary, target),
         ));
         return { kind: "rule", ruleSet };
     }
 
     if (ruleKind === "sink") {
-        const targets = summary.inputs.length > 0 ? summary.inputs : summary.outputs;
+        const rawTargets = summary.inputs.length > 0 ? summary.inputs : summary.outputs;
+        const targets = filterSemanticFlowSinkTargets(anchor, rawTargets);
         if (targets.length === 0) {
             throw new Error(`sink rule summary requires at least one input/output slot: ${anchor.id}`);
         }
+        const scope = buildInvocationRuleScope(anchor, signature);
         ruleSet.sinks.push(...targets.map((target, index) => ({
             id: sinkRuleId(idBase, index),
             enabled: true,
             description: `Generated sink rule for ${anchor.surface}.`,
             tags: ["semanticflow", "llm"],
-            match: {
-                kind: "signature_equals",
-                value: signature,
-            },
-            target: toRuleEndpoint(target),
+            match: buildRuleMatch(anchor, signature),
+            ...(scope ? { scope } : {}),
+            target: sinkTargetEndpoint(anchor, target),
         } satisfies SinkRule)));
         return { kind: "rule", ruleSet };
     }
@@ -257,15 +259,14 @@ function buildRuleArtifact(anchor: SemanticFlowAnchor, summary: SemanticFlowSumm
         if (targets.length === 0) {
             throw new Error(`sanitizer rule summary requires at least one input/output slot: ${anchor.id}`);
         }
+        const scope = buildInvocationRuleScope(anchor, signature);
         ruleSet.sanitizers!.push(...targets.map((target, index) => ({
             id: sanitizerRuleId(idBase, index),
             enabled: true,
             description: `Generated sanitizer rule for ${anchor.surface}.`,
             tags: ["semanticflow", "llm"],
-            match: {
-                kind: "signature_equals",
-                value: signature,
-            },
+            match: buildRuleMatch(anchor, signature),
+            ...(scope ? { scope } : {}),
             target: toRuleEndpoint(target),
         } satisfies SanitizerRule)));
         return { kind: "rule", ruleSet };
@@ -274,22 +275,147 @@ function buildRuleArtifact(anchor: SemanticFlowAnchor, summary: SemanticFlowSumm
     if (summary.transfers.length === 0) {
         throw new Error(`transfer rule summary requires at least one transfer: ${anchor.id}`);
     }
+    const scope = buildInvocationRuleScope(anchor, signature);
     ruleSet.transfers.push(...summary.transfers.map((transfer, index) => ({
         id: transferRuleId(idBase, index),
         enabled: true,
         description: `Generated transfer rule for ${anchor.surface}.`,
         tags: ["semanticflow", "llm"],
-        match: {
-            kind: "signature_equals",
-            value: signature,
-        },
+        match: buildRuleMatch(anchor, signature),
+        ...(scope ? { scope } : {}),
         from: toRuleEndpoint(transfer.from),
         to: toRuleEndpoint(transfer.to),
     } satisfies TransferRule)));
     return { kind: "rule", ruleSet };
 }
 
+function buildRuleMatch(anchor: SemanticFlowAnchor, signature: string): RuleMatch {
+    if (!shouldUseScopedMethodRule(anchor, signature)) {
+        return {
+            kind: "signature_equals",
+            value: signature,
+        };
+    }
+    const methodName = String(anchor.surface || "").trim();
+    if (!methodName) {
+        throw new Error(`unknown anchor signature requires a stable surface method name: ${anchor.id}`);
+    }
+    const match: RuleMatch = {
+        kind: "method_name_equals",
+        value: methodName,
+    };
+    if (hasSignatureParameterList(signature)) {
+        match.argCount = parseSignatureParameterTypes(signature).length;
+    }
+    if (anchor.typeHint) {
+        match.typeHint = anchor.typeHint;
+    }
+    if ((anchor.callbackProperties || []).length > 0) {
+        return match;
+    }
+    if ((anchor.metaTags || []).includes("instance")) {
+        match.invokeKind = "instance";
+    } else if ((anchor.metaTags || []).includes("static")) {
+        match.invokeKind = "static";
+    }
+    return match;
+}
+
+function shouldUseScopedMethodRule(anchor: SemanticFlowAnchor, signature: string): boolean {
+    if (isUnknownSemanticFlowSignature(signature)) {
+        return true;
+    }
+    const tags = anchor.metaTags || [];
+    if (tags.includes("rule") && /\bUnknown\b/.test(signature)) {
+        return true;
+    }
+    return tags.includes("rule")
+        && tags.includes("candidate")
+        && isProjectLocalSemanticFlowAnchor(anchor, signature);
+}
+
+function isUnknownSemanticFlowSignature(signature: string): boolean {
+    const text = String(signature || "").trim().toLowerCase();
+    return !text
+        || text.includes("%unk")
+        || text.startsWith("@unk")
+        || text.includes("@unk/")
+        || /(^|[,(<\s])unknown([,)>\s]|$)/i.test(signature);
+}
+
+function hasSignatureParameterList(signature: string): boolean {
+    const text = String(signature || "");
+    return text.lastIndexOf("(") >= 0 && text.lastIndexOf(")") > text.lastIndexOf("(");
+}
+
+function buildInvocationRuleScope(anchor: SemanticFlowAnchor, signature: string): RuleScopeConstraint | undefined {
+    if (!shouldUseScopedMethodRule(anchor, signature)) {
+        return undefined;
+    }
+    const className = stableScopeToken(extractAnchorOwnerClassName(anchor));
+    if (className) {
+        return {
+            className: {
+                mode: "equals",
+                value: className,
+            },
+        };
+    }
+    const file = stableSourceFileScope(anchor.filePath || extractFilePathFromSignatureLike(signature));
+    if (file) {
+        return {
+            file: {
+                mode: "contains",
+                value: file,
+            },
+        };
+    }
+    return undefined;
+}
+
+function stableScopeToken(value: string | undefined): string | undefined {
+    const text = String(value || "").trim();
+    if (!text || text.includes("%unk") || text.startsWith("%")) {
+        return undefined;
+    }
+    return text;
+}
+
+function stableSourceFileScope(value: string | undefined): string | undefined {
+    const text = String(value || "").replace(/\\/g, "/").trim();
+    if (!text || text.includes("%unk")) {
+        return undefined;
+    }
+    const normalized = text
+        .replace(/^@/, "")
+        .replace(/^entry\/src\/main\/ets\//, "")
+        .replace(/^src\/main\/ets\//, "")
+        .replace(/^ets\//, "");
+    return normalized || undefined;
+}
+
+function isProjectLocalSemanticFlowAnchor(anchor: SemanticFlowAnchor, signature: string): boolean {
+    const file = stableSourceFileScope(anchor.filePath || extractFilePathFromSignatureLike(signature));
+    if (!file) {
+        return false;
+    }
+    const normalized = file.replace(/\\/g, "/").toLowerCase();
+    if (/(^|\/)(node_modules|oh_modules|interface_sdk-js|arkanalyzer)(\/|$)/i.test(normalized)) {
+        return false;
+    }
+    return /\.(ets|ts|js|mjs|cjs)$/i.test(normalized)
+        || normalized.startsWith("entry/src/main/ets/")
+        || normalized.startsWith("src/main/ets/")
+        || normalized.startsWith("ets/");
+}
+
+function extractFilePathFromSignatureLike(signature: string): string | undefined {
+    const match = String(signature || "").match(/^@([^:]+):/);
+    return match?.[1];
+}
+
 function buildSourceRule(
+    anchor: SemanticFlowAnchor,
     signature: string,
     ruleId: string,
     summary: SemanticFlowSummary,
@@ -299,19 +425,82 @@ function buildSourceRule(
     const callbackArgIndexes = target.slot === "callback_param"
         ? [target.callbackArgIndex ?? 0]
         : undefined;
+    const callbackFieldNames = resolveSourceRuleCallbackFieldNames(anchor, target);
+    const invocationScope = buildInvocationRuleScope(anchor, signature);
+    const useCallerScope = shouldScopeCallbackRegistrationByCaller(anchor, signature, sourceKind);
     return {
         id: ruleId,
         enabled: true,
         description: `Generated source rule for ${signature}.`,
         tags: ["semanticflow", "llm"],
-        match: {
-            kind: "signature_equals",
-            value: signature,
-        },
+        match: buildRuleMatch(anchor, signature),
+        ...(useCallerScope && invocationScope ? { scope: invocationScope } : {}),
+        ...(!useCallerScope && invocationScope ? { calleeScope: invocationScope } : {}),
         sourceKind,
         target: toSourceRuleTarget(target),
         callbackArgIndexes,
+        ...(callbackFieldNames ? { callbackFieldNames } : {}),
     };
+}
+
+function shouldScopeCallbackRegistrationByCaller(
+    anchor: SemanticFlowAnchor,
+    signature: string,
+    sourceKind: string,
+): boolean {
+    if (sourceKind !== "callback_param") {
+        return false;
+    }
+    if (!isUnknownSemanticFlowSignature(signature)) {
+        return false;
+    }
+    return !!(anchor.typeHint && (anchor.callbackArgIndexes || []).length > 0);
+}
+
+function resolveSourceRuleCallbackFieldNames(
+    anchor: SemanticFlowAnchor,
+    target: SemanticFlowSurfaceSlotRef,
+): string[] | undefined {
+    if (target.slot !== "callback_param") {
+        return undefined;
+    }
+    const fromTarget = normalizeCallbackFieldNames([
+        target.fieldName,
+        ...fieldPathHeadCandidates(target.fieldPath),
+    ]);
+    if (fromTarget.length > 0) {
+        return fromTarget;
+    }
+    const anchorFields = normalizeCallbackFieldNames(anchor.callbackProperties || []);
+    if (anchorFields.length === 1) {
+        return anchorFields;
+    }
+    if (anchorFields.length > 1) {
+        throw new Error(`callback_param source for ${anchor.id} must specify fieldName when multiple callbackProperties are available: ${anchorFields.join(",")}`);
+    }
+    return undefined;
+}
+
+function fieldPathHeadCandidates(fieldPath: any): string[] {
+    if (Array.isArray(fieldPath) && fieldPath.length > 0) {
+        return [String(fieldPath[0] || "")];
+    }
+    const parts = Array.isArray(fieldPath?.parts) ? fieldPath.parts : [];
+    for (const part of parts) {
+        if (part?.kind === "literal" && typeof part.value === "string" && part.value.trim()) {
+            return [part.value];
+        }
+    }
+    return [];
+}
+
+function normalizeCallbackFieldNames(values: Array<string | undefined>): string[] {
+    const out = new Set<string>();
+    for (const raw of values) {
+        const text = String(raw || "").trim();
+        if (text) out.add(text);
+    }
+    return [...out.values()].sort((a, b) => a.localeCompare(b));
 }
 
 function inferSourceKind(target: SemanticFlowSurfaceSlotRef) {
@@ -337,6 +526,136 @@ function inferRuleKind(summary: SemanticFlowSummary): "source" | "sink" | "sanit
     if (summary.inputs.length === 0 && summary.outputs.length > 0) return "source";
     if (summary.inputs.length > 0 && summary.outputs.length === 0) return "sink";
     return "transfer";
+}
+
+function sinkTargetEndpoint(anchor: SemanticFlowAnchor, target: SemanticFlowSurfaceSlotRef): RuleEndpointOrRef | undefined {
+    if (isRestArrayFormalSlot(anchor, target)) {
+        return toRuleEndpoint(target);
+    }
+    return toRuleEndpoint(target);
+}
+
+function filterSemanticFlowSinkTargets(
+    anchor: SemanticFlowAnchor,
+    targets: SemanticFlowSurfaceSlotRef[],
+): SemanticFlowSurfaceSlotRef[] {
+    if (!isDatabaseOrStorageWriterAnchor(anchor) || isRawSqlExecutionAnchor(anchor)) {
+        return targets;
+    }
+    const params = parseSignatureParameterTypes(anchor.methodSignature || "");
+    return targets.filter(target => !isDatabaseControlOrSelectorSinkTarget(anchor, target, params));
+}
+
+function isDatabaseOrStorageWriterAnchor(anchor: SemanticFlowAnchor): boolean {
+    const identity = [
+        anchor.surface,
+        anchor.owner,
+        anchor.methodSignature,
+        anchor.filePath,
+    ].join(" ");
+    if (!/\b(?:insert|update|upsert|save|persist|put|putsync|set|write)/i.test(identity)) {
+        return false;
+    }
+    return /\b(?:rdb|relationalstore|database|db|sqlite|sql|dao|repository|store|storage|preferences|kv|bucket)\b/i.test(identity);
+}
+
+function isRawSqlExecutionAnchor(anchor: SemanticFlowAnchor): boolean {
+    const identity = [
+        anchor.surface,
+        anchor.owner,
+        anchor.methodSignature,
+        anchor.filePath,
+    ].join(" ");
+    return /\b(?:executesql|execsql|querysql|rawquery|execdml|executes?|sql)\b/i.test(identity)
+        && !/\b(?:insertdata|updatedata|insert|update|upsert)\b/i.test(String(anchor.surface || ""));
+}
+
+function isDatabaseControlOrSelectorSinkTarget(
+    anchor: SemanticFlowAnchor,
+    target: SemanticFlowSurfaceSlotRef,
+    params: string[],
+): boolean {
+    if (target.slot !== "arg" || typeof target.index !== "number") {
+        return false;
+    }
+    const index = target.index;
+    const param = params[index]?.replace(/\s+/g, " ").trim().toLowerCase() || "";
+    if (!param) {
+        return false;
+    }
+    if (isDatabaseControlParameterType(param)) {
+        return true;
+    }
+    if (index === 0 && isLikelyLeadingDatabaseSelector(anchor, params)) {
+        return true;
+    }
+    return false;
+}
+
+function isDatabaseControlParameterType(param: string): boolean {
+    return /\b(?:rdbpredicates|predicates?|predicate|where|filter|condition|criteria|selection|queryoption|callback|businesserror|error)\b/i.test(param)
+        || /callback\s*</i.test(param)
+        || /\bfunction\b|\(\s*.*=>/.test(param);
+}
+
+function isLikelyLeadingDatabaseSelector(anchor: SemanticFlowAnchor, params: string[]): boolean {
+    if (params.length < 2) {
+        return false;
+    }
+    const surface = String(anchor.surface || "");
+    if (!/\b(?:insert|update|upsert|put|putsync|set)/i.test(surface)) {
+        return false;
+    }
+    const first = params[0]?.replace(/\s+/g, "").toLowerCase() || "";
+    if (!/^(string|uri|url|number)$/.test(first) && !/(table|key|uri|url|name|id)/i.test(first)) {
+        return false;
+    }
+    return params.slice(1).some(param => !isDatabaseControlParameterType(param.toLowerCase()));
+}
+
+function isRestArrayFormalSlot(anchor: SemanticFlowAnchor, target: SemanticFlowSurfaceSlotRef): boolean {
+    if (target.slot !== "arg") {
+        return false;
+    }
+    const index = target.index ?? 0;
+    const params = parseSignatureParameterTypes(anchor.methodSignature || "");
+    if (index < 0 || index >= params.length) {
+        return false;
+    }
+    const param = params[index].replace(/\s+/g, "");
+    if (!/\[\]$/.test(param) && !/^Array<.+>$/.test(param)) {
+        return false;
+    }
+    return params.length === 1 || index === params.length - 1;
+}
+
+function parseSignatureParameterTypes(signature: string): string[] {
+    const start = signature.lastIndexOf("(");
+    const end = signature.lastIndexOf(")");
+    if (start < 0 || end <= start) {
+        return [];
+    }
+    const body = signature.slice(start + 1, end).trim();
+    if (!body) {
+        return [];
+    }
+    const params: string[] = [];
+    let depth = 0;
+    let current = "";
+    for (const ch of body) {
+        if (ch === "<" || ch === "(" || ch === "[" || ch === "{") depth++;
+        if (ch === ">" || ch === ")" || ch === "]" || ch === "}") depth = Math.max(0, depth - 1);
+        if (ch === "," && depth === 0) {
+            params.push(current.trim());
+            current = "";
+            continue;
+        }
+        current += ch;
+    }
+    if (current.trim()) {
+        params.push(current.trim());
+    }
+    return params;
 }
 
 function buildModuleArtifact(anchor: SemanticFlowAnchor, summary: SemanticFlowSummary): SemanticFlowModuleArtifact {
@@ -583,6 +902,8 @@ function consolidateRuleSetByFootprint(ruleSet: TaintRuleSet): TaintRuleSet {
         sources: consolidateRulesByFootprint(ruleSet.sources || [], rule => ({
             kind: "source",
             match: rule.match,
+            scope: rule.scope,
+            calleeScope: rule.calleeScope,
             sourceKind: rule.sourceKind,
             target: rule.target,
             callbackArgIndexes: rule.callbackArgIndexes,
@@ -590,16 +911,19 @@ function consolidateRuleSetByFootprint(ruleSet: TaintRuleSet): TaintRuleSet {
         sinks: consolidateRulesByFootprint(ruleSet.sinks || [], rule => ({
             kind: "sink",
             match: rule.match,
+            scope: rule.scope,
             target: rule.target,
         })),
         sanitizers: consolidateRulesByFootprint(ruleSet.sanitizers || [], rule => ({
             kind: "sanitizer",
             match: rule.match,
+            scope: rule.scope,
             target: rule.target,
         })),
         transfers: consolidateRulesByFootprint(ruleSet.transfers || [], rule => ({
             kind: "transfer",
             match: rule.match,
+            scope: rule.scope,
             from: rule.from,
             to: rule.to,
         })),

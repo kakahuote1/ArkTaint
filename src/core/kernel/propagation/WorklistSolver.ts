@@ -817,8 +817,11 @@ export class WorklistSolver {
             const syntheticEdges = ensureSyntheticInvokeEdgesForNode
                 ? (ensureSyntheticInvokeEdgesForNode(node.getID()) || syntheticInvokeEdgeMap.get(node.getID()))
                 : syntheticInvokeEdgeMap.get(node.getID());
-            if (syntheticEdges && (!fact.field || fact.field.length === 0)) {
+            if (syntheticEdges) {
                 for (const edge of syntheticEdges) {
+                    if (fact.field && fact.field.length > 0 && !edge.preserveFieldPath) {
+                        continue;
+                    }
                     let newCtx = currentCtx;
                     if (edge.type === CallEdgeType.CALL) {
                         newCtx = ctxManager.createCalleeContext(
@@ -836,7 +839,12 @@ export class WorklistSolver {
                     }
 
                     const targetNode = pag.getNode(edge.dstNodeId) as PagNode;
-                    const newFact = new TaintFact(targetNode, fact.source, newCtx);
+                    const newFact = new TaintFact(
+                        targetNode,
+                        fact.source,
+                        newCtx,
+                        edge.preserveFieldPath && fact.field ? [...fact.field] : undefined,
+                    );
                     const reason = edge.type === CallEdgeType.CALL ? "Synthetic-Call" : "Synthetic-Return";
                     const pluginCallEdgeBatch = onCallEdge?.({
                         reason,

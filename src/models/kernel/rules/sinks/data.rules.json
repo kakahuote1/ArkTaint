@@ -12,7 +12,7 @@
       "scope": {
         "className": {
           "mode": "regex",
-          "value": "(RdbStore|RelationalStore)"
+          "value": "(^|[^A-Za-z0-9_$])(RdbStore|RelationalStore)([^A-Za-z0-9_$]|$)"
         }
       },
       "category": "sql_injection",
@@ -31,7 +31,7 @@
       "scope": {
         "className": {
           "mode": "regex",
-          "value": "(RdbStore|RelationalStore)"
+          "value": "(^|[^A-Za-z0-9_$])(RdbStore|RelationalStore)([^A-Za-z0-9_$]|$)"
         }
       },
       "category": "sql_injection",
@@ -50,7 +50,7 @@
       "scope": {
         "className": {
           "mode": "regex",
-          "value": "(RdbStore|RelationalStore)"
+          "value": "(^|[^A-Za-z0-9_$])(RdbStore|RelationalStore)([^A-Za-z0-9_$]|$)"
         }
       },
       "category": "sql_injection",
@@ -69,13 +69,39 @@
       "scope": {
         "className": {
           "mode": "regex",
-          "value": "(RdbStore|RelationalStore)"
+          "value": "(^|[^A-Za-z0-9_$])(RdbStore|RelationalStore)([^A-Za-z0-9_$]|$)"
         }
       },
       "category": "sql_injection",
       "severity": "high",
       "target": {
         "endpoint": "arg2"
+      }
+    },
+    {
+      "id": "sink.harmony.rdb.update.values.arg0",
+      "enabled": true,
+      "description": "RDB update values bucket written to persistent storage",
+      "tags": [
+        "harmony",
+        "database",
+        "persistent_sink",
+        "P1"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "update"
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(^|[^A-Za-z0-9_$])(RdbStore|RelationalStore)([^A-Za-z0-9_$]|$)"
+        }
+      },
+      "category": "persistent_sink",
+      "severity": "high",
+      "target": {
+        "endpoint": "arg0"
       }
     },
     {
@@ -153,6 +179,90 @@
       "severity": "medium",
       "target": {
         "endpoint": "arg1"
+      }
+    },
+    {
+      "id": "sink.harmony.appAccount.createAccount.name.arg0",
+      "enabled": true,
+      "description": "Create a Harmony app account with a user supplied account name",
+      "tags": [
+        "harmony",
+        "account",
+        "credential_store",
+        "P1"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "createAccount",
+        "invokeKind": "instance",
+        "argCount": 1
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(^|[^A-Za-z0-9_$])(AppAccountManager|appAccount|AppAccount)([^A-Za-z0-9_$]|$)"
+        }
+      },
+      "category": "credential_or_account_storage",
+      "severity": "medium",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.appAccount.setCredential.name.arg0",
+      "enabled": true,
+      "description": "Store an account identifier in Harmony appAccount credential storage",
+      "tags": [
+        "harmony",
+        "account",
+        "credential_store",
+        "P1"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "setCredential",
+        "invokeKind": "instance",
+        "argCount": 3
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(^|[^A-Za-z0-9_$])(AppAccountManager|appAccount|AppAccount)([^A-Za-z0-9_$]|$)"
+        }
+      },
+      "category": "credential_or_account_storage",
+      "severity": "medium",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.appAccount.setCredential.credential.arg2",
+      "enabled": true,
+      "description": "Store a credential value in Harmony appAccount credential storage",
+      "tags": [
+        "harmony",
+        "account",
+        "credential_store",
+        "P1"
+      ],
+      "match": {
+        "kind": "method_name_equals",
+        "value": "setCredential",
+        "invokeKind": "instance",
+        "argCount": 3
+      },
+      "scope": {
+        "className": {
+          "mode": "regex",
+          "value": "(^|[^A-Za-z0-9_$])(AppAccountManager|appAccount|AppAccount)([^A-Za-z0-9_$]|$)"
+        }
+      },
+      "category": "credential_or_account_storage",
+      "severity": "medium",
+      "target": {
+        "endpoint": "arg2"
       }
     },
     {
@@ -271,8 +381,8 @@
       },
       "scope": {
         "className": {
-          "mode": "contains",
-          "value": "RdbStore"
+          "mode": "regex",
+          "value": "(^|[^A-Za-z0-9_$])RdbStore([^A-Za-z0-9_$]|$)"
         }
       },
       "target": "arg0",
@@ -294,8 +404,8 @@
       },
       "scope": {
         "className": {
-          "mode": "contains",
-          "value": "RdbStore"
+          "mode": "regex",
+          "value": "(^|[^A-Za-z0-9_$])RdbStore([^A-Za-z0-9_$]|$)"
         }
       },
       "target": "arg1",
@@ -317,8 +427,8 @@
       },
       "scope": {
         "className": {
-          "mode": "contains",
-          "value": "RdbStore"
+          "mode": "regex",
+          "value": "(^|[^A-Za-z0-9_$])RdbStore([^A-Za-z0-9_$]|$)"
         }
       },
       "target": "arg1",

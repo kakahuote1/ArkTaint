@@ -12,11 +12,19 @@ export type RuleMatchKind =
 export type RuleEndpoint = "base" | "result" | "matched_param" | `arg${number}`;
 export type RuleInvokeKind = "any" | "instance" | "static";
 export type RuleConstraintMode = "equals" | "contains" | "regex";
-export type SourceRuleKind = "seed_local_name" | "entry_param" | "call_return" | "call_arg" | "field_read" | "callback_param";
+export type SourceRuleKind =
+    | "seed_local_name"
+    | "entry_param"
+    | "call_return"
+    | "call_arg"
+    | "field_read"
+    | "callback_param"
+    | "bound_state";
 export type EntryParamMatchMode = "name_only" | "name_and_type";
 export type RuleSeverity = "low" | "medium" | "high" | "critical";
 export type RuleTier = "A" | "B" | "C";
 export type RuleLayer = "kernel" | "project";
+export type CallbackResolutionMode = "direct_arg" | "known_option";
 
 export interface RuleStringConstraint {
     mode: RuleConstraintMode;
@@ -73,6 +81,8 @@ export interface SourceRule extends BaseRule {
     target: RuleEndpointOrRef;
     calleeScope?: RuleScopeConstraint;
     callbackArgIndexes?: number[];
+    callbackFieldNames?: string[];
+    callbackResolution?: CallbackResolutionMode;
     paramNameIncludes?: string[];
     paramTypeIncludes?: string[];
     paramMatchMode?: EntryParamMatchMode;

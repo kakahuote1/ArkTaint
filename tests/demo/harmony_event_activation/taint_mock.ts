@@ -6,6 +6,10 @@ export class UIInput {
     onChange2(_cb: (first: string, second: string) => void): void {}
 }
 
+export class Tabs {
+    onChange(_cb: (index: number) => void): void {}
+}
+
 export namespace taint {
     export function Sink(data: any): void {
         console.log(data);

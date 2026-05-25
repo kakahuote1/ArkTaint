@@ -16,6 +16,14 @@ export class CachePreferences {
     getSync(_key: string): any { return undefined; }
 }
 
+export class AppAccountManager {
+    getCredential(_name: string, _credentialType: string): any { return undefined; }
+}
+
+export class ProjectAccountManager {
+    getCredential(_name: string, _credentialType: string): any { return undefined; }
+}
+
 export class RdbStore {
     query(_sql: string): any { return undefined; }
     querySql(_sql: string): any { return undefined; }

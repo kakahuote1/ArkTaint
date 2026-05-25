@@ -24,6 +24,28 @@ export class Router {
     }
 }
 
+export class router {
+    private static params: any = "safe_default";
+
+    static pushUrl(options: { url: string; params?: any }): void {
+        if (options && options.params !== undefined) {
+            router.params = options.params;
+        }
+    }
+
+    static getParams(): any {
+        return router.params;
+    }
+}
+
+export class Button {
+    onClick(_cb: (event: string) => void): Button {
+        return this;
+    }
+}
+
+export function State(_target: any, _propertyKey: string): void {}
+
 export class NavPathStack {
     private static paramStoreByName: Map<string, any> = new Map<string, any>();
     private static lastRouteName: string = "default";

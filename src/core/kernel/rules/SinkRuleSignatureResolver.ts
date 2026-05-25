@@ -51,10 +51,13 @@ export function resolveSinkRuleSignatures(scene: Scene, rule: SinkRule): string[
             {
                 const matched = [...(index.byName.get(value) || [])];
                 // Fallback for unresolved/framework calls represented as
-                // "@%unk/%unk: .methodName()" in ArkIR where no concrete
-                // method symbol exists in scene.
-                if (matched.length === 0) {
-                    matched.push(`.${value}(`);
+                // "@%unk/%unk: .methodName()" in ArkIR where SDK typing is
+                // missing. Keep it to shape-constrained rules unless there is
+                // no resolved method at all, so broad method names do not
+                // silently expand across every unknown callsite.
+                const unresolvedFallback = `.${value}(`;
+                if (matched.length === 0 || shouldIncludeUnresolvedMethodFallback(rule)) {
+                    matched.push(unresolvedFallback);
                 }
                 return [...new Set(matched)];
             }
@@ -74,6 +77,15 @@ export function resolveSinkRuleSignatures(scene: Scene, rule: SinkRule): string[
         default:
             return [];
     }
+}
+
+function shouldIncludeUnresolvedMethodFallback(rule: SinkRule): boolean {
+    const match = rule.match;
+    return !!(
+        (match.invokeKind && match.invokeKind !== "any")
+        || match.argCount !== undefined
+        || (match.typeHint && match.typeHint.trim().length > 0)
+    );
 }
 
 function getOrBuildMethodSignatureIndex(scene: Scene): MethodSignatureIndex {

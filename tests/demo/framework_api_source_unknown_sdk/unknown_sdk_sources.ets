@@ -34,4 +34,3 @@ export function unknown_sdk_http_request_006_F(): void {
     const response = localHttp.request('https://example.test');
     Sink(response);
 }
-

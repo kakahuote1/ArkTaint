@@ -8,6 +8,7 @@ import {
     methodSignatureTextFromStmt,
     methodStmtsFromStmt,
     resolveAssignInvokeExprFromStmt,
+    resolveInvokeExprFromStmt,
     resolveInvokeEndpointValue,
     sameValueLike,
     stmtIndexInMethod,
@@ -20,12 +21,12 @@ export function evaluateSanitizerPath(
 ): PostsolveEvidence[] {
     const sanitizerRules = context.sanitizerRules || [];
     if (sanitizerRules.length === 0 || !context.pag || flow.sinkNodeId === undefined) return [];
-    const sinkNode: any = context.pag.getNode?.(flow.sinkNodeId);
-    const sinkValue = sinkNode?.getValue?.();
+    const sinkValue = resolveFlowSinkValue(flow, context);
     if (!sinkValue) return [];
     const sinkStmt = flow.sink;
     const sinkIndex = stmtIndexInMethod(sinkStmt);
     if (sinkIndex < 0) return [];
+    const stmts = methodStmtsFromStmt(sinkStmt);
 
     const facts = path.factIds
         .map(factId => ({
@@ -43,44 +44,89 @@ export function evaluateSanitizerPath(
         if (!invokeExpr) continue;
 
         for (const rule of sanitizerRules) {
-            if (!matchesSanitizerRuleInvoke(rule, stmt, invokeExpr)) continue;
-            const targetEndpoint = typeof rule.target === "string"
-                ? rule.target
-                : (rule.target?.endpoint || "result");
-            const targetValue = resolveInvokeEndpointValue(stmt, invokeExpr, targetEndpoint);
-            if (!targetValue) continue;
-            if (!sameValueLike(targetValue, sinkValue)) continue;
-            if (
-                targetValue instanceof Local
-                && hasLocalReassignmentBetween(methodStmtsFromStmt(stmt), targetValue, stmtIndex, sinkIndex)
-            ) {
-                continue;
-            }
-            return [{
-                kind: "sanitizer_rule",
-                polarity: "negative",
-                strength: "strong",
-                stability: "overridable",
-                position: {
-                    factId: item.factId,
-                    stmtText: stmt?.toString?.() || "",
-                    methodSignature: methodSignatureTextFromStmt(stmt),
-                },
-                target: {
-                    sinkFactId: flow.sinkFactId || "",
-                    sinkNodeId: flow.sinkNodeId,
-                },
-                meta: {
-                    reason: "sanitizer_rule",
-                    ruleId: rule.id,
-                    targetEndpoint,
-                    sanitizerStmtText: stmt?.toString?.() || "",
-                    sinkStmtText: sinkStmt?.toString?.() || "",
-                },
-            }];
+            const evidence = buildSanitizerEvidence(rule, stmt, invokeExpr, sinkValue, sinkStmt, sinkIndex, flow, item.factId);
+            if (evidence) return [evidence];
+        }
+    }
+
+    // Some sink flows carry a correct rule-chain but only materialize the source
+    // fact in the witness path. Fall back to the sink statement's local value and
+    // scan dominating same-method assignments so sanitizer evidence is not lost.
+    for (let i = 0; i < sinkIndex; i++) {
+        const stmt = stmts[i];
+        const invokeExpr = resolveAssignInvokeExprFromStmt(stmt);
+        if (!invokeExpr) continue;
+        for (const rule of sanitizerRules) {
+            const evidence = buildSanitizerEvidence(rule, stmt, invokeExpr, sinkValue, sinkStmt, sinkIndex, flow);
+            if (evidence) return [evidence];
         }
     }
     return [];
+}
+
+function resolveFlowSinkValue(flow: TaintFlow, context: PostsolveContext): any | undefined {
+    const sinkInvoke = resolveInvokeExprFromStmt(flow.sink);
+    const sinkEndpoint = parseBaseEndpoint(flow.sinkEndpoint || "arg0");
+    if (sinkInvoke) {
+        const endpointValue = resolveInvokeEndpointValue(flow.sink, sinkInvoke, sinkEndpoint as any);
+        if (endpointValue) return endpointValue;
+    }
+    const sinkNode: any = flow.sinkNodeId === undefined ? undefined : context.pag?.getNode?.(flow.sinkNodeId);
+    return sinkNode?.getValue?.();
+}
+
+function parseBaseEndpoint(endpoint: string): string {
+    const normalized = String(endpoint || "arg0").trim();
+    const dot = normalized.indexOf(".");
+    return dot >= 0 ? normalized.slice(0, dot) : normalized;
+}
+
+function buildSanitizerEvidence(
+    rule: any,
+    stmt: any,
+    invokeExpr: any,
+    sinkValue: any,
+    sinkStmt: any,
+    sinkIndex: number,
+    flow: TaintFlow,
+    factId?: string,
+): PostsolveEvidence | undefined {
+    if (!matchesSanitizerRuleInvoke(rule, stmt, invokeExpr)) return undefined;
+    const targetEndpoint = typeof rule.target === "string"
+        ? rule.target
+        : (rule.target?.endpoint || "result");
+    const targetValue = resolveInvokeEndpointValue(stmt, invokeExpr, targetEndpoint);
+    if (!targetValue) return undefined;
+    if (!sameValueLike(targetValue, sinkValue)) return undefined;
+    const stmtIndex = stmtIndexInMethod(stmt);
+    if (
+        targetValue instanceof Local
+        && hasLocalReassignmentBetween(methodStmtsFromStmt(stmt), targetValue, stmtIndex, sinkIndex)
+    ) {
+        return undefined;
+    }
+    return {
+        kind: "sanitizer_rule",
+        polarity: "negative",
+        strength: "strong",
+        stability: "overridable",
+        position: {
+            factId,
+            stmtText: stmt?.toString?.() || "",
+            methodSignature: methodSignatureTextFromStmt(stmt),
+        },
+        target: {
+            sinkFactId: flow.sinkFactId || "",
+            sinkNodeId: flow.sinkNodeId,
+        },
+        meta: {
+            reason: "sanitizer_rule",
+            ruleId: rule.id,
+            targetEndpoint,
+            sanitizerStmtText: stmt?.toString?.() || "",
+            sinkStmtText: sinkStmt?.toString?.() || "",
+        },
+    };
 }
 
 function resolveAnchorStmtFromFact(fact: any): any | undefined {

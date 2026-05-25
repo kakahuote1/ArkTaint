@@ -9,6 +9,7 @@ import { expandEntryMethodsByDirectCalls } from "../../shared/ExplicitEntryScope
 import { collectSchedulerFacts } from "./ArkMainSchedulerFactResolver";
 import { ArkMainEntryFact, classifyArkMainFactOwnership } from "../ArkMainTypes";
 import { ArkMethod } from "../../../../../arkanalyzer/out/src/core/model/ArkMethod";
+import { collectProjectNavigationRegistryFacts } from "./ArkMainProjectNavigationRegistryResolver";
 
 export interface CollectArkMainEntryFactsOptions {
     externalFacts?: ArkMainEntryFact[];
@@ -34,6 +35,8 @@ export function collectArkMainEntryFacts(
     _t.callback = Date.now() - _s; _s = Date.now();
     collectSchedulerFacts(scene, context);
     _t.scheduler = Date.now() - _s; _s = Date.now();
+    collectProjectNavigationRegistryFacts(scene, context);
+    _t.project_navigation_registry = Date.now() - _s; _s = Date.now();
     collectChannelFacts(scene, context);
     _t.channel = Date.now() - _s; _s = Date.now();
     collectReactiveFacts(scene, context);

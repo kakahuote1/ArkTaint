@@ -46,6 +46,8 @@ export interface SemanticFlowCliOptions {
     maxSliceItems: number;
     examplesPerItem: number;
     analyze: boolean;
+    incremental?: boolean;
+    incrementalCachePath?: string;
     profile: AnalyzeProfile;
     entryModel?: AnalyzeEntryModel;
     reportMode: ReportMode;
@@ -211,6 +213,8 @@ function parseArgs(argv: string[]): SemanticFlowCliOptions {
     let maxSliceItems = 48;
     let examplesPerItem = 2;
     let analyze = true;
+    let incremental = true;
+    let incrementalCachePath: string | undefined;
     let profile: AnalyzeProfile = "default";
     let entryModel: AnalyzeEntryModel = "arkMain";
     let reportMode: ReportMode = "light";
@@ -345,6 +349,20 @@ function parseArgs(argv: string[]): SemanticFlowCliOptions {
         }
         if (argv[i] === "--no-analyze") {
             analyze = false;
+            continue;
+        }
+        if (argv[i] === "--incremental") {
+            incremental = true;
+            continue;
+        }
+        if (argv[i] === "--no-incremental") {
+            incremental = false;
+            continue;
+        }
+        const incrementalCacheArg = readValue(argv, i, "--incrementalCache");
+        if (incrementalCacheArg !== undefined) {
+            incrementalCachePath = path.resolve(incrementalCacheArg);
+            if (argv[i] === "--incrementalCache") i++;
             continue;
         }
         const profileArg = readValue(argv, i, "--profile");
@@ -496,6 +514,8 @@ function parseArgs(argv: string[]): SemanticFlowCliOptions {
         maxSliceItems,
         examplesPerItem,
         analyze,
+        incremental,
+        incrementalCachePath,
         profile,
         entryModel,
         reportMode,
@@ -583,10 +603,11 @@ function loadRuleCandidates(
         disabledModels: options.disabledModels,
     };
     const filtered = filterKnownSemanticFlowRuleCandidates(items as NormalizedCallsiteItem[], filterOptions);
+    const rankedForContext = rankSemanticFlowRuleCandidatesForModeling(filtered.candidates);
     const enriched = enrichNoCandidateItemsWithCallsiteSlices({
         repoRoot: options.repo,
         sourceDirs: options.sourceDirs,
-        items: filtered.candidates,
+        items: rankedForContext,
         maxItems: options.maxSliceItems,
         maxExamplesPerItem: options.examplesPerItem,
         contextRadius: options.contextRadius,
@@ -629,7 +650,7 @@ function collectAggregateSummary(bundles: SemanticFlowSessionBundle[]) {
     };
 }
 
-function candidateBelongsToSourceDir(sourceDir: string, sourceAbs: string, item: NormalizedCallsiteItem): boolean {
+export function semanticFlowCandidateBelongsToSourceDir(sourceDir: string, sourceAbs: string, item: NormalizedCallsiteItem): boolean {
     if (sourceDir === ".") {
         return true;
     }
@@ -637,10 +658,23 @@ function candidateBelongsToSourceDir(sourceDir: string, sourceAbs: string, item:
     if (!sourceFile || sourceFile.includes("%unk") || sourceFile.includes("arkui-builtin")) {
         return true;
     }
+    const normalizedSourceDir = sourceDir.replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
+    if (normalizedSourceDir && (sourceFile === normalizedSourceDir || sourceFile.startsWith(`${normalizedSourceDir}/`))) {
+        return true;
+    }
+    if (normalizedSourceDir && (
+        sourceFile.includes(`/${normalizedSourceDir}/`)
+        || sourceFile.endsWith(`/${normalizedSourceDir}`)
+    )) {
+        return true;
+    }
     const variants = [
         sourceFile,
         sourceFile.replace(/^ets\//, ""),
         sourceFile.replace(/^src\/main\/ets\//, ""),
+        normalizedSourceDir && sourceFile.startsWith(`${normalizedSourceDir}/`)
+            ? sourceFile.slice(normalizedSourceDir.length + 1)
+            : sourceFile,
     ];
     return variants.some(rel => fs.existsSync(path.resolve(sourceAbs, rel)));
 }
@@ -651,24 +685,84 @@ function capRuleCandidatesForSourceDir(
     candidates: NormalizedCallsiteItem[],
     maxItems: number | undefined,
 ): NormalizedCallsiteItem[] {
-    const scoped = candidates.filter(item => candidateBelongsToSourceDir(sourceDir, sourceAbs, item));
-    const ranked = scoped.sort((a, b) => scoreRuleCandidate(b) - scoreRuleCandidate(a)
-        || (Number(b.count) || 0) - (Number(a.count) || 0)
-        || String(a.callee_signature || "").localeCompare(String(b.callee_signature || "")));
+    const scoped = candidates.filter(item => semanticFlowCandidateBelongsToSourceDir(sourceDir, sourceAbs, item));
+    const ranked = rankSemanticFlowRuleCandidatesForModeling(scoped);
     const limit = Math.max(1, maxItems ?? ranked.length);
     return ranked.slice(0, limit);
 }
 
-function scoreRuleCandidate(item: NormalizedCallsiteItem): number {
+export function rankSemanticFlowRuleCandidatesForModeling(candidates: NormalizedCallsiteItem[]): NormalizedCallsiteItem[] {
+    return [...candidates].sort((a, b) => scoreSemanticFlowRuleCandidateForModeling(b) - scoreSemanticFlowRuleCandidateForModeling(a)
+        || (Number(b.count) || 0) - (Number(a.count) || 0)
+        || String(a.callee_signature || "").localeCompare(String(b.callee_signature || "")));
+}
+
+export function scoreSemanticFlowRuleCandidateForModeling(item: NormalizedCallsiteItem): number {
     const method = String(item.method || "").toLowerCase();
     const sig = String(item.callee_signature || "").toLowerCase();
+    const origin = String((item as any).candidateOrigin || "").trim();
+    const semanticFocus = String((item as any).semanticFocus || "").trim();
+    const methodSnippet = String((item as any).methodSnippet || "").toLowerCase();
+    const hasExternalEffectEvidence = /\b(axios|http|request|fetch|post|get|put|delete|websocket|socket|hilog|console|logger|fileio|writesync|relationalstore|rdb|rdbstore|executesql|preferences|appstorage|persistent|localstorage)\b/.test(methodSnippet);
     let score = Number(item.count) || 0;
+    if (origin !== "proactive_project_callback_surface") score += 30;
+    if (origin === "proactive_project_api_wrapper_surface") score += 45;
+    if (origin === "proactive_project_api_wrapper_source_surface") score += 55;
+    if (semanticFocus === "external_response_source") score += 32;
     if (item.argCount > 0) score += 20;
+    if (isProjectSerializationWrapperCandidate(method, sig, item.argCount)) score += 28;
     if (/(process|parse|decode|encode|transform|convert|collect|save|insert|update|request|response)/.test(method)) score += 12;
     if (/viewmodel|service|manager|repository|store|cache|client/.test(sig)) score += 8;
+    if (/(api|apis|service|services|network|net|request|requests|client|clients|repository|repositories|configure|axios|http|logger|cache)/.test(sig)) score += 16;
+    if (/(token|credential|auth|profile|login|register|password|phone|email|cookie|session)/.test(sig)) score += 10;
+    if ((origin === "proactive_project_api_wrapper_surface" || origin === "proactive_project_api_wrapper_source_surface") && hasExternalEffectEvidence) score += 24;
+    if ((origin === "proactive_project_api_wrapper_surface" || origin === "proactive_project_api_wrapper_source_surface") && !hasExternalEffectEvidence) score -= 35;
+    if ((origin === "proactive_project_api_wrapper_surface" || origin === "proactive_project_api_wrapper_source_surface") && /(\/context\.ets|\/stage\.ets|\/device\.ets|context|window|avoidarea|windowsize)/.test(sig)) score -= 35;
+    if ((origin === "proactive_project_api_wrapper_surface" || origin === "proactive_project_api_wrapper_source_surface") && /(credential|profile|token|auth)/.test(method) && hasExternalEffectEvidence) score += 24;
+    if (isLikelyContextOrUiSetupCandidate(method, sig)) score -= 70;
+    if (isNoPayloadMaintenanceCandidate(method, sig, item.argCount)) score -= 55;
+    if (isInternalNavigationControlCandidate(method, sig)) score -= 45;
     if (/pages\/|components\//.test(sig)) score -= 8;
+    if (/^(check|validate|back|scroll|build|render|is|has|getui)/.test(method)) score -= 18;
     if (/^get|^is|^has/.test(method) && item.argCount === 0) score -= 10;
     return score;
+}
+
+function isLikelyContextOrUiSetupCandidate(methodLower: string, signatureLower: string): boolean {
+    if (/(configure\/(context|stage|device)|contextmanager|ctxmanager|stagemanager|appdevice)/.test(signatureLower)) {
+        if (/^(register|update|set|init)/.test(methodLower)) return true;
+    }
+    return /(abilitystagecontext|uiabilitycontext|stagewindowclass|avoidarea|windowsize|systembar|orientation)/.test(methodLower);
+}
+
+function isNoPayloadMaintenanceCandidate(
+    methodLower: string,
+    signatureLower: string,
+    argCount: number | undefined,
+): boolean {
+    if ((argCount ?? 0) > 0) {
+        return false;
+    }
+    if (!/^(delete|clear|close|drop|destroy|release|init|connect|disconnect|start|stop)/.test(methodLower)) {
+        return false;
+    }
+    return /(database|db|cache|cacher|socket|configure|service|manager)/.test(signatureLower);
+}
+
+function isInternalNavigationControlCandidate(methodLower: string, signatureLower: string): boolean {
+    if (!/(router|route|navigation|nav)/.test(signatureLower)) {
+        return false;
+    }
+    return /^(push|pop|back|replace|forward|go|navigate|route|scroll|build)/.test(methodLower);
+}
+
+function isProjectSerializationWrapperCandidate(methodLower: string, signatureLower: string, argCount: number | undefined): boolean {
+    if ((argCount ?? 0) !== 0) return false;
+    if (methodLower === "tostring" || methodLower === "valueof") return false;
+    if (!/^to[a-z0-9_]*(object|json|map|record|bucket|params|param|request|payload|dto|data|value|values)$/.test(methodLower)) {
+        return false;
+    }
+    return /(model|entity|dto|data|record|database|request|response|store|bucket)/.test(signatureLower);
 }
 
 function countSourceRunStatuses(records: SemanticFlowSourceRunRecord[]): Record<string, number> {
@@ -764,8 +858,8 @@ function buildAnalyzeOptions(
         maxEntries: overrides.maxEntries ?? options.maxEntries,
         outputDir,
         concurrency: overrides.concurrency ?? options.concurrency,
-        incremental: true,
-        incrementalCachePath: undefined,
+        incremental: overrides.incremental ?? options.incremental ?? true,
+        incrementalCachePath: overrides.incrementalCachePath ?? options.incrementalCachePath,
         showLoadWarnings: false,
         stopOnFirstFlow: overrides.stopOnFirstFlow ?? options.stopOnFirstFlow,
         maxFlowsPerEntry: overrides.maxFlowsPerEntry ?? options.maxFlowsPerEntry,

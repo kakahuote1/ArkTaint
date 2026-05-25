@@ -105,6 +105,22 @@ const CASES: CaseSpec[] = [
         expected: false,
     },
     {
+        filePath: "tests/adhoc/ordinary_object_field_chain/object_literal_field_relay_013_T.ets",
+        expected: true,
+    },
+    {
+        filePath: "tests/adhoc/ordinary_object_field_chain/object_literal_field_relay_014_F.ets",
+        expected: false,
+    },
+    {
+        filePath: "tests/adhoc/ordinary_object_field_chain/object_literal_conditional_guard_015_F.ets",
+        expected: false,
+    },
+    {
+        filePath: "tests/adhoc/ordinary_object_field_chain/object_literal_conditional_value_016_T.ets",
+        expected: true,
+    },
+    {
         filePath: "tests/adhoc/ordinary_alias_language/field_alias_write_001_T.ets",
         expected: true,
     },
@@ -487,11 +503,43 @@ const CASES: CaseSpec[] = [
         expected: false,
     },
     {
+        filePath: "tests/adhoc/ordinary_callable_language/returned_object_field_callable_017_T.ets",
+        expected: true,
+    },
+    {
+        filePath: "tests/adhoc/ordinary_callable_language/returned_object_field_callable_018_F.ets",
+        expected: false,
+    },
+    {
         filePath: "tests/demo/library_semantic_regression/json_stringify_001_T.ets",
         expected: true,
     },
     {
         filePath: "tests/demo/library_semantic_regression/json_stringify_002_F.ets",
+        expected: false,
+    },
+    {
+        filePath: "tests/demo/library_semantic_regression/json_stringify_field_store_003_T.ets",
+        expected: true,
+    },
+    {
+        filePath: "tests/demo/library_semantic_regression/json_stringify_field_store_004_F.ets",
+        expected: false,
+    },
+    {
+        filePath: "tests/demo/library_semantic_regression/json_stringify_cast_field_store_005_T.ets",
+        expected: true,
+    },
+    {
+        filePath: "tests/demo/library_semantic_regression/json_stringify_cast_field_store_006_F.ets",
+        expected: false,
+    },
+    {
+        filePath: "tests/demo/library_semantic_regression/json_stringify_object_literal_007_T.ets",
+        expected: true,
+    },
+    {
+        filePath: "tests/demo/library_semantic_regression/json_stringify_object_literal_008_F.ets",
         expected: false,
     },
     {

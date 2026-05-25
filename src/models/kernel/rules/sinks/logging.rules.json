@@ -72,6 +72,19 @@
       }
     },
     {
+      "id": "sink.harmony.hilog.info.arg2.sig",
+      "enabled": true,
+      "match": {
+        "kind": "signature_contains",
+        "value": "hilog.info"
+      },
+      "category": "information_leak",
+      "severity": "medium",
+      "target": {
+        "endpoint": "arg2"
+      }
+    },
+    {
       "id": "sink.harmony.hilog.error.arg3.sig",
       "enabled": true,
       "match": {
@@ -85,11 +98,151 @@
       }
     },
     {
+      "id": "sink.harmony.hilog.error.arg2.sig",
+      "enabled": true,
+      "match": {
+        "kind": "signature_contains",
+        "value": "hilog.error"
+      },
+      "category": "information_leak",
+      "severity": "medium",
+      "target": {
+        "endpoint": "arg2"
+      }
+    },
+    {
       "id": "sink.harmony.console.log.arg0",
       "enabled": true,
       "match": {
         "kind": "signature_contains",
         "value": "console.log"
+      },
+      "category": "information_leak",
+      "severity": "low",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.console.info.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "signature_contains",
+        "value": "console.info"
+      },
+      "category": "information_leak",
+      "severity": "low",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.console.warn.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "signature_contains",
+        "value": "console.warn"
+      },
+      "category": "information_leak",
+      "severity": "low",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.console.error.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "signature_contains",
+        "value": "console.error"
+      },
+      "category": "information_leak",
+      "severity": "low",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.console.debug.arg0",
+      "enabled": true,
+      "match": {
+        "kind": "signature_contains",
+        "value": "console.debug"
+      },
+      "category": "information_leak",
+      "severity": "low",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.console.log.arg0.unresolved_instance",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "log",
+        "invokeKind": "instance",
+        "typeHint": "console"
+      },
+      "category": "information_leak",
+      "severity": "low",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.console.info.arg0.unresolved_instance",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "info",
+        "invokeKind": "instance",
+        "typeHint": "console"
+      },
+      "category": "information_leak",
+      "severity": "low",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.console.warn.arg0.unresolved_instance",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "warn",
+        "invokeKind": "instance",
+        "typeHint": "console"
+      },
+      "category": "information_leak",
+      "severity": "low",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.console.error.arg0.unresolved_instance",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "error",
+        "invokeKind": "instance",
+        "typeHint": "console"
+      },
+      "category": "information_leak",
+      "severity": "low",
+      "target": {
+        "endpoint": "arg0"
+      }
+    },
+    {
+      "id": "sink.harmony.console.debug.arg0.unresolved_instance",
+      "enabled": true,
+      "match": {
+        "kind": "method_name_equals",
+        "value": "debug",
+        "invokeKind": "instance",
+        "typeHint": "console"
       },
       "category": "information_leak",
       "severity": "low",

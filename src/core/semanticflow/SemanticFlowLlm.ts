@@ -376,6 +376,13 @@ function normalizeDoneDecisionShape(
     const moduleSpecCandidate = obj.moduleSpec !== undefined
         ? obj.moduleSpec
         : summaryObj?.moduleSpec;
+    const sinkRuleSummary = tryBuildSinkRuleSummaryFromModuleSpecDrift(moduleSpecCandidate, summary);
+    if (sinkRuleSummary) {
+        return {
+            classification: "rule",
+            summary: sinkRuleSummary,
+        };
+    }
     const sourceRuleSummary = tryBuildSourceRuleSummaryFromModuleSpecDrift(moduleSpecCandidate, summary);
     if (sourceRuleSummary) {
         return {
@@ -409,6 +416,51 @@ function normalizeDoneDecisionShape(
         classification,
         summary,
     };
+}
+
+function tryBuildSinkRuleSummaryFromModuleSpecDrift(
+    moduleSpec: unknown,
+    summary: unknown,
+): Record<string, unknown> | undefined {
+    if (!isPlainRecord(moduleSpec)) {
+        return undefined;
+    }
+    const sinkInputSlots = normalizeModuleSpecSinkInputSlots(moduleSpec.sinkInputSlots);
+    if (sinkInputSlots.length === 0) {
+        return undefined;
+    }
+    const summaryObj = isPlainRecord(summary) ? summary : {};
+    const confidence = summaryObj.confidence ?? moduleSpec.confidence ?? "medium";
+    return {
+        ...summaryObj,
+        inputs: sinkInputSlots,
+        outputs: [],
+        transfers: [],
+        confidence,
+        ruleKind: "sink",
+        sourceKind: undefined,
+        relations: undefined,
+        moduleKind: undefined,
+        moduleSpec: undefined,
+    };
+}
+
+function normalizeModuleSpecSinkInputSlots(value: unknown): unknown[] {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+    const out: unknown[] = [];
+    for (const item of value) {
+        if (typeof item === "string") {
+            const text = item.trim();
+            if (text) out.push(text);
+            continue;
+        }
+        if (isPlainRecord(item)) {
+            out.push(item);
+        }
+    }
+    return out;
 }
 
 function normalizeTopLevelSummaryFields(obj: Record<string, unknown>): unknown {
@@ -596,8 +648,8 @@ function normalizeRequest(value: unknown, options: SemanticFlowParseOptions): Se
 function normalizeDeficitFocus(value: unknown, options: SemanticFlowParseOptions): SemanticFlowDeficitFocus {
     const obj = expectRecord(value, "decision.request.focus");
     const focus: SemanticFlowDeficitFocus = {
-        from: obj.from ? normalizeSlotRef(obj.from, "decision.request.focus.from", options) : undefined,
-        to: obj.to ? normalizeSlotRef(obj.to, "decision.request.focus.to", options) : undefined,
+        from: normalizeDeficitFocusSlot(obj.from, "decision.request.focus.from", options),
+        to: normalizeDeficitFocusSlot(obj.to, "decision.request.focus.to", options),
         companion: typeof obj.companion === "string" ? obj.companion.trim() || undefined : undefined,
         carrierHint: typeof obj.carrierHint === "string" ? obj.carrierHint.trim() || undefined : undefined,
         triggerHint: typeof obj.triggerHint === "string" ? obj.triggerHint.trim() || undefined : undefined,
@@ -606,6 +658,20 @@ function normalizeDeficitFocus(value: unknown, options: SemanticFlowParseOptions
         throw new Error("decision.request.focus must describe at least one target relation");
     }
     return focus;
+}
+
+function normalizeDeficitFocusSlot(
+    value: unknown,
+    path: string,
+    options: SemanticFlowParseOptions,
+): SemanticFlowSurfaceSlotRef | undefined {
+    if (value === undefined || value === null) return undefined;
+    if (Array.isArray(value)) {
+        if (value.length === 0) return undefined;
+        const refs = value.map((item, index) => normalizeSlotRef(item, `${path}[${index}]`, options));
+        return refs[0];
+    }
+    return normalizeSlotRef(value, path, options);
 }
 
 function normalizeDeficitScope(value: unknown): SemanticFlowDeficitScope {
@@ -646,12 +712,29 @@ function normalizeSummary(
         "sanitizer",
         "transfer",
     ]) as SemanticFlowSummary["ruleKind"];
-    const transfers = normalizeTransfers(obj.transfers, "decision.summary.transfers", options);
+    const inputs = normalizeSlotRefs(obj.inputs, "decision.summary.inputs", options);
+    const outputs = normalizeSlotRefs(obj.outputs, "decision.summary.outputs", options);
+    let transfers = normalizeTransfers(obj.transfers, "decision.summary.transfers", options);
+    if (
+        classification === "rule"
+        && rawRuleKind === "transfer"
+        && transfers.length === 0
+        && inputs.length === 1
+        && outputs.length === 1
+        && !isModuleOnlySlot(inputs[0])
+        && !isModuleOnlySlot(outputs[0])
+    ) {
+        transfers = [{
+            from: inputs[0],
+            to: outputs[0],
+            relation: "direct",
+        }];
+    }
     const ruleKind = normalizeRuleKindForTransfers(rawRuleKind, transfers, classification);
     const relations = normalizeRelations(obj.relations, options);
     const summary: SemanticFlowSummary = {
-        inputs: normalizeSlotRefs(obj.inputs, "decision.summary.inputs", options),
-        outputs: normalizeSlotRefs(obj.outputs, "decision.summary.outputs", options),
+        inputs,
+        outputs,
         transfers,
         confidence: normalizeConfidence(obj.confidence),
         ruleKind,
@@ -756,7 +839,7 @@ function normalizeModuleSpec(value: unknown) {
 }
 
 function normalizeRelations(value: unknown, options: SemanticFlowParseOptions): SemanticFlowRelations | undefined {
-    if (value === undefined) return undefined;
+    if (value === undefined || value === null) return undefined;
     const obj = expectRecord(value, "decision.summary.relations");
     return {
         companions: normalizeStringArray(obj.companions),
@@ -863,6 +946,10 @@ function normalizeSlotRef(value: unknown, path: string, options: SemanticFlowPar
         return parseSlotRefShorthand(value, path, options);
     }
     const obj = expectRecord(value, path);
+    const shorthand = typeof obj.slot === "string" ? parseBareSlotRef(obj.slot) : undefined;
+    if (shorthand) {
+        return normalizeObjectSlotRefShorthand(shorthand, obj, path);
+    }
     const slot = normalizeRequiredEnum(
         obj.slot,
         `${path}.slot`,
@@ -881,6 +968,9 @@ function normalizeSlotRef(value: unknown, path: string, options: SemanticFlowPar
     if (slot === "callback_param") {
         out.callbackArgIndex = normalizeOptionalNumber(obj.callbackArgIndex, `${path}.callbackArgIndex`) ?? 0;
         out.paramIndex = normalizeOptionalNumber(obj.paramIndex, `${path}.paramIndex`) ?? 0;
+        const fieldName = typeof obj.fieldName === "string" ? obj.fieldName.trim() : "";
+        const fieldPathHead = Array.isArray(fieldPath) && fieldPath.length > 0 ? String(fieldPath[0] || "").trim() : "";
+        out.fieldName = fieldName || fieldPathHead || undefined;
         return out;
     }
     if (slot === "method_param") {
@@ -899,6 +989,55 @@ function normalizeSlotRef(value: unknown, path: string, options: SemanticFlowPar
     return out;
 }
 
+function normalizeObjectSlotRefShorthand(
+    shorthand: SemanticFlowSurfaceSlotRef,
+    obj: Record<string, any>,
+    path: string,
+): SemanticFlowSurfaceSlotRef {
+    const fieldPath = normalizeFieldPathSpec(obj.fieldPath, `${path}.fieldPath`);
+    const out: SemanticFlowSurfaceSlotRef = {
+        ...shorthand,
+        surface: normalizeSurfaceRef(obj.surface, `${path}.surface`),
+        fieldPath: Array.isArray(fieldPath) ? fieldPath : shorthand.fieldPath,
+    };
+    if (shorthand.slot === "arg" && obj.index !== undefined) {
+        const explicit = normalizeRequiredInteger(obj.index, `${path}.index`);
+        if (explicit !== shorthand.index) {
+            throw new Error(`${path}.index conflicts with ${path}.slot`);
+        }
+    }
+    if (shorthand.slot === "callback_param") {
+        if (obj.callbackArgIndex !== undefined) {
+            const explicitCallback = normalizeRequiredInteger(obj.callbackArgIndex, `${path}.callbackArgIndex`);
+            if (explicitCallback !== (shorthand.callbackArgIndex ?? 0)) {
+                throw new Error(`${path}.callbackArgIndex conflicts with ${path}.slot`);
+            }
+        }
+        if (obj.paramIndex !== undefined) {
+            const explicitParam = normalizeRequiredInteger(obj.paramIndex, `${path}.paramIndex`);
+            if (explicitParam !== (shorthand.paramIndex ?? 0)) {
+                throw new Error(`${path}.paramIndex conflicts with ${path}.slot`);
+            }
+        }
+        const fieldName = typeof obj.fieldName === "string" ? obj.fieldName.trim() : "";
+        const fieldPathHead = Array.isArray(fieldPath) && fieldPath.length > 0 ? String(fieldPath[0] || "").trim() : "";
+        out.fieldName = fieldName || fieldPathHead || undefined;
+    }
+    if (shorthand.slot === "method_param" && obj.paramIndex !== undefined) {
+        const explicitParam = normalizeRequiredInteger(obj.paramIndex, `${path}.paramIndex`);
+        if (explicitParam !== shorthand.paramIndex) {
+            throw new Error(`${path}.paramIndex conflicts with ${path}.slot`);
+        }
+    }
+    if (shorthand.slot === "field_load") {
+        const fieldName = typeof obj.fieldName === "string" ? obj.fieldName.trim() : "";
+        if (fieldName && fieldName !== shorthand.fieldName) {
+            throw new Error(`${path}.fieldName conflicts with ${path}.slot`);
+        }
+    }
+    return out;
+}
+
 function normalizeConfidence(value: unknown): SemanticFlowSummary["confidence"] {
     const text = canonicalToken(expectString(value, "decision.summary.confidence"));
     if (text === "low" || text === "medium" || text === "high") {
@@ -908,7 +1047,7 @@ function normalizeConfidence(value: unknown): SemanticFlowSummary["confidence"] 
 }
 
 function normalizeOptionalEnum(value: unknown, path: string, allowed: string[]): string | undefined {
-    if (value === undefined) return undefined;
+    if (value === undefined || value === null) return undefined;
     const text = canonicalToken(expectString(value, path));
     const matched = allowed.find(candidate => canonicalToken(candidate) === text);
     if (!matched) {
@@ -1087,15 +1226,27 @@ function normalizeModuleEndpointAddress(value: unknown, path: string, options: S
 function normalizeSurfaceRef(value: unknown, path: string): SemanticFlowSurfaceSlotRef["surface"] | undefined {
     if (value === undefined) return undefined;
     if (typeof value === "string") {
-        return expectString(value, path);
+        return normalizeSurfaceName(expectString(value, path), path);
     }
     const obj = expectRecord(value, path);
     const kind = normalizeRequiredEnum(obj.kind, `${path}.kind`, ["invoke", "method", "decorated_field"]);
     const selector = expectRecord(obj.selector, `${path}.selector`);
+    const methodName = selector.methodName;
+    if (typeof methodName === "string") {
+        normalizeSurfaceName(methodName, `${path}.selector.methodName`);
+    }
     return {
         kind,
         selector,
     } as SemanticFlowSurfaceSlotRef["surface"];
+}
+
+function normalizeSurfaceName(value: string, path: string): string {
+    const text = expectString(value, path);
+    if (/^companion\s*:/i.test(text)) {
+        throw new Error(`${path} must name a concrete API surface; put companion hints in relations.companions or request.focus.companion, not endpoint surface`);
+    }
+    return text;
 }
 
 function normalizeFieldPathSpec(value: unknown, path: string): ModuleFieldPathSpec | undefined {
@@ -1297,12 +1448,23 @@ function validateModuleDoneDecision(summary: SemanticFlowSummary): void {
     if (summary.moduleKind === "state" || summary.moduleKind === "declarative") {
         throw new Error(`classification=module with moduleKind=${summary.moduleKind} requires explicit moduleSpec`);
     }
+    if (isDeferredCarrierSummary(summary)) {
+        throw new Error("classification=module with promise/deferred carrier semantics requires explicit moduleSpec or more evidence; do not flatten hidden carrier handoff into a summary bridge");
+    }
     if (summary.transfers.length === 0) {
         throw new Error("classification=module without moduleSpec requires at least one transfer");
     }
     if (!isStructuralModuleSummary(summary)) {
         throw new Error("classification=module requires moduleSpec or module-only evidence such as companions, carrier, trigger, constraints, or cross-surface/deferred transfers");
     }
+}
+
+function isDeferredCarrierSummary(summary: SemanticFlowSummary): boolean {
+    if (!summary.relations?.carrier || !summary.relations.trigger) {
+        return false;
+    }
+    const preset = canonicalToken(summary.relations.trigger.preset);
+    return summary.moduleKind === "deferred" || preset.startsWith("promise-");
 }
 
 function isRuleEncodableModuleSpec(spec: any): boolean {
@@ -1459,6 +1621,30 @@ function parseSlotRefShorthand(value: string, path: string, options: SemanticFlo
     if (alias) {
         return alias;
     }
+    const surfaceCallbackMatch = normalized.match(/^(.+)\.(?:cb|callback)(\d+)\.param(\d+)$/i);
+    if (surfaceCallbackMatch) {
+        const surface = normalizeSurfaceName(surfaceCallbackMatch[1].trim(), `${path}.surface`);
+        if (surface) {
+            return {
+                slot: "callback_param",
+                surface,
+                callbackArgIndex: Number(surfaceCallbackMatch[2]),
+                paramIndex: Number(surfaceCallbackMatch[3]),
+            };
+        }
+    }
+    const surfaceDefaultCallbackMatch = normalized.match(/^(.+)\.callback\.param(\d+)$/i);
+    if (surfaceDefaultCallbackMatch) {
+        const surface = normalizeSurfaceName(surfaceDefaultCallbackMatch[1].trim(), `${path}.surface`);
+        if (surface) {
+            return {
+                slot: "callback_param",
+                surface,
+                callbackArgIndex: 0,
+                paramIndex: Number(surfaceDefaultCallbackMatch[2]),
+            };
+        }
+    }
     for (let i = normalized.lastIndexOf("."); i > 0; i = normalized.lastIndexOf(".", i - 1)) {
         const surfaceText = normalized.slice(0, i).trim();
         const slotText = normalized.slice(i + 1).trim();
@@ -1469,7 +1655,7 @@ function parseSlotRefShorthand(value: string, path: string, options: SemanticFlo
         if (suffix) {
             return {
                 ...suffix,
-                surface: surfaceText,
+                surface: normalizeSurfaceName(surfaceText, `${path}.surface`),
             };
         }
     }

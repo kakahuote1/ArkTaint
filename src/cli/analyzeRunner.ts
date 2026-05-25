@@ -206,6 +206,41 @@ function buildLoadedFileFingerprint(filePaths: string[]): string {
     return buildIncrementalFingerprint(records);
 }
 
+function collectExistingFilesUnder(root: string, extensions: Set<string>): string[] {
+    const absRoot = path.resolve(root);
+    if (!fs.existsSync(absRoot)) return [];
+    const out: string[] = [];
+    const stack = [absRoot];
+    while (stack.length > 0) {
+        const current = stack.pop()!;
+        let entries: fs.Dirent[];
+        try {
+            entries = fs.readdirSync(current, { withFileTypes: true });
+        } catch {
+            continue;
+        }
+        for (const entry of entries) {
+            const abs = path.join(current, entry.name);
+            if (entry.isDirectory()) {
+                stack.push(abs);
+                continue;
+            }
+            if (entry.isFile() && extensions.has(path.extname(entry.name).toLowerCase())) {
+                out.push(abs);
+            }
+        }
+    }
+    return out.sort((a, b) => a.localeCompare(b));
+}
+
+function buildAnalyzerImplementationFingerprint(): string {
+    const files = [
+        ...collectExistingFilesUnder(path.resolve("src", "core"), new Set([".ts", ".json"])),
+        ...collectExistingFilesUnder(path.resolve("src", "cli"), new Set([".ts"])),
+    ];
+    return buildLoadedFileFingerprint(files);
+}
+
 function resolveSourceRuleEndpoint(rule: SourceRule): string {
     const targetNorm = normalizeEndpoint(rule.target);
     const endpoint = targetNorm.endpoint;
@@ -812,7 +847,8 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         stopOnFirstFlow: options.stopOnFirstFlow,
         maxFlowsPerEntry: options.maxFlowsPerEntry ?? null,
         enableSecondarySinkSweep: options.enableSecondarySinkSweep,
-        analysisCoreVersion: "handoff-sensitive-provenance-postsolve-v1",
+        analyzerImplementationFingerprint: buildAnalyzerImplementationFingerprint(),
+        analysisCoreVersion: "handoff-sensitive-provenance-postsolve-v3-endpoint-scoped-sink-family",
     });
     const incrementalCacheScope: IncrementalCacheScope = {
         repo: options.repo,

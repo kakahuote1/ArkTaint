@@ -5,7 +5,13 @@ import { TaintFlow } from "../../kernel/model/TaintFlow";
 import { ProvenancePath } from "../../provenance/ProvenancePathTypes";
 import { PostsolveContext, PostsolveEvidence } from "./PostsolveTypes";
 import { collectCandidateReadSites } from "./SafeOverwriteRefinement";
-import { methodSignatureTextFromStmt, normalizeQuotedLiteral, sameValueLike } from "./PostsolveRuleUtils";
+import {
+    methodSignatureTextFromStmt,
+    normalizeQuotedLiteral,
+    resolveInvokeEndpointValue,
+    resolveInvokeExprFromStmt,
+    sameValueLike,
+} from "./PostsolveRuleUtils";
 
 export function evaluateDeleteBeforeReadPath(
     flow: TaintFlow,
@@ -53,9 +59,17 @@ function resolveSinkReadSite(
     stmt: any;
     readExpr: any;
 } | undefined {
-    if (!context.pag || flow.sinkNodeId === undefined) return undefined;
-    const sinkNode: any = context.pag.getNode?.(flow.sinkNodeId);
-    const value = sinkNode?.getValue?.();
+    const sinkInvoke = resolveInvokeExprFromStmt(flow.sink);
+    const sinkEndpoint = parseBaseEndpoint(flow.sinkEndpoint || "arg0");
+    const endpointValue = sinkInvoke
+        ? resolveInvokeEndpointValue(flow.sink, sinkInvoke, sinkEndpoint as any)
+        : undefined;
+    const sinkNode: any = endpointValue
+        ? undefined
+        : flow.sinkNodeId === undefined
+            ? undefined
+            : context.pag?.getNode?.(flow.sinkNodeId);
+    const value = endpointValue || sinkNode?.getValue?.();
     if (!(value instanceof Local)) return undefined;
     const declStmt = value.getDeclaringStmt?.();
     if (!(declStmt instanceof ArkAssignStmt) || declStmt.getLeftOp?.() !== value) return undefined;
@@ -66,6 +80,12 @@ function resolveSinkReadSite(
         stmt: declStmt,
         readExpr: right,
     };
+}
+
+function parseBaseEndpoint(endpoint: string): string {
+    const normalized = String(endpoint || "arg0").trim();
+    const dot = normalized.indexOf(".");
+    return dot >= 0 ? normalized.slice(0, dot) : normalized;
 }
 
 function resolveDeleteBeforeRead(

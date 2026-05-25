@@ -46,11 +46,32 @@ const FAMILY_FLOW_SPECS: FamilyFlowSpec[] = [
         entryMethodName: "event_oninput_build_002_T",
     },
     {
+        family: "source.harmony.callback.input",
+        sourceDir: "tests/demo/harmony_event_activation",
+        caseName: "event_onchange_dsl_build_010_T",
+        relativePath: "event_onchange_dsl_build_010_T.ets",
+        entryMethodName: "event_onchange_dsl_build_010_T",
+    },
+    {
         family: "source.harmony.callback.network.http_completion",
         sourceDir: "tests/demo/harmony_http",
         caseName: "http_async_callback_003_T",
         relativePath: "http_async_callback_003_T.ets",
         entryMethodName: "http_async_callback_003_T",
+    },
+    {
+        family: "source.harmony.callback.wearengine.p2p",
+        sourceDir: "tests/demo/harmony_wearengine_p2p",
+        caseName: "wearengine_p2p_message_receiver_001_T",
+        relativePath: "wearengine_p2p_message_receiver_001_T.ets",
+        entryMethodName: "wearengine_p2p_message_receiver_001_T",
+    },
+    {
+        family: "source.harmony.callback.wearengine.p2p",
+        sourceDir: "tests/demo/harmony_wearengine_p2p",
+        caseName: "wearengine_p2p_unresolved_receiver_004_T",
+        relativePath: "wearengine_p2p_unresolved_receiver_004_T.ets",
+        entryMethodName: "wearengine_p2p_unresolved_receiver_004_T",
     },
     {
         family: "source.harmony.callback.window.stage",
@@ -86,6 +107,16 @@ const FAMILY_FLOW_SPECS: FamilyFlowSpec[] = [
         caseName: "telephony_sim_account_001_T",
         relativePath: "telephony_sim_account_001_T.ets",
         entryMethodName: "telephony_sim_account_001_T",
+    },
+];
+
+const FAMILY_NO_FLOW_SPECS: FamilyFlowSpec[] = [
+    {
+        family: "source.harmony.callback.input",
+        sourceDir: "tests/demo/harmony_event_activation",
+        caseName: "event_tabs_onchange_build_012_F",
+        relativePath: "event_tabs_onchange_build_012_F.ets",
+        entryMethodName: "event_tabs_onchange_build_012_F",
     },
 ];
 
@@ -151,6 +182,37 @@ async function runFamilyFlowProbe(spec: FamilyFlowSpec, sourceRules: SourceRule[
     };
 }
 
+async function runFamilyNoFlowProbe(spec: FamilyFlowSpec, sourceRules: SourceRule[]): Promise<FamilyFlowResult> {
+    const caseViewRoot = path.resolve("tmp/test_runs/research/framework_callback_source_family_contract/latest/case_views");
+    ensureDir(caseViewRoot);
+    const projectDir = createIsolatedCaseView(path.resolve(spec.sourceDir), spec.caseName, caseViewRoot);
+    const scene = buildTestScene(projectDir);
+    const entryMethod = findEntryMethod(scene, spec);
+    assert(entryMethod, `entry method not found for ${spec.caseName}:${spec.entryMethodName}`);
+
+    const detect = async (rules: SourceRule[]): Promise<boolean> => {
+        const engine = new TaintPropagationEngine(scene, 1);
+        engine.verbose = false;
+        await engine.buildPAG({
+            entryModel: "explicit",
+            syntheticEntryMethods: [entryMethod],
+        });
+        engine.propagateWithSourceRules(rules);
+        const flows = engine.detectSinksByRules(SINK_RULES);
+        return flows.length > 0;
+    };
+
+    const withFamily = await detect(sourceRules);
+    const withoutFamily = await detect([]);
+    return {
+        family: spec.family,
+        caseName: spec.caseName,
+        withFamily,
+        withoutFamily,
+        sourceRuleCount: sourceRules.length,
+    };
+}
+
 async function main(): Promise<void> {
     const generatedRules = buildFrameworkCallbackSourceRules();
     const loaded = loadRuleSet({
@@ -176,6 +238,7 @@ async function main(): Promise<void> {
     const requiredIds = [
         "source.harmony.network.http.requestAsync.callback.arg1",
         "source.harmony.worker.onMessage.callback.arg0",
+        "source.harmony.webview.javaScriptProxy.callback.arg0",
         "source.harmony.notification.subscribe.callback.arg1",
         "source.harmony.geolocation.on",
         "source.harmony.telephony.getSimAccountInfo.callback.arg1",
@@ -190,6 +253,15 @@ async function main(): Promise<void> {
         assert(familyRules.length > 0, `family has no loaded callback source rules: ${spec.family}`);
         const result = await runFamilyFlowProbe(spec, familyRules);
         assert(result.withFamily, `${spec.caseName}: expected sink flow with family ${spec.family}`);
+        assert(!result.withoutFamily, `${spec.caseName}: expected no sink flow without family ${spec.family}`);
+        results.push(result);
+    }
+
+    for (const spec of FAMILY_NO_FLOW_SPECS) {
+        const familyRules = loadedCallbackRules.filter(rule => rule.family === spec.family);
+        assert(familyRules.length > 0, `family has no loaded callback source rules: ${spec.family}`);
+        const result = await runFamilyNoFlowProbe(spec, familyRules);
+        assert(!result.withFamily, `${spec.caseName}: expected no sink flow for non-text UI onChange`);
         assert(!result.withoutFamily, `${spec.caseName}: expected no sink flow without family ${spec.family}`);
         results.push(result);
     }

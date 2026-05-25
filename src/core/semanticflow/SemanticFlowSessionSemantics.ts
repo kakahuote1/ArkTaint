@@ -4,6 +4,7 @@ import * as path from "path";
 import { getSemanticFlowRuntimeSkillsFingerprint } from "./SemanticFlowRuntimeSkills";
 
 const ITEM_CACHE_SEMANTIC_MODULE_IDS = [
+    "./SemanticFlowArtifactGuards",
     "./SemanticFlowArtifacts",
     "./SemanticFlowExpanders",
     "./SemanticFlowIncremental",

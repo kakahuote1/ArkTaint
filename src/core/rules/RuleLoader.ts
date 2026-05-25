@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { normalizeEndpoint, RuleLayer, SanitizerRule, SinkRule, SourceRule, TaintRuleSet, TransferRule } from "./RuleSchema";
 import { assertValidRuleSet, validateRuleSet } from "./RuleValidator";
-import { buildFrameworkCallbackSourceRules } from "./FrameworkCallbackSourceCatalog";
+import { buildFrameworkBoundStateSourceRules, buildFrameworkCallbackSourceRules } from "./FrameworkCallbackSourceCatalog";
 import { buildFrameworkApiSourceRules } from "./FrameworkApiSourceCatalog";
 import { buildFrameworkSinkRules, isFrameworkSinkCatalogRule } from "./FrameworkSinkCatalog";
 import { buildFrameworkSanitizerRules, isFrameworkSanitizerCatalogRule } from "./FrameworkSanitizerCatalog";
@@ -593,6 +593,7 @@ function collectSecondarySinkSweepConfig(rules: SinkRule[]): SecondarySinkSweepC
 function normalizeKernelLayerRules(ruleSet: TaintRuleSet): TaintRuleSet {
     const retainedSources = (ruleSet.sources || []).filter(
         rule => rule.sourceKind !== "callback_param"
+            && rule.sourceKind !== "bound_state"
             && rule.sourceKind !== "call_return"
             && rule.sourceKind !== "field_read"
     );
@@ -605,6 +606,7 @@ function normalizeKernelLayerRules(ruleSet: TaintRuleSet): TaintRuleSet {
         sources: [
             ...retainedSources,
             ...buildFrameworkCallbackSourceRules(),
+            ...buildFrameworkBoundStateSourceRules(),
             ...buildFrameworkApiSourceRules(),
         ],
         sinks: [

@@ -6,6 +6,7 @@ import { evaluateParameterizedQueryPath } from "./ParameterizedQueryRefinement";
 import { evaluateSanitizerPath } from "./SanitizerPathRefinement";
 import { evaluateTypeNarrowingGuardPath } from "./TypeNarrowingGuardRefinement";
 import { evaluatePathGuardPath } from "./PathGuardRefinement";
+import { evaluateStorageFlagSourcePath } from "./StorageFlagSourceRefinement";
 import { materializeTaintFlowPaths } from "../../provenance/ProvenancePathRecorder";
 import { MaterializedTaintFlow } from "../../provenance/ProvenancePathTypes";
 import { buildPostsolveSkeleton } from "./PostsolveSkeleton";
@@ -38,6 +39,7 @@ export function evaluatePostsolveFlow(
             ...evaluateDeleteBeforeReadPath(flow, path, context),
             ...evaluateKeyedRouteCallbackMismatchPath(flow, path, context),
             ...evaluatePathGuardPath(flow, path, context),
+            ...evaluateStorageFlagSourcePath(flow, path, context),
         ];
         const judgement = constrainPathJudgementForMaterialization(
             decidePostsolveJudgement(evidence),

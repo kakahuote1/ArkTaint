@@ -29,13 +29,16 @@ export type CallbackRegistrationSlotFamily =
     | "subscription_event_slot"
     | "completion_callback_slot"
     | "controller_option_slot"
+    | "web_js_proxy_slot"
     | "keyed_dispatch_slot"
-    | "scheduler_slot";
+    | "scheduler_slot"
+    | "p2p_message_receiver_slot";
 
 export type CallbackRegistrationRecognitionLayer =
     | "sdk_provenance"
     | "official_catalog"
     | "controller_options"
+    | "web_js_proxy_options"
     | "keyed_dispatch";
 
 export interface CallbackRegistrationMatch extends CallbackRegistrationMatchBase {
@@ -89,6 +92,7 @@ const STRING_PLUS_SUBSCRIPTION_METHOD_NAMES = new Set([
 const TRAILING_CALLBACK_METHOD_NAMES = new Set([
     "subscribe",
     "request",
+    "registerMessageReceiver",
 ]);
 const PREFERENCES_CALLBACK_METHOD_NAMES = new Set([
     "get",
@@ -350,6 +354,9 @@ function inferFrameworkCallbackSlotFamily(
         return "subscription_event_slot";
     }
     if (TRAILING_CALLBACK_METHOD_NAMES.has(methodName) || PREFERENCES_CALLBACK_METHOD_NAMES.has(methodName)) {
+        if (methodName === "registerMessageReceiver" && explicitArgs.length >= 3) {
+            return "p2p_message_receiver_slot";
+        }
         return "completion_callback_slot";
     }
     return undefined;

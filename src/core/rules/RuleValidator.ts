@@ -1,5 +1,6 @@
 import {
     BaseRule,
+    CallbackResolutionMode,
     RuleConstraintMode,
     RuleEndpoint,
     RuleLayer,
@@ -31,7 +32,15 @@ const MATCH_KINDS: RuleMatchKind[] = [
     "local_name_regex",
 ];
 
-const SOURCE_KINDS = new Set<SourceRuleKind>(["seed_local_name", "entry_param", "call_return", "call_arg", "field_read", "callback_param"]);
+const SOURCE_KINDS = new Set<SourceRuleKind>([
+    "seed_local_name",
+    "entry_param",
+    "call_return",
+    "call_arg",
+    "field_read",
+    "callback_param",
+    "bound_state",
+]);
 const RULE_SEVERITIES = new Set<RuleSeverity>(["low", "medium", "high", "critical"]);
 const INVOKE_KINDS = new Set<RuleInvokeKind>(["any", "instance", "static"]);
 const CONSTRAINT_MODES = new Set<RuleConstraintMode>(["equals", "contains", "regex"]);
@@ -39,6 +48,7 @@ const RULE_TIERS = new Set<RuleTier>(["A", "B", "C"]);
 const RULE_LAYERS = new Set<RuleLayer>(["kernel", "project"]);
 const HIGH_RISK_METHOD_NAMES = new Set(["get", "set", "update", "request", "on"]);
 const ENTRY_PARAM_MATCH_MODES = new Set<EntryParamMatchMode>(["name_only", "name_and_type"]);
+const CALLBACK_RESOLUTION_MODES = new Set<CallbackResolutionMode>(["direct_arg", "known_option"]);
 
 function isObject(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -351,6 +361,16 @@ function validateSourceRule(rulePath: string, rule: unknown, out: RuleValidation
             out.errors.push(`${rulePath}.callbackArgIndexes must be a non-empty array`);
         } else if (obj.callbackArgIndexes.some((x: unknown) => typeof x !== "number" || !Number.isInteger(x) || x < 0)) {
             out.errors.push(`${rulePath}.callbackArgIndexes must contain non-negative integers only`);
+        }
+    }
+    if (obj.callbackFieldNames !== undefined) {
+        if (!Array.isArray(obj.callbackFieldNames) || obj.callbackFieldNames.length === 0 || obj.callbackFieldNames.some((x: unknown) => !isNonEmptyString(x))) {
+            out.errors.push(`${rulePath}.callbackFieldNames must be a non-empty string[]`);
+        }
+    }
+    if (obj.callbackResolution !== undefined) {
+        if (typeof obj.callbackResolution !== "string" || !CALLBACK_RESOLUTION_MODES.has(obj.callbackResolution as CallbackResolutionMode)) {
+            out.errors.push(`${rulePath}.callbackResolution must be direct_arg/known_option`);
         }
     }
     if (obj.paramNameIncludes !== undefined) {

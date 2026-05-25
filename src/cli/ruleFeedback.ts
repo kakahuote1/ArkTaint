@@ -17,6 +17,11 @@ import {
 import { AnalyzeReport, EntryAnalyzeResult } from "./analyzeTypes";
 import { getSourceRules } from "./analyzeUtils";
 import { RuleHitCounters } from "../core/orchestration/TaintPropagationEngine";
+import {
+    discoverProjectApiWrapperRuleCandidates,
+    discoverProjectCallbackRuleCandidates,
+} from "../core/semanticflow/ProjectCallbackCandidateScanner";
+import type { NormalizedCallsiteItem } from "../core/model/callsite/callsiteContextSlices";
 
 interface InvokeSiteStat {
     signature: string;
@@ -207,7 +212,10 @@ export function writeNoCandidateCallsiteClassificationArtifacts(
         C2_PROJECT_WRAPPER: 0,
         C3_FRAMEWORK_GAP: 0,
     } as Record<NoCandidateCategory, number>);
-    const projectCandidates = buildProjectCandidatePool(items);
+    const projectCandidates = mergeProjectCandidatePools(
+        buildProjectCandidatePool(items),
+        buildProactiveProjectCallbackCandidates(report),
+    );
 
     const feedbackOutputDir = resolveRuleFeedbackOutputDir(outputDir);
     fs.mkdirSync(feedbackOutputDir, { recursive: true });
@@ -229,7 +237,7 @@ export function writeNoCandidateCallsiteClassificationArtifacts(
         generatedAt: report.generatedAt,
         repo: report.repo,
         total: projectCandidates.length,
-        policy: "include_only_C2_PROJECT_WRAPPER",
+        policy: "include_project_wrappers_proactive_surfaces_and_selected_external_sdk_gaps",
         items: projectCandidates,
     }, null, 2), "utf-8");
     fs.writeFileSync(projectCandidateMdPath, renderNoCandidateProjectCandidatesMarkdown(projectCandidates, report), "utf-8");
@@ -560,7 +568,7 @@ function classifyNoCandidateCallsite(
     const methodLower = site.method.toLowerCase();
     const sourceLower = site.sourceFile.toLowerCase();
 
-    if (isNonTransferProjectHelper(site, sigLower, methodLower)) {
+    if (isNonTransferProjectHelper(site, sigLower, methodLower, sourceLower)) {
         return {
             ...site,
             category: "C0_NON_TRANSFER_HELPER",
@@ -659,8 +667,21 @@ function isNonTransferProjectHelper(
     site: NoCandidateCallsiteStat,
     sigLower: string,
     methodLower: string,
+    sourceLower: string,
 ): boolean {
-    if (methodLower === "constructor" || methodLower.includes("instinit") || methodLower.startsWith("%")) {
+    if (isBuiltinHelperSurface(site, sigLower, sourceLower)) {
+        return true;
+    }
+    if (isInternalNavigationControlSurface(site, sigLower, methodLower, sourceLower)) {
+        return true;
+    }
+    if (isPageActionOrValidationHelper(site, sigLower, methodLower, sourceLower)) {
+        return true;
+    }
+    if (methodLower === "constructor" || methodLower.includes("instinit")) {
+        return true;
+    }
+    if (methodLower.startsWith("%") && !isProjectApiWrapperSurface(site, sigLower) && !isProjectModelMapperSurface(site, sigLower)) {
         return true;
     }
     if (isPageOrComponentGetter(site, sigLower, methodLower)) {
@@ -680,6 +701,72 @@ function isNonTransferProjectHelper(
         return false;
     }
     return sigLower.includes(".[static]") || sigLower.includes("[static]");
+}
+
+function isBuiltinHelperSurface(site: NoCandidateCallsiteStat, sigLower: string, sourceLower: string): boolean {
+    const source = sourceLower.replace(/\\/g, "/");
+    return source.includes("builtinclass")
+        || sigLower.includes("/builtinclass")
+        || sigLower.includes("@es2015/")
+        || sigLower.includes("@es202");
+}
+
+function isInternalNavigationControlSurface(
+    site: NoCandidateCallsiteStat,
+    sigLower: string,
+    methodLower: string,
+    sourceLower: string,
+): boolean {
+    const source = sourceLower.replace(/\\/g, "/");
+    if (!/(router|route|navigation|navigator|nav)/.test(sigLower) && !/(router|route|navigation|navigator|nav)/.test(source)) {
+        return false;
+    }
+    if (!/^(push|pushasync|replace|replaceasync|pop|back|go|forward|redirect|route|navigate|navto)$/.test(methodLower)) {
+        return false;
+    }
+    return site.argCount <= 3;
+}
+
+function isPageActionOrValidationHelper(
+    site: NoCandidateCallsiteStat,
+    sigLower: string,
+    methodLower: string,
+    sourceLower: string,
+): boolean {
+    const source = sourceLower.replace(/\\/g, "/");
+    if (!/\/(pages?|components?|views?)\//.test(source) && !/\/(pages?|components?|views?)\//.test(sigLower)) {
+        return false;
+    }
+    if (site.argCount > 0) {
+        return false;
+    }
+    return /^(check|is|has|validate|get|back|scroll|header|footer|tab|render|build|login|register|update|change|pick|select|open|close|confirm|cancel)[a-z0-9_$]*/.test(methodLower)
+        || /builder$/.test(methodLower);
+}
+
+function isProjectApiWrapperSurface(site: NoCandidateCallsiteStat, sigLower: string): boolean {
+    if (site.argCount <= 0) {
+        return false;
+    }
+    const sourceLower = site.sourceFile.toLowerCase().replace(/\\/g, "/");
+    const apiLikePath = /(^|\/)(api|apis|service|services|network|net|request|requests|client|clients|repository|repositories)(\/|$)/;
+    if (apiLikePath.test(sourceLower) || apiLikePath.test(sigLower)) {
+        return true;
+    }
+    return /\b(api|http|request|client|service|repository)\b/.test(sourceLower);
+}
+
+function isProjectModelMapperSurface(site: NoCandidateCallsiteStat, sigLower: string): boolean {
+    if (site.argCount <= 0) {
+        return false;
+    }
+    const sourceLower = site.sourceFile.toLowerCase().replace(/\\/g, "/");
+    if (!/(^|\/)(model|models|entity|entities|dto|dtos)(\/|$)/.test(sourceLower)
+        && !/(^|\/)(model|models|entity|entities|dto|dtos)(\/|$)/.test(sigLower)) {
+        return false;
+    }
+    return /\b(partial<|irecord|iuser|dto|json|model)\b/.test(sigLower)
+        || /^%am\d+/i.test(site.method);
 }
 
 function isPageOrComponentGetter(
@@ -759,8 +846,119 @@ function renderNoCandidateCallsitesClassifiedMarkdown(
 
 function buildProjectCandidatePool(items: ClassifiedNoCandidateCallsite[]): ClassifiedNoCandidateCallsite[] {
     return items
-        .filter(item => item.category === "C2_PROJECT_WRAPPER")
+        .filter(item => item.category === "C2_PROJECT_WRAPPER" || isSelectedExternalSdkNoCandidate(item))
         .sort((a, b) => b.count - a.count || a.callee_signature.localeCompare(b.callee_signature));
+}
+
+function isSelectedExternalSdkNoCandidate(item: ClassifiedNoCandidateCallsite): boolean {
+    if (item.category !== "C3_FRAMEWORK_GAP") {
+        return false;
+    }
+    const sig = item.callee_signature.toLowerCase();
+    if (!sig.includes("@%unk/%unk:")) {
+        return false;
+    }
+    if (!/[a-z][a-z0-9_$]*\.[a-z_][a-z0-9_$]*\./i.test(item.callee_signature)) {
+        return false;
+    }
+    const officialOrBuiltinNamespaces = [
+        "date.",
+        "view.",
+        "photoaccesshelper.",
+        "router.",
+        "preferences.",
+        "relationalstore.",
+        "fileio.",
+        "webview.",
+        "window.",
+        "display.",
+    ];
+    if (officialOrBuiltinNamespaces.some(namespace => sig.includes(namespace))) {
+        return false;
+    }
+    const method = item.method.toLowerCase();
+    const lowValueMethods = new Set([
+        "next",
+        "foreach",
+        "indexof",
+        "includes",
+        "symbol.iterator",
+        "gettime",
+        "create",
+    ]);
+    return !lowValueMethods.has(method);
+}
+
+function buildProactiveProjectCallbackCandidates(report: AnalyzeReport): ClassifiedNoCandidateCallsite[] {
+    const callbackCandidates = discoverProjectCallbackRuleCandidates(report.repo, report.sourceDirs || [], {
+        maxCandidates: 80,
+    });
+    const apiWrapperCandidates = discoverProjectApiWrapperRuleCandidates(report.repo, report.sourceDirs || [], {
+        maxCandidates: 80,
+    });
+    return [...callbackCandidates, ...apiWrapperCandidates].map(candidate => toProactiveClassifiedCandidate(candidate));
+}
+
+function toProactiveClassifiedCandidate(candidate: NormalizedCallsiteItem): ClassifiedNoCandidateCallsite {
+    const extra = candidate as any;
+    const callbackProperties = Array.isArray((candidate as any).callbackProperties)
+        ? ((candidate as any).callbackProperties as unknown[]).map(value => String(value || "").trim()).filter(Boolean)
+        : [];
+    const importSource = typeof (candidate as any).importSource === "string"
+        ? String((candidate as any).importSource).trim()
+        : "";
+    const origin = typeof (candidate as any).candidateOrigin === "string"
+        ? String((candidate as any).candidateOrigin).trim()
+        : "proactive_project_callback_surface";
+    const semanticFocus = typeof (candidate as any).semanticFocus === "string"
+        ? String((candidate as any).semanticFocus).trim()
+        : "";
+    return {
+        ...extra,
+        callee_signature: candidate.callee_signature,
+        method: candidate.method,
+        invokeKind: candidate.invokeKind,
+        argCount: candidate.argCount,
+        sourceFile: candidate.sourceFile,
+        count: candidate.count || 1,
+        topEntries: candidate.topEntries || [],
+        category: "C2_PROJECT_WRAPPER",
+        reason: "Project or third-party API/callback surface discovered before taint seeds exist; retained for LLM project modeling.",
+        evidence: [
+            `origin=${origin}`,
+            ...(semanticFocus ? [`semanticFocus=${semanticFocus}`] : []),
+            ...(callbackProperties.length > 0 ? [`callbacks=${callbackProperties.join(",")}`] : []),
+            ...(importSource ? [`importSource=${importSource}`] : []),
+        ],
+        candidateOrigin: origin,
+        ...(semanticFocus ? { semanticFocus } : {}),
+    } as ClassifiedNoCandidateCallsite;
+}
+
+function mergeProjectCandidatePools(
+    primary: ClassifiedNoCandidateCallsite[],
+    proactive: ClassifiedNoCandidateCallsite[],
+): ClassifiedNoCandidateCallsite[] {
+    const merged = new Map<string, ClassifiedNoCandidateCallsite>();
+    const add = (item: ClassifiedNoCandidateCallsite): void => {
+        const semanticFocus = typeof (item as any).semanticFocus === "string"
+            ? String((item as any).semanticFocus).trim()
+            : "";
+        const key = `${item.callee_signature}|${item.method}|${item.invokeKind}|${item.argCount}|${item.sourceFile}|${semanticFocus}`;
+        const existing = merged.get(key);
+        if (existing) {
+            existing.count = Math.max(existing.count, item.count);
+            existing.evidence = dedupStrings([...existing.evidence, ...item.evidence]);
+            existing.topEntries = dedupStrings([...existing.topEntries, ...item.topEntries]);
+            return;
+        }
+        merged.set(key, item);
+    };
+    primary.forEach(add);
+    proactive.forEach(add);
+    return [...merged.values()]
+        .sort((a, b) => b.count - a.count || a.callee_signature.localeCompare(b.callee_signature))
+        .slice(0, 200);
 }
 
 function renderNoCandidateProjectCandidatesMarkdown(
@@ -773,7 +971,7 @@ function renderNoCandidateProjectCandidatesMarkdown(
     lines.push(`- generatedAt: ${report.generatedAt}`);
     lines.push(`- repo: ${report.repo}`);
     lines.push(`- total: ${items.length}`);
-    lines.push(`- policy: include_only_C2_PROJECT_WRAPPER`);
+    lines.push(`- policy: include_project_wrappers_proactive_surfaces_and_selected_external_sdk_gaps`);
     lines.push("");
     lines.push("| # | callee_signature | method | invokeKind | argCount | sourceFile | count | reason | evidence |");
     lines.push("|---|---|---|---|---:|---|---:|---|---|");

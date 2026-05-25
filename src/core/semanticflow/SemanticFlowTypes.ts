@@ -68,6 +68,9 @@ export interface SemanticFlowAnchor {
     line?: number;
     importSource?: string;
     stringLiterals?: string[];
+    callbackProperties?: string[];
+    callbackArgIndexes?: number[];
+    typeHint?: string;
     metaTags?: string[];
     arkMainSelector?: ArkMainSelector;
 }

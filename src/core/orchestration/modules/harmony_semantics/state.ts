@@ -211,16 +211,22 @@ function buildStateHandoffEffects(model: StateManagementModel): HandoffEffect[] 
             addScopedLinkEffect(effects, linkedPairs, sourceHandle, loadHandle, "Harmony-StateLoad", sourceKey);
             for (const targetNodeId of targetLoadNodeIds) {
                 effects.push({
+                    kind: "put",
+                    handle: loadHandle,
+                    source: { nodeId: targetNodeId },
+                    reason: "Harmony-StateLoad",
+                    originModel: "harmony.state",
+                });
+                effects.push({
                     kind: "get",
                     handle: loadHandle,
                     target: {
                         nodeId: targetNodeId,
                         currentField: {
-                            mode: "tail",
+                            mode: "preserve",
                             requireField: true,
                         },
                         allowUnreachableTarget: true,
-                        preserveSourceField: false,
                     },
                     reason: "Harmony-StateLoad",
                     originModel: "harmony.state",
@@ -255,6 +261,7 @@ function addScopedLinkEffect(
 
 interface DecoratedFieldSets {
     bridgeSourceFieldSignatures: Set<string>;
+    bridgeFieldSignatureByClassAndName: Map<string, Map<string, string>>;
     stateFieldsByClassName: Map<string, Set<string>>;
     propLikeFieldsByClassName: Map<string, Set<string>>;
     linkFieldsByClassName: Map<string, Set<string>>;
@@ -295,9 +302,11 @@ export function buildStateManagementModel(
     );
 
     const stateCaptureByObjectNode = collectStateCaptureByObjectNode({
+        scene: args.scene,
         pag: args.pag,
         methods,
         stateFieldSignatures: decorated.bridgeSourceFieldSignatures,
+        bridgeFieldSignatureByClassAndName: decorated.bridgeFieldSignatureByClassAndName,
     });
     const stateOwnerObjectNodeIdsByFieldSignature = collectStateOwnerObjectNodeIdsByFieldSignature({
         pag: args.pag,
@@ -347,31 +356,27 @@ export function buildStateManagementModel(
         }
     };
 
-    for (const method of methods) {
-        const cfg = method.getCfg();
-        if (!cfg) continue;
-
-        for (const stmt of cfg.getStmts()) {
-            if (!stmt.containsInvokeExpr || !stmt.containsInvokeExpr()) continue;
+    const processConstructorInvoke = (stmt: any, methodSignature: string): void => {
+            if (!stmt.containsInvokeExpr || !stmt.containsInvokeExpr()) return;
             const invokeExpr = stmt.getInvokeExpr();
-            if (!(invokeExpr instanceof ArkInstanceInvokeExpr)) continue;
+            if (!(invokeExpr instanceof ArkInstanceInvokeExpr)) return;
 
             const calleeSig = invokeExpr.getMethodSignature?.();
             const calleeSigText = calleeSig?.toString?.() || "";
-            if (!calleeSigText.includes(".constructor(")) continue;
+            if (!calleeSigText.includes(".constructor(")) return;
             constructorCallCount++;
 
             const targetClassName = calleeSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";
-            if (!targetClassName) continue;
+            if (!targetClassName) return;
             const propLikeFields = decorated.propLikeFieldsByClassName.get(targetClassName);
             const linkFields = decorated.linkFieldsByClassName.get(targetClassName);
-            if ((!propLikeFields || propLikeFields.size === 0) && (!linkFields || linkFields.size === 0)) continue;
+            if ((!propLikeFields || propLikeFields.size === 0) && (!linkFields || linkFields.size === 0)) return;
 
             const targetNodeIds = collectObjectNodeIdsFromValue(args.pag, invokeExpr.getBase());
-            if (targetNodeIds.size === 0) continue;
+            if (targetNodeIds.size === 0) return;
 
             const invokeArgs = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
-            if (invokeArgs.length === 0) continue;
+            if (invokeArgs.length === 0) return;
 
             for (let argIndex = 0; argIndex < invokeArgs.length; argIndex++) {
                 const arg = invokeArgs[argIndex];
@@ -410,8 +415,14 @@ export function buildStateManagementModel(
                                         sourceFieldName: capture.stateFieldName,
                                         targetNodeId,
                                         targetFieldName: capture.captureFieldName,
-                                        methodSignature: method.getSignature().toString(),
+                                        methodSignature,
                                     });
+                                    addLoadBridge(
+                                        sourceBridgeNodeId,
+                                        capture.stateFieldName,
+                                        targetClassName,
+                                        capture.captureFieldName,
+                                    );
                                 }
                                 if (isLink) {
                                     addBridgeEdge({
@@ -419,15 +430,36 @@ export function buildStateManagementModel(
                                         sourceFieldName: capture.captureFieldName,
                                         targetNodeId: sourceBridgeNodeId,
                                         targetFieldName: capture.stateFieldName,
-                                        methodSignature: method.getSignature().toString(),
+                                        methodSignature,
                                     });
+                                    const sourceClassName = extractClassNameFromFieldSignature(capture.stateFieldSignature);
+                                    if (sourceClassName) {
+                                        addLoadBridge(
+                                            targetNodeId,
+                                            capture.captureFieldName,
+                                            sourceClassName,
+                                            capture.stateFieldName,
+                                        );
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
+    };
+
+    for (const method of methods) {
+        const cfg = method.getCfg();
+        if (!cfg) continue;
+
+        for (const stmt of cfg.getStmts()) {
+            processConstructorInvoke(stmt, method.getSignature().toString());
         }
+    }
+
+    for (const fieldInit of collectFieldInitializerStatements(args.scene)) {
+        processConstructorInvoke(fieldInit.stmt, fieldInit.signature);
     }
 
     for (const [key, provideFields] of decorated.provideFieldsByKey.entries()) {
@@ -556,6 +588,7 @@ function collectDecoratedFieldSets(
     options: BuildStateManagementInternalOptions,
 ): DecoratedFieldSets {
     const bridgeSourceFieldSignatures = new Set<string>();
+    const bridgeFieldSignatureByClassAndName = new Map<string, Map<string, string>>();
     const stateFieldsByClassName = new Map<string, Set<string>>();
     const propLikeFieldsByClassName = new Map<string, Set<string>>();
     const linkFieldsByClassName = new Map<string, Set<string>>();
@@ -574,6 +607,7 @@ function collectDecoratedFieldSets(
                 if (options.stateDecoratorKinds.has(kind)) {
                     const sig = field.getSignature()?.toString?.() || "";
                     if (sig) bridgeSourceFieldSignatures.add(sig);
+                    if (sig) addBridgeFieldSignature(bridgeFieldSignatureByClassAndName, className, field.getName(), sig);
                     if (!stateFieldsByClassName.has(className)) {
                         stateFieldsByClassName.set(className, new Set<string>());
                     }
@@ -581,6 +615,7 @@ function collectDecoratedFieldSets(
                 } else if (options.propDecoratorKinds.has(kind)) {
                     const sig = field.getSignature()?.toString?.() || "";
                     if (sig) bridgeSourceFieldSignatures.add(sig);
+                    if (sig) addBridgeFieldSignature(bridgeFieldSignatureByClassAndName, className, field.getName(), sig);
                     if (!propLikeFieldsByClassName.has(className)) {
                         propLikeFieldsByClassName.set(className, new Set<string>());
                     }
@@ -617,6 +652,7 @@ function collectDecoratedFieldSets(
 
     return {
         bridgeSourceFieldSignatures,
+        bridgeFieldSignatureByClassAndName,
         stateFieldsByClassName,
         propLikeFieldsByClassName,
         linkFieldsByClassName,
@@ -624,6 +660,22 @@ function collectDecoratedFieldSets(
         consumeFieldsByKey,
         eventFieldsByClassName,
     };
+}
+
+function addBridgeFieldSignature(
+    map: Map<string, Map<string, string>>,
+    className: string,
+    fieldName: string,
+    signature: string,
+): void {
+    if (!className || !fieldName || !signature) return;
+    if (!map.has(className)) map.set(className, new Map<string, string>());
+    map.get(className)!.set(fieldName, signature);
+}
+
+function extractClassNameFromFieldSignature(signature: string): string | undefined {
+    const match = String(signature || "").match(/:\s*([^.\s]+)\.([^.\s>]+)>?$/);
+    return match?.[1];
 }
 
 function resolveStateManagementModelMethods(
@@ -684,9 +736,11 @@ function normalizeDecoratorKind(decorator: Decorator): string | undefined {
 }
 
 function collectStateCaptureByObjectNode(args: {
+    scene: Scene;
     pag: Pag;
     methods: any[];
     stateFieldSignatures: Set<string>;
+    bridgeFieldSignatureByClassAndName: Map<string, Map<string, string>>;
 }): Map<number, StateCaptureInfo[]> {
     const out = new Map<number, StateCaptureInfo[]>();
     const dedup = new Map<number, Set<string>>();
@@ -784,6 +838,33 @@ function collectStateCaptureByObjectNode(args: {
             }
         }
     }
+
+    for (const ctx of collectFieldInitializerStatements(args.scene)) {
+        const left = ctx.stmt.getLeftOp?.();
+        const right = ctx.stmt.getRightOp?.();
+        if (!(left instanceof ArkInstanceFieldRef)) continue;
+        if (!(right instanceof Local)) continue;
+        const leftBase = left.getBase();
+        if (!(leftBase instanceof Local) || leftBase.getName?.() !== "this") continue;
+        const captureFieldName = left.getFieldSignature().getFieldName();
+        const sourceFieldName = normalizeDollarStateLocalName(right.getName?.() || "");
+        if (!captureFieldName || !sourceFieldName) continue;
+        const ownerClassName = inferOwnerClassNameFromAnonymousClassName(ctx.className);
+        if (!ownerClassName) continue;
+        const stateFieldSignature = args.bridgeFieldSignatureByClassAndName
+            .get(ownerClassName)
+            ?.get(sourceFieldName);
+        if (!stateFieldSignature || !args.stateFieldSignatures.has(stateFieldSignature)) continue;
+        const leftNodeIds = collectObjectNodeIdsFromValue(args.pag, leftBase);
+        for (const nodeId of leftNodeIds) {
+            addCapture(nodeId, {
+                captureFieldName,
+                stateFieldSignature,
+                stateFieldName: sourceFieldName,
+            });
+        }
+    }
+
     return out;
 }
 
@@ -848,6 +929,43 @@ function collectFieldObjectNodeIdsByFieldSignature(args: {
             }
         }
     }
+
+    return out;
+}
+
+function normalizeDollarStateLocalName(name: string): string | undefined {
+    const trimmed = String(name || "").trim();
+    if (!trimmed.startsWith("$") || trimmed.length <= 1) return undefined;
+    const candidate = trimmed.slice(1);
+    return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(candidate) ? candidate : undefined;
+}
+
+function inferOwnerClassNameFromAnonymousClassName(className: string): string | undefined {
+    const parts = String(className || "").split("$");
+    for (let index = parts.length - 1; index >= 0; index--) {
+        const head = parts[index].split("-")[0];
+        if (!head || head.startsWith("%AC")) continue;
+        if (/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(head)) return head;
+    }
+    return undefined;
+}
+
+function collectFieldInitializerStatements(scene: Scene): Array<{ stmt: ArkAssignStmt; signature: string; className: string }> {
+    const out: Array<{ stmt: ArkAssignStmt; signature: string; className: string }> = [];
+    for (const cls of scene.getClasses()) {
+        const className = cls.getName?.() || "";
+        for (const field of cls.getFields?.() || []) {
+            const initializer = field.getInitializer?.();
+            const stmts = Array.isArray(initializer) ? initializer : initializer ? [initializer] : [];
+            const signature = field.getSignature?.()?.toString?.() || `${className}.${field.getName?.() || ""}`;
+            for (const stmt of stmts) {
+                if (stmt instanceof ArkAssignStmt) {
+                    out.push({ stmt, signature, className });
+                }
+            }
+        }
+    }
+
     return out;
 }
 

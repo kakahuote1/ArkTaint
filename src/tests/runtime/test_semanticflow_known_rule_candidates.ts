@@ -73,7 +73,22 @@ function main(): void {
     assert(contextFiltered.skippedKnown.length === 1, `expected context AppStorage call to be known, got ${contextFiltered.skippedKnown.length}`);
     assert(contextFiltered.candidates.length === 0, `expected context AppStorage call to be filtered, got ${contextFiltered.candidates.length}`);
 
-    const loggingFiltered = filterKnownSemanticFlowRuleCandidates([{
+    const officialLoggingFiltered = filterKnownSemanticFlowRuleCandidates([{
+        ...makeCandidate("@ohos/hilog: hilog.info(number, string, string, string)", "info", 4),
+    } as any, {
+        ...makeCandidate("@%unk/%unk: .log()", "log", 1),
+        contextSlices: [{
+            callerFile: "demo.ets",
+            invokeLine: 12,
+            invokeStmtText: "console.log(secret)",
+            windowLines: "console.log(secret)",
+            cfgNeighborStmts: [],
+        }],
+    } as any]);
+    assert(officialLoggingFiltered.skippedKnown.length === 2, `expected direct official logging calls to be known, got ${officialLoggingFiltered.skippedKnown.length}`);
+    assert(officialLoggingFiltered.candidates.length === 0, `expected direct official logging calls to be filtered, got ${officialLoggingFiltered.candidates.length}`);
+
+    const projectLoggingFiltered = filterKnownSemanticFlowRuleCandidates([{
         ...makeCandidate("@%unk/%unk: .showInfo()", "showInfo", 2),
         contextSlices: [{
             callerFile: "AppCenterStartAppHandler.ts",
@@ -82,9 +97,12 @@ function main(): void {
             windowLines: "Log.showInfo(TAG, `calculateAppIconPosition index ${index}`)",
             cfgNeighborStmts: [],
         }],
+    } as any, {
+        ...makeCandidate("@ets/common/utils/Logger.ets: Logger.info(string[])", "info", 4),
+        sourceFile: "ets/common/utils/Logger.ets",
     } as any]);
-    assert(loggingFiltered.skippedKnown.length === 1, `expected context Log.showInfo call to be known, got ${loggingFiltered.skippedKnown.length}`);
-    assert(loggingFiltered.candidates.length === 0, `expected context Log.showInfo call to be filtered, got ${loggingFiltered.candidates.length}`);
+    assert(projectLoggingFiltered.skippedKnown.length === 0, `expected project logging wrappers to remain candidates, got ${projectLoggingFiltered.skippedKnown.length}`);
+    assert(projectLoggingFiltered.candidates.length === 2, `expected two project logging wrappers to be kept, got ${projectLoggingFiltered.candidates.length}`);
 
     const projectFiltered = filterKnownSemanticFlowRuleCandidates(
         [makeCandidate("@project/demo: Vault.get(string)", "get", 1)],

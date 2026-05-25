@@ -44,7 +44,11 @@ export type CallbackRegistrationSlotFamily =
     | "system_direct_slot"
     | "subscription_event_slot"
     | "completion_callback_slot"
+    | "p2p_message_receiver_slot"
     | "controller_option_slot"
+    | "component_property_slot"
+    | "project_component_option_slot"
+    | "web_js_proxy_slot"
     | "keyed_dispatch_slot"
     | "scheduler_slot";
 
@@ -55,6 +59,8 @@ export type CallbackRegistrationRecognitionLayer =
     | "empty_owner_fallback"
     | "structural_callable_fallback"
     | "controller_options"
+    | "component_options"
+    | "web_js_proxy_options"
     | "keyed_dispatch";
 
 export type StructuralCallbackEvidenceFamily =
@@ -92,7 +98,8 @@ type FrameworkCallbackOwnerFamily =
     | "gesture"
     | "system_direct"
     | "subscription_event"
-    | "completion_callback";
+    | "completion_callback"
+    | "p2p_message_receiver";
 
 interface FallbackSlotSpec {
     slotFamily: CallbackRegistrationSlotFamily;
@@ -187,6 +194,13 @@ const TRAILING_CALLBACK_METHOD_NAMES = new Set([
     "subscribe",
     "request",
 ]);
+const P2P_MESSAGE_RECEIVER_OWNER_NAMES = new Set([
+    "P2pClient",
+    "wearEngine.P2pClient",
+]);
+const P2P_MESSAGE_RECEIVER_METHOD_NAMES = new Set([
+    "registerMessageReceiver",
+]);
 const PREFERENCES_CALLBACK_METHOD_NAMES = new Set([
     "get",
     "put",
@@ -243,12 +257,21 @@ const PREFERENCES_COMPLETION_FALLBACK_SLOT_SPEC: FallbackSlotSpec = {
     methodNames: PREFERENCES_CALLBACK_METHOD_NAMES,
     minArgs: 3,
 };
+const P2P_MESSAGE_RECEIVER_FALLBACK_SLOT_SPEC: FallbackSlotSpec = {
+    slotFamily: "p2p_message_receiver_slot",
+    callbackFlavor: "channel",
+    registrationShape: "trailing_callback_slot",
+    callbackArgIndexes: [2],
+    methodNames: P2P_MESSAGE_RECEIVER_METHOD_NAMES,
+    minArgs: 3,
+};
 const OWNER_FAMILY_FALLBACK_SPECS = new Map<FrameworkCallbackOwnerFamily, FallbackSlotSpec[]>([
     ["ui_component", [DIRECT_UI_FALLBACK_SLOT_SPEC]],
     ["gesture", [GESTURE_FALLBACK_SLOT_SPEC]],
     ["system_direct", [SYSTEM_DIRECT_FALLBACK_SLOT_SPEC]],
     ["subscription_event", [SUBSCRIPTION_EVENT_FALLBACK_SLOT_SPEC]],
     ["completion_callback", [COMPLETION_FALLBACK_SLOT_SPEC, PREFERENCES_COMPLETION_FALLBACK_SLOT_SPEC]],
+    ["p2p_message_receiver", [P2P_MESSAGE_RECEIVER_FALLBACK_SLOT_SPEC]],
 ]);
 const EMPTY_OWNER_FALLBACK_SPECS: FallbackSlotSpec[] = [
     DIRECT_UI_FALLBACK_SLOT_SPEC,
@@ -305,6 +328,7 @@ const KNOWN_FRAMEWORK_CALLBACK_METHOD_NAMES = new Set([
     "on",
     "request",
     "subscribe",
+    "registerMessageReceiver",
     "get",
     "put",
     "loadContent",
@@ -790,7 +814,7 @@ function resolveStructuralCallableEvidenceFamily(
     if (/^on[A-Z]/.test(methodName)) {
         return "on_like_callback";
     }
-    if (methodName === "create" && sourceMethodName === "build") {
+    if (methodName === "create" && (sourceMethodName === "build" || isViewCreateSignature(methodSig))) {
         return "builder_create_callback";
     }
     if (KNOWN_SCHEDULER_METHOD_NAMES.has(methodName)) {
@@ -803,6 +827,15 @@ function resolveStructuralCallableEvidenceFamily(
         return "action_completion_callback";
     }
     return undefined;
+}
+
+function isViewCreateSignature(methodSig: any): boolean {
+    const text = String(methodSig?.toString?.() || "");
+    if (text.includes("View.create(") || text.includes(": View.create()")) {
+        return true;
+    }
+    const className = methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";
+    return className === "View";
 }
 
 function hasVoidReturningTrailingCallbackEvidence(
@@ -973,6 +1006,9 @@ function resolveFallbackOwnerFamily(className: string): FrameworkCallbackOwnerFa
     }
     if (TRAILING_CALLBACK_OWNER_NAMES.has(className) || className === "Preferences") {
         return "completion_callback";
+    }
+    if (P2P_MESSAGE_RECEIVER_OWNER_NAMES.has(className)) {
+        return "p2p_message_receiver";
     }
     return undefined;
 }
