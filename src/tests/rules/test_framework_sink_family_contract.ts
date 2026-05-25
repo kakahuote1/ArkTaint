@@ -49,8 +49,8 @@ const PROBE_SPECS: SinkFamilyProbeSpec[] = [
     },
     {
         family: "sink.harmony.network.axios",
-        sourceDir: "tests/demo/sdk_signature_probe",
-        caseName: "sdk_signature_probe_001_T",
+        sourceDir: "tests/demo/sink_axios_import_scope",
+        caseName: "axios_import_scope_001_T",
         sourceLocalPattern: "^userInput$",
     },
     {

@@ -31,6 +31,12 @@
         "argCount": 1,
         "typeHint": "axios"
       },
+      "scope": {
+        "module": {
+          "mode": "contains",
+          "value": "@ohos/axios"
+        }
+      },
       "from": "arg0",
       "to": "result"
     },
@@ -43,6 +49,12 @@
         "invokeKind": "instance",
         "argCount": 2,
         "typeHint": "axios"
+      },
+      "scope": {
+        "module": {
+          "mode": "contains",
+          "value": "@ohos/axios"
+        }
       },
       "from": "arg1",
       "to": "result"

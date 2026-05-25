@@ -75,6 +75,9 @@ export interface InvokeSite {
     candidateClassTexts?: string[];
     candidateClassNames?: string[];
     candidateFilePaths?: string[];
+    scopeClassTexts?: string[];
+    scopeModuleTexts?: string[];
+    scopeFileTexts?: string[];
     baseValue?: any;
     resultValue?: any;
     args: any[];

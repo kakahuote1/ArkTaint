@@ -221,8 +221,8 @@
       "id": "transfer.builtin.typedarray.set.arg0_to_base",
       "description": "TypedArray.set(source): source array content taints target typed array.",
       "match": {
-        "kind": "method_name_equals",
-        "value": "set",
+        "kind": "signature_regex",
+        "value": "(?:Int8Array|Uint8Array|Uint8ClampedArray|Int16Array|Uint16Array|Int32Array|Uint32Array|Float32Array|Float64Array|BigInt64Array|BigUint64Array|TypedArray)\\.set\\(",
         "invokeKind": "instance",
         "typeHint": "array"
       },

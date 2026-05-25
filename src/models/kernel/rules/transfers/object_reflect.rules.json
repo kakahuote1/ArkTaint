@@ -8,8 +8,8 @@
       "id": "transfer.reflect.get.arg0_to_result",
       "description": "Reflect.get(target, key): target object field value flows to result.",
       "match": {
-        "kind": "method_name_equals",
-        "value": "get",
+        "kind": "signature_contains",
+        "value": "Reflect.get",
         "invokeKind": "static",
         "argCount": 2,
         "typeHint": "reflect"

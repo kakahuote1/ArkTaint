@@ -52,6 +52,12 @@
         "argCount": 1,
         "typeHint": "axios"
       },
+      "scope": {
+        "module": {
+          "mode": "contains",
+          "value": "@ohos/axios"
+        }
+      },
       "category": "ssrf_or_url_injection",
       "severity": "high",
       "target": {
@@ -68,6 +74,12 @@
         "argCount": 2,
         "typeHint": "axios"
       },
+      "scope": {
+        "module": {
+          "mode": "contains",
+          "value": "@ohos/axios"
+        }
+      },
       "category": "ssrf_or_url_injection",
       "severity": "high",
       "target": {
@@ -83,6 +95,12 @@
         "invokeKind": "instance",
         "argCount": 2,
         "typeHint": "axios"
+      },
+      "scope": {
+        "module": {
+          "mode": "contains",
+          "value": "@ohos/axios"
+        }
       },
       "category": "information_leak",
       "severity": "medium",

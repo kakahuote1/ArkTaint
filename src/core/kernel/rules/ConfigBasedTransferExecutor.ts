@@ -20,6 +20,7 @@ import {
     TransferRule,
     normalizeEndpoint,
 } from "../../rules/RuleSchema";
+import { resolveSdkImportScopeCandidates } from "../../substrate/queries/SdkProvenance";
 import type {
     EndpointDescriptor,
     InvokeSite,
@@ -511,6 +512,7 @@ export class ConfigBasedTransferExecutor {
             this.extractFilePathFromSignature(signature),
             resolvedCalleeMeta.filePaths
         );
+        const importScopeCandidates = resolveSdkImportScopeCandidates(owner, invokeExpr);
 
         return {
             stmt,
@@ -527,6 +529,9 @@ export class ConfigBasedTransferExecutor {
             candidateClassTexts: resolvedCalleeMeta.classTexts,
             candidateClassNames: resolvedCalleeMeta.classNames,
             candidateFilePaths: resolvedCalleeMeta.filePaths,
+            scopeClassTexts: importScopeCandidates.classTexts,
+            scopeModuleTexts: importScopeCandidates.moduleTexts,
+            scopeFileTexts: importScopeCandidates.fileTexts,
             baseValue,
             resultValue,
             args,
@@ -944,7 +949,7 @@ export class ConfigBasedTransferExecutor {
         const classTexts = this.resolveDeclaringClassTexts(site);
         const methodTexts = this.resolveMethodNameTexts(site);
         if (!this.matchConstraintOnAnyText(scope.file, fileTexts)) return false;
-        if (!this.matchConstraintOnAnyText(scope.module, [...signatureTexts, ...fileTexts])) return false;
+        if (!this.matchConstraintOnAnyText(scope.module, [...signatureTexts, ...fileTexts, ...(site.scopeModuleTexts || [])])) return false;
         if (!this.matchConstraintOnAnyText(scope.className, classTexts)) return false;
         if (!this.matchConstraintOnAnyText(scope.methodName, methodTexts)) return false;
         return true;
@@ -982,11 +987,12 @@ export class ConfigBasedTransferExecutor {
             site.calleeClassName,
             ...(site.candidateClassTexts || []),
             ...(site.candidateClassNames || []),
+            ...(site.scopeClassTexts || []),
         ]);
     }
 
     private resolveCalleeFilePathTexts(site: InvokeSite): string[] {
-        return this.uniqueTexts([site.calleeFilePath, ...(site.candidateFilePaths || [])]);
+        return this.uniqueTexts([site.calleeFilePath, ...(site.candidateFilePaths || []), ...(site.scopeFileTexts || [])]);
     }
 
     private resolveFromDescriptor(rule: TransferRule): EndpointDescriptor {
