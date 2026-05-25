@@ -14,7 +14,8 @@
       ],
       "match": {
         "kind": "method_name_equals",
-        "value": "request"
+        "value": "request",
+        "invokeKind": "instance"
       },
       "scope": {
         "className": {

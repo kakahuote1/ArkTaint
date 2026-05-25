@@ -45,7 +45,8 @@
       "enabled": true,
       "match": {
         "kind": "method_name_equals",
-        "value": "update"
+        "value": "update",
+        "invokeKind": "instance"
       },
       "scope": {
         "className": {
@@ -64,7 +65,8 @@
       "enabled": true,
       "match": {
         "kind": "method_name_equals",
-        "value": "update"
+        "value": "update",
+        "invokeKind": "instance"
       },
       "scope": {
         "className": {
@@ -90,7 +92,8 @@
       ],
       "match": {
         "kind": "method_name_equals",
-        "value": "update"
+        "value": "update",
+        "invokeKind": "instance"
       },
       "scope": {
         "className": {
@@ -331,7 +334,8 @@
       ],
       "match": {
         "kind": "method_name_equals",
-        "value": "update"
+        "value": "update",
+        "invokeKind": "instance"
       },
       "scope": {
         "className": {
@@ -532,7 +536,8 @@
       ],
       "match": {
         "kind": "method_name_equals",
-        "value": "update"
+        "value": "update",
+        "invokeKind": "instance"
       },
       "scope": {
         "className": {

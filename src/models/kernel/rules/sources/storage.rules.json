@@ -34,7 +34,8 @@
       ],
       "match": {
         "kind": "method_name_equals",
-        "value": "get"
+        "value": "get",
+        "invokeKind": "instance"
       },
       "scope": {
         "className": {

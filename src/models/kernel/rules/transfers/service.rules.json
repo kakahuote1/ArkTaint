@@ -9,7 +9,8 @@
       "description": "Http.request(url, data): request payload may influence response result.",
       "match": {
         "kind": "method_name_equals",
-        "value": "request"
+        "value": "request",
+        "invokeKind": "instance"
       },
       "scope": {
         "className": {

@@ -75,6 +75,10 @@ function methodEquals(value: string): RuleMatch {
     return { kind: "method_name_equals", value };
 }
 
+function instanceMethodEquals(value: string): RuleMatch {
+    return { kind: "method_name_equals", value, invokeKind: "instance" };
+}
+
 function signatureContains(value: string): RuleMatch {
     return { kind: "signature_contains", value };
 }
@@ -121,7 +125,7 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
             apiCallReturn(
                 "source.harmony.network.http.request.result",
                 "Http.request() return value as network response source.",
-                methodEquals("request"),
+                instanceMethodEquals("request"),
                 exactClassRegexScope("Http"),
             ),
         ],
@@ -141,7 +145,7 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
             apiCallReturn(
                 "source.harmony.preferences.get.result",
                 "Preference get() return value as persistence source.",
-                methodEquals("get"),
+                instanceMethodEquals("get"),
                 exactClassRegexScope("Preferences", "DataPreferences"),
             ),
         ],
@@ -254,7 +258,7 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
             apiCallReturn(
                 "source.harmony.distributedkv.get.result",
                 "DistributedKVStore.get() return value as distributed storage source.",
-                methodEquals("get"),
+                instanceMethodEquals("get"),
                 exactClassRegexScope("DistributedKVStore", "distributedKVStore", "KVStore", "SingleKVStore"),
             ),
         ],
