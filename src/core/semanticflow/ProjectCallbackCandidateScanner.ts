@@ -467,6 +467,9 @@ function scoreProjectApiWrapperMethod(relFile: string, candidate: MethodCandidat
     const methodLower = candidate.method.toLowerCase();
     const bodyLower = candidate.code.toLowerCase();
     let score = 0;
+    if (isFrameworkLifecycleCandidate(pathLower, methodLower, candidate.owner)) {
+        return -100;
+    }
     const isModelMapper = isProjectModelMapperMethod(pathLower, methodLower, bodyLower, candidate);
     if (/(^|\/)(api|apis|service|services|network|net|request|requests|client|clients|repository|repositories|configure)(\/|$)/.test(pathLower)) score += 35;
     if (/(^|\/)(database|db|cache|cacher|logger|log|tracks)(\/|$)/.test(pathLower)) score += 24;
@@ -486,6 +489,27 @@ function scoreProjectApiWrapperMethod(relFile: string, candidate: MethodCandidat
     if (/(\/context\.ets|\/stage\.ets|\/device\.ets)/.test(pathLower) || /(context|stage|window|avoidarea|windowsize)/.test(methodLower)) score -= 40;
     if (candidate.argCount === 0 && !/\b(return|await|axios|http|request|fetch|logger|hilog|console|read|getcredential)\b/.test(bodyLower)) score -= 20;
     return score;
+}
+
+function isFrameworkLifecycleCandidate(pathLower: string, methodLower: string, owner?: string): boolean {
+    const lifecycleMethods = new Set([
+        "oncreate",
+        "ondestroy",
+        "onwindowstagecreate",
+        "onwindowstagedestroy",
+        "onforeground",
+        "onbackground",
+        "onnewwant",
+        "oncontinue",
+        "onconfigurationupdate",
+        "onmemorylevel",
+    ]);
+    if (!lifecycleMethods.has(methodLower)) {
+        return false;
+    }
+    const ownerLower = String(owner || "").toLowerCase();
+    return /(^|\/)(entryability|ability|abilities)(\/|$)/.test(pathLower)
+        || /ability$/.test(ownerLower);
 }
 
 function isProjectModelMapperMethod(

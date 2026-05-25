@@ -113,6 +113,15 @@ function main(): void {
         "  backRouteBuilder() { return undefined; }",
         "}",
     ]);
+    writeFile(path.join(root, sourceDir, "entryability/EntryAbility.ets"), [
+        "import http from '@ohos.net.http';",
+        "export class EntryAbility {",
+        "  onCreate(want: Want) {",
+        "    console.info('bootstrap');",
+        "    http.request('https://example.com/bootstrap');",
+        "  }",
+        "}",
+    ]);
     writeFile(path.join(root, sourceDir, "api/sdk.d.ts"), [
         "export function get(path: string): Promise<string>;",
         "export function post(path: string, value: string): Promise<void>;",
@@ -191,6 +200,7 @@ function main(): void {
     assert(userFromCandidates.length >= 2, `model mapper static/instance from methods should become proactive candidates, got ${userFromCandidates.length}`);
     assert(userFromCandidates.every(item => item.argCount === 1), "model mapper candidates should preserve one payload parameter");
     assert(!apiMethods.has("get") && !apiMethods.has("post") && !apiMethods.has("request"), "declaration-only .d.ts/.d.ets APIs must not become proactive project modeling candidates");
+    assert(!apiMethods.has("onCreate"), "framework lifecycle entry methods must not become proactive project API wrapper candidates");
 
     console.log("PASS test_semanticflow_project_callback_candidates");
 }
