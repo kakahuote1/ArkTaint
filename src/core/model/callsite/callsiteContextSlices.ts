@@ -384,7 +384,7 @@ function extractMethodSnippetFromFile(absPath: string, methodName: string): stri
     let braceDepth = 0;
     let sawOpeningBrace = false;
     const out: string[] = [];
-    const maxLines = 40;
+    const maxLines = 96;
     for (let i = startIndex; i < Math.min(lines.length, startIndex + maxLines); i++) {
         const line = lines[i];
         out.push(`${String(i + 1).padStart(5, " ")} | ${line}`);

@@ -4,7 +4,7 @@ import {
     enrichNoCandidateItemsWithCallsiteSlices,
     normalizeNoCandidateItem,
 } from "../../core/model/callsite/callsiteContextSlices";
-import { buildSemanticFlowRuleCandidateItem } from "../../core/semanticflow/SemanticFlowAdapters";
+import { buildSemanticFlowApiModelingCandidateItem } from "../../core/semanticflow/SemanticFlowAdapters";
 import { buildRuleCandidateCompanionGroups, semanticFlowRuleCandidateKey } from "../../core/semanticflow/SemanticFlowRuleCompanions";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -87,7 +87,7 @@ async function main(): Promise<void> {
     assert(readCompanions.some(item => item.method === "f1"), "shared carrier grouping should pair f2 with f1");
     assert(!readCompanions.some(item => item.method === "f3"), "carrier grouping should not pull unrelated roots");
 
-    const slice = buildSemanticFlowRuleCandidateItem(readCandidate, {
+    const slice = buildSemanticFlowApiModelingCandidateItem(readCandidate, {
         maxContextSlices: 1,
         companionCandidates: readCompanions,
     }).initialSlice;

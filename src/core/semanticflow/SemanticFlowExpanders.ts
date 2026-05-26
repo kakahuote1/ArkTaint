@@ -1,6 +1,6 @@
 import type { ArkMainEntryCandidate } from "../entry/arkmain/llm/ArkMainEntryCandidateTypes";
 import type { NormalizedCallsiteItem } from "../model/callsite/callsiteContextSlices";
-import { buildSemanticFlowArkMainCandidateItem, buildSemanticFlowRuleCandidateItem } from "./SemanticFlowAdapters";
+import { buildSemanticFlowArkMainCandidateItem, buildSemanticFlowApiModelingCandidateItem } from "./SemanticFlowAdapters";
 import { createSemanticFlowDelta } from "./SemanticFlowIncremental";
 import { buildRuleCandidateCompanionGroups, semanticFlowRuleCandidateKey } from "./SemanticFlowRuleCompanions";
 import type { SemanticFlowExpander } from "./SemanticFlowTypes";
@@ -10,7 +10,7 @@ export function createRuleCandidateExpander(
 ): SemanticFlowExpander {
     const candidateByAnchorId = new Map<string, NormalizedCallsiteItem>();
     for (const candidate of candidates) {
-        const item = buildSemanticFlowRuleCandidateItem(candidate, { maxContextSlices: 1 });
+        const item = buildSemanticFlowApiModelingCandidateItem(candidate, { maxContextSlices: 1 });
         candidateByAnchorId.set(item.anchor.id, candidate);
     }
     const companionGroups = buildRuleCandidateCompanionGroups(candidates);
@@ -29,7 +29,7 @@ export function createRuleCandidateExpander(
             const additions: typeof input.slice.snippets = [];
             const nextVisible = currentVisible < contextSlices.length ? currentVisible + 1 : currentVisible;
             if (nextVisible > currentVisible) {
-                const rebuilt = buildSemanticFlowRuleCandidateItem(raw, { maxContextSlices: nextVisible });
+                const rebuilt = buildSemanticFlowApiModelingCandidateItem(raw, { maxContextSlices: nextVisible });
                 for (const snippet of rebuilt.initialSlice.snippets) {
                     if (!input.slice.snippets.some(existing => existing.label === snippet.label)) {
                         additions.push(snippet);

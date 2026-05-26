@@ -45,10 +45,11 @@ export interface SemanticFlowModelInvokerInput {
 export type SemanticFlowModelInvoker = (input: SemanticFlowModelInvokerInput) => Promise<string>;
 
 export const SEMANTIC_FLOW_LLM_TEMPERATURE = 0;
-export const SEMANTIC_FLOW_DECISION_PARSER_SCHEMA_VERSION = 11;
+export const SEMANTIC_FLOW_DECISION_PARSER_SCHEMA_VERSION = 13;
 
 export interface SemanticFlowParseOptions {
     slotAliases?: Map<string, SemanticFlowSurfaceSlotRef>;
+    forbiddenSinkInputs?: Array<{ index: number; reason: string }>;
 }
 
 export interface CreateSemanticFlowLlmDeciderOptions {
@@ -91,6 +92,7 @@ export function createSemanticFlowLlmDecider(options: CreateSemanticFlowLlmDecid
             }
             const parseOptions: SemanticFlowParseOptions = {
                 slotAliases: buildSemanticFlowSlotAliasLookup(input),
+                forbiddenSinkInputs: inferForbiddenSinkInputsFromSlice(input),
             };
             let raw = await options.modelInvoker({
                 system: prompt.system,
@@ -173,6 +175,125 @@ async function repairSemanticFlowDecisionRaw(
             `repair_error=${detail}`,
         ].join("; "));
     }
+}
+
+function inferForbiddenSinkInputsFromSlice(input: SemanticFlowDecisionInput): Array<{ index: number; reason: string }> {
+    const snippets = input.slice.snippets || [];
+    const combined = snippets.map(snippet => String(snippet.code || "")).join("\n");
+    const anchorParams = extractAnchorFormalParametersFromSlice(combined, input.anchor.surface);
+    if (anchorParams.size === 0) {
+        return [];
+    }
+    const out = new Map<number, string>();
+    const usagePattern = /^companionFinalSinkUsage=([A-Za-z_$][\w$]*)\s+used:[^\n]*?\s+unused:([^\n\r]*)/gm;
+    for (const match of combined.matchAll(usagePattern)) {
+        const companionMethod = String(match[1] || "").trim();
+        const unusedText = String(match[2] || "").trim();
+        if (!companionMethod || !unusedText || unusedText === "-") {
+            continue;
+        }
+        const unusedIndexes = [...unusedText.matchAll(/arg(\d+)\(/g)]
+            .map(entry => Number(entry[1]))
+            .filter(value => Number.isInteger(value) && value >= 0);
+        if (unusedIndexes.length === 0) {
+            continue;
+        }
+        const calls = collectCallArgumentsForMethod(combined, companionMethod);
+        for (const args of calls) {
+            for (const unusedIndex of unusedIndexes) {
+                const actual = args[unusedIndex];
+                const anchorIndex = resolveAnchorArgumentIndex(actual, anchorParams);
+                if (anchorIndex === undefined) {
+                    continue;
+                }
+                out.set(anchorIndex, `arg${anchorIndex} maps to unused ${companionMethod}.arg${unusedIndex} in companionFinalSinkUsage`);
+            }
+        }
+    }
+    return [...out.entries()].map(([index, reason]) => ({ index, reason }));
+}
+
+function extractAnchorFormalParametersFromSlice(text: string, surface?: string): Map<string, number> {
+    const params = new Map<string, number>();
+    const surfaceText = String(surface || "").trim();
+    const lines = String(text || "").split(/\r?\n/);
+    const signatureLine = lines.find(line =>
+        line.includes("(")
+        && line.includes(")")
+        && (!surfaceText || new RegExp(`\\b${escapeRegex(surfaceText)}\\s*\\(`).test(line)));
+    if (!signatureLine) {
+        return params;
+    }
+    const rawParams = extractParenthesizedArguments(signatureLine);
+    for (const [index, raw] of splitTopLevelComma(rawParams).entries()) {
+        const cleaned = raw.trim().replace(/^(public|private|protected|readonly)\s+/, "");
+        const match = cleaned.match(/^\s*(?:\.\.\.)?([A-Za-z_$][\w$]*)\b/);
+        if (match) {
+            params.set(match[1], index);
+        }
+    }
+    return params;
+}
+
+function collectCallArgumentsForMethod(text: string, method: string): string[][] {
+    const calls: string[][] = [];
+    const pattern = new RegExp(`(?:\\.|\\b)${escapeRegex(method)}\\s*\\(([^)]*)\\)`, "g");
+    for (const match of String(text || "").matchAll(pattern)) {
+        const rawArgs = String(match[1] || "");
+        const args = splitTopLevelComma(rawArgs).map(arg => arg.trim()).filter(Boolean);
+        if (args.length > 0) {
+            calls.push(args);
+        }
+    }
+    return calls;
+}
+
+function resolveAnchorArgumentIndex(actual: string | undefined, anchorParams: Map<string, number>): number | undefined {
+    const text = String(actual || "").trim().replace(/^\.\.\./, "").trim();
+    const simple = text.match(/^(?:this\.)?([A-Za-z_$][\w$]*)$/);
+    if (!simple) {
+        return undefined;
+    }
+    return anchorParams.get(simple[1]);
+}
+
+function extractParenthesizedArguments(line: string): string {
+    const open = line.indexOf("(");
+    const close = line.lastIndexOf(")");
+    if (open < 0 || close <= open) {
+        return "";
+    }
+    return line.slice(open + 1, close);
+}
+
+function splitTopLevelComma(value: string): string[] {
+    const parts: string[] = [];
+    let current = "";
+    let angleDepth = 0;
+    let parenDepth = 0;
+    let bracketDepth = 0;
+    for (const char of String(value || "")) {
+        if (char === "<") angleDepth++;
+        if (char === ">" && angleDepth > 0) angleDepth--;
+        if (char === "(") parenDepth++;
+        if (char === ")" && parenDepth > 0) parenDepth--;
+        if (char === "[") bracketDepth++;
+        if (char === "]" && bracketDepth > 0) bracketDepth--;
+        if (char === "," && angleDepth === 0 && parenDepth === 0 && bracketDepth === 0) {
+            parts.push(current);
+            current = "";
+            continue;
+        }
+        current += char;
+    }
+    if (current.trim()) {
+        parts.push(current);
+    }
+    return parts;
+}
+
+function escapeRegex(value: string): string {
+    return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 const SEMANTIC_FLOW_SLOT_VALUES = [
@@ -260,8 +381,34 @@ function normalizeDecision(value: unknown, options: SemanticFlowParseOptions): S
     if (resolution === "resolved" && !decision.classification) {
         throw new Error("decision.classification is required when decision.resolution=resolved");
     }
+    validateForbiddenSinkInputs(decision, options);
     validateDoneDecisionConsistency(decision);
     return decision;
+}
+
+function validateForbiddenSinkInputs(
+    decision: Extract<SemanticFlowDecision, { status: "done" }>,
+    options: SemanticFlowParseOptions,
+): void {
+    if (
+        decision.classification !== "rule"
+        || decision.summary.ruleKind !== "sink"
+        || !Array.isArray(options.forbiddenSinkInputs)
+        || options.forbiddenSinkInputs.length === 0
+    ) {
+        return;
+    }
+    const forbidden = new Map(options.forbiddenSinkInputs.map(item => [item.index, item.reason]));
+    for (const input of decision.summary.inputs) {
+        if (input.slot !== "arg" || typeof input.index !== "number") {
+            continue;
+        }
+        const reason = forbidden.get(input.index);
+        if (!reason) {
+            continue;
+        }
+        throw new Error(`ruleKind=sink input arg${input.index} contradicts slice evidence: ${reason}`);
+    }
 }
 
 function tryLiftRuleTransferWithModuleOnlySlots(
@@ -1575,6 +1722,9 @@ function normalizeResolution(
     }
     if (ruleKind && text === ruleKind) {
         return "resolved";
+    }
+    if (text === "need-more-evidence") {
+        return "need-human-check";
     }
     return text;
 }

@@ -5,18 +5,18 @@ import type { SemanticFlowPipelineItemInput } from "./SemanticFlowPipeline";
 import { semanticFlowDeclaringClassFromSignature } from "./SemanticFlowRuleCompanions";
 import type { SemanticFlowAnchor, SemanticFlowSliceCodeSnippet, SemanticFlowSlicePackage } from "./SemanticFlowTypes";
 
-export interface SemanticFlowRuleCandidateAdapterOptions {
+export interface SemanticFlowApiModelingCandidateAdapterOptions {
     maxContextSlices?: number;
     companionCandidates?: NormalizedCallsiteItem[];
 }
 
-export function buildSemanticFlowRuleCandidateItem(
+export function buildSemanticFlowApiModelingCandidateItem(
     item: NormalizedCallsiteItem,
-    options: SemanticFlowRuleCandidateAdapterOptions = {},
+    options: SemanticFlowApiModelingCandidateAdapterOptions = {},
 ): SemanticFlowPipelineItemInput {
     const semanticFocus = normalizeSemanticFocus(item);
     const anchorId = sanitizeKey([
-        "rule",
+        "api-modeling",
         item.callee_signature,
         item.sourceFile,
         String(item.argCount),
@@ -39,7 +39,12 @@ export function buildSemanticFlowRuleCandidateItem(
             callbackProperties,
             callbackArgIndexes,
             typeHint,
-            metaTags: ["rule", "candidate", item.invokeKind, ...(semanticFocus ? [`focus-${semanticFocus}`] : [])],
+            arkMainSelector: buildApiModelingArkMainSelector(item),
+            metaTags: [
+                "api-modeling-candidate",
+                item.invokeKind,
+                ...(semanticFocus ? [`focus-${semanticFocus}`] : []),
+            ],
         },
         initialSlice: {
             anchorId,
@@ -51,6 +56,44 @@ export function buildSemanticFlowRuleCandidateItem(
             notes: buildRuleNotes(item),
         },
     };
+}
+
+function buildApiModelingArkMainSelector(item: NormalizedCallsiteItem): ArkMainSelector | undefined {
+    if (!hasCandidateBoundary(item, "official_arkmain_entry_evidence")) {
+        return undefined;
+    }
+    const methodName = String(item.method || "").trim();
+    if (!methodName) {
+        return undefined;
+    }
+    const className = semanticFlowDeclaringClassFromSignature(item.callee_signature);
+    return {
+        methodName,
+        parameterTypes: parseSignatureParameterTypes(item.callee_signature, item.argCount),
+        returnType: typeof (item as any).returnType === "string"
+            ? String((item as any).returnType).trim() || undefined
+            : undefined,
+        className,
+    };
+}
+
+function hasCandidateBoundary(item: NormalizedCallsiteItem, boundary: string): boolean {
+    const expected = `candidateBoundary=${boundary}`;
+    return (item.topEntries || []).some(entry => String(entry || "").trim() === expected);
+}
+
+function parseSignatureParameterTypes(signature: string, fallbackArgCount?: number): string[] {
+    const text = String(signature || "");
+    const start = text.lastIndexOf("(");
+    const end = text.lastIndexOf(")");
+    if (start >= 0 && end > start) {
+        const body = text.slice(start + 1, end).trim();
+        if (!body) {
+            return [];
+        }
+        return splitTopLevelComma(body).map(part => part.trim() || "Unknown");
+    }
+    return Array.from({ length: Math.max(0, fallbackArgCount || 0) }, () => "Unknown");
 }
 
 function normalizeStringList(values: unknown): string[] | undefined {
@@ -205,6 +248,9 @@ function buildRuleObservations(item: NormalizedCallsiteItem): string[] {
         `argCount=${item.argCount}`,
         `sourceFile=${item.sourceFile}`,
     ];
+    if (typeof (item as any).returnType === "string" && (item as any).returnType.trim()) {
+        observations.push(`returnType=${String((item as any).returnType).trim()}`);
+    }
     const contextSlices = Array.isArray((item as any).contextSlices) ? (item as any).contextSlices as CallsiteContextSlice[] : [];
     if (contextSlices.length > 0) {
         observations.push(`contextSlices=${contextSlices.length}`);
@@ -250,6 +296,7 @@ function buildRuleObservations(item: NormalizedCallsiteItem): string[] {
     if (semanticFocus) {
         observations.push(`semanticFocus=${semanticFocus}`);
     }
+    observations.push(...buildBridgeEvidenceObservations(item));
     const candidateOrigin = typeof (item as any).candidateOrigin === "string"
         ? String((item as any).candidateOrigin).trim()
         : "";
@@ -294,36 +341,38 @@ function buildRuleSnippets(
     const visibleSlices = typeof maxContextSlices === "number"
         ? contextSlices.slice(0, Math.max(0, maxContextSlices))
         : contextSlices;
-
-    for (const [index, slice] of visibleSlices.entries()) {
-        const cfgNeighborStmts = compactSnippetLines(slice.cfgNeighborStmts || [], {
-            dropExact: [slice.invokeStmtText],
-            maxLines: 8,
-        });
-        snippets.push({
-            label: `callsite-${index}`,
-            code: [
-                `callerFile: ${slice.callerFile}`,
-                `callerMethod: ${slice.callerMethod || "-"}`,
-                `invokeLine: ${slice.invokeLine}`,
-                `invokeStmt: ${slice.invokeStmtText}`,
-                "",
-                compactSnippetText(slice.windowLines, { maxLines: 16 }),
-                ...(cfgNeighborStmts.length
-                    ? ["", "cfgNeighbors:", ...cfgNeighborStmts]
-                    : []),
-            ].join("\n"),
-        });
-    }
-
     const methodSnippet = typeof (item as any).methodSnippet === "string"
         ? String((item as any).methodSnippet).trim()
         : "";
+    const skipRedundantBridgeCallsite = isBridgeCandidate(item) && !!methodSnippet;
+
+    if (!skipRedundantBridgeCallsite) {
+        for (const [index, slice] of visibleSlices.entries()) {
+            const cfgNeighborStmts = compactSnippetLines(slice.cfgNeighborStmts || [], {
+                dropExact: [slice.invokeStmtText],
+                maxLines: 8,
+            });
+            snippets.push({
+                label: `callsite-${index}`,
+                code: [
+                    `callerFile: ${slice.callerFile}`,
+                    `callerMethod: ${slice.callerMethod || "-"}`,
+                    `invokeLine: ${slice.invokeLine}`,
+                    `invokeStmt: ${slice.invokeStmtText}`,
+                    "",
+                    compactSnippetText(slice.windowLines, { maxLines: 16 }),
+                    ...(cfgNeighborStmts.length
+                        ? ["", "cfgNeighbors:", ...cfgNeighborStmts]
+                        : []),
+                ].join("\n"),
+            });
+        }
+    }
 
     if (methodSnippet && shouldIncludeMethodSnippet(item)) {
         snippets.push({
-            label: "method",
-            code: methodSnippet,
+            label: isBridgeCandidate(item) ? "method-bridge-evidence" : "method",
+            code: isBridgeCandidate(item) ? compactBridgeSnippet(methodSnippet) : compactMethodEvidenceSnippet(methodSnippet),
         });
     }
 
@@ -391,20 +440,227 @@ function buildRuleSnippets(
         });
     }
 
-    for (const companion of (companionCandidates || []).slice(0, 2)) {
+    const visibleCompanions = isBridgeCandidate(item)
+        ? selectBridgeCompanionCandidates(item, companionCandidates || [])
+        : selectRuleCompanionCandidates(item, companionCandidates || []);
+    for (const companion of visibleCompanions) {
+        const companionSnippet = typeof (companion as any).methodSnippet === "string"
+            ? String((companion as any).methodSnippet).trim()
+            : "";
+        const inlineCompanionEvidence = shouldInlineCompanionMethodEvidence(item, companion)
+            || shouldInlineTransitiveCompanionMethodEvidence(item, companion, visibleCompanions);
         snippets.push({
-            label: `companion-${companion.method || "surface"}`,
-            code: [
-                `callee_signature: ${companion.callee_signature}`,
-                `method: ${companion.method}`,
-                `invokeKind: ${companion.invokeKind}`,
-                `argCount: ${companion.argCount}`,
-                `sourceFile: ${companion.sourceFile}`,
-            ].join("\n"),
+            label: isBridgeCandidate(item)
+                ? `bridge-companion-${companion.method || "surface"}`
+                : `companion-${companion.method || "surface"}`,
+            code: companionSnippet && isBridgeCandidate(item)
+                ? [
+                    `callee_signature: ${companion.callee_signature}`,
+                    `method: ${companion.method}`,
+                    `invokeKind: ${companion.invokeKind}`,
+                    `argCount: ${companion.argCount}`,
+                    `sourceFile: ${companion.sourceFile}`,
+                    "",
+                    compactBridgeSnippet(companionSnippet),
+                ].join("\n")
+                : companionSnippet && inlineCompanionEvidence
+                    ? [
+                        `callee_signature: ${companion.callee_signature}`,
+                        `method: ${companion.method}`,
+                        `invokeKind: ${companion.invokeKind}`,
+                        `argCount: ${companion.argCount}`,
+                        `sourceFile: ${companion.sourceFile}`,
+                        ...buildCompanionFinalSinkUsageLines(companion),
+                        "",
+                        compactMethodEvidenceSnippet(companionSnippet),
+                    ].join("\n")
+                : [
+                    `callee_signature: ${companion.callee_signature}`,
+                    `method: ${companion.method}`,
+                    `invokeKind: ${companion.invokeKind}`,
+                    `argCount: ${companion.argCount}`,
+                    `sourceFile: ${companion.sourceFile}`,
+                ].join("\n"),
         });
     }
 
     return snippets;
+}
+
+function selectRuleCompanionCandidates(item: NormalizedCallsiteItem, companionCandidates: NormalizedCallsiteItem[]): NormalizedCallsiteItem[] {
+    const selected: NormalizedCallsiteItem[] = [];
+    const seen = new Set<string>();
+    const add = (candidate: NormalizedCallsiteItem): void => {
+        const key = [
+            normalizeSlashes(String(candidate.sourceFile || "")),
+            String(candidate.owner || ""),
+            String(candidate.method || ""),
+            String(candidate.callee_signature || ""),
+        ].join("\u0000");
+        const selfKey = [
+            normalizeSlashes(String(item.sourceFile || "")),
+            String(item.owner || ""),
+            String(item.method || ""),
+            String(item.callee_signature || ""),
+        ].join("\u0000");
+        if (key === selfKey || seen.has(key)) {
+            return;
+        }
+        seen.add(key);
+        selected.push(candidate);
+    };
+
+    for (const candidate of companionCandidates) {
+        if (shouldInlineCompanionMethodEvidence(item, candidate)) {
+            add(candidate);
+        }
+    }
+    for (const candidate of [...selected]) {
+        for (const transitive of companionCandidates) {
+            if (shouldInlineCompanionMethodEvidence(candidate, transitive)) {
+                add(transitive);
+            }
+        }
+    }
+    for (const candidate of companionCandidates) {
+        if (selected.length >= 4) {
+            break;
+        }
+        add(candidate);
+    }
+    return selected.slice(0, 4);
+}
+
+function shouldInlineTransitiveCompanionMethodEvidence(
+    item: NormalizedCallsiteItem,
+    companion: NormalizedCallsiteItem,
+    visibleCompanions: NormalizedCallsiteItem[],
+): boolean {
+    return visibleCompanions.some(candidate =>
+        candidate !== companion
+        && shouldInlineCompanionMethodEvidence(item, candidate)
+        && shouldInlineCompanionMethodEvidence(candidate, companion));
+}
+
+function buildCompanionFinalSinkUsageLines(companion: NormalizedCallsiteItem): string[] {
+    const methodSnippet = typeof (companion as any).methodSnippet === "string"
+        ? String((companion as any).methodSnippet)
+        : "";
+    if (!methodSnippet) {
+        return [];
+    }
+    const params = extractFormalParameters(methodSnippet);
+    if (params.length === 0) {
+        return [];
+    }
+    const visibleSinkArgs = collectVisibleOfficialSinkArguments(methodSnippet);
+    if (visibleSinkArgs.length === 0) {
+        return [];
+    }
+
+    const used: string[] = [];
+    const unused: string[] = [];
+    for (const param of params) {
+        const pattern = new RegExp(`(?:\\.\\.\\.)?\\b${escapeRegExp(param.name)}\\b`);
+        const target = `${param.slot}(${param.name})`;
+        if (visibleSinkArgs.some(args => pattern.test(args))) {
+            used.push(target);
+        } else {
+            unused.push(target);
+        }
+    }
+    if (used.length === 0 && unused.length === 0) {
+        return [];
+    }
+    return [
+        `companionFinalSinkUsage=${companion.method || "surface"} used:${used.join(",") || "-"} unused:${unused.join(",") || "-"}`,
+    ];
+}
+
+function extractFormalParameters(methodSnippet: string): Array<{ name: string; slot: string }> {
+    const firstLine = String(methodSnippet || "").split(/\r?\n/).find(line => line.includes("(") && line.includes(")")) || "";
+    const open = firstLine.indexOf("(");
+    const close = firstLine.lastIndexOf(")");
+    if (open < 0 || close <= open) {
+        return [];
+    }
+    const rawParams = splitTopLevelComma(firstLine.slice(open + 1, close));
+    const params: Array<{ name: string; slot: string }> = [];
+    for (const [index, raw] of rawParams.entries()) {
+        const cleaned = raw.trim().replace(/^(public|private|protected|readonly)\s+/, "");
+        const nameMatch = cleaned.match(/^\s*(?:\.\.\.)?([A-Za-z_$][\w$]*)\b/);
+        if (!nameMatch) {
+            continue;
+        }
+        params.push({ name: nameMatch[1], slot: `arg${index}` });
+    }
+    return params;
+}
+
+function splitTopLevelComma(value: string): string[] {
+    const parts: string[] = [];
+    let current = "";
+    let angleDepth = 0;
+    let parenDepth = 0;
+    let bracketDepth = 0;
+    for (const char of value) {
+        if (char === "<") angleDepth++;
+        if (char === ">" && angleDepth > 0) angleDepth--;
+        if (char === "(") parenDepth++;
+        if (char === ")" && parenDepth > 0) parenDepth--;
+        if (char === "[") bracketDepth++;
+        if (char === "]" && bracketDepth > 0) bracketDepth--;
+        if (char === "," && angleDepth === 0 && parenDepth === 0 && bracketDepth === 0) {
+            parts.push(current);
+            current = "";
+            continue;
+        }
+        current += char;
+    }
+    if (current.trim()) {
+        parts.push(current);
+    }
+    return parts;
+}
+
+function collectVisibleOfficialSinkArguments(methodSnippet: string): string[] {
+    const out: string[] = [];
+    const patterns = [
+        /\bhilog\s*\.\s*[A-Za-z_$][\w$]*\s*\(([^)]*)\)/g,
+        /\bconsole\s*\.\s*[A-Za-z_$][\w$]*\s*\(([^)]*)\)/g,
+    ];
+    for (const pattern of patterns) {
+        for (const match of String(methodSnippet || "").matchAll(pattern)) {
+            const args = String(match[1] || "").trim();
+            if (args) {
+                out.push(args);
+            }
+        }
+    }
+    return out;
+}
+
+function shouldInlineCompanionMethodEvidence(item: NormalizedCallsiteItem, companion: NormalizedCallsiteItem): boolean {
+    const method = String(companion.method || "").trim();
+    if (!method || !/^[A-Za-z_$][\w$]*$/.test(method)) {
+        return false;
+    }
+    const methodSnippet = typeof (item as any).methodSnippet === "string"
+        ? String((item as any).methodSnippet)
+        : "";
+    const callPattern = new RegExp(`(?:\\.|\\b)${escapeRegExp(method)}\\s*\\(`);
+    if (!callPattern.test(methodSnippet)) {
+        return false;
+    }
+    const itemFile = normalizeSlashes(String(item.sourceFile || ""));
+    const companionFile = normalizeSlashes(String(companion.sourceFile || ""));
+    return itemFile === companionFile || sameSourceDirectory(itemFile, companionFile);
+}
+
+function sameSourceDirectory(left: string, right: string): boolean {
+    const leftDir = left.includes("/") ? left.slice(0, left.lastIndexOf("/")) : "";
+    const rightDir = right.includes("/") ? right.slice(0, right.lastIndexOf("/")) : "";
+    return !!leftDir && leftDir === rightDir;
 }
 
 function compactSnippetText(text: string, options: { maxLines: number }): string {
@@ -412,6 +668,46 @@ function compactSnippetText(text: string, options: { maxLines: number }): string
         maxLines: options.maxLines,
     });
     return lines.join("\n");
+}
+
+function compactMethodEvidenceSnippet(snippet: string): string {
+    const lines = String(snippet || "").split(/\r?\n/);
+    if (lines.length <= 46) {
+        return snippet;
+    }
+    const keep = new Set<number>();
+    for (let index = 0; index < Math.min(lines.length, 12); index++) {
+        keep.add(index);
+    }
+    for (let index = Math.max(0, lines.length - 6); index < lines.length; index++) {
+        keep.add(index);
+    }
+    const evidencePattern = /\b(?:return|await|hilog\s*\.|console\s*\.|realLog\s*\(|runJavaScript\s*\(|request\s*\(|fetch\s*\(|execute(?:Sql|DML|DQL)?\s*\(|query(?:Sql)?\s*\(|insert(?:Sync)?\s*\(|update\s*\(|write(?:Sync)?\s*\(|put(?:Sync)?\s*\(|get(?:Sync)?\s*\(|set(?:Credential|Object)?\s*\(|JSON\s*\.\s*(?:parse|stringify)\s*\(|callback|emit\s*\(|publish\s*\()\b/i;
+    for (let index = 0; index < lines.length; index++) {
+        if (!evidencePattern.test(lines[index])) {
+            continue;
+        }
+        for (let offset = -2; offset <= 2; offset++) {
+            const candidate = index + offset;
+            if (candidate >= 0 && candidate < lines.length) {
+                keep.add(candidate);
+            }
+        }
+    }
+    const ordered = [...keep.values()].sort((a, b) => a - b).slice(0, 54);
+    if (ordered.length <= 0) {
+        return compactSnippetLines(lines, { maxLines: 46 }).join("\n");
+    }
+    const out: string[] = [];
+    let previous = -2;
+    for (const index of ordered) {
+        if (previous >= 0 && index > previous + 1) {
+            out.push("    ...");
+        }
+        out.push(lines[index]);
+        previous = index;
+    }
+    return out.join("\n");
 }
 
 function compactSnippetLines(
@@ -441,14 +737,25 @@ function normalizeSnippetLine(line: string): string {
     return String(line || "").replace(/\s+/g, " ").trim();
 }
 
+function normalizeSlashes(value: string): string {
+    return String(value || "").replace(/\\/g, "/");
+}
+
+function escapeRegExp(value: string): string {
+    return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function buildRuleNotes(item: NormalizedCallsiteItem): string[] | undefined {
     const notes: string[] = [];
     if (typeof (item as any).contextError === "string" && (item as any).contextError.trim()) {
         notes.push((item as any).contextError.trim());
     }
     const semanticFocus = normalizeSemanticFocus(item);
-    if (semanticFocus === "external_response_source") {
-        notes.push("Focus this modeling item on the returned external/framework response value. If the method returns fetched response data that is not derived from caller inputs, emit ruleKind=source with outputs=[\"ret\"]. Do not model request arguments as sink inputs in this focused item.");
+    if (isReturnedValueSemanticFocus(semanticFocus)) {
+        notes.push("Focus this modeling item on the visible returned value. Treat this as a returned-value modeling question, not as a preselected source rule. Ignore request/input sink semantics in this focused item and decide whether the return is external/framework response data, a direct transfer, module-only handoff, no-transfer, or needs more evidence.");
+    }
+    if (isBridgeCandidate(item)) {
+        notes.push("Bridge evidence is not a preselected module or rule. Use the provided bridgeEvidence observations to decide whether the visible surface is a one-surface rule, a cross-surface module, no-transfer, or needs more evidence. Do not enumerate possible reflected targets or explain every branch. If the matching registration, dispatch target, or callback-return companion is not shown clearly enough for a valid artifact, immediately return status=need-more-evidence with one bounded q_comp/q_cb request instead of inventing a broad bridge.");
     }
     return notes.length > 0 ? notes : undefined;
 }
@@ -458,6 +765,11 @@ function normalizeSemanticFocus(item: NormalizedCallsiteItem): string {
         ? String((item as any).semanticFocus).trim()
         : "";
     return /^[a-z0-9_:-]+$/i.test(raw) ? raw : "";
+}
+
+function isReturnedValueSemanticFocus(semanticFocus: string): boolean {
+    return semanticFocus === "returned_value_surface"
+        || semanticFocus === "external_response_source";
 }
 
 function selectRuleTemplate(
@@ -487,6 +799,9 @@ function selectRuleTemplate(
         methodSnippet,
         ...contextTexts,
     ].join("\n").toLowerCase();
+    if (isBridgeCandidate(item)) {
+        return "multi-surface";
+    }
     if (/(^|\s)@[a-z_]/i.test(decoratorText)) {
         return "declarative-binding";
     }
@@ -560,6 +875,148 @@ function shouldIncludeMethodSnippet(item: NormalizedCallsiteItem): boolean {
 
 function shouldInlineCarrierEvidence(item: NormalizedCallsiteItem): boolean {
     return hasCarrierEvidence(item);
+}
+
+function isBridgeCandidate(item: NormalizedCallsiteItem): boolean {
+    const topEntries = Array.isArray(item.topEntries)
+        ? item.topEntries.map(entry => String(entry || "").trim())
+        : [];
+    if (topEntries.some(entry => entry === "candidateBoundary=project_or_third_party_bridge_evidence")) {
+        return true;
+    }
+    const methodSnippet = typeof (item as any).methodSnippet === "string"
+        ? String((item as any).methodSnippet)
+        : "";
+    const sourceFile = String(item.sourceFile || "").toLowerCase();
+    return /(^|\/)(bridge|bridges|jsbridge|webview)(\/|$)/.test(sourceFile)
+        || /\b(runJavaScript|registerJavaScriptProxy|javaScriptProxy|JavaScriptInterface|callHandler|callJs|Reflect\.get|WebviewController|handlerMap)\b/.test(methodSnippet);
+}
+
+function selectBridgeCompanionCandidates(
+    item: NormalizedCallsiteItem,
+    companions: NormalizedCallsiteItem[],
+): NormalizedCallsiteItem[] {
+    const selfKey = `${item.callee_signature}|${item.sourceFile}|${item.method}|${item.argCount}`;
+    return companions
+        .filter(companion => `${companion.callee_signature}|${companion.sourceFile}|${companion.method}|${companion.argCount}` !== selfKey)
+        .map((companion, index) => ({
+            companion,
+            index,
+            score: scoreBridgeCompanion(companion),
+        }))
+        .sort((a, b) => b.score - a.score || a.index - b.index)
+        .slice(0, 3)
+        .map(entry => entry.companion);
+}
+
+function scoreBridgeCompanion(companion: NormalizedCallsiteItem): number {
+    const method = String(companion.method || "").toLowerCase();
+    const text = [
+        companion.callee_signature,
+        companion.sourceFile,
+        method,
+        typeof (companion as any).methodSnippet === "string" ? (companion as any).methodSnippet : "",
+    ].join("\n");
+    let score = 0;
+    if (/\b(registerjavascriptproxy|javascriptproxy|injectjavascript|setwebviewcontrollerproxy)\b/.test(method)) score += 80;
+    if (/\b(callbacktojs|returnvalue|handlerMap)\b/i.test(text)) score += 70;
+    if (/\b(calljs|callhandler|callhandlernoparam|calljsnoparam)\b/.test(method)) score += 50;
+    if (/\brunJavaScript\s*\(/.test(text)) score += 24;
+    if (/\bReflect\.get\b/.test(text)) score += 18;
+    if (/\bJSON\s*\.\s*(?:parse|stringify)\s*\(/.test(text)) score += 10;
+    return score;
+}
+
+function buildBridgeEvidenceObservations(item: NormalizedCallsiteItem): string[] {
+    if (!isBridgeCandidate(item)) {
+        return [];
+    }
+    const evidence = new Set<string>();
+    const text = [
+        item.callee_signature,
+        item.method,
+        item.sourceFile,
+        typeof (item as any).methodSnippet === "string" ? (item as any).methodSnippet : "",
+    ].join("\n");
+    if (/\bReflect\.get\b/.test(text) && /\.\s*call\s*\(/.test(text)) {
+        evidence.add("bridgeEvidence=reflect_dispatch");
+    }
+    if (/\bJSON\s*\.\s*parse\s*\(/.test(text)) {
+        evidence.add("bridgeEvidence=json_parse_boundary_input");
+    }
+    if (/\bJSON\s*\.\s*stringify\s*\(/.test(text)) {
+        evidence.add("bridgeEvidence=json_stringify_boundary_output");
+    }
+    if (/\brunJavaScript\s*\(/.test(text)) {
+        evidence.add("bridgeEvidence=native_to_js_run_javascript");
+    }
+    if (/\bregisterJavaScriptProxy\s*\(/.test(text)) {
+        evidence.add("bridgeEvidence=register_js_proxy");
+    }
+    if (/\bhandlerMap\s*\.\s*(?:set|get|delete)\s*\(/.test(text)) {
+        evidence.add("bridgeEvidence=callback_id_handler_map");
+    }
+    if (/@JavaScriptInterface\b/.test(text)) {
+        evidence.add("bridgeEvidence=javascript_interface_entry");
+    }
+    if (/\bjavaScriptNamespaceInterfaces\s*\.\s*get\s*\(/.test(text)) {
+        evidence.add("bridgeEvidence=namespace_interface_lookup");
+    }
+    if (/\bcallbackToJs\s*\(/.test(text)) {
+        evidence.add("bridgeEvidence=callback_to_js_dispatch");
+    }
+    return [...evidence.values()].sort((a, b) => a.localeCompare(b));
+}
+
+function compactBridgeSnippet(snippet: string): string {
+    const lines = String(snippet || "").split(/\r?\n/);
+    if (lines.length <= 44) {
+        return snippet;
+    }
+    const keep = new Set<number>();
+    const patterns = [
+        /\bReflect\.get\b/,
+        /\.\s*call\s*\(/,
+        /\bJSON\s*\.\s*(?:parse|stringify)\s*\(/,
+        /\brunJavaScript\s*\(/,
+        /\bregisterJavaScriptProxy\s*\(/,
+        /\bhandlerMap\s*\.\s*(?:set|get|delete)\s*\(/,
+        /@JavaScriptInterface\b/,
+        /\bjavaScriptNamespaceInterfaces\s*\.\s*get\s*\(/,
+        /\bcallbackToJs\s*\(/,
+        /\breturn\b/,
+        /\bmethodName\b/,
+        /\bparams\b/,
+        /\bdata\b/,
+        /\bhandler\b/,
+        /\bscript\b/,
+    ];
+    for (let index = 0; index < lines.length; index++) {
+        const line = lines[index];
+        if (!patterns.some(pattern => pattern.test(line))) {
+            continue;
+        }
+        for (let offset = -1; offset <= 1; offset++) {
+            const candidate = index + offset;
+            if (candidate >= 0 && candidate < lines.length) {
+                keep.add(candidate);
+            }
+        }
+    }
+    const ordered = [...keep.values()].sort((a, b) => a - b).slice(0, 30);
+    if (ordered.length === 0) {
+        return compactSnippetLines(lines, { maxLines: 44 }).join("\n");
+    }
+    const out: string[] = [];
+    let previous = -2;
+    for (const index of ordered) {
+        if (previous >= 0 && index > previous + 1) {
+            out.push("  ...");
+        }
+        out.push(lines[index]);
+        previous = index;
+    }
+    return out.join("\n");
 }
 
 function hasCarrierEvidence(item: NormalizedCallsiteItem): boolean {

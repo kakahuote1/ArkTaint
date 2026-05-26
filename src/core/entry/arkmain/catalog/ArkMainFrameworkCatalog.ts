@@ -15,6 +15,7 @@ interface ArkMainFrameworkCatalogDocument {
     ownerDecorators: string[];
     builderDecorator: string;
     deferredContinuationMethodNames: string[];
+    frameworkCallbackMethodNames: string[];
     openWorldCallbackEntryFamilies: string[];
 }
 
@@ -32,6 +33,7 @@ export const ARK_MAIN_WATCH_LIKE_DECORATORS = new Set(catalog.watchLikeDecorator
 export const ARK_MAIN_OWNER_DECORATORS = new Set(catalog.ownerDecorators);
 export const ARK_MAIN_BUILDER_DECORATOR = catalog.builderDecorator;
 export const ARK_MAIN_DEFERRED_CONTINUATION_METHOD_NAMES = new Set(catalog.deferredContinuationMethodNames);
+export const ARK_MAIN_FRAMEWORK_CALLBACK_METHOD_NAMES = new Set(catalog.frameworkCallbackMethodNames);
 export const ARK_MAIN_OPEN_WORLD_CALLBACK_ENTRY_FAMILIES = new Set(catalog.openWorldCallbackEntryFamilies);
 
 function loadFrameworkCatalog(): ArkMainFrameworkCatalogDocument {
@@ -72,6 +74,7 @@ function validateFrameworkCatalog(value: unknown, catalogPath: string): ArkMainF
         ownerDecorators: expectStringArray(doc.ownerDecorators, `${catalogPath}.ownerDecorators`),
         builderDecorator: expectString(doc.builderDecorator, `${catalogPath}.builderDecorator`),
         deferredContinuationMethodNames: expectStringArray(doc.deferredContinuationMethodNames, `${catalogPath}.deferredContinuationMethodNames`),
+        frameworkCallbackMethodNames: expectStringArray(doc.frameworkCallbackMethodNames, `${catalogPath}.frameworkCallbackMethodNames`),
         openWorldCallbackEntryFamilies: expectStringArray(doc.openWorldCallbackEntryFamilies, `${catalogPath}.openWorldCallbackEntryFamilies`),
     };
 }

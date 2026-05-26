@@ -1,8 +1,14 @@
 import * as fs from "fs";
 import * as path from "path";
+import { ARK_MAIN_FRAMEWORK_CALLBACK_METHOD_NAMES } from "../entry/arkmain/catalog/ArkMainFrameworkCatalog";
+import {
+    resolveAbilityLifecycleContract,
+    resolveExtensionLifecycleContract,
+    resolveStageLifecycleContract,
+} from "../entry/arkmain/facts/ArkMainLifecycleContracts";
 import type { NormalizedCallsiteItem } from "../model/callsite/callsiteContextSlices";
 
-export interface ProjectCallbackCandidateScannerOptions {
+export interface ApiModelingCandidateScannerOptions {
     maxCandidates?: number;
 }
 
@@ -22,6 +28,7 @@ interface MethodCandidate {
     isStatic: boolean;
     argCount: number;
     paramNames: string[];
+    returnType?: string;
     startLine: number;
     code: string;
     score: number;
@@ -67,10 +74,10 @@ function normalizeSlashes(value: string): string {
     return String(value || "").replace(/\\/g, "/");
 }
 
-export function discoverProjectCallbackRuleCandidates(
+export function discoverApiCallbackModelingCandidates(
     repoRoot: string,
     sourceDirs: string[],
-    options: ProjectCallbackCandidateScannerOptions = {},
+    options: ApiModelingCandidateScannerOptions = {},
 ): NormalizedCallsiteItem[] {
     const maxCandidates = Math.max(0, options.maxCandidates ?? 100);
     if (maxCandidates === 0) {
@@ -120,7 +127,7 @@ export function discoverProjectCallbackRuleCandidates(
                     sourceFile,
                     count: 1,
                     topEntries: [],
-                    candidateOrigin: "proactive_project_callback_surface",
+                    candidateOrigin: "recall_callback_surface",
                     callbackProperties,
                     importSource: binding?.source,
                     callerFiles: [relFile],
@@ -161,12 +168,12 @@ export function discoverProjectCallbackRuleCandidates(
                     sourceFile,
                     count: 1,
                     topEntries: [
-                        `origin=proactive_project_method_callback_surface`,
+                        `origin=recall_method_callback_surface`,
                         `receiver=${call.receiver}`,
                         `callbackArgIndexes=${call.callbackArgIndexes.join(",")}`,
                         ...(call.typeHint ? [`typeHint=${call.typeHint}`] : []),
                     ],
-                    candidateOrigin: "proactive_project_method_callback_surface",
+                    candidateOrigin: "recall_method_callback_surface",
                     callbackArgIndexes: call.callbackArgIndexes,
                     typeHint: call.typeHint,
                     callerFiles: [relFile],
@@ -193,10 +200,10 @@ function scoreMethodCallbackCandidate(call: MethodCallbackCall): number {
     return score;
 }
 
-export function discoverProjectApiWrapperRuleCandidates(
+export function discoverApiSurfaceModelingCandidates(
     repoRoot: string,
     sourceDirs: string[],
-    options: ProjectCallbackCandidateScannerOptions = {},
+    options: ApiModelingCandidateScannerOptions = {},
 ): NormalizedCallsiteItem[] {
     const maxCandidates = Math.max(0, options.maxCandidates ?? 100);
     if (maxCandidates === 0) {
@@ -224,12 +231,14 @@ export function discoverProjectApiWrapperRuleCandidates(
                 sourceFile,
                 count: 1,
                 topEntries: [
-                    `origin=proactive_project_api_wrapper_surface`,
+                    `origin=recall_api_surface`,
                     `score=${score}`,
+                    ...candidateBoundaryHints(relFile, method),
                 ],
-                candidateOrigin: "proactive_project_api_wrapper_surface",
+                candidateOrigin: "recall_api_surface",
                 methodSnippet: method.code,
-                methodSnippetSource: "proactive_project_api_wrapper_surface",
+                methodSnippetSource: "recall_api_surface",
+                returnType: method.returnType,
                 contextSlices: [{
                     callerFile: relFile,
                     callerMethod: method.owner ? `${method.owner}.${method.method}` : method.method,
@@ -243,26 +252,97 @@ export function discoverProjectApiWrapperRuleCandidates(
                 score,
                 item: baseItem,
             });
-            if (shouldCreateExternalResponseSourceCandidate(method)) {
+            if (shouldCreateReturnedValueSurfaceCandidate(method)) {
                 out.push({
                     score: score + 16,
                     item: {
                         ...baseItem,
                         topEntries: [
                             ...((baseItem.topEntries || []) as string[]),
-                            "semanticFocus=external_response_source",
+                            "semanticFocus=returned_value_surface",
                         ],
-                        candidateOrigin: "proactive_project_api_wrapper_source_surface",
-                        semanticFocus: "external_response_source",
+                        candidateOrigin: "recall_returned_value_surface",
+                        semanticFocus: "returned_value_surface",
                     } as NormalizedCallsiteItem,
                 });
             }
         }
     }
-    return out
-        .sort((a, b) => b.score - a.score || String(a.item.callee_signature).localeCompare(String(b.item.callee_signature)))
-        .slice(0, maxCandidates)
+    return selectApiSurfaceCandidateAccumulators(out, maxCandidates)
         .map(entry => entry.item);
+}
+
+function selectApiSurfaceCandidateAccumulators(
+    candidates: CandidateAccumulator[],
+    maxCandidates: number,
+): CandidateAccumulator[] {
+    const sorted = [...candidates]
+        .sort((a, b) => b.score - a.score || String(a.item.callee_signature).localeCompare(String(b.item.callee_signature)));
+    const byKey = new Map<string, CandidateAccumulator[]>();
+    for (const candidate of sorted) {
+        const key = apiSurfacePairKey(candidate.item);
+        const group = byKey.get(key) || [];
+        group.push(candidate);
+        byKey.set(key, group);
+    }
+    const selected: CandidateAccumulator[] = [];
+    const selectedKeys = new Set<string>();
+    const add = (candidate: CandidateAccumulator): boolean => {
+        if (selected.length >= maxCandidates) {
+            return false;
+        }
+        const key = apiSurfaceCandidateKey(candidate.item);
+        if (selectedKeys.has(key)) {
+            return false;
+        }
+        selected.push(candidate);
+        selectedKeys.add(key);
+        return true;
+    };
+    for (const candidate of sorted) {
+        if (selected.length >= maxCandidates) {
+            break;
+        }
+        if (!add(candidate)) {
+            continue;
+        }
+        const sibling = findApiSurfaceFocusSibling(candidate, byKey.get(apiSurfacePairKey(candidate.item)) || []);
+        if (sibling) {
+            add(sibling);
+        }
+    }
+    return selected;
+}
+
+function findApiSurfaceFocusSibling(
+    candidate: CandidateAccumulator,
+    group: CandidateAccumulator[],
+): CandidateAccumulator | undefined {
+    const hasFocus = isReturnedValueCandidate(candidate.item);
+    return group.find(item => isReturnedValueCandidate(item.item) !== hasFocus);
+}
+
+function isReturnedValueCandidate(item: NormalizedCallsiteItem): boolean {
+    return String((item as any).semanticFocus || "").trim() === "returned_value_surface"
+        || String((item as any).candidateOrigin || "").trim() === "recall_returned_value_surface";
+}
+
+function apiSurfacePairKey(item: NormalizedCallsiteItem): string {
+    return [
+        normalizeSlashes(String(item.sourceFile || "")),
+        String((item as any).callee_signature || ""),
+        String(item.method || ""),
+        String((item as any).invokeKind || ""),
+        String((item as any).argCount ?? ""),
+    ].join("\u0000");
+}
+
+function apiSurfaceCandidateKey(item: NormalizedCallsiteItem): string {
+    return [
+        apiSurfacePairKey(item),
+        String((item as any).candidateOrigin || ""),
+        String((item as any).semanticFocus || ""),
+    ].join("\u0000");
 }
 
 function collectSourceFiles(repoRoot: string, sourceDirs: string[]): string[] {
@@ -282,6 +362,10 @@ function isLikelyProjectApiWrapperFile(relFile: string, text: string): boolean {
         return false;
     }
     if (/(^|\/)(api|apis|service|services|network|net|request|requests|client|clients|repository|repositories|configure|database|db|cache|cacher|logger|log|tracks)(\/|$)/.test(normalized)) {
+        return true;
+    }
+    if (hasBridgeModelingSignal(text)
+        && /(^|\/)(bridge|bridges|jsbridge|webview|core)(\/|$)/.test(normalized)) {
         return true;
     }
     if (/(^|\/)(model|models|entity|entities|dto|dtos)(\/|$)/.test(normalized)
@@ -315,7 +399,8 @@ function collectClassMethodCandidates(lines: string[], out: MethodCandidate[]): 
             if (j > i && depth === 1) {
                 const method = parseClassMethodHeader(line);
                 if (method) {
-                    const snippet = collectSnippet(lines, j, end);
+                    const methodEnd = findBlockEnd(lines, j);
+                    const snippet = collectSnippet(lines, j, methodEnd >= j ? methodEnd : end);
                     const paramNames = parseTopLevelParameterNames(method.params);
                     out.push({
                         owner,
@@ -323,6 +408,7 @@ function collectClassMethodCandidates(lines: string[], out: MethodCandidate[]): 
                         isStatic: method.isStatic,
                         argCount: paramNames.length,
                         paramNames,
+                        returnType: method.returnType,
                         startLine: j + 1,
                         code: snippet,
                         score: 0,
@@ -338,8 +424,8 @@ function collectClassMethodCandidates(lines: string[], out: MethodCandidate[]): 
 function collectTopLevelFunctionCandidates(lines: string[], out: MethodCandidate[]): void {
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        const fn = line.match(/^\s*(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(([^)]*)\)/);
-        const prop = line.match(/^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?\(([^)]*)\)\s*(?::[^=]+)?=>/);
+        const fn = line.match(/^\s*(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*(?:<[^>{}()]*>\s*)?\(([^)]*)\)/);
+        const prop = line.match(/^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?(?:<[^>{}()]*>\s*)?\(([^)]*)\)\s*(?::[^=]+)?=>/);
         const m = fn || prop;
         if (!m) continue;
         const snippet = collectSnippet(lines, i, Math.min(lines.length - 1, i + 80));
@@ -349,6 +435,7 @@ function collectTopLevelFunctionCandidates(lines: string[], out: MethodCandidate
             isStatic: true,
             argCount: paramNames.length,
             paramNames,
+            returnType: extractReturnTypeFromHeader(line),
             startLine: i + 1,
             code: snippet,
             score: 0,
@@ -392,20 +479,31 @@ function parseTopLevelParameterNames(params: string): string[] {
         .filter(part => /^[A-Za-z_$][\w$]*$/.test(part));
 }
 
-function parseClassMethodHeader(line: string): { name: string; params: string; isStatic: boolean } | undefined {
+function parseClassMethodHeader(line: string): { name: string; params: string; returnType?: string; isStatic: boolean } | undefined {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("//")) return undefined;
     if (/^(if|for|while|switch|catch|return|else|new)\b/.test(trimmed)) return undefined;
-    const m = trimmed.match(/^(?:(?:public|private|protected|override|readonly)\s+)*(static\s+)?(?:async\s+)?([A-Za-z_$][\w$]*)\s*\(([^)]*)\)/)
-        || trimmed.match(/^(?:(?:public|private|protected|override|readonly)\s+)*(static\s+)?(?:async\s+)?([A-Za-z_$][\w$]*)\s*=\s*\(([^)]*)\)\s*=>/);
+    const m = trimmed.match(/^(?:(?:public|private|protected|override|readonly)\s+)*(static\s+)?(?:async\s+)?([A-Za-z_$][\w$]*)\s*(?:<[^>{}()]*>\s*)?\(([^)]*)\)/)
+        || trimmed.match(/^(?:(?:public|private|protected|override|readonly)\s+)*(static\s+)?(?:async\s+)?([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?(?:<[^>{}()]*>\s*)?\(([^)]*)\)\s*(?::[^=]+)?=>/);
     if (!m) return undefined;
     const name = m[2];
     if (name === "constructor" || /^[A-Z]/.test(name)) return undefined;
     return {
         name,
         params: m[3],
+        returnType: extractReturnTypeFromHeader(line),
         isStatic: !!m[1],
     };
+}
+
+function extractReturnTypeFromHeader(line: string): string | undefined {
+    const text = String(line || "");
+    const parenIndex = text.lastIndexOf(")");
+    if (parenIndex < 0) return undefined;
+    const rest = text.slice(parenIndex + 1);
+    const match = rest.match(/^\s*:\s*([^={;]+?)(?:\s*(?:=>|\{)|\s*$)/);
+    const returnType = match?.[1]?.trim();
+    return returnType || undefined;
 }
 
 function findBlockEnd(lines: string[], startIndex: number): number {
@@ -467,8 +565,15 @@ function scoreProjectApiWrapperMethod(relFile: string, candidate: MethodCandidat
     const methodLower = candidate.method.toLowerCase();
     const bodyLower = candidate.code.toLowerCase();
     let score = 0;
-    if (isFrameworkLifecycleCandidate(pathLower, methodLower, candidate.owner)) {
-        return -100;
+    const hasBridgeSignal = hasBridgeModelingSignal(candidate.code) || hasBridgePathSignal(pathLower);
+    const loggingPayload = isLoggingPayloadSurface(pathLower, methodLower, candidate);
+    const loggingConfig = isLoggingConfigSurface(methodLower, bodyLower);
+    const delegatedReturnedValue = hasDelegatedReturnedValueProducer(candidate);
+    if (isOfficialArkMainEntryCandidate(pathLower, candidate.method, candidate.owner)) {
+        score += 8;
+    }
+    if (isFrameworkContextHelperCandidate(pathLower, methodLower, bodyLower, candidate.owner)) {
+        score -= 35;
     }
     const isModelMapper = isProjectModelMapperMethod(pathLower, methodLower, bodyLower, candidate);
     if (/(^|\/)(api|apis|service|services|network|net|request|requests|client|clients|repository|repositories|configure)(\/|$)/.test(pathLower)) score += 35;
@@ -476,40 +581,137 @@ function scoreProjectApiWrapperMethod(relFile: string, candidate: MethodCandidat
     if (isModelMapper) score += 48;
     if (/(request|post|get|put|delete|send|upload|download|login|credential|profile|token|cookie|session|cache|save|write|insert|update|execute|query|error|info|debug)/.test(methodLower)) score += 24;
     const hasExternalEffectSignal = /\b(axios|http|request|fetch|post|get|put|delete|websocket|socket|hilog|console|logger|fileio|writesync|relationalstore|rdb|rdbstore|executesql|transaction|database|sqlite|preferences|appstorage|persistent|localstorage)\b/.test(bodyLower)
+        || hasBridgeSignal
+        || loggingPayload
         || /\.\s*execute\s*\(/.test(bodyLower);
+    if (hasBridgeSignal) score += 36;
+    if (hasBridgeSignal && /^(call|calljs|callhandler|callbacktojs|returnvalue|registerjavascriptproxy|javascriptproxy|hasjavascriptmethod)/.test(methodLower)) score += 12;
     if (/\b(axios|http|request|fetch|post|get|put|delete|websocket|socket)\b/.test(bodyLower)) score += 36;
+    if (delegatedReturnedValue) score += 24;
     if (/\b(hilog|console|logger)\b/.test(bodyLower)) score += 28;
+    if (loggingPayload) score += 34;
+    if (loggingPayload && candidate.owner && /^logger$/i.test(candidate.owner) && candidate.isStatic) score += 22;
+    if (loggingConfig) score -= 42;
     if (/\b(fileio|writesync|write|copyfile|movefile)\b/.test(bodyLower)) score += 28;
     if (/\b(relationalstore|rdb|rdbstore|executesql|transaction|database|sqlite)\b/.test(bodyLower)
         || /\.\s*execute\s*\(/.test(bodyLower)) score += 28;
     if (/\b(preferences|appstorage|persistent|localstorage)\b/.test(bodyLower)) score += 18;
     if (/\b(access_token|refresh_token|authorizationcode|credential|password|phone|email|openid|unionid|token|cookie|apikey|session)\b/.test(bodyLower)) score += 18;
     if (/^(check|is|has|validate|format|parseurl|back|scroll|build|render)/.test(methodLower)) score -= 35;
-    if (!hasExternalEffectSignal && !isModelMapper) score -= 30;
-    if (/(\/context\.ets|\/stage\.ets|\/device\.ets)/.test(pathLower) || /(context|stage|window|avoidarea|windowsize)/.test(methodLower)) score -= 40;
+    if (!hasExternalEffectSignal && !isModelMapper && !delegatedReturnedValue) score -= 30;
+    if (/(\/context\.ets|\/stage\.ets|\/device\.ets)/.test(pathLower) || /(context|stage|window|avoidarea|safearea|windowsize)/.test(methodLower)) score -= 40;
     if (candidate.argCount === 0 && !/\b(return|await|axios|http|request|fetch|logger|hilog|console|read|getcredential)\b/.test(bodyLower)) score -= 20;
     return score;
 }
 
-function isFrameworkLifecycleCandidate(pathLower: string, methodLower: string, owner?: string): boolean {
-    const lifecycleMethods = new Set([
-        "oncreate",
-        "ondestroy",
-        "onwindowstagecreate",
-        "onwindowstagedestroy",
-        "onforeground",
-        "onbackground",
-        "onnewwant",
-        "oncontinue",
-        "onconfigurationupdate",
-        "onmemorylevel",
-    ]);
-    if (!lifecycleMethods.has(methodLower)) {
+function isLoggingPayloadSurface(pathLower: string, methodLower: string, candidate: MethodCandidate): boolean {
+    if (!/(^|\/)(logger|log)(\/|$)/.test(pathLower)) {
         return false;
     }
+    if (candidate.argCount <= 0) {
+        return false;
+    }
+    return /^(log|reallog|logbycustomconfig|debug|info|warn|error|fatal|trace|verbose|json|json2|json3|d|i|w|e|f|dt|it|wt|et|ft)$/.test(methodLower);
+}
+
+function isLoggingConfigSurface(methodLower: string, bodyLower: string): boolean {
+    if (/^(init|initialize|getlogger|addlogadapter|removelogadapter|clearlogadapter|setconfig|mergeconfig|config|isloggable)$/.test(methodLower)) {
+        return true;
+    }
+    return /\b(addlogadapter|removelogadapter|clearlogadapter|printerproxys\.get|printerproxys\.set)\b/.test(bodyLower)
+        && !/\b(hilog|console)\s*\./.test(bodyLower);
+}
+
+function candidateBoundaryHints(relFile: string, candidate: MethodCandidate): string[] {
+    const pathLower = normalizeSlashes(relFile).toLowerCase();
+    const methodLower = candidate.method.toLowerCase();
+    const bodyLower = candidate.code.toLowerCase();
+    const hints: string[] = [];
+    if (isOfficialArkMainEntryCandidate(pathLower, candidate.method, candidate.owner)) {
+        hints.push("candidateBoundary=official_arkmain_entry_evidence");
+    }
+    if (isFrameworkContextHelperCandidate(pathLower, methodLower, bodyLower, candidate.owner)) {
+        hints.push("candidateBoundary=framework_context_helper_evidence");
+    }
+    if (/(^|\/)(api|apis|service|services|network|net|request|requests|client|clients|repository|repositories|database|db|cache|cacher|logger|log)(\/|$)/.test(pathLower)) {
+        hints.push("candidateBoundary=project_or_third_party_wrapper_evidence");
+    }
+    if (hasBridgeModelingSignal(candidate.code) || hasBridgePathSignal(pathLower)) {
+        hints.push("candidateBoundary=project_or_third_party_bridge_evidence");
+    }
+    return hints;
+}
+
+function hasBridgePathSignal(pathLower: string): boolean {
+    return /(^|\/)(bridge|bridges|jsbridge|webview)(\/|$)/.test(pathLower);
+}
+
+function hasBridgeModelingSignal(text: string): boolean {
+    return /\b(runJavaScript|registerJavaScriptProxy|javaScriptProxy|JavaScriptInterface|callHandler|callJs|Reflect\.get|WebviewController|webview)\b/.test(String(text || ""));
+}
+
+function isOfficialArkMainEntryCandidate(pathLower: string, methodName: string, owner?: string): boolean {
+    return isFrameworkLifecycleCandidate(pathLower, methodName, owner)
+        || isFrameworkCallbackCandidate(pathLower, methodName, owner);
+}
+
+function isFrameworkLifecycleCandidate(pathLower: string, methodName: string, owner?: string): boolean {
+    if (!isFrameworkEntryOwnerOrPath(pathLower, owner)) {
+        return false;
+    }
+    const ownerKind = classifyFrameworkEntryOwner(pathLower, owner);
+    if (ownerKind === "stage") {
+        return !!resolveStageLifecycleContract(methodName);
+    }
+    if (ownerKind === "extension") {
+        return !!resolveExtensionLifecycleContract(methodName);
+    }
+    if (ownerKind === "ability") {
+        return !!resolveAbilityLifecycleContract(methodName);
+    }
+    return !!resolveAbilityLifecycleContract(methodName)
+        || !!resolveStageLifecycleContract(methodName)
+        || !!resolveExtensionLifecycleContract(methodName);
+}
+
+function isFrameworkCallbackCandidate(pathLower: string, methodName: string, owner?: string): boolean {
+    if (!isFrameworkEntryOwnerOrPath(pathLower, owner)) {
+        return false;
+    }
+    return ARK_MAIN_FRAMEWORK_CALLBACK_METHOD_NAMES.has(methodName);
+}
+
+function isFrameworkContextHelperCandidate(pathLower: string, methodLower: string, bodyLower: string, owner?: string): boolean {
+    if (!isFrameworkEntryOwnerOrPath(pathLower, owner)) {
+        return false;
+    }
+    const contextHelperName = /(context|stage|window|avoidarea|safearea|windowsize|systembar|orientation|mainwindow)/.test(methodLower);
+    const windowContextUse = /\b(windowstage|getmainwindow|getmainwindowsync|getwindowavoidarea|getwindowproperties|setsystembar|setwindowlayoutfullscreen|windowavoidarea|safearea)\b/.test(bodyLower);
+    return contextHelperName && windowContextUse;
+}
+
+function isFrameworkEntryOwnerOrPath(pathLower: string, owner?: string): boolean {
     const ownerLower = String(owner || "").toLowerCase();
-    return /(^|\/)(entryability|ability|abilities)(\/|$)/.test(pathLower)
-        || /ability$/.test(ownerLower);
+    return /(^|\/)(entryability|ability|abilities|extension|extensions|formability|formextension|serviceextension|serviceext|stub|idl|rpc|remote)(\/|$)/.test(pathLower)
+        || /(ability|extension|formability|formextension|stub|remote|serviceext)$/.test(ownerLower)
+        || /(entryability|formability|formextension|serviceextension|serviceext|stub|idl)/.test(ownerLower);
+}
+
+function classifyFrameworkEntryOwner(pathLower: string, owner?: string): "ability" | "stage" | "extension" | "unknown" {
+    const ownerLower = String(owner || "").toLowerCase();
+    if (/(^|\/)(abilitystage|stage)(\/|$)/.test(pathLower) || /(abilitystage|stage)$/.test(ownerLower)) {
+        return "stage";
+    }
+    if (/(^|\/)(extension|extensions|formability|formextension|serviceextension|serviceext)(\/|$)/.test(pathLower)
+        || /(extension|formability|formextension|serviceext)$/.test(ownerLower)
+        || /(formextension|serviceextension|serviceext)/.test(ownerLower)) {
+        return "extension";
+    }
+    if (/(^|\/)(entryability|ability|abilities)(\/|$)/.test(pathLower)
+        || /(entryability|ability)$/.test(ownerLower)) {
+        return "ability";
+    }
+    return "unknown";
 }
 
 function isProjectModelMapperMethod(
@@ -531,17 +733,21 @@ function isProjectModelMapperMethod(
         && /\b(?:return\s+instance|return\s+this|return\s+[a-z_$][\w$]*|new\s+[A-Z][\w$]*\s*\()/.test(bodyLower);
 }
 
-function shouldCreateExternalResponseSourceCandidate(candidate: MethodCandidate): boolean {
+function shouldCreateReturnedValueSurfaceCandidate(candidate: MethodCandidate): boolean {
     const codeLower = candidate.code.toLowerCase();
     const methodLower = candidate.method.toLowerCase();
     if (/^(create|build|make|init|new)[a-z0-9_$]*/.test(methodLower)) {
         return false;
     }
-    const hasNetworkEffect = /\b(?:axios|http)\s*\(|\b(?:axios|http)\.(?:request|post|get|put|delete|fetch)\b|\b(?:request|fetch|\$request)\s*\(|\bwebsocket\b|\bsocket\b/.test(codeLower);
-    if (!hasNetworkEffect) {
+    if (!/\breturn\b/.test(codeLower)) {
         return false;
     }
-    if (!/\breturn\b/.test(codeLower)) {
+    if (hasVoidLikeReturnType(candidate.returnType)) {
+        return false;
+    }
+    const hasReturnedValueProducer = hasExternalOrFrameworkResponseProducer(candidate.code)
+        || hasDelegatedReturnedValueProducer(candidate);
+    if (!hasReturnedValueProducer) {
         return false;
     }
     for (const param of candidate.paramNames) {
@@ -559,7 +765,75 @@ function shouldCreateExternalResponseSourceCandidate(candidate: MethodCandidate)
     if (/\breturn\s+(?:await\s+)?(?:axios|http|request|fetch|\$request|[A-Za-z_$][\w$]*\.(?:request|post|get|put|delete|fetch))\s*\(/.test(codeLower)) {
         return true;
     }
-    return /\breturn\s+(?:credential|profile|token|data|result|response|res|ret)\b/.test(codeLower);
+    if (/\bjson\s*\.\s*parse\s*\(/.test(codeLower) && returnsNonParameterValue(candidate)) {
+        return true;
+    }
+    if (/\b(?:fromjson|from_json|parse|decode|convert|torestdto|tomodel)\s*\(/.test(codeLower) && returnsNonParameterValue(candidate)) {
+        return true;
+    }
+    return /\breturn\s+(?:credential|profile|token|data|result|response|res|ret)\b/.test(codeLower)
+        || returnsNonParameterValue(candidate);
+}
+
+function hasExternalOrFrameworkResponseProducer(code: string): boolean {
+    const text = String(code || "");
+    const lowered = text.toLowerCase();
+    if (/\b(?:axios|http)\s*\(/.test(lowered)
+        || /\b(?:axios|http)\s*\.\s*(?:request|post|get|put|delete|fetch)\s*\(/.test(lowered)
+        || /\b(?:request|fetch|\$request)\s*\(/.test(lowered)
+        || /\bwebsocket\b|\bsocket\b/.test(lowered)) {
+        return true;
+    }
+    if (/\b(?:axios|http|fetch|request|client|api|apis|server|service|instance|\$request|this\.(?:http|client|api|apis|request|server|service)|this\._?(?:request|post|get|put|delete|fetch))\s*\.\s*(?:request|post|get|put|delete|fetch|postWithAuth|requestJson|fetchJson|sendRequest)\s*\(/i.test(text)) {
+        return true;
+    }
+    return /\b(?:await|return)\s+(?:this\.)?(?:_?request|_?post|_?get|_?put|_?delete|postWithAuth|requestJson|fetchJson|sendRequest)\s*\(/i.test(text);
+}
+
+function hasVoidLikeReturnType(returnType?: string): boolean {
+    const normalized = String(returnType || "")
+        .replace(/\s+/g, "")
+        .toLowerCase();
+    return normalized === "void"
+        || normalized === "undefined"
+        || normalized === "promise<void>"
+        || normalized === "promise<undefined>";
+}
+
+function hasDelegatedReturnedValueProducer(candidate: MethodCandidate): boolean {
+    const code = String(candidate.code || "");
+    if (!/\breturn\b/.test(code)) {
+        return false;
+    }
+    const lowered = code.toLowerCase();
+    return /\breturn\s+(?:await\s+)?(?:this\.)?[A-Za-z_$]*(?:dataSource|repository|repo|store|client|service|api|dao|orm|request|http|network)[A-Za-z_$]*\s*\.\s*[A-Za-z_$][\w$]*\s*\(/.test(code)
+        || (/\b(?:prefs|preferences|orm|rdb|store|database|networkdatasource|datasource|repository)\b/.test(lowered)
+            && returnsNonParameterValue(candidate));
+}
+
+function returnsNonParameterValue(candidate: MethodCandidate): boolean {
+    const params = new Set(candidate.paramNames.map(name => name.toLowerCase()));
+    const returnExprs = [...candidate.code.matchAll(/\breturn\s+([^;\n]+)/gi)]
+        .map(match => match[1].replace(/\s+/g, " ").trim())
+        .filter(Boolean);
+    for (const expr of returnExprs) {
+        const lowered = expr.toLowerCase();
+        if (!lowered || /^(true|false|null|undefined|void\b|0|1|"[^"]*"|'[^']*')/.test(lowered)) {
+            continue;
+        }
+        const bare = lowered.match(/^(?:await\s+)?([a-z_$][\w$]*)\s*(?:\)|$)/i)?.[1];
+        if (bare && params.has(bare)) {
+            continue;
+        }
+        if (/^promise\.resolve\s*\(\s*([a-z_$][\w$]*)\s*\)/i.test(lowered)) {
+            const resolved = lowered.match(/^promise\.resolve\s*\(\s*([a-z_$][\w$]*)\s*\)/i)?.[1];
+            if (resolved && params.has(resolved)) {
+                continue;
+            }
+        }
+        return true;
+    }
+    return false;
 }
 
 function escapeRegExp(value: string): string {

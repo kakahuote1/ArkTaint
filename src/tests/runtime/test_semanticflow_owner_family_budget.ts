@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { enrichNoCandidateItemsWithCallsiteSlices, normalizeNoCandidateItem } from "../../core/model/callsite/callsiteContextSlices";
-import { buildSemanticFlowRuleCandidateItem } from "../../core/semanticflow/SemanticFlowAdapters";
+import { buildSemanticFlowApiModelingCandidateItem } from "../../core/semanticflow/SemanticFlowAdapters";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -73,7 +73,7 @@ async function main(): Promise<void> {
         cfgNeighborRadius: 2,
     });
 
-    const slice = buildSemanticFlowRuleCandidateItem(enriched[0]).initialSlice;
+    const slice = buildSemanticFlowApiModelingCandidateItem(enriched[0]).initialSlice;
     const labels = slice.snippets.map(snippet => snippet.label);
 
     assert(labels.length === 3, `expected 3 snippets, got ${labels.length}: ${labels.join(",")}`);

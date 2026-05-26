@@ -1,7 +1,7 @@
 ---
 id: "semanticflow/asset-plane-selection"
 title: "SemanticFlow Asset Plane Selection"
-version: "1.0.3"
+version: "1.0.4"
 ---
 
 # Asset Plane Selection
@@ -31,6 +31,8 @@ Use this skill to decide which ArkTaint model plane a candidate API semantic bel
    - page build or component entry ownership.
 
 ## Decision Order
+
+Candidate origin, recall category, file path, method name, and harness tags are evidence only. They do not preselect the output plane.
 
 1. If the slice describes a framework-managed entry or scheduler, choose `arkmain`.
 2. Else if one visible surface fully describes the fact, choose `rule`.

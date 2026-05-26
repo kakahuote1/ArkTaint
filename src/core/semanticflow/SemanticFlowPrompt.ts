@@ -6,7 +6,7 @@ import {
 import { formatSemanticFlowRuntimeSkills } from "./SemanticFlowRuntimeSkills";
 
 /** Bump when prompt instructions / JSON shape expectations change (invalidates on-disk session cache keys). */
-export const SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION = 19;
+export const SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION = 23;
 
 export interface SemanticFlowPrompt {
     system: string;
@@ -124,8 +124,8 @@ export function buildSemanticFlowPrompt(input: SemanticFlowDecisionInput): Seman
         "",
         "Rules:",
         "- Treat this as ArkTaint's project-modeling harness, not an IDE/Codex engineering skill. The answer must constrain ArkTaint model generation only.",
-        "- If observations or notes include semanticFocus=external_response_source, focus this item only on API output returned from an external/framework response. Use classification=rule, ruleKind=source, outputs=[\"ret\"] when the method returns fetched response data. Do not model request arguments as sinks in that focused item.",
-        "- A wrapper may appear as multiple focused candidates when it both consumes request inputs and returns external response data. Keep each focused answer single-purpose: request payload consumption is a sink item; returned response data is a source item.",
+        "- If observations or notes include semanticFocus=returned_value_surface, treat it as a returned-value modeling question, not as a preselected artifact. Inspect only whether the visible return value is external/framework response data, a direct visible transfer, module-only handoff, no-transfer, or needs more evidence. Do not model request arguments as sinks in that focused item.",
+        "- A wrapper may appear as multiple focused candidates when it both consumes request inputs and returns external response data. Keep each focused answer single-purpose: request payload consumption belongs to the ordinary candidate; returned-value semantics belong to the focused candidate. The LLM still decides rule/module/no-transfer from evidence.",
         "- Use resolution=resolved only when the summary is specific enough to generate a stable ArkMain artifact, Rule artifact, or ModuleSpec.",
         '- The only valid positive resolution token is "resolved". Do not use "source", "sink", "transfer", "rule", or "module" as resolution values.',
         "- Use resolution=irrelevant, no-transfer, wrapper-only, or need-human-check when no final artifact should be emitted.",
@@ -140,12 +140,14 @@ export function buildSemanticFlowPrompt(input: SemanticFlowDecisionInput): Seman
         "- Do not treat request-interceptor configuration parameters as new sources by default. They usually carry the program's own outbound request config; response/error interceptor parameters are different because they are framework-delivered response/error payloads.",
         "- ruleKind=sink means tainted input is consumed; use inputs only and no transfers.",
         "- If a wrapper passes an argument, field, or derived string into a network/storage/log/database/file/IPC/WebView/external-system API, summarize the request/input side as ruleKind=sink over the consumed input slot even when the method also returns external response data.",
-        "- For an ordinary wrapper candidate without semanticFocus=external_response_source, prioritize request/input sink semantics when caller-provided inputs are sent to an external endpoint. Do not answer with a returned-response source for that ordinary candidate when a separate external-response focused candidate exists or is implied.",
+        "- For an ordinary wrapper candidate without semanticFocus=returned_value_surface, inspect the wrapper's visible request/input side. If caller-provided inputs are sent to an external endpoint, a sink rule may be appropriate. Do not duplicate returned-value source semantics in the ordinary candidate when a separate returned-value focused candidate exists or is implied.",
         "- For database/storage writer wrappers, model only the payload slots as sink inputs: values buckets, record/entity objects, serialized content, buffers, file bodies, or value arguments. Selector/control slots such as table name, key, URI, RdbPredicates, predicate/filter/where/condition objects, callback, affected-row count, status, or error objects are not payload sink inputs by default.",
         "- For RDB-style update(valueBucket, predicates, callback), choose the values bucket or record object as the persistence sink and do not mark the predicates argument unless it is raw SQL/executable query text.",
         "- For insert/update helpers with a leading table/key/URI argument, do not mark that selector as the persisted payload; choose the argument that carries the inserted or updated data.",
         "- Internal router/navigation wrappers that only push, replace, pop, or route between project pages are control-flow or carrier surfaces, not security sinks. Use no-transfer unless the method directly loads a WebView/external URL, logs, stores, sends, executes, or otherwise discloses caller payloads to an external boundary.",
         "- For rest-parameter wrappers such as `info(...args)` that forward the rest array to a sink, use the rest parameter slot as the sink input; do not enumerate project-specific callsite arities.",
+        "- For multi-hop wrappers, pick sink inputs from the final visible sink call, not from an intermediate forwarding call alone. If a rest argument is forwarded to a companion method but the companion's final `hilog`/`console`/network/storage/database call does not consume that rest argument, do not mark the rest slot as a sink. If the companion body is missing, ask for more evidence instead of outputting every forwarded argument.",
+        "- When snippet evidence includes companionFinalSinkUsage, treat it as mechanical source-code evidence about which companion formal parameters are used by final official sink calls. Do not model caller slots that map only to companion parameters listed as unused.",
         "- ruleKind=sanitizer means taint is stopped or neutralized at this anchor. Do not also model it as a transfer. If taint still reaches a visible output slot, it is not a sanitizer.",
         "- Only emit sanitizer when the API is a semantically certain sanitizer for this sink family. Formatting, stringify, toString, substring, encoding, logging, or validation-style names alone are not sanitizers.",
         "- ruleKind=transfer means visible slot-to-slot propagation inside the anchor surface only. Use anchor-local slots only; do not use companion surfaces, carrier state, dispatch, or constraints.",
@@ -177,7 +179,7 @@ export function buildSemanticFlowPrompt(input: SemanticFlowDecisionInput): Seman
         "- If a moduleSpec only encodes one-surface direct bridge semantics that rules can already express, do not use classification=module.",
         "- Do not classify a simple visible arg->ret/base transfer as module; that belongs to ruleKind=transfer.",
         "- Prefer arkmain only for framework-managed external entry semantics.",
-        "- If anchor metaTags contains rule or candidate, do not use classification=arkmain. Project helper methods, wrappers, and ordinary callsites are rule/module/no-transfer decisions.",
+        "- Anchor metaTags such as api-modeling-candidate, recall surface origins, or candidateBoundary observations are evidence, not a preselected artifact plane. Decide among arkmain, rule, module, no-transfer, and need-more-evidence from the slice evidence.",
         "- classification=arkmain must include relations.entryPattern and must not include ruleKind, moduleKind, moduleSpec, or transfers.",
         "- When classification=arkmain and resolution=resolved, relations.entryPattern must be a full object with phase and kind. Do not return entryPattern as a bare string.",
         "- classification=arkmain is only for framework entry ownership and scheduling. It is not for ordinary wrappers, helpers, or state bridges.",

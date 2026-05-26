@@ -685,16 +685,99 @@ function capRuleCandidatesForSourceDir(
     candidates: NormalizedCallsiteItem[],
     maxItems: number | undefined,
 ): NormalizedCallsiteItem[] {
-    const scoped = candidates.filter(item => semanticFlowCandidateBelongsToSourceDir(sourceDir, sourceAbs, item));
-    const ranked = rankSemanticFlowRuleCandidatesForModeling(scoped);
-    const limit = Math.max(1, maxItems ?? ranked.length);
-    return ranked.slice(0, limit);
+    const scoped = scopeRuleCandidatesForSourceDir(sourceDir, sourceAbs, candidates);
+    return selectSemanticFlowRuleCandidatesForModeling(scoped, maxItems);
+}
+
+function scopeRuleCandidatesForSourceDir(
+    sourceDir: string,
+    sourceAbs: string,
+    candidates: NormalizedCallsiteItem[],
+): NormalizedCallsiteItem[] {
+    return candidates.filter(item => semanticFlowCandidateBelongsToSourceDir(sourceDir, sourceAbs, item));
 }
 
 export function rankSemanticFlowRuleCandidatesForModeling(candidates: NormalizedCallsiteItem[]): NormalizedCallsiteItem[] {
     return [...candidates].sort((a, b) => scoreSemanticFlowRuleCandidateForModeling(b) - scoreSemanticFlowRuleCandidateForModeling(a)
         || (Number(b.count) || 0) - (Number(a.count) || 0)
         || String(a.callee_signature || "").localeCompare(String(b.callee_signature || "")));
+}
+
+export function selectSemanticFlowRuleCandidatesForModeling(
+    candidates: NormalizedCallsiteItem[],
+    maxItems?: number,
+): NormalizedCallsiteItem[] {
+    const ranked = rankSemanticFlowRuleCandidatesForModeling(candidates);
+    const limit = Math.max(1, maxItems ?? ranked.length);
+    const byGroup = new Map<string, NormalizedCallsiteItem[]>();
+    for (const item of ranked) {
+        const key = semanticFlowModelingPairKey(item);
+        byGroup.set(key, [...(byGroup.get(key) || []), item]);
+    }
+
+    const selected: NormalizedCallsiteItem[] = [];
+    const selectedKeys = new Set<string>();
+    const groupCounts = new Map<string, number>();
+    let forcedFirstPair = false;
+
+    const add = (item: NormalizedCallsiteItem): boolean => {
+        if (selected.length >= limit) {
+            return false;
+        }
+        const itemKey = semanticFlowModelingItemKey(item);
+        if (selectedKeys.has(itemKey)) {
+            return false;
+        }
+        const groupKey = semanticFlowModelingPairKey(item);
+        const groupCount = groupCounts.get(groupKey) || 0;
+        if (groupCount >= 2) {
+            return false;
+        }
+        selected.push(item);
+        selectedKeys.add(itemKey);
+        groupCounts.set(groupKey, groupCount + 1);
+        return true;
+    };
+
+    for (let index = 0; index < ranked.length; index++) {
+        const item = ranked[index];
+        if (selected.length >= limit) {
+            break;
+        }
+        if (!add(item)) {
+            continue;
+        }
+        const sibling = pairedSemanticFlowModelingCandidate(item, byGroup, selectedKeys);
+        if (sibling && shouldAddPairedSemanticFlowCandidate(sibling, ranked, index + 1, selectedKeys, forcedFirstPair)) {
+            add(sibling);
+            forcedFirstPair = true;
+        }
+    }
+    return selected;
+}
+
+function shouldAddPairedSemanticFlowCandidate(
+    sibling: NormalizedCallsiteItem,
+    ranked: NormalizedCallsiteItem[],
+    nextIndex: number,
+    selectedKeys: Set<string>,
+    forcedFirstPair: boolean,
+): boolean {
+    if (!forcedFirstPair) {
+        return true;
+    }
+    const siblingScore = scoreSemanticFlowRuleCandidateForModeling(sibling);
+    for (let i = nextIndex; i < ranked.length; i++) {
+        const candidate = ranked[i];
+        if (selectedKeys.has(semanticFlowModelingItemKey(candidate))) {
+            continue;
+        }
+        if (scoreSemanticFlowRuleCandidateForModeling(candidate) > siblingScore) {
+            return false;
+        }
+        return true;
+    }
+    return true;
 }
 
 export function scoreSemanticFlowRuleCandidateForModeling(item: NormalizedCallsiteItem): number {
@@ -704,21 +787,24 @@ export function scoreSemanticFlowRuleCandidateForModeling(item: NormalizedCallsi
     const semanticFocus = String((item as any).semanticFocus || "").trim();
     const methodSnippet = String((item as any).methodSnippet || "").toLowerCase();
     const hasExternalEffectEvidence = /\b(axios|http|request|fetch|post|get|put|delete|websocket|socket|hilog|console|logger|fileio|writesync|relationalstore|rdb|rdbstore|executesql|preferences|appstorage|persistent|localstorage)\b/.test(methodSnippet);
+    const hasDelegatedWrapperEvidence = /\b(datasource|networkdatasource|repository|repo|store|client|service|api|dao|orm|preferences|appstorage|persistent|localstorage)\b/.test(methodSnippet);
     let score = Number(item.count) || 0;
-    if (origin !== "proactive_project_callback_surface") score += 30;
-    if (origin === "proactive_project_api_wrapper_surface") score += 45;
-    if (origin === "proactive_project_api_wrapper_source_surface") score += 55;
-    if (semanticFocus === "external_response_source") score += 32;
+    if (origin !== "recall_callback_surface") score += 30;
+    if (origin === "recall_api_surface") score += 45;
+    if (origin === "recall_returned_value_surface") score += 55;
+    if (isReturnedValueSemanticFocus(semanticFocus)) score += 32;
     if (item.argCount > 0) score += 20;
     if (isProjectSerializationWrapperCandidate(method, sig, item.argCount)) score += 28;
     if (/(process|parse|decode|encode|transform|convert|collect|save|insert|update|request|response)/.test(method)) score += 12;
     if (/viewmodel|service|manager|repository|store|cache|client/.test(sig)) score += 8;
     if (/(api|apis|service|services|network|net|request|requests|client|clients|repository|repositories|configure|axios|http|logger|cache)/.test(sig)) score += 16;
     if (/(token|credential|auth|profile|login|register|password|phone|email|cookie|session)/.test(sig)) score += 10;
-    if ((origin === "proactive_project_api_wrapper_surface" || origin === "proactive_project_api_wrapper_source_surface") && hasExternalEffectEvidence) score += 24;
-    if ((origin === "proactive_project_api_wrapper_surface" || origin === "proactive_project_api_wrapper_source_surface") && !hasExternalEffectEvidence) score -= 35;
-    if ((origin === "proactive_project_api_wrapper_surface" || origin === "proactive_project_api_wrapper_source_surface") && /(\/context\.ets|\/stage\.ets|\/device\.ets|context|window|avoidarea|windowsize)/.test(sig)) score -= 35;
-    if ((origin === "proactive_project_api_wrapper_surface" || origin === "proactive_project_api_wrapper_source_surface") && /(credential|profile|token|auth)/.test(method) && hasExternalEffectEvidence) score += 24;
+    if ((origin === "recall_api_surface" || origin === "recall_returned_value_surface") && hasExternalEffectEvidence) score += 24;
+    if (origin === "recall_returned_value_surface" && hasDelegatedWrapperEvidence) score += 18;
+    if ((origin === "recall_api_surface" || origin === "recall_returned_value_surface") && !hasExternalEffectEvidence && !hasDelegatedWrapperEvidence) score -= 35;
+    if ((origin === "recall_api_surface" || origin === "recall_returned_value_surface") && /(\/context\.ets|\/stage\.ets|\/device\.ets|context|window|avoidarea|windowsize)/.test(sig)) score -= 35;
+    if ((origin === "recall_api_surface" || origin === "recall_returned_value_surface") && /(credential|profile|token|auth)/.test(method) && hasExternalEffectEvidence) score += 24;
+    if (origin === "recall_returned_value_surface" && /(credential|profile|token|auth|password|cookie|session|account|phone|email)/.test(method) && hasDelegatedWrapperEvidence) score += 26;
     if (isLikelyContextOrUiSetupCandidate(method, sig)) score -= 70;
     if (isNoPayloadMaintenanceCandidate(method, sig, item.argCount)) score -= 55;
     if (isInternalNavigationControlCandidate(method, sig)) score -= 45;
@@ -726,6 +812,42 @@ export function scoreSemanticFlowRuleCandidateForModeling(item: NormalizedCallsi
     if (/^(check|validate|back|scroll|build|render|is|has|getui)/.test(method)) score -= 18;
     if (/^get|^is|^has/.test(method) && item.argCount === 0) score -= 10;
     return score;
+}
+
+function pairedSemanticFlowModelingCandidate(
+    item: NormalizedCallsiteItem,
+    byGroup: Map<string, NormalizedCallsiteItem[]>,
+    selectedKeys: Set<string>,
+): NormalizedCallsiteItem | undefined {
+    const siblings = byGroup.get(semanticFlowModelingPairKey(item)) || [];
+    const hasFocus = isReturnedValueSemanticFocus(String((item as any).semanticFocus || "").trim());
+    const wanted = siblings.find(candidate => {
+        if (selectedKeys.has(semanticFlowModelingItemKey(candidate))) {
+            return false;
+        }
+        const candidateFocus = isReturnedValueSemanticFocus(String((candidate as any).semanticFocus || "").trim());
+        return hasFocus ? !candidateFocus : candidateFocus;
+    });
+    return wanted;
+}
+
+function isReturnedValueSemanticFocus(semanticFocus: string): boolean {
+    return semanticFocus === "returned_value_surface"
+        || semanticFocus === "external_response_source";
+}
+
+function semanticFlowModelingPairKey(item: NormalizedCallsiteItem): string {
+    return [
+        item.callee_signature || "",
+        item.method || "",
+        item.invokeKind || "",
+        String(item.argCount ?? ""),
+        item.sourceFile || "",
+    ].join("|");
+}
+
+function semanticFlowModelingItemKey(item: NormalizedCallsiteItem): string {
+    return `${semanticFlowModelingPairKey(item)}|${String((item as any).semanticFocus || "")}`;
 }
 
 function isLikelyContextOrUiSetupCandidate(methodLower: string, signatureLower: string): boolean {
@@ -914,12 +1036,12 @@ async function runBootstrapAnalyze(options: SemanticFlowCliOptions): Promise<Boo
         },
     })));
     const feedbackDir = path.join(phase1OutputDir, "feedback", "rule_feedback");
-    const projectCandidatePath = path.join(feedbackDir, "no_candidate_project_candidates.json");
+    const apiModelingCandidatePath = path.join(feedbackDir, "api_modeling_candidates.json");
     const fallbackRuleInputPath = path.join(feedbackDir, "no_candidate_callsites.json");
-    const selected = selectBootstrapRuleInput(projectCandidatePath, fallbackRuleInputPath);
+    const selected = selectBootstrapRuleInput(apiModelingCandidatePath, fallbackRuleInputPath);
     console.log(
         `semanticflow_phase=bootstrap_analyze done rule_input=${selected.path} `
-        + `selection=${selected.selection} project_candidates=${selected.projectCandidateCount ?? ""} `
+        + `selection=${selected.selection} api_modeling_candidates=${selected.apiModelingCandidateCount ?? ""} `
         + `fallback_candidates=${selected.fallbackCandidateCount ?? ""}`,
     );
     return {
@@ -929,21 +1051,21 @@ async function runBootstrapAnalyze(options: SemanticFlowCliOptions): Promise<Boo
 }
 
 function selectBootstrapRuleInput(
-    projectCandidatePath: string,
+    apiModelingCandidatePath: string,
     fallbackRuleInputPath: string,
 ): {
     path: string;
-    selection: "project_candidates" | "fallback_callsites" | "missing";
-    projectCandidateCount: number | null;
+    selection: "api_modeling_candidates" | "fallback_callsites" | "missing";
+    apiModelingCandidateCount: number | null;
     fallbackCandidateCount: number | null;
 } {
-    const projectCandidateCount = readCandidatePayloadCount(projectCandidatePath);
+    const apiModelingCandidateCount = readCandidatePayloadCount(apiModelingCandidatePath);
     const fallbackCandidateCount = readCandidatePayloadCount(fallbackRuleInputPath);
-    if (projectCandidateCount !== null && projectCandidateCount > 0) {
+    if (apiModelingCandidateCount !== null && apiModelingCandidateCount > 0) {
         return {
-            path: projectCandidatePath,
-            selection: "project_candidates",
-            projectCandidateCount,
+            path: apiModelingCandidatePath,
+            selection: "api_modeling_candidates",
+            apiModelingCandidateCount,
             fallbackCandidateCount,
         };
     }
@@ -951,15 +1073,15 @@ function selectBootstrapRuleInput(
         return {
             path: fallbackRuleInputPath,
             selection: "fallback_callsites",
-            projectCandidateCount,
+            apiModelingCandidateCount,
             fallbackCandidateCount,
         };
     }
-    if (projectCandidateCount !== null) {
+    if (apiModelingCandidateCount !== null) {
         return {
-            path: projectCandidatePath,
-            selection: "project_candidates",
-            projectCandidateCount,
+            path: apiModelingCandidatePath,
+            selection: "api_modeling_candidates",
+            apiModelingCandidateCount,
             fallbackCandidateCount,
         };
     }
@@ -967,14 +1089,14 @@ function selectBootstrapRuleInput(
         return {
             path: fallbackRuleInputPath,
             selection: "fallback_callsites",
-            projectCandidateCount,
+            apiModelingCandidateCount,
             fallbackCandidateCount,
         };
     }
     return {
         path: fallbackRuleInputPath,
         selection: "missing",
-        projectCandidateCount,
+        apiModelingCandidateCount,
         fallbackCandidateCount,
     };
 }
@@ -1214,6 +1336,11 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
                 ruleCandidates.items,
                 options.maxLlmItems,
             );
+            const sourceRuleCompanionCandidates = scopeRuleCandidatesForSourceDir(
+                sourceDir,
+                sourceAbs,
+                ruleCandidates.items,
+            );
             if (sourceRuleCandidates.length !== ruleCandidates.items.length) {
                 console.log(`semanticflow_phase=source_dir candidates source_dir=${sourceDir} scoped=${sourceRuleCandidates.length} global=${ruleCandidates.items.length} max_items=${options.maxLlmItems ?? ""}`);
             }
@@ -1222,6 +1349,7 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
                 modelInvoker: loggedInvoker,
                 model: profile.model,
                 ruleCandidates: sourceRuleCandidates,
+                ruleCompanionCandidates: sourceRuleCompanionCandidates,
                 includeArkMainCandidates: true,
                 arkMainMaxCandidates: arkMainCandidateLimit,
                 maxRounds: options.maxRounds,

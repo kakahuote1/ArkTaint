@@ -101,6 +101,10 @@
     "catch",
     "finally"
   ],
+  "frameworkCallbackMethodNames": [
+    "onRemoteRequest",
+    "onRemoteMessageRequest"
+  ],
   "openWorldCallbackEntryFamilies": [
     "unknown_sdk_callback",
     "unknown_external_callback",

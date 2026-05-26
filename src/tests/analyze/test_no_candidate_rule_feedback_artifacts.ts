@@ -80,7 +80,7 @@ function main(): void {
     const feedbackDir = path.join(outputDir, "feedback", "rule_feedback");
     const raw = readJson<any>(path.join(feedbackDir, "no_candidate_callsites.json"));
     const classified = readJson<any>(path.join(feedbackDir, "no_candidate_callsites_classified.json"));
-    const projectCandidates = readJson<any>(path.join(feedbackDir, "no_candidate_project_candidates.json"));
+    const projectCandidates = readJson<any>(path.join(feedbackDir, "api_modeling_candidates.json"));
 
     assert(raw.total === 4, `expected raw.total=4, got ${raw.total}`);
     assert(raw.items.some((item: any) => item.callee_signature?.includes("Router.[static]getParams")), "expected raw candidate to come from transferProfile");
@@ -90,11 +90,11 @@ function main(): void {
     const post = classified.items.find((item: any) => item.method === "post");
     assert(saveUserName?.category === "C0_NON_TRANSFER_HELPER", `expected page action helper to be downgraded, got ${saveUserName?.category}`);
     assert(layout?.category === "C0_NON_TRANSFER_HELPER", `expected page layout helper to be downgraded, got ${layout?.category}`);
-    assert(post?.category === "C2_PROJECT_WRAPPER", `expected network wrapper to remain a project candidate, got ${post?.category}`);
+    assert(post?.category === "C2_API_MODELING_CANDIDATE", `expected network wrapper to remain an API modeling candidate, got ${post?.category}`);
     assert(!projectCandidates.items.some((item: any) => item.method === "saveUserName" || item.method === "homeTabItemLayout"),
         "page orchestration helpers should not be sent to LLM project modeling");
     assert(projectCandidates.items.some((item: any) => item.method === "post"),
-        "network wrapper should remain in the LLM project candidate pool");
+        "network wrapper should remain in the LLM API modeling candidate pool");
 
     console.log("PASS test_no_candidate_rule_feedback_artifacts");
 }

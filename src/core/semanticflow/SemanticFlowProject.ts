@@ -3,7 +3,7 @@ import { buildArkMainEntryCandidates } from "../entry/arkmain/llm/ArkMainEntryCa
 import { splitArkMainEntryCandidatesForSemanticFlow } from "../entry/arkmain/llm/ArkMainEntryCandidateFilter";
 import type { ArkMainEntryCandidate } from "../entry/arkmain/llm/ArkMainEntryCandidateTypes";
 import type { NormalizedCallsiteItem } from "../model/callsite/callsiteContextSlices";
-import { buildSemanticFlowArkMainCandidateItem, buildSemanticFlowRuleCandidateItem } from "./SemanticFlowAdapters";
+import { buildSemanticFlowArkMainCandidateItem, buildSemanticFlowApiModelingCandidateItem } from "./SemanticFlowAdapters";
 import { createArkMainCandidateExpander, createCompositeSemanticFlowExpander, createRuleCandidateExpander } from "./SemanticFlowExpanders";
 import { createSemanticFlowLlmDecider, type SemanticFlowModelInvoker } from "./SemanticFlowLlm";
 import { runSemanticFlowSession, type SemanticFlowProgressEvent } from "./SemanticFlowPipeline";
@@ -16,6 +16,7 @@ export interface SemanticFlowProjectOptions {
     modelInvoker: SemanticFlowModelInvoker;
     model?: string;
     ruleCandidates?: NormalizedCallsiteItem[];
+    ruleCompanionCandidates?: NormalizedCallsiteItem[];
     includeArkMainCandidates?: boolean;
     arkMainMaxCandidates?: number;
     maxRounds?: number;
@@ -48,12 +49,18 @@ export async function runSemanticFlowProject(
     } =
         splitArkMainEntryCandidatesForSemanticFlow(rawArkMainCandidates);
     const ruleCandidates = options.ruleCandidates || [];
-    const companionGroups = buildRuleCandidateCompanionGroups(ruleCandidates);
+    const companionPool = options.ruleCompanionCandidates?.length
+        ? options.ruleCompanionCandidates
+        : ruleCandidates;
+    const companionGroups = buildRuleCandidateCompanionGroups(companionPool);
 
     const items = [
-        ...ruleCandidates.map(candidate => buildSemanticFlowRuleCandidateItem(candidate, {
+        ...ruleCandidates.map(candidate => buildSemanticFlowApiModelingCandidateItem(candidate, {
             maxContextSlices: 1,
-            companionCandidates: companionGroups.get(semanticFlowRuleCandidateKey(candidate)) || [],
+            companionCandidates: mergeRuleCompanionCandidates(
+                companionGroups.get(semanticFlowRuleCandidateKey(candidate)) || [],
+                sameDirectoryRuleCompanionCandidates(candidate, companionPool),
+            ),
         })),
         ...arkMainCandidates.map(candidate => buildSemanticFlowArkMainCandidateItem(candidate)),
     ];
@@ -83,4 +90,37 @@ export async function runSemanticFlowProject(
         ineligibleArkMainCandidates,
         ruleCandidateCount: ruleCandidates.length,
     };
+}
+
+function mergeRuleCompanionCandidates(...groups: NormalizedCallsiteItem[][]): NormalizedCallsiteItem[] {
+    const seen = new Set<string>();
+    const out: NormalizedCallsiteItem[] = [];
+    for (const group of groups) {
+        for (const candidate of group) {
+            const key = semanticFlowRuleCandidateKey(candidate);
+            if (seen.has(key)) {
+                continue;
+            }
+            seen.add(key);
+            out.push(candidate);
+        }
+    }
+    return out;
+}
+
+function sameDirectoryRuleCompanionCandidates(
+    candidate: NormalizedCallsiteItem,
+    pool: NormalizedCallsiteItem[],
+): NormalizedCallsiteItem[] {
+    const dir = sourceDirectory(candidate.sourceFile);
+    if (!dir) {
+        return [];
+    }
+    return pool.filter(peer => sourceDirectory(peer.sourceFile) === dir);
+}
+
+function sourceDirectory(filePath: string | undefined): string {
+    const normalized = String(filePath || "").replace(/\\/g, "/");
+    const index = normalized.lastIndexOf("/");
+    return index >= 0 ? normalized.slice(0, index) : "";
 }

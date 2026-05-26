@@ -978,7 +978,7 @@ function readSemanticFlowItemCount(sourceRunsJson: string): number | null {
 }
 
 function readSemanticFlowRuleCandidateCount(projectOut: string): number | null {
-    const candidatePath = path.join(projectOut, "phase1", "feedback", "rule_feedback", "no_candidate_project_candidates.json");
+    const candidatePath = path.join(projectOut, "phase1", "feedback", "rule_feedback", "api_modeling_candidates.json");
     if (!fs.existsSync(candidatePath)) {
         return null;
     }

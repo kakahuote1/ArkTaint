@@ -1,5 +1,5 @@
 import { createRuleCandidateExpander } from "../../core/semanticflow/SemanticFlowExpanders";
-import { buildSemanticFlowRuleCandidateItem } from "../../core/semanticflow/SemanticFlowAdapters";
+import { buildSemanticFlowApiModelingCandidateItem } from "../../core/semanticflow/SemanticFlowAdapters";
 import { normalizeNoCandidateItem } from "../../core/model/callsite/callsiteContextSlices";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -139,8 +139,8 @@ async function main(): Promise<void> {
     } as any);
 
     const expander = createRuleCandidateExpander([primary, companion, callbackPeer, metaPeer]);
-    const item = buildSemanticFlowRuleCandidateItem(primary, { maxContextSlices: 1 });
-    const seededItem = buildSemanticFlowRuleCandidateItem(primary, {
+    const item = buildSemanticFlowApiModelingCandidateItem(primary, { maxContextSlices: 1 });
+    const seededItem = buildSemanticFlowApiModelingCandidateItem(primary, {
         maxContextSlices: 1,
         companionCandidates: [companion],
     });
@@ -255,7 +255,7 @@ async function main(): Promise<void> {
     assert(metaExpanded.slice.snippets.some(snippet => snippet.label.startsWith("focus-meta")), "expected metadata focus snippet");
 
     const wrapperExpander = createRuleCandidateExpander([wrapperOnly]);
-    const wrapperItem = buildSemanticFlowRuleCandidateItem(wrapperOnly);
+    const wrapperItem = buildSemanticFlowApiModelingCandidateItem(wrapperOnly);
     assert(wrapperItem.initialSlice.template === "multi-surface", "wrapper owner-family evidence should upgrade initial template");
     assert(wrapperItem.initialSlice.snippets.some(snippet => snippet.label === "owner-context"), "wrapper owner-family evidence should be present in round0");
     assert(wrapperItem.initialSlice.snippets.some(snippet => snippet.label === "owner-sibling-push"), "wrapper owner-family sibling should be present in round0");
@@ -293,7 +293,7 @@ async function main(): Promise<void> {
     assert(!ownerExpanded.delta.effective, "q_comp should no-op when owner-family evidence is already present in round0");
 
     const carrierExpander = createRuleCandidateExpander([carrierRead]);
-    const carrierItem = buildSemanticFlowRuleCandidateItem(carrierRead);
+    const carrierItem = buildSemanticFlowApiModelingCandidateItem(carrierRead);
     assert(carrierItem.initialSlice.template === "multi-surface", "carrier evidence should upgrade initial template");
     assert(carrierItem.initialSlice.snippets.some(snippet => snippet.label === "carrier-context"), "carrier context should be present in round0");
     assert(carrierItem.initialSlice.snippets.some(snippet => snippet.label === "carrier-sibling-f1"), "carrier sibling should be present in round0");

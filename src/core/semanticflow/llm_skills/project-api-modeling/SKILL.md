@@ -1,7 +1,7 @@
 ---
 id: "semanticflow/project-api-modeling"
 title: "Project and Third-Party API Modeling"
-version: "1.2.10"
+version: "1.2.15"
 ---
 
 # Project and Third-Party API Modeling
@@ -17,6 +17,7 @@ Use this skill when modeling APIs from a real project, third-party SDK, or proje
 ## Modeling Rule
 
 Model the API semantics only. Do not decide final source-to-sink reachability and do not write solver logic.
+Do not treat a candidate's recall origin as a final category. A recalled API surface may still be `arkmain`, `rule`, `module`, `no-transfer`, or `need-more-evidence`.
 
 ## Official API Boundary
 
@@ -55,9 +56,10 @@ For project wrappers:
 - Restoration or migration helpers that unpack `Want.parameters`, call `AppStorage.*`, `LocalStorage`, or `restoreWindowStage`, and return no caller-visible payload should be `no-transfer` unless the method is a reusable wrapper API with a documented project-level contract.
 - Official state/storage calls such as `AppStorage.setOrCreate`, `LocalStorage`, or `restoreWindowStage` do not make the surrounding helper a project sink. If such official APIs need security semantics, that belongs to built-in official assets, not to a generated project sink rule.
 - If a wrapper sends an argument or field to network, log, storage, database, IPC, WebView/external URL loading, file, or another external-system API, model that request/input side as a sink over the consumed input even when the method also returns external response data. The target must be the payload argument actually forwarded to the underlying sink, not the whole receiver object or the whole framework callback parameter by default.
-- Some project API wrappers both consume request inputs and return data fetched from an external service. Treat these as two separate focused modeling questions when the harness asks for them: request/input focus is a sink rule, returned external-response focus is a source rule over `ret`. Do not collapse the fetched response into an `arg -> ret` transfer unless the return value is actually derived from the caller argument.
-- For an ordinary project wrapper candidate without `semanticFocus=external_response_source`, prioritize the request/input side when caller-provided inputs are sent to an external endpoint. Do not answer with a returned-response source for that ordinary candidate if a separate external-response focused candidate exists or is implied by the observations.
-- When the harness marks `semanticFocus=external_response_source`, ignore the request payload side and decide only whether the returned value originates from a framework/external response. If yes, emit `classification="rule"`, `ruleKind="source"`, `outputs=["ret"]`, and no inputs/transfers.
+- For WebView/JSBridge or other cross-runtime bridge candidates, use `bridgeEvidence=*` observations as neutral evidence only. They do not preselect `module` or `rule`. A direct visible write to `runJavaScript`, WebView URL/script execution, IPC, log, storage, database, or network may be a one-surface sink rule. Dynamic dispatch through `Reflect.get`, callback-id maps, JavaScript interface decorators, or native/JS callback return usually needs a module only when the matching producer/consumer surfaces and structural constraints are visible. Do not enumerate possible reflected targets or explain every branch. If the registration, dispatch target, or callback-return companion is missing or not concrete enough, immediately return `status="need-more-evidence"` with one bounded `q_comp`/`q_cb` request instead of inventing a broad bridge.
+- Some project API wrappers both consume request inputs and return data fetched from an external service. Treat these as two separate focused modeling questions when the harness asks for them: the ordinary question covers request/input consumption, and the returned-value question covers the visible return value. Do not collapse fetched response data into an `arg -> ret` transfer unless the return value is actually derived from the caller argument.
+- For an ordinary project wrapper candidate without `semanticFocus=returned_value_surface`, inspect the wrapper's request/input side. If caller-provided inputs are sent to an external endpoint, a sink rule may be appropriate. Do not duplicate returned-value source semantics in the ordinary candidate if a separate returned-value focused candidate exists or is implied by the observations.
+- When the harness marks `semanticFocus=returned_value_surface`, treat it as a returned-value modeling question, not as a preselected artifact type. Ignore the request payload side and decide from the evidence whether the return value is a `rule/source` over `ret`, a direct visible transfer, a module-only handoff, `no-transfer`, or `need-more-evidence`.
 - For database/storage write wrappers, distinguish payload slots from selector/control slots. Values buckets, record objects, entity objects, serialized content, buffers, and file bodies are payload sinks. Table names, keys, URIs, `RdbPredicates`, predicates, `where`/filter/condition objects, callbacks, affected-row counts, status booleans, and error objects are not payload sinks by default.
 - For RDB-style wrappers such as `update(valueBucket, predicates, callback)`, model only the values bucket or record object as the persistence sink. Do not mark the predicate/filter argument as a sink unless the evidence shows it is raw SQL or executable query text, for example `executeSql(sql)` or string concatenation into an SQL template.
 - For insert/update helpers with a leading table/key/URI argument, do not mark that selector argument as the persisted payload. Choose the argument that actually contains the inserted or updated data.
@@ -66,6 +68,8 @@ For project wrappers:
 - Generated method names such as `%AM0` or `%AM1` can be real arrow-function wrappers after ArkTS lowering. If the method is in an `api`, `service`, `request`, `client`, or repository-like file and forwards parameters to `http`, `axios`, `request`, `fetch`, SQL, storage, log, or IPC, treat it by its body semantics instead of dismissing it as a compiler helper.
 - For rest-parameter wrappers such as `Logger.info(...args)` that forward the rest array to `hilog`/`console`/network/storage, model the rest parameter as the consumed sink input. Do not invent separate rules for every observed callsite arity.
 - For logging wrappers with a stable category/tag parameter followed by a message/payload parameter, such as `LogUtil.info(tag, msg, ...args)`, model the message and any forwarded rest payload as sinks, not the tag/category/context argument. The tag/category argument is a log label by default; only model it as a sink when the code clearly treats that slot as the caller-provided log message itself. Do not output all arguments for a logger just because all are passed to `hilog` or `console`.
+- For multi-hop logging wrappers, choose sink inputs by the final official sink call, not by the intermediate forwarding call alone. If `...args` is forwarded to a companion method but that companion's final `hilog`/`console` call uses only `msg` or another formatted value and never consumes the rest array, do not mark the rest parameter as a sink. Mark only the slot that actually reaches the final log message/payload position. If the companion body is missing, ask for more evidence instead of guessing all forwarded arguments.
+- When a snippet contains `companionFinalSinkUsage`, treat it as mechanical source-code evidence about which companion formal parameters are used by final official sink calls. Slots listed as `unused` in that line are not sink payloads merely because they were forwarded into the companion call.
 - For file-write wrappers such as `saveImage(data, type)` or `writeFile(path, content)`, model only the caller-provided file body/content/buffer argument as the sink. Do not mark file extension, mode, path prefix, selector, status callback, or generated output path as a payload sink unless that exact slot is written as file content.
 - If a wrapper returns data from an underlying source API or response object, model the visible output as a source or transfer, depending on whether the original input carries the payload.
 - If a wrapper stores now and another API reads later, model it as a module, not as a direct one-surface rule.
@@ -85,6 +89,6 @@ For module output, use only ArkTaint's current ModuleSpec shape shown in the pro
 ## Non-Goals
 
 - Do not infer vulnerability existence.
-- Do not promote temporary project candidates into formal assets.
+- Do not promote temporary project modeling candidates into formal assets.
 - Do not create broad source/sink rules just to increase flow count.
 - Do not model a status boolean as payload transfer unless the returned value actually contains the payload.

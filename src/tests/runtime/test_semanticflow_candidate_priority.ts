@@ -1,6 +1,7 @@
 import {
     rankSemanticFlowRuleCandidatesForModeling,
     scoreSemanticFlowRuleCandidateForModeling,
+    selectSemanticFlowRuleCandidatesForModeling,
     semanticFlowCandidateBelongsToSourceDir,
 } from "../../cli/semanticflow";
 import { enrichNoCandidateItemsWithCallsiteSlices } from "../../core/model/callsite/callsiteContextSlices";
@@ -30,12 +31,12 @@ function main(): void {
         count: 1,
         callee_signature: "@demo/entry/src/main/ets/viewmodel/LoginViewModel.ets: LoginViewModel.updatePhone(string)",
     });
-    const proactiveUiSurface = candidate({
+    const recalledUiSurface = candidate({
         method: "PhoneInputField",
         count: 25,
         callee_signature: "@%unk/%unk: .PhoneInputField()",
         sourceFile: "entry/src/main/ets/component/PhoneInputField.ets",
-        candidateOrigin: "proactive_project_callback_surface",
+        candidateOrigin: "recall_callback_surface",
     } as Partial<NormalizedCallsiteItem>);
     const networkWrapper = candidate({
         method: "request",
@@ -43,22 +44,32 @@ function main(): void {
         callee_signature: "@demo/core/network/NetworkClient.ets: NetworkClient.request(Object)",
         sourceFile: "core/network/NetworkClient.ets",
     });
-    const proactiveAuthServiceWrapper = candidate({
+    const recalledAuthServiceWrapper = candidate({
         method: "getUserCredential",
         argCount: 1,
         count: 1,
         callee_signature: "@demo/entry/src/main/ets/configure/service.ets: Servicer.[static]getUserCredential(string)",
         sourceFile: "entry/src/main/ets/configure/service.ets",
-        candidateOrigin: "proactive_project_api_wrapper_surface",
+        candidateOrigin: "recall_api_surface",
     } as Partial<NormalizedCallsiteItem>);
-    const proactiveAuthResponseSource = candidate({
+    const recalledAuthResponseSource = candidate({
         method: "getUserCredential",
         argCount: 1,
         count: 1,
         callee_signature: "@demo/entry/src/main/ets/configure/service.ets: Servicer.[static]getUserCredential(string)",
         sourceFile: "entry/src/main/ets/configure/service.ets",
-        candidateOrigin: "proactive_project_api_wrapper_source_surface",
-        semanticFocus: "external_response_source",
+        candidateOrigin: "recall_returned_value_surface",
+        semanticFocus: "returned_value_surface",
+    } as Partial<NormalizedCallsiteItem>);
+    const recalledTokenStoreReturn = candidate({
+        method: "loadToken",
+        argCount: 0,
+        count: 1,
+        callee_signature: "@demo/core/data/repository/TokenStoreRepository.ets: TokenStoreRepository.loadToken()",
+        sourceFile: "core/data/repository/TokenStoreRepository.ets",
+        candidateOrigin: "recall_returned_value_surface",
+        semanticFocus: "returned_value_surface",
+        methodSnippet: "loadToken(): Promise<string> {\n  return this.dataSource.getToken();\n}",
     } as Partial<NormalizedCallsiteItem>);
     const contextRegistrationHelper = candidate({
         method: "registerAbilityStageContext",
@@ -66,7 +77,7 @@ function main(): void {
         count: 80,
         callee_signature: "@demo/entry/src/main/ets/configure/context.ets: CtxManager.[static]registerAbilityStageContext(AbilityStageContext)",
         sourceFile: "entry/src/main/ets/configure/context.ets",
-        candidateOrigin: "proactive_project_api_wrapper_surface",
+        candidateOrigin: "recall_api_surface",
     } as Partial<NormalizedCallsiteItem>);
     const cleanupHelper = candidate({
         method: "delete",
@@ -74,7 +85,7 @@ function main(): void {
         count: 80,
         callee_signature: "@demo/entry/src/main/ets/configure/cache.ets: Cacher.delete()",
         sourceFile: "entry/src/main/ets/configure/cache.ets",
-        candidateOrigin: "proactive_project_api_wrapper_surface",
+        candidateOrigin: "recall_api_surface",
     } as Partial<NormalizedCallsiteItem>);
     const serializerWrapper = candidate({
         method: "toNoteObject",
@@ -93,31 +104,36 @@ function main(): void {
 
     assert(
         scoreSemanticFlowRuleCandidateForModeling(observedNoCandidate)
-            > scoreSemanticFlowRuleCandidateForModeling(proactiveUiSurface),
-        "observed no-candidate project callsites should outrank proactive UI surfaces when LLM budget is limited",
+            > scoreSemanticFlowRuleCandidateForModeling(recalledUiSurface),
+        "observed no-candidate callsites should outrank recalled UI surfaces when LLM budget is limited",
     );
     assert(
         scoreSemanticFlowRuleCandidateForModeling(networkWrapper)
-            > scoreSemanticFlowRuleCandidateForModeling(proactiveUiSurface),
-        "network/request wrappers discovered from actual analysis should not be crowded out by proactive UI surfaces",
+            > scoreSemanticFlowRuleCandidateForModeling(recalledUiSurface),
+        "network/request wrappers discovered from actual analysis should not be crowded out by recalled UI surfaces",
     );
     assert(
-        scoreSemanticFlowRuleCandidateForModeling(proactiveAuthServiceWrapper)
-            > scoreSemanticFlowRuleCandidateForModeling(proactiveUiSurface),
-        "proactive API/service wrappers should not be crowded out by UI callback surfaces when no taint seed reaches them yet",
+        scoreSemanticFlowRuleCandidateForModeling(recalledAuthServiceWrapper)
+            > scoreSemanticFlowRuleCandidateForModeling(recalledUiSurface),
+        "recalled API/service wrappers should not be crowded out by UI callback surfaces when no taint seed reaches them yet",
     );
     assert(
-        scoreSemanticFlowRuleCandidateForModeling(proactiveAuthResponseSource)
-            > scoreSemanticFlowRuleCandidateForModeling(proactiveUiSurface),
-        "focused external-response source candidates should not be crowded out by UI callback surfaces",
+        scoreSemanticFlowRuleCandidateForModeling(recalledAuthResponseSource)
+            > scoreSemanticFlowRuleCandidateForModeling(recalledUiSurface),
+        "focused returned-value candidates should not be crowded out by UI callback surfaces",
     );
     assert(
-        scoreSemanticFlowRuleCandidateForModeling(proactiveAuthServiceWrapper)
+        scoreSemanticFlowRuleCandidateForModeling(recalledTokenStoreReturn)
+            > scoreSemanticFlowRuleCandidateForModeling(recalledUiSurface),
+        "sensitive delegated returned-value candidates should not be crowded out by UI callback surfaces",
+    );
+    assert(
+        scoreSemanticFlowRuleCandidateForModeling(recalledAuthServiceWrapper)
             > scoreSemanticFlowRuleCandidateForModeling(contextRegistrationHelper),
         "credential/profile service wrappers should outrank context/window setup helpers even when setup helpers are frequent",
     );
     assert(
-        scoreSemanticFlowRuleCandidateForModeling(proactiveAuthServiceWrapper)
+        scoreSemanticFlowRuleCandidateForModeling(recalledAuthServiceWrapper)
             > scoreSemanticFlowRuleCandidateForModeling(cleanupHelper),
         "payload-bearing credential/profile wrappers should outrank no-payload cleanup helpers in LLM modeling budgets",
     );
@@ -141,17 +157,35 @@ function main(): void {
         count: 10,
         callee_signature: `@%unk/%unk: .PhoneInputField${index}()`,
         sourceFile: `entry/src/main/ets/component/PhoneInputField${index}.ets`,
-        candidateOrigin: "proactive_project_callback_surface",
+        candidateOrigin: "recall_callback_surface",
     } as Partial<NormalizedCallsiteItem>));
     crowdedCandidates.push(observedNoCandidate);
     assert(
         rankSemanticFlowRuleCandidatesForModeling(crowdedCandidates)[0].method === "updatePhone",
         "context enrichment budgets should be applied after modeling-value ranking, otherwise real no-candidate callsites lose method bodies",
     );
+    const pairedBudget = selectSemanticFlowRuleCandidatesForModeling([
+        recalledAuthResponseSource,
+        recalledAuthServiceWrapper,
+        candidate({
+            method: "getOtherProfile",
+            argCount: 1,
+            callee_signature: "@demo/entry/src/main/ets/configure/service.ets: Servicer.[static]getOtherProfile(string)",
+            sourceFile: "entry/src/main/ets/configure/service.ets",
+            candidateOrigin: "recall_returned_value_surface",
+            semanticFocus: "returned_value_surface",
+        } as Partial<NormalizedCallsiteItem>),
+    ], 2);
+    assert(
+        pairedBudget.length === 2
+            && pairedBudget.some(item => (item as any).semanticFocus === "returned_value_surface")
+            && pairedBudget.some(item => !(item as any).semanticFocus),
+        "dual-role wrapper budgeting should keep the ordinary request candidate paired with its external-response focused candidate",
+    );
     const enrichedBudgetProbe = enrichNoCandidateItemsWithCallsiteSlices({
         repoRoot: "D:/workspace/nonexistent",
         sourceDirs: ["entry/src/main/ets"],
-        items: [observedNoCandidate, proactiveUiSurface],
+        items: [observedNoCandidate, recalledUiSurface],
         maxItems: 1,
         maxExamplesPerItem: 1,
         contextRadius: 1,

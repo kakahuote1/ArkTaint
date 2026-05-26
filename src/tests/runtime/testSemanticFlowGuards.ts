@@ -3,7 +3,7 @@ import * as path from "path";
 import { normalizeNoCandidateItem } from "../../core/model/callsite/callsiteContextSlices";
 import { enrichNoCandidateItemsWithCallsiteSlices } from "../../core/model/callsite/callsiteContextSlices";
 import { splitArkMainEntryCandidatesForSemanticFlow } from "../../core/entry/arkmain/llm/ArkMainEntryCandidateFilter";
-import { buildSemanticFlowArkMainCandidateItem, buildSemanticFlowRuleCandidateItem } from "../../core/semanticflow/SemanticFlowAdapters";
+import { buildSemanticFlowArkMainCandidateItem, buildSemanticFlowApiModelingCandidateItem } from "../../core/semanticflow/SemanticFlowAdapters";
 import {
     suppressInvalidResolvedSemanticFlowArtifact,
     suppressKnownNonArtifactSemanticFlowCandidate,
@@ -65,10 +65,10 @@ async function main(): Promise<void> {
         argCount: 1,
         sourceFile: "entry/src/main/ets/box.ets",
     });
-    const ruleItemA = buildSemanticFlowRuleCandidateItem(ruleA);
-    const ruleItemB = buildSemanticFlowRuleCandidateItem(ruleB);
+    const ruleItemA = buildSemanticFlowApiModelingCandidateItem(ruleA);
+    const ruleItemB = buildSemanticFlowApiModelingCandidateItem(ruleB);
     assert(ruleItemA.anchor.id !== ruleItemB.anchor.id, "rule anchor ids must stay unique across same-name signatures");
-    const ruleWithMethodSnippet = buildSemanticFlowRuleCandidateItem({
+    const ruleWithMethodSnippet = buildSemanticFlowApiModelingCandidateItem({
         ...ruleA,
         methodSnippet: [
             "   80 | public static getParams(): Object {",
@@ -211,7 +211,7 @@ async function main(): Promise<void> {
     assert(syntheticSnippet.includes("onWindowStageCreate(windowStage"), "synthetic method should fall back to its source host method body");
     assert(syntheticSnippet.includes("windowStage.loadContent"), "synthetic fallback should preserve host method body evidence");
     assert((enrichedSynthetic[0] as any).methodSnippetSource === "onWindowStageCreate", "synthetic fallback should record the source method name");
-    const syntheticItem = buildSemanticFlowRuleCandidateItem(enrichedSynthetic[0]);
+    const syntheticItem = buildSemanticFlowApiModelingCandidateItem(enrichedSynthetic[0]);
     assert(syntheticItem.initialSlice.observations.includes("methodSnippet=available"), "synthetic fallback should expose method snippet availability");
     assert(syntheticItem.initialSlice.observations.includes("methodSnippetSource=onWindowStageCreate"), "synthetic fallback should expose source method name");
     assert(syntheticItem.initialSlice.snippets.some(snippet => snippet.label === "method" && snippet.code.includes("UIInitializer.init")), "synthetic fallback should place host method body in the prompt slice");

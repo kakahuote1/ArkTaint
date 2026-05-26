@@ -154,7 +154,7 @@ function assertArtifactCallbackFieldNames(): void {
     const artifact = buildSemanticFlowArtifact(anchor, summary, "rule");
     assert(artifact.kind === "rule", "expected rule artifact");
     const generated = artifact.ruleSet.sources[0];
-    assert(generated.match.kind === "method_name_equals" && generated.match.value === "MultiInput", "unknown proactive signatures should fall back to method_name_equals");
+    assert(generated.match.kind === "method_name_equals" && generated.match.value === "MultiInput", "unknown recalled signatures should fall back to method_name_equals");
     assert(generated.match.invokeKind === undefined, "option-object callback source rules must not assume static lowering");
     assert(JSON.stringify(generated.callbackFieldNames) === JSON.stringify(["onTextChange"]), "single callbackProperties should be preserved as callbackFieldNames");
 
@@ -188,7 +188,7 @@ function assertArtifactCallbackFieldNames(): void {
     } catch {
         threw = true;
     }
-    assert(threw, "multi-callback proactive source must not emit a broad callback_param rule without fieldName");
+    assert(threw, "multi-callback recalled source must not emit a broad callback_param rule without fieldName");
 }
 
 async function assertConstructorLoweredComponentCallbackSource(): Promise<void> {

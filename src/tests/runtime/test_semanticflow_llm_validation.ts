@@ -62,9 +62,10 @@ async function main(): Promise<void> {
     assert(prompt.system.includes("RdbPredicates"), "prompt should tell the runtime LLM not to treat RDB predicates as payload sinks");
     assert(prompt.system.includes("values bucket"), "prompt should identify database values buckets as payload sinks");
     assert(prompt.system.includes("keyed_storage moduleSpec requires storageClasses"), "prompt should require current keyed_storage ModuleSpec schema fields");
-    assert(prompt.system.includes("semanticFocus=external_response_source"), "prompt should define focused returned-response source modeling");
-    assert(prompt.system.includes("returned response data is a source item"), "prompt should keep dual-role wrappers single-purpose");
-    assert(prompt.system.includes("ordinary wrapper candidate without semanticFocus=external_response_source"), "prompt should keep ordinary dual-role wrappers on the request/input side");
+    assert(prompt.system.includes("semanticFocus=returned_value_surface"), "prompt should define focused returned-value modeling");
+    assert(prompt.system.includes("not as a preselected artifact"), "prompt should keep returned-value focus from preselecting source/rule output");
+    assert(prompt.system.includes("ordinary wrapper candidate without semanticFocus=returned_value_surface"), "prompt should keep ordinary dual-role wrappers on the request/input side");
+    assert(prompt.system.includes("companionFinalSinkUsage"), "prompt should explain companion final sink usage evidence");
     assert(!prompt.system.includes("Example keyed_storage moduleSpec shorthand"), "prompt should not show invalid keyed_storage examples without storageClasses");
     assert(!prompt.system.includes("local transfer summary candidate"), "prompt should not use old local-transfer-only framing");
 
@@ -140,6 +141,21 @@ async function main(): Promise<void> {
     assert(requestDecision.request.focus.companion === "Cache.get", "expected structured companion focus");
     assert(requestDecision.request.scope.locality === "owner", "expected structured scope locality");
     assert(requestDecision.request.budgetClass === "owner_local", "expected structured budget class");
+
+    const nonArtifactNeedMoreEvidenceDecision = parseSemanticFlowDecision(JSON.stringify({
+        status: "done",
+        resolution: "need-more-evidence",
+        summary: {
+            inputs: ["arg0"],
+            outputs: [],
+            transfers: [],
+            confidence: "low",
+        },
+        rationale: ["The slice lacks the matching bridge registration surface."],
+    }));
+    assert(nonArtifactNeedMoreEvidenceDecision.status === "done", "expected non-artifact done decision");
+    assert(nonArtifactNeedMoreEvidenceDecision.resolution === "need-human-check",
+        "done+need-more-evidence should normalize to the non-artifact need-human-check resolution");
 
     const inferredDirectTransfer = parseSemanticFlowDecision(JSON.stringify({
         status: "done",
@@ -392,6 +408,23 @@ async function main(): Promise<void> {
             },
         },
     })), "classification=module must not use moduleSpec for one-surface direct bridge semantics that rules can already express");
+
+    expectThrows(() => parseSemanticFlowDecision(JSON.stringify({
+        status: "done",
+        classification: "rule",
+        resolution: "resolved",
+        summary: {
+            inputs: ["arg2", "arg3"],
+            outputs: [],
+            transfers: [],
+            confidence: "high",
+            ruleKind: "sink",
+        },
+    }), {
+        forbiddenSinkInputs: [
+            { index: 3, reason: "arg3 maps to unused realLog.arg4 in companionFinalSinkUsage" },
+        ],
+    }), "ruleKind=sink input arg3 contradicts slice evidence");
 
     console.log("PASS test_semanticflow_llm_validation");
 }

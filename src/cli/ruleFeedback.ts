@@ -18,9 +18,9 @@ import { AnalyzeReport, EntryAnalyzeResult } from "./analyzeTypes";
 import { getSourceRules } from "./analyzeUtils";
 import { RuleHitCounters } from "../core/orchestration/TaintPropagationEngine";
 import {
-    discoverProjectApiWrapperRuleCandidates,
-    discoverProjectCallbackRuleCandidates,
-} from "../core/semanticflow/ProjectCallbackCandidateScanner";
+    discoverApiCallbackModelingCandidates,
+    discoverApiSurfaceModelingCandidates,
+} from "../core/semanticflow/ApiModelingCandidateScanner";
 import type { NormalizedCallsiteItem } from "../core/model/callsite/callsiteContextSlices";
 
 interface InvokeSiteStat {
@@ -47,7 +47,7 @@ interface NoCandidateCallsiteStat {
     topEntries: string[];
 }
 
-type NoCandidateCategory = "C0_NON_TRANSFER_HELPER" | "C1_UI_NOISE" | "C2_PROJECT_WRAPPER" | "C3_FRAMEWORK_GAP";
+type NoCandidateCategory = "C0_NON_TRANSFER_HELPER" | "C1_UI_NOISE" | "C2_API_MODELING_CANDIDATE" | "C3_FRAMEWORK_GAP";
 
 interface ClassifiedNoCandidateCallsite extends NoCandidateCallsiteStat {
     category: NoCandidateCategory;
@@ -209,20 +209,20 @@ export function writeNoCandidateCallsiteClassificationArtifacts(
     }, {
         C0_NON_TRANSFER_HELPER: 0,
         C1_UI_NOISE: 0,
-        C2_PROJECT_WRAPPER: 0,
+        C2_API_MODELING_CANDIDATE: 0,
         C3_FRAMEWORK_GAP: 0,
     } as Record<NoCandidateCategory, number>);
-    const projectCandidates = mergeProjectCandidatePools(
-        buildProjectCandidatePool(items),
-        buildProactiveProjectCallbackCandidates(report),
+    const apiModelingCandidates = mergeApiModelingCandidatePools(
+        buildApiModelingCandidatePool(items),
+        buildRecalledApiModelingCandidates(report),
     );
 
     const feedbackOutputDir = resolveRuleFeedbackOutputDir(outputDir);
     fs.mkdirSync(feedbackOutputDir, { recursive: true });
     const jsonPath = path.resolve(feedbackOutputDir, "no_candidate_callsites_classified.json");
     const mdPath = path.resolve(feedbackOutputDir, "no_candidate_callsites_classified.md");
-    const projectCandidateJsonPath = path.resolve(feedbackOutputDir, "no_candidate_project_candidates.json");
-    const projectCandidateMdPath = path.resolve(feedbackOutputDir, "no_candidate_project_candidates.md");
+    const apiModelingCandidateJsonPath = path.resolve(feedbackOutputDir, "api_modeling_candidates.json");
+    const apiModelingCandidateMdPath = path.resolve(feedbackOutputDir, "api_modeling_candidates.md");
 
     fs.writeFileSync(jsonPath, JSON.stringify({
         generatedAt: report.generatedAt,
@@ -233,14 +233,14 @@ export function writeNoCandidateCallsiteClassificationArtifacts(
     }, null, 2), "utf-8");
     fs.writeFileSync(mdPath, renderNoCandidateCallsitesClassifiedMarkdown(items, categoryCount, report), "utf-8");
 
-    fs.writeFileSync(projectCandidateJsonPath, JSON.stringify({
+    fs.writeFileSync(apiModelingCandidateJsonPath, JSON.stringify({
         generatedAt: report.generatedAt,
         repo: report.repo,
-        total: projectCandidates.length,
-        policy: "include_project_wrappers_proactive_surfaces_and_selected_external_sdk_gaps",
-        items: projectCandidates,
+        total: apiModelingCandidates.length,
+        policy: "include_neutral_api_modeling_surfaces_and_selected_external_sdk_gaps",
+        items: apiModelingCandidates,
     }, null, 2), "utf-8");
-    fs.writeFileSync(projectCandidateMdPath, renderNoCandidateProjectCandidatesMarkdown(projectCandidates, report), "utf-8");
+    fs.writeFileSync(apiModelingCandidateMdPath, renderApiModelingCandidatesMarkdown(apiModelingCandidates, report), "utf-8");
 }
 
 function collectSemanticFlowRuleCandidateItems(report: AnalyzeReport): NoCandidateCallsiteStat[] {
@@ -654,8 +654,8 @@ function classifyNoCandidateCallsite(
 
     return {
         ...site,
-        category: "C2_PROJECT_WRAPPER",
-        reason: "Callsite matches neither UI noise nor framework-gap traits and is classified as a project wrapper candidate.",
+        category: "C2_API_MODELING_CANDIDATE",
+        reason: "Callsite matches neither non-transfer helper nor framework-gap traits and is retained as a neutral API modeling candidate.",
         evidence: [
             `method=${site.method}`,
             `sourceFile=${site.sourceFile}`,
@@ -847,9 +847,9 @@ function renderNoCandidateCallsitesClassifiedMarkdown(
     return `${lines.join("\n")}\n`;
 }
 
-function buildProjectCandidatePool(items: ClassifiedNoCandidateCallsite[]): ClassifiedNoCandidateCallsite[] {
+function buildApiModelingCandidatePool(items: ClassifiedNoCandidateCallsite[]): ClassifiedNoCandidateCallsite[] {
     return items
-        .filter(item => item.category === "C2_PROJECT_WRAPPER" || isSelectedExternalSdkNoCandidate(item))
+        .filter(item => item.category === "C2_API_MODELING_CANDIDATE" || isSelectedExternalSdkNoCandidate(item))
         .sort((a, b) => b.count - a.count || a.callee_signature.localeCompare(b.callee_signature));
 }
 
@@ -892,17 +892,17 @@ function isSelectedExternalSdkNoCandidate(item: ClassifiedNoCandidateCallsite): 
     return !lowValueMethods.has(method);
 }
 
-function buildProactiveProjectCallbackCandidates(report: AnalyzeReport): ClassifiedNoCandidateCallsite[] {
-    const callbackCandidates = discoverProjectCallbackRuleCandidates(report.repo, report.sourceDirs || [], {
+function buildRecalledApiModelingCandidates(report: AnalyzeReport): ClassifiedNoCandidateCallsite[] {
+    const callbackCandidates = discoverApiCallbackModelingCandidates(report.repo, report.sourceDirs || [], {
         maxCandidates: 80,
     });
-    const apiWrapperCandidates = discoverProjectApiWrapperRuleCandidates(report.repo, report.sourceDirs || [], {
+    const apiSurfaceCandidates = discoverApiSurfaceModelingCandidates(report.repo, report.sourceDirs || [], {
         maxCandidates: 80,
     });
-    return [...callbackCandidates, ...apiWrapperCandidates].map(candidate => toProactiveClassifiedCandidate(candidate));
+    return [...callbackCandidates, ...apiSurfaceCandidates].map(candidate => toRecalledClassifiedCandidate(candidate));
 }
 
-function toProactiveClassifiedCandidate(candidate: NormalizedCallsiteItem): ClassifiedNoCandidateCallsite {
+function toRecalledClassifiedCandidate(candidate: NormalizedCallsiteItem): ClassifiedNoCandidateCallsite {
     const extra = candidate as any;
     const callbackProperties = Array.isArray((candidate as any).callbackProperties)
         ? ((candidate as any).callbackProperties as unknown[]).map(value => String(value || "").trim()).filter(Boolean)
@@ -912,7 +912,7 @@ function toProactiveClassifiedCandidate(candidate: NormalizedCallsiteItem): Clas
         : "";
     const origin = typeof (candidate as any).candidateOrigin === "string"
         ? String((candidate as any).candidateOrigin).trim()
-        : "proactive_project_callback_surface";
+        : "recall_callback_surface";
     const semanticFocus = typeof (candidate as any).semanticFocus === "string"
         ? String((candidate as any).semanticFocus).trim()
         : "";
@@ -925,8 +925,8 @@ function toProactiveClassifiedCandidate(candidate: NormalizedCallsiteItem): Clas
         sourceFile: candidate.sourceFile,
         count: candidate.count || 1,
         topEntries: candidate.topEntries || [],
-        category: "C2_PROJECT_WRAPPER",
-        reason: "Project or third-party API/callback surface discovered before taint seeds exist; retained for LLM project modeling.",
+        category: "C2_API_MODELING_CANDIDATE",
+        reason: "API/callback surface recalled before taint seeds exist; retained as a neutral LLM modeling candidate.",
         evidence: [
             `origin=${origin}`,
             ...(semanticFocus ? [`semanticFocus=${semanticFocus}`] : []),
@@ -938,9 +938,9 @@ function toProactiveClassifiedCandidate(candidate: NormalizedCallsiteItem): Clas
     } as ClassifiedNoCandidateCallsite;
 }
 
-function mergeProjectCandidatePools(
+function mergeApiModelingCandidatePools(
     primary: ClassifiedNoCandidateCallsite[],
-    proactive: ClassifiedNoCandidateCallsite[],
+    recalled: ClassifiedNoCandidateCallsite[],
 ): ClassifiedNoCandidateCallsite[] {
     const merged = new Map<string, ClassifiedNoCandidateCallsite>();
     const add = (item: ClassifiedNoCandidateCallsite): void => {
@@ -958,23 +958,23 @@ function mergeProjectCandidatePools(
         merged.set(key, item);
     };
     primary.forEach(add);
-    proactive.forEach(add);
+    recalled.forEach(add);
     return [...merged.values()]
         .sort((a, b) => b.count - a.count || a.callee_signature.localeCompare(b.callee_signature))
         .slice(0, 200);
 }
 
-function renderNoCandidateProjectCandidatesMarkdown(
+function renderApiModelingCandidatesMarkdown(
     items: ClassifiedNoCandidateCallsite[],
     report: AnalyzeReport,
 ): string {
     const lines: string[] = [];
-    lines.push("# No Candidate Project Candidates");
+    lines.push("# API Modeling Candidates");
     lines.push("");
     lines.push(`- generatedAt: ${report.generatedAt}`);
     lines.push(`- repo: ${report.repo}`);
     lines.push(`- total: ${items.length}`);
-    lines.push(`- policy: include_project_wrappers_proactive_surfaces_and_selected_external_sdk_gaps`);
+    lines.push(`- policy: include_neutral_api_modeling_surfaces_and_selected_external_sdk_gaps`);
     lines.push("");
     lines.push("| # | callee_signature | method | invokeKind | argCount | sourceFile | count | reason | evidence |");
     lines.push("|---|---|---|---|---:|---|---:|---|---|");

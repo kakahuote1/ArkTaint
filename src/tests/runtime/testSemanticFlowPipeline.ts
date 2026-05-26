@@ -4,7 +4,7 @@ import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import { ArkMethod } from "../../../arkanalyzer/out/src/core/model/ArkMethod";
 import { buildArkMainEntryCandidates } from "../../core/entry/arkmain/llm/ArkMainEntryCandidateBuilder";
-import { buildSemanticFlowArkMainCandidateItem, buildSemanticFlowRuleCandidateItem } from "../../core/semanticflow/SemanticFlowAdapters";
+import { buildSemanticFlowArkMainCandidateItem, buildSemanticFlowApiModelingCandidateItem } from "../../core/semanticflow/SemanticFlowAdapters";
 import { createSemanticFlowLlmDecider } from "../../core/semanticflow/SemanticFlowLlm";
 import { runSemanticFlowPipeline, runSemanticFlowSession, type SemanticFlowPipelineItemInput } from "../../core/semanticflow/SemanticFlowPipeline";
 import { runSemanticFlowAnalysis } from "../../core/orchestration/semanticflow/SemanticFlowRuntime";
@@ -157,7 +157,7 @@ async function main(): Promise<void> {
         "framework base stub UIAbility must not be emitted as an arkmain candidate",
     );
 
-    const ruleCandidateItem = buildSemanticFlowRuleCandidateItem(normalizeNoCandidateItem({
+    const ruleCandidateItem = buildSemanticFlowApiModelingCandidateItem(normalizeNoCandidateItem({
         callee_signature: cloneValue.getSignature?.().toString?.(),
         method: "cloneValue",
         invokeKind: "instance",

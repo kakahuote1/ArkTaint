@@ -1,4 +1,4 @@
-﻿import * as fs from "fs";
+import * as fs from "fs";
 import * as path from "path";
 import {
     readAnalyzeSummary,
@@ -16,7 +16,7 @@ interface ClassifiedPayload {
     items: ClassifiedItem[];
 }
 
-interface ProjectCandidatePayload {
+interface ApiModelingCandidatePayload {
     total: number;
     policy: string;
     items: ClassifiedItem[];
@@ -42,8 +42,8 @@ function readJson<T>(filePath: string): T {
 }
 
 function main(): void {
-    const outputDir = resolveTestRunDir("analyze", "no_candidate_project_candidate_pool");
-    const feedbackDir = resolveTestRunPath("analyze", "no_candidate_project_candidate_pool", "feedback", "rule_feedback");
+    const outputDir = resolveTestRunDir("analyze", "no_candidate_api_modeling_candidate_pool");
+    const feedbackDir = resolveTestRunPath("analyze", "no_candidate_api_modeling_candidate_pool", "feedback", "rule_feedback");
     fs.rmSync(outputDir, { recursive: true, force: true });
     fs.mkdirSync(outputDir, { recursive: true });
 
@@ -58,22 +58,22 @@ function main(): void {
 
     const summary = readAnalyzeSummary<AnalyzeSummary>(outputDir);
     const classifiedPath = path.resolve(feedbackDir, "no_candidate_callsites_classified.json");
-    const projectCandidatePath = path.resolve(feedbackDir, "no_candidate_project_candidates.json");
+    const apiModelingCandidatePath = path.resolve(feedbackDir, "api_modeling_candidates.json");
     const classified = readJson<ClassifiedPayload>(classifiedPath);
-    const projectCandidates = readJson<ProjectCandidatePayload>(projectCandidatePath);
+    const apiModelingCandidates = readJson<ApiModelingCandidatePayload>(apiModelingCandidatePath);
     const summaryNoCandidate = summary.summary.ruleFeedback?.noCandidateCallsites || [];
 
     assert(classified.total === classified.items.length, "classified total/items mismatch");
-    assert(projectCandidates.total === projectCandidates.items.length, "project candidate total/items mismatch");
-    assert(projectCandidates.policy === "include_project_wrappers_proactive_surfaces_and_selected_external_sdk_gaps", `unexpected policy: ${projectCandidates.policy}`);
+    assert(apiModelingCandidates.total === apiModelingCandidates.items.length, "API modeling candidate total/items mismatch");
+    assert(apiModelingCandidates.policy === "include_neutral_api_modeling_surfaces_and_selected_external_sdk_gaps", `unexpected policy: ${apiModelingCandidates.policy}`);
     assert(classified.total === summaryNoCandidate.length, "classified total should align with summary.ruleFeedback.noCandidateCallsites");
 
-    const invalid = projectCandidates.items.filter(item => !["C2_PROJECT_WRAPPER", "C3_FRAMEWORK_GAP"].includes(item.category));
-    assert(invalid.length === 0, "project candidate pool should only contain project wrappers or selected external SDK gaps");
+    const invalid = apiModelingCandidates.items.filter(item => !["C2_API_MODELING_CANDIDATE", "C3_FRAMEWORK_GAP"].includes(item.category));
+    assert(invalid.length === 0, "API modeling candidate pool should only contain neutral API modeling candidates or selected external SDK gaps");
 
-    console.log("====== No Candidate Project Candidate Pool Test ======");
+    console.log("====== No Candidate API Modeling Candidate Pool Test ======");
     console.log(`classified_total=${classified.total}`);
-    console.log(`project_candidate_total=${projectCandidates.total}`);
+    console.log(`api_modeling_candidate_total=${apiModelingCandidates.total}`);
     console.log(`summary_no_candidate_total=${summaryNoCandidate.length}`);
 }
 

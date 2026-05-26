@@ -125,24 +125,61 @@ async function main(): Promise<void> {
     assert(restSink.ruleSet.sinks.length === 1, "expected one rest sink rule");
     assert(restSink.ruleSet.sinks[0].target === "arg0", "rest-array sink should stay bound to the rest formal instead of widening to any argument");
 
-    const proactiveSource = buildSemanticFlowArtifact({
+    const recalledSource = buildSemanticFlowArtifact({
         id: "rule.project.servicer.getCredential.source",
         owner: "Servicer",
         surface: "getUserCredential",
         methodSignature: "@entry/src/main/ets/configure/service.ets: Servicer.[static]getUserCredential(Unknown)",
         filePath: "entry/src/main/ets/configure/service.ets",
-        metaTags: ["rule", "candidate", "static", "focus-external_response_source"],
+        metaTags: ["rule", "candidate", "static", "focus-returned_value_surface"],
     }, returnSourceSummary(), "rule");
-    assert(proactiveSource.kind === "rule", "expected proactive return source artifact");
-    const proactiveSourceRule = proactiveSource.ruleSet.sources[0];
-    assert(proactiveSourceRule.match.kind === "method_name_equals", "Unknown proactive source should not use brittle signature_equals");
-    assert(proactiveSourceRule.match.value === "getUserCredential", "expected stable method name match");
-    assert(proactiveSourceRule.match.invokeKind === "static", "expected static invoke shape");
-    assert(proactiveSourceRule.match.argCount === 1, "expected parsed argument count");
-    assert(proactiveSourceRule.calleeScope?.className?.value === "Servicer", "source call_return should scope the callee class");
-    assert(!proactiveSourceRule.scope, "source call_return should not scope the caller method");
+    assert(recalledSource.kind === "rule", "expected recalled return source artifact");
+    const recalledSourceRule = recalledSource.ruleSet.sources[0];
+    assert(recalledSourceRule.match.kind === "method_name_equals", "Unknown recalled source should not use brittle signature_equals");
+    assert(recalledSourceRule.match.value === "getUserCredential", "expected stable method name match");
+    assert(recalledSourceRule.match.invokeKind === "static", "expected static invoke shape");
+    assert(recalledSourceRule.match.argCount === 1, "expected parsed argument count");
+    assert(recalledSourceRule.calleeScope?.className?.value === "Servicer", "source call_return should scope the callee class");
+    assert(!recalledSourceRule.scope, "source call_return should not scope the caller method");
 
-    const proactiveSink = buildSemanticFlowArtifact({
+    const recalledSourceWithWrongKind = buildSemanticFlowArtifact({
+        id: "rule.project.servicer.getProfile.source.kind.normalize",
+        owner: "Servicer",
+        surface: "getUserProfile",
+        methodSignature: "@entry/src/main/ets/configure/service.ets: Servicer.[static]getUserProfile(Unknown)",
+        filePath: "entry/src/main/ets/configure/service.ets",
+        metaTags: ["rule", "candidate", "static", "focus-returned_value_surface"],
+    }, {
+        inputs: [],
+        outputs: [{ slot: "result" }],
+        transfers: [],
+        confidence: "medium",
+        ruleKind: "source",
+        sourceKind: "field_read",
+    }, "rule");
+    assert(recalledSourceWithWrongKind.kind === "rule", "expected source artifact with normalized kind");
+    assert(
+        recalledSourceWithWrongKind.ruleSet.sources[0].sourceKind === "call_return",
+        "artifact builder should normalize sourceKind to match the returned-value output slot",
+    );
+
+    const recalledZeroArgReturnSource = buildSemanticFlowArtifact({
+        id: "rule.project.tokenstore.loadToken.source",
+        owner: "TokenStoreRepository",
+        surface: "loadToken",
+        methodSignature: "@core/data/src/main/ets/repository/TokenStoreRepository.ets: TokenStoreRepository.loadToken()",
+        filePath: "core/data/src/main/ets/repository/TokenStoreRepository.ets",
+        metaTags: ["api-modeling-candidate", "instance", "focus-returned_value_surface"],
+    }, returnSourceSummary(), "rule");
+    assert(recalledZeroArgReturnSource.kind === "rule", "expected zero-argument returned-value source artifact");
+    const recalledZeroArgReturnSourceRule = recalledZeroArgReturnSource.ruleSet.sources[0];
+    assert(recalledZeroArgReturnSourceRule.match.kind === "method_name_equals", "api-modeling candidates should avoid brittle signature_equals even for zero-argument returns");
+    assert(recalledZeroArgReturnSourceRule.match.value === "loadToken", "zero-argument returned-value source should keep stable surface name");
+    assert(recalledZeroArgReturnSourceRule.match.argCount === 0, "zero-argument returned-value source should preserve arg count");
+    assert(recalledZeroArgReturnSourceRule.match.invokeKind === "instance", "zero-argument returned-value source should preserve invoke kind");
+    assert(recalledZeroArgReturnSourceRule.calleeScope?.className?.value === "TokenStoreRepository", "zero-argument returned-value source should scope the callee class");
+
+    const recalledSink = buildSemanticFlowArtifact({
         id: "rule.project.servicer.getProfile.sink",
         owner: "Servicer",
         surface: "getUserProfile",
@@ -150,11 +187,35 @@ async function main(): Promise<void> {
         filePath: "entry/src/main/ets/configure/service.ets",
         metaTags: ["rule", "candidate", "static"],
     }, sinkSummary(), "rule");
-    assert(proactiveSink.kind === "rule", "expected proactive sink artifact");
-    const proactiveSinkRule = proactiveSink.ruleSet.sinks[0];
-    assert(proactiveSinkRule.match.kind === "method_name_equals", "Unknown proactive sink should not use brittle signature_equals");
-    assert(proactiveSinkRule.match.argCount === 1, "expected proactive sink argument count");
-    assert(proactiveSinkRule.scope?.className?.value === "Servicer", "sink should scope the invoked class");
+    assert(recalledSink.kind === "rule", "expected recalled sink artifact");
+    const recalledSinkRule = recalledSink.ruleSet.sinks[0];
+    assert(recalledSinkRule.match.kind === "method_name_equals", "Unknown recalled sink should not use brittle signature_equals");
+    assert(recalledSinkRule.match.argCount === 1, "expected recalled sink argument count");
+    assert(recalledSinkRule.scope?.className?.value === "Servicer", "sink should scope the invoked class");
+
+    const overwideSink = buildSemanticFlowArtifact({
+        id: "rule.generated.sdk.getLogEntries.sink",
+        owner: "ActivityLogApi",
+        surface: "getLogEntries",
+        methodSignature: "@library/src/main/ets/generated-client/api/activity-log-api.ts: ActivityLogApi.getLogEntries(Unknown, Unknown)",
+        filePath: "library/src/main/ets/generated-client/api/activity-log-api.ts",
+        metaTags: ["api-modeling-candidate", "instance"],
+    }, {
+        inputs: [
+            { slot: "arg", index: 0 },
+            { slot: "arg", index: 1 },
+            { slot: "arg", index: 2 },
+            { slot: "arg", index: 3 },
+        ],
+        outputs: [],
+        transfers: [],
+        confidence: "medium",
+        ruleKind: "sink",
+    }, "rule");
+    assert(overwideSink.kind === "rule", "expected overwide sink artifact");
+    assert(overwideSink.ruleSet.sinks.length === 2, "artifact builder should discard sink inputs that exceed the method arity");
+    assert(overwideSink.ruleSet.sinks.every(rule => rule.target === "arg0" || rule.target === "arg1"),
+        "artifact builder should keep only representable sink input slots");
 
     const projectLocalSink = buildSemanticFlowArtifact({
         id: "rule.project.appevent.createUser.sink",

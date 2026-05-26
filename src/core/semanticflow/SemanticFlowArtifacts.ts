@@ -15,6 +15,7 @@ import type {
     SinkRule,
     SanitizerRule,
     SourceRule,
+    SourceRuleKind,
     TaintRuleSet,
     TransferRule,
 } from "../rules/RuleSchema";
@@ -225,7 +226,7 @@ function buildRuleArtifact(anchor: SemanticFlowAnchor, summary: SemanticFlowSumm
     };
 
     if (ruleKind === "source") {
-        const targets = summary.outputs;
+        const targets = filterSurfaceSlotRefsByAnchorArity(anchor, summary.outputs);
         if (targets.length === 0) {
             throw new Error(`source rule summary requires at least one output slot: ${anchor.id}`);
         }
@@ -237,7 +238,7 @@ function buildRuleArtifact(anchor: SemanticFlowAnchor, summary: SemanticFlowSumm
 
     if (ruleKind === "sink") {
         const rawTargets = summary.inputs.length > 0 ? summary.inputs : summary.outputs;
-        const targets = filterSemanticFlowSinkTargets(anchor, rawTargets);
+        const targets = filterSemanticFlowSinkTargets(anchor, filterSurfaceSlotRefsByAnchorArity(anchor, rawTargets));
         if (targets.length === 0) {
             throw new Error(`sink rule summary requires at least one input/output slot: ${anchor.id}`);
         }
@@ -255,7 +256,7 @@ function buildRuleArtifact(anchor: SemanticFlowAnchor, summary: SemanticFlowSumm
     }
 
     if (ruleKind === "sanitizer") {
-        const targets = summary.inputs.length > 0 ? summary.inputs : summary.outputs;
+        const targets = filterSurfaceSlotRefsByAnchorArity(anchor, summary.inputs.length > 0 ? summary.inputs : summary.outputs);
         if (targets.length === 0) {
             throw new Error(`sanitizer rule summary requires at least one input/output slot: ${anchor.id}`);
         }
@@ -276,7 +277,14 @@ function buildRuleArtifact(anchor: SemanticFlowAnchor, summary: SemanticFlowSumm
         throw new Error(`transfer rule summary requires at least one transfer: ${anchor.id}`);
     }
     const scope = buildInvocationRuleScope(anchor, signature);
-    ruleSet.transfers.push(...summary.transfers.map((transfer, index) => ({
+    const transfers = summary.transfers.filter(transfer =>
+        isSurfaceSlotRefAllowedByAnchorArity(anchor, transfer.from)
+        && isSurfaceSlotRefAllowedByAnchorArity(anchor, transfer.to),
+    );
+    if (transfers.length === 0) {
+        throw new Error(`transfer rule summary requires at least one valid transfer endpoint: ${anchor.id}`);
+    }
+    ruleSet.transfers.push(...transfers.map((transfer, index) => ({
         id: transferRuleId(idBase, index),
         enabled: true,
         description: `Generated transfer rule for ${anchor.surface}.`,
@@ -287,6 +295,27 @@ function buildRuleArtifact(anchor: SemanticFlowAnchor, summary: SemanticFlowSumm
         to: toRuleEndpoint(transfer.to),
     } satisfies TransferRule)));
     return { kind: "rule", ruleSet };
+}
+
+function filterSurfaceSlotRefsByAnchorArity(
+    anchor: SemanticFlowAnchor,
+    refs: SemanticFlowSurfaceSlotRef[],
+): SemanticFlowSurfaceSlotRef[] {
+    return refs.filter(ref => isSurfaceSlotRefAllowedByAnchorArity(anchor, ref));
+}
+
+function isSurfaceSlotRefAllowedByAnchorArity(
+    anchor: SemanticFlowAnchor,
+    ref: SemanticFlowSurfaceSlotRef,
+): boolean {
+    if (ref.slot !== "arg" || typeof ref.index !== "number") {
+        return true;
+    }
+    const signature = anchor.methodSignature || anchor.method?.getSignature?.()?.toString?.() || "";
+    if (!hasSignatureParameterList(signature)) {
+        return true;
+    }
+    return ref.index >= 0 && ref.index < parseSignatureParameterTypes(signature).length;
 }
 
 function buildRuleMatch(anchor: SemanticFlowAnchor, signature: string): RuleMatch {
@@ -329,9 +358,13 @@ function shouldUseScopedMethodRule(anchor: SemanticFlowAnchor, signature: string
     if (tags.includes("rule") && /\bUnknown\b/.test(signature)) {
         return true;
     }
-    return tags.includes("rule")
-        && tags.includes("candidate")
+    return isSemanticFlowModelingCandidate(tags)
         && isProjectLocalSemanticFlowAnchor(anchor, signature);
+}
+
+function isSemanticFlowModelingCandidate(tags: string[]): boolean {
+    return tags.includes("candidate")
+        || tags.includes("api-modeling-candidate");
 }
 
 function isUnknownSemanticFlowSignature(signature: string): boolean {
@@ -421,7 +454,7 @@ function buildSourceRule(
     summary: SemanticFlowSummary,
     target: SemanticFlowSurfaceSlotRef,
 ): SourceRule {
-    const sourceKind = summary.sourceKind || inferSourceKind(target);
+    const sourceKind = normalizeSourceKindForTarget(summary.sourceKind, target);
     const callbackArgIndexes = target.slot === "callback_param"
         ? [target.callbackArgIndex ?? 0]
         : undefined;
@@ -509,6 +542,29 @@ function inferSourceKind(target: SemanticFlowSurfaceSlotRef) {
     if (target.slot === "field_load") return "field_read" as const;
     if (target.slot === "arg") return "entry_param" as const;
     throw new Error(`cannot infer sourceKind from slot ${target.slot}`);
+}
+
+function normalizeSourceKindForTarget(
+    preferred: SourceRuleKind | undefined,
+    target: SemanticFlowSurfaceSlotRef,
+): SourceRuleKind {
+    const inferred = inferSourceKind(target);
+    if (!preferred) {
+        return inferred;
+    }
+    if (target.slot === "result" && preferred !== "call_return") {
+        return "call_return";
+    }
+    if (target.slot === "callback_param" && preferred !== "callback_param") {
+        return "callback_param";
+    }
+    if (target.slot === "field_load" && preferred !== "field_read") {
+        return "field_read";
+    }
+    if (target.slot === "arg" && preferred !== "entry_param") {
+        return "entry_param";
+    }
+    return preferred;
 }
 
 function toSourceRuleTarget(target: SemanticFlowSurfaceSlotRef): RuleEndpointOrRef {
