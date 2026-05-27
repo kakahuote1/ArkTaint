@@ -3,9 +3,9 @@ import * as path from "path";
 import { execFileSync } from "child_process";
 import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
-import type { ModuleRuntimeSpec } from "../../core/kernel/contracts/ModuleRuntimeSpec";
+import type { InternalModuleLoweringIR } from "../../core/kernel/contracts/InternalModuleLoweringIR";
 import type { TaintModule } from "../../core/kernel/contracts/ModuleContract";
-import { compileModuleRuntimeSpec } from "../../core/orchestration/modules/ModuleRuntimeSpecCompiler";
+import { compileInternalModuleLoweringIR } from "../../core/orchestration/modules/InternalModuleLoweringIRCompiler";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { loadRuleSet } from "../../core/rules/RuleLoader";
 import { findCaseMethod, resolveCaseMethod } from "../helpers/SyntheticCaseHarness";
@@ -88,7 +88,7 @@ type RuntimeFamily = {
     title: string;
     semantic: string;
     why: string;
-    spec: ModuleRuntimeSpec;
+    spec: InternalModuleLoweringIR;
     files: Record<string, string>;
     projectRules?: Record<string, unknown>;
     cases: RuntimeCase[];
@@ -129,34 +129,189 @@ type CompileResult = {
 };
 
 function writeProjectRules(projectRulePath: string, rules?: Record<string, unknown>): void {
+    if (rules) {
+        const asset = typeof rules.id === "string" && rules.plane === "rule"
+            ? rules
+            : legacyFixtureRulesToAsset("fixture.semantic_edge_suite.custom", rules, projectRulePath);
+        writeText(projectRulePath, JSON.stringify(asset, null, 2));
+        return;
+    }
     writeText(
         projectRulePath,
-        JSON.stringify(rules || {
-            sources: [
+        JSON.stringify({
+            id: "asset.rule.fixture.semantic_edge_suite",
+            plane: "rule",
+            status: "reviewed",
+            surfaces: [
                 {
-                    id: "source.fixture.semantic_edge_suite",
+                    surfaceId: "surface.fixture.semantic_edge_suite.Source",
+                    kind: "invoke",
+                    modulePath: "fixture",
+                    functionName: "Source",
+                    invokeKind: "free-function",
+                    argCount: 0,
+                    confidence: "certain",
+                    provenance: { source: "manual" },
+                },
+                {
+                    surfaceId: "surface.fixture.semantic_edge_suite.Sink",
+                    kind: "invoke",
+                    modulePath: "fixture",
+                    functionName: "Sink",
+                    invokeKind: "free-function",
+                    argCount: 1,
+                    confidence: "certain",
+                    provenance: { source: "manual" },
+                },
+            ],
+            bindings: [
+                {
+                    bindingId: "binding.fixture.semantic_edge_suite.Source.return",
+                    surfaceId: "surface.fixture.semantic_edge_suite.Source",
+                    assetId: "asset.rule.fixture.semantic_edge_suite",
+                    plane: "rule",
+                    role: "source",
+                    endpoint: { base: { kind: "return" } },
+                    effectTemplateRefs: ["template.fixture.semantic_edge_suite.Source.return"],
+                    completeness: "complete",
+                    confidence: "certain",
+                },
+                {
+                    bindingId: "binding.fixture.semantic_edge_suite.Sink.arg0",
+                    surfaceId: "surface.fixture.semantic_edge_suite.Sink",
+                    assetId: "asset.rule.fixture.semantic_edge_suite",
+                    plane: "rule",
+                    role: "sink",
+                    endpoint: { base: { kind: "arg", index: 0 } },
+                    effectTemplateRefs: ["template.fixture.semantic_edge_suite.Sink.arg0"],
+                    completeness: "complete",
+                    confidence: "certain",
+                },
+            ],
+            effectTemplates: [
+                {
+                    id: "template.fixture.semantic_edge_suite.Source.return",
+                    kind: "rule.source",
                     sourceKind: "call_return",
-                    match: {
-                        kind: "method_name_equals",
-                        value: "Source",
-                    },
-                    target: "result",
+                    value: { base: { kind: "return" } },
+                    confidence: "certain",
                 },
-            ],
-            sinks: [
                 {
-                    id: "sink.fixture.semantic_edge_suite",
-                    match: {
-                        kind: "method_name_equals",
-                        value: "Sink",
-                    },
-                    target: "arg0",
+                    id: "template.fixture.semantic_edge_suite.Sink.arg0",
+                    kind: "rule.sink",
+                    sinkKind: "fixture",
+                    value: { base: { kind: "arg", index: 0 } },
+                    confidence: "certain",
                 },
             ],
-            sanitizers: [],
-            transfers: [],
+            provenance: {
+                source: "manual",
+                evidenceLocations: [{ file: projectRulePath }],
+            },
         }, null, 2),
     );
+}
+
+function legacyFixtureRulesToAsset(fixtureId: string, rules: Record<string, unknown>, filePath: string): Record<string, unknown> {
+    const surfaces: any[] = [];
+    const bindings: any[] = [];
+    const effectTemplates: any[] = [];
+
+    for (const [index, source] of ((rules.sources as any[]) || []).entries()) {
+        const surfaceId = `surface.${fixtureId}.source.${index}`;
+        const templateId = `template.${fixtureId}.source.${index}`;
+        surfaces.push(surfaceFromLegacyMatch(source.match, surfaceId));
+        bindings.push({
+            bindingId: `binding.${fixtureId}.source.${index}`,
+            surfaceId,
+            assetId: `asset.rule.${fixtureId}`,
+            plane: "rule",
+            role: "source",
+            selector: selectorFromLegacyMatch(source.match),
+            endpoint: endpointFromLegacyTarget(source.target || "result"),
+            effectTemplateRefs: [templateId],
+            completeness: "complete",
+            confidence: "certain",
+        });
+        effectTemplates.push({
+            id: templateId,
+            kind: "rule.source",
+            sourceKind: source.sourceKind || "call_return",
+            value: endpointFromLegacyTarget(source.target || "result"),
+            confidence: "certain",
+        });
+    }
+
+    for (const [index, sink] of ((rules.sinks as any[]) || []).entries()) {
+        const surfaceId = `surface.${fixtureId}.sink.${index}`;
+        const templateId = `template.${fixtureId}.sink.${index}`;
+        surfaces.push(surfaceFromLegacyMatch(sink.match, surfaceId));
+        bindings.push({
+            bindingId: `binding.${fixtureId}.sink.${index}`,
+            surfaceId,
+            assetId: `asset.rule.${fixtureId}`,
+            plane: "rule",
+            role: "sink",
+            selector: selectorFromLegacyMatch(sink.match),
+            endpoint: endpointFromLegacyTarget(sink.target || "arg0"),
+            effectTemplateRefs: [templateId],
+            completeness: "complete",
+            confidence: "certain",
+        });
+        effectTemplates.push({
+            id: templateId,
+            kind: "rule.sink",
+            sinkKind: "fixture",
+            value: endpointFromLegacyTarget(sink.target || "arg0"),
+            confidence: "certain",
+        });
+    }
+
+    return {
+        id: `asset.rule.${fixtureId}`,
+        plane: "rule",
+        status: "reviewed",
+        surfaces,
+        bindings,
+        effectTemplates,
+        provenance: {
+            source: "manual",
+            evidenceLocations: [{ file: filePath }],
+        },
+    };
+}
+
+function surfaceFromLegacyMatch(match: any, surfaceId: string): Record<string, unknown> {
+    const methodName = String(match?.value || "fixtureCall");
+    return {
+        surfaceId,
+        kind: "invoke",
+        modulePath: "fixture",
+        functionName: methodName,
+        invokeKind: "free-function",
+        argCount: methodName === "Sink" ? 1 : 0,
+        confidence: "certain",
+        provenance: { source: "manual" },
+    };
+}
+
+function selectorFromLegacyMatch(match: any): Record<string, unknown> {
+    const kindMap: Record<string, string> = {
+        method_name_equals: "method-name-equals",
+        local_name_regex: "local-name-regex",
+    };
+    return {
+        kind: kindMap[String(match?.kind || "")] || "method-name-equals",
+        value: String(match?.value || ""),
+    };
+}
+
+function endpointFromLegacyTarget(target: unknown): Record<string, unknown> {
+    if (target === "result") return { base: { kind: "return" } };
+    const text = String(target || "arg0");
+    const argMatch = /^arg(\d+)$/.exec(text);
+    if (argMatch) return { base: { kind: "arg", index: Number(argMatch[1]) } };
+    return { base: { kind: "arg", index: 0 } };
 }
 
 function buildRuntimeFamilies(): RuntimeFamily[] {
@@ -1101,14 +1256,14 @@ async function runRuntimeFamily(root: string, family: RuntimeFamily): Promise<Ru
     const familyDir = path.join(root, family.id);
     const inputsDir = path.join(familyDir, "inputs");
     const projectRulePath = path.join(familyDir, "project.rules.json");
-    const moduleRuntimeSpecPath = path.join(familyDir, "module_runtime_spec.json");
+    const internalModuleLoweringIRPath = path.join(familyDir, "internal_module_lowering_ir.json");
     for (const [name, content] of Object.entries(family.files)) {
         writeText(path.join(inputsDir, name), content);
     }
     writeProjectRules(projectRulePath, family.projectRules);
-    writeText(moduleRuntimeSpecPath, JSON.stringify(family.spec, null, 2));
+    writeText(internalModuleLoweringIRPath, JSON.stringify(family.spec, null, 2));
 
-    const compiled = compileModuleRuntimeSpec(family.spec);
+    const compiled = compileInternalModuleLoweringIR(family.spec);
     const scene = buildScene(inputsDir);
     const cases: Array<RuntimeCase & { actualFlows: number; passed: boolean }> = [];
     for (const item of family.cases) {
@@ -1139,9 +1294,9 @@ function runCompileFamily(family: CompileFamily): CompileResult {
         let passed = true;
         let message = "";
         try {
-            compileModuleRuntimeSpec(item.spec as ModuleRuntimeSpec);
+            compileInternalModuleLoweringIR(item.spec as InternalModuleLoweringIR);
             passed = false;
-            message = "expected compileModuleRuntimeSpec to fail";
+            message = "expected compileInternalModuleLoweringIR to fail";
         } catch (error) {
             message = String((error as any)?.message || error);
             for (const expected of item.expectedSubstrings) {

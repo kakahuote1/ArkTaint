@@ -43,7 +43,7 @@ async function main(): Promise<void> {
     assert(item.resolution === "resolved", "expected resolved item");
     assert(item.plane === "rule", "expected plane from asset");
     assert(session.augment.assets.length === 1, "expected v2 asset augment");
-    assert(session.augment.ruleSet.sinks.length === 1, "expected lowered sink rule");
+    assert(session.augment.ruleSet.sinks.length === 0, "llm-generated asset must not lower into analysis rules before promotion");
     assert(!("classification" in item), "pipeline item must not expose legacy classification");
     console.log("PASS testSemanticFlowPipeline");
 }

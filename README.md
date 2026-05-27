@@ -1,545 +1,276 @@
-<div align="center">
-
 # ArkTaint
 
-**面向 HarmonyOS (ArkTS) 的高精度静态污点分析框架**  
-**High-Precision Static Taint Analysis Framework for HarmonyOS (ArkTS)**
+**面向 HarmonyOS / ArkTS 的静态污点分析框架**
+High-precision static taint analysis for HarmonyOS and ArkTS applications.
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/language-TypeScript-3178C6.svg)](https://www.typescriptlang.org/)
-[![HarmonyOS](https://img.shields.io/badge/platform-HarmonyOS-black)](https://developer.huawei.com/consumer/cn/harmonyos)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
+[![Platform](https://img.shields.io/badge/platform-HarmonyOS%20%2F%20ArkTS-0f172a.svg)](https://developer.huawei.com/consumer/cn/harmonyos)
 
-[简体中文](#简体中文) | [English](#english)
+ArkTaint 是一个面向 HarmonyOS / ArkTS 应用的静态污点分析系统。它的目标不是简单统计“疑似漏洞”，而是在 ArkTS 项目中恢复从 source 到 sink 的可解释污点流，并把框架入口、延后执行、项目 API、第三方 SDK 和路径证据统一到一条可审计的分析主线中。
 
-</div>
+> ArkTaint 输出的是静态污点流证据。污点流不自动等于漏洞；漏洞判断属于后续人工审计和报告层。
 
----
+## 为什么需要 ArkTaint
 
-## 简体中文
+HarmonyOS / ArkTS 应用的安全数据流通常不只发生在普通函数调用之间。真实项目里常见的复杂点包括：
 
-### 📖 项目简介
+- Ability、Extension、Component 生命周期和框架回调没有单一 `main()` 入口；
+- AppStorage、LocalStorage、Router、Emitter、TaskPool 等框架机制会跨位置、跨回调交接数据；
+- 项目会封装官方 API，也会引入陌生第三方 API，单靠方法名匹配很容易误判；
+- source / sink / sanitizer / transfer / handoff 语义需要能复用、能审计、能逐步扩展；
+- 后处理必须基于完整路径证据，不能凭一条局部规则静默删除真实流。
 
-**ArkTaint** 是一个专为 HarmonyOS / ArkTS 设计的高精度静态污点分析框架。它建立在 [ArkAnalyzer](https://gitcode.net/openharmony-sig/arkanalyzer) 强大的 IR、调用图和指针分析能力之上。不同于传统的单遍规则匹配工具，ArkTaint 致力于将以下三类复杂语义纳入统一的分析主线中：
+ArkTaint 因此把“API 是谁”和“API 做什么”拆开处理：身份由结构化 surface 证明，语义由声明式资产表达，传播由核心求解器消费，路径解释由证据系统和后处理完成。
 
-- **Rules (规则)**：声明式的 Source / Sink / Transfer / Sanitizer 规则定义。
-- **Modules (模块)**：针对复杂 API、异步状态与框架级语义的深度建模。
-- **ArkMain (入口)**：精准恢复 HarmonyOS 框架托管入口、组件生命周期以及隐式宿主回调。
+## 架构总览
 
-此外，ArkTaint 独创了一条完整的 **大语言模型 (LLM) 自动建模工作流**：
+![ArkTaint 架构总览](assets/readme/system-architecture.png)
 
-> `轻量级预分析` ➔ `上下文候选切片` ➔ `LLM 摘要与语义分类` ➔ `生成 Rules/Modules/ArkMain` ➔ `注入分析主线全量执行`
+当前主线分为七个阶段：
 
-这条由 `analyze --autoModel` 驱动的工作流所生成的模型，不仅能实时参与当前上下文的诊断，还能打包为可复用的库（Model Pack），在日后其他项目中无缝加载。
+1. **AssetRegistryBootstrap**：加载 `reviewed` / `replayed` / `official` 可信资产，建立身份、角色、endpoint、guard 和 cellKind 索引。
+2. **PreAnalysis Evidence Pack**：观察项目里的调用、入口、装饰器和访问面，生成 `ObservedSurface`、`CoverageLedger` 与 LLM 证据包，不做传播。
+3. **SemanticFlow LLM Modeling**：只处理 coverage gap，输出声明式候选资产，不输出传播代码，也不直接进入分析。
+4. **Asset Promotion Gate**：通过 schema 校验、analyzer-backed surface、人工审计和复跑后，候选资产才能进入项目资产集。
+5. **Full Analysis**：将 Rules、Modules、ArkMain、UDE 和 IR 操作实例化为 effect / StateEffect，由 OCLFS 和工作队列完成污点传播。
+6. **Provenance**：保存不可变基础证据图，物化 `PathView`、`PathClass` 和 `PathGap`。
+7. **Postsolve**：算法 F 只消费已物化路径证据，做路径级过滤、解释和 flow 聚合。
 
-### 🚀 项目状态
+## 核心设计
 
-ArkTaint 已具备企业级静态分析引擎的完整工程能力：
+### 统一资产身份层
 
-- 🛠 **成熟的 CLI 工具链**：内置 `analyze` / `llm` / `semanticflow` 等命令行工具。
-- 📦 **标准的资产管理**：基于 `src/models` 的统一定义和包管理结构。
-- 🧩 **高扩展的建模平面**：Rules、Modules、ArkMain 三平面协同工作。
-- 📊 **现代化的结构报告**：支持导出易于集成的标准结构化诊断结果。
-- 🧪 **严苛的测试基准**：涵盖基础回归、运行时契约、精度/性能 Benchmark 及真实项目集成测试。
+ArkTaint 使用 Asset Surface Identity Layer 管理所有安全资产的覆盖面。
 
-它正处于快速演进期，目前的开发重心从基础能力构建转向：“如何更稳定地推断陌生 API？如何最大化复用模型资产？如何确保复杂语义下引擎的确定性？”
+- `AssetSurface`：资产覆盖的程序面，例如 invoke、construct、access、entry、callback、decorator。
+- `AssetIdentity`：由 surface 自动生成的稳定身份，用于 coverage query 和冲突检测。
+- `AssetBinding`：说明某个 surface 的某个 endpoint / guard 承担 source、sink、transfer、handoff、entry 等角色。
+- `AssetRelation`：表达有证据的 facade 关系，支持透明封装复用，但不把 facade 当作 runtime 传播事件。
 
-### ✨ 核心技术突破
+已知覆盖判断只来自真实资产索引，必须按 `identity + role + endpoint + guard` 查询。ArkTaint 不使用方法名、owner 名、事件名等宽泛匹配来过滤 LLM 候选。
 
-- **🕵️ ArkMain 入口级调度与恢复**  
-  HarmonyOS 应用无全局单一 `main()`。ArkTaint 实现了深度的 Ability / Component 生命周期挂载、框架层回调与宿主隐式行为钩子的图解化整合，将这些离散节点组装为全局统一的分析根论域。
+### 声明式语义资产
 
-- **⚙️ PAG 驱动的污点演化系统**  
-  底层分析逻辑构筑于高度可信的指针赋值图（PAG）与 Worklist 算法。不论是简易 Rules、复杂的 Modules 还是顶层 ArkMain，均是在此 PAG 上注入可解释执行语义，拒绝“推翻重套分析图”。
+ArkTaint 的三类资产统一使用最新声明式结构：
 
-- **📚 统一的模块化仓库**  
-  首创平级包结构 (`pack-id:rules+modules+arkmain`)。分析者可像引入 npm 包一样，一键按需启用或禁用某个项目的依赖分析模型组合（比如 `acme_sdk:rules`）。
+- **Rules**：描述 source、sink、sanitizer、transfer 等局部安全语义。
+- **Modules**：描述框架或 SDK 的 handoff、状态槽、容器、回调、异步等复杂语义。
+- **ArkMain**：描述 HarmonyOS 托管入口、生命周期、组件和框架回调。
 
-- **🤖 LLM 驱动的自动化建模抽象 (SemanticFlow)**  
-  突破传统静态扫描遇“盲区”阻断的困境。引擎自动定位未知调用点，执行精准的 AST 切片与 PAG 近邻挖掘，将其交由 LLM 进行结构化语义推理。产出结果是严格契约化的 Rules/ModuleSpec/ArkMainSpec，直接注入系统，杜绝幻觉干预主分析线。
+资产只声明 `surfaces`、`bindings`、`effectTemplates` 和 `relations`。运行时由 matcher 实例化为 `SemanticEffectInstance`，再交给稳定 consumer。LLM 与项目资产都不能生成求解器代码，也不能绕过 promotion gate。
 
-### 🏗 体系架构
+### OCLFS：携带证明义务的局部流敏感分析
 
-当前工程严格以 `src/models` 为中心进行资产的解耦：
+OCLFS 是 ArkTaint 当前主要求解改造方向，全称为 **Obligation-Carrying Local Flow Sensitivity**。
 
-```text
-src/
-├── cli/        # 命令行入口 (analyze / llm / semanticflow)
-├── core/       # 分析内核引擎 (PAG 传播、规则/模块/ArkMain 驱动中心)
-├── models/     # 统一模型资产仓库 (Model Catalog)
-│   ├── kernel/ # Engine 级基础/内置模型
-│   │   ├── rules/ & modules/ & arkmain/
-│   └── project/# 项目/组件级高阶定制包
-│       └── <pack-id>/ 
-│           ├── rules/ & modules/ & arkmain/
-├── plugins/    # 高级流程拦截/改写插件
-├── tests/      # 覆盖各切面的分层测试套件
-└── tools/      # 内置开发辅助工具集
-```
+它把普通变量、字段、容器、框架存储槽、路由参数、事件通道等统一为 `StateCell`，把 source、copy、store、load、kill、link、sink 等统一为 `StateEffect`。对每个候选传播，OCLFS 生成 currentness obligations，判断 producer 写入的污点在 consumer 处是否仍然有效。
 
-- **kernel**: 默认装载分析。
-- **project/<pack-id>**: 按需按包启用的复用资产层。
+判断结果不是简单布尔值，而是：
 
----
+- `live`：可以传播；
+- `dead`：同一 cell 上的旧 epoch 被强证据失效；
+- `may-live`：可能仍有效，保守保留；
+- `unknown`：证据不足，保守保留或降置信；
+- `blocked-mismatch`：可证明不是同一个状态单元。
 
-### 🚦 快速开始
+OCLFS 只处理流敏感 currentness，不吸收路径敏感逻辑。路径条件、sanitizer 支配、参数化查询和多路径聚合交给算法 F。
 
-#### 环境准备
+### 证据图与后处理
 
-- Node.js >= 18.0.0
-- npm 包管理器
+ArkTaint 的路径系统分为三层：
 
-#### 安装与构建
+- `BaseEvidenceGraph`：不可变基础证据图，只记录分析阶段已经发生的 derivation、blocked、currentness、model hit 和 sink hit。
+- `PathMaterializer`：把基础证据物化为 `PathView`、`PathClass` 和 `PathGap`，并标记 complete、bounded-complete、truncated、incomplete 等状态。
+- `PostsolveDecisionGraph`：算法 F 写入 `PathDecision` 和 `FlowDecision`，不回写基础证据。
+
+因此，算法 F 不能恢复缺失路径，不能新增传播，不能重新求解 OCLFS currentness，也不能把单条路径证据扩大到整个 flow。
+
+## 快速开始
+
+### 环境要求
+
+- Node.js 18+
+- npm
+- Windows / Linux / macOS 均可运行 TypeScript 层；真实 ArkTS 项目分析依赖本仓库准备的 ArkAnalyzer 子工程。
+
+### 安装与构建
 
 ```bash
 npm install
-```
-
-仓库自带 `arkanalyzer/` 子工程；根目录 `npm install` 会通过 `postinstall` 自动执行 `npm install --prefix arkanalyzer`，以安装 `ohos-typescript` 等依赖（运行测试与 `tsc` 所必需）。若你禁用了 postinstall 或仍报 `Cannot find module 'ohos-typescript'`，请手动执行：
-
-```bash
-npm install --prefix arkanalyzer
-```
-
-然后：
-
-```bash
 npm run build
 ```
 
-#### 工程验收与测试
+`npm run build` 会先执行 `prepare:arkanalyzer`，确保 `arkanalyzer/` 子工程依赖可用。
 
-运行主回归门禁以验证本地环境：
+### 运行完整门禁
 
 ```bash
 npm run verify
 ```
 
-*其他专项测试可参阅 [测试与 Benchmark 体系](#-测试与-benchmark-体系)。*
+`verify` 覆盖资产 schema、身份注册表、coverage ledger、SemanticFlow 输出、promotion gate、OCLFS、provenance、postsolve、分析 CLI 和架构卫生门禁。
 
----
-
-### 💻 核心 CLI 使用指南
-
-> 注：完整参数定义见 `src/cli/analyzeCliOptions.ts`、`src/cli/semanticflow.ts` 与 `src/cli/llm.ts`。下面只保留第一次上手最容易卡住的参数。
-
-#### 1. 常规全量分析
-
-最小必填参数：
-
-- `--repo`：HarmonyOS 工程根目录。
-- `--sourceDir`：待分析源码目录；可传多个并用逗号分隔。若省略，引擎会自动尝试 `entry/src/main/ets`、`src/main/ets`、`.`。
-- `--model-root`：模型仓库根目录，通常直接传 `src/models`。
+### 真实项目 smoke
 
 ```bash
-npm run analyze -- --repo D:/work/MyArkApp --sourceDir entry/src/main/ets --model-root src/models
+npm run test:smoke:core
+npm run test:smoke:external
 ```
 
-常见补充参数：
+这两个命令使用固定的代表性真实项目 manifest。它们用于检查完整链路能否在真实项目上稳定运行，不代表漏洞发现能力评测。
 
-- `--outputDir`：指定输出目录；不传时默认落到 `output/runs/analyze/<repo>/<timestamp>/`。
-- `--enable-model`：启用某个模型包，例如 `acme_sdk` 或 `acme_sdk:rules+modules`。
-- `--disable-model`：禁用某个模型包或平面。
-- `--profile`：分析档位，支持 `default`、`fast`、`strict`。
+## 基本用法
 
-#### 2. 配置 LLM Profile
+### 分析一个 ArkTS 项目
 
-ArkTaint 不绑定具体厂商，只要对方提供 **OpenAI-compatible HTTP API** 即可。第一次使用建议按下面三步做。
+```bash
+npm run analyze -- --repo D:/work/MyArkApp --sourceDir entry/src/main/ets --model-root src/models --outputDir tmp/test_runs/my_app/latest
+```
 
-**步骤 A：先把 API Key 放到环境变量中**
+常用参数：
 
-PowerShell 当前会话示例：
+- `--repo`：HarmonyOS 项目根目录；
+- `--sourceDir`：ArkTS 源码目录，可用逗号传多个；
+- `--model-root`：资产目录，通常为 `src/models`；
+- `--profile`：分析档位，支持 `default`、`fast`、`strict`；
+- `--maxEntries`：限制入口数量，便于调试；
+- `--outputDir`：输出目录。
+
+### 查看资产与模型
+
+```bash
+npm run analyze -- --repo D:/work/MyArkApp --list-models
+npm run analyze -- --repo D:/work/MyArkApp --list-modules
+npm run analyze -- --repo D:/work/MyArkApp --trace-module <module-id>
+```
+
+### 配置 LLM Profile
+
+ArkTaint 使用 OpenAI-compatible HTTP API profile。API key 应放在环境变量或本机安全文件中，不要写入仓库、README、命令历史或测试产物。
 
 ```powershell
-$env:ARKTAINT_QWEN_API_KEY="你的 API Key"
-```
-
-推荐用环境变量或 `--promptKey`，不要直接把 `--apiKey` 写进命令历史。
-
-**步骤 B：写入一个可复用的 LLM profile**
-
-下面是阿里云百炼 / Qwen 的一个完整示例：
-
-```bash
-npm run llm -- --profile qwen --baseUrl https://dashscope.aliyuncs.com/compatible-mode/v1 --model qwen3.5-plus --apiKeyEnv ARKTAINT_QWEN_API_KEY --minIntervalMs 2000 --timeoutMs 120000 --connectTimeoutMs 30000
-```
-
-如果你的平台给的是完整接口地址而不是 base URL，就改用 `--endpoint`；两者二选一即可。
-
-最关键的参数含义：
-
-- `--profile`：配置名，之后在分析命令里通过 `--llmProfile qwen` 选择它。
-- `--baseUrl`：兼容 OpenAI 的基础地址，例如 `https://dashscope.aliyuncs.com/compatible-mode/v1`。
-- `--endpoint`：完整请求地址；只在厂商不提供标准 base URL 时使用。
-- `--model`：实际调用的模型名。
-- `--apiKeyEnv`：从哪个环境变量读取 key。
-- `--promptKey`：交互式输入 key，并安全写入 `~/.arktaint/secrets/<profile>.key`。
-- `--apiKeyHeader` / `--apiKeyPrefix`：当厂商鉴权头不是默认 `Authorization: Bearer <key>` 时再改。
-- `--minIntervalMs`：请求最小间隔，适合限流严格的平台。
-- `--timeoutMs` / `--connectTimeoutMs`：总超时与连接超时。
-- `--config`：改用自定义的 LLM 配置文件路径；默认是 `~/.arktaint/llm.json`。
-
-如果你不想手写参数，也可以：
-
-```bash
-npm run llm -- --interactive
-```
-
-**步骤 C：检查配置是否生效**
-
-```bash
+$env:ARKTAINT_LLM_API_KEY="your-api-key"
+npm run llm -- --profile local-llm --baseUrl https://example.com/v1 --model your-model --apiKeyEnv ARKTAINT_LLM_API_KEY
 npm run llm -- --show
 ```
 
-这会打印脱敏后的配置，确认 `activeProfile`、`baseUrl`、`model`、`apiKeyEnv` 或 `apiKeyFile` 是否正确。
+`npm run llm -- --show` 会脱敏展示配置。
 
-#### 3. LLM 自动化建模 (SemanticFlow)
-
-当 LLM profile 配好之后，直接使用 `analyze --autoModel` 即可跑完整两阶段流程：
+### 运行 SemanticFlow 建模
 
 ```bash
-npm run analyze -- --autoModel --repo D:/work/MyArkApp --sourceDir entry/src/main/ets --model-root src/models --llmProfile qwen --publish-model my_project_pack --outputDir tmp/test_runs/my_app/latest
+npm run analyze -- --autoModel --repo D:/work/MyArkApp --sourceDir entry/src/main/ets --model-root src/models --llmProfile local-llm --publish-model my_project_pack --outputDir tmp/test_runs/my_app_semanticflow/latest
 ```
 
-这里最重要的参数是：
+工作流为：
 
-- `--autoModel`：开启“轻量预分析 -> 切片 -> LLM -> 生成 rules/modules/arkmain -> 第二阶段全量分析”。
-- `--llmProfile`：选择前面通过 `npm run llm` 配好的 profile。
-- `--publish-model`：把这次生成的模型落到 `src/models/project/<pack-id>/`，后续别的项目可以直接复用。
-- `--model`：只覆盖本次运行的模型名，不改动 profile 文件本身。
-- `--llmConfig`：本次运行使用自定义 LLM 配置文件，而不是默认 `~/.arktaint/llm.json`。
-- `--arkMainMaxCandidates`：限制 ArkMain 候选数量，控制入口建模开销。
-- `--concurrency`：并发处理候选锚点数量；真实 API 调试时建议先用 `1`。
-
-如果你只想看切片与建模，不跑第二阶段分析，可以直接用 `semanticflow`：
-
-```bash
-node out/cli/semanticflow.js --repo D:/work/MyArkApp --sourceDir entry/src/main/ets --llmProfile qwen --no-analyze --outputDir tmp/test_runs/semanticflow_only/latest
+```text
+PreAnalysis
+  -> CoverageLedger
+  -> SemanticFlow evidence pack
+  -> LLM candidate assets
+  -> schema validation
+  -> promotion gate
+  -> full analysis
 ```
 
-#### 4. 模型复用与颗粒度热插拔
+注意：`candidate`、`llm-generated`、`schema-valid` 资产不会参与 known-covered 过滤，也不会进入正式分析。只有通过审计与复跑提升为 `reviewed`、`replayed` 或 `official` 后，才会成为可信资产。
 
-模型包按 `pack-id[:rules+modules+arkmain]` 选择。最常见的两种用法如下：
-
-```bash
-# 启用整个模型包
-npm run analyze -- --repo D:/work/MyArkApp --enable-model my_project_pack
-
-# 只启用部分平面，同时显式关闭另一个平面
-npm run analyze -- --repo D:/work/MyArkApp --enable-model my_project_pack:rules+modules --disable-model my_project_pack:arkmain
-```
-
-#### 5. 资产内省服务 (Inspection)
-
-```bash
-# 查看当前可用的模型包
-npm run analyze -- --repo D:/work/MyArkApp --list-models
-
-# 查看某个模型包加载后的 Modules
-npm run analyze -- --repo D:/work/MyArkApp --enable-model my_project_pack --list-modules
-
-# 追踪某个 Module 的解析结果
-npm run analyze -- --repo D:/work/MyArkApp --trace-module my.custom.identifier
-
-# 查看插件清单
-npm run analyze -- --repo D:/work/MyArkApp --list-plugins
-```
-
----
-
-### 📉 产物规范体系
-
-报告产出的落板机制如下：
-
-**普通全量分析 (`analyze`)** 默认落仓至：
-`output/runs/analyze/<repo-name>/<timestamp>/`
-- `summary/summary.json` / `.md`: 顶层漏洞检出报表与链路总结。
-- `diagnostics/*`: 引擎运行期调试断言与未建模 API 缺口日志。
-
-**LLM 自动建模与 SemanticFlow** 运行时默认落仓至：
-`tmp/test_runs/runtime/semanticflow_cli/latest/` (或通过 `--output` 重新指定)
-- `session.json`, `rules.json`, `modules.json`, `arkmain.json`: 全局会话与三平面聚合产物。
-- `run.json`, `analysis.json`: 原始分析元数据。
-- `phase1/` / `final/`: 轻量级预分析及第二阶段全量分析的产物镜像。
-
----
-
-### 🧪 测试与 Benchmark 体系
-
-拥有逾 150 项微端点脚本把控各层质量：
-
-| 命令分类 | 作用域靶向 |
-| :--- | :--- |
-| `npm run verify` | 面向 CI 等级的强制工程安全门禁 |
-| `npm run test:rule-*` | 模型定义层合法性、约束加载治理验证 |
-| `npm run test:entry-model:*` | ArkMain 组件级推导验证主轴 |
-| `npm run test:analyze-auto-model`| CLI 与自动化建模驱动测试 |
-| `npm run test:arktaint-bench` | Core-Engine 层面 Benchmark 探针 |
-
-*验证产出的沙盒痕迹默认收集于 `tmp/test_runs/`。*
-
----
-
-### 🤝 接入与贡献参考
-
-我们高度鼓励社区遵循如下边界扩展与丰富能力网：
-
-1. **优先使用 Rules**: 数据流/污点的显式流转端点，均应采取声明式的 source / sink / transfer。
-2. **需要高级语法网使用 Modules**: 跨表面的联动API、特殊异步容器桥接、内部信道。采用 `ModuleSpec`。
-3. **补充宿主侧视角使用 ArkMain**: 解构与构建复杂的框架层运行时路由树与生命周期节点。
-4. **修改分析拓扑内核使用 Plugins**: 提供拦截挂载钩子 (e.g. `timer`, `auth-filter`)。
-
-💡 **最小学习切入点**:
-- 模块建模样例: `examples/module/demo-module/demo.ts`
-- 逻辑截面插件样例: `examples/plugins/timer_and_filter.plugin.ts`
-
----
-
-## English
-
-### 📖 Introduction
-
-**ArkTaint** is an enterprise-grade static taint analysis framework engineered specifically for HarmonyOS & ArkTS applications. Architected on top of [ArkAnalyzer](https://gitcode.net/openharmony-sig/arkanalyzer)'s IR, Pointer Analysis, and Call Graph layers, ArkTaint extends far beyond traditional rule-based scanners by unifying three complex planes of software semantics:
-
-- **Rules**: Declarative configurations defining exact Sources, Sinks, Transfers, and Sanitizers.
-- **Modules**: Deep API representation for framework-specific asynchronous behaviors, bridges, and cross-surface states.
-- **ArkMain**: A precise orchestrator tracking HarmonyOS lifecycle events, implicit callbacks, and component entry graphs.
-
-Additionally, ArkTaint pioneers an innovative **LLM Auto-Modeling Pipeline (SemanticFlow)**:
-
-> `Lightweight Baseline Analysis` ➔ `Intelligent Slice & Context Fetch` ➔ `LLM Heuristic Extraction` ➔ `Rules/Modules/ArkMain Synthesis` ➔ `Full Taint Propagation`
-
-Invoked via `analyze --autoModel`, this workflow empowers the engine to deduce runtime behaviors of unknown third-party APIs on-the-fly and save them as reusable **Model Packs** for future usage.
-
-### 🚀 Status
-
-ArkTaint brings heavy-duty pipeline infrastructure out of the box:
-
-- 🛠 **Granular CLI Tooling**: Unified entry points through `analyze`, `llm`, and `semanticflow`.
-- 📦 **Model Asset Standard**: A modular, easily deployable structure based out of `src/models`.
-- 🧩 **Multi-Plane Execution**: Synchronization of Rules, Modules, and ArkMain against the core graph.
-- 🧪 **Rigorous Validation Bounds**: Extensively benchmarked logic covering runtime contracts, precision boundaries, and regression constraints.
-
-### ✨ Core Capabilities
-
-- **🕵️ ArkMain: Restoring the Hidden Execution Root**  
-  HarmonyOS apps lack a traditional deterministic `main()`. ArkTaint automatically detects, builds, and simulates execution timelines from Ability components, event binders, and asynchronous triggers, restoring the semantic execution bounds.
-  
-- **⚙️ PAG-Driven Taint Evolution**  
-  Regardless of modeling through Rules, Modules, or ArkMain overrides, execution logic maps strictly onto deeply parsed Pointer Assignment Graphs (PAG). Analysis does not fall back to heuristic string-matching strings; it trusts the pointer context.
-
-- **📚 Unified Model Pack Architecture**  
-  Similar to Node Modules, Model Packs (`rules + modules + arkmain` definitions) are sandboxed cleanly within directories. Analysts can mount or pack modules globally or toggle semantic planes per-project instance.
-
-- **🤖 LLM Semantic Automation**  
-  ArkTaint utilizes semantic slices bridging AST context boundaries to query AI models via compatible API providers. The retrieved instructions strictly respect schema constraints, generating executable configuration planes injected iteratively back into the propagation queue.
-
-### 🏗 Architecture 
-
-The framework isolates structural core capabilities from knowledge representation models:
+## 仓库结构
 
 ```text
 src/
-├── cli/        # Unified command-line interface logic 
-├── core/       # Analysis engines (PAG mapping, Taint Propagator, Spec Resolvers)
-├── models/     # Model Catalog Home
-│   ├── kernel/ # Out-of-the-box base OS modeling definitions 
-│   └── project/# Extension boundaries for specialized packages
-│       └── <pack-id>/ 
-│           ├── rules/ & modules/ & arkmain/
-├── plugins/    # Pipeline interceptors/overrides plugins
-├── tests/      # Large-scale hierarchical test gates 
-└── tools/      # Developer utilities
+  cli/                    # analyze / llm / semanticflow CLI
+  core/
+    assets/               # schema v2、registry bootstrap、promotion gate、coverage ledger
+    cellkind/             # 动态 cellKind registry
+    orchestration/        # FullAnalysis、module lowering、postsolve、SemanticFlow runtime
+    provenance/           # BaseEvidenceGraph、PathMaterializer、PathView / PathGap
+    rules/                # rule asset lowering 与 runtime 接入
+    semanticflow/         # LLM 建模证据包、输出、run record
+  models/
+    kernel/               # 内置 rules / modules / arkmain 资产
+    project/              # 通过审计和复跑后的项目资产包
+  tests/                  # schema、algorithm、pipeline、real-project smoke、门禁测试
+
+assets/readme/            # README 图片资源
+tests/manifests/          # 数据集、真实项目、benchmark manifest
+tmp/                      # 本地运行产物，默认不提交
+output/                   # 分析输出，默认不提交
 ```
 
----
+## 资产开发原则
 
-### 🚦 Quick Start
+新增资产时必须遵守四条规则：
 
-#### Environment Setup
+1. **身份和语义分离**：surface 只证明 API 是谁，binding/effect 才表达它做什么。
+2. **动态注册，不靠名字表**：model 必须显式声明 `cellKind`，core 只校验和消费，不从 API 名猜测语义。
+3. **候选不等于可信资产**：LLM 产物必须经过 schema 校验、人工审计和复跑提升。
+4. **不保留旧格式**：正式资产不得使用旧字段或兼容入口，例如 `semantics.effects`、`semanticsRef`、`coverageSurfaces`、旧 `sources/sinks/transfers/sanitizers`、`ModuleRuntimeSpec`。
 
-- Node.js >= 18.0.0
-- npm standard toolkit
+## 测试与门禁
 
-#### Installation & Build
-
-```bash
-npm install
-```
-
-This repo vendors `arkanalyzer/`. Root `npm install` runs `postinstall`, which installs that package (including `ohos-typescript`) via `npm install --prefix arkanalyzer`. If you use `--ignore-scripts` or still see `Cannot find module 'ohos-typescript'`, run:
-
-```bash
-npm install --prefix arkanalyzer
-```
-
-Then:
+常用测试：
 
 ```bash
 npm run build
-```
-
-#### Acceptance Tests
-
-```bash
 npm run verify
+npm run test:architecture-hygiene-gate
+npm run test:asset-schema-v2
+npm run test:asset-registry-bootstrap
+npm run test:cellkind-registry-dynamic
+npm run test:algorithm-e-oclfs
+npm run test:provenance-evidence-graph-boundary
+npm run test:postsolve-scoped-evidence-contract
+npm run test:smoke:core
 ```
 
----
+门禁关注点：
 
-### 💻 CLI Usage Guide
+- import boundary 不反向依赖；
+- old asset fields 不进入正式资产；
+- LLM candidate 不绕过 promotion；
+- FullAnalysis 不出现双重传播入口；
+- PathView 不被 postsolve 改写；
+- incomplete / truncated path 不允许强过滤整个 flow；
+- root 目录不放草稿、实验报告、临时输出或明文密钥。
 
-*(For the full option surface, see `src/cli/analyzeCliOptions.ts`, `src/cli/semanticflow.ts`, and `src/cli/llm.ts`. The list below focuses on the parameters that matter most for first-time setup.)*
+## 输出与审计
 
-#### 1. Standard Analysis
+ArkTaint 输出包括：
 
-Minimum required arguments:
+- source、sink、path、evidence 等结构化污点流记录；
+- CoverageLedger 和资产缺口；
+- SemanticFlow 建模候选、拒绝原因和 need-more-evidence；
+- BaseEvidenceGraph、PathView、PathGap、PathDecision、FlowDecision；
+- 适合人工审计的 Markdown / JSON 报告。
 
-- `--repo`: HarmonyOS project root.
-- `--sourceDir`: source directory to analyze; may be comma-separated. If omitted, ArkTaint probes `entry/src/main/ets`, `src/main/ets`, and `.` automatically.
-- `--model-root`: model catalog root, usually `src/models`.
+审计时应先确认 source、sink 和传播路径是否成立，再讨论是否构成漏洞。不要用 raw flow count 评价安全能力。
 
-```bash
-npm run analyze -- --repo D:/work/MyArkApp --sourceDir entry/src/main/ets --model-root src/models
-```
+## 当前状态
 
-Useful additions:
+当前主线已经完成：
 
-- `--outputDir`: override the default report directory.
-- `--enable-model`: enable a model pack such as `acme_sdk` or `acme_sdk:rules+modules`.
-- `--disable-model`: disable a pack or a single plane.
-- `--profile`: analysis preset, one of `default`, `fast`, or `strict`.
+- schema v2 资产结构；
+- AssetRegistryBootstrap、CoverageLedger、PromotionGate；
+- SemanticFlow evidence-pack 驱动建模；
+- 动态 cellKind registry；
+- InternalModuleLoweringIR 内部化；
+- OCLFS currentness 证据；
+- Provenance / Postsolve 边界；
+- 真实项目 smoke manifest。
 
-#### 2. Configure an LLM Profile
+仍然需要持续推进的是安全资产质量：通过真实项目完整引擎运行加人工源码审计，发现可复用的 source、sink、sanitizer、transfer、handoff 和 entry 缺口，再用最小通用资产修复。
 
-ArkTaint is provider-agnostic as long as the backend exposes an **OpenAI-compatible HTTP API**.
+## 安全与密钥
 
-**Step A: put the API key into an environment variable**
+- 不要提交 LLM API key、真实项目私有源码切片、token 或本地配置。
+- `tmp/`、`output/`、`internal_docs/` 默认不进入公开提交。
+- 公开 README 和测试 fixture 只使用占位 key 与脱敏路径。
+- 如果发现误提交的密钥，应立即撤销密钥并清理历史。
 
-PowerShell example:
+## 许可证
 
-```powershell
-$env:ARKTAINT_QWEN_API_KEY="your-api-key"
-```
-
-Prefer `--apiKeyEnv` or `--promptKey`. Avoid passing `--apiKey` directly in shell history.
-
-**Step B: create a reusable profile**
-
-Qwen example:
-
-```bash
-npm run llm -- --profile qwen --baseUrl https://dashscope.aliyuncs.com/compatible-mode/v1 --model qwen3.5-plus --apiKeyEnv ARKTAINT_QWEN_API_KEY --minIntervalMs 2000 --timeoutMs 120000 --connectTimeoutMs 30000
-```
-
-Use `--endpoint` instead of `--baseUrl` only when your provider gives you a full request URL rather than a standard compatible base URL.
-
-Key parameters:
-
-- `--profile`: profile name later referenced by `--llmProfile`.
-- `--baseUrl`: OpenAI-compatible base URL.
-- `--endpoint`: full request URL if base URL mode is not available.
-- `--model`: actual model identifier.
-- `--apiKeyEnv`: environment variable containing the key.
-- `--promptKey`: prompt for a key and store it in `~/.arktaint/secrets/<profile>.key`.
-- `--apiKeyHeader` / `--apiKeyPrefix`: override the default `Authorization: Bearer <key>` format when needed.
-- `--minIntervalMs`: minimum delay between requests.
-- `--timeoutMs` / `--connectTimeoutMs`: request timeout controls.
-- `--config`: use a custom LLM config file instead of the default `~/.arktaint/llm.json`.
-
-Interactive setup is also available:
-
-```bash
-npm run llm -- --interactive
-```
-
-**Step C: verify the stored profile**
-
-```bash
-npm run llm -- --show
-```
-
-#### 3. Execution of LLM Auto-Modeling
-
-Once the profile is configured, run the full two-phase pipeline with:
-
-```bash
-npm run analyze -- --autoModel --repo D:/work/MyArkApp --sourceDir entry/src/main/ets --model-root src/models --llmProfile qwen --publish-model my_project_pack --outputDir tmp/test_runs/my_app/latest
-```
-
-Most important arguments:
-
-- `--autoModel`: enable the full pipeline from lightweight pre-analysis to final full analysis.
-- `--llmProfile`: choose the profile created with `npm run llm`.
-- `--publish-model`: persist generated rules/modules/arkmain into `src/models/project/<pack-id>/`.
-- `--model`: override the configured model for this run only.
-- `--llmConfig`: use a non-default LLM config file.
-- `--arkMainMaxCandidates`: cap ArkMain candidate volume.
-- `--concurrency`: candidate parallelism; start with `1` for real-provider debugging.
-
-If you only want slice generation + LLM modeling without the second-stage full analysis, run SemanticFlow directly:
-
-```bash
-node out/cli/semanticflow.js --repo D:/work/MyArkApp --sourceDir entry/src/main/ets --llmProfile qwen --no-analyze --outputDir tmp/test_runs/semanticflow_only/latest
-```
-
-#### 4. Model Re-use & Assembly Check
-
-Model packs are selected as `pack-id[:rules+modules+arkmain]`:
-
-```bash
-# Enable the full pack
-npm run analyze -- --repo D:/work/MyArkApp --enable-model my_project_pack
-
-# Enable selected planes only
-npm run analyze -- --repo D:/work/MyArkApp --enable-model my_project_pack:rules+modules --disable-model my_project_pack:arkmain
-```
-
-#### 5. Inspection
-
-```bash
-# List available model packs
-npm run analyze -- --repo D:/work/MyArkApp --list-models
-
-# Inspect loaded modules
-npm run analyze -- --repo D:/work/MyArkApp --enable-model my_project_pack --list-modules
-
-# Trace a specific module
-npm run analyze -- --repo D:/work/MyArkApp --trace-module my.custom.identifier
-
-# List plugins
-npm run analyze -- --repo D:/work/MyArkApp --list-plugins
-```
-
-### 📉 Artifact Structure
-
-A standard analysis (`analyze`) dumps artifacts to `output/runs/analyze/<repo-name>/<timestamp>/`:
-- **`summary.json/md`**: High-level exposure metrics mapping source-to-sink hits.
-- **`diagnostics/*`**: Unregistered APIs warning logs and stack diagnostic output.
-
-A full semanticflow execution (`--autoModel`) utilizes `tmp/test_runs/runtime/semanticflow_cli/latest/`:
-- **`session.json`, `rules.json`, `modules.json`, `arkmain.json`**: Modeling results.
-- **`run.json`, `analysis.json`**: Engine execution trace records.
-- **`phase1/`, `final/`**: Mirrors of the first-stage extraction and the second-stage completed run.
-
----
-
-### 🤝 Extending & Contributing
-
-We advise users creating custom extensions to follow this prioritization model:
-
-1. **Use Rules**: Easiest integration logic. Declarative JSON schema for sources/sinks.
-2. **Use Modules**: Required when managing cross-surface calls or state carriers (`ModuleSpec`).
-3. **Use ArkMain**: Only required to define top-level root configurations overriding application bootstrap events. 
-4. **Use Plugins**: Solely for modifying the internal event pipeline structure logic.
-
-💡 **Templates**:
-- Demonstrational Module: `examples/module/demo-module/demo.ts`
-- Demonstrational Plugin: `examples/plugins/timer_and_filter.plugin.ts`
-
----
-
-## License
-
-ArkTaint is distributed under the [Apache License 2.0](./LICENSE).  
-Copyright © Contributors to the ArkTaint Project.
+本项目使用 [Apache License 2.0](LICENSE)。

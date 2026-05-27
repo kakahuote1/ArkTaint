@@ -3,7 +3,7 @@ import type {
     ModuleBridgeEmitSpec,
     ModuleFieldPathSpec,
     ModuleTransferMode,
-} from "../../kernel/contracts/ModuleRuntimeSpec";
+} from "../../kernel/contracts/InternalModuleLoweringIR";
 import type { CellKindId } from "../../cellkind";
 import { createHandoffHandle } from "../../kernel/semantic_handoff/SemanticHandoffTypes";
 import type {

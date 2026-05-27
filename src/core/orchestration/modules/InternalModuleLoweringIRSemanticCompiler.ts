@@ -5,9 +5,9 @@
     ModuleKeyedStorageSemantic,
     ModuleRouteBridgeSemantic,
     ModuleSemantic,
-    ModuleRuntimeSpec,
+    InternalModuleLoweringIR,
     ModuleStateBindingSemantic,
-} from "../../kernel/contracts/ModuleRuntimeSpec";
+} from "../../kernel/contracts/InternalModuleLoweringIR";
 import type { TaintModule } from "../../kernel/contracts/ModuleContract";
 import { createHarmonyAbilityHandoffSemanticModule } from "./harmony_semantics/ability_handoff";
 import { createHarmonyKeyedStorageSemanticModule } from "./harmony_semantics/appstorage";
@@ -16,7 +16,7 @@ import { createHarmonyRouteBridgeSemanticModule } from "./harmony_semantics/rout
 import { createHarmonyStateBindingSemanticModule } from "./harmony_semantics/state";
 import { createTsjsContainerSemanticModule } from "./tsjs_semantics/container";
 
-function compileContainerSemantic(spec: ModuleRuntimeSpec, semantic: ModuleContainerSemantic): TaintModule {
+function compileContainerSemantic(spec: InternalModuleLoweringIR, semantic: ModuleContainerSemantic): TaintModule {
     return createTsjsContainerSemanticModule({
         id: `${spec.id}::${semantic.id}`,
         description: `${spec.description} [${semantic.id}]`,
@@ -25,7 +25,7 @@ function compileContainerSemantic(spec: ModuleRuntimeSpec, semantic: ModuleConta
     });
 }
 
-function compileAbilityHandoffSemantic(spec: ModuleRuntimeSpec, semantic: ModuleAbilityHandoffSemantic): TaintModule {
+function compileAbilityHandoffSemantic(spec: InternalModuleLoweringIR, semantic: ModuleAbilityHandoffSemantic): TaintModule {
     return createHarmonyAbilityHandoffSemanticModule({
         id: `${spec.id}::${semantic.id}`,
         description: `${spec.description} [${semantic.id}]`,
@@ -34,7 +34,7 @@ function compileAbilityHandoffSemantic(spec: ModuleRuntimeSpec, semantic: Module
     });
 }
 
-function compileEventEmitterSemantic(spec: ModuleRuntimeSpec, semantic: ModuleEventEmitterSemantic): TaintModule {
+function compileEventEmitterSemantic(spec: InternalModuleLoweringIR, semantic: ModuleEventEmitterSemantic): TaintModule {
     return createHarmonyEventEmitterSemanticModule({
         id: `${spec.id}::${semantic.id}`,
         description: `${spec.description} [${semantic.id}]`,
@@ -48,7 +48,7 @@ function compileEventEmitterSemantic(spec: ModuleRuntimeSpec, semantic: ModuleEv
     });
 }
 
-function compileKeyedStorageSemantic(spec: ModuleRuntimeSpec, semantic: ModuleKeyedStorageSemantic): TaintModule {
+function compileKeyedStorageSemantic(spec: InternalModuleLoweringIR, semantic: ModuleKeyedStorageSemantic): TaintModule {
     return createHarmonyKeyedStorageSemanticModule({
         id: `${spec.id}::${semantic.id}`,
         description: `${spec.description} [${semantic.id}]`,
@@ -61,7 +61,7 @@ function compileKeyedStorageSemantic(spec: ModuleRuntimeSpec, semantic: ModuleKe
     });
 }
 
-function compileRouteBridgeSemantic(spec: ModuleRuntimeSpec, semantic: ModuleRouteBridgeSemantic): TaintModule {
+function compileRouteBridgeSemantic(spec: InternalModuleLoweringIR, semantic: ModuleRouteBridgeSemantic): TaintModule {
     return createHarmonyRouteBridgeSemanticModule({
         id: `${spec.id}::${semantic.id}`,
         description: `${spec.description} [${semantic.id}]`,
@@ -74,7 +74,7 @@ function compileRouteBridgeSemantic(spec: ModuleRuntimeSpec, semantic: ModuleRou
     });
 }
 
-function compileStateBindingSemantic(spec: ModuleRuntimeSpec, semantic: ModuleStateBindingSemantic): TaintModule {
+function compileStateBindingSemantic(spec: InternalModuleLoweringIR, semantic: ModuleStateBindingSemantic): TaintModule {
     return createHarmonyStateBindingSemanticModule({
         id: `${spec.id}::${semantic.id}`,
         description: `${spec.description} [${semantic.id}]`,
@@ -88,7 +88,7 @@ function compileStateBindingSemantic(spec: ModuleRuntimeSpec, semantic: ModuleSt
 }
 
 export function compileRuntimeSemanticModule(
-    spec: ModuleRuntimeSpec,
+    spec: InternalModuleLoweringIR,
     semantic: ModuleSemantic & { id: string },
 ): TaintModule | undefined {
     switch (semantic.kind) {

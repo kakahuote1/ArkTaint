@@ -6,8 +6,8 @@
     ModuleEndpoint,
     ModuleSemantic,
     ModuleSemanticSurfaceRef,
-    ModuleRuntimeSpec,
-} from "./ModuleRuntimeSpec";
+    InternalModuleLoweringIR,
+} from "./InternalModuleLoweringIR";
 
 function stableSerialize(value: unknown): string {
     if (Array.isArray(value)) {
@@ -209,7 +209,7 @@ function applySemanticDefaults(semantic: ModuleSemantic, semanticIndex: number):
     }
 }
 
-export function canonicalizeModuleRuntimeSpec(spec: ModuleRuntimeSpec): ModuleRuntimeSpec {
+export function canonicalizeInternalModuleLoweringIR(spec: InternalModuleLoweringIR): InternalModuleLoweringIR {
     const semanticIds = buildGeneratedSemanticIds(spec.semantics);
     return {
         ...spec,

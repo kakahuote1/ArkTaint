@@ -15,7 +15,7 @@ import {
 import type {
     ModuleContainerCapability,
     ModuleContainerFamilyKind,
-} from "../../../kernel/contracts/ModuleRuntimeSpec";
+} from "../../../kernel/contracts/InternalModuleLoweringIR";
 import { safeGetOrCreatePagNodes } from "../../../kernel/contracts/PagNodeResolution";
 
 export interface TsjsContainerSemanticModuleOptions {

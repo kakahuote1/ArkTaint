@@ -126,7 +126,7 @@ function isMaterializationIncomplete(status?: ProvenancePathStatus): boolean {
 
 export function decidePostsolveJudgement(evidence: PostsolveEvidence[]): PostsolveJudgement {
     const evidenceKinds = [...new Set(evidence.map(item => item.kind))];
-    const strongNegative = evidence.find(item => item.polarity === "negative" && item.strength === "strong");
+    const strongNegative = evidence.find(isStrongPathRefutingEvidence);
     if (strongNegative) {
         return {
             kind: "Refuted-Strong",
@@ -134,7 +134,7 @@ export function decidePostsolveJudgement(evidence: PostsolveEvidence[]): Postsol
             evidenceKinds,
         };
     }
-    const weakNegative = evidence.find(item => item.polarity === "negative");
+    const weakNegative = evidence.find(isWeakPathRefutingEvidence);
     if (weakNegative) {
         return {
             kind: "Refuted-Weak",
@@ -154,6 +154,44 @@ export function decidePostsolveJudgement(evidence: PostsolveEvidence[]): Postsol
         kind: "Unresolved",
         evidenceKinds,
     };
+}
+
+function isStrongPathRefutingEvidence(evidence: PostsolveEvidence): boolean {
+    return evidence.polarity === "negative"
+        && evidence.strength === "strong"
+        && evidence.scope !== "diagnostic"
+        && evidenceCoversPathSubject(evidence)
+        && evidencePreconditionsSatisfied(evidence);
+}
+
+function isWeakPathRefutingEvidence(evidence: PostsolveEvidence): boolean {
+    return evidence.polarity === "negative"
+        && evidence.scope !== "diagnostic"
+        && evidenceCoversPathSubject(evidence);
+}
+
+function evidenceCoversPathSubject(evidence: PostsolveEvidence): boolean {
+    if (evidence.scope === "path") {
+        return !!evidence.subject.pathId;
+    }
+    if (evidence.scope === "path-segment") {
+        return !!evidence.subject.pathId && !!evidence.subject.pathSegmentId;
+    }
+    if (evidence.scope === "sink-argument") {
+        return !!evidence.subject.pathId && !!evidence.subject.sinkFactId && !!evidence.subject.sinkArgEndpoint;
+    }
+    if (evidence.scope === "source-label") {
+        return !!evidence.subject.pathId && !!evidence.subject.sourceLabel;
+    }
+    if (evidence.scope === "taint-flow") {
+        return !!evidence.subject.sinkFactId;
+    }
+    return false;
+}
+
+function evidencePreconditionsSatisfied(evidence: PostsolveEvidence): boolean {
+    const preconditions = evidence.preconditions || {};
+    return Object.values(preconditions).every(value => value !== false);
 }
 
 export function aggregateFlowJudgement(

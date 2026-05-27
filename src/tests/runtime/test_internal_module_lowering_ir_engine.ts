@@ -4,10 +4,10 @@ import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import type {
     ModuleSemanticSurfaceRef,
-    ModuleRuntimeSpec,
-} from "../../core/kernel/contracts/ModuleRuntimeSpec";
+    InternalModuleLoweringIR,
+} from "../../core/kernel/contracts/InternalModuleLoweringIR";
 import type { TaintModule } from "../../core/kernel/contracts/ModuleContract";
-import { compileModuleRuntimeSpec } from "../../core/orchestration/modules/ModuleRuntimeSpecCompiler";
+import { compileInternalModuleLoweringIR } from "../../core/orchestration/modules/InternalModuleLoweringIRCompiler";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { loadRuleSet } from "../../core/rules/RuleLoader";
 import { findCaseMethod, resolveCaseMethod } from "../helpers/SyntheticCaseHarness";
@@ -24,6 +24,83 @@ function writeText(filePath: string, content: string): void {
     fs.writeFileSync(filePath, content, "utf-8");
 }
 
+function writeFixtureRuleAsset(filePath: string, fixtureId: string): void {
+    writeText(
+        filePath,
+        JSON.stringify({
+            id: `asset.rule.${fixtureId}`,
+            plane: "rule",
+            status: "reviewed",
+            surfaces: [
+                {
+                    surfaceId: `surface.${fixtureId}.Source`,
+                    kind: "invoke",
+                    modulePath: "fixture",
+                    functionName: "Source",
+                    invokeKind: "free-function",
+                    argCount: 0,
+                    confidence: "certain",
+                    provenance: { source: "manual" },
+                },
+                {
+                    surfaceId: `surface.${fixtureId}.Sink`,
+                    kind: "invoke",
+                    modulePath: "fixture",
+                    functionName: "Sink",
+                    invokeKind: "free-function",
+                    argCount: 1,
+                    confidence: "certain",
+                    provenance: { source: "manual" },
+                },
+            ],
+            bindings: [
+                {
+                    bindingId: `binding.${fixtureId}.Source.return`,
+                    surfaceId: `surface.${fixtureId}.Source`,
+                    assetId: `asset.rule.${fixtureId}`,
+                    plane: "rule",
+                    role: "source",
+                    endpoint: { base: { kind: "return" } },
+                    effectTemplateRefs: [`template.${fixtureId}.Source.return`],
+                    completeness: "complete",
+                    confidence: "certain",
+                },
+                {
+                    bindingId: `binding.${fixtureId}.Sink.arg0`,
+                    surfaceId: `surface.${fixtureId}.Sink`,
+                    assetId: `asset.rule.${fixtureId}`,
+                    plane: "rule",
+                    role: "sink",
+                    endpoint: { base: { kind: "arg", index: 0 } },
+                    effectTemplateRefs: [`template.${fixtureId}.Sink.arg0`],
+                    completeness: "complete",
+                    confidence: "certain",
+                },
+            ],
+            effectTemplates: [
+                {
+                    id: `template.${fixtureId}.Source.return`,
+                    kind: "rule.source",
+                    sourceKind: "call_return",
+                    value: { base: { kind: "return" } },
+                    confidence: "certain",
+                },
+                {
+                    id: `template.${fixtureId}.Sink.arg0`,
+                    kind: "rule.sink",
+                    sinkKind: "fixture",
+                    value: { base: { kind: "arg", index: 0 } },
+                    confidence: "certain",
+                },
+            ],
+            provenance: {
+                source: "manual",
+                evidenceLocations: [{ file: filePath }],
+            },
+        }, null, 2),
+    );
+}
+
 function hasLoweredModule(loadedModuleIds: string[], specId: string): boolean {
     return loadedModuleIds.some(id => id === specId || id.startsWith(`${specId}::`));
 }
@@ -31,8 +108,8 @@ function hasLoweredModule(loadedModuleIds: string[], specId: string): boolean {
 function expectCompileError(spec: unknown, expectedSubstrings: string[]): void {
     let message = "";
     try {
-        compileModuleRuntimeSpec(spec as ModuleRuntimeSpec);
-        assert(false, "expected compileModuleRuntimeSpec to fail");
+        compileInternalModuleLoweringIR(spec as InternalModuleLoweringIR);
+        assert(false, "expected compileInternalModuleLoweringIR to fail");
     } catch (error) {
         message = String((error as any)?.message || error);
     }
@@ -44,8 +121,8 @@ function expectCompileError(spec: unknown, expectedSubstrings: string[]): void {
     }
 }
 
-function modulesFromSpec(spec: ModuleRuntimeSpec): TaintModule[] {
-    return compileModuleRuntimeSpec(spec);
+function modulesFromSpec(spec: InternalModuleLoweringIR): TaintModule[] {
+    return compileInternalModuleLoweringIR(spec);
 }
 
 function buildScene(projectDir: string): Scene {
@@ -655,36 +732,9 @@ async function main(): Promise<void> {
         ].join("\n"),
     );
 
-    writeText(
-        projectRulePath,
-        JSON.stringify({
-            sources: [
-                {
-                    id: "source.fixture.module_spec",
-                    sourceKind: "call_return",
-                    match: {
-                        kind: "method_name_equals",
-                        value: "Source",
-                    },
-                    target: "result",
-                },
-            ],
-            sinks: [
-                {
-                    id: "sink.fixture.module_spec",
-                    match: {
-                        kind: "method_name_equals",
-                        value: "Sink",
-                    },
-                    target: "arg0",
-                },
-            ],
-            sanitizers: [],
-            transfers: [],
-        }, null, 2),
-    );
+    writeFixtureRuleAsset(projectRulePath, "fixture.internal_module_lowering_ir");
 
-    const callbackSpec: ModuleRuntimeSpec = {
+    const callbackSpec: InternalModuleLoweringIR = {
         id: "fixture.spec.callback_bridge",
         semantics: [
             {
@@ -699,7 +749,7 @@ async function main(): Promise<void> {
     };
     writeText(callbackSpecFile, JSON.stringify(callbackSpec, null, 2));
 
-    const carrierSpec: ModuleRuntimeSpec = {
+    const carrierSpec: InternalModuleLoweringIR = {
         id: "fixture.spec.same_receiver_callback",
         description: "Bridge bus.postMessage(value) into bus.onMessage(callback) on the same receiver.",
         semantics: [
@@ -722,7 +772,7 @@ async function main(): Promise<void> {
         ],
     };
 
-    const keyedStateSpec: ModuleRuntimeSpec = {
+    const keyedStateSpec: InternalModuleLoweringIR = {
         id: "fixture.spec.keyed_state",
         description: "Bridge Put(key, value) into Get(key) via keyed state.",
         semantics: [
@@ -757,7 +807,7 @@ async function main(): Promise<void> {
         ],
     };
 
-    const sameAddressSpec: ModuleRuntimeSpec = {
+    const sameAddressSpec: InternalModuleLoweringIR = {
         id: "fixture.spec.same_address_bridge",
         description: "Bridge PutAddress(key, value) into GetAddress(key) using bridge-level same_address.",
         semantics: [
@@ -784,7 +834,7 @@ async function main(): Promise<void> {
         ],
     };
 
-    const methodFieldStateSpec: ModuleRuntimeSpec = {
+    const methodFieldStateSpec: InternalModuleLoweringIR = {
         id: "fixture.spec.method_field_state",
         description: "Persist Lifecycle020.onCreate(want) into this.saved and read it in render().",
         semantics: [
@@ -812,7 +862,7 @@ async function main(): Promise<void> {
         ],
     };
 
-    const declarativeSpec: ModuleRuntimeSpec = {
+    const declarativeSpec: InternalModuleLoweringIR = {
         id: "fixture.spec.declarative_binding",
         description: "Trigger onTokenChanged after setToken.",
         semantics: [
@@ -830,7 +880,7 @@ async function main(): Promise<void> {
         ],
     };
 
-    const abilitySpec: ModuleRuntimeSpec = {
+    const abilitySpec: InternalModuleLoweringIR = {
         id: "fixture.spec.ability_handoff",
         description: "Bridge startAbility(want) into DemoAbility.onCreate(want).",
         semantics: [
@@ -845,7 +895,7 @@ async function main(): Promise<void> {
         ],
     };
 
-    const emitterSpec: ModuleRuntimeSpec = {
+    const emitterSpec: InternalModuleLoweringIR = {
         id: "fixture.spec.event_emitter",
         description: "Bridge emit(topic, payload) into on(topic, callback).",
         semantics: [
@@ -862,7 +912,7 @@ async function main(): Promise<void> {
         ],
     };
 
-    const routerSpec: ModuleRuntimeSpec = {
+    const routerSpec: InternalModuleLoweringIR = {
         id: "fixture.spec.route_bridge",
         description: "Bridge pushRouteWrapped(options.route/options.params.*) into getRouteParams().*.",
         semantics: [
@@ -881,7 +931,7 @@ async function main(): Promise<void> {
         ],
     };
 
-    const storagePropSpec: ModuleRuntimeSpec = {
+    const storagePropSpec: InternalModuleLoweringIR = {
         id: "fixture.spec.keyed_storage",
         description: "Bridge StorageHubProp.putValue(key, value) into @StorageProp field reads.",
         semantics: [
@@ -898,7 +948,7 @@ async function main(): Promise<void> {
         ],
     };
 
-    const provideConsumeSpec: ModuleRuntimeSpec = {
+    const provideConsumeSpec: InternalModuleLoweringIR = {
         id: "fixture.spec.state_binding",
         description: "Bridge @Provide fields into @Consume fields.",
         semantics: [
@@ -915,7 +965,7 @@ async function main(): Promise<void> {
         ],
     };
 
-    const containerSpec: ModuleRuntimeSpec = {
+    const containerSpec: InternalModuleLoweringIR = {
         id: "fixture.spec.container",
         description: "Enable map-family container storage/load semantics.",
         semantics: [
@@ -928,7 +978,7 @@ async function main(): Promise<void> {
         ],
     };
 
-    const stringifyBoundarySpec: ModuleRuntimeSpec = {
+    const stringifyBoundarySpec: InternalModuleLoweringIR = {
         id: "fixture.spec.stringify_boundary",
         description: "Project payload.token into stringify result.",
         semantics: [
@@ -942,7 +992,7 @@ async function main(): Promise<void> {
         ],
     };
 
-    const cloneCopyBoundarySpec: ModuleRuntimeSpec = {
+    const cloneCopyBoundarySpec: InternalModuleLoweringIR = {
         id: "fixture.spec.clone_copy_boundary",
         description: "Bridge SaveClone014(value) into LoadClone014() with clone-copy semantics.",
         semantics: [
@@ -1074,71 +1124,71 @@ async function main(): Promise<void> {
     const cloneCopyWithSpec = await runCase(scene, "clone_copy_boundary_case.ets", "clone_copy_boundary_case", { modules: modulesFromSpec(cloneCopyBoundarySpec) });
 
     assert(callbackBaseline.totalFlows === 0, `callback baseline should have zero flows, got ${callbackBaseline.totalFlows}`);
-    assert(callbackWithFileSpec.totalFlows > 0, `callback file-based ModuleRuntimeSpec should recover flows, got ${callbackWithFileSpec.totalFlows}`);
-    assert(hasLoweredModule(callbackWithFileSpec.loadedModuleIds, callbackSpec.id), "callback file-based ModuleRuntimeSpec should appear in loaded module audit ids");
-    assert(callbackWithFileSpec.deferredContractCount > callbackBaseline.deferredContractCount, "callback file-based ModuleRuntimeSpec should declare deferred contracts");
+    assert(callbackWithFileSpec.totalFlows > 0, `callback file-based InternalModuleLoweringIR should recover flows, got ${callbackWithFileSpec.totalFlows}`);
+    assert(hasLoweredModule(callbackWithFileSpec.loadedModuleIds, callbackSpec.id), "callback file-based InternalModuleLoweringIR should appear in loaded module audit ids");
+    assert(callbackWithFileSpec.deferredContractCount > callbackBaseline.deferredContractCount, "callback file-based InternalModuleLoweringIR should declare deferred contracts");
 
     assert(carrierBaseline.totalFlows === 0, `same-receiver baseline should have zero flows, got ${carrierBaseline.totalFlows}`);
-    assert(carrierWithSpec.totalFlows > 0, `same-receiver ModuleRuntimeSpec should recover flows, got ${carrierWithSpec.totalFlows}`);
-    assert(hasLoweredModule(carrierWithSpec.loadedModuleIds, carrierSpec.id), "same-receiver ModuleRuntimeSpec should appear in loaded module audit ids");
-    assert(carrierWithSpec.deferredContractCount > carrierBaseline.deferredContractCount, "same-receiver ModuleRuntimeSpec should declare deferred contracts");
+    assert(carrierWithSpec.totalFlows > 0, `same-receiver InternalModuleLoweringIR should recover flows, got ${carrierWithSpec.totalFlows}`);
+    assert(hasLoweredModule(carrierWithSpec.loadedModuleIds, carrierSpec.id), "same-receiver InternalModuleLoweringIR should appear in loaded module audit ids");
+    assert(carrierWithSpec.deferredContractCount > carrierBaseline.deferredContractCount, "same-receiver InternalModuleLoweringIR should declare deferred contracts");
 
     assert(emitterScopeBaseline.totalFlows === 0, `emitter scope baseline should have zero flows, got ${emitterScopeBaseline.totalFlows}`);
-    assert(emitterScopeWithSpec.totalFlows === 0, `event emitter ModuleRuntimeSpec should not bridge across different receiver classes, got ${emitterScopeWithSpec.totalFlows}`);
+    assert(emitterScopeWithSpec.totalFlows === 0, `event emitter InternalModuleLoweringIR should not bridge across different receiver classes, got ${emitterScopeWithSpec.totalFlows}`);
 
     assert(keyedStateBaseline.totalFlows === 0, `keyed state baseline should have zero flows, got ${keyedStateBaseline.totalFlows}`);
-    assert(keyedStateWithSpec.totalFlows > 0, `keyed state ModuleRuntimeSpec should recover flows, got ${keyedStateWithSpec.totalFlows}`);
-    assert(hasLoweredModule(keyedStateWithSpec.loadedModuleIds, keyedStateSpec.id), "keyed state ModuleRuntimeSpec should appear in loaded module audit ids");
+    assert(keyedStateWithSpec.totalFlows > 0, `keyed state InternalModuleLoweringIR should recover flows, got ${keyedStateWithSpec.totalFlows}`);
+    assert(hasLoweredModule(keyedStateWithSpec.loadedModuleIds, keyedStateSpec.id), "keyed state InternalModuleLoweringIR should appear in loaded module audit ids");
 
     assert(sameAddressBaseline.totalFlows === 0, `same-address baseline should have zero flows, got ${sameAddressBaseline.totalFlows}`);
-    assert(sameAddressWithSpec.totalFlows > 0, `same-address bridge ModuleRuntimeSpec should recover flows, got ${sameAddressWithSpec.totalFlows}`);
-    assert(hasLoweredModule(sameAddressWithSpec.loadedModuleIds, sameAddressSpec.id), "same-address bridge ModuleRuntimeSpec should appear in loaded module audit ids");
+    assert(sameAddressWithSpec.totalFlows > 0, `same-address bridge InternalModuleLoweringIR should recover flows, got ${sameAddressWithSpec.totalFlows}`);
+    assert(hasLoweredModule(sameAddressWithSpec.loadedModuleIds, sameAddressSpec.id), "same-address bridge InternalModuleLoweringIR should appear in loaded module audit ids");
 
     assert(methodFieldStateBaseline.totalFlows === 0, `method field state baseline should have zero flows, got ${methodFieldStateBaseline.totalFlows}`);
-    assert(methodFieldStateWithSpec.totalFlows > 0, `method field state ModuleRuntimeSpec should recover flows, got ${methodFieldStateWithSpec.totalFlows}`);
-    assert(hasLoweredModule(methodFieldStateWithSpec.loadedModuleIds, methodFieldStateSpec.id), "method field state ModuleRuntimeSpec should appear in loaded module audit ids");
+    assert(methodFieldStateWithSpec.totalFlows > 0, `method field state InternalModuleLoweringIR should recover flows, got ${methodFieldStateWithSpec.totalFlows}`);
+    assert(hasLoweredModule(methodFieldStateWithSpec.loadedModuleIds, methodFieldStateSpec.id), "method field state InternalModuleLoweringIR should appear in loaded module audit ids");
 
     assert(declarativeBaseline.totalFlows === 0, `declarative baseline should have zero flows, got ${declarativeBaseline.totalFlows}`);
-    assert(declarativeWithSpec.totalFlows > 0, `declarative ModuleRuntimeSpec should recover flows, got ${declarativeWithSpec.totalFlows}`);
-    assert(hasLoweredModule(declarativeWithSpec.loadedModuleIds, declarativeSpec.id), "declarative ModuleRuntimeSpec should appear in loaded module audit ids");
-    assert(declarativeWithSpec.deferredContractCount > declarativeBaseline.deferredContractCount, "declarative ModuleRuntimeSpec should declare deferred contracts");
+    assert(declarativeWithSpec.totalFlows > 0, `declarative InternalModuleLoweringIR should recover flows, got ${declarativeWithSpec.totalFlows}`);
+    assert(hasLoweredModule(declarativeWithSpec.loadedModuleIds, declarativeSpec.id), "declarative InternalModuleLoweringIR should appear in loaded module audit ids");
+    assert(declarativeWithSpec.deferredContractCount > declarativeBaseline.deferredContractCount, "declarative InternalModuleLoweringIR should declare deferred contracts");
 
     assert(methodParamBaseline.totalFlows === 0, `ability handoff baseline should have zero flows, got ${methodParamBaseline.totalFlows}`);
-    assert(methodParamWithSpec.totalFlows > 0, `ability handoff ModuleRuntimeSpec should recover flows, got ${methodParamWithSpec.totalFlows}`);
-    assert(hasLoweredModule(methodParamWithSpec.loadedModuleIds, abilitySpec.id), "ability handoff ModuleRuntimeSpec should appear in loaded module audit ids");
+    assert(methodParamWithSpec.totalFlows > 0, `ability handoff InternalModuleLoweringIR should recover flows, got ${methodParamWithSpec.totalFlows}`);
+    assert(hasLoweredModule(methodParamWithSpec.loadedModuleIds, abilitySpec.id), "ability handoff InternalModuleLoweringIR should appear in loaded module audit ids");
 
     assert(emitterBaseline.totalFlows === 0, `event emitter baseline should have zero flows, got ${emitterBaseline.totalFlows}`);
-    assert(emitterWithSpec.totalFlows > 0, `event emitter ModuleRuntimeSpec should recover flows, got ${emitterWithSpec.totalFlows}`);
-    assert(hasLoweredModule(emitterWithSpec.loadedModuleIds, emitterSpec.id), "event emitter ModuleRuntimeSpec should appear in loaded module audit ids");
-    assert(emitterWithSpec.deferredContractCount > emitterBaseline.deferredContractCount, "event emitter ModuleRuntimeSpec should declare deferred contracts");
+    assert(emitterWithSpec.totalFlows > 0, `event emitter InternalModuleLoweringIR should recover flows, got ${emitterWithSpec.totalFlows}`);
+    assert(hasLoweredModule(emitterWithSpec.loadedModuleIds, emitterSpec.id), "event emitter InternalModuleLoweringIR should appear in loaded module audit ids");
+    assert(emitterWithSpec.deferredContractCount > emitterBaseline.deferredContractCount, "event emitter InternalModuleLoweringIR should declare deferred contracts");
 
     assert(routerBaseline.totalFlows === 0, `route bridge baseline should have zero flows, got ${routerBaseline.totalFlows}`);
-    assert(routerWithSpec.totalFlows > 0, `route bridge ModuleRuntimeSpec should recover flows, got ${routerWithSpec.totalFlows}`);
-    assert(hasLoweredModule(routerWithSpec.loadedModuleIds, routerSpec.id), "route bridge ModuleRuntimeSpec should appear in loaded module audit ids");
+    assert(routerWithSpec.totalFlows > 0, `route bridge InternalModuleLoweringIR should recover flows, got ${routerWithSpec.totalFlows}`);
+    assert(hasLoweredModule(routerWithSpec.loadedModuleIds, routerSpec.id), "route bridge InternalModuleLoweringIR should appear in loaded module audit ids");
 
     assert(storagePropBaseline.totalFlows === 0, `storage prop baseline should have zero flows, got ${storagePropBaseline.totalFlows}`);
-    assert(storagePropWithSpec.totalFlows > 0, `keyed storage ModuleRuntimeSpec should recover prop flows, got ${storagePropWithSpec.totalFlows}`);
-    assert(hasLoweredModule(storagePropWithSpec.loadedModuleIds, storagePropSpec.id), "keyed storage ModuleRuntimeSpec should appear in loaded module audit ids");
+    assert(storagePropWithSpec.totalFlows > 0, `keyed storage InternalModuleLoweringIR should recover prop flows, got ${storagePropWithSpec.totalFlows}`);
+    assert(hasLoweredModule(storagePropWithSpec.loadedModuleIds, storagePropSpec.id), "keyed storage InternalModuleLoweringIR should appear in loaded module audit ids");
     assert(storagePropMismatchBaseline.totalFlows === 0, `storage prop mismatch baseline should have zero flows, got ${storagePropMismatchBaseline.totalFlows}`);
-    assert(storagePropMismatchWithSpec.totalFlows === 0, `keyed storage ModuleRuntimeSpec should respect mismatched decorator keys, got ${storagePropMismatchWithSpec.totalFlows}`);
+    assert(storagePropMismatchWithSpec.totalFlows === 0, `keyed storage InternalModuleLoweringIR should respect mismatched decorator keys, got ${storagePropMismatchWithSpec.totalFlows}`);
 
     assert(provideConsumeBaseline.totalFlows === 0, `state binding baseline should have zero flows, got ${provideConsumeBaseline.totalFlows}`);
-    assert(provideConsumeWithSpec.totalFlows > 0, `state binding ModuleRuntimeSpec should recover provide/consume flows, got ${provideConsumeWithSpec.totalFlows}`);
-    assert(hasLoweredModule(provideConsumeWithSpec.loadedModuleIds, provideConsumeSpec.id), "state binding ModuleRuntimeSpec should appear in loaded module audit ids");
+    assert(provideConsumeWithSpec.totalFlows > 0, `state binding InternalModuleLoweringIR should recover provide/consume flows, got ${provideConsumeWithSpec.totalFlows}`);
+    assert(hasLoweredModule(provideConsumeWithSpec.loadedModuleIds, provideConsumeSpec.id), "state binding InternalModuleLoweringIR should appear in loaded module audit ids");
 
     assert(containerBaseline.totalFlows === 0, `container baseline should have zero flows, got ${containerBaseline.totalFlows}`);
-    assert(containerWithSpec.totalFlows > 0, `container ModuleRuntimeSpec should recover map flows, got ${containerWithSpec.totalFlows}`);
-    assert(hasLoweredModule(containerWithSpec.loadedModuleIds, containerSpec.id), "container ModuleRuntimeSpec should appear in loaded module audit ids");
+    assert(containerWithSpec.totalFlows > 0, `container InternalModuleLoweringIR should recover map flows, got ${containerWithSpec.totalFlows}`);
+    assert(hasLoweredModule(containerWithSpec.loadedModuleIds, containerSpec.id), "container InternalModuleLoweringIR should appear in loaded module audit ids");
 
     assert(stringifyBaseline.totalFlows === 0, `stringify boundary baseline should have zero flows, got ${stringifyBaseline.totalFlows}`);
-    assert(stringifyWithSpec.totalFlows > 0, `stringify boundary ModuleRuntimeSpec should recover flows, got ${stringifyWithSpec.totalFlows}`);
-    assert(hasLoweredModule(stringifyWithSpec.loadedModuleIds, stringifyBoundarySpec.id), "stringify boundary ModuleRuntimeSpec should appear in loaded module audit ids");
+    assert(stringifyWithSpec.totalFlows > 0, `stringify boundary InternalModuleLoweringIR should recover flows, got ${stringifyWithSpec.totalFlows}`);
+    assert(hasLoweredModule(stringifyWithSpec.loadedModuleIds, stringifyBoundarySpec.id), "stringify boundary InternalModuleLoweringIR should appear in loaded module audit ids");
 
     assert(cloneCopyBaseline.totalFlows === 0, `clone-copy baseline should have zero flows, got ${cloneCopyBaseline.totalFlows}`);
-    assert(cloneCopyWithSpec.totalFlows > 0, `clone-copy ModuleRuntimeSpec should recover flows, got ${cloneCopyWithSpec.totalFlows}`);
-    assert(hasLoweredModule(cloneCopyWithSpec.loadedModuleIds, cloneCopyBoundarySpec.id), "clone-copy ModuleRuntimeSpec should appear in loaded module audit ids");
+    assert(cloneCopyWithSpec.totalFlows > 0, `clone-copy InternalModuleLoweringIR should recover flows, got ${cloneCopyWithSpec.totalFlows}`);
+    assert(hasLoweredModule(cloneCopyWithSpec.loadedModuleIds, cloneCopyBoundarySpec.id), "clone-copy InternalModuleLoweringIR should appear in loaded module audit ids");
 
-    console.log("PASS test_module_runtime_spec_engine");
+    console.log("PASS test_internal_module_lowering_ir_engine");
     console.log(`callback_file_total_flows=${callbackWithFileSpec.totalFlows}`);
     console.log(`callback_deferred_contracts=${callbackWithFileSpec.deferredContractCount}`);
     console.log(`same_receiver_total_flows=${carrierWithSpec.totalFlows}`);
@@ -1162,7 +1212,7 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-    console.error("FAIL test_module_runtime_spec_engine");
+    console.error("FAIL test_internal_module_lowering_ir_engine");
     console.error(error);
     process.exit(1);
 });

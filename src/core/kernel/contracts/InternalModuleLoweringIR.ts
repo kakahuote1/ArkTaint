@@ -4,7 +4,7 @@
     DeferredBindingContinuationRole,
 } from "../model/DeferredBindingDeclaration";
 
-export interface ModuleRuntimeSpec {
+export interface InternalModuleLoweringIR {
     id: string;
     description?: string;
     enabled?: boolean;
@@ -157,7 +157,7 @@ export interface ModuleFieldLoadEndpoint extends ModuleEndpointBase {
     baseThisOnly?: boolean;
 }
 
-export interface ModuleDecoratedFieldValueEndpoint extends ModuleEndpointBase {
+export interface ModuleDecoratedFieldEndpoint extends ModuleEndpointBase {
     slot: "decorated_field_value";
 }
 
@@ -169,7 +169,7 @@ export type ModuleEndpoint =
     | ModuleMethodThisEndpoint
     | ModuleMethodParamEndpoint
     | ModuleFieldLoadEndpoint
-    | ModuleDecoratedFieldValueEndpoint;
+    | ModuleDecoratedFieldEndpoint;
 
 export interface ModuleLiteralAddress {
     kind: "literal";

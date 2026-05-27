@@ -1,6 +1,6 @@
 ﻿import type { AssetDocumentBase } from "../../core/assets/schema";
 import { validateAssetDocument } from "../../core/assets/schema";
-import { lowerModuleAssetToModuleRuntimeSpec } from "../../core/kernel/contracts/ModuleAssetLowering";
+import { lowerModuleAssetToInternalModuleLoweringIR } from "../../core/kernel/contracts/ModuleAssetLowering";
 import abilityHandoff from "../../models/kernel/modules/harmony/ability_handoff";
 import appstorage from "../../models/kernel/modules/harmony/appstorage";
 import emitter from "../../models/kernel/modules/harmony/emitter";
@@ -43,7 +43,7 @@ function main(): void {
             assert(!serialized.includes(forbidden), `${asset.id} contains forbidden legacy marker ${forbidden}`);
         }
 
-        const lowered = lowerModuleAssetToModuleRuntimeSpec(asset);
+        const lowered = lowerModuleAssetToInternalModuleLoweringIR(asset);
         assert(lowered.id === asset.id, `${asset.id} lowered id mismatch`);
         assert(lowered.semantics.length === (asset.effectTemplates || []).length, `${asset.id} lowered semantic count mismatch`);
     }

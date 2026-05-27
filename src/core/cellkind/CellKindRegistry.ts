@@ -1,5 +1,4 @@
 import {
-    BUILTIN_CELL_KIND_IDS,
     CellKindId,
     CellKindSpec,
 } from "./CellKindTypes";
@@ -14,9 +13,6 @@ export class CellKindRegistry {
     }
 
     register(spec: CellKindSpec): void {
-        if (!BUILTIN_CELL_KIND_IDS.includes(spec.id)) {
-            throw new Error(`unregistered built-in CellKindId ${spec.id}`);
-        }
         if (this.specs.has(spec.id)) {
             throw new Error(`duplicate CellKindId ${spec.id}`);
         }

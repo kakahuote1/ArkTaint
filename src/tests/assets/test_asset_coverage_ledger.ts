@@ -61,23 +61,25 @@ function validEntries(): CoverageLedgerEntry[] {
             role: "sink",
             matchedAssetIds: ["asset.rule.console.log"],
             matchedBindingIds: ["binding.console.log.arg0.sink"],
+            decision: "skip-llm",
             reason: "official console.log sink binding covers arg0",
         },
         {
             observedSurfaceId: "obs.project.logger",
             coverageStatus: "not-covered",
-            sentToLLM: true,
+            decision: "send-to-llm",
             reason: "project logger surface has no reviewed asset binding",
         },
         {
             observedSurfaceId: "obs.unknown",
             coverageStatus: "identity-unresolved",
-            sentToLLM: true,
+            decision: "send-to-llm",
             reason: "callee signature is not available",
         },
         {
             observedSurfaceId: "obs.language.local",
             coverageStatus: "ignored-by-policy",
+            decision: "ignore",
             reason: "ordinary local access with no asset surface",
         },
     ];
@@ -134,6 +136,16 @@ function main(): void {
     assert(
         coveredWithoutEvidenceResult.errors.some(error => error.includes("must reference matched asset and binding ids")),
         `covered-exact ledger should require asset and binding evidence, got: ${coveredWithoutEvidenceResult.errors.join("; ")}`
+    );
+
+    const illegalSkipEntries = validEntries();
+    illegalSkipEntries[1] = { ...illegalSkipEntries[1], decision: "skip-llm" };
+    const illegalSkip = createCoverageLedger("project-a", "run-6", observed, illegalSkipEntries);
+    const illegalSkipResult = validateCoverageLedger(illegalSkip, observed);
+    assert(!illegalSkipResult.valid, "not-covered ledger entry must not skip LLM");
+    assert(
+        illegalSkipResult.errors.some(error => error.includes("cannot skip LLM")),
+        `illegal skip should be explained, got: ${illegalSkipResult.errors.join("; ")}`
     );
 
     console.log("PASS test_asset_coverage_ledger");

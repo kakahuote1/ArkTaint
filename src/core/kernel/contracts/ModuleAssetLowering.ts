@@ -9,7 +9,7 @@
     InvokeSurface,
     SemanticEffectTemplate,
 } from "../../assets/schema";
-import { validateAssetDocument } from "../../assets/schema";
+import { isTrustedAnalysisAssetStatus, validateAssetDocument } from "../../assets/schema";
 import type {
     ModuleAbilityHandoffSemantic,
     ModuleBridgeSemantic,
@@ -18,13 +18,9 @@ import type {
     ModuleKeyedStorageSemantic,
     ModuleRouteBridgeSemantic,
     ModuleSemantic,
-    ModuleRuntimeSpec,
+    InternalModuleLoweringIR,
     ModuleStateBindingSemantic,
-} from "./ModuleRuntimeSpec";
-
-export interface ModuleAssetLoweringOptions {
-    includeGenerated?: boolean;
-}
+} from "./InternalModuleLoweringIR";
 
 export function isModuleAsset(value: unknown): value is AssetDocumentBase {
     return !!value
@@ -35,19 +31,18 @@ export function isModuleAsset(value: unknown): value is AssetDocumentBase {
         && Array.isArray((value as any).bindings);
 }
 
-export function lowerModuleAssetToModuleRuntimeSpec(
+export function lowerModuleAssetToInternalModuleLoweringIR(
     asset: AssetDocumentBase,
-    options: ModuleAssetLoweringOptions = {},
-): ModuleRuntimeSpec {
+): InternalModuleLoweringIR {
     const validation = validateAssetDocument(asset);
     if (!validation.valid) {
         throw new Error(`invalid module asset ${asset.id || "<unknown>"}: ${validation.errors.join("; ")}`);
     }
-    if (!isAnalysisStatus(asset.status, options)) {
+    if (!isAnalysisStatus(asset.status)) {
         throw new Error(`module asset ${asset.id} is not loadable with status ${asset.status}`);
     }
     const hasCoreCapability = (asset.effectTemplates || []).some(template => template.kind === "core.capability");
-    if (!isAllowedModuleProvenance(asset.provenance.source, options, hasCoreCapability)) {
+    if (!isAllowedModuleProvenance(asset.provenance.source, hasCoreCapability)) {
         const provenanceKind = hasCoreCapability ? "core capabilities" : "module semantics";
         throw new Error(`module asset ${asset.id} uses ${provenanceKind} from disallowed provenance ${asset.provenance.source}`);
     }
@@ -63,23 +58,18 @@ export function lowerModuleAssetToModuleRuntimeSpec(
     };
 }
 
-export function lowerModuleAssetsToModuleRuntimeSpecs(
+export function lowerModuleAssetsToInternalModuleLoweringIRs(
     assets: AssetDocumentBase[],
-    options: ModuleAssetLoweringOptions = {},
-): ModuleRuntimeSpec[] {
-    return assets.map(asset => lowerModuleAssetToModuleRuntimeSpec(asset, options));
+): InternalModuleLoweringIR[] {
+    return assets.map(asset => lowerModuleAssetToInternalModuleLoweringIR(asset));
 }
 
-function isAnalysisStatus(status: AssetDocumentBase["status"], options: ModuleAssetLoweringOptions): boolean {
-    if (options.includeGenerated && (status === "candidate" || status === "llm-generated")) {
-        return true;
-    }
-    return status === "schema-valid" || status === "reviewed" || status === "replayed" || status === "official";
+function isAnalysisStatus(status: AssetDocumentBase["status"]): boolean {
+    return isTrustedAnalysisAssetStatus(status);
 }
 
 function isAllowedModuleProvenance(
     source: AssetDocumentBase["provenance"]["source"],
-    options: ModuleAssetLoweringOptions,
     hasCoreCapability: boolean,
 ): boolean {
     if (hasCoreCapability) {
@@ -88,7 +78,7 @@ function isAllowedModuleProvenance(
     if (source === "builtin" || source === "manual" || source === "sdk" || source === "project" || source === "llm") {
         return true;
     }
-    return options.includeGenerated && source === "facade-folding";
+    return false;
 }
 
 function lowerModuleSemantics(asset: AssetDocumentBase): Array<ModuleSemantic & { id: string }> {

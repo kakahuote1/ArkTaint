@@ -1,5 +1,4 @@
 ﻿import type { AssetDocumentBase, AssetPlane } from "../assets/schema";
-import type { ModuleRuntimeSpec } from "../kernel/contracts/ModuleRuntimeSpec";
 import type {
     SanitizerRule,
     SinkRule,
@@ -201,7 +200,6 @@ export interface SemanticFlowRunResult {
 export interface SemanticFlowAnalysisAugment {
     assets: AssetDocumentBase[];
     ruleSet: TaintRuleSet;
-    moduleRuntimeSpecs: ModuleRuntimeSpec[];
 }
 
 export interface SemanticFlowEngineAugment {
@@ -209,7 +207,6 @@ export interface SemanticFlowEngineAugment {
     sinkRules: SinkRule[];
     sanitizerRules: SanitizerRule[];
     transferRules: TaintRuleSet["transfers"];
-    moduleRuntimeSpecs: ModuleRuntimeSpec[];
 }
 
 export interface SemanticFlowSessionResult {

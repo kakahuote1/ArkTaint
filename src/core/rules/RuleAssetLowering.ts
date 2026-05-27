@@ -13,6 +13,7 @@ import type {
     SelectorStringConstraint,
     SemanticEffectTemplate,
 } from "../assets/schema";
+import { isTrustedAnalysisAssetStatus } from "../assets/schema";
 import type {
     RuleEndpoint,
     RuleEndpointOrRef,
@@ -34,13 +35,8 @@ export interface RuleAssetLoweringResult {
     diagnostics: string[];
 }
 
-export interface RuleAssetLoweringOptions {
-    includeGenerated?: boolean;
-}
-
 export function lowerRuleAssetsToRuleSet(
     assets: AssetDocumentBase[],
-    options: RuleAssetLoweringOptions = {},
 ): RuleAssetLoweringResult {
     const diagnostics: string[] = [];
     const ruleSet: TaintRuleSet = {
@@ -52,7 +48,7 @@ export function lowerRuleAssetsToRuleSet(
 
     for (const asset of assets) {
         if (asset.plane !== "rule") continue;
-        if (!isAnalysisStatus(asset.status, options)) continue;
+        if (!isAnalysisStatus(asset.status)) continue;
         const templates = new Map((asset.effectTemplates || []).map(template => [template.id, template]));
         for (const binding of asset.bindings || []) {
             if (binding.plane !== "rule") continue;
@@ -153,14 +149,8 @@ function isRuleTemplate(template: SemanticEffectTemplate): template is RuleTempl
         || template.kind === "rule.transfer";
 }
 
-function isAnalysisStatus(status: AssetDocumentBase["status"], options: RuleAssetLoweringOptions): boolean {
-    if (options.includeGenerated && (status === "candidate" || status === "llm-generated")) {
-        return true;
-    }
-    return status === "schema-valid"
-        || status === "reviewed"
-        || status === "replayed"
-        || status === "official";
+function isAnalysisStatus(status: AssetDocumentBase["status"]): boolean {
+    return isTrustedAnalysisAssetStatus(status);
 }
 
 function selectorFromAssetSurface(asset: AssetDocumentBase, surfaceId: string): RuntimeSelector | undefined {

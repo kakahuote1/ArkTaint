@@ -1,4 +1,4 @@
-import {
+﻿import {
     type AssetDocumentBase,
     type HandoffHandleTemplate,
     type SemanticEffectInstance,
@@ -9,7 +9,7 @@ import {
     RuleEffectConsumer,
     SemanticRuntime,
 } from "../../core/assets/runtime";
-import { lowerModuleAssetToModuleRuntimeSpec } from "../../core/kernel/contracts/ModuleAssetLowering";
+import { lowerModuleAssetToInternalModuleLoweringIR } from "../../core/kernel/contracts/ModuleAssetLowering";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) throw new Error(message);
@@ -98,7 +98,7 @@ function main(): void {
     const asset: AssetDocumentBase = {
         id: "asset.module.project.storage_box",
         plane: "module",
-        status: "llm-generated",
+        status: "reviewed",
         surfaces: [
             invokeSurface("surface.save", "StorageBox", "save", 2),
             invokeSurface("surface.load", "StorageBox", "load", 1),
@@ -129,12 +129,12 @@ function main(): void {
             },
         ],
         provenance: {
-            source: "llm",
+            source: "manual",
             evidenceLocations: [{ file: "StorageBox.ets", line: 1 }],
             createdAt: "2026-05-27T00:00:00.000Z",
         },
     };
-    const lowered = lowerModuleAssetToModuleRuntimeSpec(asset, { includeGenerated: true });
+    const lowered = lowerModuleAssetToInternalModuleLoweringIR(asset);
     assert(lowered.semantics.length === 1, `expected one keyed storage semantic, got ${lowered.semantics.length}`);
     const keyed = lowered.semantics[0] as any;
     assert(keyed.kind === "keyed_storage", `expected keyed_storage, got ${keyed.kind}`);

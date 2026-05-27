@@ -115,6 +115,12 @@ export type CoverageLedgerStatus =
     | "ignored-by-policy"
     | "need-more-evidence";
 
+export type CoverageLedgerDecision =
+    | "skip-llm"
+    | "send-to-llm"
+    | "manual-review"
+    | "ignore";
+
 export interface CoverageLedgerEntry {
     observedSurfaceId: string;
     identity?: AssetIdentity;
@@ -127,7 +133,7 @@ export interface CoverageLedgerEntry {
     missingRoles?: AssetRole[];
     endpointRelation?: EndpointRelation;
     guardRelation?: GuardRelation;
-    sentToLLM?: boolean;
+    decision: CoverageLedgerDecision;
     reason: string;
     evidence?: SourceLocation[];
 }

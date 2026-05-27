@@ -32,7 +32,7 @@ export function evaluateKeyedRouteCallbackMismatchPath(
         polarity: "negative",
         strength: "strong",
         stability: "stable",
-        scope: "path-segment",
+        scope: "path",
         subject: {
             pathId: path.id,
             factId: path.factIds[0],

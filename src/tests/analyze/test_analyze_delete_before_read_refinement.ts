@@ -124,7 +124,7 @@ function keyStorageHandoffAsset(projectId: string): unknown {
     return {
         id: `asset.module.${projectId}.key_storage`,
         plane: "module",
-        status: "schema-valid",
+        status: "reviewed",
         surfaces: [
             invokeSurface("surface.key_storage.setItem", "setItem", 2),
             invokeSurface("surface.key_storage.getItem", "getItem", 1),
@@ -155,7 +155,7 @@ function keyStorageHandoffAsset(projectId: string): unknown {
             },
         ],
         provenance: {
-            source: "llm",
+            source: "manual",
             projectId,
             createdAt: "2026-05-27T00:00:00.000Z",
             evidenceLocations: [{ file: "EntryAbility.ets", line: 3 }],

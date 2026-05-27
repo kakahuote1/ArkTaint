@@ -111,13 +111,13 @@ function buildSanitizerEvidence(
         polarity: "negative",
         strength: "strong",
         stability: "overridable",
-        scope: "path-segment",
+        scope: "sink-argument",
         subject: {
             pathId: path.id,
             factId,
             sinkFactId: flow.sinkFactId,
             sinkNodeId: flow.sinkNodeId,
-            sinkArgEndpoint: flow.sinkEndpoint,
+            sinkArgEndpoint: flow.sinkEndpoint || "arg0",
         },
         requiredForRefutation: true,
         preconditions: {

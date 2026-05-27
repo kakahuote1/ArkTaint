@@ -162,6 +162,11 @@ export interface ProvenancePath {
     pathConditionAtomIds?: string[];
     blockedAtomIds?: string[];
     gapIds?: string[];
+    /**
+     * PathView is a materialized evidence view only. Postsolve must write
+     * decisions into PathDecision/PostsolveDecisionGraph, not here.
+     */
+    judgement?: never;
 }
 
 export interface ProvenancePathEnumeration {

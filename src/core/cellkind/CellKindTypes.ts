@@ -21,7 +21,8 @@ export const BUILTIN_CELL_KIND_IDS = [
     "persistent-storage-slot",
 ] as const;
 
-export type CellKindId = typeof BUILTIN_CELL_KIND_IDS[number];
+export type BuiltinCellKindId = typeof BUILTIN_CELL_KIND_IDS[number];
+export type CellKindId = BuiltinCellKindId | (string & {});
 
 export type CellKindDimension =
     | "scope"

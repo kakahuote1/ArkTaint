@@ -8,8 +8,8 @@
     ModuleFieldPathSpec,
     ModuleSemantic,
     ModuleSemanticSurfaceRef,
-    ModuleRuntimeSpec,
-} from "./ModuleRuntimeSpec";
+    InternalModuleLoweringIR,
+} from "./InternalModuleLoweringIR";
 
 const VALID_SEMANTIC_KINDS = new Set([
     "bridge",
@@ -130,16 +130,16 @@ class ValidationCollector {
     }
 }
 
-export class ModuleRuntimeSpecValidationError extends Error {
+export class InternalModuleLoweringIRValidationError extends Error {
     readonly specId?: string;
     readonly issues: string[];
 
     constructor(specId: string | undefined, issues: string[]) {
         const title = specId && specId.trim().length > 0
-            ? `Invalid ModuleRuntimeSpec "${specId}"`
-            : "Invalid ModuleRuntimeSpec";
+            ? `Invalid InternalModuleLoweringIR "${specId}"`
+            : "Invalid InternalModuleLoweringIR";
         super(`${title}:\n${issues.map(issue => `  - ${issue}`).join("\n")}`);
-        this.name = "ModuleRuntimeSpecValidationError";
+        this.name = "InternalModuleLoweringIRValidationError";
         this.specId = specId;
         this.issues = issues;
     }
@@ -637,14 +637,14 @@ function validateSemantic(value: unknown, path: string, collector: ValidationCol
     }
 }
 
-export function validateModuleRuntimeSpecOrThrow(spec: unknown): asserts spec is ModuleRuntimeSpec {
+export function validateInternalModuleLoweringIROrThrow(spec: unknown): asserts spec is InternalModuleLoweringIR {
     const collector = new ValidationCollector();
     const specRecord = isRecord(spec) ? spec : undefined;
     const specId = specRecord && typeof specRecord.id === "string" ? specRecord.id : undefined;
     const seenSemanticIds = new Set<string>();
 
     if (!specRecord) {
-        throw new ModuleRuntimeSpecValidationError(undefined, ["module spec root must be an object"]);
+        throw new InternalModuleLoweringIRValidationError(undefined, ["module spec root must be an object"]);
     }
 
     validateString(specRecord.id, "id", collector);
@@ -662,7 +662,7 @@ export function validateModuleRuntimeSpecOrThrow(spec: unknown): asserts spec is
             validateSemantic(semantic, `semantics[${index}]`, collector);
             if (isRecord(semantic) && typeof semantic.id === "string" && semantic.id.trim().length > 0) {
                 if (seenSemanticIds.has(semantic.id)) {
-                    collector.add(`semantics[${index}].id`, "must be unique within one ModuleRuntimeSpec", semantic.id);
+                    collector.add(`semantics[${index}].id`, "must be unique within one InternalModuleLoweringIR", semantic.id);
                 }
                 seenSemanticIds.add(semantic.id);
             }
@@ -670,6 +670,6 @@ export function validateModuleRuntimeSpecOrThrow(spec: unknown): asserts spec is
     }
 
     if (collector.hasIssues) {
-        throw new ModuleRuntimeSpecValidationError(specId, collector.toArray());
+        throw new InternalModuleLoweringIRValidationError(specId, collector.toArray());
     }
 }

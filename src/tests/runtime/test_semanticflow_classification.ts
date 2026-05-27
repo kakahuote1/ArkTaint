@@ -21,7 +21,7 @@ function main(): void {
     };
     const augment = buildSemanticFlowAnalysisAugment([item]);
     assert(augment.assets.length === 1, "expected one v2 asset");
-    assert(augment.ruleSet.sinks.length === 1, "expected one lowered sink rule");
+    assert(augment.ruleSet.sinks.length === 0, "llm-generated asset must stay out of analysis rule lowering before promotion");
     assert(!("classification" in item), "item result must not carry old classification");
     console.log("PASS test_semanticflow_classification");
 }

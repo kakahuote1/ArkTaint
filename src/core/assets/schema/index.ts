@@ -14,3 +14,5 @@ export * from "./SelectorTypes";
 export * from "./SurfaceTypes";
 export * from "./SurfaceIdentity";
 export * from "../../cellkind";
+export * from "../registry";
+export * from "../promotion";

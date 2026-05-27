@@ -4,11 +4,11 @@ import type {
     AssetDocumentBase,
     AssetIdentity,
     AssetRole,
-    AssetSurface,
     InvokeSurface,
+    InMemoryAssetSurfaceRegistry,
 } from "../core/assets/schema";
 import {
-    createAssetSurfaceRegistry,
+    bootstrapAssetSurfaceRegistry,
     resolveAssetIdentity,
     validateAssetDocument,
 } from "../core/assets/schema";
@@ -48,7 +48,6 @@ interface ParsedInvokeSignature {
     invokeKindHint?: InvokeSurface["invokeKind"];
 }
 
-const loadableAssetStatuses = new Set(["official", "reviewed", "replayed"]);
 const knownFilterRoles: AssetRole[] = [
     "source",
     "sink",
@@ -68,10 +67,7 @@ export function filterKnownSemanticFlowRuleCandidates(
     }
 
     const context = resolveKnownAssetContext(options);
-    const registry = createAssetSurfaceRegistry();
-    for (const asset of loadKnownAssets(context)) {
-        registry.addAsset(asset);
-    }
+    const registry = bootstrapAssetSurfaceRegistry(loadKnownAssets(context)).registry;
 
     const kept: NormalizedCallsiteItem[] = [];
     const skippedKnown: NormalizedCallsiteItem[] = [];
@@ -143,7 +139,7 @@ function loadKnownAssets(context: KnownAssetContext): AssetDocumentBase[] {
             assets.push(...loadJsonAssets(path.join(root, "project", projectId, "arkmain"), file => file.endsWith(".json")));
         }
     }
-    return assets.filter(asset => loadableAssetStatuses.has(asset.status));
+    return assets;
 }
 
 function loadJsonAssets(root: string, include: (file: string) => boolean): AssetDocumentBase[] {
@@ -283,7 +279,7 @@ function candidateInvokeKind(item: NormalizedCallsiteItem): InvokeSurface["invok
 }
 
 function isKnownCovered(
-    registry: ReturnType<typeof createAssetSurfaceRegistry>,
+    registry: InMemoryAssetSurfaceRegistry,
     identity: AssetIdentity,
     item: NormalizedCallsiteItem,
 ): boolean {

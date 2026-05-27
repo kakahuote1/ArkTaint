@@ -7,9 +7,9 @@
     ModuleFieldPathSpec,
     ModuleInvokeSurfaceSelector,
     ModuleMethodSelector,
-    ModuleRuntimeSpec as PublicModuleRuntimeSpec,
+    InternalModuleLoweringIR as PublicInternalModuleLoweringIR,
     ModuleTransferMode,
-} from "../../kernel/contracts/ModuleRuntimeSpec";
+} from "../../kernel/contracts/InternalModuleLoweringIR";
 import type {
     DeferredBindingActivation,
     DeferredBindingCarrierKind,
@@ -17,7 +17,7 @@ import type {
     DeferredBindingContinuationRole,
 } from "../../kernel/model/DeferredBindingDeclaration";
 
-export interface MaterializedModuleRuntimeSpec extends PublicModuleRuntimeSpec {
+export interface MaterializedInternalModuleLoweringIR extends PublicInternalModuleLoweringIR {
     surfaces: ModuleSurface[];
     ports: ModulePort[];
     cells: ModuleCell[];
@@ -229,7 +229,7 @@ export interface ModuleRecipeFieldLoadEndpoint extends ModuleRecipeEndpointBase 
     baseThisOnly?: boolean;
 }
 
-export interface ModuleRecipeDecoratedFieldValueEndpoint extends ModuleRecipeEndpointBase {
+export interface ModuleRecipeDecoratedFieldEndpoint extends ModuleRecipeEndpointBase {
     kind: "decorated_field_value";
 }
 
@@ -241,7 +241,7 @@ export type ModuleRecipeEndpoint =
     | ModuleRecipeMethodThisEndpoint
     | ModuleRecipeMethodParamEndpoint
     | ModuleRecipeFieldLoadEndpoint
-    | ModuleRecipeDecoratedFieldValueEndpoint;
+    | ModuleRecipeDecoratedFieldEndpoint;
 
 export type ModuleRecipeTriggerPreset =
     | "callback_sync"

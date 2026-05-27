@@ -139,6 +139,7 @@ import { materializeTaintFlowPaths } from "../provenance/ProvenancePathRecorder"
 import { currentnessEvidenceFromCertificate } from "../provenance/CurrentnessEvidenceAdapter";
 import { CurrentnessEvidence } from "../provenance/ProvenancePathTypes";
 import { evaluatePostsolveFlow, materializePostsolveFlowResult } from "./postsolve/PostsolveEvaluator";
+import { runWorklistSolvingStage } from "./full_analysis/FullAnalysisStages";
 
 export interface DebugOptions {
     enableWorklistProfile?: boolean;
@@ -1571,18 +1572,19 @@ export class TaintPropagationEngine {
             pag: this.pag,
         });
         const deps = this.buildWorklistSolverDeps(orderedTransferRules, propagationHooks);
-        propagationHooks.run(
-            { worklist, visited, deps },
-            {
-                run: (input) => {
-                    const solver = new WorklistSolver(input.deps);
-                    solver.solve(input.worklist, input.visited);
-                    return {
-                        visitedCount: input.visited.size,
-                    };
-                },
+        runWorklistSolvingStage({
+            worklist,
+            visited,
+            deps,
+            hooks: propagationHooks,
+            solve: (stageWorklist, stageVisited, stageDeps) => {
+                const solver = new WorklistSolver(stageDeps);
+                solver.solve(stageWorklist, stageVisited);
+                return {
+                    visitedCount: stageVisited.size,
+                };
             },
-        );
+        });
     }
 
     private buildWorklistSolverDeps(

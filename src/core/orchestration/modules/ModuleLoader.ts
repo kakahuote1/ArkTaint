@@ -2,7 +2,7 @@
 import * as path from "path";
 import type { AssetDocumentBase } from "../../assets/schema";
 import { ModuleSession, TaintModule } from "../../kernel/contracts/ModuleContract";
-import type { ModuleRuntimeSpec } from "../../kernel/contracts/ModuleRuntimeSpec";
+import type { InternalModuleLoweringIR } from "../../kernel/contracts/InternalModuleLoweringIR";
 import {
     collectExtensionExportCandidates,
     auditExtensionDirectoryFiles,
@@ -17,8 +17,8 @@ import {
     resolveLoadableTypeScriptModule,
     resolvePublicModuleApiPath,
 } from "../ExtensionLoaderUtils";
-import { isModuleAsset, lowerModuleAssetToModuleRuntimeSpec } from "../../kernel/contracts/ModuleAssetLowering";
-import { compileModuleRuntimeSpec } from "./ModuleRuntimeSpecCompiler";
+import { isModuleAsset, lowerModuleAssetToInternalModuleLoweringIR } from "../../kernel/contracts/ModuleAssetLowering";
+import { compileInternalModuleLoweringIR } from "./InternalModuleLoweringIRCompiler";
 
 export interface ModuleLoaderOptions {
     includeBuiltinModules?: boolean;
@@ -590,8 +590,8 @@ function collectExportedModuleAssets(
     return [...byId.values()];
 }
 
-function bundleModuleRuntimeSpec(spec: ModuleRuntimeSpec, modulePath: string): TaintModule {
-    const compiledChildren = compileModuleRuntimeSpec(spec);
+function bundleInternalModuleLoweringIR(spec: InternalModuleLoweringIR, modulePath: string): TaintModule {
+    const compiledChildren = compileInternalModuleLoweringIR(spec);
     const bundled: TaintModule = {
         id: spec.id,
         description: spec.description || spec.id,
@@ -639,12 +639,12 @@ function bundleModuleRuntimeSpec(spec: ModuleRuntimeSpec, modulePath: string): T
             };
         },
     };
-    attachModuleRuntimeSpecSourceMeta([bundled], modulePath);
+    attachInternalModuleLoweringIRSourceMeta([bundled], modulePath);
     return bundled;
 }
 
 function bundleModuleAsset(asset: AssetDocumentBase, modulePath: string): TaintModule {
-    return bundleModuleRuntimeSpec(lowerModuleAssetToModuleRuntimeSpec(asset), modulePath);
+    return bundleInternalModuleLoweringIR(lowerModuleAssetToInternalModuleLoweringIR(asset), modulePath);
 }
 
 function loadModuleAssetFile(
@@ -717,7 +717,7 @@ function resolveModuleImportAuditRoot(
     return undefined;
 }
 
-function attachModuleRuntimeSpecSourceMeta(modules: TaintModule[], modulePath: string): void {
+function attachInternalModuleLoweringIRSourceMeta(modules: TaintModule[], modulePath: string): void {
     const metaKey = Symbol.for("arktaint.extension_source_meta");
     for (const module of modules) {
         if (!module || (typeof module !== "object" && typeof module !== "function")) continue;

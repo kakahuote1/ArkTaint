@@ -1,7 +1,10 @@
 ﻿import type { Scene } from "../../../../arkanalyzer/out/src/Scene";
+import type { AssetDocumentBase } from "../../assets/schema";
+import { isTrustedAnalysisAssetStatus } from "../../assets/schema";
+import { lowerModuleAssetsToInternalModuleLoweringIRs } from "../../kernel/contracts/ModuleAssetLowering";
 import type { TaintFlow } from "../../kernel/model/TaintFlow";
-import type { ModuleRuntimeSpec } from "../../kernel/contracts/ModuleRuntimeSpec";
-import { compileModuleRuntimeSpecs } from "../modules/ModuleRuntimeSpecCompiler";
+import type { TaintModule } from "../../kernel/contracts/ModuleApi";
+import { compileInternalModuleLoweringIRs } from "../modules/InternalModuleLoweringIRCompiler";
 import { TaintPropagationEngine, type BuildPAGOptions, type TaintEngineOptions } from "../TaintPropagationEngine";
 import {
     buildSemanticFlowEngineAugment,
@@ -28,7 +31,7 @@ export interface SemanticFlowAnalysisOptions {
         sinkRules?: SinkRule[];
         sanitizerRules?: SanitizerRule[];
         transferRules?: TransferRule[];
-        moduleRuntimeSpecs?: ModuleRuntimeSpec[];
+        modules?: TaintModule[];
     };
     sink?: {
         stopOnFirstFlow?: boolean;
@@ -52,12 +55,11 @@ export async function runSemanticFlowAnalysis(
     const augment = isSessionResult(input) ? input.augment : input;
     const generatedAugment = isSessionResult(input) ? input.engineAugment : buildSemanticFlowEngineAugment(augment);
     const engineAugment = mergeEngineAugment(generatedAugment, options.base);
-    const generatedModules = compileModuleRuntimeSpecs(engineAugment.moduleRuntimeSpecs);
-
+    const generatedModules = compileSemanticFlowModuleAssets(augment.assets);
     const engine = new TaintPropagationEngine(scene, options.k ?? 1, {
         ...(options.engine || {}),
         transferRules: engineAugment.transferRules,
-        modules: [...(options.engine?.modules || []), ...generatedModules],
+        modules: [...(options.engine?.modules || []), ...(options.base?.modules || []), ...generatedModules],
     });
     engine.verbose = false;
     await engine.buildPAG(options.buildPAG || { entryModel: "arkMain" });
@@ -91,6 +93,22 @@ function mergeEngineAugment(
         sinkRules: [...(base?.sinkRules || []), ...generated.sinkRules],
         sanitizerRules: [...(base?.sanitizerRules || []), ...generated.sanitizerRules],
         transferRules: [...(base?.transferRules || []), ...generated.transferRules],
-        moduleRuntimeSpecs: [...(base?.moduleRuntimeSpecs || []), ...generated.moduleRuntimeSpecs],
     };
+}
+
+function compileSemanticFlowModuleAssets(assets: readonly AssetDocumentBase[]): TaintModule[] {
+    const loadable = assets.filter(asset =>
+        asset.plane === "module"
+        && isTrustedAnalysisAssetStatus(asset.status)
+        && (asset.effectTemplates || []).some(template =>
+            template.kind === "core.capability"
+            || template.kind === "handoff.put"
+            || template.kind === "handoff.get"
+            || template.kind === "handoff.kill"
+            || template.kind === "handoff.link",
+        ),
+    );
+    return loadable.length > 0
+        ? compileInternalModuleLoweringIRs(lowerModuleAssetsToInternalModuleLoweringIRs([...loadable]))
+        : [];
 }

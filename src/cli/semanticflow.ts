@@ -1,4 +1,4 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as path from "path";
 import { Scene } from "../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../arkanalyzer/out/src/Config";
@@ -631,6 +631,9 @@ function collectAggregateSummary(bundles: SemanticFlowSessionBundle[]) {
         }
     }
     const augment = mergeSemanticFlowAnalysisAugments(bundles.map(bundle => bundle.result.session.augment));
+    const trustedAnalysisAssets = augment.assets.filter(asset =>
+        asset.status === "official" || asset.status === "reviewed" || asset.status === "replayed",
+    );
     const assetsByPlane = augment.assets.reduce((acc, asset) => {
         acc[asset.plane] = (acc[asset.plane] || 0) + 1;
         return acc;
@@ -649,8 +652,10 @@ function collectAggregateSummary(bundles: SemanticFlowSessionBundle[]) {
             arkMainKernelCoveredCount: bundles.reduce((sum, bundle) => sum + bundle.result.skippedArkMainCandidates.length, 0),
             arkMainIneligibleCount: bundles.reduce((sum, bundle) => sum + bundle.result.ineligibleArkMainCandidates.length, 0),
             assetCount: augment.assets.length,
+            trustedAnalysisAssetCount: trustedAnalysisAssets.length,
             assetCountByPlane: assetsByPlane,
-            moduleCount: augment.moduleRuntimeSpecs.length,
+            moduleCount: augment.assets.filter(asset => asset.plane === "module").length,
+            trustedAnalysisModuleCount: trustedAnalysisAssets.filter(asset => asset.plane === "module").length,
             sourceRuleCount: (augment.ruleSet.sources || []).length,
             sinkRuleCount: (augment.ruleSet.sinks || []).length,
             sanitizerRuleCount: (augment.ruleSet.sanitizers || []).length,
@@ -1013,7 +1018,7 @@ function writeSemanticFlowArtifacts(
             ruleKnownCoveredCount: bundle.skippedKnownRuleCandidates,
             arkMainCandidateCount: bundle.result.arkMainCandidates.length,
             arkMainIneligibleCount: bundle.result.ineligibleArkMainCandidates.length,
-            moduleCount: bundle.result.session.augment.moduleRuntimeSpecs.length,
+            moduleCount: bundle.result.session.augment.assets.filter(asset => asset.plane === "module").length,
             sourceRuleCount: (bundle.result.session.augment.ruleSet.sources || []).length,
             sinkRuleCount: (bundle.result.session.augment.ruleSet.sinks || []).length,
             sanitizerRuleCount: (bundle.result.session.augment.ruleSet.sanitizers || []).length,
@@ -1208,8 +1213,8 @@ function readCandidatePayloadCount(filePath: string): number | null {
 }
 
 function hasModeledSemanticFlowArtifacts(summary: ReturnType<typeof collectAggregateSummary>["summary"]): boolean {
-    return summary.assetCount > 0
-        || summary.moduleCount > 0
+    return summary.trustedAnalysisAssetCount > 0
+        || summary.trustedAnalysisModuleCount > 0
         || summary.sourceRuleCount > 0
         || summary.sinkRuleCount > 0
         || summary.sanitizerRuleCount > 0

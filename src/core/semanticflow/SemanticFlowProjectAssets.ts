@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import type { AssetDocumentBase, AssetPlane } from "../assets/schema";
+import { assertProjectAssetsArePromotedForModelRoot } from "../assets/schema";
 
 export interface PublishSemanticFlowProjectAssetsOptions {
     projectId: string;
@@ -22,6 +23,7 @@ export function publishSemanticFlowProjectAssets(
         throw new Error("publish model project id must not be empty");
     }
     const modelRoot = resolveModelRoot(options.modelRoot);
+    assertProjectAssetsArePromotedForModelRoot(modelRoot, options.assets);
     const result: PublishSemanticFlowProjectAssetsResult = {};
     result.rulePath = writePlaneAsset(modelRoot, projectId, "rule", options.assets);
     result.modulePath = writePlaneAsset(modelRoot, projectId, "module", options.assets);

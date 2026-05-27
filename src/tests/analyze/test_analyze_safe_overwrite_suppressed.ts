@@ -159,7 +159,7 @@ function storageBoxHandoffAsset(projectId: string): unknown {
     return {
         id: `asset.module.${projectId}.storage_box`,
         plane: "module",
-        status: "schema-valid",
+        status: "reviewed",
         surfaces: [
             invokeSurface("surface.storage_box.putSync", "putSync", 2),
             invokeSurface("surface.storage_box.getSync", "getSync", 1),

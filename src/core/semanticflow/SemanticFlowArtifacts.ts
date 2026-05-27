@@ -1,5 +1,4 @@
 ﻿import type { AssetDocumentBase } from "../assets/schema";
-import { lowerModuleAssetsToModuleRuntimeSpecs } from "../kernel/contracts/ModuleAssetLowering";
 import { lowerRuleAssetsToRuleSet } from "../rules/RuleAssetLowering";
 import type { TaintRuleSet } from "../rules/RuleSchema";
 import type {
@@ -16,12 +15,10 @@ export function buildSemanticFlowAnalysisAugment(items: SemanticFlowItemResult[]
 
 export function buildSemanticFlowAnalysisAugmentFromAssets(assets: AssetDocumentBase[]): SemanticFlowAnalysisAugment {
     const dedupedAssets = dedupeAssets(assets);
-    const ruleLowering = lowerRuleAssetsToRuleSet(dedupedAssets, { includeGenerated: true });
-    const moduleRuntimeSpecs = lowerLoadableCoreModuleAssets(dedupedAssets);
+    const ruleLowering = lowerRuleAssetsToRuleSet(dedupedAssets);
     return {
         assets: dedupedAssets,
         ruleSet: ruleLowering.ruleSet,
-        moduleRuntimeSpecs,
     };
 }
 
@@ -43,7 +40,6 @@ export function buildSemanticFlowEngineAugment(augment: SemanticFlowAnalysisAugm
         sinkRules: augment.ruleSet.sinks || [],
         sanitizerRules: augment.ruleSet.sanitizers || [],
         transferRules: augment.ruleSet.transfers || [],
-        moduleRuntimeSpecs: augment.moduleRuntimeSpecs,
     };
 }
 
@@ -65,23 +61,4 @@ function dedupeAssets(assets: AssetDocumentBase[]): AssetDocumentBase[] {
         }
     }
     return [...byKey.values()];
-}
-
-function lowerLoadableCoreModuleAssets(assets: AssetDocumentBase[]) {
-    const loadable = assets.filter(asset =>
-        asset.plane === "module"
-        && (asset.status === "official"
-            || asset.status === "reviewed"
-            || asset.status === "replayed"
-            || asset.status === "schema-valid"
-            || asset.status === "llm-generated")
-        && (asset.effectTemplates || []).some(template =>
-            template.kind === "core.capability"
-            || template.kind === "handoff.put"
-            || template.kind === "handoff.get"
-            || template.kind === "handoff.kill"
-            || template.kind === "handoff.link",
-        ),
-    );
-    return loadable.length > 0 ? lowerModuleAssetsToModuleRuntimeSpecs(loadable, { includeGenerated: true }) : [];
 }

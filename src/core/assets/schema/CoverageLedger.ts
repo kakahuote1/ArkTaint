@@ -35,7 +35,7 @@ export function summarizeCoverage(
         identityUnresolved: count("identity-unresolved"),
         conflicts: count("covered-conflict"),
         ignoredByPolicy: count("ignored-by-policy"),
-        sentToLLM: entries.filter(entry => entry.sentToLLM === true).length,
+        sentToLLM: entries.filter(entry => entry.decision === "send-to-llm").length,
         needMoreEvidence: count("need-more-evidence"),
     };
 }
@@ -63,6 +63,21 @@ export function validateCoverageLedger(
         seen.add(entry.observedSurfaceId);
         if (!entry.reason || entry.reason.trim().length === 0) {
             errors.push(`coverage ledger entry ${entry.observedSurfaceId} must explain its terminal status`);
+        }
+        if (!entry.decision) {
+            errors.push(`coverage ledger entry ${entry.observedSurfaceId} is missing candidate decision`);
+        }
+        if (entry.decision === "skip-llm"
+            && entry.coverageStatus !== "covered-exact-role"
+            && entry.coverageStatus !== "ignored-by-policy") {
+            errors.push(`coverage ledger entry ${entry.observedSurfaceId} cannot skip LLM with status ${entry.coverageStatus}`);
+        }
+        if (entry.decision === "ignore" && entry.coverageStatus !== "ignored-by-policy") {
+            errors.push(`coverage ledger entry ${entry.observedSurfaceId} cannot ignore non-policy status ${entry.coverageStatus}`);
+        }
+        if (entry.decision === "send-to-llm"
+            && (entry.coverageStatus === "covered-exact-role" || entry.coverageStatus === "ignored-by-policy")) {
+            errors.push(`coverage ledger entry ${entry.observedSurfaceId} cannot send terminal covered/ignored status to LLM`);
         }
         if (entry.coverageStatus === "ignored-by-policy" && (!entry.reason || entry.reason.trim().length === 0)) {
             errors.push(`ignored observed surface ${entry.observedSurfaceId} must have an ignored reason`);

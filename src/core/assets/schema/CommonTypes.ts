@@ -10,6 +10,18 @@ export type AssetStatus =
     | "deprecated"
     | "rejected";
 
+export type TrustedAnalysisAssetStatus = Extract<AssetStatus, "reviewed" | "replayed" | "official">;
+
+export const TRUSTED_ANALYSIS_ASSET_STATUSES: readonly TrustedAnalysisAssetStatus[] = [
+    "reviewed",
+    "replayed",
+    "official",
+];
+
+export function isTrustedAnalysisAssetStatus(status: AssetStatus): status is TrustedAnalysisAssetStatus {
+    return (TRUSTED_ANALYSIS_ASSET_STATUSES as readonly string[]).includes(status);
+}
+
 export type Confidence = "certain" | "likely" | "unknown";
 
 export interface SourceLocation {

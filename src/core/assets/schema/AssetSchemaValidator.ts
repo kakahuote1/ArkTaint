@@ -6,7 +6,7 @@ import { SEMANTIC_EFFECT_KINDS } from "./EffectTemplateTypes";
 import type { AssetRelation } from "./RelationTypes";
 import type { RuntimeSelector, RuntimeSelectorScope, SelectorStringConstraint } from "./SelectorTypes";
 import type { AssetSurface, InvokeSurface } from "./SurfaceTypes";
-import { isRegisteredCellKindId } from "../../cellkind";
+import { DEFAULT_CELL_KIND_REGISTRY, type CellKindRegistry } from "../../cellkind";
 
 const trustedStatuses = new Set(["official", "reviewed", "replayed"]);
 const forbiddenKeys = new Set([
@@ -19,9 +19,18 @@ const forbiddenKeys = new Set([
     "ModelStatus",
 ]);
 
-export function validateAssetDocument(asset: unknown): ValidationResult {
+export interface AssetDocumentValidationOptions {
+    cellKindRegistry?: Pick<CellKindRegistry, "has">;
+}
+
+interface NormalizedValidationOptions {
+    cellKindRegistry: Pick<CellKindRegistry, "has">;
+}
+
+export function validateAssetDocument(asset: unknown, options: AssetDocumentValidationOptions = {}): ValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
+    const validationOptions = normalizeValidationOptions(options);
 
     if (!isObject(asset)) {
         return result(["asset must be an object"]);
@@ -76,7 +85,7 @@ export function validateAssetDocument(asset: unknown): ValidationResult {
 
     const templateIds = new Set<string>();
     templates.forEach((template, index) => {
-        validateTemplate(template as SemanticEffectTemplate, `$.effectTemplates[${index}]`, errors);
+        validateTemplate(template as SemanticEffectTemplate, `$.effectTemplates[${index}]`, errors, validationOptions);
         if (isObject(template) && typeof (template as any).id === "string") {
             if (templateIds.has((template as any).id)) errors.push(`duplicate effect template id ${(template as any).id}`);
             templateIds.add((template as any).id);
@@ -105,6 +114,12 @@ export function validateAssetDocument(asset: unknown): ValidationResult {
     }
 
     return result(errors, warnings);
+}
+
+function normalizeValidationOptions(options: AssetDocumentValidationOptions): NormalizedValidationOptions {
+    return {
+        cellKindRegistry: options.cellKindRegistry || DEFAULT_CELL_KIND_REGISTRY,
+    };
 }
 
 function validateSurface(surface: AssetSurface, path: string, errors: string[]): void {
@@ -169,7 +184,12 @@ function validateInvokeSurface(surface: InvokeSurface, path: string, errors: str
     }
 }
 
-function validateTemplate(template: SemanticEffectTemplate, path: string, errors: string[]): void {
+function validateTemplate(
+    template: SemanticEffectTemplate,
+    path: string,
+    errors: string[],
+    options: NormalizedValidationOptions,
+): void {
     if (!isObject(template)) {
         errors.push(`${path} must be an object`);
         return;
@@ -204,21 +224,21 @@ function validateTemplate(template: SemanticEffectTemplate, path: string, errors
             validateRuleValueRef((template as any).to, `${path}.to`, errors);
             return;
         case "handoff.put":
-            validateHandoffHandleTemplate((template as any).handle, `${path}.handle`, errors);
+            validateHandoffHandleTemplate((template as any).handle, `${path}.handle`, errors, options);
             validateEndpoint((template as any).value, `${path}.value`, errors);
             validateOptionalUpdateStrength((template as any).updateStrength, `${path}.updateStrength`, errors);
             return;
         case "handoff.get":
-            validateHandoffHandleTemplate((template as any).handle, `${path}.handle`, errors);
+            validateHandoffHandleTemplate((template as any).handle, `${path}.handle`, errors, options);
             validateEndpoint((template as any).target, `${path}.target`, errors);
             return;
         case "handoff.kill":
-            validateHandoffHandleTemplate((template as any).handle, `${path}.handle`, errors);
+            validateHandoffHandleTemplate((template as any).handle, `${path}.handle`, errors, options);
             validateOptionalUpdateStrength((template as any).updateStrength, `${path}.updateStrength`, errors);
             return;
         case "handoff.link":
-            validateHandoffHandleTemplate((template as any).left, `${path}.left`, errors);
-            validateHandoffHandleTemplate((template as any).right, `${path}.right`, errors);
+            validateHandoffHandleTemplate((template as any).left, `${path}.left`, errors, options);
+            validateHandoffHandleTemplate((template as any).right, `${path}.right`, errors, options);
             if ((template as any).scope !== undefined && !isObject((template as any).scope)) errors.push(`${path}.scope must be an AssetGuard`);
             return;
         case "entry.lifecycle":
@@ -310,12 +330,17 @@ function validateCallbackLocator(locator: unknown, path: string, errors: string[
     }
 }
 
-function validateHandoffHandleTemplate(handle: unknown, path: string, errors: string[]): void {
+function validateHandoffHandleTemplate(
+    handle: unknown,
+    path: string,
+    errors: string[],
+    options: NormalizedValidationOptions,
+): void {
     if (!isObject(handle)) {
         errors.push(`${path} must be a HandoffHandleTemplate`);
         return;
     }
-    if (!isRegisteredCellKindId((handle as any).cellKind)) {
+    if (typeof (handle as any).cellKind !== "string" || !options.cellKindRegistry.has((handle as any).cellKind)) {
         errors.push(`${path}.cellKind is not a registered CellKindId`);
     }
     requireStableString((handle as any).family, `${path}.family`, errors);
@@ -421,7 +446,7 @@ function validateBinding(
 }
 
 function validateSinkEndpoint(value: unknown, path: string, errors: string[]): void {
-    const endpoint = ruleValueEndpoint(value);
+    const endpoint = normalizeRuleEndpoint(value);
     if (!endpoint || !isObject((endpoint as any).base)) return;
     const kind = String((endpoint as any).base.kind || "");
     if (kind === "return" || kind === "promiseResult" || kind === "constructorResult" || kind === "callbackReturn") {
@@ -429,7 +454,7 @@ function validateSinkEndpoint(value: unknown, path: string, errors: string[]): v
     }
 }
 
-function ruleValueEndpoint(value: unknown): unknown {
+function normalizeRuleEndpoint(value: unknown): unknown {
     if (!isObject(value)) return undefined;
     if (isObject((value as any).endpoint)) return (value as any).endpoint;
     return value;
