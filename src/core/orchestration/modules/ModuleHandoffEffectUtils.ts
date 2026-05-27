@@ -4,6 +4,7 @@ import type {
     ModuleFieldPathSpec,
     ModuleTransferMode,
 } from "../../kernel/contracts/ModuleRuntimeSpec";
+import type { CellKindId } from "../../cellkind";
 import { createHandoffHandle } from "../../kernel/semantic_handoff/SemanticHandoffTypes";
 import type {
     HandoffEffect,
@@ -14,8 +15,8 @@ import type {
 
 export type NormalizedBridgeEmitSpec = Required<ModuleBridgeEmitSpec>;
 
-export function moduleHandoffHandle(family: string, key: string, scope = ""): HandoffHandle {
-    return createHandoffHandle(family, key, {
+export function moduleHandoffHandle(cellKind: CellKindId, family: string, key: string, scope = ""): HandoffHandle {
+    return createHandoffHandle(cellKind, family, key, {
         scope,
         precision: "exact",
     });

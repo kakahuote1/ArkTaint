@@ -1,8 +1,11 @@
 import { materializeTaintFlowPaths } from "../../core/provenance/ProvenancePathRecorder";
 import { ProvenancePathContext } from "../../core/provenance/ProvenancePathTypes";
+import { currentnessEvidenceFromCertificate } from "../../core/provenance/CurrentnessEvidenceAdapter";
+import { OclfsSolver, StateEffectBuilder } from "../../core/kernel/oclfs";
 import { TaintFlow } from "../../core/kernel/model/TaintFlow";
 import { FactPredecessorRecord } from "../../core/kernel/propagation/PropagationTypes";
 import { aggregateFlowJudgement } from "../../core/orchestration/postsolve/PostsolveEvaluator";
+import { evaluateCurrentnessCertificatePath } from "../../core/orchestration/postsolve/CurrentnessCertificateRefinement";
 
 function makeStmt(text: string): any {
     return {
@@ -90,19 +93,21 @@ async function main(): Promise<void> {
 
     const limitedByDepth = materializeTaintFlowPaths(flow, context, { maxPaths: 8, maxDepth: 1 });
     assert(!!limitedByDepth, "expected depth-limited materialization");
-    assert(limitedByDepth!.status === "incomplete", `expected depth-limited materialization to be incomplete, got ${limitedByDepth!.status}`);
+    assert(limitedByDepth!.status === "truncated", `expected depth-limited materialization to be truncated, got ${limitedByDepth!.status}`);
+    assert(limitedByDepth!.materializationStatus === "truncated", `expected depth-limited materializationStatus to be truncated, got ${limitedByDepth!.materializationStatus}`);
     assert(
         limitedByDepth!.incompleteReasons.includes("max_depth"),
         `expected max_depth incomplete reason, got ${JSON.stringify(limitedByDepth!.incompleteReasons)}`,
     );
     assert(
-        limitedByDepth!.paths.some(path => path.truncated && path.status === "incomplete"),
+        limitedByDepth!.paths.some(path => path.truncated && path.status === "truncated"),
         "expected at least one truncated incomplete path",
     );
 
     const limitedByPaths = materializeTaintFlowPaths(flow, context, { maxPaths: 1, maxDepth: 8 });
     assert(!!limitedByPaths, "expected path-limited materialization");
-    assert(limitedByPaths!.status === "incomplete", `expected path-limited materialization to be incomplete, got ${limitedByPaths!.status}`);
+    assert(limitedByPaths!.status === "truncated", `expected path-limited materialization to be truncated, got ${limitedByPaths!.status}`);
+    assert(limitedByPaths!.materializationStatus === "truncated", `expected path-limited materializationStatus to be truncated, got ${limitedByPaths!.materializationStatus}`);
     assert(
         limitedByPaths!.incompleteReasons.includes("max_paths"),
         `expected max_paths incomplete reason, got ${JSON.stringify(limitedByPaths!.incompleteReasons)}`,
@@ -126,6 +131,56 @@ async function main(): Promise<void> {
     assert(
         guardedJudgement.primaryReason === "incomplete_path_materialization",
         `expected incomplete_path_materialization, got ${guardedJudgement.primaryReason}`,
+    );
+
+    const builder = new StateEffectBuilder({ origin: "provenance-currentness-test" });
+    const x1 = builder.value("x", "1");
+    const xSlot = builder.localSlot("x");
+    const xRead = builder.value("x", "read");
+    const oclfs = new OclfsSolver().solve([
+        builder.source(x1, "secret"),
+        builder.store(xSlot, x1, "secret"),
+        builder.storeClean(xSlot),
+        builder.load(xSlot, xRead),
+        builder.sink(xRead, "network"),
+    ]);
+    const dead = oclfs.certificates.find(cert => cert.verdict === "dead");
+    assert(!!dead, "expected a dead currentness certificate");
+    const evidence = currentnessEvidenceFromCertificate(dead!);
+    assert(evidence.kind === "currentness", `expected currentness evidence, got ${evidence.kind}`);
+    assert(evidence.producer === "algorithm_e_oclfs", `unexpected currentness producer ${evidence.producer}`);
+    assert(evidence.decisionScope === "candidate-flow", `unexpected currentness scope ${evidence.decisionScope}`);
+    assert(evidence.verdict === "dead", `expected dead currentness evidence, got ${evidence.verdict}`);
+
+    const currentnessContext: ProvenancePathContext = {
+        ...buildContext([
+            {
+                fromFactId: "source",
+                toFactId: "sink",
+                reason: "oclfs-currentness",
+                currentnessCertificateIds: [evidence.id],
+            },
+        ]),
+        currentnessEvidenceById: new Map([[evidence.id, evidence]]),
+    };
+    const currentnessFlow = materializeTaintFlowPaths(flow, currentnessContext, { maxPaths: 2, maxDepth: 2 });
+    assert(!!currentnessFlow, "expected materialized currentness path");
+    assert(
+        currentnessFlow!.paths.some(path => (path.currentnessEvidenceIds || []).includes(evidence.id)),
+        "expected PathView to carry currentness evidence ids from predecessor records",
+    );
+    const currentnessPostsolveEvidence = evaluateCurrentnessCertificatePath(
+        flow,
+        currentnessFlow!.paths[0],
+        currentnessContext,
+    );
+    assert(
+        currentnessPostsolveEvidence.some(item =>
+            item.kind === "currentness_certificate"
+            && item.polarity === "negative"
+            && item.scope === "path-segment"
+            && item.sourceEvidenceIds.includes(evidence.id)),
+        "expected Algorithm F currentness interpreter to emit scoped negative evidence",
     );
 
     console.log("PASS test_provenance_path_recorder");

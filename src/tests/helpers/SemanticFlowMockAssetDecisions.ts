@@ -127,7 +127,8 @@ export function vaultHandoffAsset(projectId = "semanticflow_test"): AssetDocumen
                 id: `${id}.put.effect`,
                 kind: "handoff.put",
                 handle: {
-                    family: "wrapper",
+                    cellKind: "keyed-semantic-slot",
+                    family: "project.vault",
                     owner: [{ kind: "const", value: "Vault" }],
                     key: [{ kind: "fromLiteralArg", index: 0 }],
                     precision: "infer",
@@ -140,7 +141,8 @@ export function vaultHandoffAsset(projectId = "semanticflow_test"): AssetDocumen
                 id: `${id}.get.effect`,
                 kind: "handoff.get",
                 handle: {
-                    family: "wrapper",
+                    cellKind: "keyed-semantic-slot",
+                    family: "project.vault",
                     owner: [{ kind: "const", value: "Vault" }],
                     key: [{ kind: "fromLiteralArg", index: 0 }],
                     precision: "infer",

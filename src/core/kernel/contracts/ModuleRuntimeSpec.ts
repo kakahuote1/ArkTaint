@@ -354,6 +354,7 @@ export interface ModuleKeyedStorageSemantic {
     storageClasses: string[];
     writeMethods: ModuleWriteMethodSpec[];
     readMethods: string[];
+    killMethods?: string[];
     propDecorators?: string[];
     linkDecorators?: string[];
 }

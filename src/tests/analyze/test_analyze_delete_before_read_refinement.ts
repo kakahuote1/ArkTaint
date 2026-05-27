@@ -31,6 +31,8 @@ async function main(): Promise<void> {
     const root = resolveTestRunDir("analyze", "delete_before_read_refinement");
     const caseRoot = resolveTestRunPath("analyze", "delete_before_read_refinement", "preferences_delete_then_read");
     const repoRoot = path.join(caseRoot, "repo");
+    const moduleRoot = path.join(caseRoot, "module_root");
+    const moduleProjectDir = path.join(moduleRoot, "project", "delete_before_read_refinement", "modules");
     const outputDir = path.join(caseRoot, "out");
     const sourceDir = path.join(repoRoot, "src", "main", "ets");
     const rulePath = path.join(caseRoot, "delete_before_read.rules.json");
@@ -81,27 +83,20 @@ async function main(): Promise<void> {
                 target: "arg0",
             }],
             sanitizers: [],
-            transfers: [
-                {
-                    id: "transfer.fixture.preferences.put_value_to_store",
-                    match: { kind: "method_name_equals", value: "setItem", invokeKind: "instance", argCount: 2, typeHint: "KeyStorage" },
-                    from: "arg1",
-                    to: "base",
-                },
-                {
-                    id: "transfer.fixture.preferences.get_store_to_result",
-                    match: { kind: "method_name_equals", value: "getItem", invokeKind: "instance", argCount: 1, typeHint: "KeyStorage" },
-                    from: "base",
-                    to: "result",
-                },
-            ],
+            transfers: [],
         }),
+    );
+    writeText(
+        path.join(moduleProjectDir, "key_storage.asset.json"),
+        JSON.stringify(keyStorageHandoffAsset("delete_before_read_refinement"), null, 2),
     );
 
     runAnalyzeCli([
         "--repo", repoRoot,
         "--sourceDir", ".",
         "--project", rulePath,
+        "--model-root", moduleRoot,
+        "--enable-model", "delete_before_read_refinement:modules",
         "--kernelRule", "tests/rules/minimal.rules.json",
         "--reportMode", "full",
         "--no-incremental",
@@ -114,17 +109,98 @@ async function main(): Promise<void> {
     assert(report.reportMode === "full", `expected reportMode=full, got ${report.reportMode}`);
     assert(report.summary.withSeeds > 0, "expected withSeeds > 0");
     assert(entry?.status === "ok", `expected ok entry, got ${entry?.status}`);
-    assert(report.summary.totalFlows === 1, `expected one live put-after-delete flow, got ${report.summary.totalFlows}`);
+    assert(report.summary.totalFlows === 1, `expected OCLFS to keep only the put-after-delete flow, got ${report.summary.totalFlows}`);
 
     const results = entry.postsolveResults || [];
-    const refuted = results.find(item => item.evidenceSummary.evidenceKinds.includes("delete_before_read"));
-    assert(refuted, `expected delete_before_read evidence, got ${JSON.stringify(results.map(item => item.evidenceSummary.evidenceKinds))}`);
-    assert(refuted!.judgement.kind === "Refuted-Strong", `expected delete-before-read flow refuted, got ${refuted!.judgement.kind}`);
+    assert(!results.some(item => item.evidenceSummary.evidenceKinds.includes("delete_before_read")), "delete_before_read must not remain as an independent postsolve evidence");
     assert(results.some(item => item.judgement.kind !== "Refuted-Strong"), "expected put-after-delete flow to survive");
 
     console.log("PASS test_analyze_delete_before_read_refinement");
     console.log(`surviving_total_flows=${report.summary.totalFlows}`);
     console.log(`postsolve_results=${results.length}`);
+}
+
+function keyStorageHandoffAsset(projectId: string): unknown {
+    return {
+        id: `asset.module.${projectId}.key_storage`,
+        plane: "module",
+        status: "schema-valid",
+        surfaces: [
+            invokeSurface("surface.key_storage.setItem", "setItem", 2),
+            invokeSurface("surface.key_storage.getItem", "getItem", 1),
+            invokeSurface("surface.key_storage.deleteItem", "deleteItem", 1),
+        ],
+        bindings: [
+            handoffBinding(`asset.module.${projectId}.key_storage`, `binding.${projectId}.setItem`, "surface.key_storage.setItem", ["template.setItem"]),
+            handoffBinding(`asset.module.${projectId}.key_storage`, `binding.${projectId}.getItem`, "surface.key_storage.getItem", ["template.getItem"]),
+            handoffBinding(`asset.module.${projectId}.key_storage`, `binding.${projectId}.deleteItem`, "surface.key_storage.deleteItem", ["template.deleteItem"]),
+        ],
+        effectTemplates: [
+            {
+                id: "template.setItem",
+                kind: "handoff.put",
+                handle: firstArgHandle(),
+                value: { base: { kind: "arg", index: 1 } },
+            },
+            {
+                id: "template.getItem",
+                kind: "handoff.get",
+                handle: firstArgHandle(),
+                target: { base: { kind: "return" } },
+            },
+            {
+                id: "template.deleteItem",
+                kind: "handoff.kill",
+                handle: firstArgHandle(),
+            },
+        ],
+        provenance: {
+            source: "llm",
+            projectId,
+            createdAt: "2026-05-27T00:00:00.000Z",
+            evidenceLocations: [{ file: "EntryAbility.ets", line: 3 }],
+        },
+    };
+}
+
+function invokeSurface(surfaceId: string, methodName: string, argCount: number): unknown {
+    return {
+        surfaceId,
+        kind: "invoke",
+        modulePath: "project/key_storage",
+        ownerName: "KeyStorage",
+        methodName,
+        invokeKind: "instance",
+        argCount,
+        confidence: "certain",
+        provenance: {
+            source: "analyzer",
+            location: { file: "EntryAbility.ets", line: 3 },
+        },
+    };
+}
+
+function handoffBinding(assetId: string, bindingId: string, surfaceId: string, effectTemplateRefs: string[]): unknown {
+    return {
+        bindingId,
+        assetId,
+        surfaceId,
+        plane: "module",
+        role: "handoff",
+        effectTemplateRefs,
+        semanticsFamily: "project-keyed-storage",
+        completeness: "partial",
+        confidence: "certain",
+    };
+}
+
+function firstArgHandle(): unknown {
+    return {
+        cellKind: "keyed-semantic-slot",
+        family: "project.key_storage",
+        key: [{ kind: "fromLiteralArg", index: 0 }],
+        precision: "infer",
+    };
 }
 
 main().catch(error => {

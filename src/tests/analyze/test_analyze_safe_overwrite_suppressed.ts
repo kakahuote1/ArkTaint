@@ -58,6 +58,8 @@ async function main(): Promise<void> {
     const root = resolveTestRunDir("analyze", "safe_overwrite_suppressed");
     const caseRoot = resolveTestRunPath("analyze", "safe_overwrite_suppressed", "preferences_overwrite_safe");
     const repoRoot = path.join(caseRoot, "repo");
+    const moduleRoot = path.join(caseRoot, "module_root");
+    const moduleProjectDir = path.join(moduleRoot, "project", "safe_overwrite_suppressed", "modules");
     const outputDir = path.join(caseRoot, "out");
     const sourceDir = path.join(repoRoot, "src", "main", "ets");
     const rulePath = path.join(caseRoot, "safe_overwrite.rules.json");
@@ -114,39 +116,20 @@ async function main(): Promise<void> {
                 },
             ],
             sanitizers: [],
-            transfers: [
-                {
-                    id: "transfer.fixture.safe_overwrite.putsync_value_to_store",
-                    match: {
-                        kind: "method_name_equals",
-                        value: "putSync",
-                        invokeKind: "instance",
-                        argCount: 2,
-                        typeHint: "StorageBox",
-                    },
-                    from: "arg1",
-                    to: "base",
-                },
-                {
-                    id: "transfer.fixture.safe_overwrite.getsync_store_to_result",
-                    match: {
-                        kind: "method_name_equals",
-                        value: "getSync",
-                        invokeKind: "instance",
-                        argCount: 1,
-                        typeHint: "StorageBox",
-                    },
-                    from: "base",
-                    to: "result",
-                },
-            ],
+            transfers: [],
         }),
+    );
+    writeText(
+        path.join(moduleProjectDir, "storage_box.asset.json"),
+        JSON.stringify(storageBoxHandoffAsset("safe_overwrite_suppressed"), null, 2),
     );
 
     runAnalyzeCli([
         "--repo", repoRoot,
         "--sourceDir", ".",
         "--project", rulePath,
+        "--model-root", moduleRoot,
+        "--enable-model", "safe_overwrite_suppressed:modules",
         "--kernelRule", "tests/rules/minimal.rules.json",
         "--reportMode", "full",
         "--no-incremental",
@@ -162,35 +145,90 @@ async function main(): Promise<void> {
     assert(!!entry, "expected one entry result");
     assert(entry.status === "ok", `expected entry status ok, got ${entry.status}`);
     assert(entry.seedCount > 0, `expected seedCount > 0, got ${entry.seedCount}`);
-
+    assert(report.summary.totalFlows === 0, `expected OCLFS currentness to suppress stale storage flow before postsolve, got ${report.summary.totalFlows}`);
     const postsolveResults = entry.postsolveResults || [];
-    const suppressed = postsolveResults.filter(item => item.judgement.kind === "Refuted-Strong");
-    assert(postsolveResults.length > 0, "expected postsolveResults to contain at least one flow");
-    assert(suppressed.length > 0, "expected one Refuted-Strong postsolve result");
-    assert(
-        suppressed[0].evidenceSummary.evidenceKinds.includes("safe_overwrite"),
-        `expected evidenceKinds to include safe_overwrite, got ${JSON.stringify(suppressed[0].evidenceSummary.evidenceKinds)}`,
-    );
-    assert(suppressed[0].paths.length > 0, "expected safe_overwrite flow to retain path details");
-    assert(
-        suppressed[0].paths.every(pathItem => pathItem.judgement.kind === "Refuted-Strong"),
-        `expected all path judgements to be Refuted-Strong, got ${JSON.stringify(suppressed[0].paths.map(item => item.judgement.kind))}`,
-    );
-    assert(
-        suppressed[0].paths.some(pathItem => pathItem.evidence.some(evidence => evidence.kind === "safe_overwrite")),
-        "expected path evidence to include safe_overwrite",
-    );
-    const materialized = entry.materializedTaintFlows || [];
-    assert(
-        materialized.some((item: any) => item?.sinkFactId === suppressed[0].flow.sinkFactId && item?.judgement === "Refuted-Strong"),
-        `expected suppressed sinkFactId ${suppressed[0].flow.sinkFactId || "<empty>"} to be present with Refuted-Strong materialized judgement`,
-    );
+    assert(postsolveResults.length === 0, `expected no postsolve flow after OCLFS suppression, got ${postsolveResults.length}`);
 
     console.log("PASS test_analyze_safe_overwrite_suppressed");
     console.log(`root=${root}`);
     console.log(`surviving_total_flows=${report.summary.totalFlows}`);
-    console.log(`refuted_strong_count=${suppressed.length}`);
-    console.log(`primary_reason=${suppressed[0].evidenceSummary.primaryReason || ""}`);
+    console.log("currentness_reason=strong_clean_overwrite");
+}
+
+function storageBoxHandoffAsset(projectId: string): unknown {
+    return {
+        id: `asset.module.${projectId}.storage_box`,
+        plane: "module",
+        status: "schema-valid",
+        surfaces: [
+            invokeSurface("surface.storage_box.putSync", "putSync", 2),
+            invokeSurface("surface.storage_box.getSync", "getSync", 1),
+        ],
+        bindings: [
+            handoffBinding(`asset.module.${projectId}.storage_box`, `binding.${projectId}.putSync`, "surface.storage_box.putSync", ["template.putSync"]),
+            handoffBinding(`asset.module.${projectId}.storage_box`, `binding.${projectId}.getSync`, "surface.storage_box.getSync", ["template.getSync"]),
+        ],
+        effectTemplates: [
+            {
+                id: "template.putSync",
+                kind: "handoff.put",
+                handle: firstArgHandle(),
+                value: { base: { kind: "arg", index: 1 } },
+            },
+            {
+                id: "template.getSync",
+                kind: "handoff.get",
+                handle: firstArgHandle(),
+                target: { base: { kind: "return" } },
+            },
+        ],
+        provenance: {
+            source: "llm",
+            projectId,
+            createdAt: "2026-05-27T00:00:00.000Z",
+            evidenceLocations: [{ file: "EntryAbility.ets", line: 3 }],
+        },
+    };
+}
+
+function invokeSurface(surfaceId: string, methodName: string, argCount: number): unknown {
+    return {
+        surfaceId,
+        kind: "invoke",
+        modulePath: "project/storage_box",
+        ownerName: "StorageBox",
+        methodName,
+        invokeKind: "instance",
+        argCount,
+        confidence: "certain",
+        provenance: {
+            source: "analyzer",
+            location: { file: "EntryAbility.ets", line: 3 },
+        },
+    };
+}
+
+function handoffBinding(assetId: string, bindingId: string, surfaceId: string, effectTemplateRefs: string[]): unknown {
+    return {
+        bindingId,
+        assetId,
+        surfaceId,
+        plane: "module",
+        role: "handoff",
+        effectTemplateRefs,
+        semanticsFamily: "project-keyed-storage",
+        completeness: "partial",
+        confidence: "certain",
+    };
+}
+
+function firstArgHandle(): unknown {
+    return {
+        cellKind: "keyed-semantic-slot",
+        family: "project.storage_box",
+        key: [{ kind: "fromLiteralArg", index: 0 }],
+        precision: "infer",
+    };
 }
 
 main().catch(error => {

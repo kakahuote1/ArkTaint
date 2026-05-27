@@ -31,6 +31,7 @@ export interface HarmonyKeyedStorageSemanticsOptions {
     storageClasses?: string[];
     writeMethods?: Array<{ methodName: string; valueIndex: number }>;
     readMethods?: string[];
+    killMethods?: string[];
     propDecorators?: string[];
     linkDecorators?: string[];
 }
@@ -54,6 +55,14 @@ const DEFAULT_APPSTORAGE_OPTIONS: Required<HarmonyKeyedStorageSemanticsOptions> 
         "link",
         "setOrCreate",
     ],
+    killMethods: [
+        "delete",
+        "deleteSync",
+        "remove",
+        "removeSync",
+        "deleteKey",
+        "deleteItem",
+    ],
     propDecorators: [
         "StorageProp",
         "LocalStorageProp",
@@ -68,6 +77,7 @@ interface BuildAppStorageInternalOptions {
     storageApiClasses: Set<string>;
     writeMethodsByName: Map<string, number>;
     readMethodNames: Set<string>;
+    killMethodNames: Set<string>;
     propDecoratorKinds: Set<string>;
     linkDecoratorKinds: Set<string>;
     storageDecoratorKinds: Set<string>;
@@ -88,6 +98,9 @@ export function createHarmonyKeyedStorageSemanticModule(
         readMethods: options.readMethods && options.readMethods.length > 0
             ? [...options.readMethods]
             : [...DEFAULT_APPSTORAGE_OPTIONS.readMethods],
+        killMethods: options.killMethods && options.killMethods.length > 0
+            ? [...options.killMethods]
+            : [...DEFAULT_APPSTORAGE_OPTIONS.killMethods],
         propDecorators: options.propDecorators && options.propDecorators.length > 0
             ? [...options.propDecorators]
             : [...DEFAULT_APPSTORAGE_OPTIONS.propDecorators],
@@ -99,6 +112,7 @@ export function createHarmonyKeyedStorageSemanticModule(
         storageApiClasses: new Set(resolved.storageClasses),
         writeMethodsByName: new Map(resolved.writeMethods.map(item => [item.methodName, item.valueIndex])),
         readMethodNames: new Set(resolved.readMethods),
+        killMethodNames: new Set(resolved.killMethods),
         propDecoratorKinds: new Set(resolved.propDecorators),
         linkDecoratorKinds: new Set(resolved.linkDecorators),
         storageDecoratorKinds: new Set([...resolved.propDecorators, ...resolved.linkDecorators]),
@@ -142,6 +156,7 @@ export type AppStorageModel = AppStorageSemanticModel;
 export type BuildAppStorageModelArgs = BuildAppStorageSemanticModelArgs;
 
 const APPSTORAGE_HANDOFF_FAMILY = "harmony.keyed_storage";
+const APPSTORAGE_CELL_KIND = "keyed-semantic-slot";
 
 function buildAppStorageHandoffEffects(model: AppStorageModel): HandoffEffect[] {
     const effects: HandoffEffect[] = [];
@@ -150,7 +165,7 @@ function buildAppStorageHandoffEffects(model: AppStorageModel): HandoffEffect[] 
 
     for (const [key, operations] of model.writeOperationsByKey.entries()) {
         for (const op of operations) {
-            const handle = createExactHandoffHandle(APPSTORAGE_HANDOFF_FAMILY, key);
+            const handle = createExactHandoffHandle(APPSTORAGE_CELL_KIND, APPSTORAGE_HANDOFF_FAMILY, key);
             sequencedWriteNodes.add(`${key}#${op.nodeId}`);
             effects.push({
                 kind: "kill",
@@ -178,12 +193,28 @@ function buildAppStorageHandoffEffects(model: AppStorageModel): HandoffEffect[] 
         }
     }
 
+    for (const [key, operations] of model.killOperationsByKey.entries()) {
+        for (const op of operations) {
+            effects.push({
+                kind: "kill",
+                handle: createExactHandoffHandle(APPSTORAGE_CELL_KIND, APPSTORAGE_HANDOFF_FAMILY, key),
+                reason: "AppStorage-Kill",
+                originModel: "harmony.appstorage",
+                programPoint: appStorageProgramPoint(op),
+                flowScope: op.methodSignature,
+                sequence: op.stmtIndex * 10,
+                updateStrength: "strong",
+                confidence: "certain",
+            });
+        }
+    }
+
     for (const [key, nodeIds] of model.writeNodeIdsByKey.entries()) {
         for (const nodeId of nodeIds) {
             if (sequencedWriteNodes.has(`${key}#${nodeId}`)) continue;
             effects.push({
                 kind: "put",
-                handle: createExactHandoffHandle(APPSTORAGE_HANDOFF_FAMILY, key),
+                handle: createExactHandoffHandle(APPSTORAGE_CELL_KIND, APPSTORAGE_HANDOFF_FAMILY, key),
                 source: { nodeId },
                 reason: "AppStorage-Write",
             });
@@ -194,7 +225,7 @@ function buildAppStorageHandoffEffects(model: AppStorageModel): HandoffEffect[] 
         for (const nodeId of nodeIds) {
             effects.push({
                 kind: "put",
-                handle: createExactHandoffHandle(APPSTORAGE_HANDOFF_FAMILY, key),
+                handle: createExactHandoffHandle(APPSTORAGE_CELL_KIND, APPSTORAGE_HANDOFF_FAMILY, key),
                 source: { nodeId },
                 reason: "AppStorage-DecorFieldWrite",
             });
@@ -205,7 +236,7 @@ function buildAppStorageHandoffEffects(model: AppStorageModel): HandoffEffect[] 
         for (const endpoint of endpoints) {
             effects.push({
                 kind: "put",
-                handle: createExactHandoffHandle(APPSTORAGE_HANDOFF_FAMILY, key),
+                handle: createExactHandoffHandle(APPSTORAGE_CELL_KIND, APPSTORAGE_HANDOFF_FAMILY, key),
                 source: {
                     nodeId: endpoint.objectNodeId,
                     fieldHead: endpoint.fieldName,
@@ -220,7 +251,7 @@ function buildAppStorageHandoffEffects(model: AppStorageModel): HandoffEffect[] 
             sequencedReadNodes.add(`${key}#${op.nodeId}`);
             effects.push({
                 kind: "get",
-                handle: createExactHandoffHandle(APPSTORAGE_HANDOFF_FAMILY, key),
+                handle: createExactHandoffHandle(APPSTORAGE_CELL_KIND, APPSTORAGE_HANDOFF_FAMILY, key),
                 target: { nodeId: op.nodeId },
                 reason: "AppStorage-Read",
                 originModel: "harmony.appstorage",
@@ -238,7 +269,7 @@ function buildAppStorageHandoffEffects(model: AppStorageModel): HandoffEffect[] 
             if (sequencedReadNodes.has(`${key}#${nodeId}`)) continue;
             effects.push({
                 kind: "get",
-                handle: createExactHandoffHandle(APPSTORAGE_HANDOFF_FAMILY, key),
+                handle: createExactHandoffHandle(APPSTORAGE_CELL_KIND, APPSTORAGE_HANDOFF_FAMILY, key),
                 target: { nodeId },
                 reason: "AppStorage-Read",
             });
@@ -249,7 +280,7 @@ function buildAppStorageHandoffEffects(model: AppStorageModel): HandoffEffect[] 
         for (const nodeId of nodeIds) {
             effects.push({
                 kind: "get",
-                handle: createExactHandoffHandle(APPSTORAGE_HANDOFF_FAMILY, key),
+                handle: createExactHandoffHandle(APPSTORAGE_CELL_KIND, APPSTORAGE_HANDOFF_FAMILY, key),
                 target: { nodeId },
                 reason: "AppStorage-DecorFieldNode",
             });
@@ -260,7 +291,7 @@ function buildAppStorageHandoffEffects(model: AppStorageModel): HandoffEffect[] 
         for (const endpoint of endpoints) {
             effects.push({
                 kind: "get",
-                handle: createExactHandoffHandle(APPSTORAGE_HANDOFF_FAMILY, key),
+                handle: createExactHandoffHandle(APPSTORAGE_CELL_KIND, APPSTORAGE_HANDOFF_FAMILY, key),
                 target: {
                     nodeId: endpoint.objectNodeId,
                     fieldPath: [endpoint.fieldName],
@@ -296,6 +327,7 @@ export function buildAppStorageModel(
         storageApiClasses: new Set(DEFAULT_APPSTORAGE_OPTIONS.storageClasses),
         writeMethodsByName: new Map(DEFAULT_APPSTORAGE_OPTIONS.writeMethods.map(item => [item.methodName, item.valueIndex])),
         readMethodNames: new Set(DEFAULT_APPSTORAGE_OPTIONS.readMethods),
+        killMethodNames: new Set(DEFAULT_APPSTORAGE_OPTIONS.killMethods),
         propDecoratorKinds: new Set(DEFAULT_APPSTORAGE_OPTIONS.propDecorators),
         linkDecoratorKinds: new Set(DEFAULT_APPSTORAGE_OPTIONS.linkDecorators),
         storageDecoratorKinds: new Set([
@@ -310,6 +342,7 @@ export function buildAppStorageModel(
     const writeFieldEndpointsByKey = new Map<string, AppStorageFieldEndpoint[]>();
     const readNodeIdsByKey = new Map<string, Set<number>>();
     const readOperationsByKey = new Map<string, AppStorageNodeOperation[]>();
+    const killOperationsByKey = new Map<string, AppStorageNodeOperation[]>();
     const readFieldEndpointsByKey = new Map<string, AppStorageFieldEndpoint[]>();
     const readFieldNodeIdsByKey = new Map<string, Set<number>>();
     const warningByKey = new Map<string, AppStorageDynamicKeyWarning>();
@@ -337,6 +370,10 @@ export function buildAppStorageModel(
     const addReadOperation = (key: string, operation: AppStorageNodeOperation): void => {
         if (!readOperationsByKey.has(key)) readOperationsByKey.set(key, []);
         readOperationsByKey.get(key)!.push(operation);
+    };
+    const addKillOperation = (key: string, operation: AppStorageNodeOperation): void => {
+        if (!killOperationsByKey.has(key)) killOperationsByKey.set(key, []);
+        killOperationsByKey.get(key)!.push(operation);
     };
     const addWriteFieldNodeId = (key: string, nodeId: number): void => {
         if (!writeFieldNodeIdsByKey.has(key)) writeFieldNodeIdsByKey.set(key, new Set<number>());
@@ -468,6 +505,18 @@ export function buildAppStorageModel(
                     }
                 }
             }
+
+            if (options.killMethodNames.has(apiName)) {
+                for (const key of scopedKeys) {
+                    addKillOperation(key, {
+                        nodeId: -1,
+                        methodSignature,
+                        stmtIndex,
+                        callSignature,
+                        apiName,
+                    });
+                }
+            }
         }
 
         if (decoratedFieldsBySignature.size > 0) {
@@ -494,6 +543,7 @@ export function buildAppStorageModel(
         writeFieldEndpointsByKey,
         readNodeIdsByKey,
         readOperationsByKey,
+        killOperationsByKey,
         readFieldEndpointsByKey,
         readFieldNodeIdsByKey,
         dynamicKeyWarnings: [...warningByKey.values()],

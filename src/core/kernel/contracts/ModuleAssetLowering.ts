@@ -3,6 +3,8 @@
     AssetDocumentBase,
     CoreCapabilityTemplate,
     HandoffGetTemplate,
+    HandoffHandleTemplate,
+    HandoffKillTemplate,
     HandoffPutTemplate,
     InvokeSurface,
     SemanticEffectTemplate,
@@ -110,6 +112,7 @@ function lowerHandoffTemplatesToKeyedStorage(asset: AssetDocumentBase): Array<Mo
     const storageClasses = new Set<string>();
     const writeMethods = new Map<string, number>();
     const readMethods = new Set<string>();
+    const killMethods = new Set<string>();
 
     for (const binding of asset.bindings || []) {
         if (binding.role !== "handoff" || binding.plane !== "module") continue;
@@ -119,6 +122,7 @@ function lowerHandoffTemplatesToKeyedStorage(asset: AssetDocumentBase): Array<Mo
             const template = templates.get(ref);
             if (!template) continue;
             if (template.kind === "handoff.put") {
+                if (!handleUsesFirstArgKey((template as HandoffPutTemplate).handle)) continue;
                 const valueIndex = endpointArgIndex((template as HandoffPutTemplate).value);
                 if (valueIndex === undefined) continue;
                 storageClasses.add(surface.ownerName);
@@ -126,14 +130,21 @@ function lowerHandoffTemplatesToKeyedStorage(asset: AssetDocumentBase): Array<Mo
                 continue;
             }
             if (template.kind === "handoff.get") {
+                if (!handleUsesFirstArgKey((template as HandoffGetTemplate).handle)) continue;
                 if (!endpointIsReturn((template as HandoffGetTemplate).target)) continue;
                 storageClasses.add(surface.ownerName);
                 readMethods.add(surface.methodName);
+                continue;
+            }
+            if (template.kind === "handoff.kill") {
+                if (!handleUsesFirstArgKey((template as HandoffKillTemplate).handle)) continue;
+                storageClasses.add(surface.ownerName);
+                killMethods.add(surface.methodName);
             }
         }
     }
 
-    if (storageClasses.size === 0 || (writeMethods.size === 0 && readMethods.size === 0)) {
+    if (storageClasses.size === 0 || (writeMethods.size === 0 && readMethods.size === 0 && killMethods.size === 0)) {
         return [];
     }
     return [{
@@ -144,6 +155,7 @@ function lowerHandoffTemplatesToKeyedStorage(asset: AssetDocumentBase): Array<Mo
             .map(([methodName, valueIndex]) => ({ methodName, valueIndex }))
             .sort((a, b) => a.methodName.localeCompare(b.methodName)),
         readMethods: [...readMethods.values()].sort((a, b) => a.localeCompare(b)),
+        killMethods: [...killMethods.values()].sort((a, b) => a.localeCompare(b)),
     }];
 }
 
@@ -158,6 +170,19 @@ function endpointArgIndex(endpoint: HandoffPutTemplate["value"]): number | undef
 
 function endpointIsReturn(endpoint: HandoffGetTemplate["target"]): boolean {
     return endpoint.base.kind === "return";
+}
+
+function handleUsesFirstArgKey(handle: HandoffHandleTemplate): boolean {
+    return handle.cellKind === "keyed-semantic-slot"
+        && handle.key.length === 1
+        && handleKeyPartUsesFirstArg(handle.key[0]);
+}
+
+function handleKeyPartUsesFirstArg(part: HandoffHandleTemplate["key"][number]): boolean {
+    if (part.kind === "fromLiteralArg") return part.index === 0;
+    if (part.kind === "fromEndpoint") return part.endpoint.base.kind === "arg" && part.endpoint.base.index === 0;
+    if (part.kind === "fromEndpointPath") return part.endpoint.base.kind === "arg" && part.endpoint.base.index === 0;
+    return false;
 }
 
 function lowerCoreCapabilityTemplate(assetId: string, template: CoreCapabilityTemplate): ModuleSemantic & { id: string } {
@@ -208,6 +233,7 @@ function moduleKeyedStorageSemantic(template: CoreCapabilityTemplate): ModuleKey
         storageClasses: stringArray(template.payload.storageClasses),
         writeMethods: objectArray(template.payload.writeMethods) as ModuleKeyedStorageSemantic["writeMethods"],
         readMethods: stringArray(template.payload.readMethods),
+        killMethods: optionalStringArray(template.payload.killMethods),
         propDecorators: optionalStringArray(template.payload.propDecorators),
         linkDecorators: optionalStringArray(template.payload.linkDecorators),
     };

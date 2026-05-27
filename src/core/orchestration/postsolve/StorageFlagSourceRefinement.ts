@@ -4,7 +4,7 @@ import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { TaintFlow } from "../../kernel/model/TaintFlow";
 import { ProvenancePath } from "../../provenance/ProvenancePathTypes";
 import { PostsolveContext, PostsolveEvidence } from "./PostsolveTypes";
-import { collectCandidateReadSites } from "./SafeOverwriteRefinement";
+import { collectCandidateReadSites } from "./PostsolveReadSiteUtils";
 import { methodSignatureTextFromStmt, normalizeQuotedLiteral } from "./PostsolveRuleUtils";
 
 const SENSITIVE_KEY_PATTERN = /(token|password|passwd|pwd|secret|credential|auth|authorization|cookie|session|apikey|api_key|privatekey|private_key|phone|email|idcard|identity|cardno|bankcard)/i;
@@ -18,7 +18,7 @@ export function evaluateStorageFlagSourcePath(
     if (!isGenericStorageReadSource(flow.source)) return [];
     const readSites = collectCandidateReadSites(path, context);
     for (const site of readSites) {
-        const evidence = buildBooleanFlagReadEvidence(flow, site.stmt, site.readExpr, site.factId);
+        const evidence = buildBooleanFlagReadEvidence(flow, path, site.stmt, site.readExpr, site.factId);
         if (evidence) return [evidence];
     }
     return [];
@@ -26,6 +26,7 @@ export function evaluateStorageFlagSourcePath(
 
 function buildBooleanFlagReadEvidence(
     flow: TaintFlow,
+    path: ProvenancePath,
     stmt: any,
     readExpr: any,
     factId?: string,
@@ -46,6 +47,20 @@ function buildBooleanFlagReadEvidence(
         polarity: "negative",
         strength: "strong",
         stability: "overridable",
+        scope: "source-label",
+        subject: {
+            pathId: path.id,
+            factId,
+            sinkFactId: flow.sinkFactId,
+            sinkNodeId: flow.sinkNodeId,
+            sourceLabel: flow.source,
+        },
+        requiredForRefutation: true,
+        preconditions: {
+            pathComplete: path.status === "complete" || path.status === "bounded-complete",
+            endpointResolved: true,
+        },
+        sourceEvidenceIds: [path.id, factId].filter((id): id is string => !!id),
         position: {
             factId,
             stmtText: stmt?.toString?.() || "",

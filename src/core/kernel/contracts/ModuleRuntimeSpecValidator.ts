@@ -588,6 +588,7 @@ function validateSemantic(value: unknown, path: string, collector: ValidationCol
                 });
             }
             validateStringArray(value.readMethods, `${path}.readMethods`, collector);
+            if (value.killMethods !== undefined) validateStringArray(value.killMethods, `${path}.killMethods`, collector);
             if (value.propDecorators !== undefined) validateStringArray(value.propDecorators, `${path}.propDecorators`, collector);
             if (value.linkDecorators !== undefined) validateStringArray(value.linkDecorators, `${path}.linkDecorators`, collector);
             return true;

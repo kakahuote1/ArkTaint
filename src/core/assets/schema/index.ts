@@ -13,3 +13,4 @@ export * from "./RelationTypes";
 export * from "./SelectorTypes";
 export * from "./SurfaceTypes";
 export * from "./SurfaceIdentity";
+export * from "../../cellkind";

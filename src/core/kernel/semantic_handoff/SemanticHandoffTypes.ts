@@ -1,3 +1,5 @@
+import type { CellKindId } from "../../cellkind";
+
 export type HandoffEffectKind = "put" | "get" | "kill" | "scoped-link";
 
 export type HandoffHandlePrecision = "exact" | "partial" | "unknown";
@@ -7,6 +9,7 @@ export type HandoffConfidence = "certain" | "likely" | "unknown";
 export type HandoffMayCompatibilityPolicy = "conservative" | "block";
 
 export interface HandoffHandle {
+    cellKind: CellKindId;
     family: string;
     scope: string;
     key: string;
@@ -113,6 +116,7 @@ export type HandoffEffect =
 
 export function handoffHandleKey(handle: HandoffHandle): string {
     return [
+        handle.cellKind,
         handle.family,
         handle.scope,
         handle.key,
@@ -124,11 +128,13 @@ export function handoffHandleKey(handle: HandoffHandle): string {
 }
 
 export function createExactHandoffHandle(
+    cellKind: CellKindId,
     family: string,
     key: string,
     scope = "",
 ): HandoffHandle {
     return {
+        cellKind,
         family,
         scope,
         key,
@@ -137,6 +143,7 @@ export function createExactHandoffHandle(
 }
 
 export function createHandoffHandle(
+    cellKind: CellKindId,
     family: string,
     key: string,
     options: {
@@ -148,6 +155,7 @@ export function createHandoffHandle(
     } = {},
 ): HandoffHandle {
     return {
+        cellKind,
         family,
         scope: options.scope || "",
         key,
@@ -165,6 +173,7 @@ export function compatibleHandoffHandles(
     if (handoffHandleKey(left) === handoffHandleKey(right)) {
         return "exact";
     }
+    if (left.cellKind !== right.cellKind) return "no";
     if (left.family !== right.family) return "no";
     if (left.scope !== right.scope) return "no";
     if (left.owner !== right.owner) return "no";

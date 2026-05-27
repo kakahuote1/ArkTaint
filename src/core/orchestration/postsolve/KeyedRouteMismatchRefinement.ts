@@ -32,6 +32,20 @@ export function evaluateKeyedRouteCallbackMismatchPath(
         polarity: "negative",
         strength: "strong",
         stability: "stable",
+        scope: "path-segment",
+        subject: {
+            pathId: path.id,
+            factId: path.factIds[0],
+            sinkFactId: flow.sinkFactId,
+            sinkNodeId: flow.sinkNodeId,
+            sourceLabel: flow.sourceRuleId,
+        },
+        requiredForRefutation: true,
+        preconditions: {
+            pathComplete: path.status === "complete" || path.status === "bounded-complete",
+            endpointResolved: true,
+        },
+        sourceEvidenceIds: [path.id, path.factIds[0]].filter((id): id is string => !!id),
         position: {
             factId: path.factIds[0],
             methodSignature: pathMethodSignature,

@@ -1,6 +1,7 @@
 import type { ModuleEmission, ModuleFactEvent } from "../contracts/ModuleContract";
+import { OclfsSolver } from "../oclfs/OclfsSolver";
+import type { CurrentnessCertificate, StateCell, StateEffect } from "../oclfs/OclfsTypes";
 import {
-    compatibleHandoffHandles,
     HandoffEffect,
     HandoffGetEffect,
     HandoffHandle,
@@ -8,6 +9,7 @@ import {
     HandoffMayCompatibilityPolicy,
     HandoffPutEffect,
     HandoffScopedLinkEffect,
+    compatibleHandoffHandles,
     handoffHandleKey,
 } from "./SemanticHandoffTypes";
 
@@ -19,12 +21,9 @@ interface IndexedHandoffEffect<T extends HandoffEffect> {
 interface HandoffPropagationIndexes {
     putsByNodeId: Map<number, Array<IndexedHandoffEffect<HandoffPutEffect>>>;
     putsByFieldEndpoint: Map<string, Array<IndexedHandoffEffect<HandoffPutEffect>>>;
-    getsByHandleKey: Map<string, Array<IndexedHandoffEffect<HandoffGetEffect>>>;
-    exactLinksByHandleKey: Map<string, Set<string>>;
     gets: Array<IndexedHandoffEffect<HandoffGetEffect>>;
     kills: Array<IndexedHandoffEffect<HandoffKillEffect>>;
     links: Array<IndexedHandoffEffect<HandoffScopedLinkEffect>>;
-    hasNonExactHandles: boolean;
 }
 
 export interface HandoffPropagationOptions {
@@ -53,17 +52,29 @@ export class HandoffPropagationSession {
 
             for (const get of this.resolveGetEffects(put)) {
                 if (isSelfFieldEcho(event, get.effect)) continue;
+                const certificate = this.evaluateCurrentness(event, put, get);
+                if (!certificateAllowsEmission(certificate, this.mayCompatibilityPolicy)) continue;
+
                 const targetFieldPath = resolveTargetFieldPath(event, get.effect);
                 if (targetFieldPath === false) continue;
                 const options = get.effect.target.allowUnreachableTarget
                     ? { allowUnreachableTarget: true }
                     : undefined;
                 if (targetFieldPath && targetFieldPath.length > 0) {
-                    emissions.push(event.emit.toField(get.effect.target.nodeId, targetFieldPath, get.effect.reason, options));
+                    emissions.push(withCurrentness(
+                        event.emit.toField(get.effect.target.nodeId, targetFieldPath, get.effect.reason, options),
+                        certificate,
+                    ));
                 } else if (get.effect.target.preserveSourceField === false) {
-                    emissions.push(event.emit.toNode(get.effect.target.nodeId, get.effect.reason, options));
+                    emissions.push(withCurrentness(
+                        event.emit.toNode(get.effect.target.nodeId, get.effect.reason, options),
+                        certificate,
+                    ));
                 } else {
-                    emissions.push(event.emit.preserveToNode(get.effect.target.nodeId, get.effect.reason, options));
+                    emissions.push(withCurrentness(
+                        event.emit.preserveToNode(get.effect.target.nodeId, get.effect.reason, options),
+                        certificate,
+                    ));
                 }
             }
         }
@@ -86,9 +97,6 @@ export class HandoffPropagationSession {
     private resolveGetEffects(
         put: IndexedHandoffEffect<HandoffPutEffect>,
     ): Array<IndexedHandoffEffect<HandoffGetEffect>> {
-        if (put.effect.handle.precision === "exact" && !this.indexes.hasNonExactHandles) {
-            return this.resolveExactGetEffects(put);
-        }
         const out: Array<IndexedHandoffEffect<HandoffGetEffect>> = [];
         const seen = new Set<string>();
         for (const get of this.indexes.gets) {
@@ -96,32 +104,6 @@ export class HandoffPropagationSession {
             const compatibility = this.resolveCompatibility(put.effect.handle, get.effect.handle);
             if (compatibility === "no") continue;
             if (compatibility === "may" && this.mayCompatibilityPolicy === "block") continue;
-            if (this.isKilledBetween(put, get)) continue;
-            const key = `${get.order}|${getEffectKey(get.effect)}`;
-            if (seen.has(key)) continue;
-            seen.add(key);
-            out.push(get);
-        }
-        return out;
-    }
-
-    private resolveExactGetEffects(
-        put: IndexedHandoffEffect<HandoffPutEffect>,
-    ): Array<IndexedHandoffEffect<HandoffGetEffect>> {
-        const handleKey = handoffHandleKey(put.effect.handle);
-        const candidateKeys = new Set<string>([handleKey]);
-        for (const linked of this.indexes.exactLinksByHandleKey.get(handleKey) || []) {
-            candidateKeys.add(linked);
-        }
-        const candidates: Array<IndexedHandoffEffect<HandoffGetEffect>> = [];
-        for (const key of candidateKeys) {
-            candidates.push(...(this.indexes.getsByHandleKey.get(key) || []));
-        }
-        const out: Array<IndexedHandoffEffect<HandoffGetEffect>> = [];
-        const seen = new Set<string>();
-        for (const get of candidates) {
-            if (isDefiniteReverseSameScope(put, get)) continue;
-            if (this.isKilledBetween(put, get)) continue;
             const key = `${get.order}|${getEffectKey(get.effect)}`;
             if (seen.has(key)) continue;
             seen.add(key);
@@ -149,21 +131,91 @@ export class HandoffPropagationSession {
         return sawMay ? "may" : "no";
     }
 
-    private isKilledBetween(
+    private evaluateCurrentness(
+        event: ModuleFactEvent,
         put: IndexedHandoffEffect<HandoffPutEffect>,
         get: IndexedHandoffEffect<HandoffGetEffect>,
-    ): boolean {
-        if (!canCompareDefiniteFlow(put.effect, get.effect)) return false;
+    ) {
+        const value = valueCellForEvent(event, put);
+        const target = valueCellForGet(event, get);
+        const producerCell = cellForHandle(put.effect.handle);
+        const consumerCell = cellForConsumerHandle(put.effect.handle, get.effect.handle, this.resolveCompatibility(put.effect.handle, get.effect.handle));
+        const label = event.current.source || put.effect.reason;
+        const putSequence = normalizeOclfsSequence(put.order, 1);
+        const getSequence = normalizeOclfsSequence(resolveConsumerOrder(put, get), 9);
+        const effects: StateEffect[] = [
+            {
+                id: `handoff-source|${put.order}|${event.current.nodeId}`,
+                kind: "source",
+                target: value,
+                label,
+                programPoint: put.effect.programPoint || put.effect.reason,
+                sequence: putSequence - 1,
+                origin: put.effect.originModel || "semantic-handoff",
+                confidence: normalizeConfidence(put.effect.confidence),
+            },
+            {
+                id: `handoff-store|${put.order}|${handoffHandleKey(put.effect.handle)}`,
+                kind: "store",
+                location: producerCell,
+                value,
+                label,
+                programPoint: put.effect.programPoint || put.effect.reason,
+                sequence: putSequence,
+                origin: put.effect.originModel || "semantic-handoff",
+                confidence: normalizeConfidence(put.effect.confidence),
+                updateStrength: put.effect.updateStrength || "strong",
+            },
+            ...this.currentnessKillsBetween(put, get),
+            {
+                id: `handoff-load|${get.order}|${handoffHandleKey(get.effect.handle)}`,
+                kind: "load",
+                location: consumerCell,
+                target,
+                label,
+                programPoint: get.effect.programPoint || get.effect.reason,
+                sequence: getSequence,
+                origin: get.effect.originModel || "semantic-handoff",
+                confidence: normalizeConfidence(get.effect.confidence),
+            },
+            {
+                id: `handoff-sink|${get.order}|${get.effect.target.nodeId}`,
+                kind: "sink",
+                value: target,
+                sinkId: get.effect.reason,
+                label,
+                programPoint: get.effect.programPoint || get.effect.reason,
+                sequence: getSequence + 1,
+                origin: get.effect.originModel || "semantic-handoff",
+                confidence: normalizeConfidence(get.effect.confidence),
+            },
+        ];
+        const result = new OclfsSolver({ conservativeMay: true }).solve(effects);
+        return result.certificates.find(cert => cert.candidateFlow.consumerEffectId.startsWith("handoff-load"));
+    }
+
+    private currentnessKillsBetween(
+        put: IndexedHandoffEffect<HandoffPutEffect>,
+        get: IndexedHandoffEffect<HandoffGetEffect>,
+    ): StateEffect[] {
+        const out: StateEffect[] = [];
+        if (!canCompareDefiniteFlow(put.effect, get.effect)) return out;
         for (const kill of this.indexes.kills) {
             if (!canCompareDefiniteFlow(put.effect, kill.effect)) continue;
             if (!canCompareDefiniteFlow(kill.effect, get.effect)) continue;
             if (kill.order <= put.order || kill.order >= get.order) continue;
-            if ((kill.effect.updateStrength || "strong") !== "strong") continue;
-            if (kill.effect.handle.precision !== "exact") continue;
-            if (this.resolveCompatibility(put.effect.handle, kill.effect.handle) !== "exact") continue;
-            return true;
+            out.push({
+                id: `handoff-kill|${kill.order}|${handoffHandleKey(kill.effect.handle)}`,
+                kind: "kill",
+                location: cellForHandle(kill.effect.handle),
+                programPoint: kill.effect.programPoint || kill.effect.reason,
+                sequence: normalizeOclfsSequence(kill.order, 5),
+                origin: kill.effect.originModel || "semantic-handoff",
+                confidence: normalizeConfidence(kill.effect.confidence),
+                updateStrength: kill.effect.updateStrength || "strong",
+            });
         }
-        return false;
+        return out;
     }
 
     private buildStateKey(event: ModuleFactEvent, indexed: IndexedHandoffEffect<HandoffPutEffect>): string {
@@ -189,18 +241,12 @@ export function createHandoffPropagationSession(
 function buildIndexes(effects: readonly HandoffEffect[]): HandoffPropagationIndexes {
     const putsByNodeId = new Map<number, Array<IndexedHandoffEffect<HandoffPutEffect>>>();
     const putsByFieldEndpoint = new Map<string, Array<IndexedHandoffEffect<HandoffPutEffect>>>();
-    const getsByHandleKey = new Map<string, Array<IndexedHandoffEffect<HandoffGetEffect>>>();
-    const exactLinksByHandleKey = new Map<string, Set<string>>();
     const gets: Array<IndexedHandoffEffect<HandoffGetEffect>> = [];
     const kills: Array<IndexedHandoffEffect<HandoffKillEffect>> = [];
     const links: Array<IndexedHandoffEffect<HandoffScopedLinkEffect>> = [];
-    let hasNonExactHandles = false;
 
     for (let index = 0; index < effects.length; index++) {
         const effect = effects[index];
-        if (effectHasNonExactHandle(effect)) {
-            hasNonExactHandles = true;
-        }
         const order = effect.sequence === undefined ? index : effect.sequence;
         if (effect.kind === "put") {
             const indexed: IndexedHandoffEffect<HandoffPutEffect> = { effect, order };
@@ -211,51 +257,129 @@ function buildIndexes(effects: readonly HandoffEffect[]): HandoffPropagationInde
                 addToMap(putsByNodeId, effect.source.nodeId, indexed);
             }
         } else if (effect.kind === "get") {
-            const indexed: IndexedHandoffEffect<HandoffGetEffect> = { effect, order };
-            gets.push(indexed);
-            addToMap(getsByHandleKey, handoffHandleKey(effect.handle), indexed);
+            gets.push({ effect, order });
         } else if (effect.kind === "kill") {
-            const indexed: IndexedHandoffEffect<HandoffKillEffect> = { effect, order };
-            kills.push(indexed);
+            kills.push({ effect, order });
         } else if (effect.kind === "scoped-link") {
-            const indexed: IndexedHandoffEffect<HandoffScopedLinkEffect> = { effect, order };
-            links.push(indexed);
-            if (effect.left.precision === "exact" && effect.right.precision === "exact") {
-                addLinkedHandleKey(exactLinksByHandleKey, handoffHandleKey(effect.left), handoffHandleKey(effect.right));
-                addLinkedHandleKey(exactLinksByHandleKey, handoffHandleKey(effect.right), handoffHandleKey(effect.left));
-            }
+            links.push({ effect, order });
         }
     }
 
     return {
         putsByNodeId,
         putsByFieldEndpoint,
-        getsByHandleKey,
-        exactLinksByHandleKey,
         gets,
         kills,
         links,
-        hasNonExactHandles,
     };
+}
+
+function certificateAllowsEmission(
+    certificate: CurrentnessCertificate | undefined,
+    mayCompatibilityPolicy: HandoffMayCompatibilityPolicy,
+): boolean {
+    if (!certificate) return false;
+    if (certificate.verdict === "live") return true;
+    if (certificate.verdict === "may-live") return mayCompatibilityPolicy === "conservative";
+    if (certificate.verdict === "unknown") return mayCompatibilityPolicy === "conservative";
+    return false;
+}
+
+function withCurrentness(
+    emissions: ModuleEmission[],
+    certificate: CurrentnessCertificate,
+): ModuleEmission[] {
+    return emissions.map(emission => ({
+        ...emission,
+        currentnessCertificates: [
+            ...(emission.currentnessCertificates || []),
+            certificate,
+        ],
+    }));
+}
+
+function cellForHandle(handle: HandoffHandle): StateCell {
+    const kind = handle.cellKind;
+    return {
+        id: [
+            kind,
+            handle.family,
+            handle.scope || "",
+            handle.owner || "",
+            handle.key || "",
+            handle.index === undefined ? "" : String(handle.index),
+            handle.allocSite || "",
+            handle.precision,
+        ].join("|"),
+        kind,
+        scope: handle.scope || "",
+        owner: [
+            handle.family,
+            handle.owner || "",
+            handle.index === undefined ? "" : String(handle.index),
+            handle.allocSite || "",
+        ].join(":"),
+        key: handle.key,
+        allocSite: handle.allocSite,
+        index: handle.index,
+        precision: handle.precision,
+    };
+}
+
+function cellForConsumerHandle(
+    producerHandle: HandoffHandle,
+    consumerHandle: HandoffHandle,
+    compatibility: "exact" | "may" | "no",
+): StateCell {
+    if (compatibility === "exact" && compatibleHandoffHandles(producerHandle, consumerHandle) === "no") {
+        return cellForHandle(producerHandle);
+    }
+    return cellForHandle(consumerHandle);
+}
+
+function valueCellForEvent(event: ModuleFactEvent, put: IndexedHandoffEffect<HandoffPutEffect>): StateCell {
+    return {
+        id: `value-version|handoff-source|${event.current.nodeId}|${event.current.contextId}|${put.order}`,
+        kind: "value-version",
+        scope: put.effect.flowScope || "",
+        owner: `node:${event.current.nodeId}`,
+        valueVersion: `${event.current.nodeId}#${event.current.contextId}#${put.order}`,
+        precision: "exact",
+    };
+}
+
+function valueCellForGet(event: ModuleFactEvent, get: IndexedHandoffEffect<HandoffGetEffect>): StateCell {
+    return {
+        id: `value-version|handoff-target|${get.effect.target.nodeId}|${event.current.contextId}|${get.order}`,
+        kind: "value-version",
+        scope: get.effect.flowScope || "",
+        owner: `node:${get.effect.target.nodeId}`,
+        valueVersion: `${get.effect.target.nodeId}#${event.current.contextId}#${get.order}`,
+        precision: "exact",
+    };
+}
+
+function resolveConsumerOrder(
+    put: IndexedHandoffEffect<HandoffPutEffect>,
+    get: IndexedHandoffEffect<HandoffGetEffect>,
+): number {
+    if (canCompareDefiniteFlow(put.effect, get.effect)) return get.order;
+    if (get.order > put.order) return get.order;
+    return put.order + 1;
+}
+
+function normalizeOclfsSequence(order: number, offset: number): number {
+    return order * 10 + offset;
+}
+
+function normalizeConfidence(confidence: HandoffEffect["confidence"]): "certain" | "likely" | "unknown" {
+    return confidence || "certain";
 }
 
 function addToMap<K, V>(map: Map<K, V[]>, key: K, value: V): void {
     const bucket = map.get(key) || [];
     if (!map.has(key)) map.set(key, bucket);
     bucket.push(value);
-}
-
-function addLinkedHandleKey(map: Map<string, Set<string>>, left: string, right: string): void {
-    const bucket = map.get(left) || new Set<string>();
-    if (!map.has(left)) map.set(left, bucket);
-    bucket.add(right);
-}
-
-function effectHasNonExactHandle(effect: HandoffEffect): boolean {
-    if (effect.kind === "scoped-link") {
-        return effect.left.precision !== "exact" || effect.right.precision !== "exact";
-    }
-    return effect.handle.precision !== "exact";
 }
 
 function isExactPair(left: "exact" | "may" | "no", right: "exact" | "may" | "no"): boolean {

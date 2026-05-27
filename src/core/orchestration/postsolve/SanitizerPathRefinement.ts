@@ -44,7 +44,7 @@ export function evaluateSanitizerPath(
         if (!invokeExpr) continue;
 
         for (const rule of sanitizerRules) {
-            const evidence = buildSanitizerEvidence(rule, stmt, invokeExpr, sinkValue, sinkStmt, sinkIndex, flow, item.factId);
+            const evidence = buildSanitizerEvidence(rule, stmt, invokeExpr, sinkValue, sinkStmt, sinkIndex, flow, path, item.factId);
             if (evidence) return [evidence];
         }
     }
@@ -57,7 +57,7 @@ export function evaluateSanitizerPath(
         const invokeExpr = resolveAssignInvokeExprFromStmt(stmt);
         if (!invokeExpr) continue;
         for (const rule of sanitizerRules) {
-            const evidence = buildSanitizerEvidence(rule, stmt, invokeExpr, sinkValue, sinkStmt, sinkIndex, flow);
+            const evidence = buildSanitizerEvidence(rule, stmt, invokeExpr, sinkValue, sinkStmt, sinkIndex, flow, path);
             if (evidence) return [evidence];
         }
     }
@@ -89,6 +89,7 @@ function buildSanitizerEvidence(
     sinkStmt: any,
     sinkIndex: number,
     flow: TaintFlow,
+    path: ProvenancePath,
     factId?: string,
 ): PostsolveEvidence | undefined {
     if (!matchesSanitizerRuleInvoke(rule, stmt, invokeExpr)) return undefined;
@@ -110,6 +111,23 @@ function buildSanitizerEvidence(
         polarity: "negative",
         strength: "strong",
         stability: "overridable",
+        scope: "path-segment",
+        subject: {
+            pathId: path.id,
+            factId,
+            sinkFactId: flow.sinkFactId,
+            sinkNodeId: flow.sinkNodeId,
+            sinkArgEndpoint: flow.sinkEndpoint,
+        },
+        requiredForRefutation: true,
+        preconditions: {
+            pathComplete: path.status === "complete" || path.status === "bounded-complete",
+            sinkValueAligned: true,
+            sameValueVersion: true,
+            noDirtyRemixAfter: true,
+            endpointResolved: true,
+        },
+        sourceEvidenceIds: [path.id, factId].filter((id): id is string => !!id),
         position: {
             factId,
             stmtText: stmt?.toString?.() || "",

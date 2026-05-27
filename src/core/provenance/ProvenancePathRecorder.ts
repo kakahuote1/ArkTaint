@@ -2,6 +2,7 @@ import { TaintFlow } from "../kernel/model/TaintFlow";
 import {
     MaterializedTaintFlow,
     PathMaterializationOptions,
+    PathMaterializationStatus,
     ProvenanceDag,
     ProvenanceDagEdge,
     ProvenancePath,
@@ -22,17 +23,32 @@ export function materializeTaintFlowPaths(
     const dag = buildProvenanceDag(flow.sinkFactId, context);
     if (dag.factIds.size === 0) return undefined;
     const enumeration = enumerateProvenancePaths(dag, options);
-    const paths = deduplicateProvenancePaths(enumeration.paths);
+    const paths = deduplicateProvenancePaths(enumeration.paths).map((path, index) => ({
+        ...path,
+        id: path.id || `path|${flow.sinkFactId}|${index + 1}`,
+        flowId: flow.sinkFactId,
+        materializationStatus: path.materializationStatus || path.status,
+    }));
     if (paths.length === 0) return undefined;
     const incompleteReasons = mergeIncompleteReasons([
         ...enumeration.incompleteReasons,
         ...paths.flatMap(path => path.incompleteReasons || []),
     ]);
+    const materializationStatus = toMaterializationStatus(incompleteReasons);
     return {
         sinkFactId: flow.sinkFactId,
-        status: incompleteReasons.length > 0 ? "incomplete" : "complete",
+        status: materializationStatus,
+        materializationStatus,
         incompleteReasons,
         paths,
+        gaps: incompleteReasons.map((reason, index) => ({
+            id: `path-gap|${flow.sinkFactId}|${index + 1}`,
+            kind: reason === "max_depth" || reason === "max_paths"
+                ? "truncated-materialization"
+                : reasonToGapKind(reason),
+            flowId: flow.sinkFactId,
+            reason,
+        })),
     };
 }
 
@@ -60,6 +76,7 @@ export function buildProvenanceDag(sinkFactId: string, context: ProvenancePathCo
                 fromFactId: record.fromFactId,
                 toFactId: record.toFactId,
                 reason: record.reason,
+                currentnessEvidenceIds: [...(record.currentnessCertificateIds || [])],
             });
             factIds.add(record.fromFactId);
             stack.push(record.fromFactId);
@@ -105,9 +122,11 @@ export function enumerateProvenancePaths(
             paths.push({
                 factIds: orderedFactIds,
                 edges: orderedEdges,
-                status: "incomplete",
-                incompleteReasons: ["max_depth"],
+                status: "truncated",
+                materializationStatus: "truncated",
+                incompleteReasons: ["max_depth", "truncated_materialization"],
                 truncated: true,
+                currentnessEvidenceIds: collectCurrentnessEvidenceIds(orderedEdges),
             });
             return;
         }
@@ -127,6 +146,8 @@ export function enumerateProvenancePaths(
                 factIds: orderedFactIds,
                 edges: orderedEdges,
                 status: "complete",
+                materializationStatus: "complete",
+                currentnessEvidenceIds: collectCurrentnessEvidenceIds(orderedEdges),
             });
         } else {
             for (const edge of predecessors) {
@@ -165,6 +186,7 @@ function deduplicateProvenancePaths(paths: ProvenancePath[]): ProvenancePath[] {
                 status: path.status,
                 incompleteReasons: [...(path.incompleteReasons || [])],
                 truncated: path.truncated,
+                currentnessEvidenceIds: [...(path.currentnessEvidenceIds || [])],
             });
             continue;
         }
@@ -173,13 +195,50 @@ function deduplicateProvenancePaths(paths: ProvenancePath[]): ProvenancePath[] {
             ...(existing.incompleteReasons || []),
             ...(path.incompleteReasons || []),
         ]);
-        existing.status = existing.incompleteReasons.length > 0 ? "incomplete" : existing.status;
+        existing.currentnessEvidenceIds = mergeIds([
+            ...(existing.currentnessEvidenceIds || []),
+            ...(path.currentnessEvidenceIds || []),
+        ]);
+        existing.materializationStatus = existing.incompleteReasons.length > 0
+            ? toMaterializationStatus(existing.incompleteReasons)
+            : existing.materializationStatus;
+        existing.status = existing.materializationStatus || existing.status;
     }
     return [...dedup.values()];
 }
 
+function collectCurrentnessEvidenceIds(edges: ProvenanceDagEdge[]): string[] {
+    return mergeIds(edges.flatMap(edge => edge.currentnessEvidenceIds || []));
+}
+
+function mergeIds(ids: string[]): string[] {
+    return [...new Set(ids.filter(id => id.length > 0))].sort();
+}
+
 function mergeIncompleteReasons(reasons: ProvenancePathIncompleteReason[]): ProvenancePathIncompleteReason[] {
     return [...new Set(reasons)].sort();
+}
+
+function toMaterializationStatus(reasons: ProvenancePathIncompleteReason[]): PathMaterializationStatus {
+    if (reasons.length === 0) return "complete";
+    if (reasons.includes("materialization_failed")) return "failed";
+    if (reasons.includes("max_depth")
+        || reasons.includes("max_paths")
+        || reasons.includes("truncated_materialization")) {
+        return "truncated";
+    }
+    return "incomplete";
+}
+
+function reasonToGapKind(reason: ProvenancePathIncompleteReason): NonNullable<MaterializedTaintFlow["gaps"]>[number]["kind"] {
+    if (reason === "missing_derivation") return "missing-derivation";
+    if (reason === "missing_source_provenance") return "missing-source-provenance";
+    if (reason === "missing_currentness") return "missing-currentness";
+    if (reason === "missing_ude_edge") return "missing-ude-edge";
+    if (reason === "missing_model_hit") return "missing-model-hit";
+    if (reason === "ambiguous_predecessor") return "ambiguous-predecessor";
+    if (reason === "unresolved_value_version") return "unresolved-value-version";
+    return "truncated-materialization";
 }
 
 export function materializeProvenanceFactSummaries(

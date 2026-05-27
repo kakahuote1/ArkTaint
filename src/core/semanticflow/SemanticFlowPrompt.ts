@@ -1,7 +1,7 @@
 import type { SemanticFlowDecisionInput } from "./SemanticFlowTypes";
 import { formatSemanticFlowRuntimeSkills } from "./SemanticFlowRuntimeSkills";
 
-export const SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION = 36;
+export const SEMANTIC_FLOW_PROMPT_SCHEMA_VERSION = 37;
 
 export interface SemanticFlowPrompt {
     system: string;
@@ -92,8 +92,10 @@ export function buildSemanticFlowPrompt(input: SemanticFlowDecisionInput): Seman
         "- Rule effect templates use value/from/to fields. For rule.sink and rule.sanitizer, put the payload endpoint in value, or omit value only when the binding.endpoint already names the same payload. Never put endpoint directly on an effectTemplate.",
         "- rule.source templates must include kind:\"rule.source\", sourceKind, and value. Do not put rule.source in sourceKind. sourceKind must be one of seed_local_name, entry_param, call_return, call_arg, field_read, callback_param, or bound_state.",
         "- If a wrapper logs or stores an internal local or awaited result before returning it, do not model the wrapper return as a sink. Model the actual known sink if needed, or model the wrapper return as source only when evidence shows external data is returned.",
-        "- handoff.*: use for publish/consume/kill/link through storage, route, slot, event, promise, or wrapper handles. The model declares handle templates; ArkTaint matches handles and liveness.",
-        "- Handoff handles must have shape { family:\"storage\"|\"route\"|\"slot\"|\"event\"|\"promise\"|\"wrapper\", key:[...], scope?:[], owner?:[], precision?:\"infer\"|\"exact\"|\"partial\"|\"unknown\" }. Never use handle.kind, keyExpr, storeRef, or arbitrary handle fields.",
+        "- handoff.*: use for publish/consume/kill/link through storage, route, slot, event, promise, resource, callback, global context, persistent storage, or wrapper handles. The model declares handle templates; ArkTaint matches handles and liveness.",
+        "- Handoff handles must have shape { cellKind, family, key:[...], scope?:[], owner?:[], index?:number, precision?:\"infer\"|\"exact\"|\"partial\"|\"unknown\" }. Never use handle.kind, keyExpr, storeRef, or arbitrary handle fields.",
+        "- cellKind must be one registered StateCell kind: keyed-semantic-slot, message-channel-slot, navigation-param-slot, async-result-slot, reactive-state-slot, resource-handle-slot, callback-context-slot, global-context-slot, persistent-storage-slot, map-entry, object-entry, collection-element, object-field, static-field, array-element, indexed-element.",
+        "- family is a stable namespace for this API/project/library only; never use family to encode the cell type. For example, a project Vault.save/load wrapper should use cellKind:\"keyed-semantic-slot\" and family:\"project.vault\", not family:\"wrapper\".",
         "- Omit optional handoff scope/owner when unknown. Do not output empty scope or owner arrays.",
         "- Handoff key parts must use kind const, fromEndpoint, fromEndpointPath, fromLiteralArg, fromRouteTarget, fromCallbackChannel, or unknown.",
         "- handoff.put uses value. handoff.get uses target. handoff.kill uses handle. handoff.link uses left and right.",
@@ -133,7 +135,7 @@ export function buildSemanticFlowPrompt(input: SemanticFlowDecisionInput): Seman
         '    "effectTemplates": [{',
         '      "id": "template.PreferenceUtils.getPreferenceValue.get",',
         '      "kind": "handoff.get",',
-        '      "handle": { "family": "storage", "key": [{ "kind": "fromEndpoint", "endpoint": { "base": { "kind": "arg", "index": 0 } } }], "owner": [{ "kind": "const", "value": "PreferenceUtils.pref" }], "precision": "infer" },',
+        '      "handle": { "cellKind": "keyed-semantic-slot", "family": "project.preference", "key": [{ "kind": "fromEndpoint", "endpoint": { "base": { "kind": "arg", "index": 0 } } }], "owner": [{ "kind": "const", "value": "PreferenceUtils.pref" }], "precision": "infer" },',
         '      "target": { "base": { "kind": "return" } },',
         '      "confidence": "likely"',
         "    }],",
@@ -211,7 +213,7 @@ export function buildSemanticFlowRepairPrompt(input: SemanticFlowRepairPromptInp
         "The repaired output must be one of: done with an asset, need-more-evidence with one structured request, or reject with a reason.",
         "Do not introduce fields outside the declarative asset model.",
         "Registered surface kinds are only invoke, construct, access, entry, callback, decorator. Replace kind=\"api\" or free-form surface records with a valid InvokeSurface when the evidence is a method call.",
-        "Bindings must reference templates via effectTemplateRefs. Handoff handles must use family/key/scope/owner/precision, not handle.kind/keyExpr/storeRef.",
+        "Bindings must reference templates via effectTemplateRefs. Handoff handles must use cellKind/family/key/scope/owner/precision, not handle.kind/keyExpr/storeRef. cellKind must be a registered StateCell kind and family is only a namespace.",
         "Rule effect templates must use value/from/to; never put endpoint directly on a rule.source/rule.sink/rule.sanitizer/rule.transfer template.",
         "rule.source must have kind:\"rule.source\", sourceKind, and value. sourceKind must be seed_local_name, entry_param, call_return, call_arg, field_read, callback_param, or bound_state. Option callback locators must use callback:{kind:\"option\", base:{base:{kind:\"arg\",index:0}}, accessPath:[...]}.",
         "Do not output executable logic or core capabilities.",

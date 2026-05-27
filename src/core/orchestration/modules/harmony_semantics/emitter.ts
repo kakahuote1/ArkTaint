@@ -10,6 +10,7 @@ import { createExactHandoffHandle, HandoffEffect } from "../../../kernel/semanti
 const MAX_EVENT_BACKTRACE_STEPS = 6;
 const MAX_EVENT_BACKTRACE_VISITED = 24;
 const EMITTER_HANDOFF_FAMILY = "harmony.emitter.payload";
+const EMITTER_CELL_KIND = "message-channel-slot";
 
 interface EmitterClassProfile {
     hasOn: boolean;
@@ -159,7 +160,7 @@ export function createHarmonyEventEmitterSemanticModule(
                     for (const targetNodeId of callbackParamNodeIds) {
                         handoffEffects.push({
                             kind: "get",
-                            handle: createExactHandoffHandle(EMITTER_HANDOFF_FAMILY, eventKey),
+                            handle: createExactHandoffHandle(EMITTER_CELL_KIND, EMITTER_HANDOFF_FAMILY, eventKey),
                             target: {
                                 nodeId: targetNodeId,
                                 allowUnreachableTarget: true,
@@ -212,7 +213,7 @@ export function createHarmonyEventEmitterSemanticModule(
                     for (const nodeId of payloadNodeIds) {
                         handoffEffects.push({
                             kind: "put",
-                            handle: createExactHandoffHandle(EMITTER_HANDOFF_FAMILY, eventKey),
+                            handle: createExactHandoffHandle(EMITTER_CELL_KIND, EMITTER_HANDOFF_FAMILY, eventKey),
                             source: { nodeId },
                             reason: `Harmony event payload ${eventKey}`,
                             originModel: "harmony.emitter",

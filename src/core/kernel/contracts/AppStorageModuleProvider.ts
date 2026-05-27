@@ -30,6 +30,7 @@ export interface AppStorageSemanticModel {
     writeFieldEndpointsByKey: Map<string, AppStorageFieldEndpoint[]>;
     readNodeIdsByKey: Map<string, Set<number>>;
     readOperationsByKey: Map<string, AppStorageNodeOperation[]>;
+    killOperationsByKey: Map<string, AppStorageNodeOperation[]>;
     readFieldEndpointsByKey: Map<string, AppStorageFieldEndpoint[]>;
     readFieldNodeIdsByKey: Map<string, Set<number>>;
     dynamicKeyWarnings: AppStorageDynamicKeyWarning[];

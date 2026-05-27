@@ -51,6 +51,20 @@ export function evaluateParameterizedQueryPath(
         polarity: "negative",
         strength: "strong",
         stability: "stable",
+        scope: "sink-argument",
+        subject: {
+            pathId: path.id,
+            factId: path.factIds[path.factIds.length - 1],
+            sinkFactId: flow.sinkFactId,
+            sinkNodeId: flow.sinkNodeId,
+            sinkArgEndpoint: endpoint,
+        },
+        requiredForRefutation: true,
+        preconditions: {
+            pathComplete: path.status === "complete" || path.status === "bounded-complete",
+            endpointResolved: true,
+        },
+        sourceEvidenceIds: [path.id, path.factIds[path.factIds.length - 1]].filter((id): id is string => !!id),
         position: {
             factId: path.factIds[path.factIds.length - 1],
             stmtText: flow.sink?.toString?.() || "",

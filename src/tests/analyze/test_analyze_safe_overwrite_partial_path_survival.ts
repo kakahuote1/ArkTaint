@@ -136,33 +136,12 @@ async function main(): Promise<void> {
                 },
             ],
             sanitizers: [],
-            transfers: [
-                {
-                    id: "transfer.fixture.safe_overwrite_partial_path_survival.putsync_value_to_store",
-                    match: {
-                        kind: "method_name_equals",
-                        value: "putSync",
-                        invokeKind: "instance",
-                        argCount: 2,
-                        typeHint: "StorageBox",
-                    },
-                    from: "arg1",
-                    to: "base",
-                },
-                {
-                    id: "transfer.fixture.safe_overwrite_partial_path_survival.getsync_store_to_result",
-                    match: {
-                        kind: "method_name_equals",
-                        value: "getSync",
-                        invokeKind: "instance",
-                        argCount: 1,
-                        typeHint: "StorageBox",
-                    },
-                    from: "base",
-                    to: "result",
-                },
-            ],
+            transfers: [],
         }),
+    );
+    writeText(
+        path.join(moduleProjectDir, "storage_box.asset.json"),
+        JSON.stringify(storageBoxHandoffAsset("safe_overwrite_partial_path_survival"), null, 2),
     );
 
     writeText(
@@ -182,7 +161,7 @@ async function main(): Promise<void> {
             "        const emissions = [];",
             "        for (const call of mergeCalls) {",
             "          const target = call.arg(0);",
-          "          if (!target) continue;",
+            "          if (!target) continue;",
             "          const leftArgName = call.arg(1)?.getName?.();",
             "          const rightArgName = call.arg(2)?.getName?.();",
             "          if (localName === \"leftValue\" && leftArgName === \"leftValue\") {",
@@ -234,22 +213,18 @@ async function main(): Promise<void> {
     assert(entry, "expected one entry with postsolveResults");
 
     const result = entry!.postsolveResults![0];
-    assert(result.paths.length >= 2, `expected at least two paths, got ${result.paths.length}`);
+    assert(result.paths.length >= 1, `expected at least one surviving path, got ${result.paths.length}`);
 
     const pathJudgements = result.paths.map(pathItem => pathItem.judgement.kind);
-    assert(pathJudgements.includes("Refuted-Strong"), `expected one Refuted-Strong path, got ${JSON.stringify(pathJudgements)}`);
-    assert(pathJudgements.includes("Unresolved"), `expected one Unresolved path, got ${JSON.stringify(pathJudgements)}`);
-    assert(result.judgement.kind === "Unresolved", `expected flow judgement Unresolved, got ${result.judgement.kind}`);
+    assert(!pathJudgements.includes("Refuted-Strong"), `stale storage path should be removed by OCLFS before postsolve, got ${JSON.stringify(pathJudgements)}`);
+    assert(result.judgement.kind === "Confirmed", `expected surviving flow judgement Confirmed, got ${result.judgement.kind}`);
     assert(
-        result.judgement.primaryReason === "not_all_paths_refuted",
-        `expected primaryReason=not_all_paths_refuted, got ${result.judgement.primaryReason}`,
+        result.paths.some(pathItem => pathItem.evidence.some(evidence => evidence.kind === "currentness_certificate")),
+        "expected surviving path to carry currentness_certificate evidence",
     );
     assert(
-        result.paths.some(pathItem =>
-            pathItem.judgement.kind === "Refuted-Strong"
-            && pathItem.evidence.some(evidence => evidence.kind === "safe_overwrite"),
-        ),
-        "expected one Refuted-Strong path with safe_overwrite evidence",
+        !result.paths.some(pathItem => pathItem.evidence.some(evidence => evidence.kind === "safe_overwrite")),
+        "safe_overwrite must not remain as an independent postsolve evidence",
     );
 
     const materializedEntries = (withModule.entries || []).filter(item =>
@@ -266,6 +241,82 @@ async function main(): Promise<void> {
     console.log(`module_total_flows=${withModule.summary.totalFlows}`);
     console.log(`path_judgements=${pathJudgements.join(",")}`);
     console.log(`surviving_paths=${survivingPathCount}`);
+}
+
+function storageBoxHandoffAsset(projectId: string): unknown {
+    return {
+        id: `asset.module.${projectId}.storage_box`,
+        plane: "module",
+        status: "schema-valid",
+        surfaces: [
+            invokeSurface("surface.storage_box.putSync", "putSync", 2),
+            invokeSurface("surface.storage_box.getSync", "getSync", 1),
+        ],
+        bindings: [
+            handoffBinding(`asset.module.${projectId}.storage_box`, `binding.${projectId}.putSync`, "surface.storage_box.putSync", ["template.putSync"]),
+            handoffBinding(`asset.module.${projectId}.storage_box`, `binding.${projectId}.getSync`, "surface.storage_box.getSync", ["template.getSync"]),
+        ],
+        effectTemplates: [
+            {
+                id: "template.putSync",
+                kind: "handoff.put",
+                handle: firstArgHandle(),
+                value: { base: { kind: "arg", index: 1 } },
+            },
+            {
+                id: "template.getSync",
+                kind: "handoff.get",
+                handle: firstArgHandle(),
+                target: { base: { kind: "return" } },
+            },
+        ],
+        provenance: {
+            source: "llm",
+            projectId,
+            createdAt: "2026-05-27T00:00:00.000Z",
+            evidenceLocations: [{ file: "EntryAbility.ets", line: 7 }],
+        },
+    };
+}
+
+function invokeSurface(surfaceId: string, methodName: string, argCount: number): unknown {
+    return {
+        surfaceId,
+        kind: "invoke",
+        modulePath: "project/storage_box",
+        ownerName: "StorageBox",
+        methodName,
+        invokeKind: "instance",
+        argCount,
+        confidence: "certain",
+        provenance: {
+            source: "analyzer",
+            location: { file: "EntryAbility.ets", line: 7 },
+        },
+    };
+}
+
+function handoffBinding(assetId: string, bindingId: string, surfaceId: string, effectTemplateRefs: string[]): unknown {
+    return {
+        bindingId,
+        assetId,
+        surfaceId,
+        plane: "module",
+        role: "handoff",
+        effectTemplateRefs,
+        semanticsFamily: "project-keyed-storage",
+        completeness: "partial",
+        confidence: "certain",
+    };
+}
+
+function firstArgHandle(): unknown {
+    return {
+        cellKind: "keyed-semantic-slot",
+        family: "project.storage_box",
+        key: [{ kind: "fromLiteralArg", index: 0 }],
+        precision: "infer",
+    };
 }
 
 main().catch((error) => {

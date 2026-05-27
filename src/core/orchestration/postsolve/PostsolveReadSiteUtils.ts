@@ -1,48 +1,6 @@
-﻿import { TaintFlow } from "../../kernel/model/TaintFlow";
-import { ProvenancePath } from "../../provenance/ProvenancePathTypes";
-import { PostsolveContext, PostsolveEvidence } from "./PostsolveTypes";
-import { resolveSafeOverwriteFromReadExpr } from "./PostsolveSharedEvidence";
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
-
-export function evaluateSafeOverwritePath(
-    flow: TaintFlow,
-    path: ProvenancePath,
-    context: PostsolveContext,
-): PostsolveEvidence[] {
-    const readSites = collectCandidateReadSites(path, context);
-    for (const site of readSites) {
-        const resolution = resolveSafeOverwriteFromReadExpr(site.readExpr, {
-            declStmt: site.stmt,
-            sinkNodeId: flow.sinkNodeId,
-            sinkFieldPath: flow.sinkFieldPath ? [...flow.sinkFieldPath] : undefined,
-        });
-        if (!resolution) continue;
-        return [{
-            kind: "safe_overwrite",
-            polarity: "negative",
-            strength: "strong",
-            stability: "stable",
-            position: {
-                factId: site.factId,
-                stmtText: resolution.hit.overwriteStmtText,
-                methodSignature: site.stmt?.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.() || "",
-            },
-            target: {
-                sinkFactId: flow.sinkFactId || "",
-                sinkNodeId: flow.sinkNodeId,
-            },
-            meta: {
-                reason: "safe_overwrite",
-                keyLiteral: resolution.hit.keyLiteral,
-                sinkNodeId: resolution.hit.sinkNodeId,
-                sinkFieldPath: resolution.hit.sinkFieldPath ? [...resolution.hit.sinkFieldPath] : undefined,
-                overwriteStmtText: resolution.hit.overwriteStmtText,
-                readStmtText: site.stmt?.toString?.() || undefined,
-            },
-        }];
-    }
-    return [];
-}
+import { ProvenancePath } from "../../provenance/ProvenancePathTypes";
+import { PostsolveContext } from "./PostsolveTypes";
 
 export function collectCandidateReadSites(
     path: ProvenancePath,
@@ -120,7 +78,7 @@ function extractReadExprFromStmt(stmt: any): any | undefined {
 
 function isStorageReadExpr(expr: any): boolean {
     const methodName = expr?.getMethodSignature?.()?.getMethodSubSignature?.()?.getMethodName?.() || "";
-    return methodName === "get" || methodName === "getSync";
+    return methodName === "get" || methodName === "getSync" || methodName === "getItem";
 }
 
 function extractAssignedLocal(stmt: any): Local | undefined {
@@ -146,4 +104,3 @@ function resolveAnchorStmtFromFact(fact: any): any | undefined {
     if (value?.getDeclaringStmt) return value.getDeclaringStmt?.();
     return undefined;
 }
-

@@ -109,7 +109,8 @@ export function makeHandoffAsset(id = "asset.project.token-cache"): AssetDocumen
                 id: `${id}.save.put`,
                 kind: "handoff.put",
                 handle: {
-                    family: "wrapper",
+                    cellKind: "keyed-semantic-slot",
+                    family: "project.token_cache",
                     key: [{ kind: "fromLiteralArg", index: 0 }],
                 },
                 value: { base: { kind: "arg", index: 1 } },

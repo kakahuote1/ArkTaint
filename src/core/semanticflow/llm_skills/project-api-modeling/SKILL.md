@@ -127,7 +127,8 @@ Handoff handles must use the registered handle template shape:
 
 ```json
 {
-  "family": "storage",
+  "cellKind": "keyed-semantic-slot",
+  "family": "project.preference",
   "key": [
     { "kind": "fromEndpoint", "endpoint": { "base": { "kind": "arg", "index": 0 } } }
   ],
@@ -137,6 +138,20 @@ Handoff handles must use the registered handle template shape:
   "precision": "infer"
 }
 ```
+
+`cellKind` is mandatory and declares the StateCell shape. Use:
+
+- `keyed-semantic-slot` for key-value wrappers such as cache, storage, token/session managers, and stable save/load/delete pairs;
+- `message-channel-slot` for event bus, emit/on, publish/subscribe, postMessage, and listener payload channels;
+- `navigation-param-slot` for route, page, navigation, or router parameter handoff;
+- `async-result-slot` for promise, async/await, then, deferred result, and callback-result wrappers;
+- `reactive-state-slot` for state management, @State/@Link-like slots, and UI store bindings;
+- `resource-handle-slot` for file/DB/request/stream handles;
+- `callback-context-slot` for callback registration context slots;
+- `global-context-slot` for global/app/ability context stores;
+- `persistent-storage-slot` for file/database/KV/DataShare persistent stores.
+
+`family` is only a stable namespace for this project/API, not the cell type. Do not use generic families such as `"storage"`, `"event"`, `"route"`, or `"wrapper"` when a project-specific namespace is available.
 
 Do not output `handle.kind`, `keyExpr`, `storeRef`, or arbitrary handle fields. `handoff.put` uses `value`; `handoff.get` uses `target`.
 

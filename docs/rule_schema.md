@@ -1,307 +1,378 @@
-# ArkTaint Rules 编写说明
+# ArkTaint Rule Asset 编写说明
 
-## 1. 先分清 rule / module / plugin
+本文档说明当前 ArkTaint 的 rule 类安全资产格式。Rule 资产只表达局部安全语义，例如某个 API 的返回值是 source、某个参数是 sink、某个调用把污点从一个 endpoint 传到另一个 endpoint，或某个 endpoint 经过明确 sanitizer 清洗。
 
-### 1.1 写 rule（推荐的默认选择）
-
-适合：
-
-- 标一个 API return 为 source
-- 标一个 API arg/base/result 为 sink
-- 标一个 API 的 taint `from -> to` 传播（transfer）
-- 标一个 API/endpoint 为 sanitizer
-
-一句话：
-
-> 能用“匹配某个调用点 + 指定 endpoint 行为”表达的，优先写 rule。
-
-### 1.2 写 module（当 rule 表达不够时）
-
-适合：
-
-- callback handoff（注册/绑定/回调参数传递）
-- 状态对象字段桥接
-- router / emitter / worker 这类复杂硬编码语义
-- rules 很难表达的多步 continuation、复杂对象桥接
-
-参见 [Modules](./module_development_guide.md)。
-
-### 1.3 写 plugin（引擎级扩展）
-
-适合：
-
-- entry discovery（入口发现）
-- propagation / detection / result 流程增强或替换
-- 观察或替换分析阶段本身
-
-参见 [Plugins](./engine_plugin_guide.md)。
-
-## 2. 当前规则目录模型
-
-规则根目录通常是 `src/models`。顶层先按 kind 分：
+当前 rule 资产已经统一到 Asset Model v2 的声明式结构。不要再编写旧版 rule-set 分组格式，也不要在 rule 文件里放版本分支字段。所有 rule 文件都必须使用：
 
 ```text
-src/models/
+surfaces -> bindings -> effectTemplates
+```
+
+其中：
+
+- `surfaces` 描述资产覆盖哪个程序面，也就是 API 身份。
+- `bindings` 描述该程序面承担哪个安全角色，以及作用在哪个 endpoint。
+- `effectTemplates` 描述运行时匹配到该程序面后产生什么标准 rule effect。
+
+## 1. Rule、Module、ArkMain 的边界
+
+优先使用 rule 的场景：
+
+- 把 API 返回值、回调参数或对象字段标为 source。
+- 把 API 参数、receiver 或字段标为 sink。
+- 表达局部 transfer，例如 `arg0 -> return`、`arg0.field -> callbackArg1`。
+- 表达语义确定的 sanitizer。
+
+不要用 rule 处理这些问题：
+
+- AppStorage、router、event、state slot 这类 publish/consume/kill/link 交接语义；这些属于 module/handoff effect，由语义交接敏感传播消费。
+- 生命周期入口、页面入口、系统回调注册；这些属于 ArkMain/entry effect。
+- 项目私有复杂 wrapper、业务 SDK 协议、黑盒三方库；这些优先进入 LLM 项目建模流程，人工审计通过后形成项目资产。
+
+Rule 的核心原则是：只声明局部 effect，不直接补 PAG 边，不直接发 taint fact，不自行做路径过滤。
+
+## 2. 目录约定
+
+内置 rule 资产位于：
+
+```text
+src/models/kernel/rules/
   sources/
   sinks/
   sanitizers/
   transfers/
 ```
 
-每个 kind 下再分：
-
-- `kernel/`：内建、默认启用
-- `project/`：可复用的 project rule packs（默认不启用，需要 `--enable-model`）
-
-示例：
+测试和临时项目 rule 资产通常位于：
 
 ```text
-src/models/
-  sources/
-    kernel/
-      callback.rules.json
-      device.rules.json
-    project/
-      acme_sdk/
-        uploader.rules.json
-
-  sinks/
-    kernel/
-      logging.rules.json
-      network.rules.json
-    project/
-      acme_sdk/
-        upload_sink.rules.json
+tests/rules/
 ```
 
-约束：
+文件名仍使用 `*.rules.json`，但文件内容是统一资产文档，而不是旧版 sources/sinks 分组结构。
 
-- 文件名必须匹配 `*.rules.json`
-- 一个文件只放一种 kind（不要把 sources/sinks/transfers 混在同一文件里）
-- `project/<pack-id>/` 是可启用/禁用的 pack 单位
-
-## 3. CLI 如何加载规则
-
-最常见的是：
+CLI 仍可通过现有参数加载 rule 资产：
 
 ```bash
-node out/cli/analyze.js \
-  --repo <repo> \
-  --model-root src/models
+node out/cli/analyze.js --repo <repo> --model-root src/models
+node out/cli/analyze.js --repo <repo> --project tests/rules/example.rules.json
+node out/cli/analyze.js --repo <repo> --candidate tmp/project_modeling_candidates/<run>/<project>/asset.rules.json
 ```
 
-会自动加载：
+## 3. 顶层结构
 
-- `kernel/**/*.rules.json`
-
-启用 project pack：
-
-```bash
-node out/cli/analyze.js \
-  --repo <repo> \
-  --model-root src/models \
-  --enable-model acme_sdk
-```
-
-常用参数（常见组合）：
-
-- `--kernelRule <file>`：额外 kernel 规则文件
-- `--model-root <dir>`：规则目录根（`--rules <dir>` 为别名）
-- `--project <file>`：一次性项目规则覆盖文件
-- `--candidate <file>`：候选规则文件
-- `--enable-model <pack-id[,pack-id]>`
-- `--disable-model <pack-id[,pack-id]>`
-
-建议：
-
-- 想长期复用：放进 `src/models/**/project/<pack-id>/`
-- 想快速试验：用 `--project` 或 `--candidate`
-
-## 4. 顶层 JSON 结构（schemaVersion 2.0）
-
-每个规则文件都必须是 `schemaVersion: "2.0"`，并在顶层提供四类规则数组：
+Rule asset 顶层结构如下：
 
 ```json
 {
-  "schemaVersion": "2.0",
-  "meta": {
-    "name": "acme-rules",
-    "description": "Acme SDK rules"
-  },
-  "sources": [],
-  "sinks": [],
-  "sanitizers": [],
-  "transfers": []
-}
-```
-
-要求：
-
-- 只允许把本文件对应的 kind 放非空（例如 sources 文件就只填 `sources`）
-- 其他 kind 必须保持空数组
-
-## 5. 通用字段（所有 rule 通用）
-
-- `id: string`：唯一标识
-- `enabled?: boolean`：`false` 时不进入运行时
-- `description?: string`
-- `tags?: string[]`
-- `match: RuleMatch`
-- `scope?: RuleScopeConstraint`
-- `category?: string`
-- `severity?: "low" | "medium" | "high" | "critical"`
-
-### 5.1 `match`
-
-常用的 `match.kind`：
-
-- `signature_contains` / `signature_equals` / `signature_regex`
-- `declaring_class_equals`
-- `method_name_equals` / `method_name_regex`
-- `local_name_regex`
-
-通用形态：
-
-```json
-"match": {
-  "kind": "method_name_equals",
-  "value": "readToken"
-}
-```
-
-常见可选约束：
-
-- `calleeClass`
-- `invokeKind`
-- `argCount`
-- `typeHint`
-
-示例：
-
-```json
-"match": {
-  "kind": "method_name_equals",
-  "value": "set",
-  "invokeKind": "instance",
-  "argCount": 2
-}
-```
-
-### 5.2 `scope`
-
-用于进一步限制文件、模块、类、方法范围：
-
-```json
-"scope": {
-  "className": {
-    "mode": "equals",
-    "value": "EntryAbility"
+  "id": "asset.rule.project.example",
+  "plane": "rule",
+  "status": "reviewed",
+  "surfaces": [],
+  "bindings": [],
+  "effectTemplates": [],
+  "relations": [],
+  "provenance": {
+    "source": "project",
+    "projectId": "example",
+    "evidenceLocations": [
+      {
+        "file": "entry/src/main/ets/pages/Index.ets",
+        "line": 12
+      }
+    ]
   }
 }
 ```
 
-常用 key：
+必要字段：
 
-- `file`
-- `module`
-- `className`
-- `methodName`
+| 字段 | 含义 |
+|---|---|
+| `id` | 资产唯一标识。建议包含 `asset.rule.<scope>.<name>`。 |
+| `plane` | 必须是 `rule`。 |
+| `status` | 资产状态。正式内置资产通常是 `official`；人工审计后的项目资产通常是 `reviewed` 或 `replayed`。 |
+| `surfaces` | 资产覆盖的程序面。正式资产不得为空。 |
+| `bindings` | surface 到安全角色和 effect template 的绑定。正式资产不得为空。 |
+| `effectTemplates` | 声明式 rule effect 模板。 |
+| `provenance` | 资产来源和证据位置。 |
 
-## 6. endpoint / path 模型
+## 4. Surface
 
-规则里的 source / sink / transfer 都围绕 endpoint：
-
-- `base`
-- `result`
-- `matched_param`
-- `arg0` / `arg1` / ...
-
-简单写法：
-
-```json
-"target": "result"
-```
-
-需要 path 时：
-
-```json
-"target": {
-  "endpoint": "arg0",
-  "path": ["token"]
-}
-```
-
-## 7. 四类规则：source / sink / sanitizer / transfer
-
-### 7.1 SourceRule（source）
+Surface 只说明 API 是谁，不说明它的安全语义。最常见的是 `invoke` surface。
 
 ```json
 {
-  "id": "source.acme.read_token",
-  "sourceKind": "call_return",
-  "match": {
-    "kind": "method_name_equals",
-    "value": "readToken"
-  },
-  "target": "result"
+  "surfaceId": "surface.project.logger.info",
+  "kind": "invoke",
+  "modulePath": "@project/logger",
+  "ownerName": "Logger",
+  "methodName": "info",
+  "invokeKind": "static",
+  "argCount": 1,
+  "confidence": "certain",
+  "provenance": {
+    "source": "manual"
+  }
 }
 ```
 
-### 7.2 SinkRule（sink）
+`invokeKind` 常用值：
+
+| 值 | 使用场景 | 必要身份字段 |
+|---|---|---|
+| `instance` | `obj.method(...)` | `modulePath + ownerName + methodName + argCount` |
+| `static` | `Class.method(...)` | `modulePath + ownerName + methodName + argCount` |
+| `namespace` | `ns.method(...)` | `modulePath + ownerName/functionName + argCount` |
+| `free-function` | `fn(...)` | `modulePath + functionName + argCount` |
+
+注意：
+
+- Surface 身份必须来自 analyzer/import/type/source-location 证据或人工确认的稳定结构。
+- 不要用方法名包含、owner 名猜测、自然语言描述来替代 surface 身份。
+- LLM 可以提出 surface 候选，但正式资产必须能被结构化证据支撑。
+
+## 5. Endpoint
+
+Endpoint 描述安全语义作用于哪个值位置。常见写法：
+
+```json
+{ "base": { "kind": "arg", "index": 0 } }
+```
+
+带字段路径：
 
 ```json
 {
-  "id": "sink.acme.upload",
-  "match": {
-    "kind": "method_name_equals",
-    "value": "upload"
-  },
-  "target": "arg0"
+  "base": { "kind": "arg", "index": 0 },
+  "accessPath": ["headers", "Authorization"]
 }
 ```
 
-### 7.3 SanitizerRule（sanitizer）
+常用 endpoint base：
+
+| base.kind | 含义 |
+|---|---|
+| `receiver` | 调用 receiver，例如 `obj`。 |
+| `arg` | 普通实参。 |
+| `return` | 调用返回值。 |
+| `callbackArg` | 回调参数。 |
+| `callbackReturn` | 回调返回值。 |
+| `promiseResult` | Promise/await 结果。 |
+| `constructorResult` | 构造结果。 |
+
+## 6. Binding
+
+Binding 把 surface 绑定到安全角色、endpoint 和 effect template。
 
 ```json
 {
-  "id": "sanitizer.acme.clean",
-  "match": {
-    "kind": "method_name_equals",
-    "value": "sanitize"
+  "bindingId": "binding.project.logger.info.arg0",
+  "surfaceId": "surface.project.logger.info",
+  "assetId": "asset.rule.project.logger",
+  "plane": "rule",
+  "role": "sink",
+  "endpoint": {
+    "base": { "kind": "arg", "index": 0 }
   },
-  "target": "result"
+  "selector": {
+    "kind": "signature-contains",
+    "value": "Logger.info"
+  },
+  "effectTemplateRefs": [
+    "template.project.logger.info.arg0"
+  ],
+  "semanticsFamily": "privacy-log",
+  "completeness": "complete",
+  "confidence": "certain"
 }
 ```
 
-### 7.4 TransferRule（transfer）
+常用 `role`：
+
+| role | 说明 |
+|---|---|
+| `source` | 产生敏感数据。 |
+| `sink` | 消费敏感数据，可能形成泄露、存储、网络发送等风险流。 |
+| `sanitizer` | 对指定 endpoint 进行明确清洗。 |
+| `transfer` | 局部传播污点。 |
+
+`selector` 是运行时命中规则用的匹配条件。`surface` 是资产身份，`selector` 是具体匹配策略；两者不能混为一谈。
+
+## 7. Effect Template
+
+Effect template 声明匹配到 binding 后产生什么 rule effect。它不是运行时 fact，也不是路径证据。
+
+### 7.1 Source
 
 ```json
 {
-  "id": "transfer.acme.identity",
-  "match": {
-    "kind": "method_name_equals",
-    "value": "identity"
+  "id": "template.project.account.getToken.return",
+  "kind": "rule.source",
+  "confidence": "certain",
+  "value": {
+    "base": { "kind": "return" }
   },
-  "from": "arg0",
-  "to": "result"
+  "sourceKind": "credential"
 }
 ```
 
-## 8. 一般不要手写的治理字段
+### 7.2 Sink
 
-除非你明确在做治理/编排，否则一般不要在 authored JSON 里手写：
+```json
+{
+  "id": "template.project.logger.info.arg0",
+  "kind": "rule.sink",
+  "confidence": "certain",
+  "value": {
+    "base": { "kind": "arg", "index": 0 }
+  },
+  "sinkKind": "information_leak"
+}
+```
 
-- `layer`
-- `family`
-- `tier`
+### 7.3 Transfer
 
-## 9. 验证与排查
+```json
+{
+  "id": "template.project.codec.encode.arg0.to.return",
+  "kind": "rule.transfer",
+  "confidence": "certain",
+  "from": {
+    "base": { "kind": "arg", "index": 0 }
+  },
+  "to": {
+    "base": { "kind": "return" }
+  }
+}
+```
 
-最直接的回归脚本：
+### 7.4 Sanitizer
+
+```json
+{
+  "id": "template.project.mask.phone.return",
+  "kind": "rule.sanitizer",
+  "confidence": "certain",
+  "value": {
+    "base": { "kind": "return" }
+  },
+  "sanitizerKind": "masking"
+}
+```
+
+Sanitizer 必须谨慎。普通字符串转换、截取、序列化、类型转换不能直接当作 sanitizer。只有语义明确的脱敏、加密、哈希或经过人工确认的清洗函数才应写入 sanitizer rule。
+
+## 8. 完整示例：日志 sink
+
+```json
+{
+  "id": "asset.rule.project.logger",
+  "plane": "rule",
+  "status": "reviewed",
+  "surfaces": [
+    {
+      "surfaceId": "surface.project.logger.info",
+      "kind": "invoke",
+      "modulePath": "@project/logger",
+      "ownerName": "Logger",
+      "methodName": "info",
+      "invokeKind": "static",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.project.logger.info.arg0",
+      "surfaceId": "surface.project.logger.info",
+      "assetId": "asset.rule.project.logger",
+      "plane": "rule",
+      "role": "sink",
+      "endpoint": {
+        "base": { "kind": "arg", "index": 0 }
+      },
+      "selector": {
+        "kind": "signature-contains",
+        "value": "Logger.info"
+      },
+      "effectTemplateRefs": [
+        "template.project.logger.info.arg0"
+      ],
+      "semanticsFamily": "privacy-log",
+      "completeness": "complete",
+      "confidence": "certain"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.project.logger.info.arg0",
+      "kind": "rule.sink",
+      "confidence": "certain",
+      "value": {
+        "base": { "kind": "arg", "index": 0 }
+      },
+      "sinkKind": "information_leak"
+    }
+  ],
+  "provenance": {
+    "source": "project",
+    "projectId": "example",
+    "evidenceLocations": [
+      {
+        "file": "entry/src/main/ets/common/Logger.ets",
+        "line": 8
+      }
+    ]
+  }
+}
+```
+
+## 9. 质量要求
+
+新增或修改 rule asset 时必须满足：
+
+1. 每个正式资产必须有稳定 `surface`、明确 `binding` 和可消费的 `effectTemplate`。
+2. 一个 binding 可以引用多个 effect template，但必须能解释每个 effect 的必要性。
+3. 同一个 API 的不同 role、endpoint、guard 必须分开表达，不能用“API 已覆盖”替代细粒度覆盖。
+4. 项目私有 API 不得写入通用 kernel 资产；应先进入项目建模包或 LLM 候选资产。
+5. 官方/原生 API 语义可以进入 `src/models/kernel`，但必须有稳定证据和正负例。
+6. 不要通过扩大 selector 来追求召回；selector 过宽会污染 known-covered 与 source-sink 结果。
+7. 不要把 taint flow 直接当漏洞。Rule asset 只负责静态污点语义，漏洞判断属于审计和报告层。
+
+## 10. 验证
+
+修改 rule asset 后至少运行：
 
 ```bash
-npm run test:rules
-npm run test:rule-governance
-npm run test:rule-loader-diagnostics
+npm run build
+npm run test:rule-assets-v2-schema
+npm run test:rule-asset-lowering
 ```
 
+如果改动影响 source/sink/transfer/sanitizer 行为，还应运行对应精确性测试：
+
+```bash
+npm run test:source-exact
+npm run test:sink-exact
+npm run test:transfer-exact
+npm run test:analyze-kernel-sanitizer-catalog
+```
+
+提交前建议运行：
+
+```bash
+npm run verify
+```
+
+## 11. 相关文件
+
+- 公共 schema：`src/core/assets/schema/`
+- Rule lowering：`src/core/rules/RuleAssetLowering.ts`
+- Rule loader：`src/core/rules/RuleLoader.ts`
+- 内置 rule 资产：`src/models/kernel/rules/`
+- Rule schema 测试：`src/tests/rules/test_rule_assets_v2_schema.ts`
+- Rule lowering 测试：`src/tests/rules/test_rule_asset_lowering.ts`

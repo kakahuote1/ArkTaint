@@ -373,6 +373,7 @@ type LoweredModuleRuntimeSpec =
     | SemanticAddressedBridgeModuleRuntimeSpec;
 
 type NormalizedFieldBridgeEmitSpec = Required<ModuleFieldBridgeEmitSpec>;
+const MODULE_KEYED_SEMANTIC_CELL_KIND = "keyed-semantic-slot";
 
 function normalizeEmitSpec(spec?: ModuleBridgeEmitSpec): NormalizedBridgeEmitSpec {
     return {
@@ -1537,7 +1538,7 @@ function compileKeyedBridgeModule(spec: KeyedBridgeModuleRuntimeSpec): TaintModu
                 const targetNodeIds = resolveInvokeNodeIds(call, spec.target.value);
                 if (targetNodeIds.length === 0) continue;
                 for (const key of keys) {
-                    const handle = moduleHandoffHandle(spec.id, key);
+                    const handle = moduleHandoffHandle(MODULE_KEYED_SEMANTIC_CELL_KIND, spec.id, key);
                     for (const nodeId of targetNodeIds) {
                         effects.push({
                             kind: "get",
@@ -1567,7 +1568,7 @@ function compileKeyedBridgeModule(spec: KeyedBridgeModuleRuntimeSpec): TaintModu
                 const sourceNodeIds = resolveInvokeNodeIds(call, spec.source.value);
                 if (sourceNodeIds.length === 0) continue;
                 for (const key of keys) {
-                    const handle = moduleHandoffHandle(spec.id, key);
+                    const handle = moduleHandoffHandle(MODULE_KEYED_SEMANTIC_CELL_KIND, spec.id, key);
                     for (const nodeId of sourceNodeIds) {
                         pushHandoffKillThenPut(effects, {
                             handle,
@@ -1662,7 +1663,7 @@ function compileScopedAddressedBridgeModule(spec: ScopedAddressedBridgeModuleRun
                 if (keys.length === 0) continue;
                 for (const scopeNodeId of scopeNodeIds) {
                     for (const key of keys) {
-                        const handle = moduleHandoffHandle(spec.id, key, String(scopeNodeId));
+                        const handle = moduleHandoffHandle(MODULE_KEYED_SEMANTIC_CELL_KIND, spec.id, key, String(scopeNodeId));
                         for (const nodeId of targetNodeIds) {
                             effects.push({
                                 kind: "get",
@@ -1696,7 +1697,7 @@ function compileScopedAddressedBridgeModule(spec: ScopedAddressedBridgeModuleRun
                 if (keys.length === 0) continue;
                 for (const scopeNodeId of scopeNodeIds) {
                     for (const key of keys) {
-                        const handle = moduleHandoffHandle(spec.id, key, String(scopeNodeId));
+                        const handle = moduleHandoffHandle(MODULE_KEYED_SEMANTIC_CELL_KIND, spec.id, key, String(scopeNodeId));
                         for (const nodeId of sourceNodeIds) {
                             pushHandoffKillThenPut(effects, {
                                 handle,
@@ -1736,7 +1737,7 @@ function compileSemanticAddressedBridgeModule(spec: SemanticAddressedBridgeModul
                     const targetNodeIds = resolveInvokeNodeIds(call, spec.target.value);
                     if (targetNodeIds.length === 0) continue;
                     for (const key of keys) {
-                        const handle = moduleHandoffHandle(spec.id, key);
+                        const handle = moduleHandoffHandle(MODULE_KEYED_SEMANTIC_CELL_KIND, spec.id, key);
                         for (const nodeId of targetNodeIds) {
                             effects.push({
                                 kind: "get",
@@ -1766,7 +1767,7 @@ function compileSemanticAddressedBridgeModule(spec: SemanticAddressedBridgeModul
                 );
                 const resolvedTarget = resolveDecoratedFieldFacts(ctx, spec.target.surface, spec.targetAddress);
                 for (const [key, bucket] of resolvedTarget.byAddress.entries()) {
-                    const handle = moduleHandoffHandle(spec.id, key);
+                    const handle = moduleHandoffHandle(MODULE_KEYED_SEMANTIC_CELL_KIND, spec.id, key);
                     for (const nodeId of bucket.loadNodeIds) {
                         effects.push({
                             kind: "get",
@@ -1809,7 +1810,7 @@ function compileSemanticAddressedBridgeModule(spec: SemanticAddressedBridgeModul
                         : resolveInvokeNodeIds(call, spec.source.value);
                     if (sourceNodeIds.length === 0) continue;
                     for (const key of keys) {
-                        const handle = moduleHandoffHandle(spec.id, key);
+                        const handle = moduleHandoffHandle(MODULE_KEYED_SEMANTIC_CELL_KIND, spec.id, key);
                         for (const nodeId of sourceNodeIds) {
                             pushHandoffKillThenPut(effects, {
                                 handle,
@@ -1830,7 +1831,7 @@ function compileSemanticAddressedBridgeModule(spec: SemanticAddressedBridgeModul
                 );
                 const resolvedSource = resolveDecoratedFieldFacts(ctx, spec.source.surface, spec.sourceAddress);
                 for (const [key, bucket] of resolvedSource.byAddress.entries()) {
-                    const handle = moduleHandoffHandle(spec.id, key);
+                    const handle = moduleHandoffHandle(MODULE_KEYED_SEMANTIC_CELL_KIND, spec.id, key);
                     for (const nodeId of bucket.writeNodeIds) {
                         effects.push({
                             kind: "put",

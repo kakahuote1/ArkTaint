@@ -61,7 +61,7 @@ export function evaluateTypeNarrowingGuardPath(
     if (!witness || witness.facts.length === 0) return [];
     const evidence = evaluateProvenanceFactPath(flow, witness);
     if (!evidence) return [];
-    return [toPostsolveEvidence(flow, evidence)];
+    return [toPostsolveEvidence(flow, path, evidence)];
 }
 
 function buildWitnessFromPath(path: { factIds: string[]; edges: { fromFactId: string; toFactId: string; reason: string }[] }, context: PostsolveContext): TaintFactWitness | undefined {
@@ -352,6 +352,7 @@ function parseAllowedTypesFormula(expr: any): TypeofGuardFormula | undefined {
 
 function toPostsolveEvidence(
     flow: TaintFlow,
+    path: ProvenancePath,
     evidence: TypeofDeadBranchEvidence,
 ): PostsolveEvidence {
     return {
@@ -359,6 +360,18 @@ function toPostsolveEvidence(
         polarity: "negative",
         strength: "strong",
         stability: "overridable",
+        scope: "path",
+        subject: {
+            pathId: path.id,
+            sinkFactId: flow.sinkFactId,
+            sinkNodeId: flow.sinkNodeId,
+        },
+        requiredForRefutation: true,
+        preconditions: {
+            pathComplete: path.status === "complete" || path.status === "bounded-complete",
+            sameValueVersion: true,
+        },
+        sourceEvidenceIds: [path.id].filter((id): id is string => !!id),
         target: {
             sinkFactId: flow.sinkFactId || "",
             sinkNodeId: flow.sinkNodeId,

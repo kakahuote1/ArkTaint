@@ -71,8 +71,8 @@ function assert(condition: boolean, message: string): void {
 }
 
 async function main(): Promise<void> {
-    const token = createExactHandoffHandle("test.storage", "token");
-    const other = createExactHandoffHandle("test.storage", "other");
+    const token = createExactHandoffHandle("keyed-semantic-slot", "test.storage", "token");
+    const other = createExactHandoffHandle("keyed-semantic-slot", "test.storage", "other");
     const session = createHandoffPropagationSession([
         {
             kind: "put",
@@ -156,8 +156,8 @@ async function main(): Promise<void> {
     const mismatchedProjectedField = projectedFieldSession.emitForFact(makeEvent(3, ["payload", "name"]));
     assert(!mismatchedProjectedField || mismatchedProjectedField.length === 0, "expected source fieldPathPrefix mismatch to be skipped");
 
-    const parent = createExactHandoffHandle("test.state", "parent.uid");
-    const child = createExactHandoffHandle("test.state", "child.uid");
+    const parent = createExactHandoffHandle("reactive-state-slot", "test.state", "parent.uid");
+    const child = createExactHandoffHandle("reactive-state-slot", "test.state", "child.uid");
     const linkedSession = createHandoffPropagationSession([
         {
             kind: "put",
@@ -281,8 +281,8 @@ async function main(): Promise<void> {
     ]).emitForFact(makeEvent(1));
     assert(!reversedSession || reversedSession.length === 0, "expected same-scope get-before-put to be skipped");
 
-    const partialToken = createHandoffHandle("test.storage", "token-like", { precision: "partial" });
-    const unknownToken = createHandoffHandle("test.storage", "runtime-key", { precision: "unknown" });
+    const partialToken = createHandoffHandle("keyed-semantic-slot", "test.storage", "token-like", { precision: "partial" });
+    const unknownToken = createHandoffHandle("keyed-semantic-slot", "test.storage", "runtime-key", { precision: "unknown" });
     const mayConservative = createHandoffPropagationSession([
         {
             kind: "put",
@@ -314,6 +314,28 @@ async function main(): Promise<void> {
         },
     ], { mayCompatibilityPolicy: "block" }).emitForFact(makeEvent(5));
     assert(!mayBlocked || mayBlocked.length === 0, "expected block policy to suppress may-compatible handoff");
+
+    const nonCanonicalEventName = createExactHandoffHandle("keyed-semantic-slot", "project.eventualCache", "token");
+    const familyAliasSession = createHandoffPropagationSession([
+        {
+            kind: "put",
+            handle: nonCanonicalEventName,
+            source: { nodeId: 1 },
+            reason: "put-eventual-cache",
+        },
+        {
+            kind: "get",
+            handle: nonCanonicalEventName,
+            target: { nodeId: 2 },
+            reason: "get-eventual-cache",
+        },
+    ]).emitForFact(makeEvent(1));
+    assert(familyAliasSession?.length === 1, `expected non-canonical family emission, got ${familyAliasSession?.length || 0}`);
+    const aliasCertificate = familyAliasSession![0].currentnessCertificates?.[0];
+    assert(
+        aliasCertificate?.candidateFlow.producerCell.kind === "keyed-semantic-slot",
+        "family names must not override explicit cellKind or trigger substring/fuzzy event matching",
+    );
 
     console.log("PASS test_handoff_sensitive_propagation");
 }

@@ -10,6 +10,7 @@ import type {
     ModuleExplicitDeferredBindingRecord,
 } from "../model/DeferredBindingDeclaration";
 import type { TaintFact } from "../model/TaintFact";
+import type { CurrentnessCertificate } from "../oclfs";
 
 export interface ModuleRuleChain {
     sourceRuleId?: string;
@@ -566,6 +567,7 @@ export interface ModuleEmission {
     fact: TaintFact;
     chain?: ModuleRuleChain;
     allowUnreachableTarget?: boolean;
+    currentnessCertificates?: CurrentnessCertificate[];
 }
 
 export interface ModuleSession {

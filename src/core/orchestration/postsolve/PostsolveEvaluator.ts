@@ -1,14 +1,13 @@
 import { TaintFlow } from "../../kernel/model/TaintFlow";
 import { evaluateKeyedRouteCallbackMismatchPath } from "./KeyedRouteMismatchRefinement";
-import { evaluateSafeOverwritePath } from "./SafeOverwriteRefinement";
-import { evaluateDeleteBeforeReadPath } from "./DeleteBeforeReadRefinement";
 import { evaluateParameterizedQueryPath } from "./ParameterizedQueryRefinement";
 import { evaluateSanitizerPath } from "./SanitizerPathRefinement";
 import { evaluateTypeNarrowingGuardPath } from "./TypeNarrowingGuardRefinement";
 import { evaluatePathGuardPath } from "./PathGuardRefinement";
 import { evaluateStorageFlagSourcePath } from "./StorageFlagSourceRefinement";
+import { evaluateCurrentnessCertificatePath } from "./CurrentnessCertificateRefinement";
 import { materializeTaintFlowPaths } from "../../provenance/ProvenancePathRecorder";
-import { MaterializedTaintFlow } from "../../provenance/ProvenancePathTypes";
+import { MaterializedTaintFlow, ProvenancePathStatus } from "../../provenance/ProvenancePathTypes";
 import { buildPostsolveSkeleton } from "./PostsolveSkeleton";
 import {
     PostsolveContext,
@@ -32,18 +31,17 @@ export function evaluatePostsolveFlow(
     const skeleton = buildPostsolveSkeleton(witness, context);
     const pathResults = (witness?.paths || []).map(path => {
         const evidence = [
+            ...evaluateCurrentnessCertificatePath(flow, path, context),
             ...evaluateTypeNarrowingGuardPath(flow, path, context),
             ...evaluateSanitizerPath(flow, path, context),
             ...evaluateParameterizedQueryPath(flow, path, context),
-            ...evaluateSafeOverwritePath(flow, path, context),
-            ...evaluateDeleteBeforeReadPath(flow, path, context),
             ...evaluateKeyedRouteCallbackMismatchPath(flow, path, context),
             ...evaluatePathGuardPath(flow, path, context),
             ...evaluateStorageFlagSourcePath(flow, path, context),
         ];
         const judgement = constrainPathJudgementForMaterialization(
             decidePostsolveJudgement(evidence),
-            path.truncated || path.status === "incomplete",
+            path.truncated || isMaterializationIncomplete(path.status),
         );
         return {
             factIds: [...path.factIds],
@@ -122,6 +120,10 @@ function constrainPathJudgementForMaterialization(
     };
 }
 
+function isMaterializationIncomplete(status?: ProvenancePathStatus): boolean {
+    return !!status && status !== "complete" && status !== "bounded-complete";
+}
+
 export function decidePostsolveJudgement(evidence: PostsolveEvidence[]): PostsolveJudgement {
     const evidenceKinds = [...new Set(evidence.map(item => item.kind))];
     const strongNegative = evidence.find(item => item.polarity === "negative" && item.strength === "strong");
@@ -159,7 +161,7 @@ export function aggregateFlowJudgement(
         evidence: PostsolveEvidence[];
         judgement: PostsolveJudgement;
         truncated?: boolean;
-        status?: "complete" | "incomplete";
+        status?: ProvenancePathStatus;
         incompleteReasons?: string[];
     }>,
     materialized?: MaterializedTaintFlow,
@@ -171,11 +173,11 @@ export function aggregateFlowJudgement(
         };
     }
 
-    const materializationIncomplete = materialized?.status === "incomplete"
+    const materializationIncomplete = isMaterializationIncomplete(materialized?.status)
         || (materialized?.incompleteReasons || []).length > 0
         || pathResults.some(item =>
             item.truncated
-            || item.status === "incomplete"
+            || isMaterializationIncomplete(item.status)
             || (item.incompleteReasons || []).length > 0,
         );
 

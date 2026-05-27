@@ -136,6 +136,8 @@ import {
 } from "../provenance/ProvenancePathTypes";
 import { FactPredecessorRecord } from "../kernel/propagation/PropagationTypes";
 import { materializeTaintFlowPaths } from "../provenance/ProvenancePathRecorder";
+import { currentnessEvidenceFromCertificate } from "../provenance/CurrentnessEvidenceAdapter";
+import { CurrentnessEvidence } from "../provenance/ProvenancePathTypes";
 import { evaluatePostsolveFlow, materializePostsolveFlowResult } from "./postsolve/PostsolveEvaluator";
 
 export interface DebugOptions {
@@ -291,6 +293,7 @@ export class TaintPropagationEngine {
     private autoAmbientSourceRules: SourceRule[] = [];
     private detectProfile: SinkDetectProfile = createEmptySinkDetectProfile();
     private factPredecessorsByFactId: Map<string, FactPredecessorRecord[]> = new Map();
+    private currentnessEvidenceById: Map<string, CurrentnessEvidence> = new Map();
     private lastWorklistTruncation?: WorklistBudgetTruncation;
     private activePagCacheEntry?: PagBuildCacheEntry;
     private executionHandoffSnapshot?: ExecutionHandoffContractSnapshot;
@@ -645,6 +648,7 @@ export class TaintPropagationEngine {
     private clearFactRuleChains(): void {
         this.factRuleChains.clear();
         this.factPredecessorsByFactId.clear();
+        this.currentnessEvidenceById.clear();
     }
 
     public resetPropagationState(): void {
@@ -1658,6 +1662,21 @@ export class TaintPropagationEngine {
 
     private recordFactPredecessor(record: FactPredecessorRecord): void {
         if (!record.toFactId || !record.fromFactId) return;
+        const currentnessEvidenceIds = [
+            ...(record.currentnessCertificateIds || []).map(id => `evidence|${id}`),
+        ];
+        for (const certificate of record.currentnessCertificates || []) {
+            const evidence = currentnessEvidenceFromCertificate(certificate);
+            this.currentnessEvidenceById.set(evidence.id, evidence);
+            if (!currentnessEvidenceIds.includes(evidence.id)) {
+                currentnessEvidenceIds.push(evidence.id);
+            }
+        }
+        const normalizedRecord: FactPredecessorRecord = {
+            ...record,
+            currentnessCertificateIds: currentnessEvidenceIds.length > 0 ? currentnessEvidenceIds : undefined,
+            currentnessCertificates: undefined,
+        };
         const bucket = this.factPredecessorsByFactId.get(record.toFactId) || [];
         if (!this.factPredecessorsByFactId.has(record.toFactId)) {
             this.factPredecessorsByFactId.set(record.toFactId, bucket);
@@ -1665,7 +1684,7 @@ export class TaintPropagationEngine {
         if (bucket.some(item => item.fromFactId === record.fromFactId && item.reason === record.reason)) {
             return;
         }
-        bucket.push({ ...record });
+        bucket.push(normalizedRecord);
     }
 
     private buildPostsolveContext(options?: { sanitizerRules?: SanitizerRule[] }): PostsolveContext {
@@ -1673,6 +1692,7 @@ export class TaintPropagationEngine {
             pag: this.pag,
             observedFactsById: this.observedFacts,
             factPredecessorsByFactId: this.factPredecessorsByFactId,
+            currentnessEvidenceById: this.currentnessEvidenceById,
             sanitizerRules: options?.sanitizerRules || [],
         };
     }

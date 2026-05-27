@@ -183,6 +183,7 @@ type BuildRouterModelArgs = BuildRouterSemanticModelArgs;
 const ROUTER_BRIDGE_HANDOFF_FAMILY = "harmony.router.bridge";
 const ROUTER_FIELD_HANDOFF_FAMILY = "harmony.router.field";
 const ROUTER_TRIGGER_HANDOFF_FAMILY = "harmony.router.trigger";
+const ROUTER_CELL_KIND = "navigation-param-slot";
 
 function buildRouterHandoffEffects(
     model: RouterModel,
@@ -216,6 +217,7 @@ function buildRouterHandoffEffects(
     for (const [sourceNodeId, targets] of model.pushValueFieldTargetsByNodeId.entries()) {
         for (const target of targets) {
             const handle = createExactHandoffHandle(
+                ROUTER_CELL_KIND,
                 ROUTER_FIELD_HANDOFF_FAMILY,
                 `value:${sourceNodeId}:${target.routerKey}:${target.fieldName}:${target.passthrough ? "pass" : "prefix"}:${target.sourceFieldPath?.join(".") || ""}`,
             );
@@ -289,7 +291,7 @@ function addRouterSourceEffects(
     navTriggerSitesByRouteKey: Map<string, Array<{ argNodeIds: number[] }>>,
     options: BuildRouterInternalOptions,
 ): void {
-    const triggerHandle = createExactHandoffHandle(ROUTER_TRIGGER_HANDOFF_FAMILY, routerKey);
+    const triggerHandle = createExactHandoffHandle(ROUTER_CELL_KIND, ROUTER_TRIGGER_HANDOFF_FAMILY, routerKey);
     effects.push({
         kind: "put",
         handle: triggerHandle,
@@ -321,7 +323,7 @@ function addRouterSourceEffects(
     }
 
     if (!shouldSkipRouterBridgeSource(model, routerKey, source)) {
-        const bridgeHandle = createExactHandoffHandle(ROUTER_BRIDGE_HANDOFF_FAMILY, routerKey);
+        const bridgeHandle = createExactHandoffHandle(ROUTER_CELL_KIND, ROUTER_BRIDGE_HANDOFF_FAMILY, routerKey);
         effects.push({
             kind: "put",
             handle: bridgeHandle,
@@ -351,7 +353,7 @@ function addRouterSourceEffects(
     }
 
     if (source.fieldHead) {
-        const objectHandle = createExactHandoffHandle(ROUTER_FIELD_HANDOFF_FAMILY, `object:${routerKey}`);
+        const objectHandle = createExactHandoffHandle(ROUTER_CELL_KIND, ROUTER_FIELD_HANDOFF_FAMILY, `object:${routerKey}`);
         effects.push({
             kind: "put",
             handle: objectHandle,

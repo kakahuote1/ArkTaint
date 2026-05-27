@@ -56,7 +56,8 @@ function validAssetOutput(): any {
                     id: "template.TokenCache.save.put",
                     kind: "handoff.put",
                     handle: {
-                        family: "wrapper",
+                        cellKind: "keyed-semantic-slot",
+                        family: "project.token_cache",
                         key: [{ kind: "fromLiteralArg", index: 0 }],
                     },
                     value: { base: { kind: "arg", index: 1 } },

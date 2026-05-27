@@ -80,7 +80,8 @@ function writeProjectModuleAsset(modelRoot: string): void {
                 id: "template.shared_demo.vault.get",
                 kind: "handoff.get",
                 handle: {
-                    family: "wrapper",
+                    cellKind: "keyed-semantic-slot",
+                    family: "project.vault",
                     key: [{ kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 0 } } }],
                     owner: [{ kind: "const", value: "Vault" }],
                     precision: "infer",
@@ -92,7 +93,8 @@ function writeProjectModuleAsset(modelRoot: string): void {
                 id: "template.shared_demo.vault.put",
                 kind: "handoff.put",
                 handle: {
-                    family: "wrapper",
+                    cellKind: "keyed-semantic-slot",
+                    family: "project.vault",
                     key: [{ kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 0 } } }],
                     owner: [{ kind: "const", value: "Vault" }],
                     precision: "infer",

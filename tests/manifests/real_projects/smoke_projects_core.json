@@ -1,26 +1,25 @@
 {
   "projects": [
     {
-      "id": "music-player-based-gesture",
-      "repoUrl": "https://github.com/Explore-in-HMS/music-player-based-gesture",
-      "license": "MIT",
+      "id": "applications_settings_data",
+      "license": "Apache-2.0",
       "sourceMode": "single",
       "priority": "main",
-      "repoPath": "tmp/phase43/repos/music-player-based-gesture",
-      "commit": "e3a8e99fc94cd2babb8439d65f2d0532cc18a866",
+      "repoPath": "../project/applications_settings_data",
       "sourceDirs": [
         "entry/src/main/ets"
       ],
       "entryHints": [
         "onCreate",
         "onWindowStageCreate",
-        "aboutToAppear",
-        "onClick"
+        "build",
+        "aboutToAppear"
       ],
       "includePaths": [
         "/entryability/",
         "/pages/",
-        "/viewmodel/"
+        "/model/",
+        "/utils/"
       ],
       "excludePaths": [
         "/ohostest/",
@@ -28,27 +27,25 @@
         "/mock/"
       ],
       "sinkSignatures": [
-        "router.pushUrl",
-        "router.back",
-        "fetch(",
-        "axios.get",
-        "axios.post"
+        "getContext().setObject",
+        "globalThis",
+        "preferences",
+        "AppStorage"
       ],
       "tags": [
-        "ui",
-        "gesture",
-        "media"
+        "settings",
+        "global-context",
+        "storage",
+        "small-smoke"
       ],
       "enabled": true
     },
     {
       "id": "RdbPlus",
-      "repoUrl": "https://github.com/yongoe/RdbPlus",
       "license": "MIT",
       "sourceMode": "multi-module",
       "priority": "main",
-      "repoPath": "tmp/phase43/repos/RdbPlus",
-      "commit": "4a3fc04ba5903bc1c1b194efbc557017976909dc",
+      "repoPath": "../project/RdbPlus",
       "sourceDirs": [
         "entry/src/main/ets",
         "rdbplus/src/main/ets"
@@ -87,36 +84,31 @@
       "tags": [
         "storage",
         "rdb",
-        "orm"
+        "orm",
+        "multi-module"
       ],
       "enabled": true
     },
     {
-      "id": "Homogram",
-      "repoUrl": "https://github.com/AAswordman/Homogram",
+      "id": "account_app_harmonyos",
       "license": "Apache-2.0",
-      "sourceMode": "multi-module",
-      "priority": "stress",
-      "repoPath": "tmp/phase43/repos/Homogram",
-      "commit": "8a6e85898b6194fdd04ead75e732d348888a0c07",
+      "sourceMode": "single",
+      "priority": "main",
+      "repoPath": "../project/account_app_harmonyos",
       "sourceDirs": [
-        "products/phone/src/main/ets",
-        "features/home/src/main/ets",
-        "common/base/src/main/ets"
+        "entry/src/main/ets"
       ],
       "entryHints": [
         "onCreate",
         "onWindowStageCreate",
-        "build",
         "onClick",
-        "router"
+        "aboutToAppear"
       ],
       "includePaths": [
         "/entryability/",
         "/pages/",
-        "/viewmodel/",
-        "/views/",
-        "/dao/"
+        "/model/",
+        "/common/"
       ],
       "excludePaths": [
         "/ohostest/",
@@ -124,20 +116,17 @@
         "/mock/"
       ],
       "sinkSignatures": [
-        "relationalStore",
-        "getRdbStore",
-        "insertSync",
-        "querySqlSync",
-        "preferences.getPreferencesSync",
-        "dataPreferences.putSync",
-        "dataPreferences.getSync",
-        "dataPreferences.deleteSync"
+        "appAccount",
+        "setCredential",
+        "getCredential",
+        "router.pushUrl",
+        "hilog"
       ],
       "tags": [
+        "account",
+        "ability",
         "ui",
-        "storage",
-        "preferences",
-        "stress"
+        "small-smoke"
       ],
       "enabled": true
     }

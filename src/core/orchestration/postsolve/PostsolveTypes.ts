@@ -11,15 +11,46 @@ import {
 
 export type PostsolveJudgementKind =
     | "Confirmed"
+    | "Reportable-Unresolved"
     | "Refuted-Strong"
     | "Refuted-Weak"
-    | "Unresolved";
+    | "Unresolved"
+    | "Materialization-Incomplete";
+
+export type PostsolveEvidenceScope =
+    | "path"
+    | "path-segment"
+    | "sink-argument"
+    | "source-label"
+    | "taint-flow"
+    | "diagnostic";
 
 export interface PostsolveEvidence {
     kind: string;
-    polarity: "positive" | "negative";
+    polarity: "positive" | "negative" | "neutral";
     strength: "strong" | "weak";
     stability: "stable" | "overridable";
+    scope: PostsolveEvidenceScope;
+    subject: {
+        pathId?: string;
+        pathSegmentId?: string;
+        factId?: string;
+        valueVersion?: string;
+        stateCell?: string;
+        sourceLabel?: string;
+        sinkFactId?: string;
+        sinkNodeId?: number;
+        sinkArgEndpoint?: string;
+    };
+    requiredForRefutation?: boolean;
+    preconditions?: {
+        pathComplete?: boolean;
+        sinkValueAligned?: boolean;
+        sameValueVersion?: boolean;
+        noDirtyRemixAfter?: boolean;
+        endpointResolved?: boolean;
+    };
+    sourceEvidenceIds: string[];
     position?: {
         factId?: string;
         stmtText?: string;
@@ -108,13 +139,6 @@ export interface PostsolveFlowResult {
     };
     judgement: PostsolveJudgement;
     report: PostsolveReport;
-}
-
-export interface SafeOverwriteHit {
-    sinkNodeId?: number;
-    sinkFieldPath?: string[];
-    keyLiteral?: string;
-    overwriteStmtText?: string;
 }
 
 export interface TaintFactWitness {

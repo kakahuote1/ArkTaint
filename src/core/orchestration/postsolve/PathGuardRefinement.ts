@@ -76,7 +76,7 @@ export function evaluatePathGuardPath(
 
         const conflict = findLiteralConflict(state, obligation);
         if (conflict) {
-            return [buildPathGuardEvidence(flow, obligation, conflict)];
+            return [buildPathGuardEvidence(flow, path, obligation, conflict)];
         }
 
         applyLiteralObligation(state, obligation);
@@ -139,6 +139,7 @@ function applyLiteralObligation(
 
 function buildPathGuardEvidence(
     flow: TaintFlow,
+    path: ProvenancePath,
     obligation: LiteralPathGuardObligation,
     conflict: {
         previousGuardText?: string;
@@ -151,6 +152,18 @@ function buildPathGuardEvidence(
         polarity: "negative",
         strength: "strong",
         stability: "overridable",
+        scope: "path",
+        subject: {
+            pathId: path.id,
+            sinkFactId: flow.sinkFactId,
+            sinkNodeId: flow.sinkNodeId,
+        },
+        requiredForRefutation: true,
+        preconditions: {
+            pathComplete: path.status === "complete" || path.status === "bounded-complete",
+            sameValueVersion: true,
+        },
+        sourceEvidenceIds: [path.id].filter((id): id is string => !!id),
         position: {
             stmtText: obligation.guardText,
             methodSignature: obligation.methodSignature,

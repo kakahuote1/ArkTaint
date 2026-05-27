@@ -41,6 +41,7 @@ export function instantiateHandoffHandleTemplate(
         ? template.precision
         : inferPrecision([...scope, ...key, ...(owner || [])]);
     return {
+        cellKind: template.cellKind,
         family: template.family,
         scope,
         key,

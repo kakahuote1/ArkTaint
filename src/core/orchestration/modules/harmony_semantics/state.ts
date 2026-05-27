@@ -136,12 +136,14 @@ export type BuildStateManagementModelArgs = BuildStateManagementSemanticModelArg
 
 const STATE_SLOT_HANDOFF_FAMILY = "harmony.state.slot";
 const STATE_EVENT_HANDOFF_FAMILY = "harmony.state.event";
+const STATE_SLOT_CELL_KIND = "reactive-state-slot";
+const STATE_EVENT_CELL_KIND = "message-channel-slot";
 
 function buildStateHandoffEffects(model: StateManagementModel): HandoffEffect[] {
     const effects: HandoffEffect[] = [];
 
     for (const [sourceNodeId, targetNodeIds] of model.eventInvokeBridges.entries()) {
-        const handle = createExactHandoffHandle(STATE_EVENT_HANDOFF_FAMILY, `event-source:${sourceNodeId}`);
+        const handle = createExactHandoffHandle(STATE_EVENT_CELL_KIND, STATE_EVENT_HANDOFF_FAMILY, `event-source:${sourceNodeId}`);
         effects.push({
             kind: "put",
             handle,
@@ -169,6 +171,7 @@ function buildStateHandoffEffects(model: StateManagementModel): HandoffEffect[] 
         const sourceNodeId = Number(sourceNodeIdText);
         if (!Number.isFinite(sourceNodeId) || !sourceFieldName) continue;
         const sourceHandle = createExactHandoffHandle(
+            STATE_SLOT_CELL_KIND,
             STATE_SLOT_HANDOFF_FAMILY,
             `node:${sourceNodeId}#field:${sourceFieldName}`,
         );
@@ -182,6 +185,7 @@ function buildStateHandoffEffects(model: StateManagementModel): HandoffEffect[] 
 
         for (const edge of bridgeEdges) {
             const targetHandle = createExactHandoffHandle(
+                STATE_SLOT_CELL_KIND,
                 STATE_SLOT_HANDOFF_FAMILY,
                 `node:${edge.targetNodeId}#field:${edge.targetFieldName}`,
             );
@@ -205,6 +209,7 @@ function buildStateHandoffEffects(model: StateManagementModel): HandoffEffect[] 
         const targetLoadNodeIds = model.targetFieldLoadNodeIdsBySourceField.get(sourceKey);
         if (targetLoadNodeIds && targetLoadNodeIds.size > 0) {
             const loadHandle = createExactHandoffHandle(
+                STATE_SLOT_CELL_KIND,
                 STATE_SLOT_HANDOFF_FAMILY,
                 `load:${sourceKey}`,
             );

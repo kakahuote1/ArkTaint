@@ -1,4 +1,5 @@
 import type { Confidence } from "./CommonTypes";
+import type { CellKindId } from "../../cellkind";
 import type { AssetEndpoint, AssetGuard } from "./EndpointTypes";
 import type { CallbackLocator } from "./EndpointTypes";
 import type { EndpointSelectorRef } from "./SelectorTypes";
@@ -66,7 +67,8 @@ export type HandleKeyPartTemplate =
     | { kind: "unknown" };
 
 export interface HandoffHandleTemplate {
-    family: "storage" | "route" | "slot" | "event" | "promise" | "wrapper";
+    cellKind: CellKindId;
+    family: string;
     scope?: HandleKeyPartTemplate[];
     key: HandleKeyPartTemplate[];
     owner?: HandleKeyPartTemplate[];
@@ -75,6 +77,7 @@ export interface HandoffHandleTemplate {
 }
 
 export interface HandoffHandle {
+    cellKind: CellKindId;
     family: string;
     scope: string[];
     key: string[];

@@ -55,6 +55,7 @@ function compileKeyedStorageSemantic(spec: ModuleRuntimeSpec, semantic: ModuleKe
         storageClasses: semantic.storageClasses,
         writeMethods: semantic.writeMethods,
         readMethods: semantic.readMethods,
+        killMethods: semantic.killMethods,
         propDecorators: semantic.propDecorators,
         linkDecorators: semantic.linkDecorators,
     });

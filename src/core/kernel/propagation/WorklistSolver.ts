@@ -10,6 +10,7 @@ import { ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanaly
 import { TaintFact } from "../model/TaintFact";
 import { TaintTracker } from "../model/TaintTracker";
 import { FactPredecessorRecord } from "./PropagationTypes";
+import type { CurrentnessCertificate } from "../oclfs";
 import { TaintContextManager, CallEdgeInfo, CallEdgeType } from "../context/TaintContext";
 import { propagateExpressionTaint } from "./ExpressionPropagation";
 import { CaptureEdgeInfo, ReceiverFieldBridgeInfo } from "../builders/CallEdgeMapBuilder";
@@ -566,6 +567,7 @@ export class WorklistSolver {
                 onAccepted: () => void,
                 chainOverride?: FactRuleChain,
                 allowUnreachableTarget: boolean = false,
+                currentnessCertificates?: CurrentnessCertificate[],
             ): void => {
                 if (maybeTruncate()) {
                     return;
@@ -581,6 +583,8 @@ export class WorklistSolver {
                     toFactId: newFact.id,
                     fromFactId: fact.id,
                     reason,
+                    currentnessCertificates,
+                    currentnessCertificateIds: currentnessCertificates?.map(cert => cert.id),
                 });
                 if (visited.has(newFact.id)) {
                     profiler?.onDedupDrop(reason);
@@ -629,7 +633,7 @@ export class WorklistSolver {
                 tryEnqueue(emission.reason, newFact, () => {
                     tracker.markTainted(newFact.node.getID(), newFact.contextID, newFact.source, newFact.field, newFact.id);
                     log(`    [${emission.reason}] Tainted node ${newFact.node.getID()} (ctx=${newFact.contextID})`);
-                }, emission.chain, emission.allowUnreachableTarget === true);
+                }, emission.chain, emission.allowUnreachableTarget === true, emission.currentnessCertificates);
             }
 
             const stmt = (node as any).stmt;
@@ -660,7 +664,7 @@ export class WorklistSolver {
                     tryEnqueue(emission.reason, newFact, () => {
                         tracker.markTainted(newFact.node.getID(), newFact.contextID, newFact.source, newFact.field, newFact.id);
                         log(`    [${emission.reason}] Tainted node ${newFact.node.getID()} (ctx=${newFact.contextID})`);
-                    }, emission.chain, emission.allowUnreachableTarget === true);
+                    }, emission.chain, emission.allowUnreachableTarget === true, emission.currentnessCertificates);
                 }
             }
 

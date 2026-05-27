@@ -207,6 +207,51 @@ function main(): void {
     invalidSourceKind.bindings[0].effectTemplateRefs = ["template.bad.source.kind"];
     expectInvalid(invalidSourceKind, "sourceKind must be one of", "invalid source kind");
 
+    const missingHandoffCellKind: any = validRuleAsset();
+    missingHandoffCellKind.plane = "module";
+    missingHandoffCellKind.bindings[0].role = "handoff";
+    missingHandoffCellKind.bindings[0].semanticsFamily = "project-keyed-storage";
+    missingHandoffCellKind.bindings[0].effectTemplateRefs = ["template.bad.handoff.missing.cellKind"];
+    missingHandoffCellKind.effectTemplates = [
+        {
+            id: "template.bad.handoff.missing.cellKind",
+            kind: "handoff.put",
+            handle: {
+                family: "project.storage_box",
+                key: [{ kind: "fromLiteralArg", index: 0 }],
+            },
+            value: { base: { kind: "arg", index: 1 } },
+        },
+    ];
+    expectInvalid(
+        missingHandoffCellKind,
+        "cellKind is not a registered CellKindId",
+        "handoff template without cellKind",
+    );
+
+    const unknownHandoffCellKind: any = validRuleAsset();
+    unknownHandoffCellKind.plane = "module";
+    unknownHandoffCellKind.bindings[0].role = "handoff";
+    unknownHandoffCellKind.bindings[0].semanticsFamily = "project-keyed-storage";
+    unknownHandoffCellKind.bindings[0].effectTemplateRefs = ["template.bad.handoff.unknown.cellKind"];
+    unknownHandoffCellKind.effectTemplates = [
+        {
+            id: "template.bad.handoff.unknown.cellKind",
+            kind: "handoff.put",
+            handle: {
+                cellKind: "route" as any,
+                family: "project.storage_box",
+                key: [{ kind: "fromLiteralArg", index: 0 }],
+            },
+            value: { base: { kind: "arg", index: 1 } },
+        },
+    ];
+    expectInvalid(
+        unknownHandoffCellKind,
+        "cellKind is not a registered CellKindId",
+        "handoff template with unknown cellKind",
+    );
+
     const badSelectorRegex = validRuleAsset();
     badSelectorRegex.bindings[0].selector = {
         kind: "signature-regex",

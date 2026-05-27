@@ -6,6 +6,7 @@ import { SEMANTIC_EFFECT_KINDS } from "./EffectTemplateTypes";
 import type { AssetRelation } from "./RelationTypes";
 import type { RuntimeSelector, RuntimeSelectorScope, SelectorStringConstraint } from "./SelectorTypes";
 import type { AssetSurface, InvokeSurface } from "./SurfaceTypes";
+import { isRegisteredCellKindId } from "../../cellkind";
 
 const trustedStatuses = new Set(["official", "reviewed", "replayed"]);
 const forbiddenKeys = new Set([
@@ -314,7 +315,10 @@ function validateHandoffHandleTemplate(handle: unknown, path: string, errors: st
         errors.push(`${path} must be a HandoffHandleTemplate`);
         return;
     }
-    requireOneOf((handle as any).family, ["storage", "route", "slot", "event", "promise", "wrapper"], `${path}.family`, errors);
+    if (!isRegisteredCellKindId((handle as any).cellKind)) {
+        errors.push(`${path}.cellKind is not a registered CellKindId`);
+    }
+    requireStableString((handle as any).family, `${path}.family`, errors);
     validateHandlePartArray((handle as any).key, `${path}.key`, errors, { required: true });
     validateHandlePartArray((handle as any).scope, `${path}.scope`, errors, { required: false });
     validateHandlePartArray((handle as any).owner, `${path}.owner`, errors, { required: false });
