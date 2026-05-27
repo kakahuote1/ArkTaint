@@ -1,159 +1,498 @@
 {
-  "schemaVersion": "2.0",
-  "sources": [],
-  "sinks": [],
-  "sanitizers": [
+  "id": "asset.rule.kernel.sanitizers.core",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
     {
-      "id": "sanitizer.harmony.crypto.md.digest.result",
-      "enabled": true,
-      "description": "CryptoFramework Md.digest returns the message digest result.",
-      "match": {
-        "kind": "method_name_equals",
-        "value": "digest",
-        "invokeKind": "instance",
-        "argCount": 0
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(^|[.:\\s$])Md$"
-        }
-      },
-      "category": "cryptographic_derivation",
-      "target": "result"
+      "surfaceId": "surface.sanitizer.harmony.crypto.md.digest.result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": ":.s.Md",
+      "methodName": "digest",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
     {
-      "id": "sanitizer.harmony.crypto.md.digestSync.result",
-      "enabled": true,
-      "description": "CryptoFramework Md.digestSync returns the message digest result.",
-      "match": {
-        "kind": "method_name_equals",
-        "value": "digestSync",
-        "invokeKind": "instance",
-        "argCount": 0
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(^|[.:\\s$])Md$"
-        }
-      },
-      "category": "cryptographic_derivation",
-      "target": "result"
+      "surfaceId": "surface.sanitizer.harmony.crypto.md.digestSync.result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": ":.s.Md",
+      "methodName": "digestSync",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
     {
-      "id": "sanitizer.harmony.crypto.mac.doFinal.result",
-      "enabled": true,
-      "description": "CryptoFramework Mac.doFinal returns a message-authentication code.",
-      "match": {
-        "kind": "method_name_equals",
-        "value": "doFinal",
-        "invokeKind": "instance",
-        "argCount": 0
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(^|[.:\\s$])Mac$"
-        }
-      },
-      "category": "cryptographic_derivation",
-      "target": "result"
+      "surfaceId": "surface.sanitizer.harmony.crypto.mac.doFinal.result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": ":.s.Mac",
+      "methodName": "doFinal",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
     {
-      "id": "sanitizer.harmony.crypto.mac.doFinalSync.result",
-      "enabled": true,
-      "description": "CryptoFramework Mac.doFinalSync returns a message-authentication code.",
-      "match": {
-        "kind": "method_name_equals",
-        "value": "doFinalSync",
-        "invokeKind": "instance",
-        "argCount": 0
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(^|[.:\\s$])Mac$"
-        }
-      },
-      "category": "cryptographic_derivation",
-      "target": "result"
+      "surfaceId": "surface.sanitizer.harmony.crypto.mac.doFinalSync.result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": ":.s.Mac",
+      "methodName": "doFinalSync",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
     {
-      "id": "sanitizer.harmony.crypto.sign.sign.result",
-      "enabled": true,
-      "description": "CryptoFramework Sign.sign returns a signature value.",
-      "match": {
-        "kind": "method_name_equals",
-        "value": "sign",
-        "invokeKind": "instance",
-        "argCount": 1
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(^|[.:\\s$])Sign$"
-        }
-      },
-      "category": "cryptographic_derivation",
-      "target": "result"
+      "surfaceId": "surface.sanitizer.harmony.crypto.sign.sign.result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": ":.s.Sign",
+      "methodName": "sign",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
     {
-      "id": "sanitizer.harmony.crypto.sign.signSync.result",
-      "enabled": true,
-      "description": "CryptoFramework Sign.signSync returns a signature value.",
-      "match": {
-        "kind": "method_name_equals",
-        "value": "signSync",
-        "invokeKind": "instance",
-        "argCount": 1
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(^|[.:\\s$])Sign$"
-        }
-      },
-      "category": "cryptographic_derivation",
-      "target": "result"
+      "surfaceId": "surface.sanitizer.harmony.crypto.sign.signSync.result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": ":.s.Sign",
+      "methodName": "signSync",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
     {
-      "id": "sanitizer.harmony.file.hash.hash.result",
-      "enabled": true,
-      "description": "ohos.file.hash.hash returns the hash string for file content.",
-      "match": {
-        "kind": "method_name_equals",
-        "value": "hash",
-        "argCount": 2
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(^|[.:\\s$])hash$"
-        }
-      },
-      "category": "cryptographic_derivation",
-      "target": "result"
+      "surfaceId": "surface.sanitizer.harmony.file.hash.hash.result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": ":.s.hash",
+      "methodName": "hash",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
     {
-      "id": "sanitizer.harmony.file.hashstream.digest.result",
-      "enabled": true,
-      "description": "ohos.file.hash.HashStream.digest returns a hexadecimal digest string.",
-      "match": {
-        "kind": "method_name_equals",
-        "value": "digest",
-        "invokeKind": "instance",
-        "argCount": 0
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(^|[.:\\s$])HashStream$"
-        }
-      },
-      "category": "cryptographic_derivation",
-      "target": "result"
+      "surfaceId": "surface.sanitizer.harmony.file.hashstream.digest.result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": ":.s.HashStream",
+      "methodName": "digest",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     }
   ],
-  "transfers": []
+  "bindings": [
+    {
+      "bindingId": "binding.sanitizer.harmony.crypto.md.digest.result.0",
+      "surfaceId": "surface.sanitizer.harmony.crypto.md.digest.result",
+      "assetId": "asset.rule.kernel.sanitizers.core",
+      "plane": "rule",
+      "role": "sanitizer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "digest",
+        "invokeKind": "instance",
+        "argCount": 0,
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(^|[.:\\s$])Md$"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sanitizer.harmony.crypto.md.digest.result"
+      ],
+      "semanticsFamily": "cryptographic_derivation",
+      "metadata": {
+        "enabled": true,
+        "description": "CryptoFramework Md.digest returns the message digest result.",
+        "category": "cryptographic_derivation"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sanitizer.harmony.crypto.md.digestSync.result.0",
+      "surfaceId": "surface.sanitizer.harmony.crypto.md.digestSync.result",
+      "assetId": "asset.rule.kernel.sanitizers.core",
+      "plane": "rule",
+      "role": "sanitizer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "digestSync",
+        "invokeKind": "instance",
+        "argCount": 0,
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(^|[.:\\s$])Md$"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sanitizer.harmony.crypto.md.digestSync.result"
+      ],
+      "semanticsFamily": "cryptographic_derivation",
+      "metadata": {
+        "enabled": true,
+        "description": "CryptoFramework Md.digestSync returns the message digest result.",
+        "category": "cryptographic_derivation"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sanitizer.harmony.crypto.mac.doFinal.result.0",
+      "surfaceId": "surface.sanitizer.harmony.crypto.mac.doFinal.result",
+      "assetId": "asset.rule.kernel.sanitizers.core",
+      "plane": "rule",
+      "role": "sanitizer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "doFinal",
+        "invokeKind": "instance",
+        "argCount": 0,
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(^|[.:\\s$])Mac$"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sanitizer.harmony.crypto.mac.doFinal.result"
+      ],
+      "semanticsFamily": "cryptographic_derivation",
+      "metadata": {
+        "enabled": true,
+        "description": "CryptoFramework Mac.doFinal returns a message-authentication code.",
+        "category": "cryptographic_derivation"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sanitizer.harmony.crypto.mac.doFinalSync.result.0",
+      "surfaceId": "surface.sanitizer.harmony.crypto.mac.doFinalSync.result",
+      "assetId": "asset.rule.kernel.sanitizers.core",
+      "plane": "rule",
+      "role": "sanitizer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "doFinalSync",
+        "invokeKind": "instance",
+        "argCount": 0,
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(^|[.:\\s$])Mac$"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sanitizer.harmony.crypto.mac.doFinalSync.result"
+      ],
+      "semanticsFamily": "cryptographic_derivation",
+      "metadata": {
+        "enabled": true,
+        "description": "CryptoFramework Mac.doFinalSync returns a message-authentication code.",
+        "category": "cryptographic_derivation"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sanitizer.harmony.crypto.sign.sign.result.0",
+      "surfaceId": "surface.sanitizer.harmony.crypto.sign.sign.result",
+      "assetId": "asset.rule.kernel.sanitizers.core",
+      "plane": "rule",
+      "role": "sanitizer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "sign",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(^|[.:\\s$])Sign$"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sanitizer.harmony.crypto.sign.sign.result"
+      ],
+      "semanticsFamily": "cryptographic_derivation",
+      "metadata": {
+        "enabled": true,
+        "description": "CryptoFramework Sign.sign returns a signature value.",
+        "category": "cryptographic_derivation"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sanitizer.harmony.crypto.sign.signSync.result.0",
+      "surfaceId": "surface.sanitizer.harmony.crypto.sign.signSync.result",
+      "assetId": "asset.rule.kernel.sanitizers.core",
+      "plane": "rule",
+      "role": "sanitizer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "signSync",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(^|[.:\\s$])Sign$"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sanitizer.harmony.crypto.sign.signSync.result"
+      ],
+      "semanticsFamily": "cryptographic_derivation",
+      "metadata": {
+        "enabled": true,
+        "description": "CryptoFramework Sign.signSync returns a signature value.",
+        "category": "cryptographic_derivation"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sanitizer.harmony.file.hash.hash.result.0",
+      "surfaceId": "surface.sanitizer.harmony.file.hash.hash.result",
+      "assetId": "asset.rule.kernel.sanitizers.core",
+      "plane": "rule",
+      "role": "sanitizer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "hash",
+        "argCount": 2,
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(^|[.:\\s$])hash$"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sanitizer.harmony.file.hash.hash.result"
+      ],
+      "semanticsFamily": "cryptographic_derivation",
+      "metadata": {
+        "enabled": true,
+        "description": "ohos.file.hash.hash returns the hash string for file content.",
+        "category": "cryptographic_derivation"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sanitizer.harmony.file.hashstream.digest.result.0",
+      "surfaceId": "surface.sanitizer.harmony.file.hashstream.digest.result",
+      "assetId": "asset.rule.kernel.sanitizers.core",
+      "plane": "rule",
+      "role": "sanitizer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "digest",
+        "invokeKind": "instance",
+        "argCount": 0,
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(^|[.:\\s$])HashStream$"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sanitizer.harmony.file.hashstream.digest.result"
+      ],
+      "semanticsFamily": "cryptographic_derivation",
+      "metadata": {
+        "enabled": true,
+        "description": "ohos.file.hash.HashStream.digest returns a hexadecimal digest string.",
+        "category": "cryptographic_derivation"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.sanitizer.harmony.crypto.md.digest.result",
+      "confidence": "certain",
+      "kind": "rule.sanitizer",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sanitizerKind": "cryptographic_derivation",
+      "strength": "strong"
+    },
+    {
+      "id": "template.sanitizer.harmony.crypto.md.digestSync.result",
+      "confidence": "certain",
+      "kind": "rule.sanitizer",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sanitizerKind": "cryptographic_derivation",
+      "strength": "strong"
+    },
+    {
+      "id": "template.sanitizer.harmony.crypto.mac.doFinal.result",
+      "confidence": "certain",
+      "kind": "rule.sanitizer",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sanitizerKind": "cryptographic_derivation",
+      "strength": "strong"
+    },
+    {
+      "id": "template.sanitizer.harmony.crypto.mac.doFinalSync.result",
+      "confidence": "certain",
+      "kind": "rule.sanitizer",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sanitizerKind": "cryptographic_derivation",
+      "strength": "strong"
+    },
+    {
+      "id": "template.sanitizer.harmony.crypto.sign.sign.result",
+      "confidence": "certain",
+      "kind": "rule.sanitizer",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sanitizerKind": "cryptographic_derivation",
+      "strength": "strong"
+    },
+    {
+      "id": "template.sanitizer.harmony.crypto.sign.signSync.result",
+      "confidence": "certain",
+      "kind": "rule.sanitizer",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sanitizerKind": "cryptographic_derivation",
+      "strength": "strong"
+    },
+    {
+      "id": "template.sanitizer.harmony.file.hash.hash.result",
+      "confidence": "certain",
+      "kind": "rule.sanitizer",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sanitizerKind": "cryptographic_derivation",
+      "strength": "strong"
+    },
+    {
+      "id": "template.sanitizer.harmony.file.hashstream.digest.result",
+      "confidence": "certain",
+      "kind": "rule.sanitizer",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sanitizerKind": "cryptographic_derivation",
+      "strength": "strong"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "src/models/kernel/rules/sanitizers/core.rules.json"
+      }
+    ]
+  }
 }

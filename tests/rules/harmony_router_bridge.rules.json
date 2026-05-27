@@ -1,45 +1,161 @@
 {
-    "schemaVersion": "2.0",
-    "meta": {
-        "name": "harmony-router-bridge-rules",
-        "description": "Rules for router bridge + static init coverage in phase 7.8.4.",
-        "updatedAt": "2026-02-28"
+  "id": "asset.rule.test.harmony_router_bridge",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
+    {
+      "surfaceId": "surface.source.router_bridge.entry_param",
+      "kind": "access",
+      "modulePath": "@arktaint/local",
+      "ownerName": "LocalBinding",
+      "propertyName": "source.router_bridge.entry_param",
+      "accessKind": "read",
+      "receiverKind": "namespace",
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
-    "sources": [
-        {
-            "id": "source.router_bridge.entry_param",
-            "match": {
-                "kind": "local_name_regex",
-                "value": "^taint_src$"
-            },
-            "sourceKind": "entry_param",
-            "target": {
-                "endpoint": "arg0"
-            }
-        },
-        {
-            "id": "source.router_bridge.static_init_source",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "Source"
-            },
-            "sourceKind": "call_return",
-            "target": {
-                "endpoint": "result"
-            }
+    {
+      "surfaceId": "surface.source.router_bridge.static_init_source",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "Source",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.router_bridge.mock_sink",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "Sink",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.source.router_bridge.entry_param.0",
+      "surfaceId": "surface.source.router_bridge.entry_param",
+      "assetId": "asset.rule.test.harmony_router_bridge",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "local-name-regex",
+        "value": "^taint_src$"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
-    ],
-    "sinks": [
-        {
-            "id": "sink.router_bridge.mock_sink",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "Sink"
-            },
-            "target": {
-                "endpoint": "arg0"
-            }
+      },
+      "effectTemplateRefs": [
+        "template.source.router_bridge.entry_param"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.router_bridge.static_init_source.0",
+      "surfaceId": "surface.source.router_bridge.static_init_source",
+      "assetId": "asset.rule.test.harmony_router_bridge",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Source"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
-    ],
-    "transfers": []
+      },
+      "effectTemplateRefs": [
+        "template.source.router_bridge.static_init_source"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.router_bridge.mock_sink.0",
+      "surfaceId": "surface.sink.router_bridge.mock_sink",
+      "assetId": "asset.rule.test.harmony_router_bridge",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Sink"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.router_bridge.mock_sink"
+      ],
+      "semanticsFamily": "sink",
+      "completeness": "partial",
+      "confidence": "likely"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.source.router_bridge.entry_param",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.router_bridge.static_init_source",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    },
+    {
+      "id": "template.sink.router_bridge.mock_sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "tests/rules/harmony_router_bridge.rules.json"
+      }
+    ]
+  }
 }

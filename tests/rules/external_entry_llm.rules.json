@@ -1,32 +1,113 @@
 {
-  "schemaVersion": "2.0",
-  "meta": {
-    "name": "external-entry-llm-rule-pack",
-    "description": "Rule pack for validating LLM-promoted external entry discovery.",
-    "updatedAt": "2026-04-08"
-  },
-  "sources": [
+  "id": "asset.rule.test.external_entry_llm",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
     {
-      "id": "source.external_entry_llm.return.Source",
-      "match": {
-        "kind": "method_name_equals",
-        "value": "Source"
-      },
-      "sourceKind": "call_return",
-      "target": "result"
-    }
-  ],
-  "sinks": [
+      "surfaceId": "surface.source.external_entry_llm.return.Source",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "Source",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
     {
-      "id": "sink.external_entry_llm.arg0.Sink",
-      "match": {
-        "kind": "method_name_equals",
-        "value": "Sink"
-      },
-      "target": {
-        "endpoint": "arg0"
+      "surfaceId": "surface.sink.external_entry_llm.arg0.Sink",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "Sink",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
       }
     }
   ],
-  "transfers": []
+  "bindings": [
+    {
+      "bindingId": "binding.source.external_entry_llm.return.Source.0",
+      "surfaceId": "surface.source.external_entry_llm.return.Source",
+      "assetId": "asset.rule.test.external_entry_llm",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Source"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.external_entry_llm.return.Source"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.external_entry_llm.arg0.Sink.0",
+      "surfaceId": "surface.sink.external_entry_llm.arg0.Sink",
+      "assetId": "asset.rule.test.external_entry_llm",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Sink"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.external_entry_llm.arg0.Sink"
+      ],
+      "semanticsFamily": "sink",
+      "completeness": "partial",
+      "confidence": "likely"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.source.external_entry_llm.return.Source",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    },
+    {
+      "id": "template.sink.external_entry_llm.arg0.Sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "tests/rules/external_entry_llm.rules.json"
+      }
+    ]
+  }
 }

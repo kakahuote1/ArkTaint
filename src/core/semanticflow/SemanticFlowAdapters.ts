@@ -1,9 +1,13 @@
 import type { ArkMainEntryCandidate } from "../entry/arkmain/llm/ArkMainEntryCandidateTypes";
-import type { ArkMainSelector } from "../entry/arkmain/ArkMainSpec";
 import type { CallsiteContextSlice, NormalizedCallsiteItem } from "../model/callsite/callsiteContextSlices";
 import type { SemanticFlowPipelineItemInput } from "./SemanticFlowPipeline";
 import { semanticFlowDeclaringClassFromSignature } from "./SemanticFlowRuleCompanions";
-import type { SemanticFlowAnchor, SemanticFlowSliceCodeSnippet, SemanticFlowSlicePackage } from "./SemanticFlowTypes";
+import type {
+    SemanticFlowAnchor,
+    SemanticFlowArkMainSelector,
+    SemanticFlowSliceCodeSnippet,
+    SemanticFlowSlicePackage,
+} from "./SemanticFlowTypes";
 
 export interface SemanticFlowApiModelingCandidateAdapterOptions {
     maxContextSlices?: number;
@@ -58,7 +62,7 @@ export function buildSemanticFlowApiModelingCandidateItem(
     };
 }
 
-function buildApiModelingArkMainSelector(item: NormalizedCallsiteItem): ArkMainSelector | undefined {
+function buildApiModelingArkMainSelector(item: NormalizedCallsiteItem): SemanticFlowArkMainSelector | undefined {
     if (!hasCandidateBoundary(item, "official_arkmain_entry_evidence")) {
         return undefined;
     }
@@ -155,7 +159,7 @@ export function buildSemanticFlowArkMainCandidateItem(
     };
 }
 
-function buildArkMainSelector(candidate: ArkMainEntryCandidate): ArkMainSelector {
+function buildArkMainSelector(candidate: ArkMainEntryCandidate): SemanticFlowArkMainSelector {
     return {
         methodName: candidate.methodName,
         parameterTypes: [...candidate.parameterTypes],

@@ -1,8 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
+import { loadArkMainCoreCapabilityPayload } from "../ArkMainAssetCatalog";
 
 interface ArkMainFrameworkCatalogDocument {
-    schemaVersion: number;
     reactiveAnchorMethodNames: string[];
     abilityBaseClassNames: string[];
     abilityHandoffTargetMethodNames: string[];
@@ -41,8 +41,10 @@ function loadFrameworkCatalog(): ArkMainFrameworkCatalogDocument {
     if (!fs.existsSync(catalogPath) || !fs.statSync(catalogPath).isFile()) {
         throw new Error(`arkmain framework catalog not found: ${catalogPath}`);
     }
-    const parsed = JSON.parse(fs.readFileSync(catalogPath, "utf-8"));
-    return validateFrameworkCatalog(parsed, catalogPath);
+    return validateFrameworkCatalog(
+        loadArkMainCoreCapabilityPayload(catalogPath, "arkmain.framework-catalog"),
+        catalogPath,
+    );
 }
 
 function resolveFrameworkCatalogPath(): string {
@@ -61,7 +63,6 @@ function resolveFrameworkCatalogPath(): string {
 function validateFrameworkCatalog(value: unknown, catalogPath: string): ArkMainFrameworkCatalogDocument {
     const doc = expectRecord(value, catalogPath);
     return {
-        schemaVersion: expectPositiveInteger(doc.schemaVersion, `${catalogPath}.schemaVersion`),
         reactiveAnchorMethodNames: expectStringArray(doc.reactiveAnchorMethodNames, `${catalogPath}.reactiveAnchorMethodNames`),
         abilityBaseClassNames: expectStringArray(doc.abilityBaseClassNames, `${catalogPath}.abilityBaseClassNames`),
         abilityHandoffTargetMethodNames: expectStringArray(doc.abilityHandoffTargetMethodNames, `${catalogPath}.abilityHandoffTargetMethodNames`),
@@ -84,13 +85,6 @@ function expectRecord(value: unknown, pathText: string): Record<string, unknown>
         throw new Error(`${pathText} must be an object`);
     }
     return value as Record<string, unknown>;
-}
-
-function expectPositiveInteger(value: unknown, pathText: string): number {
-    if (!Number.isInteger(value) || (value as number) <= 0) {
-        throw new Error(`${pathText} must be a positive integer`);
-    }
-    return value as number;
 }
 
 function expectString(value: unknown, pathText: string): string {

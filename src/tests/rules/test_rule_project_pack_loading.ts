@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { RuleLoadError, loadRuleSet } from "../../core/rules/RuleLoader";
+import { makeRuleAssetFixture } from "../helpers/RuleAssetFixtureFactory";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -19,14 +20,18 @@ function writeRuleFile(filePath: string, payload: unknown): void {
     fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), "utf-8");
 }
 
-function makeEmptyRuleSet(kind: "sources" | "sinks" | "sanitizers" | "transfers", items: unknown[]): Record<string, unknown> {
-    return {
-        schemaVersion: "2.0",
+function makeRuleAsset(
+    id: string,
+    kind: "sources" | "sinks" | "sanitizers" | "transfers",
+    items: any[],
+): ReturnType<typeof makeRuleAssetFixture> {
+    return makeRuleAssetFixture({
+        id,
         sources: kind === "sources" ? items : [],
         sinks: kind === "sinks" ? items : [],
         sanitizers: kind === "sanitizers" ? items : [],
         transfers: kind === "transfers" ? items : [],
-    };
+    });
 }
 
 async function main(): Promise<void> {
@@ -35,7 +40,7 @@ async function main(): Promise<void> {
 
     writeRuleFile(
         path.join(root, "kernel", "rules", "sources", "seed.rules.json"),
-        makeEmptyRuleSet("sources", [
+        makeRuleAsset("asset.rule.kernel.seed", "sources", [
             {
                 id: "source.kernel.seed",
                 match: { kind: "local_name_regex", value: "^kernel_seed$" },
@@ -46,7 +51,7 @@ async function main(): Promise<void> {
     );
     writeRuleFile(
         path.join(root, "kernel", "rules", "sinks", "send.rules.json"),
-        makeEmptyRuleSet("sinks", [
+        makeRuleAsset("asset.rule.kernel.send", "sinks", [
             {
                 id: "sink.kernel.send",
                 match: { kind: "method_name_equals", value: "sendKernel" },
@@ -55,11 +60,11 @@ async function main(): Promise<void> {
     );
     writeRuleFile(
         path.join(root, "kernel", "rules", "sanitizers", "sanitize.rules.json"),
-        makeEmptyRuleSet("sanitizers", []),
+        makeRuleAsset("asset.rule.kernel.sanitize", "sanitizers", []),
     );
     writeRuleFile(
         path.join(root, "kernel", "rules", "transfers", "flow.rules.json"),
-        makeEmptyRuleSet("transfers", [
+        makeRuleAsset("asset.rule.kernel.flow", "transfers", [
             {
                 id: "transfer.kernel.base_to_result",
                 match: { kind: "method_name_equals", value: "kernelTransfer", invokeKind: "instance", argCount: 1 },
@@ -71,7 +76,7 @@ async function main(): Promise<void> {
 
     writeRuleFile(
         path.join(root, "project", "sdk_alpha", "rules", "sources", "alpha.rules.json"),
-        makeEmptyRuleSet("sources", [
+        makeRuleAsset("asset.rule.project.alpha.source", "sources", [
             {
                 id: "source.project.alpha",
                 match: { kind: "local_name_regex", value: "^alpha_seed$" },
@@ -82,7 +87,7 @@ async function main(): Promise<void> {
     );
     writeRuleFile(
         path.join(root, "project", "sdk_alpha", "rules", "transfers", "alpha.rules.json"),
-        makeEmptyRuleSet("transfers", [
+        makeRuleAsset("asset.rule.project.alpha.transfer", "transfers", [
             {
                 id: "transfer.project.alpha",
                 match: { kind: "method_name_equals", value: "alphaTransfer", invokeKind: "instance", argCount: 1 },
@@ -93,7 +98,7 @@ async function main(): Promise<void> {
     );
     writeRuleFile(
         path.join(root, "project", "sdk_beta", "rules", "sinks", "beta.rules.json"),
-        makeEmptyRuleSet("sinks", [
+        makeRuleAsset("asset.rule.project.beta.sink", "sinks", [
             {
                 id: "sink.project.beta",
                 match: { kind: "method_name_equals", value: "betaSend" },

@@ -1,7 +1,9 @@
 import * as fs from "fs";
 import * as path from "path";
+import { AssetDocumentBase } from "../../core/assets/schema";
+import { lowerRuleAssetsToRuleSet } from "../../core/rules/RuleAssetLowering";
 import { buildSmokeRuleConfig, loadRuleSet } from "../../core/rules/RuleLoader";
-import { SinkRule, TaintRuleSet } from "../../core/rules/RuleSchema";
+import { SinkRule } from "../../core/rules/RuleSchema";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -29,7 +31,8 @@ function walkRuleFiles(dirPath: string, out: string[] = []): string[] {
 function readKernelSinkRules(): SinkRule[] {
     const files = walkRuleFiles(path.resolve("src/models/kernel/rules/sinks")).sort((a, b) => a.localeCompare(b));
     return files.flatMap(filePath => {
-        const ruleSet = JSON.parse(fs.readFileSync(filePath, "utf-8")) as TaintRuleSet;
+        const asset = JSON.parse(fs.readFileSync(filePath, "utf-8")) as AssetDocumentBase;
+        const ruleSet = lowerRuleAssetsToRuleSet([asset]).ruleSet;
         return ruleSet.sinks || [];
     });
 }

@@ -1,10 +1,9 @@
 import { createHash } from "crypto";
 import type {
     SemanticFlowAnchor,
+    SemanticFlowAssetDraft,
     SemanticFlowBudgetClass,
     SemanticFlowDeficit,
-    SemanticFlowDeficitFocus,
-    SemanticFlowDeficitScope,
     SemanticFlowDelta,
     SemanticFlowDraftId,
     SemanticFlowExpandPlan,
@@ -12,25 +11,7 @@ import type {
     SemanticFlowMarker,
     SemanticFlowRequestKind,
     SemanticFlowSlicePackage,
-    SemanticFlowSummary,
 } from "./SemanticFlowTypes";
-
-type EditableSummaryKey =
-    | "inputs"
-    | "outputs"
-    | "transfers"
-    | "confidence"
-    | "ruleKind"
-    | "sourceKind"
-    | "moduleKind"
-    | "moduleSpec";
-
-type EditableRelationKey = "companions" | "carrier" | "trigger" | "constraints" | "entryPattern";
-
-interface SemanticFlowEditableSet {
-    summary: Set<EditableSummaryKey>;
-    relations: Set<EditableRelationKey>;
-}
 
 export function createSemanticFlowDraftId(anchor: SemanticFlowAnchor): SemanticFlowDraftId {
     return `draft.${anchor.id}`;
@@ -40,24 +21,24 @@ export function materializeSemanticFlowDeficit(
     anchor: SemanticFlowAnchor,
     request: SemanticFlowExpansionRequest,
 ): SemanticFlowDeficit {
-    const normalizedFocus = canonicalizeDeficitFocus(request.focus);
-    const normalizedScope = canonicalizeDeficitScope({
-        owner: request.scope.owner || anchor.owner,
-        importSource: request.scope.importSource || anchor.importSource,
-        locality: request.scope.locality || defaultLocalityForKind(request.kind),
-        sharedSymbols: request.scope.sharedSymbols || anchor.stringLiterals,
-        surface: request.scope.surface || anchor.surface,
-    });
+    const scope = canonicalizeValue({
+        owner: request.scope?.owner || anchor.owner,
+        importSource: request.scope?.importSource || anchor.importSource,
+        locality: request.scope?.locality || defaultLocalityForKind(request.kind),
+        sharedSymbols: request.scope?.sharedSymbols || anchor.stringLiterals,
+        surface: request.scope?.surface || anchor.surface,
+    }) as SemanticFlowDeficit["scope"];
+    const focus = request.focus ? canonicalizeValue(request.focus) as SemanticFlowExpansionRequest["focus"] : undefined;
     return {
         ...request,
-        focus: normalizedFocus,
-        scope: normalizedScope,
+        focus,
+        scope,
         budgetClass: request.budgetClass || defaultBudgetClassForKind(request.kind),
         id: stableHash({
             anchorId: anchor.id,
             kind: request.kind,
-            focus: normalizedFocus,
-            scope: normalizedScope,
+            focus,
+            scope,
         }),
     };
 }
@@ -67,7 +48,7 @@ export function createSemanticFlowExpandPlan(
     deficit: SemanticFlowDeficit,
 ): SemanticFlowExpandPlan {
     const seed = (() => {
-        if (deficit.kind === "q_comp" || deficit.kind === "q_meta") {
+        if (deficit.kind === "q_relation" || deficit.kind === "q_evidence") {
             if (deficit.scope.importSource) {
                 return { mode: "import" as const, value: deficit.scope.importSource };
             }
@@ -75,17 +56,13 @@ export function createSemanticFlowExpandPlan(
                 return { mode: "owner" as const, value: anchor.owner };
             }
         }
-        if (deficit.kind === "q_cb" && anchor.owner) {
-            return { mode: "owner" as const, value: anchor.owner };
-        }
         return { mode: "anchor" as const, value: anchor.surface };
     })();
-    const edges = expandEdgesForKind(deficit.kind);
     return {
         kind: deficit.kind,
         seed,
-        edges,
-        budgetClass: deficit.budgetClass || defaultBudgetClassForKind(deficit.kind),
+        edges: expandEdgesForKind(deficit.kind),
+        budgetClass: deficit.budgetClass,
         stopCondition: stopConditionForKind(deficit.kind),
     };
 }
@@ -131,38 +108,21 @@ export function createSemanticFlowMarker(
         kind: deficit.kind,
         focus: deficit.focus,
         scope: deficit.scope,
-        budgetClass: deficit.budgetClass || defaultBudgetClassForKind(deficit.kind),
+        budgetClass: deficit.budgetClass,
     };
 }
 
 export function protectedMergeSemanticFlowDraft(
-    previous: SemanticFlowSummary | undefined,
-    next: SemanticFlowSummary,
-    requestKind?: SemanticFlowRequestKind,
-): SemanticFlowSummary {
-    if (!previous || !requestKind) {
-        return cloneSummary(next);
+    previous: SemanticFlowAssetDraft | undefined,
+    next: SemanticFlowAssetDraft | undefined,
+): SemanticFlowAssetDraft | undefined {
+    if (!previous) {
+        return cloneUnknown(next);
     }
-    const editable = editableFieldsForKind(requestKind);
-    const out: SemanticFlowSummary = cloneSummary(previous);
-    for (const key of editable.summary) {
-        setSummaryField(out, key, cloneUnknown(getSummaryField(next, key)));
+    if (!next) {
+        return cloneUnknown(previous);
     }
-    const previousRelations = previous.relations || {};
-    const nextRelations = next.relations || {};
-    const mergedRelations: Record<string, unknown> = cloneUnknown(previousRelations) as Record<string, unknown>;
-    for (const key of editable.relations) {
-        const value = (nextRelations as Record<string, unknown>)[key];
-        if (value === undefined) {
-            delete mergedRelations[key];
-        } else {
-            mergedRelations[key] = cloneUnknown(value);
-        }
-    }
-    out.relations = Object.keys(mergedRelations).length > 0
-        ? mergedRelations as SemanticFlowSummary["relations"]
-        : undefined;
-    return out;
+    return mergeObjects(previous, next);
 }
 
 export function stableSemanticFlowSliceKey(slice: SemanticFlowSlicePackage): string {
@@ -175,38 +135,25 @@ export function stableSemanticFlowSliceKey(slice: SemanticFlowSlicePackage): str
     }));
 }
 
-export function canonicalizeDeficitFocus(focus: SemanticFlowDeficitFocus): SemanticFlowDeficitFocus {
-    return canonicalizeValue(focus || {}) as SemanticFlowDeficitFocus;
-}
-
-export function canonicalizeDeficitScope(scope: SemanticFlowDeficitScope): SemanticFlowDeficitScope {
-    return canonicalizeValue(scope || {}) as SemanticFlowDeficitScope;
-}
-
 function defaultBudgetClassForKind(kind: SemanticFlowRequestKind): SemanticFlowBudgetClass {
     switch (kind) {
-        case "q_ret":
-        case "q_recv":
-        case "q_wrap":
+        case "q_surface":
+        case "q_role":
+        case "q_endpoint":
+        case "q_effect":
             return "body_local";
-        case "q_comp":
-        case "q_cb":
-        case "q_meta":
+        case "q_relation":
+        case "q_evidence":
             return "owner_local";
         default:
             return "body_local";
     }
 }
 
-function defaultLocalityForKind(kind: SemanticFlowRequestKind): SemanticFlowDeficitScope["locality"] {
+function defaultLocalityForKind(kind: SemanticFlowRequestKind): SemanticFlowDeficit["scope"]["locality"] {
     switch (kind) {
-        case "q_ret":
-        case "q_recv":
-        case "q_wrap":
-            return "method";
-        case "q_comp":
-        case "q_cb":
-        case "q_meta":
+        case "q_relation":
+        case "q_evidence":
             return "owner";
         default:
             return "method";
@@ -215,18 +162,18 @@ function defaultLocalityForKind(kind: SemanticFlowRequestKind): SemanticFlowDefi
 
 function expandEdgesForKind(kind: SemanticFlowRequestKind): string[] {
     switch (kind) {
-        case "q_ret":
-            return ["E_ret"];
-        case "q_recv":
-            return ["E_recv", "E_scope"];
-        case "q_cb":
-            return ["E_arg", "E_scope"];
-        case "q_comp":
-            return ["E_carrier", "E_scope", "E_sym"];
-        case "q_meta":
-            return ["E_meta", "E_scope"];
-        case "q_wrap":
+        case "q_surface":
             return ["E_scope"];
+        case "q_role":
+            return ["E_recv", "E_scope"];
+        case "q_endpoint":
+            return ["E_arg", "E_ret", "E_scope"];
+        case "q_effect":
+            return ["E_ret", "E_arg", "E_recv"];
+        case "q_relation":
+            return ["E_carrier", "E_scope", "E_sym"];
+        case "q_evidence":
+            return ["E_meta", "E_scope"];
         default:
             return ["E_scope"];
     }
@@ -234,46 +181,20 @@ function expandEdgesForKind(kind: SemanticFlowRequestKind): string[] {
 
 function stopConditionForKind(kind: SemanticFlowRequestKind): string {
     switch (kind) {
-        case "q_ret":
-            return "next-surface-or-scope-exhausted";
-        case "q_recv":
-            return "receiver-write-or-scope-exhausted";
-        case "q_cb":
-            return "callback-dispatch-or-scope-exhausted";
-        case "q_comp":
-            return "companion-found-or-scope-exhausted";
-        case "q_meta":
-            return "binding-evidence-or-scope-exhausted";
-        case "q_wrap":
-            return "helper-body-or-scope-exhausted";
+        case "q_surface":
+            return "surface-identity-evidence-or-scope-exhausted";
+        case "q_role":
+            return "role-evidence-or-scope-exhausted";
+        case "q_endpoint":
+            return "endpoint-evidence-or-scope-exhausted";
+        case "q_effect":
+            return "effect-template-evidence-or-scope-exhausted";
+        case "q_relation":
+            return "relation-evidence-or-scope-exhausted";
+        case "q_evidence":
+            return "requested-evidence-or-scope-exhausted";
         default:
             return "scope-exhausted";
-    }
-}
-
-function editableFieldsForKind(kind: SemanticFlowRequestKind): SemanticFlowEditableSet {
-    const define = (
-        summary: EditableSummaryKey[],
-        relations: EditableRelationKey[],
-    ): SemanticFlowEditableSet => ({
-        summary: new Set(summary),
-        relations: new Set(relations),
-    });
-    switch (kind) {
-        case "q_ret":
-            return define(["outputs", "transfers", "confidence"], ["companions", "carrier", "constraints"]);
-        case "q_recv":
-            return define(["inputs", "outputs", "transfers", "confidence", "moduleKind", "moduleSpec"], ["carrier", "constraints", "companions"]);
-        case "q_cb":
-            return define(["inputs", "outputs", "transfers", "confidence", "moduleKind", "moduleSpec"], ["companions", "trigger", "constraints", "carrier"]);
-        case "q_comp":
-            return define(["inputs", "outputs", "transfers", "confidence", "moduleKind", "moduleSpec"], ["companions", "carrier", "constraints", "trigger"]);
-        case "q_meta":
-            return define(["inputs", "outputs", "transfers", "confidence", "moduleKind", "moduleSpec"], ["entryPattern", "constraints", "companions", "carrier"]);
-        case "q_wrap":
-            return define(["inputs", "outputs", "transfers", "confidence", "ruleKind", "sourceKind", "moduleKind", "moduleSpec"], ["companions", "carrier", "constraints", "trigger"]);
-        default:
-            return define(["inputs", "outputs", "transfers", "confidence"], ["companions", "carrier", "constraints"]);
     }
 }
 
@@ -282,47 +203,28 @@ function stableHash(value: unknown): string {
     return createHash("sha1").update(payload).digest("hex").slice(0, 16);
 }
 
-function cloneSummary(summary: SemanticFlowSummary): SemanticFlowSummary {
-    return cloneUnknown(summary) as SemanticFlowSummary;
-}
-
-function getSummaryField(summary: SemanticFlowSummary, key: EditableSummaryKey): unknown {
-    return summary[key];
-}
-
-function setSummaryField(summary: SemanticFlowSummary, key: EditableSummaryKey, value: unknown): void {
-    switch (key) {
-        case "inputs":
-            summary.inputs = value as SemanticFlowSummary["inputs"];
-            return;
-        case "outputs":
-            summary.outputs = value as SemanticFlowSummary["outputs"];
-            return;
-        case "transfers":
-            summary.transfers = value as SemanticFlowSummary["transfers"];
-            return;
-        case "confidence":
-            summary.confidence = value as SemanticFlowSummary["confidence"];
-            return;
-        case "ruleKind":
-            summary.ruleKind = value as SemanticFlowSummary["ruleKind"];
-            return;
-        case "sourceKind":
-            summary.sourceKind = value as SemanticFlowSummary["sourceKind"];
-            return;
-        case "moduleKind":
-            summary.moduleKind = value as SemanticFlowSummary["moduleKind"];
-            return;
-        case "moduleSpec":
-            summary.moduleSpec = value as SemanticFlowSummary["moduleSpec"];
-            return;
-        default:
-            return;
-    }
-}
-
 function cloneUnknown<T>(value: T): T {
     return canonicalizeValue(value) as T;
+}
+
+function mergeObjects<T extends Record<string, unknown>>(left: T, right: T): T {
+    const out: Record<string, unknown> = { ...cloneUnknown(left) as Record<string, unknown> };
+    for (const [key, value] of Object.entries(cloneUnknown(right) as Record<string, unknown>)) {
+        if (value === undefined) continue;
+        if (
+            value
+            && typeof value === "object"
+            && !Array.isArray(value)
+            && out[key]
+            && typeof out[key] === "object"
+            && !Array.isArray(out[key])
+        ) {
+            out[key] = mergeObjects(out[key] as Record<string, unknown>, value as Record<string, unknown>);
+        } else {
+            out[key] = value;
+        }
+    }
+    return out as T;
 }
 
 function canonicalizeValue(value: unknown): unknown {

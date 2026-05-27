@@ -152,6 +152,16 @@ function main(): void {
         ),
         "sourceDir filtering should accept analyzer paths prefixed by the project root directory name",
     );
+    assert(
+        semanticFlowCandidateBelongsToSourceDir(
+            "entry/src/main/ets/components",
+            "D:/workspace/Aigis/entry/src/main/ets/components",
+            candidate({
+                sourceFile: "components/dialog.ets",
+            }),
+        ),
+        "sourceDir filtering should accept analyzer paths reported relative to the ETS source root",
+    );
     const crowdedCandidates = Array.from({ length: 50 }, (_, index) => candidate({
         method: `PhoneInputField${index}`,
         count: 10,
@@ -181,6 +191,78 @@ function main(): void {
             && pairedBudget.some(item => (item as any).semanticFocus === "returned_value_surface")
             && pairedBudget.some(item => !(item as any).semanticFocus),
         "dual-role wrapper budgeting should keep the ordinary request candidate paired with its external-response focused candidate",
+    );
+    const clusteredBudget = selectSemanticFlowRuleCandidatesForModeling([
+        candidate({
+            method: "collectPreferences",
+            argCount: 1,
+            callee_signature: "@demo/entry/src/main/ets/services/ImportExportService.ets: ImportExportService.collectPreferences(Unknown)",
+            sourceFile: "entry/src/main/ets/services/ImportExportService.ets",
+            candidateOrigin: "recall_returned_value_surface",
+            semanticFocus: "returned_value_surface",
+            methodSnippet: "return preferences.getAll();",
+        } as Partial<NormalizedCallsiteItem>),
+        candidate({
+            method: "collectPreferences",
+            argCount: 1,
+            callee_signature: "@demo/entry/src/main/ets/services/ImportExportService.ets: ImportExportService.collectPreferences(Unknown)",
+            sourceFile: "entry/src/main/ets/services/ImportExportService.ets",
+            candidateOrigin: "recall_api_surface",
+            methodSnippet: "return preferences.getAll();",
+        } as Partial<NormalizedCallsiteItem>),
+        candidate({
+            method: "exportData",
+            argCount: 2,
+            callee_signature: "@demo/entry/src/main/ets/services/ImportExportService.ets: ImportExportService.exportData(Unknown, Unknown)",
+            sourceFile: "entry/src/main/ets/services/ImportExportService.ets",
+            candidateOrigin: "recall_returned_value_surface",
+            semanticFocus: "returned_value_surface",
+            methodSnippet: "await fileIo.writeSync(file.fd, JSON.stringify(data)); return filePath;",
+        } as Partial<NormalizedCallsiteItem>),
+        candidate({
+            method: "readImportFiles",
+            argCount: 1,
+            callee_signature: "@demo/entry/src/main/ets/services/ImportExportService.ets: ImportExportService.readImportFiles(Unknown)",
+            sourceFile: "entry/src/main/ets/services/ImportExportService.ets",
+            candidateOrigin: "recall_returned_value_surface",
+            semanticFocus: "returned_value_surface",
+            methodSnippet: "const content = fileIo.readSync(file.fd, buf); return JSON.parse(content);",
+        } as Partial<NormalizedCallsiteItem>),
+        candidate({
+            method: "saveAttachment",
+            argCount: 1,
+            callee_signature: "@demo/entry/src/main/ets/services/AttachmentStorageService.ets: AttachmentStorageService.saveAttachment(Unknown)",
+            sourceFile: "entry/src/main/ets/services/AttachmentStorageService.ets",
+            candidateOrigin: "recall_api_surface",
+            methodSnippet: "fileIo.writeSync(file.fd, attachment.base64Data);",
+        } as Partial<NormalizedCallsiteItem>),
+        candidate({
+            method: "insert",
+            argCount: 3,
+            callee_signature: "@demo/entry/src/main/ets/utils/DBUtil.ets: DBUtil.[static]insert(Unknown, Unknown, Unknown)",
+            sourceFile: "entry/src/main/ets/utils/DBUtil.ets",
+            candidateOrigin: "recall_api_surface",
+            methodSnippet: "rdbStore.insert(tableName, buildValueBucket(obj, columns));",
+        } as Partial<NormalizedCallsiteItem>),
+        candidate({
+            method: "queryForList",
+            argCount: 2,
+            callee_signature: "@demo/entry/src/main/ets/utils/DBUtil.ets: DBUtil.[static]queryForList(Unknown, Unknown)",
+            sourceFile: "entry/src/main/ets/utils/DBUtil.ets",
+            candidateOrigin: "recall_returned_value_surface",
+            semanticFocus: "returned_value_surface",
+            methodSnippet: "let resultSet = rdbStore.query(predicates, columns); return parseRows(resultSet);",
+        } as Partial<NormalizedCallsiteItem>),
+    ], 6);
+    const clusteredImportExport = clusteredBudget.filter(item => String(item.sourceFile || "").includes("ImportExportService")).length;
+    assert(
+        clusteredImportExport <= 3,
+        "LLM modeling budget should not be mostly monopolized by one owner/file cluster when other wrapper families are available",
+    );
+    assert(
+        clusteredBudget.some(item => String(item.sourceFile || "").includes("AttachmentStorageService"))
+            && clusteredBudget.some(item => String(item.sourceFile || "").includes("DBUtil")),
+        "diverse LLM modeling budget should preserve file/storage and database wrapper families beside import/export surfaces",
     );
     const enrichedBudgetProbe = enrichNoCandidateItemsWithCallsiteSlices({
         repoRoot: "D:/workspace/nonexistent",

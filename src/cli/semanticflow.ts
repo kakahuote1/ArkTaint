@@ -8,8 +8,7 @@ import { mergeSemanticFlowAnalysisAugments } from "../core/semanticflow/Semantic
 import { buildSemanticFlowEngineAugment } from "../core/semanticflow/SemanticFlowArtifacts";
 import { runSemanticFlowProject } from "../core/semanticflow/SemanticFlowProject";
 import {
-    serializeSemanticFlowArkMain,
-    serializeSemanticFlowModules,
+    serializeSemanticFlowAssets,
     serializeSemanticFlowSession,
 } from "../core/semanticflow/SemanticFlowSerialize";
 import { publishSemanticFlowProjectAssets } from "../core/semanticflow/SemanticFlowProjectAssets";
@@ -139,7 +138,7 @@ function emitSemanticFlowProgress(event: SemanticFlowProgressEvent): void {
         console.log(`semanticflow_progress=round_expand index=${event.index}/${event.totalItems} anchor=${event.anchorId} round=${event.round} kind=${event.kind}`);
         return;
     }
-    console.log(`semanticflow_progress=item_done index=${event.index}/${event.totalItems} anchor=${event.anchorId} resolution=${event.resolution} classification=${event.classification || ""}`);
+    console.log(`semanticflow_progress=item_done index=${event.index}/${event.totalItems} anchor=${event.anchorId} resolution=${event.resolution} plane=${event.plane || ""}`);
 }
 
 function splitCsv(value?: string): string[] {
@@ -622,30 +621,40 @@ function loadRuleCandidates(
 
 function collectAggregateSummary(bundles: SemanticFlowSessionBundle[]) {
     const items = bundles.flatMap(bundle => bundle.result.session.run.items);
-    const classifications: Record<string, number> = {};
+    const resolutions: Record<string, number> = {};
+    const planes: Record<string, number> = {};
     for (const item of items) {
-        const key = item.classification || item.resolution;
-        classifications[key] = (classifications[key] || 0) + 1;
+        resolutions[item.resolution] = (resolutions[item.resolution] || 0) + 1;
+        const plane = item.plane || item.asset?.plane;
+        if (plane) {
+            planes[plane] = (planes[plane] || 0) + 1;
+        }
     }
     const augment = mergeSemanticFlowAnalysisAugments(bundles.map(bundle => bundle.result.session.augment));
+    const assetsByPlane = augment.assets.reduce((acc, asset) => {
+        acc[asset.plane] = (acc[asset.plane] || 0) + 1;
+        return acc;
+    }, {} as Record<string, number>);
     return {
         items,
         augment,
         engineAugment: buildSemanticFlowEngineAugment(augment),
         summary: {
             itemCount: items.length,
-            classifications,
+            resolutions,
+            planes,
             ruleCandidateCount: bundles.reduce((sum, bundle) => sum + bundle.result.ruleCandidateCount, 0),
             ruleKnownCoveredCount: bundles.reduce((sum, bundle) => sum + bundle.skippedKnownRuleCandidates, 0),
             arkMainCandidateCount: bundles.reduce((sum, bundle) => sum + bundle.result.arkMainCandidates.length, 0),
             arkMainKernelCoveredCount: bundles.reduce((sum, bundle) => sum + bundle.result.skippedArkMainCandidates.length, 0),
             arkMainIneligibleCount: bundles.reduce((sum, bundle) => sum + bundle.result.ineligibleArkMainCandidates.length, 0),
-            moduleCount: augment.moduleSpecs.length,
+            assetCount: augment.assets.length,
+            assetCountByPlane: assetsByPlane,
+            moduleCount: augment.moduleRuntimeSpecs.length,
             sourceRuleCount: (augment.ruleSet.sources || []).length,
             sinkRuleCount: (augment.ruleSet.sinks || []).length,
             sanitizerRuleCount: (augment.ruleSet.sanitizers || []).length,
             transferRuleCount: (augment.ruleSet.transfers || []).length,
-            arkMainSpecCount: augment.arkMainSpecs.length,
         },
     };
 }
@@ -668,6 +677,10 @@ export function semanticFlowCandidateBelongsToSourceDir(sourceDir: string, sourc
     )) {
         return true;
     }
+    const etsRelativePrefix = semanticFlowEtsRelativeSourceDirPrefix(normalizedSourceDir);
+    if (etsRelativePrefix && (sourceFile === etsRelativePrefix || sourceFile.startsWith(`${etsRelativePrefix}/`))) {
+        return true;
+    }
     const variants = [
         sourceFile,
         sourceFile.replace(/^ets\//, ""),
@@ -677,6 +690,20 @@ export function semanticFlowCandidateBelongsToSourceDir(sourceDir: string, sourc
             : sourceFile,
     ];
     return variants.some(rel => fs.existsSync(path.resolve(sourceAbs, rel)));
+}
+
+function semanticFlowEtsRelativeSourceDirPrefix(normalizedSourceDir: string): string | undefined {
+    const marker = "/src/main/ets/";
+    const markerIndex = normalizedSourceDir.indexOf(marker);
+    if (markerIndex >= 0) {
+        const suffix = normalizedSourceDir.slice(markerIndex + marker.length).replace(/^\/+|\/+$/g, "");
+        return suffix || undefined;
+    }
+    if (normalizedSourceDir.startsWith("src/main/ets/")) {
+        const suffix = normalizedSourceDir.slice("src/main/ets/".length).replace(/^\/+|\/+$/g, "");
+        return suffix || undefined;
+    }
+    return undefined;
 }
 
 function capRuleCandidatesForSourceDir(
@@ -718,9 +745,12 @@ export function selectSemanticFlowRuleCandidatesForModeling(
     const selected: NormalizedCallsiteItem[] = [];
     const selectedKeys = new Set<string>();
     const groupCounts = new Map<string, number>();
+    const diversityCounts = new Map<string, number>();
+    const returnedValueFocusLimit = Math.max(1, Math.ceil(limit / 2));
+    const maxPerDiversityGroup = limit <= 2 ? 2 : Math.min(2, limit);
     let forcedFirstPair = false;
 
-    const add = (item: NormalizedCallsiteItem): boolean => {
+    const add = (item: NormalizedCallsiteItem, diversePass: boolean): boolean => {
         if (selected.length >= limit) {
             return false;
         }
@@ -733,27 +763,63 @@ export function selectSemanticFlowRuleCandidatesForModeling(
         if (groupCount >= 2) {
             return false;
         }
+        if (diversePass && !canAddUnderSemanticFlowDiversityBudget(
+            item,
+            diversityCounts,
+            selected,
+            maxPerDiversityGroup,
+            returnedValueFocusLimit,
+        )) {
+            return false;
+        }
         selected.push(item);
         selectedKeys.add(itemKey);
         groupCounts.set(groupKey, groupCount + 1);
+        const diversityKey = semanticFlowModelingDiversityKey(item);
+        diversityCounts.set(diversityKey, (diversityCounts.get(diversityKey) || 0) + 1);
         return true;
     };
 
-    for (let index = 0; index < ranked.length; index++) {
-        const item = ranked[index];
-        if (selected.length >= limit) {
-            break;
-        }
-        if (!add(item)) {
-            continue;
-        }
-        const sibling = pairedSemanticFlowModelingCandidate(item, byGroup, selectedKeys);
-        if (sibling && shouldAddPairedSemanticFlowCandidate(sibling, ranked, index + 1, selectedKeys, forcedFirstPair)) {
-            add(sibling);
-            forcedFirstPair = true;
+    for (const diversePass of [true, false]) {
+        for (let index = 0; index < ranked.length; index++) {
+            const item = ranked[index];
+            if (selected.length >= limit) {
+                break;
+            }
+            if (!add(item, diversePass)) {
+                continue;
+            }
+            const sibling = pairedSemanticFlowModelingCandidate(item, byGroup, selectedKeys);
+            if (sibling && shouldAddPairedSemanticFlowCandidate(sibling, ranked, index + 1, selectedKeys, forcedFirstPair)) {
+                if (add(sibling, diversePass)) {
+                    forcedFirstPair = true;
+                }
+            }
         }
     }
     return selected;
+}
+
+function canAddUnderSemanticFlowDiversityBudget(
+    item: NormalizedCallsiteItem,
+    diversityCounts: Map<string, number>,
+    selected: NormalizedCallsiteItem[],
+    maxPerDiversityGroup: number,
+    returnedValueFocusLimit: number,
+): boolean {
+    const diversityKey = semanticFlowModelingDiversityKey(item);
+    if ((diversityCounts.get(diversityKey) || 0) >= maxPerDiversityGroup) {
+        return false;
+    }
+    if (isReturnedValueSemanticFocus(String((item as any).semanticFocus || "").trim())) {
+        const selectedReturned = selected.filter(existing => isReturnedValueSemanticFocus(
+            String((existing as any).semanticFocus || "").trim(),
+        )).length;
+        if (selectedReturned >= returnedValueFocusLimit) {
+            return false;
+        }
+    }
+    return true;
 }
 
 function shouldAddPairedSemanticFlowCandidate(
@@ -850,6 +916,19 @@ function semanticFlowModelingItemKey(item: NormalizedCallsiteItem): string {
     return `${semanticFlowModelingPairKey(item)}|${String((item as any).semanticFocus || "")}`;
 }
 
+function semanticFlowModelingDiversityKey(item: NormalizedCallsiteItem): string {
+    const sourceFile = String(item.sourceFile || "").replace(/\\/g, "/").toLowerCase();
+    const owner = extractSemanticFlowOwnerFromSignature(String(item.callee_signature || ""))
+        || sourceFile;
+    return `${sourceFile}|${owner.toLowerCase()}`;
+}
+
+function extractSemanticFlowOwnerFromSignature(signature: string): string | undefined {
+    const afterColon = signature.split(":").slice(1).join(":").trim();
+    const ownerMatch = afterColon.match(/\b([A-Za-z_$][\w$]*)\s*\.\s*(?:\[static\]\s*)?[A-Za-z_$][\w$]*\s*\(/);
+    return ownerMatch?.[1];
+}
+
 function isLikelyContextOrUiSetupCandidate(methodLower: string, signatureLower: string): boolean {
     if (/(configure\/(context|stage|device)|contextmanager|ctxmanager|stagemanager|appdevice)/.test(signatureLower)) {
         if (/^(register|update|set|init)/.test(methodLower)) return true;
@@ -900,9 +979,9 @@ function writeSemanticFlowArtifacts(
     bundles: SemanticFlowSessionBundle[],
 ): {
     aggregateSessionPath: string;
-    aggregateRulePath: string;
-    aggregateModulePath: string;
-    aggregateArkMainPath: string;
+    aggregateAssetsPath: string;
+    generatedModelRoot: string;
+    generatedModelProjectId: string;
     aggregateSummaryPath: string;
 } {
     const aggregate = collectAggregateSummary(bundles);
@@ -914,33 +993,36 @@ function writeSemanticFlowArtifacts(
         const base = path.join(modelingDir, safeSourceDirName(bundle.sourceDir));
         fs.mkdirSync(base, { recursive: true });
         fs.writeFileSync(path.join(base, "session.json"), JSON.stringify(serializeSemanticFlowSession(bundle.result.session), null, 2), "utf-8");
-        fs.writeFileSync(path.join(base, "rules.json"), JSON.stringify(bundle.result.session.augment.ruleSet, null, 2), "utf-8");
-        fs.writeFileSync(path.join(base, "modules.json"), JSON.stringify(serializeSemanticFlowModules(bundle.result.session.augment), null, 2), "utf-8");
-        fs.writeFileSync(path.join(base, "arkmain.json"), JSON.stringify(serializeSemanticFlowArkMain(bundle.result.session.augment), null, 2), "utf-8");
+        fs.writeFileSync(path.join(base, "assets.json"), JSON.stringify(serializeSemanticFlowAssets(bundle.result.session.augment), null, 2), "utf-8");
         fs.writeFileSync(path.join(base, "summary.json"), JSON.stringify({
             itemCount: bundle.result.session.run.items.length,
-            classifications: bundle.result.session.run.items.reduce((acc, item) => {
-                const key = item.classification || item.resolution;
+            resolutions: bundle.result.session.run.items.reduce((acc, item) => {
+                const key = item.resolution;
                 acc[key] = (acc[key] || 0) + 1;
                 return acc;
             }, {} as Record<string, number>),
+            planes: bundle.result.session.run.items.reduce((acc, item) => {
+                const key = item.plane || item.asset?.plane;
+                if (key) {
+                    acc[key] = (acc[key] || 0) + 1;
+                }
+                return acc;
+            }, {} as Record<string, number>),
+            assetCount: bundle.result.session.augment.assets.length,
             ruleCandidateCount: bundle.result.ruleCandidateCount,
             ruleKnownCoveredCount: bundle.skippedKnownRuleCandidates,
             arkMainCandidateCount: bundle.result.arkMainCandidates.length,
             arkMainIneligibleCount: bundle.result.ineligibleArkMainCandidates.length,
-            moduleCount: bundle.result.session.augment.moduleSpecs.length,
+            moduleCount: bundle.result.session.augment.moduleRuntimeSpecs.length,
             sourceRuleCount: (bundle.result.session.augment.ruleSet.sources || []).length,
             sinkRuleCount: (bundle.result.session.augment.ruleSet.sinks || []).length,
             sanitizerRuleCount: (bundle.result.session.augment.ruleSet.sanitizers || []).length,
             transferRuleCount: (bundle.result.session.augment.ruleSet.transfers || []).length,
-            arkMainSpecCount: bundle.result.session.augment.arkMainSpecs.length,
         }, null, 2), "utf-8");
     }
 
     const aggregateSessionPath = path.join(rootDir, "session.json");
-    const aggregateRulePath = path.join(rootDir, "rules.json");
-    const aggregateModulePath = path.join(rootDir, "modules.json");
-    const aggregateArkMainPath = path.join(rootDir, "arkmain.json");
+    const aggregateAssetsPath = path.join(rootDir, "assets.json");
     const aggregateSummaryPath = path.join(rootDir, "summary.json");
 
     fs.writeFileSync(aggregateSessionPath, JSON.stringify(serializeSemanticFlowSession({
@@ -948,16 +1030,21 @@ function writeSemanticFlowArtifacts(
         augment: aggregate.augment,
         engineAugment: aggregate.engineAugment,
     }), null, 2), "utf-8");
-    fs.writeFileSync(aggregateRulePath, JSON.stringify(aggregate.augment.ruleSet, null, 2), "utf-8");
-    fs.writeFileSync(aggregateModulePath, JSON.stringify(serializeSemanticFlowModules(aggregate.augment), null, 2), "utf-8");
-    fs.writeFileSync(aggregateArkMainPath, JSON.stringify(serializeSemanticFlowArkMain(aggregate.augment), null, 2), "utf-8");
+    fs.writeFileSync(aggregateAssetsPath, JSON.stringify(serializeSemanticFlowAssets(aggregate.augment), null, 2), "utf-8");
     fs.writeFileSync(aggregateSummaryPath, JSON.stringify(aggregate.summary, null, 2), "utf-8");
+    const generatedModelRoot = path.join(rootDir, "generated_model_assets");
+    const generatedModelProjectId = "semanticflow";
+    publishSemanticFlowProjectAssets({
+        projectId: generatedModelProjectId,
+        modelRoot: generatedModelRoot,
+        assets: aggregate.augment.assets,
+    });
 
     return {
         aggregateSessionPath,
-        aggregateRulePath,
-        aggregateModulePath,
-        aggregateArkMainPath,
+        aggregateAssetsPath,
+        generatedModelRoot,
+        generatedModelProjectId,
         aggregateSummaryPath,
     };
 }
@@ -999,11 +1086,9 @@ function buildAnalyzeOptions(
         explainPluginName: undefined,
         tracePluginName: undefined,
         modelRoots: overrides.modelRoots || options.modelRoots || [],
-        moduleSpecFiles: overrides.moduleSpecFiles || [],
         enabledModels: overrides.enabledModels || options.enabledModels || [],
         disabledModels: overrides.disabledModels || options.disabledModels || [],
         disabledModuleIds: overrides.disabledModuleIds || [],
-        arkMainSpecFiles: overrides.arkMainSpecFiles || [],
         pluginPaths: overrides.pluginPaths || [],
         disabledPluginNames: overrides.disabledPluginNames || [],
         pluginIsolate: overrides.pluginIsolate || [],
@@ -1123,12 +1208,12 @@ function readCandidatePayloadCount(filePath: string): number | null {
 }
 
 function hasModeledSemanticFlowArtifacts(summary: ReturnType<typeof collectAggregateSummary>["summary"]): boolean {
-    return summary.moduleCount > 0
+    return summary.assetCount > 0
+        || summary.moduleCount > 0
         || summary.sourceRuleCount > 0
         || summary.sinkRuleCount > 0
         || summary.sanitizerRuleCount > 0
-        || summary.transferRuleCount > 0
-        || summary.arkMainSpecCount > 0;
+        || summary.transferRuleCount > 0;
 }
 
 function canReuseBootstrapAnalyzeForFinal(
@@ -1168,9 +1253,8 @@ function materializeReusedFinalAnalyzeArtifacts(
 async function runFinalAnalyze(
     options: SemanticFlowCliOptions,
     aggregatePaths: {
-        aggregateRulePath: string;
-        aggregateModulePath: string;
-        aggregateArkMainPath: string;
+        generatedModelRoot: string;
+        generatedModelProjectId: string;
     },
 ): Promise<Awaited<ReturnType<typeof runAnalyze>>> {
     const arkMainCandidateLimit = resolveArkMainCandidateLimit(options);
@@ -1181,7 +1265,10 @@ async function runFinalAnalyze(
         reportMode: options.reportMode,
         llmModel: options.model,
         arkMainMaxCandidates: arkMainCandidateLimit,
-        modelRoots: options.modelRoots || [],
+        modelRoots: [
+            aggregatePaths.generatedModelRoot,
+            ...(options.modelRoots || []),
+        ],
         ...(options.publishModel
             ? {
                 enabledModels: [...new Set([...(options.enabledModels || []), options.publishModel])],
@@ -1193,13 +1280,15 @@ async function runFinalAnalyze(
                 },
             }
             : {
-                moduleSpecFiles: [aggregatePaths.aggregateModulePath],
-                arkMainSpecFiles: [aggregatePaths.aggregateArkMainPath],
+                enabledModels: [...new Set([...(options.enabledModels || []), aggregatePaths.generatedModelProjectId])],
+                disabledModels: options.disabledModels || [],
                 ruleOptions: {
                     autoDiscoverLayers: true,
-                    ruleCatalogPath: options.modelRoots?.[0],
-                    ruleCatalogPaths: options.modelRoots,
-                    candidateRulePath: aggregatePaths.aggregateRulePath,
+                    ruleCatalogPath: aggregatePaths.generatedModelRoot,
+                    ruleCatalogPaths: [
+                        aggregatePaths.generatedModelRoot,
+                        ...(options.modelRoots || []),
+                    ],
                 },
             }),
     })));
@@ -1216,9 +1305,9 @@ function writeSemanticFlowRunManifest(
         llmSessionCacheMode?: string;
         bootstrapRuleInputPath: string;
         aggregateSessionPath: string;
-        aggregateRulePath: string;
-        aggregateModulePath: string;
-        aggregateArkMainPath: string;
+        aggregateAssetsPath: string;
+        generatedModelRoot: string;
+        generatedModelProjectId: string;
         aggregateSummaryPath: string;
         sourceRunsPath: string;
         finalSummaryJsonPath?: string;
@@ -1227,7 +1316,6 @@ function writeSemanticFlowRunManifest(
 ): void {
     const relative = (targetPath?: string) => targetPath ? path.relative(outputDir, targetPath).replace(/\\/g, "/") : undefined;
     fs.writeFileSync(path.join(outputDir, "run.json"), JSON.stringify({
-        schemaVersion: 1,
         runKind: "semanticflow",
         generatedAt: new Date().toISOString(),
         repo: options.repo,
@@ -1248,9 +1336,9 @@ function writeSemanticFlowRunManifest(
         paths: {
             phase1RuleInput: relative(info.bootstrapRuleInputPath),
             session: relative(info.aggregateSessionPath),
-            rules: relative(info.aggregateRulePath),
-            modules: relative(info.aggregateModulePath),
-            arkmain: relative(info.aggregateArkMainPath),
+            assets: relative(info.aggregateAssetsPath),
+            generatedModelRoot: relative(info.generatedModelRoot),
+            generatedModelProjectId: info.generatedModelProjectId,
             summary: relative(info.aggregateSummaryPath),
             sourceRuns: relative(info.sourceRunsPath),
             finalSummaryJson: relative(info.finalSummaryJsonPath),
@@ -1395,11 +1483,9 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
         const published = publishSemanticFlowProjectAssets({
             projectId: options.publishModel,
             modelRoot: options.modelRoots?.[0],
-            ruleSet: aggregate.augment.ruleSet,
-            moduleDocument: serializeSemanticFlowModules(aggregate.augment),
-            arkMainDocument: serializeSemanticFlowArkMain(aggregate.augment),
+            assets: aggregate.augment.assets,
         });
-        console.log(`semanticflow_phase=publish_model done pack=${options.publishModel} rules=${published.rulePath || "-"} modules=${published.moduleSpecPath || "-"} arkmain=${published.arkMainSpecPath || "-"}`);
+        console.log(`semanticflow_phase=publish_model done pack=${options.publishModel} rules=${published.rulePath || "-"} modules=${published.modulePath || "-"} arkmain=${published.arkMainPath || "-"}`);
     }
     let finalRun: Awaited<ReturnType<typeof runAnalyze>> | undefined;
     if (options.analyze) {
@@ -1432,7 +1518,9 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
         }
         : {
             itemCount: aggregateSummary.summary.itemCount,
-            classifications: aggregateSummary.summary.classifications,
+            resolutions: aggregateSummary.summary.resolutions,
+            planes: aggregateSummary.summary.planes,
+            assetCount: aggregateSummary.summary.assetCount,
             modeled: true,
             finalAnalyze: false,
             sourceRunsPath,

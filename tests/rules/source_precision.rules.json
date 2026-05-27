@@ -1,76 +1,265 @@
 {
-    "schemaVersion": "2.0",
-    "meta": {
-        "name": "source-precision-rule-pack",
-        "description": "Rules used to validate source precise seeding execution",
-        "updatedAt": "2026-02-15"
+  "id": "asset.rule.test.source_precision",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
+    {
+      "surfaceId": "surface.source.precision.call_return.source_return",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "SourceReturn",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
-    "sources": [
-        {
-            "id": "source.precision.call_return.source_return",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "SourceReturn"
-            },
-            "sourceKind": "call_return",
-            "target": {
-                "endpoint": "result"
-            }
-        },
-        {
-            "id": "source.precision.call_arg.source_arg_arg1",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "SourceArg"
-            },
-            "sourceKind": "call_arg",
-            "target": {
-                "endpoint": "arg1"
-            }
-        },
-        {
-            "id": "source.precision.field_read.secret",
-            "match": {
-                "kind": "method_name_regex",
-                "value": "^source_field_read_00[56]_[TF]$"
-            },
-            "sourceKind": "field_read",
-            "target": {
-                "endpoint": "result",
-                "path": [
-                    "secret"
-                ]
-            }
-        },
-        {
-            "id": "source.precision.scope.call_return",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "SourceScope"
-            },
-            "scope": {
-                "methodName": {
-                    "mode": "equals",
-                    "value": "source_scope_match_007_T"
-                }
-            },
-            "sourceKind": "call_return",
-            "target": {
-                "endpoint": "result"
-            }
+    {
+      "surfaceId": "surface.source.precision.call_arg.source_arg_arg1",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "SourceArg",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.precision.field_read.secret",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "h210c8933",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.precision.scope.call_return",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "SourceScope",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.precision.method_name.sink",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "Sink",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.source.precision.call_return.source_return.0",
+      "surfaceId": "surface.source.precision.call_return.source_return",
+      "assetId": "asset.rule.test.source_precision",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "SourceReturn"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
-    ],
-    "sinks": [
-        {
-            "id": "sink.precision.method_name.sink",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "Sink"
-            },
-            "target": {
-                "endpoint": "arg0"
-            }
+      },
+      "effectTemplateRefs": [
+        "template.source.precision.call_return.source_return"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.precision.call_arg.source_arg_arg1.0",
+      "surfaceId": "surface.source.precision.call_arg.source_arg_arg1",
+      "assetId": "asset.rule.test.source_precision",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "SourceArg"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
         }
-    ],
-    "transfers": []
+      },
+      "effectTemplateRefs": [
+        "template.source.precision.call_arg.source_arg_arg1"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.precision.field_read.secret.0",
+      "surfaceId": "surface.source.precision.field_read.secret",
+      "assetId": "asset.rule.test.source_precision",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-regex",
+        "value": "^source_field_read_00[56]_[TF]$"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        },
+        "accessPath": [
+          "secret"
+        ]
+      },
+      "effectTemplateRefs": [
+        "template.source.precision.field_read.secret"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.precision.scope.call_return.0",
+      "surfaceId": "surface.source.precision.scope.call_return",
+      "assetId": "asset.rule.test.source_precision",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "SourceScope",
+        "scope": {
+          "methodName": {
+            "mode": "equals",
+            "value": "source_scope_match_007_T"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.precision.scope.call_return"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.precision.method_name.sink.0",
+      "surfaceId": "surface.sink.precision.method_name.sink",
+      "assetId": "asset.rule.test.source_precision",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Sink"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.precision.method_name.sink"
+      ],
+      "semanticsFamily": "sink",
+      "completeness": "partial",
+      "confidence": "likely"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.source.precision.call_return.source_return",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    },
+    {
+      "id": "template.source.precision.call_arg.source_arg_arg1",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sourceKind": "call_arg"
+    },
+    {
+      "id": "template.source.precision.field_read.secret",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        },
+        "accessPath": [
+          "secret"
+        ]
+      },
+      "sourceKind": "field_read"
+    },
+    {
+      "id": "template.source.precision.scope.call_return",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    },
+    {
+      "id": "template.sink.precision.method_name.sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "tests/rules/source_precision.rules.json"
+      }
+    ]
+  }
 }

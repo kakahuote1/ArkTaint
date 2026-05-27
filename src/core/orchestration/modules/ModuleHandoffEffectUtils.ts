@@ -1,9 +1,9 @@
-import type { ModuleScannedInvoke } from "../../kernel/contracts/ModuleContract";
+﻿import type { ModuleScannedInvoke } from "../../kernel/contracts/ModuleContract";
 import type {
     ModuleBridgeEmitSpec,
     ModuleFieldPathSpec,
     ModuleTransferMode,
-} from "../../kernel/contracts/ModuleSpec";
+} from "../../kernel/contracts/ModuleRuntimeSpec";
 import { createHandoffHandle } from "../../kernel/semantic_handoff/SemanticHandoffTypes";
 import type {
     HandoffEffect,

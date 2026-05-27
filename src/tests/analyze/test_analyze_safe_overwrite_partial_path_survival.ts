@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { readAnalyzeSummary, runAnalyzeCli } from "../helpers/AnalyzeCliRunner";
+import { stringifyRuleAssetFixture } from "../helpers/RuleAssetFixtureFactory";
 import { resolveTestRunDir, resolveTestRunPath } from "../helpers/TestWorkspaceLayout";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -111,8 +112,8 @@ async function main(): Promise<void> {
 
     writeText(
         path.join(moduleRoot, "safe_overwrite_partial_path_survival.rules.json"),
-        JSON.stringify({
-            schemaVersion: "2.0",
+        stringifyRuleAssetFixture({
+            id: "asset.rule.fixture.safe_overwrite_partial_path_survival",
             sources: [
                 {
                     id: "source.fixture.safe_overwrite_partial_path_survival",
@@ -161,7 +162,7 @@ async function main(): Promise<void> {
                     to: "result",
                 },
             ],
-        }, null, 2),
+        }),
     );
 
     writeText(

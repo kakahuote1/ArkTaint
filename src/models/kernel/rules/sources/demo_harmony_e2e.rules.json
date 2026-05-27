@@ -1,32 +1,80 @@
 {
-  "schemaVersion": "2.0",
-  "sources": [
+  "id": "asset.rule.kernel.sources.demo_harmony_e2e",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
     {
-      "id": "source.demo.harmony_e2e.taint_mock.Source.result",
-      "enabled": true,
-      "description": "Demo-only source: taint.Source() return value in tests/demo/harmony_e2e.",
-      "tags": [
-        "demo"
-      ],
-      "match": {
-        "kind": "method_name_equals",
-        "value": "Source",
-        "invokeKind": "static",
-        "argCount": 0
-      },
-      "scope": {
-        "file": {
-          "mode": "contains",
-          "value": "tests/demo/harmony_e2e/taint_mock.ts"
-        }
-      },
-      "sourceKind": "call_return",
-      "target": {
-        "endpoint": "result"
+      "surfaceId": "surface.source.demo.harmony_e2e.taint_mock.Source.result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "Source",
+      "invokeKind": "static",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
       }
     }
   ],
-  "sinks": [],
-  "transfers": [],
-  "sanitizers": []
+  "bindings": [
+    {
+      "bindingId": "binding.source.demo.harmony_e2e.taint_mock.Source.result.0",
+      "surfaceId": "surface.source.demo.harmony_e2e.taint_mock.Source.result",
+      "assetId": "asset.rule.kernel.sources.demo_harmony_e2e",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Source",
+        "invokeKind": "static",
+        "argCount": 0,
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "tests/demo/harmony_e2e/taint_mock.ts"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.demo.harmony_e2e.taint_mock.Source.result"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "Demo-only source: taint.Source() return value in tests/demo/harmony_e2e.",
+        "tags": [
+          "demo"
+        ]
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.source.demo.harmony_e2e.taint_mock.Source.result",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "src/models/kernel/rules/sources/demo_harmony_e2e.rules.json"
+      }
+    ]
+  }
 }

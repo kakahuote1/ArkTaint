@@ -1,8 +1,7 @@
-import type { Scene } from "../../../../arkanalyzer/out/src/Scene";
+﻿import type { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import type { TaintFlow } from "../../kernel/model/TaintFlow";
-import type { ModuleSpec } from "../../kernel/contracts/ModuleSpec";
-import type { ArkMainSpec } from "../../entry/arkmain/ArkMainSpec";
-import { loadArkMainSeeds } from "../../entry/arkmain/ArkMainLoader";
+import type { ModuleRuntimeSpec } from "../../kernel/contracts/ModuleRuntimeSpec";
+import { compileModuleRuntimeSpecs } from "../modules/ModuleRuntimeSpecCompiler";
 import { TaintPropagationEngine, type BuildPAGOptions, type TaintEngineOptions } from "../TaintPropagationEngine";
 import {
     buildSemanticFlowEngineAugment,
@@ -23,14 +22,13 @@ import type {
 export interface SemanticFlowAnalysisOptions {
     k?: number;
     buildPAG?: BuildPAGOptions;
-    engine?: Omit<TaintEngineOptions, "transferRules" | "moduleSpecs" | "arkMainSeeds">;
+    engine?: Omit<TaintEngineOptions, "transferRules" | "arkMainSeeds">;
     base?: {
         sourceRules?: SourceRule[];
         sinkRules?: SinkRule[];
         sanitizerRules?: SanitizerRule[];
         transferRules?: TransferRule[];
-        moduleSpecs?: ModuleSpec[];
-        arkMainSpecs?: ArkMainSpec[];
+        moduleRuntimeSpecs?: ModuleRuntimeSpec[];
     };
     sink?: {
         stopOnFirstFlow?: boolean;
@@ -54,23 +52,12 @@ export async function runSemanticFlowAnalysis(
     const augment = isSessionResult(input) ? input.augment : input;
     const generatedAugment = isSessionResult(input) ? input.engineAugment : buildSemanticFlowEngineAugment(augment);
     const engineAugment = mergeEngineAugment(generatedAugment, options.base);
-    const arkMainSeeds = engineAugment.arkMainSpecs.length > 0
-        ? loadArkMainSeeds(scene, {
-            includeBuiltinArkMain: false,
-            arkMainSpecs: engineAugment.arkMainSpecs,
-        })
-        : undefined;
+    const generatedModules = compileModuleRuntimeSpecs(engineAugment.moduleRuntimeSpecs);
 
     const engine = new TaintPropagationEngine(scene, options.k ?? 1, {
         ...(options.engine || {}),
         transferRules: engineAugment.transferRules,
-        moduleSpecs: engineAugment.moduleSpecs,
-        arkMainSeeds: arkMainSeeds && (arkMainSeeds.methods.length > 0 || arkMainSeeds.facts.length > 0)
-            ? {
-                methods: arkMainSeeds.methods,
-                facts: arkMainSeeds.facts,
-            }
-            : undefined,
+        modules: [...(options.engine?.modules || []), ...generatedModules],
     });
     engine.verbose = false;
     await engine.buildPAG(options.buildPAG || { entryModel: "arkMain" });
@@ -99,21 +86,11 @@ function mergeEngineAugment(
     generated: SemanticFlowEngineAugment,
     base?: SemanticFlowAnalysisOptions["base"],
 ): SemanticFlowEngineAugment {
-    const augment = consolidateSemanticFlowAnalysisAugmentByFootprint({
-        ruleSet: {
-            schemaVersion: "2.0",
-            meta: {
-                name: "semanticflow-runtime-merge",
-                description: "Merged semanticflow runtime augment.",
-                updatedAt: new Date().toISOString().slice(0, 10),
-            },
-            sources: [...(base?.sourceRules || []), ...generated.sourceRules],
-            sinks: [...(base?.sinkRules || []), ...generated.sinkRules],
-            sanitizers: [...(base?.sanitizerRules || []), ...generated.sanitizerRules],
-            transfers: [...(base?.transferRules || []), ...generated.transferRules],
-        },
-        moduleSpecs: [...(base?.moduleSpecs || []), ...generated.moduleSpecs],
-        arkMainSpecs: [...(base?.arkMainSpecs || []), ...generated.arkMainSpecs],
-    });
-    return buildSemanticFlowEngineAugment(augment);
+    return {
+        sourceRules: [...(base?.sourceRules || []), ...generated.sourceRules],
+        sinkRules: [...(base?.sinkRules || []), ...generated.sinkRules],
+        sanitizerRules: [...(base?.sanitizerRules || []), ...generated.sanitizerRules],
+        transferRules: [...(base?.transferRules || []), ...generated.transferRules],
+        moduleRuntimeSpecs: [...(base?.moduleRuntimeSpecs || []), ...generated.moduleRuntimeSpecs],
+    };
 }

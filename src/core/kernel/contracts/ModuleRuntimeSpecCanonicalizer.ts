@@ -1,4 +1,4 @@
-import type {
+﻿import type {
     ModuleAddress,
     ModuleBridgeEmitSpec,
     ModuleDispatch,
@@ -6,8 +6,8 @@ import type {
     ModuleEndpoint,
     ModuleSemantic,
     ModuleSemanticSurfaceRef,
-    ModuleSpec,
-} from "./ModuleSpec";
+    ModuleRuntimeSpec,
+} from "./ModuleRuntimeSpec";
 
 function stableSerialize(value: unknown): string {
     if (Array.isArray(value)) {
@@ -209,7 +209,7 @@ function applySemanticDefaults(semantic: ModuleSemantic, semanticIndex: number):
     }
 }
 
-export function canonicalizeModuleSpec(spec: ModuleSpec): ModuleSpec {
+export function canonicalizeModuleRuntimeSpec(spec: ModuleRuntimeSpec): ModuleRuntimeSpec {
     const semanticIds = buildGeneratedSemanticIds(spec.semantics);
     return {
         ...spec,

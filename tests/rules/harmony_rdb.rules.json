@@ -1,59 +1,220 @@
 {
-    "schemaVersion": "2.0",
-    "meta": {
-        "name": "harmony_rdb",
-        "description": "C13 relational store benchmark rules (gate-ready minimal semantics)",
-        "updatedAt": "2026-02-22"
+  "id": "asset.rule.test.harmony_rdb",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
+    {
+      "surfaceId": "surface.source.harmony_rdb.entry_param",
+      "kind": "access",
+      "modulePath": "@arktaint/local",
+      "ownerName": "LocalBinding",
+      "propertyName": "source.harmony_rdb.entry_param",
+      "accessKind": "read",
+      "receiverKind": "namespace",
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
-    "sources": [
-        {
-            "id": "source.harmony_rdb.entry_param",
-            "match": {
-                "kind": "local_name_regex",
-                "value": "^taint_src$"
-            },
-            "sourceKind": "entry_param",
-            "target": "arg0"
+    {
+      "surfaceId": "surface.sink.harmony_rdb.mock_sink",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "Sink",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony_rdb.insert_row_to_store",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RdbStore",
+      "methodName": "insert",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony_rdb.query_store_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RdbStore",
+      "methodName": "query",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.source.harmony_rdb.entry_param.0",
+      "surfaceId": "surface.source.harmony_rdb.entry_param",
+      "assetId": "asset.rule.test.harmony_rdb",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "local-name-regex",
+        "value": "^taint_src$"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
-    ],
-    "sinks": [
-        {
-            "id": "sink.harmony_rdb.mock_sink",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "Sink"
-            },
-            "target": {
-                "endpoint": "arg0"
-            }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_rdb.entry_param"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony_rdb.mock_sink.0",
+      "surfaceId": "surface.sink.harmony_rdb.mock_sink",
+      "assetId": "asset.rule.test.harmony_rdb",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Sink"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
-    ],
-    "transfers": [
-        {
-            "id": "transfer.harmony_rdb.insert_row_to_store",
-            "description": "Model insert(table, row): row taints db instance.",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "insert",
-                "invokeKind": "instance",
-                "argCount": 2,
-                "typeHint": "RdbStore"
-            },
-            "from": "arg1",
-            "to": "base"
-        },
-        {
-            "id": "transfer.harmony_rdb.query_store_to_result",
-            "description": "Model query(sql): tainted db instance taints query result.",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "query",
-                "invokeKind": "instance",
-                "argCount": 1,
-                "typeHint": "RdbStore"
-            },
-            "from": "base",
-            "to": "result"
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony_rdb.mock_sink"
+      ],
+      "semanticsFamily": "sink",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.harmony_rdb.insert_row_to_store.0",
+      "surfaceId": "surface.transfer.harmony_rdb.insert_row_to_store",
+      "assetId": "asset.rule.test.harmony_rdb",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "insert",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "RdbStore"
+      },
+      "effectTemplateRefs": [
+        "template.transfer.harmony_rdb.insert_row_to_store"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Model insert(table, row): row taints db instance."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.harmony_rdb.query_store_to_result.0",
+      "surfaceId": "surface.transfer.harmony_rdb.query_store_to_result",
+      "assetId": "asset.rule.test.harmony_rdb",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "query",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "RdbStore"
+      },
+      "effectTemplateRefs": [
+        "template.transfer.harmony_rdb.query_store_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Model query(sql): tainted db instance taints query result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.source.harmony_rdb.entry_param",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.sink.harmony_rdb.mock_sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
+    },
+    {
+      "id": "template.transfer.harmony_rdb.insert_row_to_store",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony_rdb.query_store_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "tests/rules/harmony_rdb.rules.json"
+      }
     ]
+  }
 }

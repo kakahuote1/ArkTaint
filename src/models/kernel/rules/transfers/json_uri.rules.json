@@ -1,172 +1,743 @@
 {
-  "schemaVersion": "2.0",
-  "sources": [],
-  "sinks": [],
-  "sanitizers": [],
-  "transfers": [
+  "id": "asset.rule.kernel.transfers.json_uri",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
     {
-      "id": "transfer.harmony.json.stringify.arg0_to_result.exact",
-      "description": "Exact probe signature for stringify (Tier A).",
-      "match": {
-        "kind": "signature_equals",
+      "surfaceId": "surface.transfer.harmony.json.stringify.arg0_to_result.exact",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "stringify",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.json.parse.arg0_to_result.exact",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "parse",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.json.stringify.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "json",
+      "methodName": "stringify",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.json.parse.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "json",
+      "methodName": "parse",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.json.stringify.arg0_to_result.sig",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "stringify",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.json.parse.arg0_to_result.sig",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "parse",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.uri.encodeURI.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "encodeURI",
+      "invokeKind": "static",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.uri.decodeURI.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "decodeURI",
+      "invokeKind": "static",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.uri.encodeURIComponent.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "encodeURIComponent",
+      "invokeKind": "static",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.uri.decodeURIComponent.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "decodeURIComponent",
+      "invokeKind": "static",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.uri.escape.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "escape",
+      "invokeKind": "static",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.uri.unescape.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "unescape",
+      "invokeKind": "static",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.builtin.atob.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "atob",
+      "invokeKind": "static",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.builtin.btoa.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "btoa",
+      "invokeKind": "static",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.transfer.harmony.json.stringify.arg0_to_result.exact.0",
+      "surfaceId": "surface.transfer.harmony.json.stringify.arg0_to_result.exact",
+      "assetId": "asset.rule.kernel.transfers.json_uri",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-equals",
         "value": "@sdk_signature_probe/taint_mock.ts: JsonCodec.stringify(any)",
         "invokeKind": "instance",
         "argCount": 1
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.json.stringify.arg0_to_result.exact"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Exact probe signature for stringify (Tier A)."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.json.parse.arg0_to_result.exact",
-      "description": "Exact probe signature for parse (Tier A).",
-      "match": {
-        "kind": "signature_equals",
+      "bindingId": "binding.transfer.harmony.json.parse.arg0_to_result.exact.0",
+      "surfaceId": "surface.transfer.harmony.json.parse.arg0_to_result.exact",
+      "assetId": "asset.rule.kernel.transfers.json_uri",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-equals",
         "value": "@sdk_signature_probe/taint_mock.ts: JsonCodec.parse(string)",
         "invokeKind": "instance",
         "argCount": 1
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.json.parse.arg0_to_result.exact"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Exact probe signature for parse (Tier A)."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.json.stringify.arg0_to_result",
-      "description": "JSON.stringify(x): x taints serialized string.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.harmony.json.stringify.arg0_to_result.0",
+      "surfaceId": "surface.transfer.harmony.json.stringify.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.json_uri",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "stringify",
         "invokeKind": "instance",
         "argCount": 1,
         "typeHint": "json"
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.json.stringify.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "JSON.stringify(x): x taints serialized string."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.json.parse.arg0_to_result",
-      "description": "JSON.parse(str): input string taints parsed value.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.harmony.json.parse.arg0_to_result.0",
+      "surfaceId": "surface.transfer.harmony.json.parse.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.json_uri",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "parse",
         "invokeKind": "instance",
         "argCount": 1,
         "typeHint": "json"
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.json.parse.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "JSON.parse(str): input string taints parsed value."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.json.stringify.arg0_to_result.sig",
-      "description": "Fallback: JSON.stringify(x) via signature match.",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.harmony.json.stringify.arg0_to_result.sig.0",
+      "surfaceId": "surface.transfer.harmony.json.stringify.arg0_to_result.sig",
+      "assetId": "asset.rule.kernel.transfers.json_uri",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "JsonCodec.stringify"
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.json.stringify.arg0_to_result.sig"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Fallback: JSON.stringify(x) via signature match."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.json.parse.arg0_to_result.sig",
-      "description": "Fallback: JSON.parse(str) via signature match.",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.harmony.json.parse.arg0_to_result.sig.0",
+      "surfaceId": "surface.transfer.harmony.json.parse.arg0_to_result.sig",
+      "assetId": "asset.rule.kernel.transfers.json_uri",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "JsonCodec.parse"
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.json.parse.arg0_to_result.sig"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Fallback: JSON.parse(str) via signature match."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.uri.encodeURI.arg0_to_result",
-      "description": "encodeURI(x): input string taints encoded result.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.harmony.uri.encodeURI.arg0_to_result.0",
+      "surfaceId": "surface.transfer.harmony.uri.encodeURI.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.json_uri",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "encodeURI",
         "invokeKind": "static",
         "argCount": 1
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.uri.encodeURI.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "encodeURI(x): input string taints encoded result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.uri.decodeURI.arg0_to_result",
-      "description": "decodeURI(x): input string taints decoded result.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.harmony.uri.decodeURI.arg0_to_result.0",
+      "surfaceId": "surface.transfer.harmony.uri.decodeURI.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.json_uri",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "decodeURI",
         "invokeKind": "static",
         "argCount": 1
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.uri.decodeURI.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "decodeURI(x): input string taints decoded result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.uri.encodeURIComponent.arg0_to_result",
-      "description": "encodeURIComponent(x): input string taints encoded component result.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.harmony.uri.encodeURIComponent.arg0_to_result.0",
+      "surfaceId": "surface.transfer.harmony.uri.encodeURIComponent.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.json_uri",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "encodeURIComponent",
         "invokeKind": "static",
         "argCount": 1
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.uri.encodeURIComponent.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "encodeURIComponent(x): input string taints encoded component result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.uri.decodeURIComponent.arg0_to_result",
-      "description": "decodeURIComponent(x): input string taints decoded component result.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.harmony.uri.decodeURIComponent.arg0_to_result.0",
+      "surfaceId": "surface.transfer.harmony.uri.decodeURIComponent.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.json_uri",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "decodeURIComponent",
         "invokeKind": "static",
         "argCount": 1
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.uri.decodeURIComponent.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "decodeURIComponent(x): input string taints decoded component result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.uri.escape.arg0_to_result",
-      "description": "escape(x): input string taints escaped result.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.harmony.uri.escape.arg0_to_result.0",
+      "surfaceId": "surface.transfer.harmony.uri.escape.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.json_uri",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "escape",
         "invokeKind": "static",
         "argCount": 1
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.uri.escape.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "escape(x): input string taints escaped result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.uri.unescape.arg0_to_result",
-      "description": "unescape(x): input string taints unescaped result.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.harmony.uri.unescape.arg0_to_result.0",
+      "surfaceId": "surface.transfer.harmony.uri.unescape.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.json_uri",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "unescape",
         "invokeKind": "static",
         "argCount": 1
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.uri.unescape.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "unescape(x): input string taints unescaped result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.builtin.atob.arg0_to_result",
-      "description": "atob(encoded): Base64-encoded string taints decoded result.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.builtin.atob.arg0_to_result.0",
+      "surfaceId": "surface.transfer.builtin.atob.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.json_uri",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "atob",
         "invokeKind": "static"
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.builtin.atob.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "atob(encoded): Base64-encoded string taints decoded result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.builtin.btoa.arg0_to_result",
-      "description": "btoa(data): input string taints Base64-encoded result.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.builtin.btoa.arg0_to_result.0",
+      "surfaceId": "surface.transfer.builtin.btoa.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.json_uri",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "btoa",
         "invokeKind": "static"
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.builtin.btoa.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "btoa(data): input string taints Base64-encoded result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     }
-  ]
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.transfer.harmony.json.stringify.arg0_to_result.exact",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.json.parse.arg0_to_result.exact",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.json.stringify.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.json.parse.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.json.stringify.arg0_to_result.sig",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.json.parse.arg0_to_result.sig",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.uri.encodeURI.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.uri.decodeURI.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.uri.encodeURIComponent.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.uri.decodeURIComponent.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.uri.escape.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.uri.unescape.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.builtin.atob.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.builtin.btoa.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "src/models/kernel/rules/transfers/json_uri.rules.json"
+      }
+    ]
+  }
 }

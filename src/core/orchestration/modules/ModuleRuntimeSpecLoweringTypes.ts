@@ -1,4 +1,4 @@
-import type {
+﻿import type {
     ModuleAnchorSelector,
     ModuleBoundaryKind,
     ModuleBridgeEmitSpec,
@@ -7,9 +7,9 @@ import type {
     ModuleFieldPathSpec,
     ModuleInvokeSurfaceSelector,
     ModuleMethodSelector,
-    ModuleSpec as PublicModuleSpec,
+    ModuleRuntimeSpec as PublicModuleRuntimeSpec,
     ModuleTransferMode,
-} from "../../kernel/contracts/ModuleSpec";
+} from "../../kernel/contracts/ModuleRuntimeSpec";
 import type {
     DeferredBindingActivation,
     DeferredBindingCarrierKind,
@@ -17,7 +17,7 @@ import type {
     DeferredBindingContinuationRole,
 } from "../../kernel/model/DeferredBindingDeclaration";
 
-export interface MaterializedModuleSpec extends PublicModuleSpec {
+export interface MaterializedModuleRuntimeSpec extends PublicModuleRuntimeSpec {
     surfaces: ModuleSurface[];
     ports: ModulePort[];
     cells: ModuleCell[];

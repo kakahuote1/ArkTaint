@@ -1,43 +1,121 @@
 {
-    "schemaVersion": "2.0",
-    "meta": {
-        "name": "harmony-callback-registration",
-        "description": "Benchmark callback registration variants for build/helper/factory/cross-file patterns",
-        "updatedAt": "2026-03-15"
+  "id": "asset.rule.test.harmony_callback_registration",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
+    {
+      "surfaceId": "surface.source.harmony.callback_registration.onclick.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "onClick",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
-    "sources": [
-        {
-            "id": "source.harmony.callback_registration.onclick.arg0",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "onClick"
-            },
-            "scope": {
-                "methodName": {
-                    "mode": "equals",
-                    "value": "build"
-                }
-            },
-            "sourceKind": "callback_param",
-            "target": {
-                "endpoint": "arg0"
-            },
-            "callbackArgIndexes": [
-                0
-            ]
+    {
+      "surfaceId": "surface.sink.harmony.callback_registration.sink",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "Sink",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.source.harmony.callback_registration.onclick.arg0.0",
+      "surfaceId": "surface.source.harmony.callback_registration.onclick.arg0",
+      "assetId": "asset.rule.test.harmony_callback_registration",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "onClick",
+        "scope": {
+          "methodName": {
+            "mode": "equals",
+            "value": "build"
+          }
         }
-    ],
-    "sinks": [
-        {
-            "id": "sink.harmony.callback_registration.sink",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "Sink"
-            },
-            "target": {
-                "endpoint": "arg0"
-            }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
-    ],
-    "transfers": []
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.callback_registration.onclick.arg0"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.callback_registration.sink.0",
+      "surfaceId": "surface.sink.harmony.callback_registration.sink",
+      "assetId": "asset.rule.test.harmony_callback_registration",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Sink"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.callback_registration.sink"
+      ],
+      "semanticsFamily": "sink",
+      "completeness": "partial",
+      "confidence": "likely"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.source.harmony.callback_registration.onclick.arg0",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.sink.harmony.callback_registration.sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "tests/rules/harmony_callback_registration.rules.json"
+      }
+    ]
+  }
 }

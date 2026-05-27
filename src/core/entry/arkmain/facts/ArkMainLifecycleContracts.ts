@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import { loadArkMainCoreCapabilityPayload } from "../ArkMainAssetCatalog";
 import { ArkMainFactKind, ArkMainPhaseName } from "../ArkMainTypes";
 
 export interface ArkMainLifecycleContractMatch {
@@ -30,7 +31,6 @@ interface ArkMainDeclarationLifecycleCatalogEntry {
 }
 
 interface ArkMainLifecycleCatalogDocument {
-    schemaVersion: number;
     overrideContracts: ArkMainOverrideLifecycleCatalogEntry[];
     declarationContracts: ArkMainDeclarationLifecycleCatalogEntry[];
 }
@@ -150,8 +150,10 @@ function getLifecycleCatalog(): ArkMainLifecycleCatalogDocument {
     if (!fs.existsSync(catalogPath) || !fs.statSync(catalogPath).isFile()) {
         throw new Error(`arkmain lifecycle contract catalog not found: ${catalogPath}`);
     }
-    const parsed = JSON.parse(fs.readFileSync(catalogPath, "utf-8"));
-    cachedCatalog = validateLifecycleCatalog(parsed, catalogPath);
+    cachedCatalog = validateLifecycleCatalog(
+        loadArkMainCoreCapabilityPayload(catalogPath, "arkmain.lifecycle-contracts"),
+        catalogPath,
+    );
     return cachedCatalog;
 }
 
@@ -170,7 +172,6 @@ function resolveLifecycleCatalogPath(): string {
 
 function validateLifecycleCatalog(value: unknown, catalogPath: string): ArkMainLifecycleCatalogDocument {
     const doc = expectRecord(value, catalogPath);
-    const schemaVersion = expectPositiveInteger(doc.schemaVersion, `${catalogPath}.schemaVersion`);
     if (!Array.isArray(doc.overrideContracts)) {
         throw new Error(`${catalogPath}.overrideContracts must be an array`);
     }
@@ -178,7 +179,6 @@ function validateLifecycleCatalog(value: unknown, catalogPath: string): ArkMainL
         throw new Error(`${catalogPath}.declarationContracts must be an array`);
     }
     return {
-        schemaVersion,
         overrideContracts: doc.overrideContracts.map((item: unknown, index: number) =>
             validateOverrideContract(item, `${catalogPath}.overrideContracts[${index}]`),
         ),
@@ -285,11 +285,4 @@ function expectEnum<T extends string>(value: unknown, pathText: string, allowed:
         throw new Error(`${pathText} invalid: ${text}`);
     }
     return text as T;
-}
-
-function expectPositiveInteger(value: unknown, pathText: string): number {
-    if (!Number.isInteger(value) || (value as number) <= 0) {
-        throw new Error(`${pathText} must be a positive integer`);
-    }
-    return value as number;
 }

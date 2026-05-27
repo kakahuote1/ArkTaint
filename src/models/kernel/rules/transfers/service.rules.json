@@ -1,143 +1,473 @@
 {
-  "schemaVersion": "2.0",
-  "sources": [],
-  "sinks": [],
-  "sanitizers": [],
-  "transfers": [
+  "id": "asset.rule.kernel.transfers.service",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
     {
-      "id": "transfer.harmony.http.request.arg1_to_result",
-      "description": "Http.request(url, data): request payload may influence response result.",
-      "match": {
-        "kind": "method_name_equals",
-        "value": "request",
-        "invokeKind": "instance"
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "Http"
-        }
-      },
-      "from": "arg1",
-      "to": "result"
+      "surfaceId": "surface.transfer.harmony.http.request.arg1_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "Http",
+      "methodName": "request",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
     {
-      "id": "transfer.harmony.axios.get.arg0_to_result",
-      "description": "axios.get(url): url taints response result.",
-      "match": {
-        "kind": "method_name_equals",
+      "surfaceId": "surface.transfer.harmony.axios.get.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "axios",
+      "methodName": "get",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.axios.post.arg1_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "axios",
+      "methodName": "post",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.rdb.insert.arg1_to_base",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RdbStore.RelationalStore",
+      "methodName": "insert",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.rdb.query.base_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RdbStore.RelationalStore",
+      "methodName": "query",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.rdb.querySql.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RdbStore.RelationalStore",
+      "methodName": "querySql",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.request.download.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "request.Request.Download.DownloadTask.RequestAgent",
+      "methodName": "download",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.request.upload.arg1_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "request.Request.Upload.UploadTask.RequestAgent",
+      "methodName": "upload",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.transfer.harmony.http.request.arg1_to_result.0",
+      "surfaceId": "surface.transfer.harmony.http.request.arg1_to_result",
+      "assetId": "asset.rule.kernel.transfers.service",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "request",
+        "invokeKind": "instance",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "Http"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.harmony.http.request.arg1_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Http.request(url, data): request payload may influence response result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.harmony.axios.get.arg0_to_result.0",
+      "surfaceId": "surface.transfer.harmony.axios.get.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.service",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "get",
         "invokeKind": "instance",
         "argCount": 1,
-        "typeHint": "axios"
-      },
-      "scope": {
-        "module": {
-          "mode": "contains",
-          "value": "@ohos/axios"
+        "typeHint": "axios",
+        "scope": {
+          "module": {
+            "mode": "contains",
+            "value": "@ohos/axios"
+          }
         }
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.axios.get.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "axios.get(url): url taints response result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.axios.post.arg1_to_result",
-      "description": "axios.post(url, data): body taints response result.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.harmony.axios.post.arg1_to_result.0",
+      "surfaceId": "surface.transfer.harmony.axios.post.arg1_to_result",
+      "assetId": "asset.rule.kernel.transfers.service",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "post",
         "invokeKind": "instance",
         "argCount": 2,
-        "typeHint": "axios"
-      },
-      "scope": {
-        "module": {
-          "mode": "contains",
-          "value": "@ohos/axios"
+        "typeHint": "axios",
+        "scope": {
+          "module": {
+            "mode": "contains",
+            "value": "@ohos/axios"
+          }
         }
       },
-      "from": "arg1",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.axios.post.arg1_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "axios.post(url, data): body taints response result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.rdb.insert.arg1_to_base",
-      "description": "RdbStore.insert(table, row): row taints store base.",
-      "match": {
-        "kind": "method_name_equals",
-        "value": "insert"
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(RdbStore|RelationalStore)"
+      "bindingId": "binding.transfer.harmony.rdb.insert.arg1_to_base.0",
+      "surfaceId": "surface.transfer.harmony.rdb.insert.arg1_to_base",
+      "assetId": "asset.rule.kernel.transfers.service",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "insert",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(RdbStore|RelationalStore)"
+          }
         }
       },
-      "from": "arg1",
-      "to": "base"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.rdb.insert.arg1_to_base"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "RdbStore.insert(table, row): row taints store base."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.rdb.query.base_to_result",
-      "description": "RdbStore.query(sql): store base taints query result.",
-      "match": {
-        "kind": "method_name_equals",
-        "value": "query"
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(RdbStore|RelationalStore)"
+      "bindingId": "binding.transfer.harmony.rdb.query.base_to_result.0",
+      "surfaceId": "surface.transfer.harmony.rdb.query.base_to_result",
+      "assetId": "asset.rule.kernel.transfers.service",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "query",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(RdbStore|RelationalStore)"
+          }
         }
       },
-      "from": "base",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.rdb.query.base_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "RdbStore.query(sql): store base taints query result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.rdb.querySql.arg0_to_result",
-      "description": "querySql(sql): sql string taints query result.",
-      "match": {
-        "kind": "method_name_equals",
-        "value": "querySql"
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(RdbStore|RelationalStore)"
+      "bindingId": "binding.transfer.harmony.rdb.querySql.arg0_to_result.0",
+      "surfaceId": "surface.transfer.harmony.rdb.querySql.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.service",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "querySql",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(RdbStore|RelationalStore)"
+          }
         }
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.rdb.querySql.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "querySql(sql): sql string taints query result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.request.download.arg0_to_result",
-      "description": "@ohos.request download(url): url taints download result.",
-      "match": {
-        "kind": "method_name_equals",
-        "value": "download"
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(request|Request|Download|DownloadTask|RequestAgent)"
+      "bindingId": "binding.transfer.harmony.request.download.arg0_to_result.0",
+      "surfaceId": "surface.transfer.harmony.request.download.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.service",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "download",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(request|Request|Download|DownloadTask|RequestAgent)"
+          }
         }
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.request.download.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "@ohos.request download(url): url taints download result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.request.upload.arg1_to_result",
-      "description": "@ohos.request upload(url, body): body taints upload result.",
-      "match": {
-        "kind": "method_name_equals",
-        "value": "upload"
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(request|Request|Upload|UploadTask|RequestAgent)"
+      "bindingId": "binding.transfer.harmony.request.upload.arg1_to_result.0",
+      "surfaceId": "surface.transfer.harmony.request.upload.arg1_to_result",
+      "assetId": "asset.rule.kernel.transfers.service",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "upload",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(request|Request|Upload|UploadTask|RequestAgent)"
+          }
         }
       },
-      "from": "arg1",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.request.upload.arg1_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "@ohos.request upload(url, body): body taints upload result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     }
-  ]
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.transfer.harmony.http.request.arg1_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.axios.get.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.axios.post.arg1_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.rdb.insert.arg1_to_base",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.rdb.query.base_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.rdb.querySql.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.request.download.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.request.upload.arg1_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "src/models/kernel/rules/transfers/service.rules.json"
+      }
+    ]
+  }
 }

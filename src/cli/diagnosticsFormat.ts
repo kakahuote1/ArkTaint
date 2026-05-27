@@ -12,7 +12,7 @@ interface DiagnosticLocation {
 export interface NormalizedDiagnosticItem extends DiagnosticLocation, NormalizedAnalyzeDiagnosticItem {}
 
 export interface DiagnosticsJsonArtifact {
-    schemaVersion: "1.0";
+    format: "diagnostics";
     itemCount: number;
     items: NormalizedDiagnosticItem[];
     rawDiagnostics: AnalyzeErrorDiagnostics;
@@ -431,7 +431,7 @@ export function writeDiagnosticsArtifacts(
     const textPath = path.resolve(outputDir, "diagnostics.txt");
     const items = normalizeDiagnosticsItems(diagnostics);
     const payload: DiagnosticsJsonArtifact = {
-        schemaVersion: "1.0",
+        format: "diagnostics",
         itemCount: items.length,
         items,
         rawDiagnostics: diagnostics,

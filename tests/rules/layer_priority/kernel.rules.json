@@ -1,63 +1,277 @@
 {
-    "schemaVersion": "2.0",
-    "meta": {
-        "name": "layer-kernel",
-        "updatedAt": "2026-02-14"
+  "id": "asset.rule.test.layer_priority.kernel",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
+    {
+      "surfaceId": "surface.source.layer.same",
+      "kind": "access",
+      "modulePath": "@arktaint/local",
+      "ownerName": "LocalBinding",
+      "propertyName": "source.layer.same",
+      "accessKind": "read",
+      "receiverKind": "namespace",
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
-    "sources": [
-        {
-            "id": "source.layer.same",
-            "match": {
-                "kind": "local_name_regex",
-                "value": "default_src"
-            },
-            "sourceKind": "seed_local_name",
-            "target": "result"
-        },
-        {
-            "id": "source.layer.default_only",
-            "match": {
-                "kind": "local_name_regex",
-                "value": "default_only"
-            },
-            "sourceKind": "seed_local_name",
-            "target": "result"
+    {
+      "surfaceId": "surface.source.layer.default_only",
+      "kind": "access",
+      "modulePath": "@arktaint/local",
+      "ownerName": "LocalBinding",
+      "propertyName": "source.layer.default_only",
+      "accessKind": "read",
+      "receiverKind": "namespace",
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.layer.same",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "default_sink",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.layer.default_only",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "default_sink_only",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.layer.same",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "transferSame",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.layer.default_only",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "transferDefaultOnly",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.source.layer.same.0",
+      "surfaceId": "surface.source.layer.same",
+      "assetId": "asset.rule.test.layer_priority.kernel",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "local-name-regex",
+        "value": "default_src"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
-    ],
-    "sinks": [
-        {
-            "id": "sink.layer.same",
-            "match": {
-                "kind": "signature_contains",
-                "value": "default_sink"
-            }
-        },
-        {
-            "id": "sink.layer.default_only",
-            "match": {
-                "kind": "signature_contains",
-                "value": "default_sink_only"
-            }
+      },
+      "effectTemplateRefs": [
+        "template.source.layer.same"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.layer.default_only.0",
+      "surfaceId": "surface.source.layer.default_only",
+      "assetId": "asset.rule.test.layer_priority.kernel",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "local-name-regex",
+        "value": "default_only"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
-    ],
-    "transfers": [
-        {
-            "id": "transfer.layer.same",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "transferSame"
-            },
-            "from": "arg0",
-            "to": "base"
-        },
-        {
-            "id": "transfer.layer.default_only",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "transferDefaultOnly"
-            },
-            "from": "arg0",
-            "to": "result"
+      },
+      "effectTemplateRefs": [
+        "template.source.layer.default_only"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.layer.same.0",
+      "surfaceId": "surface.sink.layer.same",
+      "assetId": "asset.rule.test.layer_priority.kernel",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "signature-contains",
+        "value": "default_sink"
+      },
+      "effectTemplateRefs": [
+        "template.sink.layer.same"
+      ],
+      "semanticsFamily": "sink",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.layer.default_only.0",
+      "surfaceId": "surface.sink.layer.default_only",
+      "assetId": "asset.rule.test.layer_priority.kernel",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "signature-contains",
+        "value": "default_sink_only"
+      },
+      "effectTemplateRefs": [
+        "template.sink.layer.default_only"
+      ],
+      "semanticsFamily": "sink",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.layer.same.0",
+      "surfaceId": "surface.transfer.layer.same",
+      "assetId": "asset.rule.test.layer_priority.kernel",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "transferSame"
+      },
+      "effectTemplateRefs": [
+        "template.transfer.layer.same"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.layer.default_only.0",
+      "surfaceId": "surface.transfer.layer.default_only",
+      "assetId": "asset.rule.test.layer_priority.kernel",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "transferDefaultOnly"
+      },
+      "effectTemplateRefs": [
+        "template.transfer.layer.default_only"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "partial",
+      "confidence": "likely"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.source.layer.same",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
         }
+      },
+      "sourceKind": "seed_local_name"
+    },
+    {
+      "id": "template.source.layer.default_only",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "seed_local_name"
+    },
+    {
+      "id": "template.sink.layer.same",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "sinkKind": "sink"
+    },
+    {
+      "id": "template.sink.layer.default_only",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "sinkKind": "sink"
+    },
+    {
+      "id": "template.transfer.layer.same",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.layer.default_only",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "tests/rules/layer_priority/kernel.rules.json"
+      }
     ]
+  }
 }

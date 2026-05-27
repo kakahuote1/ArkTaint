@@ -1,20 +1,8 @@
-import type {
-    ArkMainFactKind,
-    ArkMainOwnerKind,
-    ArkMainPhaseName,
-} from "../entry/arkmain/ArkMainTypes";
-import type { ArkMainSpec, ArkMainSelector } from "../entry/arkmain/ArkMainSpec";
-import type {
-    ModuleConstraint,
-    ModuleDispatchPreset,
-    ModuleFieldPathSpec,
-    ModuleSemanticSurfaceRef,
-    ModuleSpec,
-} from "../kernel/contracts/ModuleSpec";
+﻿import type { AssetDocumentBase, AssetPlane } from "../assets/schema";
+import type { ModuleRuntimeSpec } from "../kernel/contracts/ModuleRuntimeSpec";
 import type {
     SanitizerRule,
     SinkRule,
-    SourceRuleKind,
     SourceRule,
     TaintRuleSet,
     TransferRule,
@@ -27,8 +15,6 @@ export type SemanticFlowSliceTemplate =
     | "multi-surface"
     | "declarative-binding";
 
-export type SemanticFlowArtifactClass = "arkmain" | "rule" | "module";
-
 export type SemanticFlowResolution =
     | "resolved"
     | "irrelevant"
@@ -38,15 +24,22 @@ export type SemanticFlowResolution =
     | "rejected"
     | "unresolved";
 
-export type SemanticFlowConfidence = "low" | "medium" | "high";
-
 export type SemanticFlowRequestKind =
-    | "q_ret"
-    | "q_recv"
-    | "q_cb"
-    | "q_comp"
-    | "q_meta"
-    | "q_wrap";
+    | "q_surface"
+    | "q_role"
+    | "q_endpoint"
+    | "q_effect"
+    | "q_relation"
+    | "q_evidence";
+
+export interface SemanticFlowArkMainSelector {
+    methodName: string;
+    parameterTypes: string[];
+    returnType?: string;
+    className?: string;
+    superClassName?: string;
+    requireOverride?: boolean;
+}
 
 export type SemanticFlowDraftId = string;
 export type SemanticFlowDeficitId = string;
@@ -57,6 +50,8 @@ export type SemanticFlowBudgetClass =
     | "body_local"
     | "owner_local"
     | "import_local";
+
+export type SemanticFlowAssetDraft = Partial<AssetDocumentBase>;
 
 export interface SemanticFlowAnchor {
     id: string;
@@ -72,7 +67,7 @@ export interface SemanticFlowAnchor {
     callbackArgIndexes?: number[];
     typeHint?: string;
     metaTags?: string[];
-    arkMainSelector?: ArkMainSelector;
+    arkMainSelector?: SemanticFlowArkMainSelector;
 }
 
 export interface SemanticFlowSliceCodeSnippet {
@@ -90,33 +85,30 @@ export interface SemanticFlowSlicePackage {
     notes?: string[];
 }
 
-export interface SemanticFlowDeficitFocus {
-    from?: SemanticFlowSurfaceSlotRef;
-    to?: SemanticFlowSurfaceSlotRef;
-    companion?: string;
-    carrierHint?: string;
-    triggerHint?: string;
-}
-
-export interface SemanticFlowDeficitScope {
-    owner?: string;
-    importSource?: string;
-    locality?: "method" | "owner" | "import" | "file";
-    sharedSymbols?: string[];
-    surface?: string;
-}
-
 export interface SemanticFlowExpansionRequest {
     kind: SemanticFlowRequestKind;
-    focus: SemanticFlowDeficitFocus;
-    scope: SemanticFlowDeficitScope;
-    budgetClass?: SemanticFlowBudgetClass;
     why: string[];
     ask: string;
+    focus?: {
+        surfaceId?: string;
+        role?: string;
+        endpoint?: string;
+        relation?: string;
+    };
+    scope?: {
+        owner?: string;
+        importSource?: string;
+        locality?: "method" | "owner" | "import" | "file";
+        sharedSymbols?: string[];
+        surface?: string;
+    };
+    budgetClass?: SemanticFlowBudgetClass;
 }
 
 export interface SemanticFlowDeficit extends SemanticFlowExpansionRequest {
     id: SemanticFlowDeficitId;
+    scope: NonNullable<SemanticFlowExpansionRequest["scope"]>;
+    budgetClass: SemanticFlowBudgetClass;
 }
 
 export interface SemanticFlowExpandPlan {
@@ -128,75 +120,6 @@ export interface SemanticFlowExpandPlan {
     edges: string[];
     budgetClass: SemanticFlowBudgetClass;
     stopCondition: string;
-}
-
-export interface SemanticFlowSurfaceSlotRef {
-    surface?: ModuleSemanticSurfaceRef | string;
-    slot:
-        | "arg"
-        | "base"
-        | "result"
-        | "callback_param"
-        | "method_this"
-        | "method_param"
-        | "field_load"
-        | "decorated_field_value";
-    index?: number;
-    callbackArgIndex?: number;
-    paramIndex?: number;
-    fieldName?: string;
-    fieldPath?: ModuleFieldPathSpec;
-}
-
-export interface SemanticFlowTransfer {
-    from: SemanticFlowSurfaceSlotRef;
-    to: SemanticFlowSurfaceSlotRef;
-    relation?: "direct" | "companion" | "state" | "deferred" | "binding";
-    companionSurface?: string;
-}
-
-export interface SemanticFlowDispatchHint {
-    preset: ModuleDispatchPreset;
-    via?: SemanticFlowSurfaceSlotRef;
-    reason?: string;
-}
-
-export interface SemanticFlowEntryPattern {
-    phase: ArkMainPhaseName;
-    kind: Extract<ArkMainFactKind,
-        "ability_lifecycle" | "stage_lifecycle" | "extension_lifecycle" | "page_build" | "page_lifecycle" | "callback"
-    >;
-    ownerKind?: ArkMainOwnerKind;
-    schedule?: boolean;
-    reason?: string;
-    entryFamily?: string;
-    entryShape?: string;
-}
-
-export interface SemanticFlowRelations {
-    companions?: string[];
-    carrier?: {
-        kind: "state" | "pair" | "bridge" | "deferred" | "declarative" | string;
-        label?: string;
-    };
-    trigger?: SemanticFlowDispatchHint;
-    constraints?: ModuleConstraint[];
-    entryPattern?: SemanticFlowEntryPattern;
-}
-
-export type SemanticFlowRuleKind = "source" | "sink" | "sanitizer" | "transfer";
-export type SemanticFlowModuleKind = "state" | "pair" | "bridge" | "deferred" | "declarative";
-
-export interface SemanticFlowSummary {
-    inputs: SemanticFlowSurfaceSlotRef[];
-    outputs: SemanticFlowSurfaceSlotRef[];
-    transfers: SemanticFlowTransfer[];
-    relations?: SemanticFlowRelations;
-    confidence: SemanticFlowConfidence;
-    ruleKind?: SemanticFlowRuleKind;
-    sourceKind?: SourceRuleKind;
-    moduleKind?: SemanticFlowModuleKind;
-    moduleSpec?: ModuleSpec;
 }
 
 export interface SemanticFlowDelta {
@@ -212,22 +135,20 @@ export interface SemanticFlowMarker {
     deficitId: SemanticFlowDeficitId;
     deltaId: SemanticFlowDeltaId;
     kind: SemanticFlowRequestKind;
-    focus: SemanticFlowDeficitFocus;
-    scope: SemanticFlowDeficitScope;
+    focus?: SemanticFlowExpansionRequest["focus"];
+    scope: SemanticFlowDeficit["scope"];
     budgetClass: SemanticFlowBudgetClass;
 }
 
 export interface SemanticFlowDoneDecision {
     status: "done";
-    summary: SemanticFlowSummary;
-    resolution: Exclude<SemanticFlowResolution, "rejected" | "unresolved">;
-    classification?: SemanticFlowArtifactClass;
+    asset: AssetDocumentBase;
     rationale?: string[];
 }
 
 export interface SemanticFlowNeedMoreEvidenceDecision {
     status: "need-more-evidence";
-    draft: SemanticFlowSummary;
+    draft?: SemanticFlowAssetDraft;
     request: SemanticFlowExpansionRequest;
 }
 
@@ -245,7 +166,7 @@ export interface SemanticFlowRoundRecord {
     round: number;
     draftId: SemanticFlowDraftId;
     slice: SemanticFlowSlicePackage;
-    draft?: SemanticFlowSummary;
+    draft?: SemanticFlowAssetDraft;
     deficit?: SemanticFlowDeficit;
     plan?: SemanticFlowExpandPlan;
     delta?: SemanticFlowDelta;
@@ -254,36 +175,20 @@ export interface SemanticFlowRoundRecord {
     error?: string;
 }
 
-export interface SemanticFlowArkMainArtifact {
-    kind: "arkmain";
-    spec: ArkMainSpec;
+export interface SemanticFlowArtifact {
+    kind: "asset";
+    asset: AssetDocumentBase;
 }
-
-export interface SemanticFlowRuleArtifact {
-    kind: "rule";
-    ruleSet: TaintRuleSet;
-}
-
-export interface SemanticFlowModuleArtifact {
-    kind: "module";
-    moduleSpec: ModuleSpec;
-}
-
-export type SemanticFlowArtifact =
-    | SemanticFlowArkMainArtifact
-    | SemanticFlowRuleArtifact
-    | SemanticFlowModuleArtifact;
 
 export interface SemanticFlowItemResult {
     anchor: SemanticFlowAnchor;
     draftId: SemanticFlowDraftId;
-    classification?: SemanticFlowArtifactClass;
+    plane?: AssetPlane;
     resolution: SemanticFlowResolution;
-    summary?: SemanticFlowSummary;
-    draft?: SemanticFlowSummary;
+    asset?: AssetDocumentBase;
+    draft?: SemanticFlowAssetDraft;
     lastMarker?: SemanticFlowMarker;
     lastDelta?: SemanticFlowDelta;
-    artifact?: SemanticFlowArtifact;
     finalSlice: SemanticFlowSlicePackage;
     history: SemanticFlowRoundRecord[];
     error?: string;
@@ -294,9 +199,9 @@ export interface SemanticFlowRunResult {
 }
 
 export interface SemanticFlowAnalysisAugment {
+    assets: AssetDocumentBase[];
     ruleSet: TaintRuleSet;
-    moduleSpecs: ModuleSpec[];
-    arkMainSpecs: ArkMainSpec[];
+    moduleRuntimeSpecs: ModuleRuntimeSpec[];
 }
 
 export interface SemanticFlowEngineAugment {
@@ -304,8 +209,7 @@ export interface SemanticFlowEngineAugment {
     sinkRules: SinkRule[];
     sanitizerRules: SanitizerRule[];
     transferRules: TaintRuleSet["transfers"];
-    moduleSpecs: ModuleSpec[];
-    arkMainSpecs: ArkMainSpec[];
+    moduleRuntimeSpecs: ModuleRuntimeSpec[];
 }
 
 export interface SemanticFlowSessionResult {
@@ -318,7 +222,7 @@ export interface SemanticFlowDecisionInput {
     anchor: SemanticFlowAnchor;
     draftId: SemanticFlowDraftId;
     slice: SemanticFlowSlicePackage;
-    draft?: SemanticFlowSummary;
+    draft?: SemanticFlowAssetDraft;
     lastMarker?: SemanticFlowMarker;
     lastDelta?: SemanticFlowDelta;
     round: number;
@@ -333,7 +237,7 @@ export interface SemanticFlowExpandInput {
     anchor: SemanticFlowAnchor;
     draftId: SemanticFlowDraftId;
     slice: SemanticFlowSlicePackage;
-    draft?: SemanticFlowSummary;
+    draft?: SemanticFlowAssetDraft;
     round: number;
     deficit: SemanticFlowDeficit;
     plan: SemanticFlowExpandPlan;
@@ -350,4 +254,3 @@ export interface SemanticFlowExpandResult {
 export interface SemanticFlowExpander {
     expand(input: SemanticFlowExpandInput): Promise<SemanticFlowExpandResult>;
 }
-

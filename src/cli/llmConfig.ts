@@ -21,7 +21,6 @@ export interface LlmProfileConfig {
 }
 
 export interface LlmConfigFile {
-    schemaVersion: 1;
     activeProfile: string;
     profiles: Record<string, LlmProfileConfig>;
 }
@@ -182,7 +181,6 @@ export function readLlmConfigFile(configPath?: string): LlmConfigFile | undefine
     }
     const activeProfile = firstNonEmpty(parsed.activeProfile) || firstNonEmpty(...Object.keys(profiles)) || "default";
     return {
-        schemaVersion: 1,
         activeProfile,
         profiles,
     };
@@ -191,7 +189,6 @@ export function readLlmConfigFile(configPath?: string): LlmConfigFile | undefine
 export function writeLlmConfigFile(config: LlmConfigFile, configPath?: string): string {
     const resolvedPath = resolveLlmConfigPath(configPath);
     const payload: LlmConfigFile = {
-        schemaVersion: 1,
         activeProfile: firstNonEmpty(config.activeProfile) || "default",
         profiles: {},
     };
@@ -289,7 +286,6 @@ export function sanitizeLlmConfigForDisplay(config: LlmConfigFile): Record<strin
         };
     }
     return {
-        schemaVersion: config.schemaVersion,
         activeProfile: config.activeProfile,
         profiles,
     };

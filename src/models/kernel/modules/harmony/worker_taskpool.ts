@@ -1,12 +1,18 @@
-import type { ModuleSpec } from "../../../../core/kernel/contracts/ModuleSpec";
+import { createBuiltinModuleAsset, moduleInvokeSurface } from "../../moduleAssetHelpers";
 
-const harmonyWorkerTaskPoolModuleSpec: ModuleSpec = {
+const harmonyWorkerTaskPoolModuleAsset = createBuiltinModuleAsset({
     id: "harmony.worker_taskpool",
     description: "Built-in Harmony Worker/TaskPool forward bridges.",
-    semantics: [
-        {
-            id: "worker_message_channel",
-            kind: "bridge",
+    semanticsFamily: "harmony-worker-taskpool",
+    role: "handoff",
+    capability: "module.bridge",
+    surfaces: [
+        moduleInvokeSurface("harmony.worker_taskpool.Worker.postMessage", "Worker", "postMessage", 1, "instance", "@ohos.worker"),
+        moduleInvokeSurface("harmony.worker_taskpool.Worker.onMessage", "Worker", "onMessage", 1, "instance", "@ohos.worker"),
+        moduleInvokeSurface("harmony.worker_taskpool.taskpool.execute", "taskpool", "execute", 2, "namespace", "@ohos.taskpool"),
+    ],
+    payload: {
+        bridge: {
             from: {
                 surface: {
                     kind: "invoke",
@@ -32,11 +38,7 @@ const harmonyWorkerTaskPoolModuleSpec: ModuleSpec = {
                 callbackArgIndex: 0,
                 paramIndex: 0,
             },
-            constraints: [
-                {
-                    kind: "same_receiver",
-                },
-            ],
+            constraints: [{ kind: "same_receiver" }],
             emit: {
                 reason: "Harmony-WorkerTaskPool",
                 allowUnreachableTarget: true,
@@ -46,9 +48,20 @@ const harmonyWorkerTaskPoolModuleSpec: ModuleSpec = {
                 preset: "callback_event",
             },
         },
-        {
-            id: "taskpool_execute_payload",
-            kind: "bridge",
+    },
+});
+
+const harmonyTaskPoolExecuteModuleAsset = createBuiltinModuleAsset({
+    id: "harmony.taskpool_execute",
+    description: "Built-in Harmony TaskPool execute payload bridge.",
+    semanticsFamily: "harmony-worker-taskpool",
+    role: "handoff",
+    capability: "module.bridge",
+    surfaces: [
+        moduleInvokeSurface("harmony.taskpool_execute.taskpool.execute", "taskpool", "execute", 2, "namespace", "@ohos.taskpool"),
+    ],
+    payload: {
+        bridge: {
             from: {
                 surface: {
                     kind: "invoke",
@@ -83,8 +96,10 @@ const harmonyWorkerTaskPoolModuleSpec: ModuleSpec = {
                 preset: "callback_sync",
             },
         },
-    ],
-};
+    },
+});
 
-export default harmonyWorkerTaskPoolModuleSpec;
-
+export default [
+    harmonyWorkerTaskPoolModuleAsset,
+    harmonyTaskPoolExecuteModuleAsset,
+];

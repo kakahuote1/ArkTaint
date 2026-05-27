@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import type { ModuleSpecDocument } from "../../core/kernel/contracts/ModuleSpec";
+import type { AssetDocumentBase } from "../../core/assets/schema";
 import type { NormalizedCallsiteItem } from "../../core/model/callsite/callsiteContextSlices";
 import { filterKnownSemanticFlowRuleCandidates } from "../../cli/semanticflowKnownRuleCandidates";
 
@@ -20,23 +20,93 @@ function makeCandidate(signature: string, method: string, argCount: number): Nor
     };
 }
 
-function writeProjectModuleSpec(modelRoot: string): void {
+function writeProjectModuleAsset(modelRoot: string): void {
     const modulesDir = path.join(modelRoot, "project", "shared_demo", "modules");
     fs.mkdirSync(modulesDir, { recursive: true });
-    const doc: ModuleSpecDocument = {
-        modules: [
+    const doc: AssetDocumentBase = {
+        id: "shared_demo.vault",
+        plane: "module",
+        status: "reviewed",
+        surfaces: [
             {
-                id: "shared_demo.vault",
-                semantics: [
-                    {
-                        kind: "keyed_storage",
-                        storageClasses: ["Vault"],
-                        writeMethods: [{ methodName: "put", valueIndex: 1 }],
-                        readMethods: ["get"],
-                    },
-                ],
+                surfaceId: "surface.shared_demo.vault.get",
+                kind: "invoke",
+                modulePath: "project/demo",
+                ownerName: "Vault",
+                methodName: "get",
+                invokeKind: "instance",
+                argCount: 1,
+                confidence: "certain",
+                provenance: { source: "manual" },
+            },
+            {
+                surfaceId: "surface.shared_demo.vault.put",
+                kind: "invoke",
+                modulePath: "project/demo",
+                ownerName: "Vault",
+                methodName: "put",
+                invokeKind: "instance",
+                argCount: 2,
+                confidence: "certain",
+                provenance: { source: "manual" },
             },
         ],
+        bindings: [
+            {
+                bindingId: "binding.shared_demo.vault.get",
+                surfaceId: "surface.shared_demo.vault.get",
+                assetId: "shared_demo.vault",
+                plane: "module",
+                role: "handoff",
+                effectTemplateRefs: ["template.shared_demo.vault.get"],
+                semanticsFamily: "project-keyed-storage",
+                completeness: "complete",
+                confidence: "certain",
+            },
+            {
+                bindingId: "binding.shared_demo.vault.put",
+                surfaceId: "surface.shared_demo.vault.put",
+                assetId: "shared_demo.vault",
+                plane: "module",
+                role: "handoff",
+                effectTemplateRefs: ["template.shared_demo.vault.put"],
+                semanticsFamily: "project-keyed-storage",
+                completeness: "complete",
+                confidence: "certain",
+            },
+        ],
+        effectTemplates: [
+            {
+                id: "template.shared_demo.vault.get",
+                kind: "handoff.get",
+                handle: {
+                    family: "wrapper",
+                    key: [{ kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 0 } } }],
+                    owner: [{ kind: "const", value: "Vault" }],
+                    precision: "infer",
+                },
+                target: { base: { kind: "return" } },
+                confidence: "certain",
+            },
+            {
+                id: "template.shared_demo.vault.put",
+                kind: "handoff.put",
+                handle: {
+                    family: "wrapper",
+                    key: [{ kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 0 } } }],
+                    owner: [{ kind: "const", value: "Vault" }],
+                    precision: "infer",
+                },
+                value: { base: { kind: "arg", index: 1 } },
+                updateStrength: "infer",
+                confidence: "certain",
+            },
+        ],
+        provenance: {
+            source: "project",
+            projectId: "shared_demo",
+            evidenceLocations: [{ file: "Vault.ets" }],
+        },
     };
     fs.writeFileSync(path.join(modulesDir, "semanticflow.modules.json"), JSON.stringify(doc, null, 2), "utf8");
 }
@@ -46,19 +116,23 @@ function main(): void {
     const modelRoot = path.join(root, "models");
     fs.rmSync(root, { recursive: true, force: true });
     fs.mkdirSync(root, { recursive: true });
-    writeProjectModuleSpec(modelRoot);
+    writeProjectModuleAsset(modelRoot);
 
-    const builtinCandidates = [
+    const assetBackedCandidates = [
         makeCandidate("@ohos/storage: LocalStorage.get(string)", "get", 1),
         makeCandidate("@%unk/%unk: .setUIContent()", "setUIContent", 3),
         makeCandidate("@collections: Map.set(string,string)", "set", 2),
         makeCandidate("@ohos/preferences: Preferences.get(string)", "get", 1),
         makeCandidate("@project/demo: Vault.get(string)", "get", 1),
     ];
-    const builtinFiltered = filterKnownSemanticFlowRuleCandidates(builtinCandidates);
-    assert(builtinFiltered.skippedKnown.length === 4, `expected four builtin known candidates, got ${builtinFiltered.skippedKnown.length}`);
-    assert(builtinFiltered.candidates.length === 1, `expected one candidate after builtin filtering, got ${builtinFiltered.candidates.length}`);
-    assert(builtinFiltered.candidates[0].method === "get" && builtinFiltered.candidates[0].callee_signature.includes("Vault.get"), "builtin filter should keep unknown Vault.get");
+    const assetFiltered = filterKnownSemanticFlowRuleCandidates(assetBackedCandidates);
+    const skippedSignatures = assetFiltered.skippedKnown.map(item => item.callee_signature);
+    const keptSignatures = assetFiltered.candidates.map(item => item.callee_signature);
+    assert(skippedSignatures.some(item => item.includes("Map.set")), "asset-backed filter should skip Map.set through the transfer rules");
+    assert(skippedSignatures.some(item => item.includes("Preferences.get")), "asset-backed filter should skip Preferences.get through the source rules");
+    assert(keptSignatures.some(item => item.includes("LocalStorage.get")), "filter must not skip LocalStorage.get without an exact declared v2 asset identity");
+    assert(keptSignatures.some(item => item.includes(".setUIContent")), "filter must not skip setUIContent by name/context heuristic alone");
+    assert(keptSignatures.some(item => item.includes("Vault.get")), "filter must keep unknown project Vault.get without an enabled project model");
 
     const contextFiltered = filterKnownSemanticFlowRuleCandidates([{
         ...makeCandidate("@%unk/%unk: .SetOrCreate()", "SetOrCreate", 2),
@@ -70,12 +144,18 @@ function main(): void {
             cfgNeighborStmts: [],
         }],
     } as any]);
-    assert(contextFiltered.skippedKnown.length === 1, `expected context AppStorage call to be known, got ${contextFiltered.skippedKnown.length}`);
-    assert(contextFiltered.candidates.length === 0, `expected context AppStorage call to be filtered, got ${contextFiltered.candidates.length}`);
+    assert(contextFiltered.skippedKnown.length === 0, `expected context-only AppStorage evidence not to be a strong known-coverage filter, got ${contextFiltered.skippedKnown.length}`);
+    assert(contextFiltered.candidates.length === 1, `expected context-only AppStorage call to remain for modeling/facade evidence, got ${contextFiltered.candidates.length}`);
 
     const officialLoggingFiltered = filterKnownSemanticFlowRuleCandidates([{
         ...makeCandidate("@ohos/hilog: hilog.info(number, string, string, string)", "info", 4),
     } as any, {
+        ...makeCandidate("@ohos/console: console.log(any)", "log", 1),
+    } as any]);
+    assert(officialLoggingFiltered.skippedKnown.length === 2, `expected direct official logging signatures to be known through sink rules, got ${officialLoggingFiltered.skippedKnown.length}`);
+    assert(officialLoggingFiltered.candidates.length === 0, `expected direct official logging calls to be filtered, got ${officialLoggingFiltered.candidates.length}`);
+
+    const unresolvedConsoleContextFiltered = filterKnownSemanticFlowRuleCandidates([{
         ...makeCandidate("@%unk/%unk: .log()", "log", 1),
         contextSlices: [{
             callerFile: "demo.ets",
@@ -85,8 +165,15 @@ function main(): void {
             cfgNeighborStmts: [],
         }],
     } as any]);
-    assert(officialLoggingFiltered.skippedKnown.length === 2, `expected direct official logging calls to be known, got ${officialLoggingFiltered.skippedKnown.length}`);
-    assert(officialLoggingFiltered.candidates.length === 0, `expected direct official logging calls to be filtered, got ${officialLoggingFiltered.candidates.length}`);
+    assert(unresolvedConsoleContextFiltered.skippedKnown.length === 0, `expected unresolved context-only console.log not to be a strong known filter, got ${unresolvedConsoleContextFiltered.skippedKnown.length}`);
+    assert(unresolvedConsoleContextFiltered.candidates.length === 1, `expected unresolved context-only console.log to remain as a candidate, got ${unresolvedConsoleContextFiltered.candidates.length}`);
+
+    const officialArkMainFiltered = filterKnownSemanticFlowRuleCandidates([{
+        ...makeCandidate("@demo.ets: DemoAbility.onCreate(Unknown)", "onCreate", 1),
+        topEntries: ["origin=recall_api_surface", "candidateBoundary=official_arkmain_entry_evidence"],
+    } as any]);
+    assert(officialArkMainFiltered.skippedKnown.length === 1, `expected official ArkMain entry evidence to be skipped before LLM, got ${officialArkMainFiltered.skippedKnown.length}`);
+    assert(officialArkMainFiltered.candidates.length === 0, `expected no official ArkMain entry candidate to reach LLM, got ${officialArkMainFiltered.candidates.length}`);
 
     const projectLoggingFiltered = filterKnownSemanticFlowRuleCandidates([{
         ...makeCandidate("@%unk/%unk: .showInfo()", "showInfo", 2),
@@ -104,6 +191,16 @@ function main(): void {
     assert(projectLoggingFiltered.skippedKnown.length === 0, `expected project logging wrappers to remain candidates, got ${projectLoggingFiltered.skippedKnown.length}`);
     assert(projectLoggingFiltered.candidates.length === 2, `expected two project logging wrappers to be kept, got ${projectLoggingFiltered.candidates.length}`);
 
+    const projectEventBusFiltered = filterKnownSemanticFlowRuleCandidates([{
+        ...makeCandidate("@project/neo/src/main/ets/infra/event/EventBus.ets: EventBus.emit(string, object)", "emit", 2),
+        sourceFile: "neo/src/main/ets/infra/event/EventBus.ets",
+    } as any, {
+        ...makeCandidate("@project/neo/src/main/ets/infra/event/EventBus.ets: EventBus.on(string, Function)", "on", 2),
+        sourceFile: "neo/src/main/ets/infra/event/EventBus.ets",
+    } as any]);
+    assert(projectEventBusFiltered.skippedKnown.length === 0, `expected project EventBus.emit/on to remain candidates, got ${projectEventBusFiltered.skippedKnown.length}`);
+    assert(projectEventBusFiltered.candidates.length === 2, `expected project EventBus.emit/on candidates to be preserved, got ${projectEventBusFiltered.candidates.length}`);
+
     const projectFiltered = filterKnownSemanticFlowRuleCandidates(
         [makeCandidate("@project/demo: Vault.get(string)", "get", 1)],
         {
@@ -113,6 +210,19 @@ function main(): void {
     );
     assert(projectFiltered.skippedKnown.length === 1, `expected enabled project model to cover Vault.get, got ${projectFiltered.skippedKnown.length}`);
     assert(projectFiltered.candidates.length === 0, `expected no remaining candidates after project model filter, got ${projectFiltered.candidates.length}`);
+
+    const enabledEventModelFiltered = filterKnownSemanticFlowRuleCandidates(
+        [
+            makeCandidate("@project/other: OtherBus.emit(string, object)", "emit", 2),
+            makeCandidate("@project/other: OtherBus.on(string, Function)", "on", 2),
+        ],
+        {
+            modelRoots: [modelRoot],
+            enabledModels: ["shared_demo"],
+        },
+    );
+    assert(enabledEventModelFiltered.skippedKnown.length === 0, `enabled event_emitter model without explicit coverage surfaces must not filter unrelated on/emit names, got ${enabledEventModelFiltered.skippedKnown.length}`);
+    assert(enabledEventModelFiltered.candidates.length === 2, `expected unrelated project on/emit to remain for LLM, got ${enabledEventModelFiltered.candidates.length}`);
 
     console.log("PASS test_semanticflow_known_rule_candidates");
 }

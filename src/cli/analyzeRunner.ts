@@ -452,7 +452,6 @@ async function analyzeSourceDir(
             transferRules: loadedRules.ruleSet.transfers || [],
             executionHandoff: options.executionHandoff,
             moduleRoots: options.modelRoots,
-            moduleSpecFiles: options.moduleSpecFiles,
             enabledModuleProjects: resolvedSelections.enabledModuleProjects,
             disabledModuleProjects: resolvedSelections.disabledModuleProjects,
             disabledModuleIds: options.disabledModuleIds,
@@ -794,7 +793,6 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     const arkMainWarningSet = new Set<string>();
     const moduleResult = loadModules({
         moduleRoots: options.modelRoots || [],
-        moduleSpecFiles: options.moduleSpecFiles || [],
         enabledModuleProjects: resolvedSelections.enabledModuleProjects,
         disabledModuleProjects: resolvedSelections.disabledModuleProjects,
         disabledModuleIds: options.disabledModuleIds || [],
@@ -831,11 +829,9 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         moduleFiles: buildLoadedFileFingerprint(moduleResult.loadedFiles),
         enginePluginFiles: buildLoadedFileFingerprint(enginePluginResult.loadedFiles),
         modelRoots: (options.modelRoots || []).map(item => path.resolve(item)).sort(),
-        moduleSpecFiles: (options.moduleSpecFiles || []).map(item => path.resolve(item)).sort(),
         enabledModuleProjects: [...resolvedSelections.enabledModuleProjects].sort(),
         disabledModuleProjects: [...resolvedSelections.disabledModuleProjects].sort(),
         disabledModuleIds: [...(options.disabledModuleIds || [])].sort(),
-        arkMainSpecFiles: (options.arkMainSpecFiles || []).map(item => path.resolve(item)).sort(),
         enabledArkMainProjects: [...resolvedSelections.enabledArkMainProjects].sort(),
         disabledArkMainProjects: [...resolvedSelections.disabledArkMainProjects].sort(),
         enabledModels: [...(options.enabledModels || [])].sort(),
@@ -897,7 +893,6 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
                 traceAnalyzeBuild(`[analyze] sourceDir=${sourceDir} arkmain_load start`);
                 arkMainLoad = loadArkMainSeeds(scene, {
                     arkMainRoots: options.modelRoots,
-                    arkMainSpecFiles: options.arkMainSpecFiles,
                     enabledArkMainProjects: resolvedSelections.enabledArkMainProjects,
                     disabledArkMainProjects: resolvedSelections.disabledArkMainProjects,
                 });

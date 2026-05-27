@@ -9,6 +9,18 @@ function assert(condition: unknown, message: string): asserts condition {
     }
 }
 
+function emptyRuleAsset(id: string, status = "deprecated"): string {
+    return JSON.stringify({
+        id,
+        plane: "rule",
+        status,
+        surfaces: [],
+        bindings: [],
+        effectTemplates: [],
+        provenance: { source: "manual" },
+    }, null, 2);
+}
+
 function main(): void {
     const fixtureDir = path.resolve("tmp/test_runs/diagnostics/rule_loader_diagnostics/latest");
     fs.rmSync(fixtureDir, { recursive: true, force: true });
@@ -17,7 +29,7 @@ function main(): void {
     const brokenJsonPath = path.join(fixtureDir, "broken_json.rules.json");
     fs.writeFileSync(
         brokenJsonPath,
-        "{\n  \"schemaVersion\": \"2.0\",\n  \"sources\": [\n",
+        "{\n  \"id\": \"asset.rule.bad\",\n  \"plane\": \"rule\",\n",
         "utf-8",
     );
     let brokenJsonError: RuleLoadError | undefined;
@@ -49,28 +61,45 @@ function main(): void {
     assert(diagnosticsText.includes("ArkTaint diagnostics"), "text diagnostics should include header");
     assert(diagnosticsText.includes("RULE_JSON_PARSE"), "text diagnostics should include a stable error code");
     assert(diagnosticsText.includes(path.resolve(brokenJsonPath)), "text diagnostics should include source location");
-    assert(diagnosticsText.includes("Unexpected end of JSON input"), "text diagnostics should include the parse message");
+    assert(diagnosticsText.includes("Expected double-quoted property name"), "text diagnostics should include the parse message");
     assert(diagnosticsText.includes("~~~~"), "text diagnostics should include a squiggle marker");
 
     const brokenRulePath = path.join(fixtureDir, "broken_rule.rules.json");
     fs.writeFileSync(
         brokenRulePath,
         JSON.stringify({
-            schemaVersion: "2.0",
-            sources: [
+            id: "asset.rule.bad",
+            plane: "rule",
+            status: "official",
+            surfaces: [
                 {
-                    id: "source.bad",
-                    sourceKind: "callback_param",
-                    match: {
-                        kind: "method_name_equals",
-                        value: "foo",
-                    },
-                    target: "result",
+                    surfaceId: "surface.bad",
+                    kind: "invoke",
+                    modulePath: "fixture",
+                    ownerName: "Fixture",
+                    methodName: "bad",
+                    invokeKind: "instance",
+                    argCount: 0,
+                    confidence: "certain",
+                    provenance: { source: "manual" },
                 },
             ],
-            sinks: [],
-            sanitizers: [],
-            transfers: [],
+            bindings: [
+                {
+                    bindingId: "binding.bad",
+                    surfaceId: "surface.bad",
+                    assetId: "asset.rule.bad",
+                    plane: "rule",
+                    role: "source",
+                    endpoint: { base: { kind: "return" } },
+                    selector: { kind: "method-name-equals", value: "bad" },
+                    effectTemplateRefs: ["template.missing"],
+                    completeness: "complete",
+                    confidence: "certain",
+                },
+            ],
+            effectTemplates: [],
+            provenance: { source: "manual" },
         }, null, 2),
         "utf-8",
     );
@@ -86,11 +115,11 @@ function main(): void {
     assert(brokenRuleError instanceof RuleLoadError, "invalid rule content should throw RuleLoadError");
     assert(brokenRuleError.issues[0].kind === "schema_assert", "invalid rule content should be classified as schema_assert");
     assert(
-        brokenRuleError.issues.some(issue => issue.fieldPath === "sources[0].callback_param"),
+        brokenRuleError.issues.some(issue => issue.fieldPath === "bindings[0].effectTemplateRefs"),
         "invalid rule content should expose field path",
     );
     assert(
-        brokenRuleError.issues.some(issue => issue.line === 4 && typeof issue.column === "number" && issue.column > 0),
+        brokenRuleError.issues.some(issue => typeof issue.line === "number" && issue.line >= 20 && typeof issue.column === "number" && issue.column > 0),
         "invalid rule content should locate the closest JSON object position",
     );
     assert(
@@ -110,7 +139,7 @@ function main(): void {
         "schema validation diagnostics should include a stable error code",
     );
     assert(
-        brokenRuleDiagnosticsText.includes("sources[0].callback_param"),
+        brokenRuleDiagnosticsText.includes("bindings[0].effectTemplateRefs"),
         "schema validation diagnostics should include the offending field path",
     );
 
@@ -167,12 +196,12 @@ function main(): void {
     };
     const { jsonPath } = writeDiagnosticsArtifacts(artifactDir, systemDiagnostics);
     const normalizedJson = JSON.parse(fs.readFileSync(jsonPath, "utf-8")) as {
-        schemaVersion?: string;
+        format?: string;
         itemCount?: number;
         items?: Array<{ category?: string; code?: string; summary?: string }>;
         rawDiagnostics?: { systemFailures?: Array<{ code?: string }> };
     };
-    assert(normalizedJson.schemaVersion === "1.0", "diagnostics.json should expose schemaVersion");
+    assert(normalizedJson.format === "diagnostics", "diagnostics.json should expose format");
     assert(normalizedJson.itemCount === 1, "diagnostics.json should store normalized item count");
     assert(normalizedJson.items?.[0]?.category === "System", "diagnostics.json should expose normalized system diagnostics");
     assert(normalizedJson.items?.[0]?.code === "SYSTEM_ANALYZE_THROW", "diagnostics.json should carry normalized codes");
@@ -183,13 +212,7 @@ function main(): void {
 
     const ruleDir = path.join(fixtureDir, "soft_warning_rules");
     fs.mkdirSync(ruleDir, { recursive: true });
-    const emptyRuleSet = JSON.stringify({
-        schemaVersion: "2.0",
-        sources: [],
-        sinks: [],
-        sanitizers: [],
-        transfers: [],
-    }, null, 2);
+    const emptyRuleSet = emptyRuleAsset("asset.rule.empty");
     fs.mkdirSync(path.join(ruleDir, "kernel", "rules", "sources"), { recursive: true });
     fs.mkdirSync(path.join(ruleDir, "kernel", "rules", "sinks"), { recursive: true });
     fs.mkdirSync(path.join(ruleDir, "kernel", "rules", "sanitizers"), { recursive: true });

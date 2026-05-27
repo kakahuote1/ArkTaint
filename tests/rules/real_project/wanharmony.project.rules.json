@@ -1,255 +1,766 @@
 {
-    "schemaVersion": "2.0",
-    "meta": {
-        "name": "wanharmony-project-rules-step-b",
-        "description": "Phase 7.7.2 Step B: wanharmony anchor-driven project rules (V1/V2/V3).",
-        "updatedAt": "2026-02-23"
+  "id": "asset.rule.test.real_project.wanharmony.project",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
+    {
+      "surfaceId": "surface.source.wanharmony.entry.onCreate.want",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "EntryAbility",
+      "methodName": "onCreate",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
-    "sources": [
-        {
-            "id": "source.wanharmony.entry.onCreate.want",
-            "enabled": true,
-            "description": "Treat EntryAbility.onCreate(want, ...) first argument as untrusted external input.",
-            "tags": [
-                "wanharmony",
-                "stepB",
-                "v2"
-            ],
-            "match": {
-                "kind": "method_name_equals",
-                "value": "onCreate"
-            },
-            "scope": {
-                "className": {
-                    "mode": "equals",
-                    "value": "EntryAbility"
-                },
-                "methodName": {
-                    "mode": "equals",
-                    "value": "onCreate"
-                }
-            },
-            "sourceKind": "entry_param",
-            "target": {
-                "endpoint": "arg0"
-            }
-        },
-        {
-            "id": "source.wanharmony.router.getParams.result",
-            "enabled": true,
-            "description": "Treat router.getParams() return as untrusted route input in anchor pages.",
-            "tags": [
-                "wanharmony",
-                "stepB",
-                "v1",
-                "v3"
-            ],
-            "match": {
-                "kind": "signature_contains",
-                "value": ".getParams()"
-            },
-            "scope": {
-                "className": {
-                    "mode": "regex",
-                    "value": "WebPage|KnowledgeDetail"
-                }
-            },
-            "sourceKind": "call_return",
-            "target": {
-                "endpoint": "result"
-            }
-        },
-        {
-            "id": "source.wanharmony.article.link.field_read",
-            "enabled": true,
-            "description": "Treat article link field as remote-controlled input from backend payload.",
-            "tags": [
-                "wanharmony",
-                "stepB",
-                "v1"
-            ],
-            "match": {
-                "kind": "signature_contains",
-                "value": "ArticleBean.link"
-            },
-            "sourceKind": "field_read",
-            "target": {
-                "endpoint": "result"
-            }
-        },
-        {
-            "id": "source.wanharmony.knowledge.courseId.field_read",
-            "enabled": true,
-            "description": "Treat KnowledgeDetail.courseId field read as route-derived untrusted input.",
-            "tags": [
-                "wanharmony",
-                "stepB",
-                "v3"
-            ],
-            "match": {
-                "kind": "signature_contains",
-                "value": "KnowledgeDetail.courseId"
-            },
-            "scope": {
-                "className": {
-                    "mode": "equals",
-                    "value": "KnowledgeDetail"
-                }
-            },
-            "sourceKind": "field_read",
-            "target": {
-                "endpoint": "result"
-            }
-        },
-        {
-            "id": "source.wanharmony.web.url.field_read",
-            "enabled": true,
-            "description": "Treat WebPage.url field read as untrusted route payload in render path.",
-            "tags": [
-                "wanharmony",
-                "stepB",
-                "v1"
-            ],
-            "match": {
-                "kind": "signature_contains",
-                "value": "WebPage.url"
-            },
-            "scope": {
-                "className": {
-                    "mode": "equals",
-                    "value": "WebPage"
-                }
-            },
-            "sourceKind": "field_read",
-            "target": {
-                "endpoint": "result"
-            }
+    {
+      "surfaceId": "surface.source.wanharmony.router.getParams.result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "WebPage.KnowledgeDetail",
+      "methodName": "getParams",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.wanharmony.article.link.field_read",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "link",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.wanharmony.knowledge.courseId.field_read",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "KnowledgeDetail",
+      "methodName": "courseId",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.wanharmony.web.url.field_read",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "WebPage",
+      "methodName": "url",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.wanharmony.web.create.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "WebPage",
+      "methodName": "create",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.wanharmony.globalcontext.setObject.arg1",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "EntryAbility",
+      "methodName": "setObject",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.wanharmony.knowledge.getKnowledgeDetail.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "KnowledgeDetail",
+      "methodName": "getKnowledgeDetail",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.wanharmony.router.pushUrl.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "pushUrl",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.wanharmony.globalcontext.setObject.arg1_to_base",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "setObject",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.wanharmony.globalcontext.getObject.base_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "getObject",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.wanharmony.knowledge.getKnowledgeDetail.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "getKnowledgeDetail",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.wanharmony.fetch.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "fetch",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.source.wanharmony.entry.onCreate.want.0",
+      "surfaceId": "surface.source.wanharmony.entry.onCreate.want",
+      "assetId": "asset.rule.test.real_project.wanharmony.project",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "onCreate",
+        "scope": {
+          "className": {
+            "mode": "equals",
+            "value": "EntryAbility"
+          },
+          "methodName": {
+            "mode": "equals",
+            "value": "onCreate"
+          }
         }
-    ],
-    "sinks": [
-        {
-            "id": "sink.wanharmony.web.create.arg0",
-            "description": "Route-derived URL reaches Web.create() argument.",
-            "match": {
-                "kind": "signature_contains",
-                "value": "Web.create()"
-            },
-            "scope": {
-                "className": {
-                    "mode": "equals",
-                    "value": "WebPage"
-                },
-                "methodName": {
-                    "mode": "equals",
-                    "value": "build"
-                }
-            },
-            "category": "webview_url_injection",
-            "severity": "high",
-            "target": {
-                "endpoint": "arg0"
-            }
-        },
-        {
-            "id": "sink.wanharmony.globalcontext.setObject.arg1",
-            "description": "External want argument stored into global context.",
-            "match": {
-                "kind": "signature_contains",
-                "value": "GlobalContext.setObject"
-            },
-            "scope": {
-                "className": {
-                    "mode": "equals",
-                    "value": "EntryAbility"
-                },
-                "methodName": {
-                    "mode": "equals",
-                    "value": "onCreate"
-                }
-            },
-            "category": "sensitive_persistence",
-            "severity": "medium",
-            "target": {
-                "endpoint": "arg1"
-            }
-        },
-        {
-            "id": "sink.wanharmony.knowledge.getKnowledgeDetail.arg0",
-            "description": "Route-derived courseId reaches getKnowledgeDetail() input.",
-            "match": {
-                "kind": "signature_contains",
-                "value": ".getKnowledgeDetail()"
-            },
-            "scope": {
-                "className": {
-                    "mode": "equals",
-                    "value": "KnowledgeDetail"
-                },
-                "methodName": {
-                    "mode": "equals",
-                    "value": "aboutToAppear"
-                }
-            },
-            "category": "route_param_to_api",
-            "severity": "medium",
-            "target": {
-                "endpoint": "arg0"
-            }
-        },
-        {
-            "id": "sink.wanharmony.router.pushUrl.arg0",
-            "description": "Potentially tainted route payload dispatched by router.pushUrl().",
-            "match": {
-                "kind": "signature_contains",
-                "value": ".pushUrl()"
-            },
-            "category": "route_dispatch",
-            "severity": "high",
-            "target": {
-                "endpoint": "arg0"
-            }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
-    ],
-    "transfers": [
-        {
-            "id": "transfer.wanharmony.globalcontext.setObject.arg1_to_base",
-            "description": "GlobalContext.setObject(key, value): value taints GlobalContext base object.",
-            "match": {
-                "kind": "signature_contains",
-                "value": "GlobalContext.setObject"
-            },
-            "from": "arg1",
-            "to": "base"
-        },
-        {
-            "id": "transfer.wanharmony.globalcontext.getObject.base_to_result",
-            "description": "GlobalContext.getObject(key): context base taints read result.",
-            "match": {
-                "kind": "signature_contains",
-                "value": "GlobalContext.getObject"
-            },
-            "from": "base",
-            "to": "result"
-        },
-        {
-            "id": "transfer.wanharmony.knowledge.getKnowledgeDetail.arg0_to_result",
-            "description": "Model getKnowledgeDetail(courseId) result depending on courseId input.",
-            "match": {
-                "kind": "signature_contains",
-                "value": ".getKnowledgeDetail()"
-            },
-            "from": "arg0",
-            "to": "result"
-        },
-        {
-            "id": "transfer.wanharmony.fetch.arg0_to_result",
-            "description": "Model fetch(params) response depending on request params object.",
-            "match": {
-                "kind": "signature_contains",
-                "value": "%dflt.fetch("
-            },
-            "from": "arg0",
-            "to": "result"
+      },
+      "effectTemplateRefs": [
+        "template.source.wanharmony.entry.onCreate.want"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "Treat EntryAbility.onCreate(want, ...) first argument as untrusted external input.",
+        "tags": [
+          "wanharmony",
+          "stepB",
+          "v2"
+        ]
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.wanharmony.router.getParams.result.0",
+      "surfaceId": "surface.source.wanharmony.router.getParams.result",
+      "assetId": "asset.rule.test.real_project.wanharmony.project",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "signature-contains",
+        "value": ".getParams()",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "WebPage|KnowledgeDetail"
+          }
         }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.wanharmony.router.getParams.result"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "Treat router.getParams() return as untrusted route input in anchor pages.",
+        "tags": [
+          "wanharmony",
+          "stepB",
+          "v1",
+          "v3"
+        ]
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.wanharmony.article.link.field_read.0",
+      "surfaceId": "surface.source.wanharmony.article.link.field_read",
+      "assetId": "asset.rule.test.real_project.wanharmony.project",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "signature-contains",
+        "value": "ArticleBean.link"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.wanharmony.article.link.field_read"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "Treat article link field as remote-controlled input from backend payload.",
+        "tags": [
+          "wanharmony",
+          "stepB",
+          "v1"
+        ]
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.wanharmony.knowledge.courseId.field_read.0",
+      "surfaceId": "surface.source.wanharmony.knowledge.courseId.field_read",
+      "assetId": "asset.rule.test.real_project.wanharmony.project",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "signature-contains",
+        "value": "KnowledgeDetail.courseId",
+        "scope": {
+          "className": {
+            "mode": "equals",
+            "value": "KnowledgeDetail"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.wanharmony.knowledge.courseId.field_read"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "Treat KnowledgeDetail.courseId field read as route-derived untrusted input.",
+        "tags": [
+          "wanharmony",
+          "stepB",
+          "v3"
+        ]
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.wanharmony.web.url.field_read.0",
+      "surfaceId": "surface.source.wanharmony.web.url.field_read",
+      "assetId": "asset.rule.test.real_project.wanharmony.project",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "signature-contains",
+        "value": "WebPage.url",
+        "scope": {
+          "className": {
+            "mode": "equals",
+            "value": "WebPage"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.wanharmony.web.url.field_read"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "Treat WebPage.url field read as untrusted route payload in render path.",
+        "tags": [
+          "wanharmony",
+          "stepB",
+          "v1"
+        ]
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.wanharmony.web.create.arg0.0",
+      "surfaceId": "surface.sink.wanharmony.web.create.arg0",
+      "assetId": "asset.rule.test.real_project.wanharmony.project",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "signature-contains",
+        "value": "Web.create()",
+        "scope": {
+          "className": {
+            "mode": "equals",
+            "value": "WebPage"
+          },
+          "methodName": {
+            "mode": "equals",
+            "value": "build"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.wanharmony.web.create.arg0"
+      ],
+      "semanticsFamily": "webview_url_injection",
+      "metadata": {
+        "description": "Route-derived URL reaches Web.create() argument.",
+        "category": "webview_url_injection",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.wanharmony.globalcontext.setObject.arg1.0",
+      "surfaceId": "surface.sink.wanharmony.globalcontext.setObject.arg1",
+      "assetId": "asset.rule.test.real_project.wanharmony.project",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "signature-contains",
+        "value": "GlobalContext.setObject",
+        "scope": {
+          "className": {
+            "mode": "equals",
+            "value": "EntryAbility"
+          },
+          "methodName": {
+            "mode": "equals",
+            "value": "onCreate"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.wanharmony.globalcontext.setObject.arg1"
+      ],
+      "semanticsFamily": "sensitive_persistence",
+      "metadata": {
+        "description": "External want argument stored into global context.",
+        "category": "sensitive_persistence",
+        "severity": "medium"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.wanharmony.knowledge.getKnowledgeDetail.arg0.0",
+      "surfaceId": "surface.sink.wanharmony.knowledge.getKnowledgeDetail.arg0",
+      "assetId": "asset.rule.test.real_project.wanharmony.project",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "signature-contains",
+        "value": ".getKnowledgeDetail()",
+        "scope": {
+          "className": {
+            "mode": "equals",
+            "value": "KnowledgeDetail"
+          },
+          "methodName": {
+            "mode": "equals",
+            "value": "aboutToAppear"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.wanharmony.knowledge.getKnowledgeDetail.arg0"
+      ],
+      "semanticsFamily": "route_param_to_api",
+      "metadata": {
+        "description": "Route-derived courseId reaches getKnowledgeDetail() input.",
+        "category": "route_param_to_api",
+        "severity": "medium"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.wanharmony.router.pushUrl.arg0.0",
+      "surfaceId": "surface.sink.wanharmony.router.pushUrl.arg0",
+      "assetId": "asset.rule.test.real_project.wanharmony.project",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "signature-contains",
+        "value": ".pushUrl()"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.wanharmony.router.pushUrl.arg0"
+      ],
+      "semanticsFamily": "route_dispatch",
+      "metadata": {
+        "description": "Potentially tainted route payload dispatched by router.pushUrl().",
+        "category": "route_dispatch",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.wanharmony.globalcontext.setObject.arg1_to_base.0",
+      "surfaceId": "surface.transfer.wanharmony.globalcontext.setObject.arg1_to_base",
+      "assetId": "asset.rule.test.real_project.wanharmony.project",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
+        "value": "GlobalContext.setObject"
+      },
+      "effectTemplateRefs": [
+        "template.transfer.wanharmony.globalcontext.setObject.arg1_to_base"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "GlobalContext.setObject(key, value): value taints GlobalContext base object."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.wanharmony.globalcontext.getObject.base_to_result.0",
+      "surfaceId": "surface.transfer.wanharmony.globalcontext.getObject.base_to_result",
+      "assetId": "asset.rule.test.real_project.wanharmony.project",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
+        "value": "GlobalContext.getObject"
+      },
+      "effectTemplateRefs": [
+        "template.transfer.wanharmony.globalcontext.getObject.base_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "GlobalContext.getObject(key): context base taints read result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.wanharmony.knowledge.getKnowledgeDetail.arg0_to_result.0",
+      "surfaceId": "surface.transfer.wanharmony.knowledge.getKnowledgeDetail.arg0_to_result",
+      "assetId": "asset.rule.test.real_project.wanharmony.project",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
+        "value": ".getKnowledgeDetail()"
+      },
+      "effectTemplateRefs": [
+        "template.transfer.wanharmony.knowledge.getKnowledgeDetail.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Model getKnowledgeDetail(courseId) result depending on courseId input."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.wanharmony.fetch.arg0_to_result.0",
+      "surfaceId": "surface.transfer.wanharmony.fetch.arg0_to_result",
+      "assetId": "asset.rule.test.real_project.wanharmony.project",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
+        "value": "%dflt.fetch("
+      },
+      "effectTemplateRefs": [
+        "template.transfer.wanharmony.fetch.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Model fetch(params) response depending on request params object."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.source.wanharmony.entry.onCreate.want",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.wanharmony.router.getParams.result",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    },
+    {
+      "id": "template.source.wanharmony.article.link.field_read",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "field_read"
+    },
+    {
+      "id": "template.source.wanharmony.knowledge.courseId.field_read",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "field_read"
+    },
+    {
+      "id": "template.source.wanharmony.web.url.field_read",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "field_read"
+    },
+    {
+      "id": "template.sink.wanharmony.web.create.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "webview_url_injection"
+    },
+    {
+      "id": "template.sink.wanharmony.globalcontext.setObject.arg1",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "sensitive_persistence"
+    },
+    {
+      "id": "template.sink.wanharmony.knowledge.getKnowledgeDetail.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "route_param_to_api"
+    },
+    {
+      "id": "template.sink.wanharmony.router.pushUrl.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "route_dispatch"
+    },
+    {
+      "id": "template.transfer.wanharmony.globalcontext.setObject.arg1_to_base",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.wanharmony.globalcontext.getObject.base_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.wanharmony.knowledge.getKnowledgeDetail.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.wanharmony.fetch.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "tests/rules/real_project/wanharmony.project.rules.json"
+      }
     ]
+  }
 }

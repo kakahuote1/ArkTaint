@@ -1,129 +1,372 @@
 {
-  "schemaVersion": "2.0",
-  "sources": [
+  "id": "asset.rule.kernel.sources.distributed",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
     {
-      "id": "source.harmony.distributedkv.get.result",
-      "enabled": true,
-      "description": "Distributed KV get() return value as source.",
-      "tags": [
-        "harmony",
-        "t2",
-        "t5"
-      ],
-      "match": {
-        "kind": "method_name_equals",
-        "value": "get",
-        "invokeKind": "instance"
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(DistributedKVStore|distributedKVStore|KVStore|SingleKVStore)"
-        }
-      },
-      "sourceKind": "call_return",
-      "target": {
-        "endpoint": "result"
+      "surfaceId": "surface.source.harmony.distributedkv.get.result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "DistributedKVStore.distributedKVStore.KVStore.SingleKVStore",
+      "methodName": "get",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
       }
     },
     {
-      "id": "source.harmony.distributed.getLocalDeviceId",
-      "description": "Local distributed device ID",
-      "tags": [
-        "harmony",
-        "phase7118",
-        "distributed",
-        "P2"
-      ],
-      "match": {
-        "kind": "method_name_equals",
-        "value": "getLocalDeviceId"
-      },
-      "sourceKind": "call_return",
-      "target": "result",
-      "severity": "medium",
-      "category": "device_identifier"
+      "surfaceId": "surface.source.harmony.distributed.getLocalDeviceId",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "getLocalDeviceId",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
     {
-      "id": "source.harmony.distributed.getLocalDeviceName",
-      "description": "Local distributed device name",
-      "tags": [
-        "harmony",
-        "phase7118",
-        "distributed",
-        "P2"
-      ],
-      "match": {
-        "kind": "method_name_equals",
-        "value": "getLocalDeviceName"
-      },
-      "sourceKind": "call_return",
-      "target": "result",
-      "severity": "medium",
-      "category": "device_identifier"
+      "surfaceId": "surface.source.harmony.distributed.getLocalDeviceName",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "getLocalDeviceName",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
     {
-      "id": "source.harmony.distributed.getLocalDeviceNetworkId",
-      "description": "Local distributed device network ID",
-      "tags": [
-        "harmony",
-        "phase7118",
-        "distributed",
-        "P2"
-      ],
-      "match": {
-        "kind": "signature_contains",
-        "value": "getLocalDeviceNetworkId"
-      },
-      "sourceKind": "call_return",
-      "target": "result",
-      "severity": "medium",
-      "category": "device_identifier"
+      "surfaceId": "surface.source.harmony.distributed.getLocalDeviceNetworkId",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "getLocalDeviceNetworkId",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
     {
-      "id": "source.harmony.distributed.getAvailableDeviceList",
-      "description": "Available distributed devices list",
-      "tags": [
-        "harmony",
-        "phase7118",
-        "distributed",
-        "P2"
-      ],
-      "match": {
-        "kind": "signature_contains",
-        "value": "getAvailableDeviceList"
-      },
-      "sourceKind": "call_return",
-      "target": "result",
-      "severity": "medium",
-      "category": "device_identifier"
+      "surfaceId": "surface.source.harmony.distributed.getAvailableDeviceList",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "getAvailableDeviceList",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
     {
-      "id": "source.harmony.wantAgent.getWant",
-      "description": "Extract Want params from WantAgent",
-      "tags": [
-        "harmony",
-        "phase7118",
-        "ability",
-        "P2"
-      ],
-      "match": {
-        "kind": "signature_contains",
-        "value": "getWant"
-      },
-      "scope": {
-        "className": {
-          "mode": "contains",
-          "value": "wantAgent"
-        }
-      },
-      "sourceKind": "call_return",
-      "target": "result",
-      "severity": "medium",
-      "category": "intent_data"
+      "surfaceId": "surface.source.harmony.wantAgent.getWant",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "wantAgent",
+      "methodName": "getWant",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     }
   ],
-  "sinks": [],
-  "sanitizers": [],
-  "transfers": []
+  "bindings": [
+    {
+      "bindingId": "binding.source.harmony.distributedkv.get.result.0",
+      "surfaceId": "surface.source.harmony.distributedkv.get.result",
+      "assetId": "asset.rule.kernel.sources.distributed",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "get",
+        "invokeKind": "instance",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(DistributedKVStore|distributedKVStore|KVStore|SingleKVStore)"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.distributedkv.get.result"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "Distributed KV get() return value as source.",
+        "tags": [
+          "harmony",
+          "t2",
+          "t5"
+        ]
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.distributed.getLocalDeviceId.0",
+      "surfaceId": "surface.source.harmony.distributed.getLocalDeviceId",
+      "assetId": "asset.rule.kernel.sources.distributed",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "getLocalDeviceId"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.distributed.getLocalDeviceId"
+      ],
+      "semanticsFamily": "device_identifier",
+      "metadata": {
+        "description": "Local distributed device ID",
+        "tags": [
+          "harmony",
+          "phase7118",
+          "distributed",
+          "P2"
+        ],
+        "category": "device_identifier",
+        "severity": "medium"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.distributed.getLocalDeviceName.0",
+      "surfaceId": "surface.source.harmony.distributed.getLocalDeviceName",
+      "assetId": "asset.rule.kernel.sources.distributed",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "getLocalDeviceName"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.distributed.getLocalDeviceName"
+      ],
+      "semanticsFamily": "device_identifier",
+      "metadata": {
+        "description": "Local distributed device name",
+        "tags": [
+          "harmony",
+          "phase7118",
+          "distributed",
+          "P2"
+        ],
+        "category": "device_identifier",
+        "severity": "medium"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.distributed.getLocalDeviceNetworkId.0",
+      "surfaceId": "surface.source.harmony.distributed.getLocalDeviceNetworkId",
+      "assetId": "asset.rule.kernel.sources.distributed",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "signature-contains",
+        "value": "getLocalDeviceNetworkId"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.distributed.getLocalDeviceNetworkId"
+      ],
+      "semanticsFamily": "device_identifier",
+      "metadata": {
+        "description": "Local distributed device network ID",
+        "tags": [
+          "harmony",
+          "phase7118",
+          "distributed",
+          "P2"
+        ],
+        "category": "device_identifier",
+        "severity": "medium"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.distributed.getAvailableDeviceList.0",
+      "surfaceId": "surface.source.harmony.distributed.getAvailableDeviceList",
+      "assetId": "asset.rule.kernel.sources.distributed",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "signature-contains",
+        "value": "getAvailableDeviceList"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.distributed.getAvailableDeviceList"
+      ],
+      "semanticsFamily": "device_identifier",
+      "metadata": {
+        "description": "Available distributed devices list",
+        "tags": [
+          "harmony",
+          "phase7118",
+          "distributed",
+          "P2"
+        ],
+        "category": "device_identifier",
+        "severity": "medium"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.wantAgent.getWant.0",
+      "surfaceId": "surface.source.harmony.wantAgent.getWant",
+      "assetId": "asset.rule.kernel.sources.distributed",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "signature-contains",
+        "value": "getWant",
+        "scope": {
+          "className": {
+            "mode": "contains",
+            "value": "wantAgent"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.wantAgent.getWant"
+      ],
+      "semanticsFamily": "intent_data",
+      "metadata": {
+        "description": "Extract Want params from WantAgent",
+        "tags": [
+          "harmony",
+          "phase7118",
+          "ability",
+          "P2"
+        ],
+        "category": "intent_data",
+        "severity": "medium"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.source.harmony.distributedkv.get.result",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    },
+    {
+      "id": "template.source.harmony.distributed.getLocalDeviceId",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    },
+    {
+      "id": "template.source.harmony.distributed.getLocalDeviceName",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    },
+    {
+      "id": "template.source.harmony.distributed.getLocalDeviceNetworkId",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    },
+    {
+      "id": "template.source.harmony.distributed.getAvailableDeviceList",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    },
+    {
+      "id": "template.source.harmony.wantAgent.getWant",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "src/models/kernel/rules/sources/distributed.rules.json"
+      }
+    ]
+  }
 }

@@ -173,7 +173,7 @@ export function writeTestProgress(
 ): void {
     ensureTestOutputLayout(layout);
     fs.writeFileSync(layout.progressJsonPath, `${JSON.stringify({
-        schemaVersion: "1.0",
+        format: "test-progress",
         kind: "test_progress",
         suite: metadata.suite,
         domain: metadata.domain,
@@ -191,7 +191,7 @@ export function writeTestSummary(
 ): void {
     ensureTestOutputLayout(layout);
     const payload = {
-        schemaVersion: "1.0",
+        format: "test-summary",
         kind: "test_summary",
         suite: metadata.suite,
         domain: metadata.domain,
@@ -215,7 +215,7 @@ export function writeTestSummary(
     };
     fs.writeFileSync(layout.summaryJsonPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
     fs.writeFileSync(layout.runJsonPath, `${JSON.stringify({
-        schemaVersion: "1.0",
+        format: "test-run",
         runKind: "test",
         suite: metadata.suite,
         domain: metadata.domain,

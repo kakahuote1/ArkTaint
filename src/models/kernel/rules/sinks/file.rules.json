@@ -1,199 +1,578 @@
 {
-  "schemaVersion": "2.0",
-  "sources": [],
-  "sinks": [
+  "id": "asset.rule.kernel.sinks.file",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
     {
-      "id": "sink.harmony.fs.write.arg1",
-      "enabled": true,
-      "match": {
-        "kind": "method_name_equals",
-        "value": "write"
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(fs|File|FileIo|FileOutput|FileAccess|FileOperator)"
-        }
-      },
-      "category": "file_operation_injection",
-      "severity": "high",
-      "target": {
-        "endpoint": "arg1"
+      "surfaceId": "surface.sink.harmony.fs.write.arg1",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "fs.File.FileIo.FileOutput.FileAccess.FileOperator",
+      "methodName": "write",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
       }
     },
     {
-      "id": "sink.harmony.fs.open.arg0",
-      "enabled": true,
-      "match": {
-        "kind": "method_name_equals",
-        "value": "open"
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
-        }
-      },
-      "category": "file_operation_injection",
-      "severity": "high",
-      "target": {
-        "endpoint": "arg0"
+      "surfaceId": "surface.sink.harmony.fs.open.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "fs.File.FileIo.FileInput.FileAccess.FileOperator",
+      "methodName": "open",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
       }
     },
     {
-      "id": "sink.harmony.fs.rename.arg0",
-      "enabled": true,
-      "match": {
-        "kind": "method_name_equals",
-        "value": "rename"
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
-        }
-      },
-      "category": "file_operation_injection",
-      "severity": "high",
-      "target": {
-        "endpoint": "arg0"
+      "surfaceId": "surface.sink.harmony.fs.rename.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "fs.File.FileIo.FileInput.FileAccess.FileOperator",
+      "methodName": "rename",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
       }
     },
     {
-      "id": "sink.harmony.fs.rename.arg1",
-      "enabled": true,
-      "match": {
-        "kind": "method_name_equals",
-        "value": "rename"
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
-        }
-      },
-      "category": "file_operation_injection",
-      "severity": "high",
-      "target": {
-        "endpoint": "arg1"
+      "surfaceId": "surface.sink.harmony.fs.rename.arg1",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "fs.File.FileIo.FileInput.FileAccess.FileOperator",
+      "methodName": "rename",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
       }
     },
     {
-      "id": "sink.harmony.fs.unlink.arg0",
-      "enabled": true,
-      "match": {
-        "kind": "method_name_equals",
-        "value": "unlink"
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
-        }
-      },
-      "category": "file_operation_injection",
-      "severity": "high",
-      "target": {
-        "endpoint": "arg0"
+      "surfaceId": "surface.sink.harmony.fs.unlink.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "fs.File.FileIo.FileInput.FileAccess.FileOperator",
+      "methodName": "unlink",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
       }
     },
     {
-      "id": "sink.harmony.fs.writeSync",
-      "description": "File sync write (complement async write)",
-      "tags": [
-        "harmony",
-        "phase7118",
-        "file",
-        "P1"
-      ],
-      "match": {
-        "kind": "method_name_equals",
-        "value": "writeSync",
-        "invokeKind": "instance"
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(fs|fileio|FileIo)"
-        }
-      },
-      "target": "arg1",
-      "severity": "medium",
-      "category": "file_operation_injection"
+      "surfaceId": "surface.sink.harmony.fs.writeSync",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "fs.fileio.FileIo",
+      "methodName": "writeSync",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
     {
-      "id": "sink.harmony.fs.copyFile",
-      "description": "File copy path injection",
-      "tags": [
-        "harmony",
-        "phase7118",
-        "file",
-        "P2"
-      ],
-      "match": {
-        "kind": "method_name_equals",
-        "value": "copyFile",
-        "invokeKind": "instance"
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(fs|fileio|FileIo)"
-        }
-      },
-      "target": "arg1",
-      "severity": "low",
-      "category": "file_operation_injection"
+      "surfaceId": "surface.sink.harmony.fs.copyFile",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "fs.fileio.FileIo",
+      "methodName": "copyFile",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
     {
-      "id": "sink.harmony.fs.copyFileSync",
-      "description": "File sync copy path injection",
-      "tags": [
-        "harmony",
-        "phase7118",
-        "file",
-        "P2"
-      ],
-      "match": {
-        "kind": "method_name_equals",
-        "value": "copyFileSync",
-        "invokeKind": "instance"
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(fs|fileio|FileIo)"
-        }
-      },
-      "target": "arg1",
-      "severity": "low",
-      "category": "file_operation_injection"
+      "surfaceId": "surface.sink.harmony.fs.copyFileSync",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "fs.fileio.FileIo",
+      "methodName": "copyFileSync",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
     {
-      "id": "sink.harmony.fs.moveFile",
-      "description": "File move path injection",
-      "tags": [
-        "harmony",
-        "phase7118",
-        "file",
-        "P2"
-      ],
-      "match": {
-        "kind": "method_name_equals",
-        "value": "moveFile",
-        "invokeKind": "instance"
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(fs|fileio|FileIo)"
-        }
-      },
-      "target": "arg1",
-      "severity": "low",
-      "category": "file_operation_injection"
+      "surfaceId": "surface.sink.harmony.fs.moveFile",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "fs.fileio.FileIo",
+      "methodName": "moveFile",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     }
   ],
-  "sanitizers": [],
-  "transfers": []
+  "bindings": [
+    {
+      "bindingId": "binding.sink.harmony.fs.write.arg1.0",
+      "surfaceId": "surface.sink.harmony.fs.write.arg1",
+      "assetId": "asset.rule.kernel.sinks.file",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "write",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(fs|File|FileIo|FileOutput|FileAccess|FileOperator)"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.fs.write.arg1"
+      ],
+      "semanticsFamily": "file_operation_injection",
+      "metadata": {
+        "enabled": true,
+        "category": "file_operation_injection",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.fs.open.arg0.0",
+      "surfaceId": "surface.sink.harmony.fs.open.arg0",
+      "assetId": "asset.rule.kernel.sinks.file",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "open",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.fs.open.arg0"
+      ],
+      "semanticsFamily": "file_operation_injection",
+      "metadata": {
+        "enabled": true,
+        "category": "file_operation_injection",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.fs.rename.arg0.0",
+      "surfaceId": "surface.sink.harmony.fs.rename.arg0",
+      "assetId": "asset.rule.kernel.sinks.file",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "rename",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.fs.rename.arg0"
+      ],
+      "semanticsFamily": "file_operation_injection",
+      "metadata": {
+        "enabled": true,
+        "category": "file_operation_injection",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.fs.rename.arg1.0",
+      "surfaceId": "surface.sink.harmony.fs.rename.arg1",
+      "assetId": "asset.rule.kernel.sinks.file",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "rename",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.fs.rename.arg1"
+      ],
+      "semanticsFamily": "file_operation_injection",
+      "metadata": {
+        "enabled": true,
+        "category": "file_operation_injection",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.fs.unlink.arg0.0",
+      "surfaceId": "surface.sink.harmony.fs.unlink.arg0",
+      "assetId": "asset.rule.kernel.sinks.file",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "unlink",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.fs.unlink.arg0"
+      ],
+      "semanticsFamily": "file_operation_injection",
+      "metadata": {
+        "enabled": true,
+        "category": "file_operation_injection",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.fs.writeSync.0",
+      "surfaceId": "surface.sink.harmony.fs.writeSync",
+      "assetId": "asset.rule.kernel.sinks.file",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "writeSync",
+        "invokeKind": "instance",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(fs|fileio|FileIo)"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.fs.writeSync"
+      ],
+      "semanticsFamily": "file_operation_injection",
+      "metadata": {
+        "description": "File sync write (complement async write)",
+        "tags": [
+          "harmony",
+          "phase7118",
+          "file",
+          "P1"
+        ],
+        "category": "file_operation_injection",
+        "severity": "medium"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.fs.copyFile.0",
+      "surfaceId": "surface.sink.harmony.fs.copyFile",
+      "assetId": "asset.rule.kernel.sinks.file",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "copyFile",
+        "invokeKind": "instance",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(fs|fileio|FileIo)"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.fs.copyFile"
+      ],
+      "semanticsFamily": "file_operation_injection",
+      "metadata": {
+        "description": "File copy path injection",
+        "tags": [
+          "harmony",
+          "phase7118",
+          "file",
+          "P2"
+        ],
+        "category": "file_operation_injection",
+        "severity": "low"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.fs.copyFileSync.0",
+      "surfaceId": "surface.sink.harmony.fs.copyFileSync",
+      "assetId": "asset.rule.kernel.sinks.file",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "copyFileSync",
+        "invokeKind": "instance",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(fs|fileio|FileIo)"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.fs.copyFileSync"
+      ],
+      "semanticsFamily": "file_operation_injection",
+      "metadata": {
+        "description": "File sync copy path injection",
+        "tags": [
+          "harmony",
+          "phase7118",
+          "file",
+          "P2"
+        ],
+        "category": "file_operation_injection",
+        "severity": "low"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.fs.moveFile.0",
+      "surfaceId": "surface.sink.harmony.fs.moveFile",
+      "assetId": "asset.rule.kernel.sinks.file",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "moveFile",
+        "invokeKind": "instance",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(fs|fileio|FileIo)"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.fs.moveFile"
+      ],
+      "semanticsFamily": "file_operation_injection",
+      "metadata": {
+        "description": "File move path injection",
+        "tags": [
+          "harmony",
+          "phase7118",
+          "file",
+          "P2"
+        ],
+        "category": "file_operation_injection",
+        "severity": "low"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.sink.harmony.fs.write.arg1",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "file_operation_injection"
+    },
+    {
+      "id": "template.sink.harmony.fs.open.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "file_operation_injection"
+    },
+    {
+      "id": "template.sink.harmony.fs.rename.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "file_operation_injection"
+    },
+    {
+      "id": "template.sink.harmony.fs.rename.arg1",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "file_operation_injection"
+    },
+    {
+      "id": "template.sink.harmony.fs.unlink.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "file_operation_injection"
+    },
+    {
+      "id": "template.sink.harmony.fs.writeSync",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "file_operation_injection"
+    },
+    {
+      "id": "template.sink.harmony.fs.copyFile",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "file_operation_injection"
+    },
+    {
+      "id": "template.sink.harmony.fs.copyFileSync",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "file_operation_injection"
+    },
+    {
+      "id": "template.sink.harmony.fs.moveFile",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "file_operation_injection"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "src/models/kernel/rules/sinks/file.rules.json"
+      }
+    ]
+  }
 }

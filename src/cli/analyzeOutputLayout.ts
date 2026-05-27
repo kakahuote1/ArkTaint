@@ -69,7 +69,7 @@ export function writeAnalyzeRunManifest(
     },
 ): void {
     const payload = {
-        schemaVersion: "1.0",
+        format: "analyze-run",
         runKind: "analyze",
         generatedAt: report.generatedAt,
         repo: report.repo,
@@ -100,7 +100,7 @@ export function writeAnalyzeFailureRunManifest(
     },
 ): void {
     const payload = {
-        schemaVersion: "1.0",
+        format: "analyze-run",
         runKind: "analyze",
         generatedAt: options.generatedAt,
         repo: options.repo,

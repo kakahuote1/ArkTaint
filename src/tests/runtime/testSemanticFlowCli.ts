@@ -1,10 +1,11 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as http from "http";
 import * as path from "path";
 import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import { runSemanticFlowCli } from "../../cli/semanticflow";
 import { writeLlmConfigFile } from "../../cli/llmConfig";
+import { resolvedAsset, ruleSinkAsset, ruleSourceAsset, ruleTransferAsset, vaultHandoffAsset, withSurfaceModulePath } from "../helpers/SemanticFlowMockAssetDecisions";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -194,99 +195,23 @@ async function createMockServer(): Promise<{
             const user = JSON.parse(body).messages?.find((item: any) => item.role === "user")?.content || "";
             const surface = String(user).match(/^surface:\s*(.+)$/m)?.[1]?.trim();
             const owner = String(user).match(/^owner:\s*(.+)$/m)?.[1]?.trim();
+            const modulePath = modulePathFromPrompt(String(user));
+            const sourceFile = String(user).match(/^sourceFile:\s*(.+)$/m)?.[1]?.trim();
             let decision: Record<string, unknown>;
 
             if (surface === "onCreate" && owner?.includes("DemoAbility")) {
                 decision = {
-                    status: "done",
-                    classification: "arkmain",
-                    resolution: "resolved",
-                    summary: {
-                        inputs: [{ slot: "arg", index: 0 }],
-                        outputs: [],
-                        transfers: [],
-                        confidence: "high",
-                        relations: {
-                            entryPattern: {
-                                phase: "bootstrap",
-                                kind: "ability_lifecycle",
-                                ownerKind: "ability_owner",
-                                reason: "framework lifecycle callback",
-                                entryFamily: "semanticflow",
-                                entryShape: "owner-slot",
-                            },
-                        },
-                    },
+                    status: "reject",
+                    reason: "official ArkMain lifecycle is covered by built-in assets",
                 };
             } else if (surface === "readSecret") {
-                decision = {
-                    status: "done",
-                    classification: "rule",
-                    resolution: "resolved",
-                    summary: {
-                        inputs: [],
-                        outputs: [{ slot: "result" }],
-                        transfers: [],
-                        confidence: "high",
-                        ruleKind: "source",
-                        sourceKind: "call_return",
-                    },
-                };
+                decision = resolvedAsset(withSurfaceModulePath(ruleSourceAsset("InputBox", "readSecret", 0), modulePath, sourceFile));
             } else if (surface === "cloneValue") {
-                decision = {
-                    status: "done",
-                    classification: "rule",
-                    resolution: "resolved",
-                    summary: {
-                        inputs: [{ slot: "arg", index: 0 }],
-                        outputs: [{ slot: "result" }],
-                        transfers: [
-                            {
-                                from: { slot: "arg", index: 0 },
-                                to: { slot: "result" },
-                                relation: "direct",
-                            },
-                        ],
-                        confidence: "high",
-                        ruleKind: "transfer",
-                    },
-                };
+                decision = resolvedAsset(withSurfaceModulePath(ruleTransferAsset("HeaderPipe", "cloneValue", 1), modulePath, sourceFile));
             } else if (surface === "report") {
-                decision = {
-                    status: "done",
-                    classification: "rule",
-                    resolution: "resolved",
-                    summary: {
-                        inputs: [{ slot: "arg", index: 0 }],
-                        outputs: [],
-                        transfers: [],
-                        confidence: "high",
-                        ruleKind: "sink",
-                    },
-                };
+                decision = resolvedAsset(withSurfaceModulePath(ruleSinkAsset("Leak", "report", 1), modulePath, sourceFile));
             } else if (surface === "get" && owner?.includes("Vault")) {
-                decision = {
-                    status: "done",
-                    classification: "module",
-                    resolution: "resolved",
-                    summary: {
-                        inputs: [],
-                        outputs: [],
-                        transfers: [],
-                        confidence: "high",
-                        moduleSpec: {
-                            id: "vault.storage",
-                            semantics: [
-                                {
-                                    kind: "keyed_storage",
-                                    storageClasses: ["Vault"],
-                                    writeMethods: [{ methodName: "put", valueIndex: 1 }],
-                                    readMethods: ["get"],
-                                },
-                            ],
-                        },
-                    },
-                };
+                decision = resolvedAsset(withSurfaceModulePath(vaultHandoffAsset("semanticflow_cli"), modulePath, sourceFile));
             } else {
                 decision = {
                     status: "reject",
@@ -322,6 +247,12 @@ async function createMockServer(): Promise<{
     };
 }
 
+function modulePathFromPrompt(prompt: string): string | undefined {
+    const signature = prompt.match(/signature[:=]\s*([^\n]+)/)?.[1]?.trim();
+    const modulePart = signature?.match(/^@?([^:]+):/)?.[1]?.trim();
+    return modulePart || undefined;
+}
+
 async function main(): Promise<void> {
     const root = path.resolve("tmp/test_runs/runtime/semanticflow_cli/latest");
     const projectDir = path.join(root, "project");
@@ -337,7 +268,6 @@ async function main(): Promise<void> {
     const server = await createMockServer();
     const llmConfigPath = path.join(root, "llm.json");
     writeLlmConfigFile({
-        schemaVersion: 1,
         activeProfile: "test",
         profiles: {
             test: {
@@ -384,22 +314,17 @@ async function main(): Promise<void> {
         const summary = JSON.parse(fs.readFileSync(path.join(root, "summary.json"), "utf8"));
         const analysis = JSON.parse(fs.readFileSync(path.join(root, "analysis.json"), "utf8"));
         const finalSummary = JSON.parse(fs.readFileSync(analysis.summaryJsonPath, "utf8"));
-        const rules = JSON.parse(fs.readFileSync(path.join(root, "rules.json"), "utf8"));
-        const modules = JSON.parse(fs.readFileSync(path.join(root, "modules.json"), "utf8"));
-        const arkmain = JSON.parse(fs.readFileSync(path.join(root, "arkmain.json"), "utf8"));
+        const assets = JSON.parse(fs.readFileSync(path.join(root, "assets.json"), "utf8"));
 
-        assert((summary.classifications.arkmain || 0) === 0, `expected no semanticflow arkmain item, got ${summary.classifications.arkmain || 0}`);
-        assert(summary.classifications.rule === 3, `expected three rule items, got ${summary.classifications.rule || 0}`);
-        assert(summary.classifications.module === 1, `expected one module item, got ${summary.classifications.module || 0}`);
+        assert(summary.resolutions.resolved === 4, `expected four resolved semanticflow items, got ${summary.resolutions.resolved || 0}`);
+        assert(summary.planes.rule === 3, `expected three rule assets, got ${summary.planes.rule || 0}`);
+        assert(summary.planes.module === 1, `expected one module asset, got ${summary.planes.module || 0}`);
+        assert((summary.planes.arkmain || 0) === 0, `expected no semanticflow arkmain asset, got ${summary.planes.arkmain || 0}`);
         assert(summary.arkMainKernelCoveredCount === 1, `expected one kernel-covered arkmain candidate, got ${summary.arkMainKernelCoveredCount || 0}`);
         assert(summary.moduleCount === 1, `expected moduleCount=1, got ${summary.moduleCount}`);
-        assert(summary.arkMainSpecCount === 0, `expected arkMainSpecCount=0, got ${summary.arkMainSpecCount}`);
-
-        assert((rules.sources || []).length === 1, `expected one source rule, got ${(rules.sources || []).length}`);
-        assert((rules.sinks || []).length === 1, `expected one sink rule, got ${(rules.sinks || []).length}`);
-        assert((rules.transfers || []).length === 1, `expected one transfer rule, got ${(rules.transfers || []).length}`);
-        assert((modules.modules || []).length === 1, `expected one module spec, got ${(modules.modules || []).length}`);
-        assert((arkmain.entries || []).length === 0, `expected no arkmain spec entry, got ${(arkmain.entries || []).length}`);
+        assert(Array.isArray(assets) && assets.length === 4, `expected four modeled assets, got ${Array.isArray(assets) ? assets.length : "non-array"}`);
+        assert(assets.filter((asset: any) => asset.plane === "rule").length === 3, "expected three rule asset documents");
+        assert(assets.filter((asset: any) => asset.plane === "module").length === 1, "expected one module asset document");
         assert(finalSummary.summary.withSeeds > 0, `expected final analyze to seed sources, got ${finalSummary.summary.withSeeds}`);
         assert(finalSummary.summary.totalFlows === 1, `expected final analyze to detect one flow, got ${finalSummary.summary.totalFlows}`);
 

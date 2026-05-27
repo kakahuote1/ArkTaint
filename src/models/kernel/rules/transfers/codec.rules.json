@@ -1,44 +1,174 @@
 {
-  "schemaVersion": "2.0",
-  "sources": [],
-  "sinks": [],
-  "sanitizers": [],
-  "transfers": [
+  "id": "asset.rule.kernel.transfers.codec",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
     {
-      "id": "transfer.harmony.textdecoder.decodeToString.base_to_result",
-      "description": "TextDecoder.decodeToString(buffer): encoded bytes taint decoded string result.",
-      "match": {
-        "kind": "method_name_equals",
+      "surfaceId": "surface.transfer.harmony.textdecoder.decodeToString.base_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "decodeToString",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.textdecoder.decodeToString.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "decodeToString",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.textencoder.encodeInto.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "encodeInto",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.transfer.harmony.textdecoder.decodeToString.base_to_result.0",
+      "surfaceId": "surface.transfer.harmony.textdecoder.decodeToString.base_to_result",
+      "assetId": "asset.rule.kernel.transfers.codec",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "decodeToString",
         "invokeKind": "instance",
         "argCount": 2
       },
-      "from": "base",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.textdecoder.decodeToString.base_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "TextDecoder.decodeToString(buffer): encoded bytes taint decoded string result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.textdecoder.decodeToString.arg0_to_result",
-      "description": "TextDecoder.decodeToString(buffer): buffer argument taints decoded string result.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.harmony.textdecoder.decodeToString.arg0_to_result.0",
+      "surfaceId": "surface.transfer.harmony.textdecoder.decodeToString.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.codec",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "decodeToString",
         "invokeKind": "instance",
         "argCount": 2
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.textdecoder.decodeToString.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "TextDecoder.decodeToString(buffer): buffer argument taints decoded string result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.textencoder.encodeInto.arg0_to_result",
-      "description": "TextEncoder.encodeInto(text): source text taints encoded byte result.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.harmony.textencoder.encodeInto.arg0_to_result.0",
+      "surfaceId": "surface.transfer.harmony.textencoder.encodeInto.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.codec",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "encodeInto",
         "invokeKind": "instance",
         "argCount": 1
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.textencoder.encodeInto.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "TextEncoder.encodeInto(text): source text taints encoded byte result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     }
-  ]
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.transfer.harmony.textdecoder.decodeToString.base_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.textdecoder.decodeToString.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.textencoder.encodeInto.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "src/models/kernel/rules/transfers/codec.rules.json"
+      }
+    ]
+  }
 }

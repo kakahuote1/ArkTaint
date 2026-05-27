@@ -1,10 +1,11 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as path from "path";
 import { execFileSync } from "child_process";
 import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
-import type { ModuleSpec } from "../../core/kernel/contracts/ModuleSpec";
-import { compileModuleSpec } from "../../core/orchestration/modules/ModuleSpecCompiler";
+import type { ModuleRuntimeSpec } from "../../core/kernel/contracts/ModuleRuntimeSpec";
+import type { TaintModule } from "../../core/kernel/contracts/ModuleContract";
+import { compileModuleRuntimeSpec } from "../../core/orchestration/modules/ModuleRuntimeSpecCompiler";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { loadRuleSet } from "../../core/rules/RuleLoader";
 import { findCaseMethod, resolveCaseMethod } from "../helpers/SyntheticCaseHarness";
@@ -32,7 +33,7 @@ async function runCase(
     scene: Scene,
     relativePath: string,
     caseName: string,
-    moduleSpecFile: string,
+    modules: TaintModule[],
     projectRulePath: string,
 ): Promise<{
     totalFlows: number;
@@ -52,7 +53,7 @@ async function runCase(
 
     const engine = new TaintPropagationEngine(scene, 1, {
         includeBuiltinModules: false,
-        moduleSpecFiles: [moduleSpecFile],
+        modules,
     });
     engine.verbose = false;
     await engine.buildPAG({
@@ -87,7 +88,7 @@ type RuntimeFamily = {
     title: string;
     semantic: string;
     why: string;
-    spec: ModuleSpec;
+    spec: ModuleRuntimeSpec;
     files: Record<string, string>;
     projectRules?: Record<string, unknown>;
     cases: RuntimeCase[];
@@ -131,7 +132,6 @@ function writeProjectRules(projectRulePath: string, rules?: Record<string, unkno
     writeText(
         projectRulePath,
         JSON.stringify(rules || {
-            schemaVersion: "2.0",
             sources: [
                 {
                     id: "source.fixture.semantic_edge_suite",
@@ -803,7 +803,6 @@ function buildRuntimeFamilies(): RuntimeFamily[] {
                 ],
             },
             projectRules: {
-                schemaVersion: "2.0",
                 sources: [
                     {
                         id: "source.fixture.ability_handoff.entry_param",
@@ -1102,18 +1101,18 @@ async function runRuntimeFamily(root: string, family: RuntimeFamily): Promise<Ru
     const familyDir = path.join(root, family.id);
     const inputsDir = path.join(familyDir, "inputs");
     const projectRulePath = path.join(familyDir, "project.rules.json");
-    const moduleSpecPath = path.join(familyDir, "module_spec.json");
+    const moduleRuntimeSpecPath = path.join(familyDir, "module_runtime_spec.json");
     for (const [name, content] of Object.entries(family.files)) {
         writeText(path.join(inputsDir, name), content);
     }
     writeProjectRules(projectRulePath, family.projectRules);
-    writeText(moduleSpecPath, JSON.stringify(family.spec, null, 2));
+    writeText(moduleRuntimeSpecPath, JSON.stringify(family.spec, null, 2));
 
-    const compiled = compileModuleSpec(family.spec);
+    const compiled = compileModuleRuntimeSpec(family.spec);
     const scene = buildScene(inputsDir);
     const cases: Array<RuntimeCase & { actualFlows: number; passed: boolean }> = [];
     for (const item of family.cases) {
-        const actual = await runCase(scene, item.file, item.entry, moduleSpecPath, projectRulePath);
+        const actual = await runCase(scene, item.file, item.entry, compiled, projectRulePath);
         const passed = item.expectedFlows === 0
             ? actual.totalFlows === 0
             : actual.totalFlows >= item.expectedFlows;
@@ -1140,9 +1139,9 @@ function runCompileFamily(family: CompileFamily): CompileResult {
         let passed = true;
         let message = "";
         try {
-            compileModuleSpec(item.spec as ModuleSpec);
+            compileModuleRuntimeSpec(item.spec as ModuleRuntimeSpec);
             passed = false;
-            message = "expected compileModuleSpec to fail";
+            message = "expected compileModuleRuntimeSpec to fail";
         } catch (error) {
             message = String((error as any)?.message || error);
             for (const expected of item.expectedSubstrings) {

@@ -1,113 +1,161 @@
 {
-  "schemaVersion": 1,
-  "reactiveAnchorMethodNames": [
-    "build",
-    "aboutToAppear",
-    "onPageShow",
-    "render"
+  "id": "arkmain.harmony.framework_catalog",
+  "plane": "arkmain",
+  "status": "official",
+  "surfaces": [
+    {
+      "surfaceId": "arkmain.harmony.framework_catalog.surface",
+      "kind": "entry",
+      "ownerKind": "service",
+      "ownerName": "HarmonyFrameworkCatalog",
+      "methodName": "frameworkCatalog",
+      "phase": "bootstrap",
+      "entryKind": "framework_catalog",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    }
   ],
-  "abilityBaseClassNames": [
-    "Ability",
-    "UIAbility",
-    "ExtensionAbility",
-    "UiExtensionAbility",
-    "UIExtensionAbility",
-    "FormExtensionAbility",
-    "ServiceExtensionAbility",
-    "BackupExtensionAbility",
-    "InputMethodExtensionAbility",
-    "WorkSchedulerExtensionAbility",
-    "AbilityStage",
-    "DriverExtensionAbility",
-    "AutoFillExtensionAbility",
-    "VpnExtensionAbility",
-    "FenceExtensionAbility",
-    "PrintExtensionAbility",
-    "PhotoEditorExtensionAbility",
-    "UIServiceExtensionAbility",
-    "AppServiceExtensionAbility",
-    "ShareExtensionAbility",
-    "ActionExtensionAbility",
-    "EmbeddableUIAbility",
-    "EmbeddedUIExtensionAbility",
-    "MediaControlExtensionAbility",
-    "UserAuthExtensionAbility",
-    "FormEditExtensionAbility",
-    "ChildProcess",
-    "InsightIntentExecutor",
-    "LiveFormExtensionAbility",
-    "AccessibilityExtensionAbility",
-    "WindowExtensionAbility",
-    "StaticSubscriberExtensionAbility",
-    "DistributedExtensionAbility",
-    "EnterpriseAdminExtensionAbility",
-    "FaultLogExtensionAbility",
-    "WallpaperExtensionAbility",
-    "DataShareExtensionAbility",
-    "SelectionExtensionAbility",
-    "AdsServiceExtensionAbility"
+  "bindings": [
+    {
+      "bindingId": "arkmain.harmony.framework_catalog.binding",
+      "surfaceId": "arkmain.harmony.framework_catalog.surface",
+      "assetId": "arkmain.harmony.framework_catalog",
+      "plane": "arkmain",
+      "role": "entry",
+      "effectTemplateRefs": [
+        "arkmain.harmony.framework_catalog.capability"
+      ],
+      "semanticsFamily": "arkmain-catalog",
+      "metadata": {
+        "description": "Built-in Harmony ArkMain framework catalog."
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    }
   ],
-  "abilityHandoffTargetMethodNames": [
-    "onNewWant",
-    "onAcceptWant",
-    "onAcceptWantAsync",
-    "onNewProcessRequest",
-    "onNewProcessRequestAsync"
+  "effectTemplates": [
+    {
+      "id": "arkmain.harmony.framework_catalog.capability",
+      "kind": "core.capability",
+      "capability": "arkmain.framework-catalog",
+      "payload": {
+        "reactiveAnchorMethodNames": [
+          "build",
+          "aboutToAppear",
+          "onPageShow",
+          "render"
+        ],
+        "abilityBaseClassNames": [
+          "Ability",
+          "UIAbility",
+          "ExtensionAbility",
+          "UiExtensionAbility",
+          "UIExtensionAbility",
+          "FormExtensionAbility",
+          "ServiceExtensionAbility",
+          "BackupExtensionAbility",
+          "InputMethodExtensionAbility",
+          "WorkSchedulerExtensionAbility",
+          "AbilityStage",
+          "DriverExtensionAbility",
+          "AutoFillExtensionAbility",
+          "VpnExtensionAbility",
+          "FenceExtensionAbility",
+          "PrintExtensionAbility",
+          "PhotoEditorExtensionAbility",
+          "UIServiceExtensionAbility",
+          "AppServiceExtensionAbility",
+          "ShareExtensionAbility",
+          "ActionExtensionAbility",
+          "EmbeddableUIAbility",
+          "EmbeddedUIExtensionAbility",
+          "MediaControlExtensionAbility",
+          "UserAuthExtensionAbility",
+          "FormEditExtensionAbility",
+          "ChildProcess",
+          "InsightIntentExecutor",
+          "LiveFormExtensionAbility",
+          "AccessibilityExtensionAbility",
+          "WindowExtensionAbility",
+          "StaticSubscriberExtensionAbility",
+          "DistributedExtensionAbility",
+          "EnterpriseAdminExtensionAbility",
+          "FaultLogExtensionAbility",
+          "WallpaperExtensionAbility",
+          "DataShareExtensionAbility",
+          "SelectionExtensionAbility",
+          "AdsServiceExtensionAbility"
+        ],
+        "abilityHandoffTargetMethodNames": [
+          "onNewWant",
+          "onAcceptWant",
+          "onAcceptWantAsync",
+          "onNewProcessRequest",
+          "onNewProcessRequestAsync"
+        ],
+        "pageMethodNames": [
+          "build",
+          "aboutToAppear",
+          "aboutToDisappear",
+          "onPageShow",
+          "onPageHide",
+          "onBackPress",
+          "pageTransition",
+          "onDidBuild",
+          "render"
+        ],
+        "routerOwnerClassNames": [
+          "Router",
+          "NavPathStack"
+        ],
+        "navigationSourceOwnerClassNames": [
+          "Router",
+          "NavPathStack",
+          "NavDestination"
+        ],
+        "routerSourceMethodNames": [
+          "pushUrl",
+          "replaceUrl",
+          "pushNamedRoute",
+          "pushPath",
+          "pushPathByName",
+          "replacePath",
+          "trigger"
+        ],
+        "routerTriggerMethodNames": [
+          "getParams"
+        ],
+        "watchLikeDecorators": [
+          "Watch",
+          "Monitor"
+        ],
+        "ownerDecorators": [
+          "Entry",
+          "Component",
+          "CustomDialog"
+        ],
+        "builderDecorator": "Builder",
+        "deferredContinuationMethodNames": [
+          "then",
+          "catch",
+          "finally"
+        ],
+        "frameworkCallbackMethodNames": [
+          "onRemoteRequest",
+          "onRemoteMessageRequest"
+        ],
+        "openWorldCallbackEntryFamilies": [
+          "unknown_sdk_callback",
+          "unknown_external_callback",
+          "unknown_structural_callback"
+        ]
+      },
+      "confidence": "certain"
+    }
   ],
-  "pageMethodNames": [
-    "build",
-    "aboutToAppear",
-    "aboutToDisappear",
-    "onPageShow",
-    "onPageHide",
-    "onBackPress",
-    "pageTransition",
-    "onDidBuild",
-    "render"
-  ],
-  "routerOwnerClassNames": [
-    "Router",
-    "NavPathStack"
-  ],
-  "navigationSourceOwnerClassNames": [
-    "Router",
-    "NavPathStack",
-    "NavDestination"
-  ],
-  "routerSourceMethodNames": [
-    "pushUrl",
-    "replaceUrl",
-    "pushNamedRoute",
-    "pushPath",
-    "pushPathByName",
-    "replacePath",
-    "trigger"
-  ],
-  "routerTriggerMethodNames": [
-    "getParams"
-  ],
-  "watchLikeDecorators": [
-    "Watch",
-    "Monitor"
-  ],
-  "ownerDecorators": [
-    "Entry",
-    "Component",
-    "CustomDialog"
-  ],
-  "builderDecorator": "Builder",
-  "deferredContinuationMethodNames": [
-    "then",
-    "catch",
-    "finally"
-  ],
-  "frameworkCallbackMethodNames": [
-    "onRemoteRequest",
-    "onRemoteMessageRequest"
-  ],
-  "openWorldCallbackEntryFamilies": [
-    "unknown_sdk_callback",
-    "unknown_external_callback",
-    "unknown_structural_callback"
-  ]
+  "provenance": {
+    "source": "builtin"
+  }
 }

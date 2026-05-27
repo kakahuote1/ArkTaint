@@ -1,57 +1,175 @@
 {
-    "schemaVersion": "2.0",
-    "meta": {
-        "name": "harmony-e2e-rules",
-        "description": "Phase 7.5 end-to-end cross-module integration smoke rules",
-        "updatedAt": "2026-02-22"
+  "id": "asset.rule.test.harmony_e2e",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
+    {
+      "surfaceId": "surface.source.harmony.e2e.oncreate_want_parameters",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "onCreate",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
-    "sources": [
-        {
-            "id": "source.harmony.e2e.oncreate_want_parameters",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "onCreate"
-            },
-            "sourceKind": "entry_param",
-            "target": {
-                "endpoint": "arg0",
-                "path": [
-                    "parameters"
-                ]
-            }
+    {
+      "surfaceId": "surface.source.harmony.e2e.activate_callback_in_build",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "onChange",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.harmony.e2e.mock_sink",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "Sink",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.source.harmony.e2e.oncreate_want_parameters.0",
+      "surfaceId": "surface.source.harmony.e2e.oncreate_want_parameters",
+      "assetId": "asset.rule.test.harmony_e2e",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "onCreate"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         },
-        {
-            "id": "source.harmony.e2e.activate_callback_in_build",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "onChange"
-            },
-            "scope": {
-                "methodName": {
-                    "mode": "equals",
-                    "value": "build"
-                }
-            },
-            "sourceKind": "callback_param",
-            "target": {
-                "endpoint": "arg99"
-            },
-            "callbackArgIndexes": [
-                0
-            ]
+        "accessPath": [
+          "parameters"
+        ]
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.e2e.oncreate_want_parameters"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.e2e.activate_callback_in_build.0",
+      "surfaceId": "surface.source.harmony.e2e.activate_callback_in_build",
+      "assetId": "asset.rule.test.harmony_e2e",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "onChange",
+        "scope": {
+          "methodName": {
+            "mode": "equals",
+            "value": "build"
+          }
         }
-    ],
-    "sinks": [
-        {
-            "id": "sink.harmony.e2e.mock_sink",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "Sink"
-            },
-            "target": {
-                "endpoint": "arg0"
-            }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 99
         }
-    ],
-    "transfers": []
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.e2e.activate_callback_in_build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.e2e.mock_sink.0",
+      "surfaceId": "surface.sink.harmony.e2e.mock_sink",
+      "assetId": "asset.rule.test.harmony_e2e",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Sink"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.e2e.mock_sink"
+      ],
+      "semanticsFamily": "sink",
+      "completeness": "partial",
+      "confidence": "likely"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.source.harmony.e2e.oncreate_want_parameters",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        },
+        "accessPath": [
+          "parameters"
+        ]
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.e2e.activate_callback_in_build",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 99
+        }
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.sink.harmony.e2e.mock_sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "tests/rules/harmony_e2e.rules.json"
+      }
+    ]
+  }
 }

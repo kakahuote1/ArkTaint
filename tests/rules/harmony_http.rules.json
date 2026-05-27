@@ -1,60 +1,216 @@
 {
-    "schemaVersion": "2.0",
-    "meta": {
-        "name": "harmony_http",
-        "description": "C14 http benchmark rules (gate-ready minimal semantics)",
-        "updatedAt": "2026-02-22"
+  "id": "asset.rule.test.harmony_http",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
+    {
+      "surfaceId": "surface.source.harmony_http.entry_param",
+      "kind": "access",
+      "modulePath": "@arktaint/local",
+      "ownerName": "LocalBinding",
+      "propertyName": "source.harmony_http.entry_param",
+      "accessKind": "read",
+      "receiverKind": "namespace",
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
-    "sources": [
-        {
-            "id": "source.harmony_http.entry_param",
-            "match": {
-                "kind": "local_name_regex",
-                "value": "^taint_src$"
-            },
-            "sourceKind": "entry_param",
-            "target": "arg0"
-        },
-        {
-            "id": "source.harmony_http.request_async_callback_arg0",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "requestAsync"
-            },
-            "sourceKind": "callback_param",
-            "target": {
-                "endpoint": "arg0"
-            },
-            "callbackArgIndexes": [
-                1
-            ]
+    {
+      "surfaceId": "surface.source.harmony_http.request_async_callback_arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "requestAsync",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.harmony_http.mock_sink",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "Sink",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony_http.request_arg_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "Http",
+      "methodName": "request",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.source.harmony_http.entry_param.0",
+      "surfaceId": "surface.source.harmony_http.entry_param",
+      "assetId": "asset.rule.test.harmony_http",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "local-name-regex",
+        "value": "^taint_src$"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
-    ],
-    "sinks": [
-        {
-            "id": "sink.harmony_http.mock_sink",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "Sink"
-            },
-            "target": {
-                "endpoint": "arg0"
-            }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_http.entry_param"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony_http.request_async_callback_arg0.0",
+      "surfaceId": "surface.source.harmony_http.request_async_callback_arg0",
+      "assetId": "asset.rule.test.harmony_http",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "requestAsync"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
-    ],
-    "transfers": [
-        {
-            "id": "transfer.harmony_http.request_arg_to_result",
-            "description": "Model request(url, data): request payload taints response object in benchmark.",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "request",
-                "invokeKind": "instance",
-                "argCount": 2,
-                "typeHint": "Http"
-            },
-            "from": "arg1",
-            "to": "result"
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_http.request_async_callback_arg0"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony_http.mock_sink.0",
+      "surfaceId": "surface.sink.harmony_http.mock_sink",
+      "assetId": "asset.rule.test.harmony_http",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Sink"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony_http.mock_sink"
+      ],
+      "semanticsFamily": "sink",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.harmony_http.request_arg_to_result.0",
+      "surfaceId": "surface.transfer.harmony_http.request_arg_to_result",
+      "assetId": "asset.rule.test.harmony_http",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "request",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "Http"
+      },
+      "effectTemplateRefs": [
+        "template.transfer.harmony_http.request_arg_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Model request(url, data): request payload taints response object in benchmark."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.source.harmony_http.entry_param",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_http.request_async_callback_arg0",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.sink.harmony_http.mock_sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
+    },
+    {
+      "id": "template.transfer.harmony_http.request_arg_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "tests/rules/harmony_http.rules.json"
+      }
     ]
+  }
 }

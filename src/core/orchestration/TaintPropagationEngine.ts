@@ -79,7 +79,6 @@ import {
     ModuleRuntime,
     TaintModule,
 } from "../kernel/contracts/ModuleContract";
-import type { ModuleSpec } from "../kernel/contracts/ModuleSpec";
 import type { InternalModuleQueryApi } from "../kernel/contracts/ModuleInternal";
 import {
     getPagNodeResolutionAuditSnapshot,
@@ -164,8 +163,6 @@ export interface TaintEngineOptions {
     executionHandoff?: "enabled" | "disabled";
     adaptiveContext?: AdaptiveContextSelectorOptions;
     transferRules?: TransferRule[];
-    moduleSpecFiles?: string[];
-    moduleSpecs?: ModuleSpec[];
     modules?: TaintModule[];
     moduleRoots?: string[];
     moduleFiles?: string[];
@@ -325,8 +322,6 @@ export class TaintPropagationEngine {
             disabledModuleIds: this.resolveDisabledModuleIds(options),
             moduleRoots: options.moduleRoots,
             moduleFiles: options.moduleFiles,
-            moduleSpecFiles: options.moduleSpecFiles,
-            moduleSpecs: options.moduleSpecs,
             modules: options.modules,
             enabledModuleProjects: options.enabledModuleProjects,
             disabledModuleProjects: options.disabledModuleProjects,

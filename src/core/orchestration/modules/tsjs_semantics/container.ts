@@ -1,4 +1,4 @@
-import { ArkAssignStmt, ArkInvokeStmt } from "../../../../../arkanalyzer/out/src/core/base/Stmt";
+﻿import { ArkAssignStmt, ArkInvokeStmt } from "../../../../../arkanalyzer/out/src/core/base/Stmt";
 import { ArkNormalBinopExpr, ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../../arkanalyzer/out/src/core/base/Expr";
 import { ArkArrayRef, ArkInstanceFieldRef } from "../../../../../arkanalyzer/out/src/core/base/Ref";
 import { Local } from "../../../../../arkanalyzer/out/src/core/base/Local";
@@ -15,7 +15,7 @@ import {
 import type {
     ModuleContainerCapability,
     ModuleContainerFamilyKind,
-} from "../../../kernel/contracts/ModuleSpec";
+} from "../../../kernel/contracts/ModuleRuntimeSpec";
 import { safeGetOrCreatePagNodes } from "../../../kernel/contracts/PagNodeResolution";
 
 export interface TsjsContainerSemanticModuleOptions {

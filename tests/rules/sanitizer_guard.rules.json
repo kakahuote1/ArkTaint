@@ -1,57 +1,214 @@
 {
-    "schemaVersion": "2.0",
-    "meta": {
-        "name": "sanitizer-guard-rule-pack",
-        "description": "Rules for sink-side sanitizer guard validation",
-        "updatedAt": "2026-02-21"
+  "id": "asset.rule.test.sanitizer_guard",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
+    {
+      "surfaceId": "surface.source.sanitizer.entry_param.taint_src",
+      "kind": "access",
+      "modulePath": "@arktaint/local",
+      "ownerName": "LocalBinding",
+      "propertyName": "source.sanitizer.entry_param.taint_src",
+      "accessKind": "read",
+      "receiverKind": "namespace",
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
-    "sources": [
-        {
-            "id": "source.sanitizer.entry_param.taint_src",
-            "match": {
-                "kind": "local_name_regex",
-                "value": "^taint_src$"
-            },
-            "sourceKind": "entry_param",
-            "target": {
-                "endpoint": "arg0"
-            }
+    {
+      "surfaceId": "surface.sink.sanitizer.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "Sink",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sanitizer.escape.result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "Escape",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sanitizer.clean.inplace.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "CleanInPlace",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.source.sanitizer.entry_param.taint_src.0",
+      "surfaceId": "surface.source.sanitizer.entry_param.taint_src",
+      "assetId": "asset.rule.test.sanitizer_guard",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "local-name-regex",
+        "value": "^taint_src$"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
-    ],
-    "sinks": [
-        {
-            "id": "sink.sanitizer.arg0",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "Sink"
-            },
-            "severity": "medium",
-            "target": {
-                "endpoint": "arg0"
-            }
+      },
+      "effectTemplateRefs": [
+        "template.source.sanitizer.entry_param.taint_src"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.sanitizer.arg0.0",
+      "surfaceId": "surface.sink.sanitizer.arg0",
+      "assetId": "asset.rule.test.sanitizer_guard",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Sink"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
-    ],
-    "sanitizers": [
-        {
-            "id": "sanitizer.escape.result",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "Escape"
-            },
-            "target": {
-                "endpoint": "result"
-            }
-        },
-        {
-            "id": "sanitizer.clean.inplace.arg0",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "CleanInPlace"
-            },
-            "target": {
-                "endpoint": "arg0"
-            }
+      },
+      "effectTemplateRefs": [
+        "template.sink.sanitizer.arg0"
+      ],
+      "semanticsFamily": "sink",
+      "metadata": {
+        "severity": "medium"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sanitizer.escape.result.0",
+      "surfaceId": "surface.sanitizer.escape.result",
+      "assetId": "asset.rule.test.sanitizer_guard",
+      "plane": "rule",
+      "role": "sanitizer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Escape"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
-    ],
-    "transfers": []
+      },
+      "effectTemplateRefs": [
+        "template.sanitizer.escape.result"
+      ],
+      "semanticsFamily": "sanitizer",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sanitizer.clean.inplace.arg0.0",
+      "surfaceId": "surface.sanitizer.clean.inplace.arg0",
+      "assetId": "asset.rule.test.sanitizer_guard",
+      "plane": "rule",
+      "role": "sanitizer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "CleanInPlace"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sanitizer.clean.inplace.arg0"
+      ],
+      "semanticsFamily": "sanitizer",
+      "completeness": "partial",
+      "confidence": "likely"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.source.sanitizer.entry_param.taint_src",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.sink.sanitizer.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
+    },
+    {
+      "id": "template.sanitizer.escape.result",
+      "confidence": "certain",
+      "kind": "rule.sanitizer",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sanitizerKind": "sanitizer",
+      "strength": "strong"
+    },
+    {
+      "id": "template.sanitizer.clean.inplace.arg0",
+      "confidence": "certain",
+      "kind": "rule.sanitizer",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sanitizerKind": "sanitizer",
+      "strength": "strong"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "tests/rules/sanitizer_guard.rules.json"
+      }
+    ]
+  }
 }

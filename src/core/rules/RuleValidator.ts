@@ -277,7 +277,6 @@ function validateRuleCommon(rulePath: string, rule: unknown, out: RuleValidation
     if (rule.category !== undefined && !isNonEmptyString(rule.category)) {
         out.errors.push(`${rulePath}.category must be a non-empty string`);
     }
-
     if (rule.scope !== undefined) {
         validateScopeConstraint(rulePath, rule.scope, out, "scope");
     }
@@ -457,13 +456,6 @@ export function validateRuleSet(raw: unknown): RuleValidationResult {
     if (!isObject(raw)) {
         out.errors.push("rule set must be an object");
         return out;
-    }
-
-    const schemaVersion = raw.schemaVersion;
-    if (!isNonEmptyString(schemaVersion)) {
-        out.errors.push("schemaVersion must be a non-empty string");
-    } else if (schemaVersion !== "2.0") {
-        out.errors.push(`schemaVersion must be '2.0', got '${schemaVersion}'`);
     }
 
     if (!Array.isArray(raw.sources)) {

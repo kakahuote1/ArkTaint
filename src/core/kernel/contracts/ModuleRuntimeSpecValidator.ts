@@ -1,4 +1,4 @@
-import type {
+﻿import type {
     ModuleAddress,
     ModuleBridgeEmitSpec,
     ModuleConstraint,
@@ -8,8 +8,8 @@ import type {
     ModuleFieldPathSpec,
     ModuleSemantic,
     ModuleSemanticSurfaceRef,
-    ModuleSpec,
-} from "./ModuleSpec";
+    ModuleRuntimeSpec,
+} from "./ModuleRuntimeSpec";
 
 const VALID_SEMANTIC_KINDS = new Set([
     "bridge",
@@ -130,16 +130,16 @@ class ValidationCollector {
     }
 }
 
-export class ModuleSpecValidationError extends Error {
+export class ModuleRuntimeSpecValidationError extends Error {
     readonly specId?: string;
     readonly issues: string[];
 
     constructor(specId: string | undefined, issues: string[]) {
         const title = specId && specId.trim().length > 0
-            ? `Invalid ModuleSpec "${specId}"`
-            : "Invalid ModuleSpec";
+            ? `Invalid ModuleRuntimeSpec "${specId}"`
+            : "Invalid ModuleRuntimeSpec";
         super(`${title}:\n${issues.map(issue => `  - ${issue}`).join("\n")}`);
-        this.name = "ModuleSpecValidationError";
+        this.name = "ModuleRuntimeSpecValidationError";
         this.specId = specId;
         this.issues = issues;
     }
@@ -253,11 +253,13 @@ function validateFieldPathSpec(value: unknown, path: string, collector: Validati
 }
 
 function validateInvokeSelector(value: Record<string, unknown>, path: string, collector: ValidationCollector): void {
+    if (value.modulePath !== undefined) validateString(value.modulePath, `${path}.modulePath`, collector);
     if (value.methodName !== undefined) validateString(value.methodName, `${path}.methodName`, collector);
     if (value.declaringClassName !== undefined) validateString(value.declaringClassName, `${path}.declaringClassName`, collector);
     if (value.declaringClassIncludes !== undefined) validateString(value.declaringClassIncludes, `${path}.declaringClassIncludes`, collector);
     if (value.signature !== undefined) validateString(value.signature, `${path}.signature`, collector);
     if (value.signatureIncludes !== undefined) validateString(value.signatureIncludes, `${path}.signatureIncludes`, collector);
+    if (value.argCount !== undefined) validateInteger(value.argCount, `${path}.argCount`, collector);
     if (value.minArgs !== undefined) validateInteger(value.minArgs, `${path}.minArgs`, collector);
     if (value.instanceOnly !== undefined) validateBoolean(value.instanceOnly, `${path}.instanceOnly`, collector);
     if (value.staticOnly !== undefined) validateBoolean(value.staticOnly, `${path}.staticOnly`, collector);
@@ -634,14 +636,14 @@ function validateSemantic(value: unknown, path: string, collector: ValidationCol
     }
 }
 
-export function validateModuleSpecOrThrow(spec: unknown): asserts spec is ModuleSpec {
+export function validateModuleRuntimeSpecOrThrow(spec: unknown): asserts spec is ModuleRuntimeSpec {
     const collector = new ValidationCollector();
     const specRecord = isRecord(spec) ? spec : undefined;
     const specId = specRecord && typeof specRecord.id === "string" ? specRecord.id : undefined;
     const seenSemanticIds = new Set<string>();
 
     if (!specRecord) {
-        throw new ModuleSpecValidationError(undefined, ["module spec root must be an object"]);
+        throw new ModuleRuntimeSpecValidationError(undefined, ["module spec root must be an object"]);
     }
 
     validateString(specRecord.id, "id", collector);
@@ -659,7 +661,7 @@ export function validateModuleSpecOrThrow(spec: unknown): asserts spec is Module
             validateSemantic(semantic, `semantics[${index}]`, collector);
             if (isRecord(semantic) && typeof semantic.id === "string" && semantic.id.trim().length > 0) {
                 if (seenSemanticIds.has(semantic.id)) {
-                    collector.add(`semantics[${index}].id`, "must be unique within one ModuleSpec", semantic.id);
+                    collector.add(`semantics[${index}].id`, "must be unique within one ModuleRuntimeSpec", semantic.id);
                 }
                 seenSemanticIds.add(semantic.id);
             }
@@ -667,6 +669,6 @@ export function validateModuleSpecOrThrow(spec: unknown): asserts spec is Module
     }
 
     if (collector.hasIssues) {
-        throw new ModuleSpecValidationError(specId, collector.toArray());
+        throw new ModuleRuntimeSpecValidationError(specId, collector.toArray());
     }
 }

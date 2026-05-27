@@ -1,12 +1,14 @@
 import * as fs from "fs";
 import * as path from "path";
+import { AssetDocumentBase } from "../../core/assets/schema";
 import {
     buildFrameworkSanitizerRules,
     FRAMEWORK_SANITIZER_FAMILY_CONTRACTS,
     isFrameworkSanitizerCatalogRule,
 } from "../../core/rules/FrameworkSanitizerCatalog";
+import { lowerRuleAssetsToRuleSet } from "../../core/rules/RuleAssetLowering";
 import { loadRuleSet } from "../../core/rules/RuleLoader";
-import { SanitizerRule, TaintRuleSet } from "../../core/rules/RuleSchema";
+import { SanitizerRule } from "../../core/rules/RuleSchema";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -21,7 +23,8 @@ function readKernelSanitizerRules(): SanitizerRule[] {
         .sort((a, b) => a.localeCompare(b));
     const out: SanitizerRule[] = [];
     for (const fileName of files) {
-        const ruleSet = JSON.parse(fs.readFileSync(path.join(dir, fileName), "utf-8")) as TaintRuleSet;
+        const asset = JSON.parse(fs.readFileSync(path.join(dir, fileName), "utf-8")) as AssetDocumentBase;
+        const ruleSet = lowerRuleAssetsToRuleSet([asset]).ruleSet;
         out.push(...(ruleSet.sanitizers || []));
     }
     return out;

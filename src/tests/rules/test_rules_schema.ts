@@ -89,7 +89,6 @@ async function main(): Promise<void> {
     console.log(`project=${loaded.projectRulePath || "N/A"}`);
     console.log(`candidate_rule=${loaded.candidateRulePath || "N/A"}`);
     console.log(`applied_layers=${loaded.appliedLayerOrder.join(" -> ")}`);
-    console.log(`schemaVersion=${loaded.ruleSet.schemaVersion}`);
     console.log(`sources=${counts.sources}`);
     console.log(`sinks=${counts.sinks}`);
     console.log(`sanitizers=${counts.sanitizers}`);

@@ -67,7 +67,6 @@ async function main(): Promise<void> {
     const endpoints = new Set(flows.map(flow => flow.sinkEndpoint));
     const summary = detectFlows(engine, {
         ruleSet: {
-            schemaVersion: "2.0",
             sources: [],
             sinks: sinkRules,
             transfers: [],

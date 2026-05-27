@@ -1,127 +1,422 @@
 {
-  "schemaVersion": "2.0",
-  "sources": [],
-  "sinks": [
+  "id": "asset.rule.kernel.sinks.web",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
     {
-      "id": "sink.harmony.web.create.arg0",
-      "enabled": true,
-      "match": {
-        "kind": "signature_contains",
-        "value": "Web.create"
-      },
-      "category": "webview_injection",
-      "severity": "high",
-      "target": {
-        "endpoint": "arg0"
+      "surfaceId": "surface.sink.harmony.web.create.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "create",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
       }
     },
     {
-      "id": "sink.harmony.webcontroller.loadUrl.arg0",
-      "enabled": true,
-      "match": {
-        "kind": "method_name_equals",
-        "value": "loadUrl",
-        "invokeKind": "instance"
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "^(WebController|WebviewController|AtomicServiceWebController)$"
-        }
-      },
-      "category": "webview_injection",
-      "severity": "high",
-      "target": {
-        "endpoint": "arg0"
+      "surfaceId": "surface.sink.harmony.webcontroller.loadUrl.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "WebController.WebviewController.AtomicServiceWebController",
+      "methodName": "loadUrl",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
       }
     },
     {
-      "id": "sink.harmony.webcontroller.runJavaScript.arg0",
-      "enabled": true,
-      "match": {
-        "kind": "method_name_equals",
-        "value": "runJavaScript",
-        "invokeKind": "instance"
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "^(WebController|WebviewController|AtomicServiceWebController)$"
-        }
-      },
-      "category": "webview_injection",
-      "severity": "high",
-      "target": {
-        "endpoint": "arg0"
+      "surfaceId": "surface.sink.harmony.webcontroller.runJavaScript.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "WebController.WebviewController.AtomicServiceWebController",
+      "methodName": "runJavaScript",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
       }
     },
     {
-      "id": "sink.harmony.js.eval.arg0",
-      "enabled": true,
-      "match": {
-        "kind": "method_name_equals",
-        "value": "eval"
-      },
-      "category": "code_injection",
-      "severity": "high",
-      "target": {
-        "endpoint": "arg0"
+      "surfaceId": "surface.sink.harmony.js.eval.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "eval",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
       }
     },
     {
-      "id": "sink.harmony.js.function_ctor.arg0",
-      "enabled": true,
-      "match": {
-        "kind": "signature_contains",
-        "value": "Function.constructor"
-      },
-      "category": "code_injection",
-      "severity": "high",
-      "target": {
-        "endpoint": "arg0"
+      "surfaceId": "surface.sink.harmony.js.function_ctor.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "constructor",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
       }
     },
     {
-      "id": "sink.harmony.webview.loadData",
-      "description": "Load HTML data into WebView (XSS)",
-      "tags": [
-        "harmony",
-        "phase7118",
-        "webview",
-        "P0"
-      ],
-      "match": {
-        "kind": "signature_contains",
-        "value": "loadData"
-      },
-      "scope": {
-        "className": {
-          "mode": "contains",
-          "value": "Webview"
-        }
-      },
-      "target": "arg0",
-      "severity": "critical",
-      "category": "webview_injection"
+      "surfaceId": "surface.sink.harmony.webview.loadData",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "Webview",
+      "methodName": "loadData",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
     {
-      "id": "sink.harmony.webview.registerJavaScriptProxy",
-      "description": "Register JS bridge object to WebView",
-      "tags": [
-        "harmony",
-        "phase7118",
-        "webview",
-        "P0"
-      ],
-      "match": {
-        "kind": "signature_contains",
-        "value": "registerJavaScriptProxy"
-      },
-      "target": "arg0",
-      "severity": "critical",
-      "category": "webview_injection"
+      "surfaceId": "surface.sink.harmony.webview.registerJavaScriptProxy",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "registerJavaScriptProxy",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     }
   ],
-  "sanitizers": [],
-  "transfers": []
+  "bindings": [
+    {
+      "bindingId": "binding.sink.harmony.web.create.arg0.0",
+      "surfaceId": "surface.sink.harmony.web.create.arg0",
+      "assetId": "asset.rule.kernel.sinks.web",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "signature-contains",
+        "value": "Web.create"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.web.create.arg0"
+      ],
+      "semanticsFamily": "webview_injection",
+      "metadata": {
+        "enabled": true,
+        "category": "webview_injection",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.webcontroller.loadUrl.arg0.0",
+      "surfaceId": "surface.sink.harmony.webcontroller.loadUrl.arg0",
+      "assetId": "asset.rule.kernel.sinks.web",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "loadUrl",
+        "invokeKind": "instance",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "^(WebController|WebviewController|AtomicServiceWebController)$"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.webcontroller.loadUrl.arg0"
+      ],
+      "semanticsFamily": "webview_injection",
+      "metadata": {
+        "enabled": true,
+        "category": "webview_injection",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.webcontroller.runJavaScript.arg0.0",
+      "surfaceId": "surface.sink.harmony.webcontroller.runJavaScript.arg0",
+      "assetId": "asset.rule.kernel.sinks.web",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "runJavaScript",
+        "invokeKind": "instance",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "^(WebController|WebviewController|AtomicServiceWebController)$"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.webcontroller.runJavaScript.arg0"
+      ],
+      "semanticsFamily": "webview_injection",
+      "metadata": {
+        "enabled": true,
+        "category": "webview_injection",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.js.eval.arg0.0",
+      "surfaceId": "surface.sink.harmony.js.eval.arg0",
+      "assetId": "asset.rule.kernel.sinks.web",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "eval"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.js.eval.arg0"
+      ],
+      "semanticsFamily": "code_injection",
+      "metadata": {
+        "enabled": true,
+        "category": "code_injection",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.js.function_ctor.arg0.0",
+      "surfaceId": "surface.sink.harmony.js.function_ctor.arg0",
+      "assetId": "asset.rule.kernel.sinks.web",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "signature-contains",
+        "value": "Function.constructor"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.js.function_ctor.arg0"
+      ],
+      "semanticsFamily": "code_injection",
+      "metadata": {
+        "enabled": true,
+        "category": "code_injection",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.webview.loadData.0",
+      "surfaceId": "surface.sink.harmony.webview.loadData",
+      "assetId": "asset.rule.kernel.sinks.web",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "signature-contains",
+        "value": "loadData",
+        "scope": {
+          "className": {
+            "mode": "contains",
+            "value": "Webview"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.webview.loadData"
+      ],
+      "semanticsFamily": "webview_injection",
+      "metadata": {
+        "description": "Load HTML data into WebView (XSS)",
+        "tags": [
+          "harmony",
+          "phase7118",
+          "webview",
+          "P0"
+        ],
+        "category": "webview_injection",
+        "severity": "critical"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.webview.registerJavaScriptProxy.0",
+      "surfaceId": "surface.sink.harmony.webview.registerJavaScriptProxy",
+      "assetId": "asset.rule.kernel.sinks.web",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "signature-contains",
+        "value": "registerJavaScriptProxy"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.webview.registerJavaScriptProxy"
+      ],
+      "semanticsFamily": "webview_injection",
+      "metadata": {
+        "description": "Register JS bridge object to WebView",
+        "tags": [
+          "harmony",
+          "phase7118",
+          "webview",
+          "P0"
+        ],
+        "category": "webview_injection",
+        "severity": "critical"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.sink.harmony.web.create.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "webview_injection"
+    },
+    {
+      "id": "template.sink.harmony.webcontroller.loadUrl.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "webview_injection"
+    },
+    {
+      "id": "template.sink.harmony.webcontroller.runJavaScript.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "webview_injection"
+    },
+    {
+      "id": "template.sink.harmony.js.eval.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "code_injection"
+    },
+    {
+      "id": "template.sink.harmony.js.function_ctor.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "code_injection"
+    },
+    {
+      "id": "template.sink.harmony.webview.loadData",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "webview_injection"
+    },
+    {
+      "id": "template.sink.harmony.webview.registerJavaScriptProxy",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "webview_injection"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "src/models/kernel/rules/sinks/web.rules.json"
+      }
+    ]
+  }
 }

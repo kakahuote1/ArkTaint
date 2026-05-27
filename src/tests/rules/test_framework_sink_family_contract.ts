@@ -1,6 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
+import { AssetDocumentBase } from "../../core/assets/schema";
 import { buildFrameworkSinkRules, FRAMEWORK_SINK_FAMILY_CONTRACTS, isFrameworkSinkCatalogRule } from "../../core/rules/FrameworkSinkCatalog";
+import { lowerRuleAssetsToRuleSet } from "../../core/rules/RuleAssetLowering";
 import { loadRuleSet } from "../../core/rules/RuleLoader";
 import { SinkRule, SourceRule, TaintRuleSet } from "../../core/rules/RuleSchema";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
@@ -100,7 +102,10 @@ function readKernelRuleSets(kind: "sinks"): TaintRuleSet[] {
     const files = fs.readdirSync(dir)
         .filter(fileName => fileName.endsWith(".rules.json"))
         .sort((a, b) => a.localeCompare(b));
-    return files.map(fileName => JSON.parse(fs.readFileSync(path.join(dir, fileName), "utf-8")) as TaintRuleSet);
+    return files.map(fileName => {
+        const asset = JSON.parse(fs.readFileSync(path.join(dir, fileName), "utf-8")) as AssetDocumentBase;
+        return lowerRuleAssetsToRuleSet([asset]).ruleSet;
+    });
 }
 
 function findMethod(scene: ReturnType<typeof buildTestScene>, methodName: string): any {

@@ -447,12 +447,21 @@ function matchesInvokeScanFilter(
     if (filter.instanceOnly && !isInstanceInvoke) return false;
     if (filter.staticOnly && isInstanceInvoke) return false;
     if (filter.methodName && filter.methodName !== methodName) return false;
+    if (filter.modulePath && !modulePathMatchesSignature(filter.modulePath, signature)) return false;
     if (filter.declaringClassName && filter.declaringClassName !== declaringClassName) return false;
     if (filter.declaringClassIncludes && !declaringClassName.includes(filter.declaringClassIncludes)) return false;
     if (filter.signature && filter.signature !== signature) return false;
     if (filter.signatureIncludes && !signature.includes(filter.signatureIncludes)) return false;
+    if (filter.argCount !== undefined && argCount !== filter.argCount) return false;
     if (filter.minArgs !== undefined && argCount < filter.minArgs) return false;
     return true;
+}
+
+function modulePathMatchesSignature(modulePath: string, signature: string): boolean {
+    const expected = String(modulePath || "").replace(/^@/, "").replace(/\\/g, "/").toLowerCase();
+    const match = String(signature || "").match(/@([^:>]+):/);
+    const actual = (match?.[1] || "").replace(/^@/, "").replace(/\\/g, "/").toLowerCase();
+    return !!expected && actual === expected;
 }
 
 function isInvokeExprLike(value: any): boolean {

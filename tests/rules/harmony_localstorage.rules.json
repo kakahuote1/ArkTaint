@@ -1,32 +1,115 @@
 {
-    "schemaVersion": "2.0",
-    "meta": {
-        "name": "harmony-localstorage-v1-rules",
-        "description": "LocalStorage and LocalStorage decorators modeling tests",
-        "updatedAt": "2026-03-01"
+  "id": "asset.rule.test.harmony_localstorage",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
+    {
+      "surfaceId": "surface.source.harmony.localstorage.entry_param",
+      "kind": "access",
+      "modulePath": "@arktaint/local",
+      "ownerName": "LocalBinding",
+      "propertyName": "source.harmony.localstorage.entry_param",
+      "accessKind": "read",
+      "receiverKind": "namespace",
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
-    "sources": [
-        {
-            "id": "source.harmony.localstorage.entry_param",
-            "match": {
-                "kind": "local_name_regex",
-                "value": "^taint_src$"
-            },
-            "sourceKind": "entry_param",
-            "target": "arg0"
+    {
+      "surfaceId": "surface.sink.harmony.localstorage.mock_sink",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "Sink",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.source.harmony.localstorage.entry_param.0",
+      "surfaceId": "surface.source.harmony.localstorage.entry_param",
+      "assetId": "asset.rule.test.harmony_localstorage",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "local-name-regex",
+        "value": "^taint_src$"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
-    ],
-    "sinks": [
-        {
-            "id": "sink.harmony.localstorage.mock_sink",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "Sink"
-            },
-            "target": {
-                "endpoint": "arg0"
-            }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.localstorage.entry_param"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.localstorage.mock_sink.0",
+      "surfaceId": "surface.sink.harmony.localstorage.mock_sink",
+      "assetId": "asset.rule.test.harmony_localstorage",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Sink"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
-    ],
-    "transfers": []
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.localstorage.mock_sink"
+      ],
+      "semanticsFamily": "sink",
+      "completeness": "partial",
+      "confidence": "likely"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.source.harmony.localstorage.entry_param",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.sink.harmony.localstorage.mock_sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "tests/rules/harmony_localstorage.rules.json"
+      }
+    ]
+  }
 }

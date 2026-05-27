@@ -1,4 +1,4 @@
-import {
+﻿import {
     defineModule,
     type ModuleCallbackApi,
     type ModuleDeferredBindingSemanticsOptions,
@@ -28,11 +28,11 @@ import type {
     ModuleSameAddressConstraint,
     ModuleSemanticSurfaceRef,
     ModuleInvokeSurfaceSelector,
-    ModuleSpec as PublicModuleSpec,
+    ModuleRuntimeSpec as PublicModuleRuntimeSpec,
     ModuleTransferMode,
-} from "../../kernel/contracts/ModuleSpec";
+} from "../../kernel/contracts/ModuleRuntimeSpec";
 import type {
-    MaterializedModuleSpec,
+    MaterializedModuleRuntimeSpec,
     ModuleAssociation,
     ModuleCallbackDispatchTrigger,
     ModuleCarrierFieldCell,
@@ -88,11 +88,11 @@ import type {
     ModuleSurface,
     ModuleTransfer,
     ModuleTrigger,
-} from "./ModuleSpecLoweringTypes";
+} from "./ModuleRuntimeSpecLoweringTypes";
 import { getMethodBySignature } from "../../kernel/contracts/MethodLookup";
-import { canonicalizeModuleSpec, normalizeSurfaceRef } from "../../kernel/contracts/ModuleSpecCanonicalizer";
-import { validateModuleSpecOrThrow } from "../../kernel/contracts/ModuleSpecValidator";
-import { compileRuntimeSemanticModule } from "./ModuleSpecRuntimeSemanticCompiler";
+import { canonicalizeModuleRuntimeSpec, normalizeSurfaceRef } from "../../kernel/contracts/ModuleRuntimeSpecCanonicalizer";
+import { validateModuleRuntimeSpecOrThrow } from "../../kernel/contracts/ModuleRuntimeSpecValidator";
+import { compileRuntimeSemanticModule } from "./ModuleRuntimeSpecSemanticCompiler";
 import { createHandoffPropagationSession } from "../../kernel/semantic_handoff/SemanticHandoffPropagation";
 import {
     handoffInvokeEffectMeta,
@@ -106,7 +106,7 @@ import {
     HandoffEffect,
 } from "../../kernel/semantic_handoff/SemanticHandoffTypes";
 
-type ModuleSpec = Omit<MaterializedModuleSpec, "description" | "semantics"> & {
+type ModuleRuntimeSpec = Omit<MaterializedModuleRuntimeSpec, "description" | "semantics"> & {
     description: string;
     semantics: Array<ModuleSemantic & { id: string }>;
 };
@@ -129,7 +129,7 @@ interface CarrierBridgeSideSpec {
     value: ModuleNodeSlotSelector;
 }
 
-interface KeyedBridgeModuleSpec {
+interface KeyedBridgeModuleRuntimeSpec {
     id: string;
     description: string;
     enabled?: boolean;
@@ -140,7 +140,7 @@ interface KeyedBridgeModuleSpec {
     emit?: ModuleBridgeEmitSpec;
 }
 
-interface CarrierBridgeModuleSpec {
+interface CarrierBridgeModuleRuntimeSpec {
     id: string;
     description: string;
     enabled?: boolean;
@@ -151,7 +151,7 @@ interface CarrierBridgeModuleSpec {
     emit?: ModuleBridgeEmitSpec;
 }
 
-interface DirectCallbackBridgeModuleSpec {
+interface DirectCallbackBridgeModuleRuntimeSpec {
     id: string;
     description: string;
     enabled?: boolean;
@@ -163,7 +163,7 @@ interface DirectCallbackBridgeModuleSpec {
     emit?: ModuleBridgeEmitSpec;
 }
 
-interface DirectNodeBridgeModuleSpec {
+interface DirectNodeBridgeModuleRuntimeSpec {
     id: string;
     description: string;
     enabled?: boolean;
@@ -203,7 +203,7 @@ type ModuleFieldBridgeTargetSpec =
     | ModuleFieldBridgeInvokePortTargetSpec
     | ModuleFieldBridgeMethodParamTargetSpec;
 
-interface FieldBridgeModuleSpec {
+interface FieldBridgeModuleRuntimeSpec {
     id: string;
     description: string;
     enabled?: boolean;
@@ -218,7 +218,7 @@ interface FieldBridgeModuleSpec {
     emit?: ModuleFieldBridgeEmitSpec;
 }
 
-interface InvokeEmitModuleSpec {
+interface InvokeEmitModuleRuntimeSpec {
     id: string;
     description: string;
     enabled?: boolean;
@@ -231,7 +231,7 @@ interface InvokeEmitModuleSpec {
     allowUnreachableTarget?: boolean;
 }
 
-interface PairedNodeFieldWriteModuleSpec {
+interface PairedNodeFieldWriteModuleRuntimeSpec {
     id: string;
     description: string;
     enabled?: boolean;
@@ -248,7 +248,7 @@ interface MethodPortSelectorSpec {
     paramIndex?: number;
 }
 
-interface MethodFieldWriteModuleSpec {
+interface MethodFieldWriteModuleRuntimeSpec {
     id: string;
     description: string;
     enabled?: boolean;
@@ -260,7 +260,7 @@ interface MethodFieldWriteModuleSpec {
     emit?: ModuleBridgeEmitSpec;
 }
 
-interface DeclarativeBindingModuleSpec {
+interface DeclarativeBindingModuleRuntimeSpec {
     id: string;
     description: string;
     enabled?: boolean;
@@ -278,7 +278,7 @@ interface DeclarativeBindingModuleSpec {
     semantics?: ModuleImperativeDeferredBindingSpec["semantics"];
 }
 
-interface ScopedAddressedBridgeModuleSpec {
+interface ScopedAddressedBridgeModuleRuntimeSpec {
     id: string;
     description: string;
     enabled?: boolean;
@@ -295,7 +295,7 @@ interface ScopedAddressedBridgeModuleSpec {
     emit?: ModuleBridgeEmitSpec;
 }
 
-interface CrossMethodParamBridgeModuleSpec {
+interface CrossMethodParamBridgeModuleRuntimeSpec {
     id: string;
     description: string;
     enabled?: boolean;
@@ -346,7 +346,7 @@ type SemanticEndpointSpec =
     | SemanticInvokeEndpointSpec
     | SemanticDecoratedFieldEndpointSpec;
 
-interface SemanticAddressedBridgeModuleSpec {
+interface SemanticAddressedBridgeModuleRuntimeSpec {
     id: string;
     description: string;
     enabled?: boolean;
@@ -358,19 +358,19 @@ interface SemanticAddressedBridgeModuleSpec {
     emit?: ModuleBridgeEmitSpec;
 }
 
-type LoweredModuleSpec =
-    | KeyedBridgeModuleSpec
-    | CarrierBridgeModuleSpec
-    | DirectNodeBridgeModuleSpec
-    | DirectCallbackBridgeModuleSpec
-    | FieldBridgeModuleSpec
-    | InvokeEmitModuleSpec
-    | PairedNodeFieldWriteModuleSpec
-    | MethodFieldWriteModuleSpec
-    | DeclarativeBindingModuleSpec
-    | ScopedAddressedBridgeModuleSpec
-    | CrossMethodParamBridgeModuleSpec
-    | SemanticAddressedBridgeModuleSpec;
+type LoweredModuleRuntimeSpec =
+    | KeyedBridgeModuleRuntimeSpec
+    | CarrierBridgeModuleRuntimeSpec
+    | DirectNodeBridgeModuleRuntimeSpec
+    | DirectCallbackBridgeModuleRuntimeSpec
+    | FieldBridgeModuleRuntimeSpec
+    | InvokeEmitModuleRuntimeSpec
+    | PairedNodeFieldWriteModuleRuntimeSpec
+    | MethodFieldWriteModuleRuntimeSpec
+    | DeclarativeBindingModuleRuntimeSpec
+    | ScopedAddressedBridgeModuleRuntimeSpec
+    | CrossMethodParamBridgeModuleRuntimeSpec
+    | SemanticAddressedBridgeModuleRuntimeSpec;
 
 type NormalizedFieldBridgeEmitSpec = Required<ModuleFieldBridgeEmitSpec>;
 
@@ -378,15 +378,15 @@ function normalizeEmitSpec(spec?: ModuleBridgeEmitSpec): NormalizedBridgeEmitSpe
     return {
         mode: spec?.mode || "preserve",
         boundary: spec?.boundary || "identity",
-        reason: spec?.reason || "ModuleSpec-Bridge",
+        reason: spec?.reason || "ModuleRuntimeSpec-Bridge",
         allowUnreachableTarget: spec?.allowUnreachableTarget === true,
     };
 }
 
 function normalizeFieldBridgeEmitSpec(spec?: ModuleFieldBridgeEmitSpec): NormalizedFieldBridgeEmitSpec {
     return {
-        fieldReason: spec?.fieldReason || "ModuleSpec-FieldBridge",
-        loadReason: spec?.loadReason || spec?.fieldReason || "ModuleSpec-FieldBridge",
+        fieldReason: spec?.fieldReason || "ModuleRuntimeSpec-FieldBridge",
+        loadReason: spec?.loadReason || spec?.fieldReason || "ModuleRuntimeSpec-FieldBridge",
         boundary: spec?.boundary || "identity",
         allowUnreachableTarget: spec?.allowUnreachableTarget === true,
     };
@@ -738,14 +738,23 @@ function matchesInvokeSurface(
     },
 ): boolean {
     if (surface.methodName && surface.methodName !== call.methodName) return false;
+    if (surface.modulePath && !modulePathMatchesSignature(surface.modulePath, call.signature)) return false;
     if (surface.declaringClassName && surface.declaringClassName !== call.declaringClassName) return false;
     if (surface.declaringClassIncludes && !call.declaringClassName.includes(surface.declaringClassIncludes)) return false;
     if (surface.signature && surface.signature !== call.signature) return false;
     if (surface.signatureIncludes && !call.signature.includes(surface.signatureIncludes)) return false;
+    if (surface.argCount !== undefined && call.argCount !== surface.argCount) return false;
     if (surface.minArgs !== undefined && call.argCount < surface.minArgs) return false;
     if (surface.instanceOnly && call.isInstanceInvoke === false) return false;
     if (surface.staticOnly && call.isInstanceInvoke === true) return false;
     return true;
+}
+
+function modulePathMatchesSignature(modulePath: string, signature: string): boolean {
+    const expected = String(modulePath || "").replace(/^@/, "").replace(/\\/g, "/").toLowerCase();
+    const match = String(signature || "").match(/@([^:>]+):/);
+    const actual = (match?.[1] || "").replace(/^@/, "").replace(/\\/g, "/").toLowerCase();
+    return !!expected && actual === expected;
 }
 
 function matchesEventInvokeSurface(surface: ModuleInvokeSurfaceSelector, event: ModuleInvokeEvent): boolean {
@@ -1292,7 +1301,7 @@ function resolveMethodBySelector(scene: any, selector: ModuleMethodSelector): an
     return undefined;
 }
 
-function resolveAnchorStmt(ctx: any, spec: DeclarativeBindingModuleSpec, sourceMethod: any): any | undefined {
+function resolveAnchorStmt(ctx: any, spec: DeclarativeBindingModuleRuntimeSpec, sourceMethod: any): any | undefined {
     const anchorMethod = spec.anchor?.anchorMethodSignature
         ? resolveMethodBySignature(ctx.raw.scene, spec.anchor.anchorMethodSignature)
         : sourceMethod;
@@ -1513,7 +1522,7 @@ function buildProjectedTargetFieldPath(
     }
 }
 
-function compileKeyedBridgeModule(spec: KeyedBridgeModuleSpec): TaintModule {
+function compileKeyedBridgeModule(spec: KeyedBridgeModuleRuntimeSpec): TaintModule {
     const emitSpec = normalizeEmitSpec(spec.emit);
     return defineModule({
         id: spec.id,
@@ -1581,7 +1590,7 @@ function compileKeyedBridgeModule(spec: KeyedBridgeModuleSpec): TaintModule {
     });
 }
 
-function compileCarrierBridgeModule(spec: CarrierBridgeModuleSpec): TaintModule {
+function compileCarrierBridgeModule(spec: CarrierBridgeModuleRuntimeSpec): TaintModule {
     const emitSpec = normalizeEmitSpec(spec.emit);
     return defineModule({
         id: spec.id,
@@ -1635,7 +1644,7 @@ function compileCarrierBridgeModule(spec: CarrierBridgeModuleSpec): TaintModule 
     });
 }
 
-function compileScopedAddressedBridgeModule(spec: ScopedAddressedBridgeModuleSpec): TaintModule {
+function compileScopedAddressedBridgeModule(spec: ScopedAddressedBridgeModuleRuntimeSpec): TaintModule {
     const emitSpec = normalizeEmitSpec(spec.emit);
     return defineModule({
         id: spec.id,
@@ -1711,7 +1720,7 @@ function compileScopedAddressedBridgeModule(spec: ScopedAddressedBridgeModuleSpe
     });
 }
 
-function compileSemanticAddressedBridgeModule(spec: SemanticAddressedBridgeModuleSpec): TaintModule {
+function compileSemanticAddressedBridgeModule(spec: SemanticAddressedBridgeModuleRuntimeSpec): TaintModule {
     const emitSpec = normalizeEmitSpec(spec.emit);
     return defineModule({
         id: spec.id,
@@ -1862,7 +1871,7 @@ function compileSemanticAddressedBridgeModule(spec: SemanticAddressedBridgeModul
     });
 }
 
-function compileCrossMethodParamBridgeModule(spec: CrossMethodParamBridgeModuleSpec): TaintModule {
+function compileCrossMethodParamBridgeModule(spec: CrossMethodParamBridgeModuleRuntimeSpec): TaintModule {
     const emitSpec = normalizeEmitSpec(spec.emit);
     return defineModule({
         id: spec.id,
@@ -1905,7 +1914,7 @@ function compileCrossMethodParamBridgeModule(spec: CrossMethodParamBridgeModuleS
     });
 }
 
-function compileDirectNodeBridgeModule(spec: DirectNodeBridgeModuleSpec): TaintModule {
+function compileDirectNodeBridgeModule(spec: DirectNodeBridgeModuleRuntimeSpec): TaintModule {
     const emitSpec = normalizeEmitSpec(spec.emit);
     return defineModule({
         id: spec.id,
@@ -1929,7 +1938,7 @@ function compileDirectNodeBridgeModule(spec: DirectNodeBridgeModuleSpec): TaintM
     });
 }
 
-function compileDirectCallbackBridgeModule(spec: DirectCallbackBridgeModuleSpec): TaintModule {
+function compileDirectCallbackBridgeModule(spec: DirectCallbackBridgeModuleRuntimeSpec): TaintModule {
     const emitSpec = normalizeEmitSpec(spec.emit);
     return defineModule({
         id: spec.id,
@@ -1960,7 +1969,7 @@ function compileDirectCallbackBridgeModule(spec: DirectCallbackBridgeModuleSpec)
     });
 }
 
-function compileFieldBridgeModule(spec: FieldBridgeModuleSpec): TaintModule {
+function compileFieldBridgeModule(spec: FieldBridgeModuleRuntimeSpec): TaintModule {
     const emitSpec = normalizeFieldBridgeEmitSpec(spec.emit);
     return defineModule({
         id: spec.id,
@@ -2023,7 +2032,7 @@ function compileFieldBridgeModule(spec: FieldBridgeModuleSpec): TaintModule {
     });
 }
 
-function compileMethodFieldWriteModule(spec: MethodFieldWriteModuleSpec): TaintModule {
+function compileMethodFieldWriteModule(spec: MethodFieldWriteModuleRuntimeSpec): TaintModule {
     const emitSpec = normalizeEmitSpec(spec.emit);
     return defineModule({
         id: spec.id,
@@ -2074,7 +2083,7 @@ function compileMethodFieldWriteModule(spec: MethodFieldWriteModuleSpec): TaintM
     });
 }
 
-function compilePairedNodeFieldWriteModule(spec: PairedNodeFieldWriteModuleSpec): TaintModule {
+function compilePairedNodeFieldWriteModule(spec: PairedNodeFieldWriteModuleRuntimeSpec): TaintModule {
     const emitSpec = normalizeEmitSpec(spec.emit);
     return defineModule({
         id: spec.id,
@@ -2117,7 +2126,7 @@ function compilePairedNodeFieldWriteModule(spec: PairedNodeFieldWriteModuleSpec)
     });
 }
 
-function compileInvokeEmitModule(spec: InvokeEmitModuleSpec): TaintModule {
+function compileInvokeEmitModule(spec: InvokeEmitModuleRuntimeSpec): TaintModule {
     return defineModule({
         id: spec.id,
         description: spec.description,
@@ -2140,7 +2149,7 @@ function compileInvokeEmitModule(spec: InvokeEmitModuleSpec): TaintModule {
     });
 }
 
-function compileDeclarativeBindingModule(spec: DeclarativeBindingModuleSpec): TaintModule {
+function compileDeclarativeBindingModule(spec: DeclarativeBindingModuleRuntimeSpec): TaintModule {
     return defineModule({
         id: spec.id,
         description: spec.description,
@@ -2172,7 +2181,7 @@ function compileDeclarativeBindingModule(spec: DeclarativeBindingModuleSpec): Ta
     });
 }
 
-interface ModuleSpecIndex {
+interface ModuleRuntimeSpecIndex {
     surfaces: Map<string, ModuleSurface>;
     ports: Map<string, ModulePort>;
     cells: Map<string, ModuleCell>;
@@ -2223,7 +2232,7 @@ function registerById<T extends { id: string }>(
     }
 }
 
-function buildModuleSpecIndex(spec: ModuleSpec): ModuleSpecIndex {
+function buildModuleRuntimeSpecIndex(spec: ModuleRuntimeSpec): ModuleRuntimeSpecIndex {
     invariant(Array.isArray(spec.surfaces) && spec.surfaces.length > 0, `module spec ${spec.id} requires at least one surface`);
     const surfaces = new Map<string, ModuleSurface>();
     const ports = new Map<string, ModulePort>();
@@ -2293,25 +2302,25 @@ function isAddressedCell(cell: ModuleCell): cell is ModuleKeyedStateCell | Modul
     return cell.kind === "keyed_state_cell" || cell.kind === "channel_cell";
 }
 
-function requireSurface(index: ModuleSpecIndex, spec: ModuleSpec, id: string): ModuleSurface {
+function requireSurface(index: ModuleRuntimeSpecIndex, spec: ModuleRuntimeSpec, id: string): ModuleSurface {
     const surface = index.surfaces.get(id);
     invariant(surface, `module spec ${spec.id} references unknown surface '${id}'`);
     return surface;
 }
 
-function requirePort(index: ModuleSpecIndex, spec: ModuleSpec, id: string): ModulePort {
+function requirePort(index: ModuleRuntimeSpecIndex, spec: ModuleRuntimeSpec, id: string): ModulePort {
     const port = index.ports.get(id);
     invariant(port, `module spec ${spec.id} references unknown port '${id}'`);
     return port;
 }
 
-function requireCell(index: ModuleSpecIndex, spec: ModuleSpec, id: string): ModuleCell {
+function requireCell(index: ModuleRuntimeSpecIndex, spec: ModuleRuntimeSpec, id: string): ModuleCell {
     const cell = index.cells.get(id);
     invariant(cell, `module spec ${spec.id} references unknown cell '${id}'`);
     return cell;
 }
 
-function requireAssociation(index: ModuleSpecIndex, spec: ModuleSpec, id: string): ModuleAssociation {
+function requireAssociation(index: ModuleRuntimeSpecIndex, spec: ModuleRuntimeSpec, id: string): ModuleAssociation {
     const association = index.associations.get(id);
     invariant(association, `module spec ${spec.id} references unknown association '${id}'`);
     return association;
@@ -2321,21 +2330,21 @@ function portSurfaceId(port: ModulePort): string {
     return port.surface;
 }
 
-function requireInvokeSurfaceForPort(index: ModuleSpecIndex, spec: ModuleSpec, port: ModulePort): ModuleInvokeSurface {
+function requireInvokeSurfaceForPort(index: ModuleRuntimeSpecIndex, spec: ModuleRuntimeSpec, port: ModulePort): ModuleInvokeSurface {
     const surface = requireSurface(index, spec, portSurfaceId(port));
     invariant(isInvokeSurface(surface), `module spec ${spec.id} port '${port.id}' must reference an invoke surface`);
     return surface;
 }
 
-function requireMethodSurfaceForPort(index: ModuleSpecIndex, spec: ModuleSpec, port: ModulePort): ModuleMethodSurface {
+function requireMethodSurfaceForPort(index: ModuleRuntimeSpecIndex, spec: ModuleRuntimeSpec, port: ModulePort): ModuleMethodSurface {
     const surface = requireSurface(index, spec, portSurfaceId(port));
     invariant(isMethodSurface(surface), `module spec ${spec.id} port '${port.id}' must reference a method surface`);
     return surface;
 }
 
 function requireDecoratedFieldSurfaceForPort(
-    index: ModuleSpecIndex,
-    spec: ModuleSpec,
+    index: ModuleRuntimeSpecIndex,
+    spec: ModuleRuntimeSpec,
     port: ModulePort,
 ): ModuleDecoratedFieldSurface {
     const surface = requireSurface(index, spec, portSurfaceId(port));
@@ -2347,12 +2356,12 @@ function buildLoweredModuleId(specId: string, localId: string): string {
     return `${specId}::${localId}`;
 }
 
-function buildTransferReason(spec: ModuleSpec, transfer: { id: string; reason?: string }, fallback: string): string {
+function buildTransferReason(spec: ModuleRuntimeSpec, transfer: { id: string; reason?: string }, fallback: string): string {
     return transfer.reason || `${spec.id}:${fallback}:${transfer.id}`;
 }
 
 function buildBridgeEmitSpec(
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     transfer: { id: string; reason?: string; mode?: ModuleTransferMode; boundary?: ModuleBoundaryKind; allowUnreachableTarget?: boolean },
     fallback: string,
 ): ModuleBridgeEmitSpec {
@@ -2365,7 +2374,7 @@ function buildBridgeEmitSpec(
 }
 
 function buildFieldBridgeEmitSpec(
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     transfer: ModuleCellToCellTransfer | ModuleCellToPortTransfer,
     fallback: string,
 ): NormalizedFieldBridgeEmitSpec {
@@ -2382,7 +2391,7 @@ function buildFieldBridgeEmitSpec(
 }
 
 function buildFieldWriteEmitSpec(
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     transfer: ModulePortToCellTransfer,
     fallback: string,
 ): ModuleBridgeEmitSpec {
@@ -2394,8 +2403,8 @@ function buildFieldWriteEmitSpec(
 }
 
 function resolveAddressSpec(
-    spec: ModuleSpec,
-    index: ModuleSpecIndex,
+    spec: ModuleRuntimeSpec,
+    index: ModuleRuntimeSpecIndex,
     transfer: ModulePortToCellTransfer | ModuleCellToPortTransfer,
 ): AddressKeySpec {
     const hasPort = typeof transfer.addressFrom === "string" && transfer.addressFrom.length > 0;
@@ -2434,8 +2443,8 @@ function resolveAddressSpec(
 }
 
 function toSemanticEndpointSpec(
-    index: ModuleSpecIndex,
-    spec: ModuleSpec,
+    index: ModuleRuntimeSpecIndex,
+    spec: ModuleRuntimeSpec,
     port: ModulePort,
     role: "source" | "target",
     fieldPath?: ModuleFieldPathSpec,
@@ -2536,8 +2545,8 @@ function toCarrierNodeSelector(
 }
 
 function toCarrierSetSelector(
-    index: ModuleSpecIndex,
-    spec: ModuleSpec,
+    index: ModuleRuntimeSpecIndex,
+    spec: ModuleRuntimeSpec,
     port: ModulePort,
 ): ModuleCarrierSetSelector {
     if (port.kind === "method_this") {
@@ -2583,8 +2592,8 @@ function toInvokeEmitTarget(port: ModulePort): ModuleInvokeEmitTarget {
 }
 
 function resolveRequiredCallbackTrigger(
-    index: ModuleSpecIndex,
-    spec: ModuleSpec,
+    index: ModuleRuntimeSpecIndex,
+    spec: ModuleRuntimeSpec,
     callbackPortId: string,
 ): ModuleCallbackDispatchTrigger {
     const triggers = index.callbackTriggersByPort.get(callbackPortId) || [];
@@ -2593,8 +2602,8 @@ function resolveRequiredCallbackTrigger(
 }
 
 function toDeferredBindingSpec(
-    index: ModuleSpecIndex,
-    spec: ModuleSpec,
+    index: ModuleRuntimeSpecIndex,
+    spec: ModuleRuntimeSpec,
     callbackPort: ModulePort,
 ): ModuleImperativeDeferredBindingSpec {
     invariant(callbackPort.kind === "callback_param", `module spec ${spec.id} callback binding requires callback_param port`);
@@ -2609,10 +2618,10 @@ function toDeferredBindingSpec(
 }
 
 function lowerDeclarativeTrigger(
-    spec: ModuleSpec,
-    index: ModuleSpecIndex,
+    spec: ModuleRuntimeSpec,
+    index: ModuleRuntimeSpecIndex,
     trigger: ModuleDeclarativeDispatchTrigger,
-): DeclarativeBindingModuleSpec {
+): DeclarativeBindingModuleRuntimeSpec {
     const sourceSurface = requireSurface(index, spec, trigger.sourceSurface);
     const handlerSurface = requireSurface(index, spec, trigger.handlerSurface);
     invariant(isMethodSurface(sourceSurface), `module spec ${spec.id} declarative trigger '${trigger.id}' source must be a method surface`);
@@ -2637,7 +2646,7 @@ function resolveAssociationCarrierPortForSurface(
     leftPort: ModulePort,
     rightPort: ModulePort,
     surfaceId: string,
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     role: "source" | "target",
 ): ModuleInvokeArgPort | ModuleInvokeBasePort | ModuleInvokeResultPort {
     const candidates = [leftPort, rightPort].filter(port => portSurfaceId(port) === surfaceId);
@@ -2648,8 +2657,8 @@ function resolveAssociationCarrierPortForSurface(
 }
 
 function resolveSameCarrierAssociation(
-    index: ModuleSpecIndex,
-    spec: ModuleSpec,
+    index: ModuleRuntimeSpecIndex,
+    spec: ModuleRuntimeSpec,
     associationId: string | undefined,
 ): Extract<ModuleAssociation, { kind: "same_carrier" }> | undefined {
     if (!associationId) {
@@ -2661,10 +2670,10 @@ function resolveSameCarrierAssociation(
 }
 
 function lowerPortToPortTransfer(
-    spec: ModuleSpec,
-    index: ModuleSpecIndex,
+    spec: ModuleRuntimeSpec,
+    index: ModuleRuntimeSpecIndex,
     transfer: ModulePortToPortTransfer,
-): LoweredModuleSpec {
+): LoweredModuleRuntimeSpec {
     const fromPort = requirePort(index, spec, transfer.fromPort);
     const toPort = requirePort(index, spec, transfer.toPort);
     const fromSurface = requireInvokeSurfaceForPort(index, spec, fromPort);
@@ -2750,12 +2759,12 @@ function lowerPortToPortTransfer(
 }
 
 function lowerFieldWriteTransfer(
-    spec: ModuleSpec,
-    index: ModuleSpecIndex,
+    spec: ModuleRuntimeSpec,
+    index: ModuleRuntimeSpecIndex,
     transfer: ModulePortToCellTransfer,
     fromPort: ModuleInvokeArgPort | ModuleInvokeBasePort | ModuleInvokeResultPort,
     targetCell: ModuleCarrierFieldCell,
-): PairedNodeFieldWriteModuleSpec {
+): PairedNodeFieldWriteModuleRuntimeSpec {
     const sourceSurface = requireInvokeSurfaceForPort(index, spec, fromPort);
     const carrierPort = requirePort(index, spec, targetCell.carrierPort);
     invariant(isInvokeValuePort(carrierPort), `module spec ${spec.id} field cell '${targetCell.id}' carrierPort must be invoke_arg/base/result for direct field write lowering`);
@@ -2776,13 +2785,13 @@ function lowerFieldWriteTransfer(
 }
 
 function lowerMethodFieldWriteTransfer(
-    spec: ModuleSpec,
-    index: ModuleSpecIndex,
+    spec: ModuleRuntimeSpec,
+    index: ModuleRuntimeSpecIndex,
     transfer: ModulePortToCellTransfer,
     fromPort: ModuleMethodThisPort | ModuleMethodParamPort,
     targetCell: ModuleCarrierFieldCell,
     carrierPort: ModuleMethodThisPort | ModuleMethodParamPort,
-): MethodFieldWriteModuleSpec {
+): MethodFieldWriteModuleRuntimeSpec {
     const sourceSurface = requireMethodSurfaceForPort(index, spec, fromPort);
     const carrierSurface = requireMethodSurfaceForPort(index, spec, carrierPort);
     invariant(sourceSurface.id === carrierSurface.id, `module spec ${spec.id} field write transfer '${transfer.id}' must use one method surface for source and carrier`);
@@ -2801,15 +2810,15 @@ function lowerMethodFieldWriteTransfer(
 }
 
 function lowerAddressedBridge(
-    spec: ModuleSpec,
-    index: ModuleSpecIndex,
+    spec: ModuleRuntimeSpec,
+    index: ModuleRuntimeSpecIndex,
     cell: ModuleKeyedStateCell | ModuleChannelCell,
     writes: AddressedWriteCandidate[],
     reads: AddressedReadCandidate[],
-): LoweredModuleSpec[] {
+): LoweredModuleRuntimeSpec[] {
     invariant(writes.length > 0, `module spec ${spec.id} addressed cell '${cell.id}' requires at least one write-side transfer`);
     invariant(reads.length > 0, `module spec ${spec.id} addressed cell '${cell.id}' requires at least one read-side transfer`);
-    const lowered: LoweredModuleSpec[] = [];
+    const lowered: LoweredModuleRuntimeSpec[] = [];
     let pairIndex = 0;
     for (const write of writes) {
         for (const read of reads) {
@@ -2938,11 +2947,11 @@ function lowerAddressedBridge(
 }
 
 function lowerFieldBridge(
-    spec: ModuleSpec,
-    index: ModuleSpecIndex,
+    spec: ModuleRuntimeSpec,
+    index: ModuleRuntimeSpecIndex,
     sourceCell: ModuleCarrierFieldCell,
     group: FieldTargetGroup,
-): FieldBridgeModuleSpec | undefined {
+): FieldBridgeModuleRuntimeSpec | undefined {
     if (group.writes.length === 0 && group.loads.length === 0) {
         return undefined;
     }
@@ -3017,7 +3026,7 @@ function pushUniqueById<T extends { id: string }>(
 }
 
 function ensureRecipeInvokeSurface(
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     surfaceIds: Set<string>,
     recipeId: string,
     label: string,
@@ -3140,7 +3149,7 @@ function mergeDeferredSemantics(
 }
 
 function ensureSemanticSurface(
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     surfaceIds: Set<string>,
     semanticId: string,
     label: string,
@@ -3208,7 +3217,7 @@ function inferValueNodeKind(
 }
 
 function toRecipeEndpointFromSemantic(
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     surfaceIds: Set<string>,
     semanticId: string,
     label: string,
@@ -3288,7 +3297,7 @@ function toRecipeEndpointFromSemantic(
 }
 
 function toRecipeAddressFromSemantic(
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     surfaceIds: Set<string>,
     semanticId: string,
     label: string,
@@ -3322,7 +3331,7 @@ function toRecipeAddressFromSemantic(
 }
 
 function toRecipeTriggerFromDispatch(
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     surfaceIds: Set<string>,
     semanticId: string,
     dispatch: ModuleDispatch | undefined,
@@ -3341,7 +3350,7 @@ function toRecipeTriggerFromDispatch(
 }
 
 function assertRecipeSurfaceExists(
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     surfaceIds: Set<string>,
     endpoint: ModuleRecipeEndpoint,
     owner: string,
@@ -3350,7 +3359,7 @@ function assertRecipeSurfaceExists(
 }
 
 function buildRecipePort(
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     surfaceIds: Set<string>,
     endpoint: ModuleRecipeEndpoint,
     portId: string,
@@ -3420,7 +3429,7 @@ function buildRecipePort(
 }
 
 function addRecipeEndpointPort(
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     surfaceIds: Set<string>,
     ports: ModulePort[],
     seenPortIds: Set<string>,
@@ -3440,7 +3449,7 @@ function addRecipeEndpointPort(
 }
 
 function applyRecipeAddress(
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     surfaceIds: Set<string>,
     ports: ModulePort[],
     seenPortIds: Set<string>,
@@ -3496,7 +3505,7 @@ function buildRecipeTransferBase(recipeId: string, emit?: ModuleBridgeEmitSpec):
 }
 
 function addRecipeCallbackTrigger(
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     surfaceIds: Set<string>,
     ports: ModulePort[],
     triggers: ModuleTrigger[],
@@ -3523,7 +3532,7 @@ function addRecipeCallbackTrigger(
 }
 
 function addRecipeCell(
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     surfaceIds: Set<string>,
     ports: ModulePort[],
     cells: ModuleCell[],
@@ -3569,7 +3578,7 @@ function addRecipeCell(
 }
 
 function expandDirectBridgeRecipe(
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     surfaceIds: Set<string>,
     ports: ModulePort[],
     transfers: ModuleTransfer[],
@@ -3592,7 +3601,7 @@ function expandDirectBridgeRecipe(
 }
 
 function expandCallbackChannelRecipe(
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     surfaceIds: Set<string>,
     ports: ModulePort[],
     associations: ModuleAssociation[],
@@ -3646,7 +3655,7 @@ function expandCallbackChannelRecipe(
 }
 
 function expandCallbackHandoffRecipe(
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     surfaceIds: Set<string>,
     ports: ModulePort[],
     transfers: ModuleTransfer[],
@@ -3682,7 +3691,7 @@ function expandCallbackHandoffRecipe(
 }
 
 function expandAccessorPairRecipe(
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     surfaceIds: Set<string>,
     ports: ModulePort[],
     associations: ModuleAssociation[],
@@ -3734,7 +3743,7 @@ function expandAccessorPairRecipe(
 }
 
 function expandFactoryReturnRecipe(
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     surfaceIds: Set<string>,
     ports: ModulePort[],
     transfers: ModuleTransfer[],
@@ -3768,7 +3777,7 @@ function expandFactoryReturnRecipe(
 }
 
 function expandAssociatedBridgeRecipe(
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     surfaceIds: Set<string>,
     ports: ModulePort[],
     associations: ModuleAssociation[],
@@ -3803,7 +3812,7 @@ function expandAssociatedBridgeRecipe(
 }
 
 function assertRecipeWriteFieldPath(
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     recipeId: string,
     endpoint: ModuleRecipeEndpoint,
 ): string[] | undefined {
@@ -3815,7 +3824,7 @@ function assertRecipeWriteFieldPath(
 }
 
 function expandCellBridgeRecipe(
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     surfaceIds: Set<string>,
     ports: ModulePort[],
     cells: ModuleCell[],
@@ -3858,7 +3867,7 @@ function expandCellBridgeRecipe(
 }
 
 function expandDeclarativeRecipe(
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     surfaceIds: Set<string>,
     triggers: ModuleTrigger[],
     seenTriggerIds: Set<string>,
@@ -3880,7 +3889,7 @@ function expandDeclarativeRecipe(
 }
 
 function expandBridgeSemantic(
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     surfaceIds: Set<string>,
     ports: ModulePort[],
     cells: ModuleCell[],
@@ -3992,7 +4001,7 @@ function expandBridgeSemantic(
 }
 
 function expandStateSemantic(
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     surfaceIds: Set<string>,
     ports: ModulePort[],
     cells: ModuleCell[],
@@ -4093,7 +4102,7 @@ function expandStateSemantic(
 }
 
 function expandDeclarativeBindingSemantic(
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     surfaceIds: Set<string>,
     triggers: ModuleTrigger[],
     seenTriggerIds: Set<string>,
@@ -4117,8 +4126,8 @@ function expandDeclarativeBindingSemantic(
     );
 }
 
-function materializeModuleSpec(spec: PublicModuleSpec): ModuleSpec {
-    const materialized: ModuleSpec = {
+function materializeModuleRuntimeSpec(spec: PublicModuleRuntimeSpec): ModuleRuntimeSpec {
+    const materialized: ModuleRuntimeSpec = {
         id: spec.id,
         description: spec.description || spec.id,
         enabled: spec.enabled,
@@ -4196,17 +4205,17 @@ function materializeModuleSpec(spec: PublicModuleSpec): ModuleSpec {
     return materialized;
 }
 
-function normalizeModuleSpec(spec: PublicModuleSpec): ModuleSpec {
-    validateModuleSpecOrThrow(spec);
-    return materializeModuleSpec(canonicalizeModuleSpec(spec));
+function normalizeModuleRuntimeSpec(spec: PublicModuleRuntimeSpec): ModuleRuntimeSpec {
+    validateModuleRuntimeSpecOrThrow(spec);
+    return materializeModuleRuntimeSpec(canonicalizeModuleRuntimeSpec(spec));
 }
 
-function lowerNormalizedModuleSpec(spec: ModuleSpec): LoweredModuleSpec[] {
+function lowerNormalizedModuleRuntimeSpec(spec: ModuleRuntimeSpec): LoweredModuleRuntimeSpec[] {
     invariant(typeof spec.id === "string" && spec.id.trim().length > 0, "module spec id must be a non-empty string");
     invariant(typeof spec.description === "string", `module spec ${spec.id} description must be a string`);
 
-    const index = buildModuleSpecIndex(spec);
-    const lowered: LoweredModuleSpec[] = [];
+    const index = buildModuleRuntimeSpecIndex(spec);
+    const lowered: LoweredModuleRuntimeSpec[] = [];
     const addressedWrites = new Map<string, AddressedWriteCandidate[]>();
     const addressedReads = new Map<string, AddressedReadCandidate[]>();
     const fieldGroups = new Map<string, FieldTargetGroup>();
@@ -4342,11 +4351,11 @@ function lowerNormalizedModuleSpec(spec: ModuleSpec): LoweredModuleSpec[] {
     return lowered;
 }
 
-function hasStructuralModuleContent(spec: ModuleSpec): boolean {
+function hasStructuralModuleContent(spec: ModuleRuntimeSpec): boolean {
     return (spec.transfers?.length || 0) > 0 || (spec.triggers?.length || 0) > 0;
 }
 
-function compileLoweredModule(spec: LoweredModuleSpec): TaintModule {
+function compileLoweredModule(spec: LoweredModuleRuntimeSpec): TaintModule {
     switch (spec.type) {
         case "keyed_bridge":
             return compileKeyedBridgeModule(spec);
@@ -4375,8 +4384,8 @@ function compileLoweredModule(spec: LoweredModuleSpec): TaintModule {
     }
 }
 
-export function compileModuleSpec(spec: PublicModuleSpec): TaintModule[] {
-    const normalized = normalizeModuleSpec(spec);
+export function compileModuleRuntimeSpec(spec: PublicModuleRuntimeSpec): TaintModule[] {
+    const normalized = normalizeModuleRuntimeSpec(spec);
     const out: TaintModule[] = [];
     for (const semantic of normalized.semantics || []) {
         const runtimeSemantic = compileRuntimeSemanticModule(normalized, semantic);
@@ -4385,17 +4394,17 @@ export function compileModuleSpec(spec: PublicModuleSpec): TaintModule[] {
         }
     }
     if (hasStructuralModuleContent(normalized)) {
-        out.push(...lowerNormalizedModuleSpec(normalized).map(item => compileLoweredModule(item)));
+        out.push(...lowerNormalizedModuleRuntimeSpec(normalized).map(item => compileLoweredModule(item)));
     }
     invariant(out.length > 0, `module spec ${spec.id} compiled to zero runtime modules`);
     return out;
 }
 
-export function compileModuleSpecs(specs: PublicModuleSpec[] | undefined): TaintModule[] {
+export function compileModuleRuntimeSpecs(specs: PublicModuleRuntimeSpec[] | undefined): TaintModule[] {
     if (!specs || specs.length === 0) {
         return [];
     }
     return specs
-        .filter((spec): spec is PublicModuleSpec => !!spec && spec.enabled !== false)
-        .flatMap(spec => compileModuleSpec(spec));
+        .filter((spec): spec is PublicModuleRuntimeSpec => !!spec && spec.enabled !== false)
+        .flatMap(spec => compileModuleRuntimeSpec(spec));
 }

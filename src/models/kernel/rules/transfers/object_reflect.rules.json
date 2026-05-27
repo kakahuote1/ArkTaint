@@ -1,287 +1,1261 @@
 {
-  "schemaVersion": "2.0",
-  "sources": [],
-  "sinks": [],
-  "sanitizers": [],
-  "transfers": [
+  "id": "asset.rule.kernel.transfers.object_reflect",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
     {
-      "id": "transfer.reflect.get.arg0_to_result",
-      "description": "Reflect.get(target, key): target object field value flows to result.",
-      "match": {
-        "kind": "signature_contains",
+      "surfaceId": "surface.transfer.reflect.get.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "reflect",
+      "methodName": "get",
+      "invokeKind": "static",
+      "argCount": 2,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.object.assign.arg1_to_arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "assign",
+      "invokeKind": "static",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.object.assign.arg1_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "assign",
+      "invokeKind": "static",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.object.keys.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "keys",
+      "invokeKind": "static",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.object.values.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "values",
+      "invokeKind": "static",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.object.entries.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "entries",
+      "invokeKind": "static",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.object.getOwnPropertyDescriptors.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "getOwnPropertyDescriptors",
+      "invokeKind": "static",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.reflect.set.arg2_to_arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "set",
+      "invokeKind": "static",
+      "argCount": 3,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.weakref.deref.base_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "deref",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.builtin.object.freeze.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "freeze",
+      "invokeKind": "static",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.builtin.object.seal.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "seal",
+      "invokeKind": "static",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.builtin.object.getOwnPropertyNames.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "getOwnPropertyNames",
+      "invokeKind": "static",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.builtin.object.preventExtensions.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "preventExtensions",
+      "invokeKind": "static",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.builtin.object.create.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "create",
+      "invokeKind": "static",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.builtin.object.create.arg1_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "create",
+      "invokeKind": "static",
+      "argCount": 2,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.builtin.object.defineProperty.arg2_to_arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "defineProperty",
+      "invokeKind": "static",
+      "argCount": 3,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.builtin.object.defineProperty.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "defineProperty",
+      "invokeKind": "static",
+      "argCount": 3,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.builtin.object.defineProperties.arg1_to_arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "defineProperties",
+      "invokeKind": "static",
+      "argCount": 2,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.builtin.object.defineProperties.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "defineProperties",
+      "invokeKind": "static",
+      "argCount": 2,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.builtin.regexp.exec.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "regexp",
+      "methodName": "exec",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.builtin.reflect.ownKeys.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "ownKeys",
+      "invokeKind": "static",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.builtin.reflect.apply.arg2_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "apply",
+      "invokeKind": "static",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.builtin.reflect.construct.arg1_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "construct",
+      "invokeKind": "static",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.builtin.reflect.getOwnPropertyDescriptor.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "getOwnPropertyDescriptor",
+      "invokeKind": "static",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.transfer.reflect.get.arg0_to_result.0",
+      "surfaceId": "surface.transfer.reflect.get.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "Reflect.get",
         "invokeKind": "static",
         "argCount": 2,
         "typeHint": "reflect"
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.reflect.get.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Reflect.get(target, key): target object field value flows to result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.object.assign.arg1_to_arg0",
-      "description": "Object.assign(target, source): source taints target object.",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.harmony.object.assign.arg1_to_arg0.0",
+      "surfaceId": "surface.transfer.harmony.object.assign.arg1_to_arg0",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "Object.assign",
         "invokeKind": "static"
       },
-      "from": "arg1",
-      "to": "arg0"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.object.assign.arg1_to_arg0"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Object.assign(target, source): source taints target object."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.object.assign.arg1_to_result",
-      "description": "Object.assign(target, source): source taints returned object.",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.harmony.object.assign.arg1_to_result.0",
+      "surfaceId": "surface.transfer.harmony.object.assign.arg1_to_result",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "Object.assign",
         "invokeKind": "static"
       },
-      "from": "arg1",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.object.assign.arg1_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Object.assign(target, source): source taints returned object."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.object.keys.arg0_to_result",
-      "description": "Object.keys(obj): object key content taints returned key array.",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.harmony.object.keys.arg0_to_result.0",
+      "surfaceId": "surface.transfer.harmony.object.keys.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "Object.keys",
         "invokeKind": "static",
         "argCount": 1
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.object.keys.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Object.keys(obj): object key content taints returned key array."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.object.values.arg0_to_result",
-      "description": "Object.values(obj): object value content taints returned value array.",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.harmony.object.values.arg0_to_result.0",
+      "surfaceId": "surface.transfer.harmony.object.values.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "Object.values",
         "invokeKind": "static",
         "argCount": 1
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.object.values.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Object.values(obj): object value content taints returned value array."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.object.entries.arg0_to_result",
-      "description": "Object.entries(obj): object value content taints returned entry array.",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.harmony.object.entries.arg0_to_result.0",
+      "surfaceId": "surface.transfer.harmony.object.entries.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "Object.entries",
         "invokeKind": "static",
         "argCount": 1
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.object.entries.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Object.entries(obj): object value content taints returned entry array."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.object.getOwnPropertyDescriptors.arg0_to_result",
-      "description": "Object.getOwnPropertyDescriptors(obj): object value content taints descriptor result.",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.harmony.object.getOwnPropertyDescriptors.arg0_to_result.0",
+      "surfaceId": "surface.transfer.harmony.object.getOwnPropertyDescriptors.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "Object.getOwnPropertyDescriptors",
         "invokeKind": "static",
         "argCount": 1
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.object.getOwnPropertyDescriptors.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Object.getOwnPropertyDescriptors(obj): object value content taints descriptor result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.reflect.set.arg2_to_arg0",
-      "description": "Reflect.set(target, key, value): value taints target object.",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.harmony.reflect.set.arg2_to_arg0.0",
+      "surfaceId": "surface.transfer.harmony.reflect.set.arg2_to_arg0",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "Reflect.set",
         "invokeKind": "static",
         "argCount": 3
       },
-      "from": "arg2",
-      "to": "arg0"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.reflect.set.arg2_to_arg0"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Reflect.set(target, key, value): value taints target object."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.weakref.deref.base_to_result",
-      "description": "WeakRef.deref(): wrapped object taint flows to dereferenced result.",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.harmony.weakref.deref.base_to_result.0",
+      "surfaceId": "surface.transfer.harmony.weakref.deref.base_to_result",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "WeakRef.deref",
         "invokeKind": "instance",
         "argCount": 0
       },
-      "from": "base",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.weakref.deref.base_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "WeakRef.deref(): wrapped object taint flows to dereferenced result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.builtin.object.freeze.arg0_to_result",
-      "description": "Object.freeze(obj): returns same frozen object.",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.builtin.object.freeze.arg0_to_result.0",
+      "surfaceId": "surface.transfer.builtin.object.freeze.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "Object.freeze",
         "invokeKind": "static"
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.builtin.object.freeze.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Object.freeze(obj): returns same frozen object."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.builtin.object.seal.arg0_to_result",
-      "description": "Object.seal(obj): returns same sealed object.",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.builtin.object.seal.arg0_to_result.0",
+      "surfaceId": "surface.transfer.builtin.object.seal.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "Object.seal",
         "invokeKind": "static"
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.builtin.object.seal.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Object.seal(obj): returns same sealed object."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.builtin.object.getOwnPropertyNames.arg0_to_result",
-      "description": "Object.getOwnPropertyNames(obj): object property names taint result array.",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.builtin.object.getOwnPropertyNames.arg0_to_result.0",
+      "surfaceId": "surface.transfer.builtin.object.getOwnPropertyNames.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "Object.getOwnPropertyNames",
         "invokeKind": "static"
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.builtin.object.getOwnPropertyNames.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Object.getOwnPropertyNames(obj): object property names taint result array."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.builtin.object.preventExtensions.arg0_to_result",
-      "description": "Object.preventExtensions(obj): returns same object reference.",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.builtin.object.preventExtensions.arg0_to_result.0",
+      "surfaceId": "surface.transfer.builtin.object.preventExtensions.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "Object.preventExtensions",
         "invokeKind": "static"
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.builtin.object.preventExtensions.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Object.preventExtensions(obj): returns same object reference."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.builtin.object.create.arg0_to_result",
-      "description": "Object.create(proto): prototype properties accessible on created object.",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.builtin.object.create.arg0_to_result.0",
+      "surfaceId": "surface.transfer.builtin.object.create.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "Object.create",
         "invokeKind": "static"
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.builtin.object.create.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Object.create(proto): prototype properties accessible on created object."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.builtin.object.create.arg1_to_result",
-      "description": "Object.create(proto, descriptors): descriptor values taint created object.",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.builtin.object.create.arg1_to_result.0",
+      "surfaceId": "surface.transfer.builtin.object.create.arg1_to_result",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "Object.create",
         "invokeKind": "static",
         "argCount": 2
       },
-      "from": "arg1",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.builtin.object.create.arg1_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Object.create(proto, descriptors): descriptor values taint created object."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.builtin.object.defineProperty.arg2_to_arg0",
-      "description": "Object.defineProperty(obj, prop, descriptor): descriptor value taints target.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.builtin.object.defineProperty.arg2_to_arg0.0",
+      "surfaceId": "surface.transfer.builtin.object.defineProperty.arg2_to_arg0",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "defineProperty",
         "invokeKind": "static",
         "argCount": 3
       },
-      "from": "arg2",
-      "to": "arg0"
+      "effectTemplateRefs": [
+        "template.transfer.builtin.object.defineProperty.arg2_to_arg0"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Object.defineProperty(obj, prop, descriptor): descriptor value taints target."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.builtin.object.defineProperty.arg0_to_result",
-      "description": "Object.defineProperty(obj, prop, descriptor): returns same object.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.builtin.object.defineProperty.arg0_to_result.0",
+      "surfaceId": "surface.transfer.builtin.object.defineProperty.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "defineProperty",
         "invokeKind": "static",
         "argCount": 3
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.builtin.object.defineProperty.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Object.defineProperty(obj, prop, descriptor): returns same object."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.builtin.object.defineProperties.arg1_to_arg0",
-      "description": "Object.defineProperties(obj, props): descriptor values taint target.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.builtin.object.defineProperties.arg1_to_arg0.0",
+      "surfaceId": "surface.transfer.builtin.object.defineProperties.arg1_to_arg0",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "defineProperties",
         "invokeKind": "static",
         "argCount": 2
       },
-      "from": "arg1",
-      "to": "arg0"
+      "effectTemplateRefs": [
+        "template.transfer.builtin.object.defineProperties.arg1_to_arg0"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Object.defineProperties(obj, props): descriptor values taint target."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.builtin.object.defineProperties.arg0_to_result",
-      "description": "Object.defineProperties(obj, props): returns same object.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.builtin.object.defineProperties.arg0_to_result.0",
+      "surfaceId": "surface.transfer.builtin.object.defineProperties.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "defineProperties",
         "invokeKind": "static",
         "argCount": 2
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.builtin.object.defineProperties.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Object.defineProperties(obj, props): returns same object."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.builtin.regexp.exec.arg0_to_result",
-      "description": "RegExp.exec(str): matched string content taints result array.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.builtin.regexp.exec.arg0_to_result.0",
+      "surfaceId": "surface.transfer.builtin.regexp.exec.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "exec",
         "invokeKind": "instance",
         "argCount": 1,
         "typeHint": "regexp"
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.builtin.regexp.exec.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "RegExp.exec(str): matched string content taints result array."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.builtin.reflect.ownKeys.arg0_to_result",
-      "description": "Reflect.ownKeys(obj): object property keys taint result array.",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.builtin.reflect.ownKeys.arg0_to_result.0",
+      "surfaceId": "surface.transfer.builtin.reflect.ownKeys.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "Reflect.ownKeys",
         "invokeKind": "static"
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.builtin.reflect.ownKeys.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Reflect.ownKeys(obj): object property keys taint result array."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.builtin.reflect.apply.arg2_to_result",
-      "description": "Reflect.apply(target, thisArg, args): args array taints function result.",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.builtin.reflect.apply.arg2_to_result.0",
+      "surfaceId": "surface.transfer.builtin.reflect.apply.arg2_to_result",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "Reflect.apply",
         "invokeKind": "static"
       },
-      "from": "arg2",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.builtin.reflect.apply.arg2_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Reflect.apply(target, thisArg, args): args array taints function result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.builtin.reflect.construct.arg1_to_result",
-      "description": "Reflect.construct(target, args): args array taints constructed object.",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.builtin.reflect.construct.arg1_to_result.0",
+      "surfaceId": "surface.transfer.builtin.reflect.construct.arg1_to_result",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "Reflect.construct",
         "invokeKind": "static"
       },
-      "from": "arg1",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.builtin.reflect.construct.arg1_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Reflect.construct(target, args): args array taints constructed object."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.builtin.reflect.getOwnPropertyDescriptor.arg0_to_result",
-      "description": "Reflect.getOwnPropertyDescriptor(obj, prop): object content taints descriptor.",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.builtin.reflect.getOwnPropertyDescriptor.arg0_to_result.0",
+      "surfaceId": "surface.transfer.builtin.reflect.getOwnPropertyDescriptor.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.object_reflect",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "Reflect.getOwnPropertyDescriptor",
         "invokeKind": "static"
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.builtin.reflect.getOwnPropertyDescriptor.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Reflect.getOwnPropertyDescriptor(obj, prop): object content taints descriptor."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     }
-  ]
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.transfer.reflect.get.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.object.assign.arg1_to_arg0",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.object.assign.arg1_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.object.keys.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.object.values.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.object.entries.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.object.getOwnPropertyDescriptors.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.reflect.set.arg2_to_arg0",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 2
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.weakref.deref.base_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.builtin.object.freeze.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.builtin.object.seal.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.builtin.object.getOwnPropertyNames.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.builtin.object.preventExtensions.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.builtin.object.create.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.builtin.object.create.arg1_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.builtin.object.defineProperty.arg2_to_arg0",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 2
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.builtin.object.defineProperty.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.builtin.object.defineProperties.arg1_to_arg0",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.builtin.object.defineProperties.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.builtin.regexp.exec.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.builtin.reflect.ownKeys.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.builtin.reflect.apply.arg2_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 2
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.builtin.reflect.construct.arg1_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.builtin.reflect.getOwnPropertyDescriptor.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "src/models/kernel/rules/transfers/object_reflect.rules.json"
+      }
+    ]
+  }
 }

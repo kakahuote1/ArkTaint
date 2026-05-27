@@ -1,4 +1,4 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as http from "http";
 import * as path from "path";
 import { writeLlmConfigFile } from "../../cli/llmConfig";
@@ -66,15 +66,8 @@ async function createNoArtifactMockServer(): Promise<{
                     {
                         message: {
                             content: JSON.stringify({
-                                status: "done",
-                                resolution: "no-transfer",
-                                summary: {
-                                    inputs: [],
-                                    outputs: [],
-                                    transfers: [],
-                                    confidence: "medium",
-                                },
-                                rationale: ["candidate has no reusable semantic artifact"],
+                                status: "reject",
+                                reason: "candidate has no reusable semantic artifact",
                             }),
                         },
                     },
@@ -109,7 +102,6 @@ async function main(): Promise<void> {
 
     const server = await createNoArtifactMockServer();
     writeLlmConfigFile({
-        schemaVersion: 1,
         activeProfile: "test",
         profiles: {
             test: {
@@ -159,13 +151,12 @@ async function main(): Promise<void> {
 
         const rootSummary = JSON.parse(fs.readFileSync(path.join(root, "summary.json"), "utf8"));
         assert(rootSummary.itemCount > 0, `expected semanticflow items, got ${rootSummary.itemCount}`);
-        assert((rootSummary.classifications["no-transfer"] || 0) === rootSummary.itemCount, "expected every item to resolve as no-transfer");
+        assert((rootSummary.resolutions.rejected || 0) === rootSummary.itemCount, "expected every item to be rejected without artifacts");
         assert(rootSummary.moduleCount === 0, `expected no module specs, got ${rootSummary.moduleCount}`);
         assert(rootSummary.sourceRuleCount === 0, `expected no source rules, got ${rootSummary.sourceRuleCount}`);
         assert(rootSummary.sinkRuleCount === 0, `expected no sink rules, got ${rootSummary.sinkRuleCount}`);
         assert(rootSummary.sanitizerRuleCount === 0, `expected no sanitizer rules, got ${rootSummary.sanitizerRuleCount}`);
         assert(rootSummary.transferRuleCount === 0, `expected no transfer rules, got ${rootSummary.transferRuleCount}`);
-        assert(rootSummary.arkMainSpecCount === 0, `expected no arkMain specs, got ${rootSummary.arkMainSpecCount}`);
 
         const finalSummaryPath = path.join(root, "final", "summary", "summary.json");
         const finalDiagnosticsPath = path.join(root, "final", "diagnostics", "diagnostics.json");

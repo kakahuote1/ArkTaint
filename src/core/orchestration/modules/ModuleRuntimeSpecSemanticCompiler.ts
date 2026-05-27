@@ -1,13 +1,13 @@
-import type {
+﻿import type {
     ModuleAbilityHandoffSemantic,
     ModuleContainerSemantic,
     ModuleEventEmitterSemantic,
     ModuleKeyedStorageSemantic,
     ModuleRouteBridgeSemantic,
     ModuleSemantic,
-    ModuleSpec,
+    ModuleRuntimeSpec,
     ModuleStateBindingSemantic,
-} from "../../kernel/contracts/ModuleSpec";
+} from "../../kernel/contracts/ModuleRuntimeSpec";
 import type { TaintModule } from "../../kernel/contracts/ModuleContract";
 import { createHarmonyAbilityHandoffSemanticModule } from "./harmony_semantics/ability_handoff";
 import { createHarmonyKeyedStorageSemanticModule } from "./harmony_semantics/appstorage";
@@ -16,7 +16,7 @@ import { createHarmonyRouteBridgeSemanticModule } from "./harmony_semantics/rout
 import { createHarmonyStateBindingSemanticModule } from "./harmony_semantics/state";
 import { createTsjsContainerSemanticModule } from "./tsjs_semantics/container";
 
-function compileContainerSemantic(spec: ModuleSpec, semantic: ModuleContainerSemantic): TaintModule {
+function compileContainerSemantic(spec: ModuleRuntimeSpec, semantic: ModuleContainerSemantic): TaintModule {
     return createTsjsContainerSemanticModule({
         id: `${spec.id}::${semantic.id}`,
         description: `${spec.description} [${semantic.id}]`,
@@ -25,7 +25,7 @@ function compileContainerSemantic(spec: ModuleSpec, semantic: ModuleContainerSem
     });
 }
 
-function compileAbilityHandoffSemantic(spec: ModuleSpec, semantic: ModuleAbilityHandoffSemantic): TaintModule {
+function compileAbilityHandoffSemantic(spec: ModuleRuntimeSpec, semantic: ModuleAbilityHandoffSemantic): TaintModule {
     return createHarmonyAbilityHandoffSemanticModule({
         id: `${spec.id}::${semantic.id}`,
         description: `${spec.description} [${semantic.id}]`,
@@ -34,7 +34,7 @@ function compileAbilityHandoffSemantic(spec: ModuleSpec, semantic: ModuleAbility
     });
 }
 
-function compileEventEmitterSemantic(spec: ModuleSpec, semantic: ModuleEventEmitterSemantic): TaintModule {
+function compileEventEmitterSemantic(spec: ModuleRuntimeSpec, semantic: ModuleEventEmitterSemantic): TaintModule {
     return createHarmonyEventEmitterSemanticModule({
         id: `${spec.id}::${semantic.id}`,
         description: `${spec.description} [${semantic.id}]`,
@@ -48,7 +48,7 @@ function compileEventEmitterSemantic(spec: ModuleSpec, semantic: ModuleEventEmit
     });
 }
 
-function compileKeyedStorageSemantic(spec: ModuleSpec, semantic: ModuleKeyedStorageSemantic): TaintModule {
+function compileKeyedStorageSemantic(spec: ModuleRuntimeSpec, semantic: ModuleKeyedStorageSemantic): TaintModule {
     return createHarmonyKeyedStorageSemanticModule({
         id: `${spec.id}::${semantic.id}`,
         description: `${spec.description} [${semantic.id}]`,
@@ -60,7 +60,7 @@ function compileKeyedStorageSemantic(spec: ModuleSpec, semantic: ModuleKeyedStor
     });
 }
 
-function compileRouteBridgeSemantic(spec: ModuleSpec, semantic: ModuleRouteBridgeSemantic): TaintModule {
+function compileRouteBridgeSemantic(spec: ModuleRuntimeSpec, semantic: ModuleRouteBridgeSemantic): TaintModule {
     return createHarmonyRouteBridgeSemanticModule({
         id: `${spec.id}::${semantic.id}`,
         description: `${spec.description} [${semantic.id}]`,
@@ -73,7 +73,7 @@ function compileRouteBridgeSemantic(spec: ModuleSpec, semantic: ModuleRouteBridg
     });
 }
 
-function compileStateBindingSemantic(spec: ModuleSpec, semantic: ModuleStateBindingSemantic): TaintModule {
+function compileStateBindingSemantic(spec: ModuleRuntimeSpec, semantic: ModuleStateBindingSemantic): TaintModule {
     return createHarmonyStateBindingSemanticModule({
         id: `${spec.id}::${semantic.id}`,
         description: `${spec.description} [${semantic.id}]`,
@@ -87,7 +87,7 @@ function compileStateBindingSemantic(spec: ModuleSpec, semantic: ModuleStateBind
 }
 
 export function compileRuntimeSemanticModule(
-    spec: ModuleSpec,
+    spec: ModuleRuntimeSpec,
     semantic: ModuleSemantic & { id: string },
 ): TaintModule | undefined {
     switch (semantic.kind) {

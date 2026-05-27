@@ -1,233 +1,984 @@
 {
-  "schemaVersion": "2.0",
-  "sources": [],
-  "sinks": [],
-  "sanitizers": [],
-  "transfers": [
+  "id": "asset.rule.kernel.transfers.collection",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
     {
-      "id": "transfer.map.set.value_to_base_slot",
-      "description": "map.set(key, value): value taints the precise map slot selected by key.",
-      "match": {
-        "kind": "signature_contains",
+      "surfaceId": "surface.transfer.map.set.value_to_base_slot.0",
+      "kind": "invoke",
+      "modulePath": "collections",
+      "ownerName": "Map",
+      "methodName": "set",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.map.set.key_to_base_keyslot.0",
+      "kind": "invoke",
+      "modulePath": "collections",
+      "ownerName": "Map",
+      "methodName": "set",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.map.get.base_slot_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "get",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.weakmap.set.value_to_base_slot",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "set",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.weakmap.get.base_slot_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "get",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.list.add.arg0_to_base",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "add",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.list.get.base_slot_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "get",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.queue.add.arg0_to_base",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "add",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.array.push.arg0_to_base",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "push",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.array.pop.base_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "pop",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.array.join.base_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "join",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.builtin.array.sort.base_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "sort",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.builtin.array.reverse.base_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "reverse",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.builtin.array.fill.arg0_to_base",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "fill",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.builtin.array.fill.base_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "fill",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.builtin.array.copyWithin.base_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "copyWithin",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.builtin.typedarray.subarray.base_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "subarray",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.builtin.typedarray.set.arg0_to_base",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "array",
+      "methodName": "transfer.builtin.typedarray.set.arg0_to_base",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.transfer.map.set.value_to_base_slot.0",
+      "surfaceId": "surface.transfer.map.set.value_to_base_slot.0",
+      "assetId": "asset.rule.kernel.transfers.collection",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "Map.set",
         "invokeKind": "instance",
         "argCount": 2
       },
-      "from": "arg1",
-      "to": {
-        "endpoint": "base",
-        "pathFrom": "arg0",
-        "slotKind": "map"
-      }
+      "effectTemplateRefs": [
+        "template.transfer.map.set.value_to_base_slot"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "map.set(key, value): value taints the precise map slot selected by key."
+      },
+      "completeness": "complete",
+      "confidence": "certain"
     },
     {
-      "id": "transfer.map.set.key_to_base_keyslot",
-      "description": "map.set(key, value): key taints the precise map-key slot selected by key.",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.map.set.key_to_base_keyslot.0",
+      "surfaceId": "surface.transfer.map.set.key_to_base_keyslot.0",
+      "assetId": "asset.rule.kernel.transfers.collection",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "Map.set",
         "invokeKind": "instance",
         "argCount": 2
       },
-      "from": "arg0",
-      "to": {
-        "endpoint": "base",
-        "pathFrom": "arg0",
-        "slotKind": "mapkey"
-      }
+      "effectTemplateRefs": [
+        "template.transfer.map.set.key_to_base_keyslot"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "map.set(key, value): key taints the precise map-key slot selected by key."
+      },
+      "completeness": "complete",
+      "confidence": "certain"
     },
     {
-      "id": "transfer.map.get.base_slot_to_result",
-      "description": "map.get(key): the precise map slot selected by key taints result.",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.map.get.base_slot_to_result.0",
+      "surfaceId": "surface.transfer.map.get.base_slot_to_result",
+      "assetId": "asset.rule.kernel.transfers.collection",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "Map.get",
         "invokeKind": "instance",
         "argCount": 1
       },
-      "from": {
-        "endpoint": "base",
-        "pathFrom": "arg0",
-        "slotKind": "map"
+      "effectTemplateRefs": [
+        "template.transfer.map.get.base_slot_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "map.get(key): the precise map slot selected by key taints result."
       },
-      "to": "result"
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.weakmap.set.value_to_base_slot",
-      "description": "weakMap.set(key, value): value taints the precise weakmap slot selected by key.",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.weakmap.set.value_to_base_slot.0",
+      "surfaceId": "surface.transfer.weakmap.set.value_to_base_slot",
+      "assetId": "asset.rule.kernel.transfers.collection",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "WeakMap.set",
         "invokeKind": "instance",
         "argCount": 2
       },
-      "from": "arg1",
-      "to": {
-        "endpoint": "base",
-        "pathFrom": "arg0",
-        "slotKind": "weakmap"
-      }
+      "effectTemplateRefs": [
+        "template.transfer.weakmap.set.value_to_base_slot"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "weakMap.set(key, value): value taints the precise weakmap slot selected by key."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.weakmap.get.base_slot_to_result",
-      "description": "weakMap.get(key): the precise weakmap slot selected by key taints result.",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.weakmap.get.base_slot_to_result.0",
+      "surfaceId": "surface.transfer.weakmap.get.base_slot_to_result",
+      "assetId": "asset.rule.kernel.transfers.collection",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "WeakMap.get",
         "invokeKind": "instance",
         "argCount": 1
       },
-      "from": {
-        "endpoint": "base",
-        "pathFrom": "arg0",
-        "slotKind": "weakmap"
+      "effectTemplateRefs": [
+        "template.transfer.weakmap.get.base_slot_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "weakMap.get(key): the precise weakmap slot selected by key taints result."
       },
-      "to": "result"
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.list.add.arg0_to_base",
-      "description": "list.add(value): value taints list base",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.list.add.arg0_to_base.0",
+      "surfaceId": "surface.transfer.list.add.arg0_to_base",
+      "assetId": "asset.rule.kernel.transfers.collection",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "List.add"
       },
-      "from": "arg0",
-      "to": "base"
+      "effectTemplateRefs": [
+        "template.transfer.list.add.arg0_to_base"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "list.add(value): value taints list base"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.list.get.base_slot_to_result",
-      "description": "list.get(index): the precise list slot selected by index taints result",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.list.get.base_slot_to_result.0",
+      "surfaceId": "surface.transfer.list.get.base_slot_to_result",
+      "assetId": "asset.rule.kernel.transfers.collection",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "List.get",
         "invokeKind": "instance",
         "argCount": 1
       },
-      "from": {
-        "endpoint": "base",
-        "pathFrom": "arg0",
-        "slotKind": "list"
+      "effectTemplateRefs": [
+        "template.transfer.list.get.base_slot_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "list.get(index): the precise list slot selected by index taints result"
       },
-      "to": "result"
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.queue.add.arg0_to_base",
-      "description": "queue.add(value): value taints queue base",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.queue.add.arg0_to_base.0",
+      "surfaceId": "surface.transfer.queue.add.arg0_to_base",
+      "assetId": "asset.rule.kernel.transfers.collection",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "Queue.add"
       },
-      "from": "arg0",
-      "to": "base"
+      "effectTemplateRefs": [
+        "template.transfer.queue.add.arg0_to_base"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "queue.add(value): value taints queue base"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.array.push.arg0_to_base",
-      "description": "array.push(value): value taints array base",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.array.push.arg0_to_base.0",
+      "surfaceId": "surface.transfer.array.push.arg0_to_base",
+      "assetId": "asset.rule.kernel.transfers.collection",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "Array.push"
       },
-      "from": "arg0",
-      "to": "base"
+      "effectTemplateRefs": [
+        "template.transfer.array.push.arg0_to_base"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "array.push(value): value taints array base"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.array.pop.base_to_result",
-      "description": "array.pop(): array base taints result",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.array.pop.base_to_result.0",
+      "surfaceId": "surface.transfer.array.pop.base_to_result",
+      "assetId": "asset.rule.kernel.transfers.collection",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "Array.pop"
       },
-      "from": "base",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.array.pop.base_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "array.pop(): array base taints result"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.array.join.base_to_result",
-      "description": "Array.join(sep): array elements conservatively taint joined string result.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.harmony.array.join.base_to_result.0",
+      "surfaceId": "surface.transfer.harmony.array.join.base_to_result",
+      "assetId": "asset.rule.kernel.transfers.collection",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "join",
         "invokeKind": "instance"
       },
-      "from": "base",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.array.join.base_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Array.join(sep): array elements conservatively taint joined string result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.builtin.array.sort.base_to_result",
-      "description": "Array.sort(): sorted array (same reference) preserves taint.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.builtin.array.sort.base_to_result.0",
+      "surfaceId": "surface.transfer.builtin.array.sort.base_to_result",
+      "assetId": "asset.rule.kernel.transfers.collection",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "sort",
         "invokeKind": "instance"
       },
-      "from": "base",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.builtin.array.sort.base_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Array.sort(): sorted array (same reference) preserves taint."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.builtin.array.reverse.base_to_result",
-      "description": "Array.reverse(): reversed array (same reference) preserves taint.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.builtin.array.reverse.base_to_result.0",
+      "surfaceId": "surface.transfer.builtin.array.reverse.base_to_result",
+      "assetId": "asset.rule.kernel.transfers.collection",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "reverse",
         "invokeKind": "instance"
       },
-      "from": "base",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.builtin.array.reverse.base_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Array.reverse(): reversed array (same reference) preserves taint."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.builtin.array.fill.arg0_to_base",
-      "description": "Array.fill(value): fill value taints array base.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.builtin.array.fill.arg0_to_base.0",
+      "surfaceId": "surface.transfer.builtin.array.fill.arg0_to_base",
+      "assetId": "asset.rule.kernel.transfers.collection",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "fill",
         "invokeKind": "instance"
       },
-      "from": "arg0",
-      "to": "base"
+      "effectTemplateRefs": [
+        "template.transfer.builtin.array.fill.arg0_to_base"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Array.fill(value): fill value taints array base."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.builtin.array.fill.base_to_result",
-      "description": "Array.fill(value): returns same array reference.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.builtin.array.fill.base_to_result.0",
+      "surfaceId": "surface.transfer.builtin.array.fill.base_to_result",
+      "assetId": "asset.rule.kernel.transfers.collection",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "fill",
         "invokeKind": "instance"
       },
-      "from": "base",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.builtin.array.fill.base_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Array.fill(value): returns same array reference."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.builtin.array.copyWithin.base_to_result",
-      "description": "Array.copyWithin(): returns same array reference preserving taint.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.builtin.array.copyWithin.base_to_result.0",
+      "surfaceId": "surface.transfer.builtin.array.copyWithin.base_to_result",
+      "assetId": "asset.rule.kernel.transfers.collection",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "copyWithin",
         "invokeKind": "instance"
       },
-      "from": "base",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.builtin.array.copyWithin.base_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Array.copyWithin(): returns same array reference preserving taint."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.builtin.typedarray.subarray.base_to_result",
-      "description": "TypedArray.subarray(): buffer view preserves taint.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.builtin.typedarray.subarray.base_to_result.0",
+      "surfaceId": "surface.transfer.builtin.typedarray.subarray.base_to_result",
+      "assetId": "asset.rule.kernel.transfers.collection",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "subarray",
         "invokeKind": "instance"
       },
-      "from": "base",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.builtin.typedarray.subarray.base_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "TypedArray.subarray(): buffer view preserves taint."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.builtin.typedarray.set.arg0_to_base",
-      "description": "TypedArray.set(source): source array content taints target typed array.",
-      "match": {
-        "kind": "signature_regex",
+      "bindingId": "binding.transfer.builtin.typedarray.set.arg0_to_base.0",
+      "surfaceId": "surface.transfer.builtin.typedarray.set.arg0_to_base",
+      "assetId": "asset.rule.kernel.transfers.collection",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-regex",
         "value": "(?:Int8Array|Uint8Array|Uint8ClampedArray|Int16Array|Uint16Array|Int32Array|Uint32Array|Float32Array|Float64Array|BigInt64Array|BigUint64Array|TypedArray)\\.set\\(",
         "invokeKind": "instance",
         "typeHint": "array"
       },
-      "from": "arg0",
-      "to": "base"
+      "effectTemplateRefs": [
+        "template.transfer.builtin.typedarray.set.arg0_to_base"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "TypedArray.set(source): source array content taints target typed array."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     }
-  ]
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.transfer.map.set.value_to_base_slot",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "map"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.map.set.key_to_base_keyslot",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "mapkey"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.map.get.base_slot_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "map"
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.weakmap.set.value_to_base_slot",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "weakmap"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.weakmap.get.base_slot_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "weakmap"
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.list.add.arg0_to_base",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.list.get.base_slot_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "list"
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.queue.add.arg0_to_base",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.array.push.arg0_to_base",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.array.pop.base_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.array.join.base_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.builtin.array.sort.base_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.builtin.array.reverse.base_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.builtin.array.fill.arg0_to_base",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.builtin.array.fill.base_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.builtin.array.copyWithin.base_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.builtin.typedarray.subarray.base_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.builtin.typedarray.set.arg0_to_base",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "transferKind": "transfer"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "src/models/kernel/rules/transfers/collection.rules.json"
+      }
+    ]
+  }
 }

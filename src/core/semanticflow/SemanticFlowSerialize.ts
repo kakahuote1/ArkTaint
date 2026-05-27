@@ -1,5 +1,4 @@
-import type { ArkMainSpecDocument } from "../entry/arkmain/ArkMainSpec";
-import type { ModuleSpecDocument } from "../kernel/contracts/ModuleSpec";
+import type { AssetDocumentBase } from "../assets/schema";
 import type { SemanticFlowAnalysisAugment, SemanticFlowSessionResult } from "./SemanticFlowTypes";
 
 export function serializeSemanticFlowSession(session: SemanticFlowSessionResult): Record<string, unknown> {
@@ -15,10 +14,10 @@ export function serializeSemanticFlowSession(session: SemanticFlowSessionResult)
                 arkMainSelector: item.anchor.arkMainSelector,
             },
             draftId: item.draftId,
-            classification: item.classification,
+            plane: item.plane,
             resolution: item.resolution,
             error: item.error,
-            summary: item.summary,
+            asset: item.asset,
             draft: item.draft,
             lastMarker: item.lastMarker,
             lastDelta: item.lastDelta,
@@ -46,15 +45,6 @@ export function serializeSemanticFlowSession(session: SemanticFlowSessionResult)
     };
 }
 
-export function serializeSemanticFlowArkMain(augment: SemanticFlowAnalysisAugment): ArkMainSpecDocument {
-    return {
-        schemaVersion: 1,
-        entries: augment.arkMainSpecs,
-    };
-}
-
-export function serializeSemanticFlowModules(augment: SemanticFlowAnalysisAugment): ModuleSpecDocument {
-    return {
-        modules: augment.moduleSpecs,
-    };
+export function serializeSemanticFlowAssets(augment: SemanticFlowAnalysisAugment): AssetDocumentBase[] {
+    return augment.assets || [];
 }

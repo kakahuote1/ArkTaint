@@ -5,7 +5,6 @@ import * as path from "path";
 export interface SemanticFlowRuntimeSkill {
     id: string;
     title: string;
-    version: string;
     body: string;
 }
 
@@ -35,7 +34,6 @@ export function formatSemanticFlowRuntimeSkills(skills = loadSemanticFlowRuntime
     return skills.map(skill => [
         `## Runtime skill: ${skill.id}`,
         `title: ${skill.title}`,
-        `version: ${skill.version}`,
         "",
         skill.body.trim(),
     ].join("\n")).join("\n\n");
@@ -79,12 +77,11 @@ function parseRuntimeSkill(raw: string, relPath: string): SemanticFlowRuntimeSki
     return {
         id: frontmatter.id,
         title: frontmatter.title,
-        version: frontmatter.version,
         body: match[2].trim(),
     };
 }
 
-function parseFrontmatter(raw: string, relPath: string): { id: string; title: string; version: string } {
+function parseFrontmatter(raw: string, relPath: string): { id: string; title: string } {
     const out: Record<string, string> = {};
     for (const line of raw.split(/\r?\n/)) {
         const trimmed = line.trim();
@@ -97,7 +94,7 @@ function parseFrontmatter(raw: string, relPath: string): { id: string; title: st
         }
         out[match[1]] = match[2];
     }
-    for (const key of ["id", "title", "version"]) {
+    for (const key of ["id", "title"]) {
         if (!out[key]) {
             throw new Error(`runtime LLM skill frontmatter missing ${key}: ${relPath}`);
         }
@@ -105,7 +102,6 @@ function parseFrontmatter(raw: string, relPath: string): { id: string; title: st
     return {
         id: out.id,
         title: out.title,
-        version: out.version,
     };
 }
 

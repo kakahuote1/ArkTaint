@@ -1,34 +1,113 @@
 {
-    "schemaVersion": "2.0",
-    "meta": {
-        "name": "harmony-multi-ability-chain",
-        "description": "Benchmark multi-ability Want handoff and lifecycle reorder chains",
-        "updatedAt": "2026-03-15"
+  "id": "asset.rule.test.harmony_multi_ability_chain",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
+    {
+      "surfaceId": "surface.source.harmony.multi_ability.source",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "Source",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
-    "sources": [
-        {
-            "id": "source.harmony.multi_ability.source",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "Source"
-            },
-            "sourceKind": "call_return",
-            "target": {
-                "endpoint": "result"
-            }
+    {
+      "surfaceId": "surface.sink.harmony.multi_ability.sink",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "Sink",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.source.harmony.multi_ability.source.0",
+      "surfaceId": "surface.source.harmony.multi_ability.source",
+      "assetId": "asset.rule.test.harmony_multi_ability_chain",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Source"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
-    ],
-    "sinks": [
-        {
-            "id": "sink.harmony.multi_ability.sink",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "Sink"
-            },
-            "target": {
-                "endpoint": "arg0"
-            }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.multi_ability.source"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.multi_ability.sink.0",
+      "surfaceId": "surface.sink.harmony.multi_ability.sink",
+      "assetId": "asset.rule.test.harmony_multi_ability_chain",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Sink"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
-    ],
-    "transfers": []
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.multi_ability.sink"
+      ],
+      "semanticsFamily": "sink",
+      "completeness": "partial",
+      "confidence": "likely"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.source.harmony.multi_ability.source",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    },
+    {
+      "id": "template.sink.harmony.multi_ability.sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "tests/rules/harmony_multi_ability_chain.rules.json"
+      }
+    ]
+  }
 }

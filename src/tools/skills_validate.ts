@@ -11,7 +11,7 @@ interface SkillRegistryEntry {
 }
 
 interface SkillRegistry {
-    schemaVersion: number;
+    format: "skills-registry";
     generatedAt?: string;
     skills: SkillRegistryEntry[];
 }
@@ -289,12 +289,12 @@ export function validateSkills(registryPath: string, repoRoot: string): Validati
         };
     }
     const registry = rawRegistry as Partial<SkillRegistry>;
-    if (typeof registry.schemaVersion !== "number") {
+    if (registry.format !== "skills-registry") {
         return {
             generatedAt,
             registryPath,
             skillsCount: 0,
-            issues: [{ severity: "error", message: `registry schemaVersion must be a number: ${registryPath}` }],
+            issues: [{ severity: "error", message: `registry format must be "skills-registry": ${registryPath}` }],
         };
     }
     if (!Array.isArray(registry.skills)) {

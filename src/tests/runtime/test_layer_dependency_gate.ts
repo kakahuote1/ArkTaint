@@ -1,4 +1,4 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as path from "path";
 
 type LayerId = "L1" | "L2" | "L3" | "L4" | "L6" | "L7";
@@ -28,15 +28,15 @@ const ALLOWED_MODULE_CORE_IMPORTS = new Set<string>([
     "src/core/kernel/contracts/StateModuleProvider.ts",
     "src/core/kernel/contracts/WorkerTaskPoolModuleProvider.ts",
     "src/core/kernel/contracts/MethodLookup.ts",
-    "src/core/kernel/contracts/ModuleSpec.ts",
+    "src/core/kernel/contracts/ModuleRuntimeSpec.ts",
     "src/core/kernel/contracts/PagNodeResolution.ts",
 ]);
 const LEGACY_ALLOWED_VIOLATIONS = new Set<string>([
 ]);
 const FORBIDDEN_LEGACY_PATHS = [
     "src/core/orchestration/ArkUiSdkConfig.ts",
-    "src/core/orchestration/modules/ModuleSpecCanonicalizer.ts",
-    "src/core/orchestration/modules/ModuleSpecValidator.ts",
+    "src/core/orchestration/modules/ModuleRuntimeSpecCanonicalizer.ts",
+    "src/core/orchestration/modules/ModuleRuntimeSpecValidator.ts",
     "src/core/semanticflow/SemanticFlowRuntime.ts",
     "src/core/kernel/semantic_state",
     "src/tests/semantic_state",

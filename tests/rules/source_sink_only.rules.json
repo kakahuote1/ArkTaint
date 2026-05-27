@@ -1,29 +1,103 @@
 {
-    "schemaVersion": "2.0",
-    "meta": {
-        "name": "source-sink-only-rule-pack",
-        "description": "Rule pack for source/sink core execution test",
-        "updatedAt": "2026-02-14"
+  "id": "asset.rule.test.source_sink_only",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
+    {
+      "surfaceId": "surface.source.test.entry_param.taint_src",
+      "kind": "access",
+      "modulePath": "@arktaint/local",
+      "ownerName": "LocalBinding",
+      "propertyName": "source.test.entry_param.taint_src",
+      "accessKind": "read",
+      "receiverKind": "namespace",
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
-    "sources": [
-        {
-            "id": "source.test.entry_param.taint_src",
-            "match": {
-                "kind": "local_name_regex",
-                "value": "^taint_src$"
-            },
-            "sourceKind": "entry_param",
-            "target": "arg0"
+    {
+      "surfaceId": "surface.sink.test.method_name.Sink",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "Sink",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.source.test.entry_param.taint_src.0",
+      "surfaceId": "surface.source.test.entry_param.taint_src",
+      "assetId": "asset.rule.test.source_sink_only",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "local-name-regex",
+        "value": "^taint_src$"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
-    ],
-    "sinks": [
-        {
-            "id": "sink.test.method_name.Sink",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "Sink"
-            }
+      },
+      "effectTemplateRefs": [
+        "template.source.test.entry_param.taint_src"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.test.method_name.Sink.0",
+      "surfaceId": "surface.sink.test.method_name.Sink",
+      "assetId": "asset.rule.test.source_sink_only",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Sink"
+      },
+      "effectTemplateRefs": [
+        "template.sink.test.method_name.Sink"
+      ],
+      "semanticsFamily": "sink",
+      "completeness": "partial",
+      "confidence": "likely"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.source.test.entry_param.taint_src",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
-    ],
-    "transfers": []
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.sink.test.method_name.Sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "sinkKind": "sink"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "tests/rules/source_sink_only.rules.json"
+      }
+    ]
+  }
 }

@@ -1,4 +1,4 @@
-export {
+﻿export {
     defineModule,
     fromContainerFieldKey,
     toContainerFieldKey,
@@ -87,8 +87,7 @@ export type {
     ModuleSameReceiverConstraint,
     ModuleSemantic,
     ModuleSemanticSurfaceRef,
-    ModuleSpec,
-    ModuleSpecDocument,
+    ModuleRuntimeSpec,
     ModuleStateBindingSemantic,
     ModuleStateCell,
     ModuleStateSemantic,
@@ -96,4 +95,4 @@ export type {
     ModuleStateWrite,
     ModuleTransferMode,
     ModuleWriteMethodSpec,
-} from "./ModuleSpec";
+} from "./ModuleRuntimeSpec";

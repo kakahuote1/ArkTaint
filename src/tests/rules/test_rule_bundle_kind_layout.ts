@@ -1,7 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
+import { AssetDocumentBase } from "../../core/assets/schema";
 import { loadRuleSet } from "../../core/rules/RuleLoader";
-import { TaintRuleSet } from "../../core/rules/RuleSchema";
+import { makeRuleAssetFixture } from "../helpers/RuleAssetFixtureFactory";
 
 type RuleBundleKind = "sources" | "sinks" | "sanitizers" | "transfers";
 
@@ -15,13 +16,20 @@ function readJson<T>(filePath: string): T {
     return JSON.parse(fs.readFileSync(filePath, "utf-8")) as T;
 }
 
-function countKinds(ruleSet: TaintRuleSet): Record<RuleBundleKind, number> {
-    return {
-        sources: (ruleSet.sources || []).length,
-        sinks: (ruleSet.sinks || []).length,
-        sanitizers: (ruleSet.sanitizers || []).length,
-        transfers: (ruleSet.transfers || []).length,
+function countKinds(asset: AssetDocumentBase): Record<RuleBundleKind, number> {
+    const counts: Record<RuleBundleKind, number> = {
+        sources: 0,
+        sinks: 0,
+        sanitizers: 0,
+        transfers: 0,
     };
+    for (const binding of asset.bindings || []) {
+        if (binding.role === "source") counts.sources++;
+        if (binding.role === "sink") counts.sinks++;
+        if (binding.role === "sanitizer") counts.sanitizers++;
+        if (binding.role === "transfer") counts.transfers++;
+    }
+    return counts;
 }
 
 function writeRuleFile(filePath: string, payload: unknown): void {
@@ -40,13 +48,17 @@ function verifyKindFirstRoot(kind: RuleBundleKind): void {
     assert(memberFiles.length > 0, `missing ${kind} kernel rule files`);
 
     for (const memberPath of memberFiles) {
-        const ruleSet = readJson<TaintRuleSet>(memberPath);
-        const counts = countKinds(ruleSet);
+        const asset = readJson<AssetDocumentBase>(memberPath);
+        const counts = countKinds(asset);
         for (const [otherKind, count] of Object.entries(counts) as Array<[RuleBundleKind, number]>) {
             if (otherKind === kind) continue;
             assert(count === 0, `${path.basename(memberPath)} should not contain ${otherKind}`);
         }
     }
+}
+
+function writeRuleAsset(filePath: string, payload: ReturnType<typeof makeRuleAssetFixture>): void {
+    writeRuleFile(filePath, payload);
 }
 
 function main(): void {
@@ -57,8 +69,8 @@ function main(): void {
 
     const probeRoot = path.resolve("tmp/test_runs/rule_bundle_kind_layout/latest/models");
     fs.rmSync(path.dirname(probeRoot), { recursive: true, force: true });
-    writeRuleFile(path.join(probeRoot, "kernel", "rules", "sources", "alpha.rules.json"), {
-        schemaVersion: "2.0",
+    writeRuleAsset(path.join(probeRoot, "kernel", "rules", "sources", "alpha.rules.json"), makeRuleAssetFixture({
+        id: "asset.rule.layout.alpha",
         sources: [
             {
                 id: "source.layout.alpha",
@@ -67,34 +79,21 @@ function main(): void {
                 target: "result",
             },
         ],
-        sinks: [],
-        sanitizers: [],
-        transfers: [],
-    });
-    writeRuleFile(path.join(probeRoot, "kernel", "rules", "sinks", "omega.rules.json"), {
-        schemaVersion: "2.0",
-        sources: [],
+    }));
+    writeRuleAsset(path.join(probeRoot, "kernel", "rules", "sinks", "omega.rules.json"), makeRuleAssetFixture({
+        id: "asset.rule.layout.omega",
         sinks: [
             {
                 id: "sink.layout.omega",
                 match: { kind: "method_name_equals", value: "SendLayout" },
             },
         ],
-        sanitizers: [],
-        transfers: [],
-    });
-    writeRuleFile(path.join(probeRoot, "kernel", "rules", "sanitizers", "gamma.rules.json"), {
-        schemaVersion: "2.0",
-        sources: [],
-        sinks: [],
-        sanitizers: [],
-        transfers: [],
-    });
-    writeRuleFile(path.join(probeRoot, "kernel", "rules", "transfers", "beta.rules.json"), {
-        schemaVersion: "2.0",
-        sources: [],
-        sinks: [],
-        sanitizers: [],
+    }));
+    writeRuleAsset(path.join(probeRoot, "kernel", "rules", "sanitizers", "gamma.rules.json"), makeRuleAssetFixture({
+        id: "asset.rule.layout.gamma",
+    }));
+    writeRuleAsset(path.join(probeRoot, "kernel", "rules", "transfers", "beta.rules.json"), makeRuleAssetFixture({
+        id: "asset.rule.layout.beta",
         transfers: [
             {
                 id: "transfer.layout.beta",
@@ -103,7 +102,7 @@ function main(): void {
                 to: "result",
             },
         ],
-    });
+    }));
 
     const loaded = loadRuleSet({
         ruleCatalogPath: probeRoot,

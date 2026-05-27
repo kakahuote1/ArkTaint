@@ -49,8 +49,8 @@ async function main(): Promise<void> {
         ...report,
     }, null, 2), "utf8");
 
-    if (report.schemaVersion !== "arkmain.explainability.v3") {
-        throw new Error(`ArkMain explainability schema mismatch: ${report.schemaVersion}`);
+    if (report.format !== "arkmain.explainability") {
+        throw new Error(`ArkMain explainability format mismatch: ${report.format}`);
     }
     if (report.summary.activationCount !== report.activations.length) {
         throw new Error("ArkMain explainability summary activationCount mismatch.");

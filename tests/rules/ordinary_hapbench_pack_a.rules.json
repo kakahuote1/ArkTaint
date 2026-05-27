@@ -1,29 +1,101 @@
 {
-  "schemaVersion": "2.0",
-  "meta": {
-    "name": "ordinary-hapbench-pack-a-rule-pack",
-    "description": "Focused rule pack for Pack A HapBench-shaped ordinary language cases",
-    "updatedAt": "2026-04-04"
-  },
-  "sources": [
+  "id": "asset.rule.test.ordinary_hapbench_pack_a",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
     {
-      "id": "source.ordinary_hapbench_pack_a.local_seed",
-      "match": {
-        "kind": "local_name_regex",
-        "value": "^taint_src$"
-      },
-      "sourceKind": "seed_local_name",
-      "target": "result"
-    }
-  ],
-  "sinks": [
+      "surfaceId": "surface.source.ordinary_hapbench_pack_a.local_seed",
+      "kind": "access",
+      "modulePath": "@arktaint/local",
+      "ownerName": "LocalBinding",
+      "propertyName": "source.ordinary_hapbench_pack_a.local_seed",
+      "accessKind": "read",
+      "receiverKind": "namespace",
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
     {
-      "id": "sink.ordinary_hapbench_pack_a.Sink",
-      "match": {
-        "kind": "method_name_equals",
-        "value": "Sink"
+      "surfaceId": "surface.sink.ordinary_hapbench_pack_a.Sink",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "Sink",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
       }
     }
   ],
-  "transfers": []
+  "bindings": [
+    {
+      "bindingId": "binding.source.ordinary_hapbench_pack_a.local_seed.0",
+      "surfaceId": "surface.source.ordinary_hapbench_pack_a.local_seed",
+      "assetId": "asset.rule.test.ordinary_hapbench_pack_a",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "local-name-regex",
+        "value": "^taint_src$"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.ordinary_hapbench_pack_a.local_seed"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.ordinary_hapbench_pack_a.Sink.0",
+      "surfaceId": "surface.sink.ordinary_hapbench_pack_a.Sink",
+      "assetId": "asset.rule.test.ordinary_hapbench_pack_a",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Sink"
+      },
+      "effectTemplateRefs": [
+        "template.sink.ordinary_hapbench_pack_a.Sink"
+      ],
+      "semanticsFamily": "sink",
+      "completeness": "partial",
+      "confidence": "likely"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.source.ordinary_hapbench_pack_a.local_seed",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "seed_local_name"
+    },
+    {
+      "id": "template.sink.ordinary_hapbench_pack_a.Sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "sinkKind": "sink"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "tests/rules/ordinary_hapbench_pack_a.rules.json"
+      }
+    ]
+  }
 }

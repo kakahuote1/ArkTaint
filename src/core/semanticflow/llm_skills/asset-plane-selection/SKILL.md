@@ -1,47 +1,53 @@
 ---
 id: "semanticflow/asset-plane-selection"
 title: "SemanticFlow Asset Plane Selection"
-version: "1.0.4"
 ---
 
 # Asset Plane Selection
 
-Use this skill to decide which ArkTaint model plane a candidate API semantic belongs to.
+Use this skill to choose the `plane` for one generated ArkTaint asset. The plane is part of the asset identity and decides which consumer will later handle its `effectTemplates`.
 
-## Planes
+## Rule Plane
 
-1. `rule`
-   Use for one visible API surface:
-   - API output or callback parameter is a source.
-   - API input/base/result is a sink.
-   - API certainly sanitizes a value for the relevant sink family.
-   - One visible input slot directly transfers to one visible output slot.
+Use `plane="rule"` only when one visible API surface can be expressed as a local rule effect:
 
-2. `module`
-   Use when one surface is not enough:
-- data is published and later consumed through storage, route, event, async result, declarative state, container, or project wrapper state;
-- matching depends on key, route, channel, owner, receiver, component, field, callback, promise, or another companion surface;
-- callback/deferred output cannot be represented by a plain one-surface transfer rule.
-- a callback field/property invocation such as `this.handler(payload)` must be connected to a separate setter/register surface that stored the callback.
+- `rule.source`: an API return value or callback argument introduces taint.
+- `rule.sink`: an argument, receiver, return value, or field is consumed by a disclosure, storage, execution, IPC, file, log, network, database, or similar sink.
+- `rule.sanitizer`: the API certainly cleans the value for the relevant sink family.
+- `rule.transfer`: a visible value moves directly from one endpoint to another in the same surface.
 
-3. `arkmain`
-   Use only for framework-created execution:
-   - ability, stage, extension, page, or component lifecycle entry;
-   - framework callback scheduling;
-   - page build or component entry ownership.
+The asset must contain a concrete `AssetSurface`, one or more `AssetBinding` entries, and matching `rule.*` templates. Do not use broad method-name guesses; use the surface evidence in the slice.
 
-## Decision Order
+## Module Plane
 
-Candidate origin, recall category, file path, method name, and harness tags are evidence only. They do not preselect the output plane.
+Use `plane="module"` when the semantics require a semantic handoff or multiple related surfaces:
 
-1. If the slice describes a framework-managed entry or scheduler, choose `arkmain`.
-2. Else if one visible surface fully describes the fact, choose `rule`.
-3. Else if hidden state, semantic handoff, companion API, callback/async dispatch, or structural constraints are required, choose `module`.
-4. Else choose `need-more-evidence`, `no-transfer`, `wrapper-only`, or `need-human-check`.
+- storage/router/state/event/promise/wrapper publish-consume behavior;
+- matching by key, route, channel, component, receiver, owner, callback, promise, or slot;
+- `handoff.put`, `handoff.get`, `handoff.kill`, or `handoff.link`;
+- a project wrapper stores now and another API reads later;
+- a callback/property relay requires a registration companion before data can reach the callback.
 
-Do not use `module` for a simple arg/base/result transfer that `rule` can express.
-Do not use `arkmain` for ordinary helpers, wrappers, storage, sources, sinks, or transfers.
-Do not use `rule/source` for a project callback field invocation when the payload source is an upstream API; ask for the setter/register companion or use a module.
-When a callback field/property relay uses a module, express the bridge with current summary transfers such as `handler.arg0 -> setHandler.callback0.param0` unless you can emit a full valid ModuleSpec. Do not invent non-schema moduleSpec keys.
-Companion names are hints only. Do not use `companion:*` as a real endpoint surface in inputs, outputs, transfers, or ModuleSpec surfaces; ask for more evidence when only a companion name is known.
-Hidden carrier plus Promise/deferred state is not a plain bridge. Do not flatten `pending/resolve/wait` semantics into `arg -> ret`; use a valid ModuleSpec or request more evidence.
+The model only declares `handoff.*` templates and handle templates. It must not decide handle compatibility, liveness, epoch, path feasibility, or source-to-sink reachability.
+
+## ArkMain Plane
+
+Use `plane="arkmain"` only for framework-managed execution facts:
+
+- lifecycle entry;
+- framework-invoked method;
+- callback registration;
+- schedule/deferred-unit candidate.
+
+Entry effects create entry/callback/schedule candidates only. They do not propagate callback argument data; ordinary transfer or handoff effects handle data movement.
+
+## Decision Rule
+
+Candidate origin, file path, harness recall category, method name, and companion names are evidence, not a preselected plane.
+
+1. If the evidence proves framework/runtime invocation, use `arkmain`.
+2. Else if one surface fully expresses source/sink/sanitizer/visible transfer, use `rule`.
+3. Else if hidden carriers, companion surfaces, delayed handoff, or binding constraints are required, use `module`.
+4. Else return `need-more-evidence` with one bounded request.
+
+Never output old SemanticFlow fields. The only resolved result is `status="done"` with an `asset` containing `surfaces`, `bindings`, `effectTemplates`, optional `relations`, and `provenance`.

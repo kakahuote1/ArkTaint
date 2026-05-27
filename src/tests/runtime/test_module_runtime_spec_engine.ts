@@ -1,12 +1,13 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as path from "path";
 import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import type {
     ModuleSemanticSurfaceRef,
-    ModuleSpec,
-} from "../../core/kernel/contracts/ModuleSpec";
-import { compileModuleSpec } from "../../core/orchestration/modules/ModuleSpecCompiler";
+    ModuleRuntimeSpec,
+} from "../../core/kernel/contracts/ModuleRuntimeSpec";
+import type { TaintModule } from "../../core/kernel/contracts/ModuleContract";
+import { compileModuleRuntimeSpec } from "../../core/orchestration/modules/ModuleRuntimeSpecCompiler";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { loadRuleSet } from "../../core/rules/RuleLoader";
 import { findCaseMethod, resolveCaseMethod } from "../helpers/SyntheticCaseHarness";
@@ -30,8 +31,8 @@ function hasLoweredModule(loadedModuleIds: string[], specId: string): boolean {
 function expectCompileError(spec: unknown, expectedSubstrings: string[]): void {
     let message = "";
     try {
-        compileModuleSpec(spec as ModuleSpec);
-        assert(false, "expected compileModuleSpec to fail");
+        compileModuleRuntimeSpec(spec as ModuleRuntimeSpec);
+        assert(false, "expected compileModuleRuntimeSpec to fail");
     } catch (error) {
         message = String((error as any)?.message || error);
     }
@@ -41,6 +42,10 @@ function expectCompileError(spec: unknown, expectedSubstrings: string[]): void {
             `expected compile error to include ${JSON.stringify(expected)}, got: ${message}`,
         );
     }
+}
+
+function modulesFromSpec(spec: ModuleRuntimeSpec): TaintModule[] {
+    return compileModuleRuntimeSpec(spec);
 }
 
 function buildScene(projectDir: string): Scene {
@@ -57,8 +62,7 @@ async function runCase(
     relativePath: string,
     caseName: string,
     options: {
-        moduleSpecs?: ModuleSpec[];
-        moduleSpecFiles?: string[];
+        modules?: TaintModule[];
     },
 ): Promise<{
     totalFlows: number;
@@ -79,8 +83,7 @@ async function runCase(
 
     const engine = new TaintPropagationEngine(scene, 1, {
         includeBuiltinModules: false,
-        moduleSpecs: options.moduleSpecs,
-        moduleSpecFiles: options.moduleSpecFiles,
+        modules: options.modules,
     });
     engine.verbose = false;
     await engine.buildPAG({
@@ -655,7 +658,6 @@ async function main(): Promise<void> {
     writeText(
         projectRulePath,
         JSON.stringify({
-            schemaVersion: "2.0",
             sources: [
                 {
                     id: "source.fixture.module_spec",
@@ -682,7 +684,7 @@ async function main(): Promise<void> {
         }, null, 2),
     );
 
-    const callbackSpec: ModuleSpec = {
+    const callbackSpec: ModuleRuntimeSpec = {
         id: "fixture.spec.callback_bridge",
         semantics: [
             {
@@ -697,7 +699,7 @@ async function main(): Promise<void> {
     };
     writeText(callbackSpecFile, JSON.stringify(callbackSpec, null, 2));
 
-    const carrierSpec: ModuleSpec = {
+    const carrierSpec: ModuleRuntimeSpec = {
         id: "fixture.spec.same_receiver_callback",
         description: "Bridge bus.postMessage(value) into bus.onMessage(callback) on the same receiver.",
         semantics: [
@@ -720,7 +722,7 @@ async function main(): Promise<void> {
         ],
     };
 
-    const keyedStateSpec: ModuleSpec = {
+    const keyedStateSpec: ModuleRuntimeSpec = {
         id: "fixture.spec.keyed_state",
         description: "Bridge Put(key, value) into Get(key) via keyed state.",
         semantics: [
@@ -755,7 +757,7 @@ async function main(): Promise<void> {
         ],
     };
 
-    const sameAddressSpec: ModuleSpec = {
+    const sameAddressSpec: ModuleRuntimeSpec = {
         id: "fixture.spec.same_address_bridge",
         description: "Bridge PutAddress(key, value) into GetAddress(key) using bridge-level same_address.",
         semantics: [
@@ -782,7 +784,7 @@ async function main(): Promise<void> {
         ],
     };
 
-    const methodFieldStateSpec: ModuleSpec = {
+    const methodFieldStateSpec: ModuleRuntimeSpec = {
         id: "fixture.spec.method_field_state",
         description: "Persist Lifecycle020.onCreate(want) into this.saved and read it in render().",
         semantics: [
@@ -810,7 +812,7 @@ async function main(): Promise<void> {
         ],
     };
 
-    const declarativeSpec: ModuleSpec = {
+    const declarativeSpec: ModuleRuntimeSpec = {
         id: "fixture.spec.declarative_binding",
         description: "Trigger onTokenChanged after setToken.",
         semantics: [
@@ -828,7 +830,7 @@ async function main(): Promise<void> {
         ],
     };
 
-    const abilitySpec: ModuleSpec = {
+    const abilitySpec: ModuleRuntimeSpec = {
         id: "fixture.spec.ability_handoff",
         description: "Bridge startAbility(want) into DemoAbility.onCreate(want).",
         semantics: [
@@ -843,7 +845,7 @@ async function main(): Promise<void> {
         ],
     };
 
-    const emitterSpec: ModuleSpec = {
+    const emitterSpec: ModuleRuntimeSpec = {
         id: "fixture.spec.event_emitter",
         description: "Bridge emit(topic, payload) into on(topic, callback).",
         semantics: [
@@ -860,7 +862,7 @@ async function main(): Promise<void> {
         ],
     };
 
-    const routerSpec: ModuleSpec = {
+    const routerSpec: ModuleRuntimeSpec = {
         id: "fixture.spec.route_bridge",
         description: "Bridge pushRouteWrapped(options.route/options.params.*) into getRouteParams().*.",
         semantics: [
@@ -879,7 +881,7 @@ async function main(): Promise<void> {
         ],
     };
 
-    const storagePropSpec: ModuleSpec = {
+    const storagePropSpec: ModuleRuntimeSpec = {
         id: "fixture.spec.keyed_storage",
         description: "Bridge StorageHubProp.putValue(key, value) into @StorageProp field reads.",
         semantics: [
@@ -896,7 +898,7 @@ async function main(): Promise<void> {
         ],
     };
 
-    const provideConsumeSpec: ModuleSpec = {
+    const provideConsumeSpec: ModuleRuntimeSpec = {
         id: "fixture.spec.state_binding",
         description: "Bridge @Provide fields into @Consume fields.",
         semantics: [
@@ -913,7 +915,7 @@ async function main(): Promise<void> {
         ],
     };
 
-    const containerSpec: ModuleSpec = {
+    const containerSpec: ModuleRuntimeSpec = {
         id: "fixture.spec.container",
         description: "Enable map-family container storage/load semantics.",
         semantics: [
@@ -926,7 +928,7 @@ async function main(): Promise<void> {
         ],
     };
 
-    const stringifyBoundarySpec: ModuleSpec = {
+    const stringifyBoundarySpec: ModuleRuntimeSpec = {
         id: "fixture.spec.stringify_boundary",
         description: "Project payload.token into stringify result.",
         semantics: [
@@ -940,7 +942,7 @@ async function main(): Promise<void> {
         ],
     };
 
-    const cloneCopyBoundarySpec: ModuleSpec = {
+    const cloneCopyBoundarySpec: ModuleRuntimeSpec = {
         id: "fixture.spec.clone_copy_boundary",
         description: "Bridge SaveClone014(value) into LoadClone014() with clone-copy semantics.",
         semantics: [
@@ -1038,105 +1040,105 @@ async function main(): Promise<void> {
 
     const callbackBaseline = await runCase(scene, "callback_case.ets", "callback_case", {});
     const callbackWithFileSpec = await runCase(scene, "callback_case.ets", "callback_case", {
-        moduleSpecFiles: [callbackSpecFile],
+        modules: modulesFromSpec(callbackSpec),
     });
     const carrierBaseline = await runCase(scene, "carrier_case.ets", "carrier_case", {});
-    const carrierWithSpec = await runCase(scene, "carrier_case.ets", "carrier_case", { moduleSpecs: [carrierSpec] });
+    const carrierWithSpec = await runCase(scene, "carrier_case.ets", "carrier_case", { modules: modulesFromSpec(carrierSpec) });
     const emitterScopeBaseline = await runCase(scene, "emitter_scope_case.ets", "emitter_scope_case", {});
-    const emitterScopeWithSpec = await runCase(scene, "emitter_scope_case.ets", "emitter_scope_case", { moduleSpecs: [emitterSpec] });
+    const emitterScopeWithSpec = await runCase(scene, "emitter_scope_case.ets", "emitter_scope_case", { modules: modulesFromSpec(emitterSpec) });
     const keyedStateBaseline = await runCase(scene, "keyed_state_case.ets", "keyed_state_case", {});
-    const keyedStateWithSpec = await runCase(scene, "keyed_state_case.ets", "keyed_state_case", { moduleSpecs: [keyedStateSpec] });
+    const keyedStateWithSpec = await runCase(scene, "keyed_state_case.ets", "keyed_state_case", { modules: modulesFromSpec(keyedStateSpec) });
     const sameAddressBaseline = await runCase(scene, "same_address_case.ets", "same_address_case", {});
-    const sameAddressWithSpec = await runCase(scene, "same_address_case.ets", "same_address_case", { moduleSpecs: [sameAddressSpec] });
+    const sameAddressWithSpec = await runCase(scene, "same_address_case.ets", "same_address_case", { modules: modulesFromSpec(sameAddressSpec) });
     const methodFieldStateBaseline = await runCase(scene, "method_field_state_case.ets", "method_field_state_case", {});
-    const methodFieldStateWithSpec = await runCase(scene, "method_field_state_case.ets", "method_field_state_case", { moduleSpecs: [methodFieldStateSpec] });
+    const methodFieldStateWithSpec = await runCase(scene, "method_field_state_case.ets", "method_field_state_case", { modules: modulesFromSpec(methodFieldStateSpec) });
     const declarativeBaseline = await runCase(scene, "declarative_case.ets", "declarative_case", {});
-    const declarativeWithSpec = await runCase(scene, "declarative_case.ets", "declarative_case", { moduleSpecs: [declarativeSpec] });
+    const declarativeWithSpec = await runCase(scene, "declarative_case.ets", "declarative_case", { modules: modulesFromSpec(declarativeSpec) });
     const methodParamBaseline = await runCase(scene, "method_param_case.ets", "method_param_case", {});
-    const methodParamWithSpec = await runCase(scene, "method_param_case.ets", "method_param_case", { moduleSpecs: [abilitySpec] });
+    const methodParamWithSpec = await runCase(scene, "method_param_case.ets", "method_param_case", { modules: modulesFromSpec(abilitySpec) });
     const emitterBaseline = await runCase(scene, "emitter_case.ets", "emitter_case", {});
-    const emitterWithSpec = await runCase(scene, "emitter_case.ets", "emitter_case", { moduleSpecs: [emitterSpec] });
+    const emitterWithSpec = await runCase(scene, "emitter_case.ets", "emitter_case", { modules: modulesFromSpec(emitterSpec) });
     const routerBaseline = await runCase(scene, "router_unwrap_case.ets", "router_unwrap_case", {});
-    const routerWithSpec = await runCase(scene, "router_unwrap_case.ets", "router_unwrap_case", { moduleSpecs: [routerSpec] });
+    const routerWithSpec = await runCase(scene, "router_unwrap_case.ets", "router_unwrap_case", { modules: modulesFromSpec(routerSpec) });
     const storagePropBaseline = await runCase(scene, "storage_prop_case.ets", "storage_prop_case", {});
-    const storagePropWithSpec = await runCase(scene, "storage_prop_case.ets", "storage_prop_case", { moduleSpecs: [storagePropSpec] });
+    const storagePropWithSpec = await runCase(scene, "storage_prop_case.ets", "storage_prop_case", { modules: modulesFromSpec(storagePropSpec) });
     const storagePropMismatchBaseline = await runCase(scene, "storage_prop_mismatch_case.ets", "storage_prop_mismatch_case", {});
-    const storagePropMismatchWithSpec = await runCase(scene, "storage_prop_mismatch_case.ets", "storage_prop_mismatch_case", { moduleSpecs: [storagePropSpec] });
+    const storagePropMismatchWithSpec = await runCase(scene, "storage_prop_mismatch_case.ets", "storage_prop_mismatch_case", { modules: modulesFromSpec(storagePropSpec) });
     const provideConsumeBaseline = await runCase(scene, "provide_consume_case.ets", "provide_consume_case", {});
-    const provideConsumeWithSpec = await runCase(scene, "provide_consume_case.ets", "provide_consume_case", { moduleSpecs: [provideConsumeSpec] });
+    const provideConsumeWithSpec = await runCase(scene, "provide_consume_case.ets", "provide_consume_case", { modules: modulesFromSpec(provideConsumeSpec) });
     const containerBaseline = await runCase(scene, "container_map_case.ets", "container_map_case", {});
-    const containerWithSpec = await runCase(scene, "container_map_case.ets", "container_map_case", { moduleSpecs: [containerSpec] });
+    const containerWithSpec = await runCase(scene, "container_map_case.ets", "container_map_case", { modules: modulesFromSpec(containerSpec) });
     const stringifyBaseline = await runCase(scene, "stringify_boundary_case.ets", "stringify_boundary_case", {});
-    const stringifyWithSpec = await runCase(scene, "stringify_boundary_case.ets", "stringify_boundary_case", { moduleSpecs: [stringifyBoundarySpec] });
+    const stringifyWithSpec = await runCase(scene, "stringify_boundary_case.ets", "stringify_boundary_case", { modules: modulesFromSpec(stringifyBoundarySpec) });
     const cloneCopyBaseline = await runCase(scene, "clone_copy_boundary_case.ets", "clone_copy_boundary_case", {});
-    const cloneCopyWithSpec = await runCase(scene, "clone_copy_boundary_case.ets", "clone_copy_boundary_case", { moduleSpecs: [cloneCopyBoundarySpec] });
+    const cloneCopyWithSpec = await runCase(scene, "clone_copy_boundary_case.ets", "clone_copy_boundary_case", { modules: modulesFromSpec(cloneCopyBoundarySpec) });
 
     assert(callbackBaseline.totalFlows === 0, `callback baseline should have zero flows, got ${callbackBaseline.totalFlows}`);
-    assert(callbackWithFileSpec.totalFlows > 0, `callback file-based ModuleSpec should recover flows, got ${callbackWithFileSpec.totalFlows}`);
-    assert(hasLoweredModule(callbackWithFileSpec.loadedModuleIds, callbackSpec.id), "callback file-based ModuleSpec should appear in loaded module audit ids");
-    assert(callbackWithFileSpec.deferredContractCount > callbackBaseline.deferredContractCount, "callback file-based ModuleSpec should declare deferred contracts");
+    assert(callbackWithFileSpec.totalFlows > 0, `callback file-based ModuleRuntimeSpec should recover flows, got ${callbackWithFileSpec.totalFlows}`);
+    assert(hasLoweredModule(callbackWithFileSpec.loadedModuleIds, callbackSpec.id), "callback file-based ModuleRuntimeSpec should appear in loaded module audit ids");
+    assert(callbackWithFileSpec.deferredContractCount > callbackBaseline.deferredContractCount, "callback file-based ModuleRuntimeSpec should declare deferred contracts");
 
     assert(carrierBaseline.totalFlows === 0, `same-receiver baseline should have zero flows, got ${carrierBaseline.totalFlows}`);
-    assert(carrierWithSpec.totalFlows > 0, `same-receiver ModuleSpec should recover flows, got ${carrierWithSpec.totalFlows}`);
-    assert(hasLoweredModule(carrierWithSpec.loadedModuleIds, carrierSpec.id), "same-receiver ModuleSpec should appear in loaded module audit ids");
-    assert(carrierWithSpec.deferredContractCount > carrierBaseline.deferredContractCount, "same-receiver ModuleSpec should declare deferred contracts");
+    assert(carrierWithSpec.totalFlows > 0, `same-receiver ModuleRuntimeSpec should recover flows, got ${carrierWithSpec.totalFlows}`);
+    assert(hasLoweredModule(carrierWithSpec.loadedModuleIds, carrierSpec.id), "same-receiver ModuleRuntimeSpec should appear in loaded module audit ids");
+    assert(carrierWithSpec.deferredContractCount > carrierBaseline.deferredContractCount, "same-receiver ModuleRuntimeSpec should declare deferred contracts");
 
     assert(emitterScopeBaseline.totalFlows === 0, `emitter scope baseline should have zero flows, got ${emitterScopeBaseline.totalFlows}`);
-    assert(emitterScopeWithSpec.totalFlows === 0, `event emitter ModuleSpec should not bridge across different receiver classes, got ${emitterScopeWithSpec.totalFlows}`);
+    assert(emitterScopeWithSpec.totalFlows === 0, `event emitter ModuleRuntimeSpec should not bridge across different receiver classes, got ${emitterScopeWithSpec.totalFlows}`);
 
     assert(keyedStateBaseline.totalFlows === 0, `keyed state baseline should have zero flows, got ${keyedStateBaseline.totalFlows}`);
-    assert(keyedStateWithSpec.totalFlows > 0, `keyed state ModuleSpec should recover flows, got ${keyedStateWithSpec.totalFlows}`);
-    assert(hasLoweredModule(keyedStateWithSpec.loadedModuleIds, keyedStateSpec.id), "keyed state ModuleSpec should appear in loaded module audit ids");
+    assert(keyedStateWithSpec.totalFlows > 0, `keyed state ModuleRuntimeSpec should recover flows, got ${keyedStateWithSpec.totalFlows}`);
+    assert(hasLoweredModule(keyedStateWithSpec.loadedModuleIds, keyedStateSpec.id), "keyed state ModuleRuntimeSpec should appear in loaded module audit ids");
 
     assert(sameAddressBaseline.totalFlows === 0, `same-address baseline should have zero flows, got ${sameAddressBaseline.totalFlows}`);
-    assert(sameAddressWithSpec.totalFlows > 0, `same-address bridge ModuleSpec should recover flows, got ${sameAddressWithSpec.totalFlows}`);
-    assert(hasLoweredModule(sameAddressWithSpec.loadedModuleIds, sameAddressSpec.id), "same-address bridge ModuleSpec should appear in loaded module audit ids");
+    assert(sameAddressWithSpec.totalFlows > 0, `same-address bridge ModuleRuntimeSpec should recover flows, got ${sameAddressWithSpec.totalFlows}`);
+    assert(hasLoweredModule(sameAddressWithSpec.loadedModuleIds, sameAddressSpec.id), "same-address bridge ModuleRuntimeSpec should appear in loaded module audit ids");
 
     assert(methodFieldStateBaseline.totalFlows === 0, `method field state baseline should have zero flows, got ${methodFieldStateBaseline.totalFlows}`);
-    assert(methodFieldStateWithSpec.totalFlows > 0, `method field state ModuleSpec should recover flows, got ${methodFieldStateWithSpec.totalFlows}`);
-    assert(hasLoweredModule(methodFieldStateWithSpec.loadedModuleIds, methodFieldStateSpec.id), "method field state ModuleSpec should appear in loaded module audit ids");
+    assert(methodFieldStateWithSpec.totalFlows > 0, `method field state ModuleRuntimeSpec should recover flows, got ${methodFieldStateWithSpec.totalFlows}`);
+    assert(hasLoweredModule(methodFieldStateWithSpec.loadedModuleIds, methodFieldStateSpec.id), "method field state ModuleRuntimeSpec should appear in loaded module audit ids");
 
     assert(declarativeBaseline.totalFlows === 0, `declarative baseline should have zero flows, got ${declarativeBaseline.totalFlows}`);
-    assert(declarativeWithSpec.totalFlows > 0, `declarative ModuleSpec should recover flows, got ${declarativeWithSpec.totalFlows}`);
-    assert(hasLoweredModule(declarativeWithSpec.loadedModuleIds, declarativeSpec.id), "declarative ModuleSpec should appear in loaded module audit ids");
-    assert(declarativeWithSpec.deferredContractCount > declarativeBaseline.deferredContractCount, "declarative ModuleSpec should declare deferred contracts");
+    assert(declarativeWithSpec.totalFlows > 0, `declarative ModuleRuntimeSpec should recover flows, got ${declarativeWithSpec.totalFlows}`);
+    assert(hasLoweredModule(declarativeWithSpec.loadedModuleIds, declarativeSpec.id), "declarative ModuleRuntimeSpec should appear in loaded module audit ids");
+    assert(declarativeWithSpec.deferredContractCount > declarativeBaseline.deferredContractCount, "declarative ModuleRuntimeSpec should declare deferred contracts");
 
     assert(methodParamBaseline.totalFlows === 0, `ability handoff baseline should have zero flows, got ${methodParamBaseline.totalFlows}`);
-    assert(methodParamWithSpec.totalFlows > 0, `ability handoff ModuleSpec should recover flows, got ${methodParamWithSpec.totalFlows}`);
-    assert(hasLoweredModule(methodParamWithSpec.loadedModuleIds, abilitySpec.id), "ability handoff ModuleSpec should appear in loaded module audit ids");
+    assert(methodParamWithSpec.totalFlows > 0, `ability handoff ModuleRuntimeSpec should recover flows, got ${methodParamWithSpec.totalFlows}`);
+    assert(hasLoweredModule(methodParamWithSpec.loadedModuleIds, abilitySpec.id), "ability handoff ModuleRuntimeSpec should appear in loaded module audit ids");
 
     assert(emitterBaseline.totalFlows === 0, `event emitter baseline should have zero flows, got ${emitterBaseline.totalFlows}`);
-    assert(emitterWithSpec.totalFlows > 0, `event emitter ModuleSpec should recover flows, got ${emitterWithSpec.totalFlows}`);
-    assert(hasLoweredModule(emitterWithSpec.loadedModuleIds, emitterSpec.id), "event emitter ModuleSpec should appear in loaded module audit ids");
-    assert(emitterWithSpec.deferredContractCount > emitterBaseline.deferredContractCount, "event emitter ModuleSpec should declare deferred contracts");
+    assert(emitterWithSpec.totalFlows > 0, `event emitter ModuleRuntimeSpec should recover flows, got ${emitterWithSpec.totalFlows}`);
+    assert(hasLoweredModule(emitterWithSpec.loadedModuleIds, emitterSpec.id), "event emitter ModuleRuntimeSpec should appear in loaded module audit ids");
+    assert(emitterWithSpec.deferredContractCount > emitterBaseline.deferredContractCount, "event emitter ModuleRuntimeSpec should declare deferred contracts");
 
     assert(routerBaseline.totalFlows === 0, `route bridge baseline should have zero flows, got ${routerBaseline.totalFlows}`);
-    assert(routerWithSpec.totalFlows > 0, `route bridge ModuleSpec should recover flows, got ${routerWithSpec.totalFlows}`);
-    assert(hasLoweredModule(routerWithSpec.loadedModuleIds, routerSpec.id), "route bridge ModuleSpec should appear in loaded module audit ids");
+    assert(routerWithSpec.totalFlows > 0, `route bridge ModuleRuntimeSpec should recover flows, got ${routerWithSpec.totalFlows}`);
+    assert(hasLoweredModule(routerWithSpec.loadedModuleIds, routerSpec.id), "route bridge ModuleRuntimeSpec should appear in loaded module audit ids");
 
     assert(storagePropBaseline.totalFlows === 0, `storage prop baseline should have zero flows, got ${storagePropBaseline.totalFlows}`);
-    assert(storagePropWithSpec.totalFlows > 0, `keyed storage ModuleSpec should recover prop flows, got ${storagePropWithSpec.totalFlows}`);
-    assert(hasLoweredModule(storagePropWithSpec.loadedModuleIds, storagePropSpec.id), "keyed storage ModuleSpec should appear in loaded module audit ids");
+    assert(storagePropWithSpec.totalFlows > 0, `keyed storage ModuleRuntimeSpec should recover prop flows, got ${storagePropWithSpec.totalFlows}`);
+    assert(hasLoweredModule(storagePropWithSpec.loadedModuleIds, storagePropSpec.id), "keyed storage ModuleRuntimeSpec should appear in loaded module audit ids");
     assert(storagePropMismatchBaseline.totalFlows === 0, `storage prop mismatch baseline should have zero flows, got ${storagePropMismatchBaseline.totalFlows}`);
-    assert(storagePropMismatchWithSpec.totalFlows === 0, `keyed storage ModuleSpec should respect mismatched decorator keys, got ${storagePropMismatchWithSpec.totalFlows}`);
+    assert(storagePropMismatchWithSpec.totalFlows === 0, `keyed storage ModuleRuntimeSpec should respect mismatched decorator keys, got ${storagePropMismatchWithSpec.totalFlows}`);
 
     assert(provideConsumeBaseline.totalFlows === 0, `state binding baseline should have zero flows, got ${provideConsumeBaseline.totalFlows}`);
-    assert(provideConsumeWithSpec.totalFlows > 0, `state binding ModuleSpec should recover provide/consume flows, got ${provideConsumeWithSpec.totalFlows}`);
-    assert(hasLoweredModule(provideConsumeWithSpec.loadedModuleIds, provideConsumeSpec.id), "state binding ModuleSpec should appear in loaded module audit ids");
+    assert(provideConsumeWithSpec.totalFlows > 0, `state binding ModuleRuntimeSpec should recover provide/consume flows, got ${provideConsumeWithSpec.totalFlows}`);
+    assert(hasLoweredModule(provideConsumeWithSpec.loadedModuleIds, provideConsumeSpec.id), "state binding ModuleRuntimeSpec should appear in loaded module audit ids");
 
     assert(containerBaseline.totalFlows === 0, `container baseline should have zero flows, got ${containerBaseline.totalFlows}`);
-    assert(containerWithSpec.totalFlows > 0, `container ModuleSpec should recover map flows, got ${containerWithSpec.totalFlows}`);
-    assert(hasLoweredModule(containerWithSpec.loadedModuleIds, containerSpec.id), "container ModuleSpec should appear in loaded module audit ids");
+    assert(containerWithSpec.totalFlows > 0, `container ModuleRuntimeSpec should recover map flows, got ${containerWithSpec.totalFlows}`);
+    assert(hasLoweredModule(containerWithSpec.loadedModuleIds, containerSpec.id), "container ModuleRuntimeSpec should appear in loaded module audit ids");
 
     assert(stringifyBaseline.totalFlows === 0, `stringify boundary baseline should have zero flows, got ${stringifyBaseline.totalFlows}`);
-    assert(stringifyWithSpec.totalFlows > 0, `stringify boundary ModuleSpec should recover flows, got ${stringifyWithSpec.totalFlows}`);
-    assert(hasLoweredModule(stringifyWithSpec.loadedModuleIds, stringifyBoundarySpec.id), "stringify boundary ModuleSpec should appear in loaded module audit ids");
+    assert(stringifyWithSpec.totalFlows > 0, `stringify boundary ModuleRuntimeSpec should recover flows, got ${stringifyWithSpec.totalFlows}`);
+    assert(hasLoweredModule(stringifyWithSpec.loadedModuleIds, stringifyBoundarySpec.id), "stringify boundary ModuleRuntimeSpec should appear in loaded module audit ids");
 
     assert(cloneCopyBaseline.totalFlows === 0, `clone-copy baseline should have zero flows, got ${cloneCopyBaseline.totalFlows}`);
-    assert(cloneCopyWithSpec.totalFlows > 0, `clone-copy ModuleSpec should recover flows, got ${cloneCopyWithSpec.totalFlows}`);
-    assert(hasLoweredModule(cloneCopyWithSpec.loadedModuleIds, cloneCopyBoundarySpec.id), "clone-copy ModuleSpec should appear in loaded module audit ids");
+    assert(cloneCopyWithSpec.totalFlows > 0, `clone-copy ModuleRuntimeSpec should recover flows, got ${cloneCopyWithSpec.totalFlows}`);
+    assert(hasLoweredModule(cloneCopyWithSpec.loadedModuleIds, cloneCopyBoundarySpec.id), "clone-copy ModuleRuntimeSpec should appear in loaded module audit ids");
 
-    console.log("PASS test_module_spec_engine");
+    console.log("PASS test_module_runtime_spec_engine");
     console.log(`callback_file_total_flows=${callbackWithFileSpec.totalFlows}`);
     console.log(`callback_deferred_contracts=${callbackWithFileSpec.deferredContractCount}`);
     console.log(`same_receiver_total_flows=${carrierWithSpec.totalFlows}`);
@@ -1160,7 +1162,7 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-    console.error("FAIL test_module_spec_engine");
+    console.error("FAIL test_module_runtime_spec_engine");
     console.error(error);
     process.exit(1);
 });

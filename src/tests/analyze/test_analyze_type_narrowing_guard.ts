@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { readAnalyzeSummary, runAnalyzeCli } from "../helpers/AnalyzeCliRunner";
+import { stringifyRuleAssetFixture } from "../helpers/RuleAssetFixtureFactory";
 import { resolveTestRunDir, resolveTestRunPath } from "../helpers/TestWorkspaceLayout";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -86,8 +87,8 @@ function runCase(caseRoot: string, spec: CaseSpec): AnalyzeReport {
 
     writeText(
         rulePath,
-        JSON.stringify({
-            schemaVersion: "2.0",
+        stringifyRuleAssetFixture({
+            id: "asset.rule.fixture.type_narrowing_guard",
             sources: [
                 {
                     id: "source.fixture.type_narrowing_guard",
@@ -111,7 +112,7 @@ function runCase(caseRoot: string, spec: CaseSpec): AnalyzeReport {
             ],
             sanitizers: [],
             transfers: [],
-        }, null, 2),
+        }),
     );
 
     runAnalyzeCli([

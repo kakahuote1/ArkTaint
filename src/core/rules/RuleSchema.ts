@@ -102,7 +102,6 @@ export interface TransferRule extends BaseRule {
 }
 
 export interface TaintRuleSet {
-    schemaVersion: "2.0";
     meta?: RuleMeta;
     sources: SourceRule[];
     sinks: SinkRule[];

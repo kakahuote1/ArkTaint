@@ -1,103 +1,283 @@
 {
-    "schemaVersion": "2.0",
-    "meta": {
-        "name": "harmony-event-activation-v1-rules",
-        "description": "Phase 7.3 V1 callback activation and callback-param source seeding",
-        "updatedAt": "2026-02-22"
+  "id": "asset.rule.test.harmony_event_activation",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
+    {
+      "surfaceId": "surface.source.harmony.callback.onChange.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "onChange",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
-    "sources": [
-        {
-            "id": "source.harmony.callback.onChange.arg0",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "onChange"
-            },
-            "scope": {
-                "methodName": {
-                    "mode": "equals",
-                    "value": "build"
-                }
-            },
-            "sourceKind": "callback_param",
-            "target": {
-                "endpoint": "arg0"
-            },
-            "callbackArgIndexes": [
-                0
-            ]
-        },
-        {
-            "id": "source.harmony.callback.onInput.arg0",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "onInput"
-            },
-            "scope": {
-                "methodName": {
-                    "mode": "equals",
-                    "value": "build"
-                }
-            },
-            "sourceKind": "callback_param",
-            "target": {
-                "endpoint": "arg0"
-            },
-            "callbackArgIndexes": [
-                0
-            ]
-        },
-        {
-            "id": "source.harmony.callback.onSubmit.arg0",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "onSubmit"
-            },
-            "scope": {
-                "methodName": {
-                    "mode": "equals",
-                    "value": "build"
-                }
-            },
-            "sourceKind": "callback_param",
-            "target": {
-                "endpoint": "arg0"
-            },
-            "callbackArgIndexes": [
-                0
-            ]
-        },
-        {
-            "id": "source.harmony.callback.onChange2.arg1",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "onChange2"
-            },
-            "scope": {
-                "methodName": {
-                    "mode": "equals",
-                    "value": "build"
-                }
-            },
-            "sourceKind": "callback_param",
-            "target": {
-                "endpoint": "arg1"
-            },
-            "callbackArgIndexes": [
-                0
-            ]
+    {
+      "surfaceId": "surface.source.harmony.callback.onInput.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "onInput",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.callback.onSubmit.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "onSubmit",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.callback.onChange2.arg1",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "onChange2",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.harmony.callback.mock_sink",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "Sink",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.source.harmony.callback.onChange.arg0.0",
+      "surfaceId": "surface.source.harmony.callback.onChange.arg0",
+      "assetId": "asset.rule.test.harmony_event_activation",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "onChange",
+        "scope": {
+          "methodName": {
+            "mode": "equals",
+            "value": "build"
+          }
         }
-    ],
-    "sinks": [
-        {
-            "id": "sink.harmony.callback.mock_sink",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "Sink"
-            },
-            "target": {
-                "endpoint": "arg0"
-            }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
-    ],
-    "transfers": []
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.callback.onChange.arg0"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.callback.onInput.arg0.0",
+      "surfaceId": "surface.source.harmony.callback.onInput.arg0",
+      "assetId": "asset.rule.test.harmony_event_activation",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "onInput",
+        "scope": {
+          "methodName": {
+            "mode": "equals",
+            "value": "build"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.callback.onInput.arg0"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.callback.onSubmit.arg0.0",
+      "surfaceId": "surface.source.harmony.callback.onSubmit.arg0",
+      "assetId": "asset.rule.test.harmony_event_activation",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "onSubmit",
+        "scope": {
+          "methodName": {
+            "mode": "equals",
+            "value": "build"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.callback.onSubmit.arg0"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.callback.onChange2.arg1.0",
+      "surfaceId": "surface.source.harmony.callback.onChange2.arg1",
+      "assetId": "asset.rule.test.harmony_event_activation",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "onChange2",
+        "scope": {
+          "methodName": {
+            "mode": "equals",
+            "value": "build"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.callback.onChange2.arg1"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.callback.mock_sink.0",
+      "surfaceId": "surface.sink.harmony.callback.mock_sink",
+      "assetId": "asset.rule.test.harmony_event_activation",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Sink"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.callback.mock_sink"
+      ],
+      "semanticsFamily": "sink",
+      "completeness": "partial",
+      "confidence": "likely"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.source.harmony.callback.onChange.arg0",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.source.harmony.callback.onInput.arg0",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.source.harmony.callback.onSubmit.arg0",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.source.harmony.callback.onChange2.arg1",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.sink.harmony.callback.mock_sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "tests/rules/harmony_event_activation.rules.json"
+      }
+    ]
+  }
 }

@@ -1,83 +1,205 @@
 {
-  "schemaVersion": "2.0",
-  "sources": [
+  "id": "asset.rule.kernel.sources.network",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
     {
-      "id": "source.harmony.network.http.request.result",
-      "enabled": true,
-      "description": "Http.request() promise result as network response source.",
-      "tags": [
-        "harmony",
-        "t1",
-        "t2",
-        "t3",
-        "t5"
-      ],
-      "match": {
-        "kind": "method_name_equals",
-        "value": "request",
-        "invokeKind": "instance"
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "Http"
-        }
-      },
-      "sourceKind": "call_return",
-      "target": {
-        "endpoint": "result"
+      "surfaceId": "surface.source.harmony.network.http.request.result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "Http",
+      "methodName": "request",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
       }
     },
     {
-      "id": "source.harmony.request.download.result",
-      "enabled": true,
-      "description": "@ohos.request download result as untrusted source.",
-      "tags": [
-        "harmony",
-        "t2",
-        "t5"
-      ],
-      "match": {
-        "kind": "method_name_equals",
-        "value": "download"
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(request|Request|Download|DownloadTask|RequestAgent)"
-        }
-      },
-      "sourceKind": "call_return",
-      "target": {
-        "endpoint": "result"
+      "surfaceId": "surface.source.harmony.request.download.result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "request.Request.Download.DownloadTask.RequestAgent",
+      "methodName": "download",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
       }
     },
     {
-      "id": "source.harmony.request.upload.result",
-      "enabled": true,
-      "description": "@ohos.request upload result as untrusted source.",
-      "tags": [
-        "harmony",
-        "t2",
-        "t5"
-      ],
-      "match": {
-        "kind": "method_name_equals",
-        "value": "upload"
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(request|Request|Upload|UploadTask|RequestAgent)"
-        }
-      },
-      "sourceKind": "call_return",
-      "target": {
-        "endpoint": "result"
+      "surfaceId": "surface.source.harmony.request.upload.result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "request.Request.Upload.UploadTask.RequestAgent",
+      "methodName": "upload",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
       }
     }
   ],
-  "sinks": [],
-  "sanitizers": [],
-  "transfers": []
+  "bindings": [
+    {
+      "bindingId": "binding.source.harmony.network.http.request.result.0",
+      "surfaceId": "surface.source.harmony.network.http.request.result",
+      "assetId": "asset.rule.kernel.sources.network",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "request",
+        "invokeKind": "instance",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "Http"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.network.http.request.result"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "Http.request() promise result as network response source.",
+        "tags": [
+          "harmony",
+          "t1",
+          "t2",
+          "t3",
+          "t5"
+        ]
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.request.download.result.0",
+      "surfaceId": "surface.source.harmony.request.download.result",
+      "assetId": "asset.rule.kernel.sources.network",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "download",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(request|Request|Download|DownloadTask|RequestAgent)"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.request.download.result"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "@ohos.request download result as untrusted source.",
+        "tags": [
+          "harmony",
+          "t2",
+          "t5"
+        ]
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.request.upload.result.0",
+      "surfaceId": "surface.source.harmony.request.upload.result",
+      "assetId": "asset.rule.kernel.sources.network",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "upload",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(request|Request|Upload|UploadTask|RequestAgent)"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.request.upload.result"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "@ohos.request upload result as untrusted source.",
+        "tags": [
+          "harmony",
+          "t2",
+          "t5"
+        ]
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.source.harmony.network.http.request.result",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    },
+    {
+      "id": "template.source.harmony.request.download.result",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    },
+    {
+      "id": "template.source.harmony.request.upload.result",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "src/models/kernel/rules/sources/network.rules.json"
+      }
+    ]
+  }
 }

@@ -23,11 +23,13 @@ export interface ModuleMethodsApi {
 }
 
 export interface ModuleInvokeScanFilter {
+    modulePath?: string;
     methodName?: string;
     declaringClassName?: string;
     declaringClassIncludes?: string;
     signature?: string;
     signatureIncludes?: string;
+    argCount?: number;
     minArgs?: number;
     instanceOnly?: boolean;
     staticOnly?: boolean;

@@ -82,7 +82,6 @@ async function main(): Promise<void> {
     ];
 
     const validation = validateRuleSet({
-        schemaVersion: "2.0",
         sources: sourceRules,
         sinks: sinkRules,
         transfers: transferRules,

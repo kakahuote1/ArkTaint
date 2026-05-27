@@ -50,7 +50,7 @@ export interface ArkMainActivationExplanation {
 }
 
 export interface ArkMainExplainabilityReport {
-    schemaVersion: "arkmain.explainability.v3";
+    format: "arkmain.explainability";
     summary: ArkMainExplainabilitySummary;
     activations: ArkMainActivationExplanation[];
 }

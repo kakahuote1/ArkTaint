@@ -1,177 +1,779 @@
 {
-  "schemaVersion": "2.0",
-  "sources": [],
-  "sinks": [],
-  "sanitizers": [],
-  "transfers": [
+  "id": "asset.rule.kernel.transfers.string",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
     {
-      "id": "transfer.harmony.string.concat.arg0_to_result",
-      "description": "String.concat(arg): argument taints concatenation result.",
-      "match": {
-        "kind": "method_name_equals",
+      "surfaceId": "surface.transfer.harmony.string.concat.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "concat",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.concat.base_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "concat",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "h210c8933",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.at.base_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "string",
+      "methodName": "at",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.replace.base_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "replace",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.replace.arg1_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "replace",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.replaceAll.base_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "replaceAll",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.replaceAll.arg1_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "replaceAll",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.match.base_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "match",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.matchAll.base_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "matchAll",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.raw.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "raw",
+      "invokeKind": "static",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.raw.arg1_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "raw",
+      "invokeKind": "static",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.padding.base_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "h210c8933",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.padding.arg1_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "h210c8933",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.split.base_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "split",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.transfer.harmony.string.concat.arg0_to_result.0",
+      "surfaceId": "surface.transfer.harmony.string.concat.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "concat",
         "invokeKind": "instance"
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.concat.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "String.concat(arg): argument taints concatenation result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.string.concat.base_to_result",
-      "description": "String.concat(arg): receiver string taints concatenation result.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.harmony.string.concat.base_to_result.0",
+      "surfaceId": "surface.transfer.harmony.string.concat.base_to_result",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "concat",
         "invokeKind": "instance"
       },
-      "from": "base",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.concat.base_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "String.concat(arg): receiver string taints concatenation result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.string.pure_transform.base_to_result",
-      "description": "Pure String transforms conservatively taint their result from the receiver string.",
-      "match": {
-        "kind": "method_name_regex",
+      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.0",
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-regex",
         "value": "^(toString|toLocaleString|valueOf|slice|substring|substr|trim|trimStart|trimEnd|trimLeft|trimRight|toUpperCase|toLowerCase|repeat|charAt|normalize|toLocaleLowerCase|toLocaleUpperCase)$",
         "invokeKind": "instance"
       },
-      "from": "base",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.pure_transform.base_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Pure String transforms conservatively taint their result from the receiver string."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.string.at.base_to_result",
-      "description": "String.at(index): receiver string taints indexed result.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.harmony.string.at.base_to_result.0",
+      "surfaceId": "surface.transfer.harmony.string.at.base_to_result",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "at",
         "invokeKind": "instance",
         "argCount": 1,
         "typeHint": "string"
       },
-      "from": "base",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.at.base_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "String.at(index): receiver string taints indexed result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.string.replace.base_to_result",
-      "description": "String.replace(search, replacement): receiver string taints replacement result.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.harmony.string.replace.base_to_result.0",
+      "surfaceId": "surface.transfer.harmony.string.replace.base_to_result",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "replace",
         "invokeKind": "instance"
       },
-      "from": "base",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.replace.base_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "String.replace(search, replacement): receiver string taints replacement result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.string.replace.arg1_to_result",
-      "description": "String.replace(search, replacement): replacement text taints replacement result.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.harmony.string.replace.arg1_to_result.0",
+      "surfaceId": "surface.transfer.harmony.string.replace.arg1_to_result",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "replace",
         "invokeKind": "instance"
       },
-      "from": "arg1",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.replace.arg1_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "String.replace(search, replacement): replacement text taints replacement result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.string.replaceAll.base_to_result",
-      "description": "String.replaceAll(search, replacement): receiver string taints replacement result.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.harmony.string.replaceAll.base_to_result.0",
+      "surfaceId": "surface.transfer.harmony.string.replaceAll.base_to_result",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "replaceAll",
         "invokeKind": "instance"
       },
-      "from": "base",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.replaceAll.base_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "String.replaceAll(search, replacement): receiver string taints replacement result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.string.replaceAll.arg1_to_result",
-      "description": "String.replaceAll(search, replacement): replacement text taints replacement result.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.harmony.string.replaceAll.arg1_to_result.0",
+      "surfaceId": "surface.transfer.harmony.string.replaceAll.arg1_to_result",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "replaceAll",
         "invokeKind": "instance"
       },
-      "from": "arg1",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.replaceAll.arg1_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "String.replaceAll(search, replacement): replacement text taints replacement result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.string.match.base_to_result",
-      "description": "String.match(regexp): receiver string taints match result.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.harmony.string.match.base_to_result.0",
+      "surfaceId": "surface.transfer.harmony.string.match.base_to_result",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "match",
         "invokeKind": "instance",
         "argCount": 1
       },
-      "from": "base",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.match.base_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "String.match(regexp): receiver string taints match result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.string.matchAll.base_to_result",
-      "description": "String.matchAll(regexp): receiver string taints match iterator result.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.harmony.string.matchAll.base_to_result.0",
+      "surfaceId": "surface.transfer.harmony.string.matchAll.base_to_result",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "matchAll",
         "invokeKind": "instance",
         "argCount": 1
       },
-      "from": "base",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.matchAll.base_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "String.matchAll(regexp): receiver string taints match iterator result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.string.raw.arg0_to_result",
-      "description": "String.raw(template, ...subs): template taints raw string result.",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.harmony.string.raw.arg0_to_result.0",
+      "surfaceId": "surface.transfer.harmony.string.raw.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "String.raw",
         "invokeKind": "static"
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.raw.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "String.raw(template, ...subs): template taints raw string result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.string.raw.arg1_to_result",
-      "description": "String.raw(template, ...subs): first substitution taints raw string result.",
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.transfer.harmony.string.raw.arg1_to_result.0",
+      "surfaceId": "surface.transfer.harmony.string.raw.arg1_to_result",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "signature-contains",
         "value": "String.raw",
         "invokeKind": "static"
       },
-      "from": "arg1",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.raw.arg1_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "String.raw(template, ...subs): first substitution taints raw string result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.string.padding.base_to_result",
-      "description": "String pad transforms conservatively taint their result from the receiver string.",
-      "match": {
-        "kind": "method_name_regex",
+      "bindingId": "binding.transfer.harmony.string.padding.base_to_result.0",
+      "surfaceId": "surface.transfer.harmony.string.padding.base_to_result",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-regex",
         "value": "^(padStart|padEnd)$",
         "invokeKind": "instance"
       },
-      "from": "base",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.padding.base_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "String pad transforms conservatively taint their result from the receiver string."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.string.padding.arg1_to_result",
-      "description": "String pad transforms propagate taint from the pad string to the result.",
-      "match": {
-        "kind": "method_name_regex",
+      "bindingId": "binding.transfer.harmony.string.padding.arg1_to_result.0",
+      "surfaceId": "surface.transfer.harmony.string.padding.arg1_to_result",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-regex",
         "value": "^(padStart|padEnd)$",
         "invokeKind": "instance"
       },
-      "from": "arg1",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.padding.arg1_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "String pad transforms propagate taint from the pad string to the result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.harmony.string.split.base_to_result",
-      "description": "String.split(sep): conservatively taint resulting array from the receiver string.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.harmony.string.split.base_to_result.0",
+      "surfaceId": "surface.transfer.harmony.string.split.base_to_result",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "split",
         "invokeKind": "instance"
       },
-      "from": "base",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.split.base_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "String.split(sep): conservatively taint resulting array from the receiver string."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     }
-  ]
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.transfer.harmony.string.concat.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.concat.base_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.pure_transform.base_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.at.base_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.replace.base_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.replace.arg1_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.replaceAll.base_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.replaceAll.arg1_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.match.base_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.matchAll.base_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.raw.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.raw.arg1_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.padding.base_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.padding.arg1_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.split.base_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "src/models/kernel/rules/transfers/string.rules.json"
+      }
+    ]
+  }
 }

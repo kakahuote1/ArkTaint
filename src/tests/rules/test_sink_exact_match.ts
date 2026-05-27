@@ -28,9 +28,11 @@ async function runCase(
     sourceRules: SourceRule[],
     sinkRules: SinkRule[]
 ): Promise<boolean> {
+    const caseMethod = scene.getMethods().find(m => m.getName() === caseName);
+    assert(caseMethod, `case method not found: ${caseName}`);
     const engine = new TaintPropagationEngine(scene, 1);
     engine.verbose = false;
-    await engine.buildPAG();
+    await engine.buildPAG({ entryModel: "explicit", syntheticEntryMethods: [caseMethod] });
     engine.propagateWithSourceRules(sourceRules);
     const flows = engine.detectSinksByRules(sinkRules);
     const scopedFlows = flows.filter(flow => flowSinkInCaseMethod(scene, flow.sink, caseName));
@@ -102,7 +104,6 @@ async function main(): Promise<void> {
     ];
 
     const validation = validateRuleSet({
-        schemaVersion: "2.0",
         sources: sourceRules,
         sinks: sinkRules,
         transfers: [],

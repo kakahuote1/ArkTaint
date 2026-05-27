@@ -1,10 +1,11 @@
-import * as fs from "fs";
+﻿import * as fs from "fs";
 import * as http from "http";
 import * as path from "path";
 import { getAnalyzeSummaryMarkdownPath, readAnalyzeSummary } from "../helpers/AnalyzeCliRunner";
 import { parseArgs } from "../../cli/analyzeCliOptions";
 import { runAnalyzeCliCommand } from "../../cli/analyze";
 import { writeLlmConfigFile } from "../../cli/llmConfig";
+import { resolvedAsset, ruleTransferAsset, vaultHandoffAsset, withSurfaceModulePath } from "../helpers/SemanticFlowMockAssetDecisions";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -66,72 +67,19 @@ async function createMockServer(): Promise<{
             const user = JSON.parse(body).messages?.find((item: any) => item.role === "user")?.content || "";
             const surface = String(user).match(/^surface:\s*(.+)$/m)?.[1]?.trim();
             const owner = String(user).match(/^owner:\s*(.+)$/m)?.[1]?.trim();
+            const modulePath = modulePathFromPrompt(String(user));
+            const sourceFile = String(user).match(/^sourceFile:\s*(.+)$/m)?.[1]?.trim();
             let decision: Record<string, unknown>;
 
             if (surface === "onCreate" && owner?.includes("DemoAbility")) {
                 decision = {
-                    status: "done",
-                    classification: "arkmain",
-                    resolution: "resolved",
-                    summary: {
-                        inputs: [{ slot: "arg", index: 0 }],
-                        outputs: [],
-                        transfers: [],
-                        confidence: "high",
-                        relations: {
-                            entryPattern: {
-                                phase: "bootstrap",
-                                kind: "ability_lifecycle",
-                                ownerKind: "ability_owner",
-                                reason: "framework ability lifecycle entry",
-                                entryFamily: "semanticflow",
-                                entryShape: "owner-slot",
-                            },
-                        },
-                    },
+                    status: "reject",
+                    reason: "official ArkMain lifecycle is covered by built-in assets",
                 };
             } else if (surface === "pass" && owner?.includes("Pipe")) {
-                decision = {
-                    status: "done",
-                    classification: "rule",
-                    resolution: "resolved",
-                    summary: {
-                        inputs: [{ slot: "arg", index: 0 }],
-                        outputs: [{ slot: "result" }],
-                        transfers: [
-                            {
-                                from: { slot: "arg", index: 0 },
-                                to: { slot: "result" },
-                                relation: "direct",
-                            },
-                        ],
-                        confidence: "high",
-                        ruleKind: "transfer",
-                    },
-                };
+                decision = resolvedAsset(withSurfaceModulePath(ruleTransferAsset("Pipe", "pass", 1), modulePath, sourceFile));
             } else if (surface === "put" && owner?.includes("Vault")) {
-                decision = {
-                    status: "done",
-                    classification: "module",
-                    resolution: "resolved",
-                    summary: {
-                        inputs: [{ slot: "arg", index: 1 }],
-                        outputs: [],
-                        transfers: [],
-                        confidence: "high",
-                        moduleSpec: {
-                            id: "vault.storage",
-                            semantics: [
-                                {
-                                    kind: "keyed_storage",
-                                    storageClasses: ["Vault"],
-                                    writeMethods: [{ methodName: "put", valueIndex: 1 }],
-                                    readMethods: ["get"],
-                                },
-                            ],
-                        },
-                    },
-                };
+                decision = resolvedAsset(withSurfaceModulePath(vaultHandoffAsset("analyze_auto_model"), modulePath, sourceFile));
             } else {
                 decision = {
                     status: "reject",
@@ -179,6 +127,12 @@ interface AnalyzeReport {
     };
 }
 
+function modulePathFromPrompt(prompt: string): string | undefined {
+    const signature = prompt.match(/signature[:=]\s*([^\n]+)/)?.[1]?.trim();
+    const modulePart = signature?.match(/^@?([^:]+):/)?.[1]?.trim();
+    return modulePart || undefined;
+}
+
 async function main(): Promise<void> {
     const root = path.resolve("tmp/test_runs/analyze/auto_model/latest");
     const projectDir = path.join(root, "project");
@@ -189,7 +143,6 @@ async function main(): Promise<void> {
 
     const server = await createMockServer();
     writeLlmConfigFile({
-        schemaVersion: 1,
         activeProfile: "test",
         profiles: {
             test: {
@@ -223,9 +176,7 @@ async function main(): Promise<void> {
         assert(phase1Report.summary.stageProfile.incrementalCacheHitCount === 0, `--no-incremental should disable phase1 cache hits, got ${phase1Report.summary.stageProfile.incrementalCacheHitCount}`);
         assert(phase1Report.summary.stageProfile.incrementalCacheWriteCount === 0, `--no-incremental should disable phase1 cache writes, got ${phase1Report.summary.stageProfile.incrementalCacheWriteCount}`);
         assert(fs.existsSync(path.join(root, "phase1", "feedback", "rule_feedback", "no_candidate_callsites.json")), "missing phase1 rule feedback");
-        assert(fs.existsSync(path.join(root, "rules.json")), "missing modeled rules artifact");
-        assert(fs.existsSync(path.join(root, "modules.json")), "missing modeled modules artifact");
-        assert(fs.existsSync(path.join(root, "arkmain.json")), "missing modeled arkmain artifact");
+        assert(fs.existsSync(path.join(root, "assets.json")), "missing modeled assets artifact");
 
         console.log("PASS test_analyze_auto_model");
     } finally {

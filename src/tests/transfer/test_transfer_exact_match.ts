@@ -110,7 +110,6 @@ async function main(): Promise<void> {
     ];
 
     const validation = validateRuleSet({
-        schemaVersion: "2.0",
         sources: sourceRules,
         sinks: sinkRules,
         transfers: transferRules,
@@ -118,7 +117,6 @@ async function main(): Promise<void> {
     assert(validation.valid, `exact-match rules invalid: ${validation.errors.join("; ")}`);
 
     const pathFromValidation = validateRuleSet({
-        schemaVersion: "2.0",
         sources: [],
         sinks: [],
         transfers: [{
@@ -135,7 +133,6 @@ async function main(): Promise<void> {
     assert(pathFromValidation.valid, `pathFrom transfer rule should be valid: ${pathFromValidation.errors.join("; ")}`);
 
     const sourcePathValidation = validateRuleSet({
-        schemaVersion: "2.0",
         sources: [{
             id: "source.static.path.ok",
             sourceKind: "field_read",
@@ -151,7 +148,6 @@ async function main(): Promise<void> {
     assert(sourcePathValidation.valid, `source static path rule should be valid: ${sourcePathValidation.errors.join("; ")}`);
 
     const sinkPathValidation = validateRuleSet({
-        schemaVersion: "2.0",
         sources: [],
         sinks: [{
             id: "sink.static.path.ok",
@@ -166,7 +162,6 @@ async function main(): Promise<void> {
     assert(sinkPathValidation.valid, `sink static path rule should be valid: ${sinkPathValidation.errors.join("; ")}`);
 
     const transferPathValidation = validateRuleSet({
-        schemaVersion: "2.0",
         sources: [],
         sinks: [],
         transfers: [{
@@ -185,7 +180,6 @@ async function main(): Promise<void> {
     assert(transferPathValidation.valid, `transfer static path rule should be valid: ${transferPathValidation.errors.join("; ")}`);
 
     const invalidTransferPathValidation = validateRuleSet({
-        schemaVersion: "2.0",
         sources: [],
         sinks: [],
         transfers: [{

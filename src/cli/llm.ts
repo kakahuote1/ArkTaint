@@ -242,7 +242,6 @@ function parseArgs(argv: string[]): LlmCliOptions {
 
 function loadOrCreateConfig(configPath?: string): LlmConfigFile {
     return readLlmConfigFile(configPath) || {
-        schemaVersion: 1,
         activeProfile: "default",
         profiles: {},
     };

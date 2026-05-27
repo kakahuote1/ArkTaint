@@ -1,7 +1,9 @@
 import * as fs from "fs";
 import * as path from "path";
 import { normalizeEndpoint, RuleLayer, SanitizerRule, SinkRule, SourceRule, TaintRuleSet, TransferRule } from "./RuleSchema";
-import { assertValidRuleSet, validateRuleSet } from "./RuleValidator";
+import { validateRuleSet } from "./RuleValidator";
+import { validateAssetDocument, type AssetDocumentBase } from "../assets/schema";
+import { lowerRuleAssetsToRuleSet } from "./RuleAssetLowering";
 import { buildFrameworkBoundStateSourceRules, buildFrameworkCallbackSourceRules } from "./FrameworkCallbackSourceCatalog";
 import { buildFrameworkApiSourceRules } from "./FrameworkApiSourceCatalog";
 import { buildFrameworkSinkRules, isFrameworkSinkCatalogRule } from "./FrameworkSinkCatalog";
@@ -131,12 +133,16 @@ const FALLBACK_SINK_SIGNATURES = [
 const SAFE_RULE_DIR_EXTENSIONS = new Set([".json", ".ts", ".md"]);
 
 function extractValidationFieldPath(message: string): string | undefined {
-    const lineMatch = message.match(/(?:^|\n)-\s*([A-Za-z0-9_.\[\]]+)/);
+    const normalize = (value: string | undefined): string | undefined => {
+        if (!value) return undefined;
+        return value.replace(/^\$\./, "").replace(/^\$/, "");
+    };
+    const lineMatch = message.match(/(?:^|\n)-\s*(\$?\.?[A-Za-z0-9_$.\[\]-]+)/);
     if (lineMatch?.[1]) {
-        return lineMatch[1];
+        return normalize(lineMatch[1]);
     }
-    const match = message.match(/^([A-Za-z0-9_.\[\]]+)/);
-    return match?.[1];
+    const match = message.match(/^(\$?\.?[A-Za-z0-9_$.\[\]-]+)/);
+    return normalize(match?.[1]);
 }
 
 interface RuleIssueLocation {
@@ -351,7 +357,6 @@ function normalizeRules(rules: TaintRuleSet): TaintRuleSet {
 
 function mergeRuleSets(base: TaintRuleSet, override: TaintRuleSet): TaintRuleSet {
     return {
-        schemaVersion: override.schemaVersion || base.schemaVersion,
         meta: { ...(base.meta || {}), ...(override.meta || {}) },
         sources: mergeById(base.sources || [], override.sources || []),
         sinks: mergeById(base.sinks || [], override.sinks || []),
@@ -388,7 +393,6 @@ function resolveRepoRelativePath(repoRelativePath: string): string {
 
 function buildEmptyRuleSet(): TaintRuleSet {
     return {
-        schemaVersion: "2.0",
         sources: [],
         sinks: [],
         sanitizers: [],
@@ -451,23 +455,40 @@ function listRuleJsonFilesRecursive(dirPath: string): string[] {
 function loadAndValidateRuleFile(layerName: RuleLayerName | "extra", absPath: string): TaintRuleSet {
     const rawText = fs.readFileSync(absPath, "utf-8").replace(/^\uFEFF/, "");
     const raw = readJsonFile(layerName, absPath);
-    try {
-        assertValidRuleSet(raw, absPath);
-    } catch (error: any) {
-        const message = String(error?.message || error);
-        const fieldPath = extractValidationFieldPath(message);
-        const location = fieldPath ? locateJsonNodeByFieldPath(absPath, rawText, fieldPath) : undefined;
-        throwRuleLoadError({
+    const assetValidation = validateAssetDocument(raw);
+    if (!assetValidation.valid) {
+        const issues = assetValidation.errors.map(message => {
+            const fieldPath = extractValidationFieldPath(message);
+            const location = fieldPath ? locateJsonNodeByFieldPath(absPath, rawText, fieldPath) : undefined;
+            return createRuleLoadIssue({
+                kind: "schema_assert",
+                layerName,
+                path: absPath,
+                message,
+                fieldPath,
+                line: location?.line,
+                column: location?.column,
+            });
+        });
+        throw new RuleLoadError(
+            issues[0]?.userMessage || `Rule asset invalid (${layerName}): ${absPath}`,
+            issues,
+        );
+    }
+    const lowered = lowerRuleAssetsToRuleSet([raw as AssetDocumentBase]);
+    if (lowered.diagnostics.length > 0) {
+        const issues = lowered.diagnostics.map(message => createRuleLoadIssue({
             kind: "schema_assert",
             layerName,
             path: absPath,
             message,
-            fieldPath,
-            line: location?.line,
-            column: location?.column,
-        });
+        }));
+        throw new RuleLoadError(
+            issues[0]?.userMessage || `Rule asset lowering failed (${layerName}): ${absPath}`,
+            issues,
+        );
     }
-    const validation = validateRuleSet(raw);
+    const validation = validateRuleSet(lowered.ruleSet);
     if (!validation.valid) {
         const issues = validation.errors.map(message => {
             const fieldPath = extractValidationFieldPath(message);
@@ -487,7 +508,7 @@ function loadAndValidateRuleFile(layerName: RuleLayerName | "extra", absPath: st
             issues,
         );
     }
-    return raw as TaintRuleSet;
+    return lowered.ruleSet;
 }
 
 function loadAndValidateKindFile(layerName: RuleLayerName | "extra", kind: RuleBundleKind, memberPath: string): LoadedLayerEntry {
@@ -752,7 +773,10 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
         }
         const explicitKernelRules = loadAndValidateLayerEntry("kernel", explicitKernelRulePath);
         mergeKnownFiles(knownRuleFiles, explicitKernelRules.knownFiles);
-        merged = normalizeRules(mergeRuleSets(merged, explicitKernelRules.ruleSet));
+        merged = normalizeRules(mergeRuleSets(merged, normalizeLoadedLayerRules(
+            explicitKernelRules.ruleSet,
+            { kind: "builtin_kernel_json", path: explicitKernelRulePath },
+        )));
         layerStatus.push({
             name: "kernel",
             path: explicitKernelRulePath,

@@ -1,4 +1,5 @@
 import { readAnalyzeSummary, runAnalyzeCli } from "../helpers/AnalyzeCliRunner";
+import { stringifyRuleAssetFixture } from "../helpers/RuleAssetFixtureFactory";
 import { resolveTestRunDir, resolveTestRunPath } from "../helpers/TestWorkspaceLayout";
 import * as fs from "fs";
 import * as path from "path";
@@ -65,8 +66,8 @@ async function main(): Promise<void> {
 
     writeText(
         rulePath,
-        JSON.stringify({
-            schemaVersion: "2.0",
+        stringifyRuleAssetFixture({
+            id: "asset.rule.fixture.sanitizer_postsolve",
             sources: [{
                 id: "source.fixture.sanitizer_postsolve",
                 sourceKind: "entry_param",
@@ -89,7 +90,7 @@ async function main(): Promise<void> {
                 from: "arg0",
                 to: "result",
             }],
-        }, null, 2),
+        }),
     );
 
     runAnalyzeCli([

@@ -6,6 +6,7 @@ import {
 } from "../../core/rules/RuleGovernance";
 import { loadRuleSet } from "../../core/rules/RuleLoader";
 import { SinkRule, SourceRule, TransferRule } from "../../core/rules/RuleSchema";
+import { makeRuleAssetFixture } from "../helpers/RuleAssetFixtureFactory";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -113,8 +114,8 @@ async function main(): Promise<void> {
     const tmpDir = path.resolve("tmp/test_runs/rule_governance_contract/latest");
     ensureDir(tmpDir);
     const extraRulePath = path.join(tmpDir, "extra.rules.json");
-    writeJson(extraRulePath, {
-        schemaVersion: "2.0",
+    writeJson(extraRulePath, makeRuleAssetFixture({
+        id: "asset.rule.governance.extra",
         sources: [
             {
                 id: "source.extra.project.only",
@@ -123,9 +124,7 @@ async function main(): Promise<void> {
                 target: "result",
             },
         ],
-        sinks: [],
-        transfers: [],
-    });
+    }));
 
     const loaded = loadRuleSet({
         kernelRulePath: path.resolve("tests/rules/minimal.rules.json"),

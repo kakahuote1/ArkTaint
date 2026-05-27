@@ -1,89 +1,379 @@
 {
-  "schemaVersion": "2.0",
-  "sources": [],
-  "sinks": [
+  "id": "asset.rule.kernel.sinks.keyword",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
     {
-      "id": "sink.keyword.axios",
-      "enabled": false,
-      "match": {
-        "kind": "signature_contains",
-        "value": "axios"
-      },
-      "severity": "medium"
+      "surfaceId": "surface.sink.keyword.axios",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "axios",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
     {
-      "id": "sink.keyword.fetch",
-      "enabled": false,
-      "match": {
-        "kind": "signature_contains",
-        "value": "fetch"
-      },
-      "severity": "medium"
+      "surfaceId": "surface.sink.keyword.fetch",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "fetch",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
     {
-      "id": "sink.keyword.request",
-      "enabled": false,
-      "match": {
-        "kind": "signature_contains",
-        "value": "request"
-      },
-      "severity": "medium"
+      "surfaceId": "surface.sink.keyword.request",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "request",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
     {
-      "id": "sink.keyword.router",
-      "enabled": false,
-      "match": {
-        "kind": "signature_contains",
-        "value": "router"
-      },
-      "severity": "medium"
+      "surfaceId": "surface.sink.keyword.router",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "router",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
     {
-      "id": "sink.keyword.pushUrl",
-      "enabled": false,
-      "match": {
-        "kind": "signature_contains",
-        "value": "pushUrl"
-      },
-      "severity": "medium"
+      "surfaceId": "surface.sink.keyword.pushUrl",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "pushUrl",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
     {
-      "id": "sink.keyword.relationalStore",
-      "enabled": false,
-      "match": {
-        "kind": "signature_contains",
-        "value": "relationalStore"
-      },
-      "severity": "high"
+      "surfaceId": "surface.sink.keyword.relationalStore",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "relationalStore",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
     {
-      "id": "sink.keyword.rdb",
-      "enabled": false,
-      "match": {
-        "kind": "signature_contains",
-        "value": "rdb"
-      },
-      "severity": "medium"
+      "surfaceId": "surface.sink.keyword.rdb",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "rdb",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
     {
-      "id": "sink.keyword.preferences",
-      "enabled": false,
-      "match": {
-        "kind": "signature_contains",
-        "value": "preferences"
-      },
-      "severity": "low"
+      "surfaceId": "surface.sink.keyword.preferences",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "preferences",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
     {
-      "id": "sink.keyword.console",
-      "enabled": false,
-      "match": {
-        "kind": "signature_contains",
-        "value": "console"
-      },
-      "severity": "low"
+      "surfaceId": "surface.sink.keyword.console",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "console",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     }
   ],
-  "sanitizers": [],
-  "transfers": []
+  "bindings": [
+    {
+      "bindingId": "binding.sink.keyword.axios.0",
+      "surfaceId": "surface.sink.keyword.axios",
+      "assetId": "asset.rule.kernel.sinks.keyword",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "signature-contains",
+        "value": "axios"
+      },
+      "effectTemplateRefs": [
+        "template.sink.keyword.axios"
+      ],
+      "semanticsFamily": "sink",
+      "metadata": {
+        "enabled": false,
+        "severity": "medium"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.keyword.fetch.0",
+      "surfaceId": "surface.sink.keyword.fetch",
+      "assetId": "asset.rule.kernel.sinks.keyword",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "signature-contains",
+        "value": "fetch"
+      },
+      "effectTemplateRefs": [
+        "template.sink.keyword.fetch"
+      ],
+      "semanticsFamily": "sink",
+      "metadata": {
+        "enabled": false,
+        "severity": "medium"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.keyword.request.0",
+      "surfaceId": "surface.sink.keyword.request",
+      "assetId": "asset.rule.kernel.sinks.keyword",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "signature-contains",
+        "value": "request"
+      },
+      "effectTemplateRefs": [
+        "template.sink.keyword.request"
+      ],
+      "semanticsFamily": "sink",
+      "metadata": {
+        "enabled": false,
+        "severity": "medium"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.keyword.router.0",
+      "surfaceId": "surface.sink.keyword.router",
+      "assetId": "asset.rule.kernel.sinks.keyword",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "signature-contains",
+        "value": "router"
+      },
+      "effectTemplateRefs": [
+        "template.sink.keyword.router"
+      ],
+      "semanticsFamily": "sink",
+      "metadata": {
+        "enabled": false,
+        "severity": "medium"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.keyword.pushUrl.0",
+      "surfaceId": "surface.sink.keyword.pushUrl",
+      "assetId": "asset.rule.kernel.sinks.keyword",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "signature-contains",
+        "value": "pushUrl"
+      },
+      "effectTemplateRefs": [
+        "template.sink.keyword.pushUrl"
+      ],
+      "semanticsFamily": "sink",
+      "metadata": {
+        "enabled": false,
+        "severity": "medium"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.keyword.relationalStore.0",
+      "surfaceId": "surface.sink.keyword.relationalStore",
+      "assetId": "asset.rule.kernel.sinks.keyword",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "signature-contains",
+        "value": "relationalStore"
+      },
+      "effectTemplateRefs": [
+        "template.sink.keyword.relationalStore"
+      ],
+      "semanticsFamily": "sink",
+      "metadata": {
+        "enabled": false,
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.keyword.rdb.0",
+      "surfaceId": "surface.sink.keyword.rdb",
+      "assetId": "asset.rule.kernel.sinks.keyword",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "signature-contains",
+        "value": "rdb"
+      },
+      "effectTemplateRefs": [
+        "template.sink.keyword.rdb"
+      ],
+      "semanticsFamily": "sink",
+      "metadata": {
+        "enabled": false,
+        "severity": "medium"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.keyword.preferences.0",
+      "surfaceId": "surface.sink.keyword.preferences",
+      "assetId": "asset.rule.kernel.sinks.keyword",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "signature-contains",
+        "value": "preferences"
+      },
+      "effectTemplateRefs": [
+        "template.sink.keyword.preferences"
+      ],
+      "semanticsFamily": "sink",
+      "metadata": {
+        "enabled": false,
+        "severity": "low"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.keyword.console.0",
+      "surfaceId": "surface.sink.keyword.console",
+      "assetId": "asset.rule.kernel.sinks.keyword",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "signature-contains",
+        "value": "console"
+      },
+      "effectTemplateRefs": [
+        "template.sink.keyword.console"
+      ],
+      "semanticsFamily": "sink",
+      "metadata": {
+        "enabled": false,
+        "severity": "low"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.sink.keyword.axios",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "sinkKind": "sink"
+    },
+    {
+      "id": "template.sink.keyword.fetch",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "sinkKind": "sink"
+    },
+    {
+      "id": "template.sink.keyword.request",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "sinkKind": "sink"
+    },
+    {
+      "id": "template.sink.keyword.router",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "sinkKind": "sink"
+    },
+    {
+      "id": "template.sink.keyword.pushUrl",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "sinkKind": "sink"
+    },
+    {
+      "id": "template.sink.keyword.relationalStore",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "sinkKind": "sink"
+    },
+    {
+      "id": "template.sink.keyword.rdb",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "sinkKind": "sink"
+    },
+    {
+      "id": "template.sink.keyword.preferences",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "sinkKind": "sink"
+    },
+    {
+      "id": "template.sink.keyword.console",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "sinkKind": "sink"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "src/models/kernel/rules/sinks/keyword.rules.json"
+      }
+    ]
+  }
 }

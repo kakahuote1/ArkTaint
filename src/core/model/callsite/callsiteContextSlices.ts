@@ -616,6 +616,9 @@ function scoreOwnerMethodSnippet(
     if (wrapperTokens.some(token => candidate.method.toLowerCase().includes(token))) {
         score += 1;
     }
+    if (isDispatchLikeMethod(currentMethod) && isRegistrationLikeMethod(candidate.method)) {
+        score += 8;
+    }
     if (/return\s+[A-Za-z_$][\w$]*\.[A-Za-z_$][\w$]*\s*\(/.test(candidate.code)) {
         score += 2;
     }
@@ -623,6 +626,14 @@ function scoreOwnerMethodSnippet(
         score += 1;
     }
     return score;
+}
+
+function isDispatchLikeMethod(methodName: string): boolean {
+    return /^(emit|publish|dispatch|fire|trigger|notify|send)$/i.test(String(methodName || "").trim());
+}
+
+function isRegistrationLikeMethod(methodName: string): boolean {
+    return /^(on|once|subscribe|register|listen|addlistener|addhandler|addcallback|bind)$/i.test(String(methodName || "").trim());
 }
 
 function selectOwnerFamilySnippets(
@@ -849,7 +860,7 @@ export function enrichNoCandidateItemsWithCallsiteSlices(options: EnrichCallsite
             : undefined;
         const ownerEvidenceCode = methodSnippet || buildCallsiteEvidenceCode(seedContextSlices);
         const ownerMethodSnippets = ownerEvidenceCode
-            ? selectOwnerFamilySnippets(ownerMethods, preferredMethodSnippet?.methodName || item.method, ownerEvidenceCode, 2)
+            ? selectOwnerFamilySnippets(ownerMethods, preferredMethodSnippet?.methodName || item.method, ownerEvidenceCode, 6)
                 .map(snippet => compactOwnerMethodSnippet(ownerEvidenceCode, snippet))
             : [];
         const ownerSnippet = sourceAbsPath && ownerEvidenceCode
@@ -915,7 +926,7 @@ export function enrichNoCandidateItemsWithCallsiteSlices(options: EnrichCallsite
         const mergedOwnerEvidenceCode = ownerEvidenceCode || buildCallsiteEvidenceCode(mergedSlices);
         const effectiveOwnerMethodSnippets = ownerMethodSnippets.length > 0 || !mergedOwnerEvidenceCode
             ? ownerMethodSnippets
-            : selectOwnerFamilySnippets(ownerMethods, preferredMethodSnippet?.methodName || item.method, mergedOwnerEvidenceCode, 2)
+            : selectOwnerFamilySnippets(ownerMethods, preferredMethodSnippet?.methodName || item.method, mergedOwnerEvidenceCode, 6)
                 .map(snippet => compactOwnerMethodSnippet(mergedOwnerEvidenceCode, snippet));
         const effectiveOwnerSnippet = ownerSnippet || (sourceAbsPath && mergedOwnerEvidenceCode
             ? buildCompactOwnerSnippet(

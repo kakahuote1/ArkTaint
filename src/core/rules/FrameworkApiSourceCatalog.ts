@@ -88,6 +88,7 @@ function apiCallReturn(
     description: string,
     match: RuleMatch,
     calleeScope?: RuleScopeConstraint,
+    _legacySurfaceHints?: unknown,
 ): FrameworkApiSourceSchema {
     return {
         id,
@@ -147,6 +148,15 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
                 "Preference get() return value as persistence source.",
                 instanceMethodEquals("get"),
                 exactClassRegexScope("Preferences", "DataPreferences"),
+                [
+                    {
+                        modulePath: "ohos/preferences",
+                        declaringClassName: "Preferences",
+                        methodName: "get",
+                        invokeKind: "instance",
+                        argCount: 1,
+                    },
+                ],
             ),
         ],
     },

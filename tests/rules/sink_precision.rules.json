@@ -1,123 +1,489 @@
 {
-    "schemaVersion": "2.0",
-    "meta": {
-        "name": "sink-precision-rule-pack",
-        "description": "Rules used to validate sinkTarget precise endpoint detection",
-        "updatedAt": "2026-02-15"
+  "id": "asset.rule.test.sink_precision",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
+    {
+      "surfaceId": "surface.source.test.entry_param.taint_src",
+      "kind": "access",
+      "modulePath": "@arktaint/local",
+      "ownerName": "LocalBinding",
+      "propertyName": "source.test.entry_param.taint_src",
+      "accessKind": "read",
+      "receiverKind": "namespace",
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
-    "sources": [
-        {
-            "id": "source.test.entry_param.taint_src",
-            "match": {
-                "kind": "local_name_regex",
-                "value": "^taint_src$"
-            },
-            "sourceKind": "entry_param",
-            "target": {
-                "endpoint": "arg0"
-            }
+    {
+      "surfaceId": "surface.sink.precision.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "SinkArg0",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.precision.arg1",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "SinkArg1",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.precision.multi.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "SinkMulti",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.precision.multi.arg1",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "SinkMulti",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.precision.field.secret",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "SinkField",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.precision.invoke_kind.instance",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "SinkInvokeKind",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.precision.arg_count.two",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "SinkArgCount",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.precision.type_hint.target",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "TypeHintHostTarget",
+      "methodName": "SinkTypeHint",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.source.test.entry_param.taint_src.0",
+      "surfaceId": "surface.source.test.entry_param.taint_src",
+      "assetId": "asset.rule.test.sink_precision",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "local-name-regex",
+        "value": "^taint_src$"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
-    ],
-    "sinks": [
-        {
-            "id": "sink.precision.arg0",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "SinkArg0"
-            },
-            "severity": "medium",
-            "target": {
-                "endpoint": "arg0"
-            }
-        },
-        {
-            "id": "sink.precision.arg1",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "SinkArg1"
-            },
-            "severity": "medium",
-            "target": {
-                "endpoint": "arg1"
-            }
-        },
-        {
-            "id": "sink.precision.multi.arg0",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "SinkMulti"
-            },
-            "severity": "medium",
-            "target": {
-                "endpoint": "arg0"
-            }
-        },
-        {
-            "id": "sink.precision.multi.arg1",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "SinkMulti"
-            },
-            "severity": "medium",
-            "target": {
-                "endpoint": "arg1"
-            }
-        },
-        {
-            "id": "sink.precision.field.secret",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "SinkField"
-            },
-            "category": "field_path",
-            "severity": "high",
-            "target": {
-                "endpoint": "arg0",
-                "path": [
-                    "secret"
-                ]
-            }
-        },
-        {
-            "id": "sink.precision.invoke_kind.instance",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "SinkInvokeKind",
-                "invokeKind": "instance"
-            },
-            "category": "invoke_kind",
-            "severity": "medium",
-            "target": {
-                "endpoint": "arg0"
-            }
-        },
-        {
-            "id": "sink.precision.arg_count.two",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "SinkArgCount",
-                "argCount": 2
-            },
-            "category": "arg_count",
-            "severity": "medium",
-            "target": {
-                "endpoint": "arg0"
-            }
-        },
-        {
-            "id": "sink.precision.type_hint.target",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "SinkTypeHint",
-                "invokeKind": "instance",
-                "typeHint": "TypeHintHostTarget"
-            },
-            "category": "type_hint",
-            "severity": "medium",
-            "target": {
-                "endpoint": "arg0"
-            }
+      },
+      "effectTemplateRefs": [
+        "template.source.test.entry_param.taint_src"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.precision.arg0.0",
+      "surfaceId": "surface.sink.precision.arg0",
+      "assetId": "asset.rule.test.sink_precision",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "SinkArg0"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
-    ],
-    "transfers": []
+      },
+      "effectTemplateRefs": [
+        "template.sink.precision.arg0"
+      ],
+      "semanticsFamily": "sink",
+      "metadata": {
+        "severity": "medium"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.precision.arg1.0",
+      "surfaceId": "surface.sink.precision.arg1",
+      "assetId": "asset.rule.test.sink_precision",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "SinkArg1"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.precision.arg1"
+      ],
+      "semanticsFamily": "sink",
+      "metadata": {
+        "severity": "medium"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.precision.multi.arg0.0",
+      "surfaceId": "surface.sink.precision.multi.arg0",
+      "assetId": "asset.rule.test.sink_precision",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "SinkMulti"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.precision.multi.arg0"
+      ],
+      "semanticsFamily": "sink",
+      "metadata": {
+        "severity": "medium"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.precision.multi.arg1.0",
+      "surfaceId": "surface.sink.precision.multi.arg1",
+      "assetId": "asset.rule.test.sink_precision",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "SinkMulti"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.precision.multi.arg1"
+      ],
+      "semanticsFamily": "sink",
+      "metadata": {
+        "severity": "medium"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.precision.field.secret.0",
+      "surfaceId": "surface.sink.precision.field.secret",
+      "assetId": "asset.rule.test.sink_precision",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "SinkField"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        },
+        "accessPath": [
+          "secret"
+        ]
+      },
+      "effectTemplateRefs": [
+        "template.sink.precision.field.secret"
+      ],
+      "semanticsFamily": "field_path",
+      "metadata": {
+        "category": "field_path",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.precision.invoke_kind.instance.0",
+      "surfaceId": "surface.sink.precision.invoke_kind.instance",
+      "assetId": "asset.rule.test.sink_precision",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "SinkInvokeKind",
+        "invokeKind": "instance"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.precision.invoke_kind.instance"
+      ],
+      "semanticsFamily": "invoke_kind",
+      "metadata": {
+        "category": "invoke_kind",
+        "severity": "medium"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.precision.arg_count.two.0",
+      "surfaceId": "surface.sink.precision.arg_count.two",
+      "assetId": "asset.rule.test.sink_precision",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "SinkArgCount",
+        "argCount": 2
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.precision.arg_count.two"
+      ],
+      "semanticsFamily": "arg_count",
+      "metadata": {
+        "category": "arg_count",
+        "severity": "medium"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.precision.type_hint.target.0",
+      "surfaceId": "surface.sink.precision.type_hint.target",
+      "assetId": "asset.rule.test.sink_precision",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "SinkTypeHint",
+        "invokeKind": "instance",
+        "typeHint": "TypeHintHostTarget"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.precision.type_hint.target"
+      ],
+      "semanticsFamily": "type_hint",
+      "metadata": {
+        "category": "type_hint",
+        "severity": "medium"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.source.test.entry_param.taint_src",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.sink.precision.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
+    },
+    {
+      "id": "template.sink.precision.arg1",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "sink"
+    },
+    {
+      "id": "template.sink.precision.multi.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
+    },
+    {
+      "id": "template.sink.precision.multi.arg1",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "sink"
+    },
+    {
+      "id": "template.sink.precision.field.secret",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        },
+        "accessPath": [
+          "secret"
+        ]
+      },
+      "sinkKind": "field_path"
+    },
+    {
+      "id": "template.sink.precision.invoke_kind.instance",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "invoke_kind"
+    },
+    {
+      "id": "template.sink.precision.arg_count.two",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "arg_count"
+    },
+    {
+      "id": "template.sink.precision.type_hint.target",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "type_hint"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "tests/rules/sink_precision.rules.json"
+      }
+    ]
+  }
 }

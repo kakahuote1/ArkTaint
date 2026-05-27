@@ -26,7 +26,7 @@ export function buildArkMainExplainabilityBundle(schedule: ArkMainSchedule): Ark
     })).sort((a, b) => a.signature.localeCompare(b.signature));
 
     return {
-        schemaVersion: "arkmain.explainability.v3",
+        format: "arkmain.explainability",
         summary: {
             activationCount: activations.length,
             phaseCounts: buildPhaseCounts(activations),

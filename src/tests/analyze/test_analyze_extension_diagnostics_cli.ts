@@ -5,6 +5,7 @@ import {
     getAnalyzeDiagnosticsJsonPath,
     getAnalyzeDiagnosticsTextPath,
 } from "../helpers/AnalyzeCliRunner";
+import { stringifyRuleAssetFixture } from "../helpers/RuleAssetFixtureFactory";
 import { resolveTestRunDir, resolveTestRunPath } from "../helpers/TestWorkspaceLayout";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -24,13 +25,13 @@ function writeRuleFile(
 ): void {
     fs.writeFileSync(
         rulePath,
-        JSON.stringify({
-            schemaVersion: "2.0",
+        stringifyRuleAssetFixture({
+            id: `asset.rule.fixture.${path.basename(rulePath, ".rules.json")}`,
             sources: payload.sources,
             sinks: payload.sinks,
             sanitizers: payload.sanitizers || [],
             transfers: payload.transfers || [],
-        }, null, 2),
+        }),
         "utf-8",
     );
 }

@@ -1,414 +1,1290 @@
 {
-  "schemaVersion": "2.0",
-  "sources": [],
-  "sinks": [
+  "id": "asset.rule.kernel.sinks.network",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
     {
-      "id": "sink.harmony.http.request.url.arg0",
-      "enabled": true,
-      "match": {
-        "kind": "method_name_equals",
-        "value": "request",
-        "invokeKind": "instance"
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "Http"
-        }
-      },
-      "category": "ssrf_or_url_injection",
-      "severity": "high",
-      "target": {
-        "endpoint": "arg0"
+      "surfaceId": "surface.sink.harmony.http.request.url.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "Http",
+      "methodName": "request",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
       }
     },
     {
-      "id": "sink.harmony.http.request.body.arg1",
-      "enabled": true,
-      "match": {
-        "kind": "method_name_equals",
-        "value": "request",
-        "invokeKind": "instance"
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "Http"
-        }
-      },
-      "category": "information_leak",
-      "severity": "medium",
-      "target": {
-        "endpoint": "arg1"
+      "surfaceId": "surface.sink.harmony.http.request.body.arg1",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "Http",
+      "methodName": "request",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
       }
     },
     {
-      "id": "sink.harmony.axios.get.url.arg0",
-      "enabled": true,
-      "match": {
-        "kind": "method_name_equals",
+      "surfaceId": "surface.sink.harmony.axios.get.url.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "axios",
+      "methodName": "get",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.harmony.axios.post.url.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "axios",
+      "methodName": "post",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.harmony.axios.post.body.arg1",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "axios",
+      "methodName": "post",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.harmony.socket.connect.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "socket.Socket.TCPSocket.UDPSocket",
+      "methodName": "connect",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.harmony.socket.send.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "socket.Socket.TCPSocket.UDPSocket",
+      "methodName": "send",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.harmony.request.download.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "request.Request.Download.DownloadTask.RequestAgent",
+      "methodName": "download",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.harmony.request.upload.arg1",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "request.Request.Upload.UploadTask.RequestAgent",
+      "methodName": "upload",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.harmony.wearengine.p2p.sendMessage.message.content",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "sendMessage",
+      "invokeKind": "instance",
+      "argCount": 3,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.harmony.sms.sendMessage",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "sendShortMessage",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.harmony.sms.sendMessage.v2",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "sms",
+      "methodName": "sendMessage",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.harmony.rpc.sendMessageRequest",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "sendMessageRequest",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.harmony.bt.sppWrite",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "sppWrite",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.harmony.bt.sppWriteAsync",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "sppWriteAsync",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.harmony.telephony.dial",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "call",
+      "methodName": "dial",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.harmony.telephony.dialCall",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "dialCall",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.harmony.telephony.makeCall",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "makeCall",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.harmony.ble.writeCharacteristic",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "writeCharacteristicValue",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.harmony.ble.writeDescriptor",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "writeDescriptorValue",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.harmony.ble.notifyCharacteristic",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "notifyCharacteristicChanged",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.sink.harmony.http.request.url.arg0.0",
+      "surfaceId": "surface.sink.harmony.http.request.url.arg0",
+      "assetId": "asset.rule.kernel.sinks.network",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "request",
+        "invokeKind": "instance",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "Http"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.http.request.url.arg0"
+      ],
+      "semanticsFamily": "ssrf_or_url_injection",
+      "metadata": {
+        "enabled": true,
+        "category": "ssrf_or_url_injection",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.http.request.body.arg1.0",
+      "surfaceId": "surface.sink.harmony.http.request.body.arg1",
+      "assetId": "asset.rule.kernel.sinks.network",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "request",
+        "invokeKind": "instance",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "Http"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.http.request.body.arg1"
+      ],
+      "semanticsFamily": "information_leak",
+      "metadata": {
+        "enabled": true,
+        "category": "information_leak",
+        "severity": "medium"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.axios.get.url.arg0.0",
+      "surfaceId": "surface.sink.harmony.axios.get.url.arg0",
+      "assetId": "asset.rule.kernel.sinks.network",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "get",
         "invokeKind": "instance",
         "argCount": 1,
-        "typeHint": "axios"
-      },
-      "scope": {
-        "module": {
-          "mode": "contains",
-          "value": "@ohos/axios"
+        "typeHint": "axios",
+        "scope": {
+          "module": {
+            "mode": "contains",
+            "value": "@ohos/axios"
+          }
         }
       },
-      "category": "ssrf_or_url_injection",
-      "severity": "high",
-      "target": {
-        "endpoint": "arg0"
-      }
-    },
-    {
-      "id": "sink.harmony.axios.post.url.arg0",
-      "enabled": true,
-      "match": {
-        "kind": "method_name_equals",
-        "value": "post",
-        "invokeKind": "instance",
-        "argCount": 2,
-        "typeHint": "axios"
-      },
-      "scope": {
-        "module": {
-          "mode": "contains",
-          "value": "@ohos/axios"
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
       },
-      "category": "ssrf_or_url_injection",
-      "severity": "high",
-      "target": {
-        "endpoint": "arg0"
-      }
-    },
-    {
-      "id": "sink.harmony.axios.post.body.arg1",
-      "enabled": true,
-      "match": {
-        "kind": "method_name_equals",
-        "value": "post",
-        "invokeKind": "instance",
-        "argCount": 2,
-        "typeHint": "axios"
-      },
-      "scope": {
-        "module": {
-          "mode": "contains",
-          "value": "@ohos/axios"
-        }
-      },
-      "category": "information_leak",
-      "severity": "medium",
-      "target": {
-        "endpoint": "arg1"
-      }
-    },
-    {
-      "id": "sink.harmony.socket.connect.arg0",
-      "enabled": true,
-      "match": {
-        "kind": "method_name_equals",
-        "value": "connect"
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(socket|Socket|TCPSocket|UDPSocket)"
-        }
-      },
-      "category": "network_socket_injection",
-      "severity": "high",
-      "target": {
-        "endpoint": "arg0"
-      }
-    },
-    {
-      "id": "sink.harmony.socket.send.arg0",
-      "enabled": true,
-      "match": {
-        "kind": "method_name_equals",
-        "value": "send"
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(socket|Socket|TCPSocket|UDPSocket)"
-        }
-      },
-      "category": "network_socket_injection",
-      "severity": "high",
-      "target": {
-        "endpoint": "arg0"
-      }
-    },
-    {
-      "id": "sink.harmony.request.download.arg0",
-      "enabled": true,
-      "match": {
-        "kind": "method_name_equals",
-        "value": "download"
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(request|Request|Download|DownloadTask|RequestAgent)"
-        }
-      },
-      "category": "network_request_sink",
-      "severity": "high",
-      "target": {
-        "endpoint": "arg0"
-      }
-    },
-    {
-      "id": "sink.harmony.request.upload.arg1",
-      "enabled": true,
-      "match": {
-        "kind": "method_name_equals",
-        "value": "upload"
-      },
-      "scope": {
-        "className": {
-          "mode": "regex",
-          "value": "(request|Request|Upload|UploadTask|RequestAgent)"
-        }
-      },
-      "category": "network_request_sink",
-      "severity": "high",
-      "target": {
-        "endpoint": "arg1"
-      }
-    },
-    {
-      "id": "sink.harmony.wearengine.p2p.sendMessage.message.content",
-      "description": "WearEngine P2P sendMessage message.content cross-device payload send.",
-      "tags": [
-        "harmony",
-        "framework_sink",
-        "wearengine",
-        "p2p",
-        "cross_device"
+      "effectTemplateRefs": [
+        "template.sink.harmony.axios.get.url.arg0"
       ],
-      "match": {
-        "kind": "method_name_equals",
+      "semanticsFamily": "ssrf_or_url_injection",
+      "metadata": {
+        "enabled": true,
+        "category": "ssrf_or_url_injection",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.axios.post.url.arg0.0",
+      "surfaceId": "surface.sink.harmony.axios.post.url.arg0",
+      "assetId": "asset.rule.kernel.sinks.network",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "post",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "axios",
+        "scope": {
+          "module": {
+            "mode": "contains",
+            "value": "@ohos/axios"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.axios.post.url.arg0"
+      ],
+      "semanticsFamily": "ssrf_or_url_injection",
+      "metadata": {
+        "enabled": true,
+        "category": "ssrf_or_url_injection",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.axios.post.body.arg1.0",
+      "surfaceId": "surface.sink.harmony.axios.post.body.arg1",
+      "assetId": "asset.rule.kernel.sinks.network",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "post",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "axios",
+        "scope": {
+          "module": {
+            "mode": "contains",
+            "value": "@ohos/axios"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.axios.post.body.arg1"
+      ],
+      "semanticsFamily": "information_leak",
+      "metadata": {
+        "enabled": true,
+        "category": "information_leak",
+        "severity": "medium"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.socket.connect.arg0.0",
+      "surfaceId": "surface.sink.harmony.socket.connect.arg0",
+      "assetId": "asset.rule.kernel.sinks.network",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "connect",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(socket|Socket|TCPSocket|UDPSocket)"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.socket.connect.arg0"
+      ],
+      "semanticsFamily": "network_socket_injection",
+      "metadata": {
+        "enabled": true,
+        "category": "network_socket_injection",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.socket.send.arg0.0",
+      "surfaceId": "surface.sink.harmony.socket.send.arg0",
+      "assetId": "asset.rule.kernel.sinks.network",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "send",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(socket|Socket|TCPSocket|UDPSocket)"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.socket.send.arg0"
+      ],
+      "semanticsFamily": "network_socket_injection",
+      "metadata": {
+        "enabled": true,
+        "category": "network_socket_injection",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.request.download.arg0.0",
+      "surfaceId": "surface.sink.harmony.request.download.arg0",
+      "assetId": "asset.rule.kernel.sinks.network",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "download",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(request|Request|Download|DownloadTask|RequestAgent)"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.request.download.arg0"
+      ],
+      "semanticsFamily": "network_request_sink",
+      "metadata": {
+        "enabled": true,
+        "category": "network_request_sink",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.request.upload.arg1.0",
+      "surfaceId": "surface.sink.harmony.request.upload.arg1",
+      "assetId": "asset.rule.kernel.sinks.network",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "upload",
+        "scope": {
+          "className": {
+            "mode": "regex",
+            "value": "(request|Request|Upload|UploadTask|RequestAgent)"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.request.upload.arg1"
+      ],
+      "semanticsFamily": "network_request_sink",
+      "metadata": {
+        "enabled": true,
+        "category": "network_request_sink",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.wearengine.p2p.sendMessage.message.content.0",
+      "surfaceId": "surface.sink.harmony.wearengine.p2p.sendMessage.message.content",
+      "assetId": "asset.rule.kernel.sinks.network",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "sendMessage",
         "invokeKind": "instance",
         "argCount": 3
       },
-      "target": {
-        "endpoint": "arg2",
-        "path": [
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 2
+        },
+        "accessPath": [
           "content"
         ]
       },
-      "severity": "high",
-      "category": "cross_device_data_leak"
+      "effectTemplateRefs": [
+        "template.sink.harmony.wearengine.p2p.sendMessage.message.content"
+      ],
+      "semanticsFamily": "cross_device_data_leak",
+      "metadata": {
+        "description": "WearEngine P2P sendMessage message.content cross-device payload send.",
+        "tags": [
+          "harmony",
+          "framework_sink",
+          "wearengine",
+          "p2p",
+          "cross_device"
+        ],
+        "category": "cross_device_data_leak",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "sink.harmony.sms.sendMessage",
-      "description": "SMS send (data exfiltration)",
-      "tags": [
-        "harmony",
-        "phase7118",
-        "sms",
-        "P0"
-      ],
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.sink.harmony.sms.sendMessage.0",
+      "surfaceId": "surface.sink.harmony.sms.sendMessage",
+      "assetId": "asset.rule.kernel.sinks.network",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "sendShortMessage"
       },
-      "target": "arg0",
-      "severity": "critical",
-      "category": "sms_exfiltration"
-    },
-    {
-      "id": "sink.harmony.sms.sendMessage.v2",
-      "description": "SMS sendMessage (data exfiltration)",
-      "tags": [
-        "harmony",
-        "phase7118",
-        "sms",
-        "P0"
-      ],
-      "match": {
-        "kind": "method_name_equals",
-        "value": "sendMessage"
-      },
-      "scope": {
-        "className": {
-          "mode": "contains",
-          "value": "sms"
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
       },
-      "target": "arg0",
-      "severity": "critical",
-      "category": "sms_exfiltration"
+      "effectTemplateRefs": [
+        "template.sink.harmony.sms.sendMessage"
+      ],
+      "semanticsFamily": "sms_exfiltration",
+      "metadata": {
+        "description": "SMS send (data exfiltration)",
+        "tags": [
+          "harmony",
+          "phase7118",
+          "sms",
+          "P0"
+        ],
+        "category": "sms_exfiltration",
+        "severity": "critical"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "sink.harmony.rpc.sendMessageRequest",
-      "description": "IPC cross-process data send",
-      "tags": [
-        "harmony",
-        "phase7118",
-        "rpc",
-        "P0"
+      "bindingId": "binding.sink.harmony.sms.sendMessage.v2.0",
+      "surfaceId": "surface.sink.harmony.sms.sendMessage.v2",
+      "assetId": "asset.rule.kernel.sinks.network",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "sendMessage",
+        "scope": {
+          "className": {
+            "mode": "contains",
+            "value": "sms"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.sms.sendMessage.v2"
       ],
-      "match": {
-        "kind": "signature_contains",
+      "semanticsFamily": "sms_exfiltration",
+      "metadata": {
+        "description": "SMS sendMessage (data exfiltration)",
+        "tags": [
+          "harmony",
+          "phase7118",
+          "sms",
+          "P0"
+        ],
+        "category": "sms_exfiltration",
+        "severity": "critical"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.rpc.sendMessageRequest.0",
+      "surfaceId": "surface.sink.harmony.rpc.sendMessageRequest",
+      "assetId": "asset.rule.kernel.sinks.network",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "signature-contains",
         "value": "sendMessageRequest"
       },
-      "target": "arg1",
-      "severity": "critical",
-      "category": "ipc_data_leak"
-    },
-    {
-      "id": "sink.harmony.bt.sppWrite",
-      "description": "Bluetooth SPP data write",
-      "tags": [
-        "harmony",
-        "phase7118",
-        "bluetooth",
-        "P1"
-      ],
-      "match": {
-        "kind": "method_name_equals",
-        "value": "sppWrite"
-      },
-      "target": "arg1",
-      "severity": "high",
-      "category": "bluetooth_exfiltration"
-    },
-    {
-      "id": "sink.harmony.bt.sppWriteAsync",
-      "description": "Bluetooth SPP async data write",
-      "tags": [
-        "harmony",
-        "phase7118",
-        "bluetooth",
-        "P1"
-      ],
-      "match": {
-        "kind": "signature_contains",
-        "value": "sppWriteAsync"
-      },
-      "target": "arg1",
-      "severity": "high",
-      "category": "bluetooth_exfiltration"
-    },
-    {
-      "id": "sink.harmony.telephony.dial",
-      "description": "Phone dial (number injection)",
-      "tags": [
-        "harmony",
-        "phase7118",
-        "telephony",
-        "P1"
-      ],
-      "match": {
-        "kind": "method_name_equals",
-        "value": "dial"
-      },
-      "scope": {
-        "className": {
-          "mode": "contains",
-          "value": "call"
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
         }
       },
-      "target": "arg0",
-      "severity": "high",
-      "category": "telephony_abuse"
+      "effectTemplateRefs": [
+        "template.sink.harmony.rpc.sendMessageRequest"
+      ],
+      "semanticsFamily": "ipc_data_leak",
+      "metadata": {
+        "description": "IPC cross-process data send",
+        "tags": [
+          "harmony",
+          "phase7118",
+          "rpc",
+          "P0"
+        ],
+        "category": "ipc_data_leak",
+        "severity": "critical"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "sink.harmony.telephony.dialCall",
-      "description": "Phone dialCall (number injection)",
-      "tags": [
-        "harmony",
-        "phase7118",
-        "telephony",
-        "P1"
+      "bindingId": "binding.sink.harmony.bt.sppWrite.0",
+      "surfaceId": "surface.sink.harmony.bt.sppWrite",
+      "assetId": "asset.rule.kernel.sinks.network",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "sppWrite"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.bt.sppWrite"
       ],
-      "match": {
-        "kind": "signature_contains",
+      "semanticsFamily": "bluetooth_exfiltration",
+      "metadata": {
+        "description": "Bluetooth SPP data write",
+        "tags": [
+          "harmony",
+          "phase7118",
+          "bluetooth",
+          "P1"
+        ],
+        "category": "bluetooth_exfiltration",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.bt.sppWriteAsync.0",
+      "surfaceId": "surface.sink.harmony.bt.sppWriteAsync",
+      "assetId": "asset.rule.kernel.sinks.network",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "signature-contains",
+        "value": "sppWriteAsync"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.bt.sppWriteAsync"
+      ],
+      "semanticsFamily": "bluetooth_exfiltration",
+      "metadata": {
+        "description": "Bluetooth SPP async data write",
+        "tags": [
+          "harmony",
+          "phase7118",
+          "bluetooth",
+          "P1"
+        ],
+        "category": "bluetooth_exfiltration",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.telephony.dial.0",
+      "surfaceId": "surface.sink.harmony.telephony.dial",
+      "assetId": "asset.rule.kernel.sinks.network",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "dial",
+        "scope": {
+          "className": {
+            "mode": "contains",
+            "value": "call"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.telephony.dial"
+      ],
+      "semanticsFamily": "telephony_abuse",
+      "metadata": {
+        "description": "Phone dial (number injection)",
+        "tags": [
+          "harmony",
+          "phase7118",
+          "telephony",
+          "P1"
+        ],
+        "category": "telephony_abuse",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.telephony.dialCall.0",
+      "surfaceId": "surface.sink.harmony.telephony.dialCall",
+      "assetId": "asset.rule.kernel.sinks.network",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "signature-contains",
         "value": "dialCall"
       },
-      "target": "arg0",
-      "severity": "high",
-      "category": "telephony_abuse"
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.telephony.dialCall"
+      ],
+      "semanticsFamily": "telephony_abuse",
+      "metadata": {
+        "description": "Phone dialCall (number injection)",
+        "tags": [
+          "harmony",
+          "phase7118",
+          "telephony",
+          "P1"
+        ],
+        "category": "telephony_abuse",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "sink.harmony.telephony.makeCall",
-      "description": "Phone makeCall (number injection)",
-      "tags": [
-        "harmony",
-        "phase7118",
-        "telephony",
-        "P1"
-      ],
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.sink.harmony.telephony.makeCall.0",
+      "surfaceId": "surface.sink.harmony.telephony.makeCall",
+      "assetId": "asset.rule.kernel.sinks.network",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "signature-contains",
         "value": "makeCall"
       },
-      "target": "arg0",
-      "severity": "high",
-      "category": "telephony_abuse"
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.telephony.makeCall"
+      ],
+      "semanticsFamily": "telephony_abuse",
+      "metadata": {
+        "description": "Phone makeCall (number injection)",
+        "tags": [
+          "harmony",
+          "phase7118",
+          "telephony",
+          "P1"
+        ],
+        "category": "telephony_abuse",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "sink.harmony.ble.writeCharacteristic",
-      "description": "BLE characteristic value write",
-      "tags": [
-        "harmony",
-        "phase7118",
-        "bluetooth",
-        "P1"
-      ],
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.sink.harmony.ble.writeCharacteristic.0",
+      "surfaceId": "surface.sink.harmony.ble.writeCharacteristic",
+      "assetId": "asset.rule.kernel.sinks.network",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "signature-contains",
         "value": "writeCharacteristicValue"
       },
-      "target": "arg0",
-      "severity": "high",
-      "category": "bluetooth_exfiltration"
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.ble.writeCharacteristic"
+      ],
+      "semanticsFamily": "bluetooth_exfiltration",
+      "metadata": {
+        "description": "BLE characteristic value write",
+        "tags": [
+          "harmony",
+          "phase7118",
+          "bluetooth",
+          "P1"
+        ],
+        "category": "bluetooth_exfiltration",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "sink.harmony.ble.writeDescriptor",
-      "description": "BLE descriptor value write",
-      "tags": [
-        "harmony",
-        "phase7118",
-        "bluetooth",
-        "P1"
-      ],
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.sink.harmony.ble.writeDescriptor.0",
+      "surfaceId": "surface.sink.harmony.ble.writeDescriptor",
+      "assetId": "asset.rule.kernel.sinks.network",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "signature-contains",
         "value": "writeDescriptorValue"
       },
-      "target": "arg0",
-      "severity": "high",
-      "category": "bluetooth_exfiltration"
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.ble.writeDescriptor"
+      ],
+      "semanticsFamily": "bluetooth_exfiltration",
+      "metadata": {
+        "description": "BLE descriptor value write",
+        "tags": [
+          "harmony",
+          "phase7118",
+          "bluetooth",
+          "P1"
+        ],
+        "category": "bluetooth_exfiltration",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "sink.harmony.ble.notifyCharacteristic",
-      "description": "BLE server push characteristic data",
-      "tags": [
-        "harmony",
-        "phase7118",
-        "bluetooth",
-        "P1"
-      ],
-      "match": {
-        "kind": "signature_contains",
+      "bindingId": "binding.sink.harmony.ble.notifyCharacteristic.0",
+      "surfaceId": "surface.sink.harmony.ble.notifyCharacteristic",
+      "assetId": "asset.rule.kernel.sinks.network",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "signature-contains",
         "value": "notifyCharacteristicChanged"
       },
-      "target": "arg1",
-      "severity": "high",
-      "category": "bluetooth_exfiltration"
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.ble.notifyCharacteristic"
+      ],
+      "semanticsFamily": "bluetooth_exfiltration",
+      "metadata": {
+        "description": "BLE server push characteristic data",
+        "tags": [
+          "harmony",
+          "phase7118",
+          "bluetooth",
+          "P1"
+        ],
+        "category": "bluetooth_exfiltration",
+        "severity": "high"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     }
   ],
-  "sanitizers": [],
-  "transfers": []
+  "effectTemplates": [
+    {
+      "id": "template.sink.harmony.http.request.url.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "ssrf_or_url_injection"
+    },
+    {
+      "id": "template.sink.harmony.http.request.body.arg1",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "information_leak"
+    },
+    {
+      "id": "template.sink.harmony.axios.get.url.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "ssrf_or_url_injection"
+    },
+    {
+      "id": "template.sink.harmony.axios.post.url.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "ssrf_or_url_injection"
+    },
+    {
+      "id": "template.sink.harmony.axios.post.body.arg1",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "information_leak"
+    },
+    {
+      "id": "template.sink.harmony.socket.connect.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "network_socket_injection"
+    },
+    {
+      "id": "template.sink.harmony.socket.send.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "network_socket_injection"
+    },
+    {
+      "id": "template.sink.harmony.request.download.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "network_request_sink"
+    },
+    {
+      "id": "template.sink.harmony.request.upload.arg1",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "network_request_sink"
+    },
+    {
+      "id": "template.sink.harmony.wearengine.p2p.sendMessage.message.content",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 2
+        },
+        "accessPath": [
+          "content"
+        ]
+      },
+      "sinkKind": "cross_device_data_leak"
+    },
+    {
+      "id": "template.sink.harmony.sms.sendMessage",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sms_exfiltration"
+    },
+    {
+      "id": "template.sink.harmony.sms.sendMessage.v2",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sms_exfiltration"
+    },
+    {
+      "id": "template.sink.harmony.rpc.sendMessageRequest",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "ipc_data_leak"
+    },
+    {
+      "id": "template.sink.harmony.bt.sppWrite",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "bluetooth_exfiltration"
+    },
+    {
+      "id": "template.sink.harmony.bt.sppWriteAsync",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "bluetooth_exfiltration"
+    },
+    {
+      "id": "template.sink.harmony.telephony.dial",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "telephony_abuse"
+    },
+    {
+      "id": "template.sink.harmony.telephony.dialCall",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "telephony_abuse"
+    },
+    {
+      "id": "template.sink.harmony.telephony.makeCall",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "telephony_abuse"
+    },
+    {
+      "id": "template.sink.harmony.ble.writeCharacteristic",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "bluetooth_exfiltration"
+    },
+    {
+      "id": "template.sink.harmony.ble.writeDescriptor",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "bluetooth_exfiltration"
+    },
+    {
+      "id": "template.sink.harmony.ble.notifyCharacteristic",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "bluetooth_exfiltration"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "src/models/kernel/rules/sinks/network.rules.json"
+      }
+    ]
+  }
 }

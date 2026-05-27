@@ -3,7 +3,9 @@ import type { NormalizedCallsiteItem } from "../model/callsite/callsiteContextSl
 import { buildSemanticFlowArkMainCandidateItem, buildSemanticFlowApiModelingCandidateItem } from "./SemanticFlowAdapters";
 import { createSemanticFlowDelta } from "./SemanticFlowIncremental";
 import { buildRuleCandidateCompanionGroups, semanticFlowRuleCandidateKey } from "./SemanticFlowRuleCompanions";
-import type { SemanticFlowExpander } from "./SemanticFlowTypes";
+import type { SemanticFlowDeficit, SemanticFlowExpander, SemanticFlowRequestKind } from "./SemanticFlowTypes";
+
+type ExpansionFocusKind = "q_ret" | "q_recv" | "q_cb" | "q_comp" | "q_meta" | "q_wrap";
 
 export function createRuleCandidateExpander(
     candidates: NormalizedCallsiteItem[],
@@ -23,7 +25,7 @@ export function createRuleCandidateExpander(
                     delta: createSemanticFlowDelta(input.anchor, input.round + 1, input.deficit, {}),
                 };
             }
-            const requestKind = input.deficit.kind;
+            const requestKind = toExpansionFocusKind(input.deficit.kind);
             const contextSlices = Array.isArray((raw as any).contextSlices) ? (raw as any).contextSlices : [];
             const currentVisible = input.slice.snippets.filter(snippet => snippet.label.startsWith("callsite-")).length;
             const additions: typeof input.slice.snippets = [];
@@ -51,7 +53,7 @@ export function createRuleCandidateExpander(
                 requestKind,
             );
             additions.push(...companionSnippets);
-            const ownerFamilySnippets = buildOwnerFamilyCompanionSnippets(raw, input.slice.snippets, requestKind);
+            const ownerFamilySnippets = buildOwnerFamilyCompanionSnippets(raw, input.slice.snippets, requestKind, input.deficit);
             additions.push(...ownerFamilySnippets);
             const ownerSnippet = buildRuleOwnerSnippet(raw, input.slice.snippets, requestKind);
             if (ownerSnippet) {
@@ -238,7 +240,7 @@ function buildOwnerMethodsSnippet(candidate: ArkMainEntryCandidate): string | un
 function buildCompanionSnippets(
     companions: NormalizedCallsiteItem[],
     existingSnippets: Array<{ label: string }>,
-    requestKind: "q_ret" | "q_recv" | "q_cb" | "q_comp" | "q_meta" | "q_wrap",
+    requestKind: ExpansionFocusKind,
 ): Array<{ label: string; code: string }> {
     const existingLabels = new Set(existingSnippets.map(snippet => snippet.label));
     const out: Array<{ label: string; code: string }> = [];
@@ -274,7 +276,7 @@ function buildCompanionSnippets(
 function buildRuleOwnerSnippet(
     raw: NormalizedCallsiteItem,
     existingSnippets: Array<{ label: string }>,
-    requestKind: "q_ret" | "q_recv" | "q_cb" | "q_comp" | "q_meta" | "q_wrap",
+    requestKind: ExpansionFocusKind,
 ): { label: string; code: string } | undefined {
     if (requestKind !== "q_comp" && requestKind !== "q_wrap") {
         return undefined;
@@ -297,7 +299,8 @@ function buildRuleOwnerSnippet(
 function buildOwnerFamilyCompanionSnippets(
     raw: NormalizedCallsiteItem,
     existingSnippets: Array<{ label: string }>,
-    requestKind: "q_ret" | "q_recv" | "q_cb" | "q_comp" | "q_meta" | "q_wrap",
+    requestKind: ExpansionFocusKind,
+    deficit?: SemanticFlowDeficit,
 ): Array<{ label: string; code: string }> {
     if (requestKind !== "q_comp" && requestKind !== "q_wrap") {
         return [];
@@ -307,7 +310,8 @@ function buildOwnerFamilyCompanionSnippets(
         : [];
     const existingLabels = new Set(existingSnippets.map(snippet => snippet.label));
     const out: Array<{ label: string; code: string }> = [];
-    for (const method of ownerMethods.slice(0, requestKind === "q_wrap" ? 1 : 3)) {
+    const selected = selectFocusedOwnerMethodsForExpansion(ownerMethods, deficit, requestKind === "q_wrap" ? 1 : 4);
+    for (const method of selected) {
         const methodName = String(method.method || "").trim();
         const code = String(method.code || "").trim();
         const label = `owner-sibling-${methodName}`;
@@ -319,10 +323,48 @@ function buildOwnerFamilyCompanionSnippets(
     return out;
 }
 
+function selectFocusedOwnerMethodsForExpansion(
+    ownerMethods: Array<{ method?: string; code?: string }>,
+    deficit: SemanticFlowDeficit | undefined,
+    limit: number,
+): Array<{ method?: string; code?: string }> {
+    const requested = requestedOwnerSurfaceNames(deficit);
+    if (requested.length === 0) {
+        return ownerMethods.slice(0, limit);
+    }
+    const exact: Array<{ method?: string; code?: string }> = [];
+    const rest: Array<{ method?: string; code?: string }> = [];
+    for (const method of ownerMethods) {
+        const name = lower(String(method.method || ""));
+        if (requested.includes(name)) {
+            exact.push(method);
+        } else {
+            rest.push(method);
+        }
+    }
+    return [...exact, ...rest].slice(0, limit);
+}
+
+function requestedOwnerSurfaceNames(deficit: SemanticFlowDeficit | undefined): string[] {
+    if (!deficit) {
+        return [];
+    }
+    const raw = [
+        deficit.focus?.relation,
+        deficit.focus?.surfaceId,
+        deficit.scope?.surface,
+    ].filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+    return [...new Set(raw.flatMap((item): string[] => {
+        const trimmed = item.trim();
+        const last = trimmed.split(/[.#:]/).map(part => part.trim()).filter(Boolean).pop() || trimmed;
+        return [trimmed, last].map(lower).filter(Boolean);
+    }))];
+}
+
 function buildRuleCarrierSnippet(
     raw: NormalizedCallsiteItem,
     existingSnippets: Array<{ label: string }>,
-    requestKind: "q_ret" | "q_recv" | "q_cb" | "q_comp" | "q_meta" | "q_wrap",
+    requestKind: ExpansionFocusKind,
 ): { label: string; code: string } | undefined {
     if (requestKind !== "q_comp" && requestKind !== "q_wrap") {
         return undefined;
@@ -345,7 +387,7 @@ function buildRuleCarrierSnippet(
 function buildCarrierCompanionSnippets(
     raw: NormalizedCallsiteItem,
     existingSnippets: Array<{ label: string }>,
-    requestKind: "q_ret" | "q_recv" | "q_cb" | "q_comp" | "q_meta" | "q_wrap",
+    requestKind: ExpansionFocusKind,
 ): Array<{ label: string; code: string }> {
     if (requestKind !== "q_comp" && requestKind !== "q_wrap") {
         return [];
@@ -368,7 +410,7 @@ function buildCarrierCompanionSnippets(
 }
 
 function buildFocusedSnippet(
-    requestKind: "q_ret" | "q_recv" | "q_cb" | "q_comp" | "q_meta" | "q_wrap",
+    requestKind: ExpansionFocusKind,
     raw: NormalizedCallsiteItem,
     targetIndex: number,
     existingSnippets: Array<{ label: string }>,
@@ -405,7 +447,7 @@ function buildFocusedSnippet(
 
 function selectCompanionsForRequest(
     companions: NormalizedCallsiteItem[],
-    requestKind: "q_ret" | "q_recv" | "q_cb" | "q_comp" | "q_meta" | "q_wrap",
+    requestKind: ExpansionFocusKind,
 ): NormalizedCallsiteItem[] {
     const filtered = companions.filter(companion => {
         if (requestKind === "q_cb") return isCallbackLike(companion);
@@ -419,7 +461,7 @@ function selectCompanionsForRequest(
 }
 
 function selectFocusLines(
-    requestKind: "q_ret" | "q_recv" | "q_cb" | "q_comp" | "q_meta" | "q_wrap",
+    requestKind: ExpansionFocusKind,
     slice: { invokeStmtText: string; cfgNeighborStmts?: string[]; windowLines: string },
 ): string[] {
     const patterns: Record<string, RegExp> = {
@@ -444,6 +486,25 @@ function selectFocusLines(
     return cfg.length > 0
         ? ["cfgNeighbors:", ...cfg]
         : ["window:", String(slice.windowLines || slice.invokeStmtText)];
+}
+
+function toExpansionFocusKind(kind: SemanticFlowRequestKind): ExpansionFocusKind {
+    switch (kind) {
+        case "q_surface":
+            return "q_wrap";
+        case "q_role":
+            return "q_recv";
+        case "q_endpoint":
+            return "q_cb";
+        case "q_effect":
+            return "q_ret";
+        case "q_relation":
+            return "q_comp";
+        case "q_evidence":
+            return "q_meta";
+        default:
+            return "q_wrap";
+    }
 }
 
 function isCallbackLike(candidate: NormalizedCallsiteItem): boolean {
@@ -530,4 +591,8 @@ function nextCompanionLabel(
 
 function dedupeStrings(values: string[]): string[] {
     return [...new Set(values.filter(Boolean))];
+}
+
+function lower(value: unknown): string {
+    return String(value || "").trim().toLowerCase();
 }

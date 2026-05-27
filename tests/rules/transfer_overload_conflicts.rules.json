@@ -1,66 +1,260 @@
 {
-    "schemaVersion": "2.0",
-    "meta": {
-        "name": "transfer-overload-conflicts-rule-pack",
-        "description": "Rules used to validate overload/same-name transfer conflict isolation",
-        "updatedAt": "2026-02-17"
+  "id": "asset.rule.test.transfer_overload_conflicts",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
+    {
+      "surfaceId": "surface.source.transfer_overload.entry_param.taint_src",
+      "kind": "access",
+      "modulePath": "@arktaint/local",
+      "ownerName": "LocalBinding",
+      "propertyName": "source.transfer_overload.entry_param.taint_src",
+      "accessKind": "read",
+      "receiverKind": "namespace",
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
-    "sources": [
-        {
-            "id": "source.transfer_overload.entry_param.taint_src",
-            "match": {
-                "kind": "local_name_regex",
-                "value": "^taint_src$"
-            },
-            "sourceKind": "entry_param",
-            "target": {
-                "endpoint": "arg0"
-            }
+    {
+      "surfaceId": "surface.sink.transfer_overload.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "Sink",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.overload.instance.allowed.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "ConflictAllowed",
+      "methodName": "ConflictAllowed",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.overload.static.allowed.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "ConflictStaticAllowed",
+      "methodName": "ConflictStaticAllowed",
+      "invokeKind": "static",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.overload.arity.two_args.arg1_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "BridgeArity",
+      "invokeKind": "static",
+      "argCount": 2,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.source.transfer_overload.entry_param.taint_src.0",
+      "surfaceId": "surface.source.transfer_overload.entry_param.taint_src",
+      "assetId": "asset.rule.test.transfer_overload_conflicts",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "local-name-regex",
+        "value": "^taint_src$"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
-    ],
-    "sinks": [
-        {
-            "id": "sink.transfer_overload.arg0",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "Sink"
-            },
-            "target": {
-                "endpoint": "arg0"
-            }
+      },
+      "effectTemplateRefs": [
+        "template.source.transfer_overload.entry_param.taint_src"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.transfer_overload.arg0.0",
+      "surfaceId": "surface.sink.transfer_overload.arg0",
+      "assetId": "asset.rule.test.transfer_overload_conflicts",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Sink"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
-    ],
-    "transfers": [
-        {
-            "id": "transfer.overload.instance.allowed.arg0_to_result",
-            "match": {
-                "kind": "declaring_class_equals",
-                "value": "ConflictAllowed",
-                "invokeKind": "instance"
-            },
-            "from": "arg0",
-            "to": "result"
-        },
-        {
-            "id": "transfer.overload.static.allowed.arg0_to_result",
-            "match": {
-                "kind": "declaring_class_equals",
-                "value": "ConflictStaticAllowed",
-                "invokeKind": "static"
-            },
-            "from": "arg0",
-            "to": "result"
-        },
-        {
-            "id": "transfer.overload.arity.two_args.arg1_to_result",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "BridgeArity",
-                "invokeKind": "static",
-                "argCount": 2
-            },
-            "from": "arg1",
-            "to": "result"
+      },
+      "effectTemplateRefs": [
+        "template.sink.transfer_overload.arg0"
+      ],
+      "semanticsFamily": "sink",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.overload.instance.allowed.arg0_to_result.0",
+      "surfaceId": "surface.transfer.overload.instance.allowed.arg0_to_result",
+      "assetId": "asset.rule.test.transfer_overload_conflicts",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "declaring-class-equals",
+        "value": "ConflictAllowed",
+        "invokeKind": "instance"
+      },
+      "effectTemplateRefs": [
+        "template.transfer.overload.instance.allowed.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.overload.static.allowed.arg0_to_result.0",
+      "surfaceId": "surface.transfer.overload.static.allowed.arg0_to_result",
+      "assetId": "asset.rule.test.transfer_overload_conflicts",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "declaring-class-equals",
+        "value": "ConflictStaticAllowed",
+        "invokeKind": "static"
+      },
+      "effectTemplateRefs": [
+        "template.transfer.overload.static.allowed.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.overload.arity.two_args.arg1_to_result.0",
+      "surfaceId": "surface.transfer.overload.arity.two_args.arg1_to_result",
+      "assetId": "asset.rule.test.transfer_overload_conflicts",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "BridgeArity",
+        "invokeKind": "static",
+        "argCount": 2
+      },
+      "effectTemplateRefs": [
+        "template.transfer.overload.arity.two_args.arg1_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "partial",
+      "confidence": "likely"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.source.transfer_overload.entry_param.taint_src",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.sink.transfer_overload.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
+    },
+    {
+      "id": "template.transfer.overload.instance.allowed.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.overload.static.allowed.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.overload.arity.two_args.arg1_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "tests/rules/transfer_overload_conflicts.rules.json"
+      }
     ]
+  }
 }

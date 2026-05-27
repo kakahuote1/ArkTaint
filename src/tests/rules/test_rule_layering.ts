@@ -13,6 +13,7 @@ async function main(): Promise<void> {
         kernelRulePath: path.join(baseDir, "kernel.rules.json"),
         projectRulePath: path.join(baseDir, "project.rules.json"),
         candidateRulePath: path.join(baseDir, "llm_candidate.rules.json"),
+        autoDiscoverLayers: false,
     });
 
     const order = loaded.appliedLayerOrder.join(" -> ");

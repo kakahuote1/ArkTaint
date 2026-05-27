@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { readAnalyzeSummary, runAnalyzeCli } from "../helpers/AnalyzeCliRunner";
+import { stringifyRuleAssetFixture } from "../helpers/RuleAssetFixtureFactory";
 import { resolveTestRunDir, resolveTestRunPath } from "../helpers/TestWorkspaceLayout";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -73,8 +74,8 @@ async function main(): Promise<void> {
 
     writeText(
         path.join(moduleRoot, "keyed_route.rules.json"),
-        JSON.stringify({
-            schemaVersion: "2.0",
+        stringifyRuleAssetFixture({
+            id: "asset.rule.fixture.keyed_route_callback_match",
             sources: [
                 {
                     id: "source.fixture.keyed_route_callback_match",
@@ -98,7 +99,7 @@ async function main(): Promise<void> {
             ],
             sanitizers: [],
             transfers: [],
-        }, null, 2),
+        }),
     );
 
     writeText(

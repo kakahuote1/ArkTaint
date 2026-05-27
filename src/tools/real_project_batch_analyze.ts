@@ -939,23 +939,22 @@ function readSemanticFlowSummary(projectOut: string): {
     }
     try {
         const payload = JSON.parse(fs.readFileSync(summaryPath, "utf-8"));
-        const classifications = payload?.classifications && typeof payload.classifications === "object"
-            ? payload.classifications
+        const resolutions = payload?.resolutions && typeof payload.resolutions === "object"
+            ? payload.resolutions
             : {};
-        const modeledArtifactCount = [
+        const modeledArtifactCount = numberOrNull(payload.assetCount) ?? [
             payload.moduleCount,
             payload.sourceRuleCount,
             payload.sinkRuleCount,
             payload.sanitizerRuleCount,
             payload.transferRuleCount,
-            payload.arkMainSpecCount,
         ].reduce((sum, value) => sum + (numberOrNull(value) || 0), 0);
         return {
             itemCount: numberOrNull(payload.itemCount),
             ruleCandidateCount: numberOrNull(payload.ruleCandidateCount),
             modeledArtifactCount,
-            needHumanCheckCount: numberOrNull(classifications["need-human-check"]) || 0,
-            unresolvedCount: numberOrNull(classifications.unresolved) || 0,
+            needHumanCheckCount: numberOrNull(resolutions["need-human-check"]) || 0,
+            unresolvedCount: numberOrNull(resolutions.unresolved) || 0,
         };
     } catch {
         return null;

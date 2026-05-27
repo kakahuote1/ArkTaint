@@ -1,94 +1,159 @@
 ---
 id: "semanticflow/project-api-modeling"
 title: "Project and Third-Party API Modeling"
-version: "1.2.15"
 ---
 
 # Project and Third-Party API Modeling
 
-Use this skill when modeling APIs from a real project, third-party SDK, or project wrapper.
+Use this skill when the slice describes a project API, third-party SDK API, or project wrapper around an official API.
 
-## Source of Semantics
+## Boundary
 
-- Official/native semantics: HarmonyOS, OpenHarmony SDK, ArkUI, ArkTS, JavaScript, TypeScript, lifecycle, router, built-in storage, and built-in callbacks.
-- Project/third-party semantics: project `ApiClient`, `Http`, `Logger`, `TokenManager`, `CookieManager`, database wrappers, business SDKs, and third-party SDK wrappers.
-- Mixed semantics: split the bottom official API from the project wrapper. Do not turn project-private behavior into a universal kernel assumption.
+Official/native semantics include HarmonyOS/OpenHarmony SDK, ArkUI, ArkTS, JavaScript/TypeScript built-ins, lifecycle, router, built-in storage, built-in callbacks, `hilog`, and `console`.
 
-## Modeling Rule
+Project/third-party semantics include project `ApiClient`, `Http`, `Logger`, `TokenManager`, `CookieManager`, database wrappers, business SDKs, event buses, and third-party SDK wrappers.
 
-Model the API semantics only. Do not decide final source-to-sink reachability and do not write solver logic.
-Do not treat a candidate's recall origin as a final category. A recalled API surface may still be `arkmain`, `rule`, `module`, `no-transfer`, or `need-more-evidence`.
+Mixed semantics must be split. The official/native surface belongs to built-in assets. The project wrapper can be modeled only when it exposes a stable reusable API contract.
 
-## Official API Boundary
+## General Rule
 
-Do not create project modules for direct calls to official/native APIs that ArkTaint already treats as built-in semantics, including HarmonyOS/OpenHarmony SDK calls, ArkUI callbacks, router APIs, `AppStorage`, `LocalStorage`, `PersistentStorage`, Preferences, RDB, `hilog`, and `console`.
+Model API semantics only. Do not decide final vulnerability status, do not reconstruct source-to-sink paths, and do not write solver logic.
 
-If the candidate method merely contains direct official API calls, classify the candidate itself by its visible role:
+Use declarative v2 assets:
 
-- choose `arkmain` only when the method is a framework-created entry, lifecycle callback, scheduler, or framework callback;
-- choose `no-transfer` when it is an ordinary helper that only calls built-in APIs and exposes no reusable project-level API surface;
-- choose `rule` or `module` only when the project method is itself a reusable wrapper API whose callers rely on that wrapper semantics.
+- `surfaces` identify where the asset applies;
+- `bindings` assign role, endpoint, guard, and referenced templates or relations;
+- `effectTemplates` declare `rule.*`, `handoff.*`, or `entry.*` effects;
+- `relations` describe transparent facade reuse only.
 
-Do not duplicate built-in storage/router/event semantics by inventing project modules for `AppStorage.set`, `AppStorage.setOrCreate`, `AppStorage.get`, `router.pushUrl`, `router.getParams`, `hilog.*`, `console.*`, or similar official calls inside a method body. If a built-in API appears to be missing from ArkTaint, mark the issue as official/native semantic evidence rather than emitting a project wrapper model.
+Surface shape is strict. For a method call or project wrapper method, output an `InvokeSurface`, not a generic API surface:
 
-For ArkMain entry modeling:
+```json
+{
+  "surfaceId": "surface.Owner.method",
+  "kind": "invoke",
+  "modulePath": "relative/source/file.ets",
+  "ownerName": "Owner",
+  "methodName": "method",
+  "invokeKind": "instance",
+  "argCount": 2,
+  "confidence": "likely",
+  "provenance": {
+    "source": "llm-proposal",
+    "location": { "file": "relative/source/file.ets", "line": 12 }
+  }
+}
+```
 
-- Only choose `arkmain` for methods that are actually created, scheduled, or invoked by the framework/runtime, or for callbacks that are explicitly registered with a framework API.
-- Do not choose `arkmain` for ordinary project helper methods just because they have framework-looking parameter types, are called from a lifecycle method, or restore data inside a lifecycle method. Such helpers should be reached through the caller's normal call graph.
-- A method invoked manually from `onCreate`, `onWindowStageCreate`, `build`, or another known entry is not an independent entry unless the framework also invokes it directly.
-- Lifecycle overrides such as `onCreate`, `onWindowStageCreate`, `onWindowStageRestore`, `onDestroy`, component `aboutToAppear`, ArkUI event callbacks, and registered timer/event/listener callbacks may be `arkmain` when the evidence shows framework scheduling.
-- If the evidence is only "this helper is called by an entry method", prefer `no-transfer`; do not emit an ArkMain spec.
+Never output `kind: "api"`, `file`, `owner`, `method`, or `line` directly on a surface. Use the registered surface fields above.
 
-For project wrappers:
+For a directly imported third-party function or ArkUI-style component call, use the import source as `modulePath`, the called symbol as `functionName`, and `invokeKind: "free-function"`. Do not use `invokeKind: "static"` unless there is a stable `ownerName`.
 
-- Model a method as a sink only when the method itself is a stable project/third-party sink wrapper whose direct contract is to emit, persist, send, execute, or disclose caller-provided payloads. Examples include project `Logger.*`, `HttpClient.post`, SQL execution wrappers, file-write wrappers, IPC/send wrappers, and analytics/reporting wrappers.
-- Project or third-party UI components may expose callback-style input surfaces such as `IBestField({ onChange: (value) => ... })`, `PhoneInputField({ onPhoneChange: (value) => ... })`, or similar option-object callbacks. Treat these as project/third-party modeling candidates, not built-in ArkUI facts. If the callback parameter is produced by user interaction and passed to project code, model the callback parameter as a source. If the callback only signals an action with no payload, classify it as an entry/callback surface or `no-transfer` according to the available evidence; do not invent a payload source.
-- For an option-object callback source, always name the callback property explicitly in the output slot. Use an object slot such as `{ "slot": "callback_param", "callbackArgIndex": 0, "paramIndex": 0, "fieldName": "onChange" }` for `IBestField({ onChange: value => ... })`, or `fieldName: "onPhoneChange"` for `PhoneInputField({ onPhoneChange: value => ... })`. Do not output a bare `callback0.param0` or a broad `callback_param` source for the whole options argument unless all callback fields on that argument carry the same user-input payload.
-- For a method-style callback source, keep the concrete callback argument index shown in the observations. For example, `axios.interceptors.response.use(success, failure)` should use `{ "slot": "callback_param", "callbackArgIndex": 0, "paramIndex": 0 }` for the success response payload and `{ "slot": "callback_param", "callbackArgIndex": 1, "paramIndex": 0 }` for the failure/error payload when the code evidence supports those roles. Do not model every callback parameter as a source just because the method name is `use`, `on`, or `subscribe`.
-- Do not turn request-interceptor config parameters into new sources by default. A request interceptor usually receives the app's own outbound config; response/error interceptors receive framework-delivered data and can be callback sources when the snippet shows response/error payloads.
-- For wrapper UI components, distinguish the outer project callback from the inner third-party component. If a project component merely forwards `IBestField.onChange(value)` to `this.onPhoneChange(value)`, model the reusable callback contract, not the specific page action that consumes it. Do not hardcode one project's component name; infer the role from callback property names, parameter flow, and the component body.
-- Do not model ordinary lifecycle methods, permission helpers, UI/window helpers, restoration helpers, routing dispatchers, or methods that only orchestrate built-in APIs as sinks just because a tainted framework parameter flows into the method call.
-- Do not model UI rendering/style helpers as sinks. Methods that only build ArkUI layout, switch tab state, set status/navigation bar colors, choose icons/text/color, or call `setSystemBar` are `no-transfer` unless they also forward caller-provided payloads to a real disclosure/execution/storage/network endpoint.
-- Do not model page/component action methods as reusable project sinks when they only read local fields and delegate them to a project API wrapper such as `loginApi(...)`, `sendSMSCodeApi(...)`, `reservationApi(...)`, or `HttpClient.post(...)`. Model the reusable API/wrapper surface itself; the page action should be `no-transfer` unless it directly performs the external sink operation.
-- If a page/component/controller method builds a payload object, branches on UI state, then calls a deeper project wrapper such as `DatabaseManager.insertData`, `DatabaseManager.updateData`, `Logger.info`, `HttpClient.post`, `loginApi`, or `reservationApi`, do not mark the page/controller method as a sink. The deeper reusable wrapper or direct official sink is the modeled sink; the page/controller method is orchestration and should be `no-transfer` unless it is itself the stable API surface exposed to other code.
-- Do not emit duplicate sink rules for both an orchestrator and the deeper wrapper it calls. When the current evidence contains both surfaces, choose the deepest stable effectful wrapper that directly persists, logs, sends, executes, or discloses the payload.
-- Permission methods such as `checkAccessToken`, `checkPermissions`, `requestPermissionsFromUser`, and access-token helpers are not sinks unless they forward caller-provided sensitive payloads to a disclosure or execution endpoint. A permission name or permission constant is policy metadata, not user/private payload.
-- Restoration or migration helpers that unpack `Want.parameters`, call `AppStorage.*`, `LocalStorage`, or `restoreWindowStage`, and return no caller-visible payload should be `no-transfer` unless the method is a reusable wrapper API with a documented project-level contract.
-- Official state/storage calls such as `AppStorage.setOrCreate`, `LocalStorage`, or `restoreWindowStage` do not make the surrounding helper a project sink. If such official APIs need security semantics, that belongs to built-in official assets, not to a generated project sink rule.
-- If a wrapper sends an argument or field to network, log, storage, database, IPC, WebView/external URL loading, file, or another external-system API, model that request/input side as a sink over the consumed input even when the method also returns external response data. The target must be the payload argument actually forwarded to the underlying sink, not the whole receiver object or the whole framework callback parameter by default.
-- For WebView/JSBridge or other cross-runtime bridge candidates, use `bridgeEvidence=*` observations as neutral evidence only. They do not preselect `module` or `rule`. A direct visible write to `runJavaScript`, WebView URL/script execution, IPC, log, storage, database, or network may be a one-surface sink rule. Dynamic dispatch through `Reflect.get`, callback-id maps, JavaScript interface decorators, or native/JS callback return usually needs a module only when the matching producer/consumer surfaces and structural constraints are visible. Do not enumerate possible reflected targets or explain every branch. If the registration, dispatch target, or callback-return companion is missing or not concrete enough, immediately return `status="need-more-evidence"` with one bounded `q_comp`/`q_cb` request instead of inventing a broad bridge.
-- Some project API wrappers both consume request inputs and return data fetched from an external service. Treat these as two separate focused modeling questions when the harness asks for them: the ordinary question covers request/input consumption, and the returned-value question covers the visible return value. Do not collapse fetched response data into an `arg -> ret` transfer unless the return value is actually derived from the caller argument.
-- For an ordinary project wrapper candidate without `semanticFocus=returned_value_surface`, inspect the wrapper's request/input side. If caller-provided inputs are sent to an external endpoint, a sink rule may be appropriate. Do not duplicate returned-value source semantics in the ordinary candidate if a separate returned-value focused candidate exists or is implied by the observations.
-- When the harness marks `semanticFocus=returned_value_surface`, treat it as a returned-value modeling question, not as a preselected artifact type. Ignore the request payload side and decide from the evidence whether the return value is a `rule/source` over `ret`, a direct visible transfer, a module-only handoff, `no-transfer`, or `need-more-evidence`.
-- For database/storage write wrappers, distinguish payload slots from selector/control slots. Values buckets, record objects, entity objects, serialized content, buffers, and file bodies are payload sinks. Table names, keys, URIs, `RdbPredicates`, predicates, `where`/filter/condition objects, callbacks, affected-row counts, status booleans, and error objects are not payload sinks by default.
-- For RDB-style wrappers such as `update(valueBucket, predicates, callback)`, model only the values bucket or record object as the persistence sink. Do not mark the predicate/filter argument as a sink unless the evidence shows it is raw SQL or executable query text, for example `executeSql(sql)` or string concatenation into an SQL template.
-- For insert/update helpers with a leading table/key/URI argument, do not mark that selector argument as the persisted payload. Choose the argument that actually contains the inserted or updated data.
-- Internal router/navigation wrappers that only push, replace, pop, back, or dispatch between project pages are not security sinks. Treat them as no-transfer/control surfaces unless they directly disclose payloads to a real external boundary such as WebView URL loading, network, file, log, storage, database, IPC, or cross-device messaging. Route parameters may be carriers for later analysis, but the page-stack push itself is not a source-to-danger sink.
-- For simple HTTP/request wrappers such as `loginApi(phone, code) { return http.post('/login', { phone, code }) }`, use `classification="rule"`, `ruleKind="sink"`, `inputs=["arg0","arg1"]`, `outputs=[]`, and `transfers=[]`. Do not use `classification="module"`, `moduleSpec`, `underlyingSink`, `sinkInputSlots`, or natural-language transfer targets for one-surface wrappers that rules can express.
-- Generated method names such as `%AM0` or `%AM1` can be real arrow-function wrappers after ArkTS lowering. If the method is in an `api`, `service`, `request`, `client`, or repository-like file and forwards parameters to `http`, `axios`, `request`, `fetch`, SQL, storage, log, or IPC, treat it by its body semantics instead of dismissing it as a compiler helper.
-- For rest-parameter wrappers such as `Logger.info(...args)` that forward the rest array to `hilog`/`console`/network/storage, model the rest parameter as the consumed sink input. Do not invent separate rules for every observed callsite arity.
-- For logging wrappers with a stable category/tag parameter followed by a message/payload parameter, such as `LogUtil.info(tag, msg, ...args)`, model the message and any forwarded rest payload as sinks, not the tag/category/context argument. The tag/category argument is a log label by default; only model it as a sink when the code clearly treats that slot as the caller-provided log message itself. Do not output all arguments for a logger just because all are passed to `hilog` or `console`.
-- For multi-hop logging wrappers, choose sink inputs by the final official sink call, not by the intermediate forwarding call alone. If `...args` is forwarded to a companion method but that companion's final `hilog`/`console` call uses only `msg` or another formatted value and never consumes the rest array, do not mark the rest parameter as a sink. Mark only the slot that actually reaches the final log message/payload position. If the companion body is missing, ask for more evidence instead of guessing all forwarded arguments.
-- When a snippet contains `companionFinalSinkUsage`, treat it as mechanical source-code evidence about which companion formal parameters are used by final official sink calls. Slots listed as `unused` in that line are not sink payloads merely because they were forwarded into the companion call.
-- For file-write wrappers such as `saveImage(data, type)` or `writeFile(path, content)`, model only the caller-provided file body/content/buffer argument as the sink. Do not mark file extension, mode, path prefix, selector, status callback, or generated output path as a payload sink unless that exact slot is written as file content.
-- If a wrapper returns data from an underlying source API or response object, model the visible output as a source or transfer, depending on whether the original input carries the payload.
-- If a wrapper stores now and another API reads later, model it as a module, not as a direct one-surface rule.
-- If a wrapper stores data in a hidden carrier and later resolves or consumes it through Promise/async state, such as `pending.set(id, promiseResolver)` followed by `pending.get(id).resolve(value)`, do not flatten it into `producer.arg0 -> consumer.ret`. That is a semantic handoff through a carrier. Emit a valid ModuleSpec only if the current schema can express it; otherwise ask for more evidence or mark `need-human-check`.
-- If the candidate is a callback field/property invocation such as `this.handler(payload)` or `this.incomingHandler(text)`, do not classify that invoked field/property as a source merely because its argument currently contains external data. The original boundary API is the source; this surface is a callback relay/dispatch point.
-- For callback field/property relay, use a module only after companion evidence shows the setter or registration method, such as `setHandler(handler) { this.handler = handler }`. The module should bridge the relay payload argument to the registered callback parameter with receiver/field compatibility; it must not become a broad source rule.
-- For callback field/property relay, use the current summary transfer shape unless you can write a fully valid ModuleSpec. A good summary is `transfers: ["handler.arg0 -> setHandler.callback0.param0"]`, `moduleKind: "bridge"`, `relations.trigger.preset: "callback_event"` or `"callback_sync"`, and `relations.constraints: [{ "kind": "same_receiver" }]` when the same object instance matters.
-- Do not invent moduleSpec keys such as `registerSurface`, `invokeSurface`, `callbackSlot`, or `argSlot`. Those are explanations, not loadable ArkTaint schema fields.
-- If the setter/registration companion is missing, ask for more evidence (`q_comp` or `q_cb`) instead of forcing a resolved source. This prevents project callback relays from being counted as new external sources.
-- If the wrapper body, companion method, key, route, callback registration, or sink call is missing, ask for more evidence.
-- In `need-more-evidence`, `focus.from` and `focus.to` must be valid ArkTaint slot refs only. Do not write expressions such as `p.resolve(msg)`, `this.pending.get(id).resolve(msg)`, `foo(bar)`, or `map.get(key).field` as focus endpoints. Put such details in `companion`, `carrierHint`, `triggerHint`, `why`, and `ask`.
-- In resolved module summaries, `relations.trigger.via` must also be a valid slot ref only. Keep business expressions in `trigger.reason`.
-- Companion names are evidence hints, not real endpoint surfaces. Do not write `companion:waitFor.ret`, `surface: "companion:waitFor"`, or `methodName: "companion:waitFor"` as module endpoints. If the real consumer/producer surface is not available, ask for more evidence and put the name in `relations.companions`, `focus.companion`, or `trigger.reason`.
+For option-object callbacks, use a callback locator with `kind: "option"`:
 
-For module output, use only ArkTaint's current ModuleSpec shape shown in the prompt. Do not invent old shorthand objects such as `kind: "keyed_storage"`, `writeMethods`, `readMethods`, or pseudo endpoints like `AppStorage.setOrCreate`. A valid module must describe concrete surfaces and normalized semantics that the loader can replay.
+```json
+{
+  "base": {
+    "kind": "callbackArg",
+    "callback": {
+      "kind": "option",
+      "base": { "base": { "kind": "arg", "index": 0 } },
+      "accessPath": ["onSendMessage"]
+    },
+    "argIndex": 1
+  }
+}
+```
 
-## Non-Goals
+Bindings must use `effectTemplateRefs` or `relationRefs`. Never use `template`, `effectRef`, or `semanticsRef`.
 
-- Do not infer vulnerability existence.
-- Do not promote temporary project modeling candidates into formal assets.
-- Do not create broad source/sink rules just to increase flow count.
-- Do not model a status boolean as payload transfer unless the returned value actually contains the payload.
+Rule effect templates use `value`, `from`, and `to` for value positions. For `rule.sink` and `rule.sanitizer`, set `value` to the payload endpoint, or omit `value` only when the binding already has the exact same `endpoint`. Never put `endpoint` directly on a rule effect template.
+
+A `rule.sink` endpoint must be consumed input such as receiver, argument, or callback argument. Do not model return values, promise results, constructor results, or callback returns as sinks. If a wrapper logs an internal local value or awaited result before returning it, do not turn the wrapper return into a sink; model the real log/storage/network call or return `need-more-evidence`.
+
+For callback payload sources, the template must be shaped like this. `sourceKind` is a category, not the effect kind:
+
+```json
+{
+  "id": "template.Chat.onSendMessage.arg1.source",
+  "kind": "rule.source",
+  "sourceKind": "callback_param",
+  "value": {
+    "base": {
+      "kind": "callbackArg",
+      "callback": {
+        "kind": "option",
+        "base": { "base": { "kind": "arg", "index": 0 } },
+        "accessPath": ["onSendMessage"]
+      },
+      "argIndex": 1
+    }
+  },
+  "confidence": "likely"
+}
+```
+
+## Official API Calls
+
+Do not create project assets for direct official/native APIs that are already covered by built-in assets. If the slice is a direct official surface and coverage is missing, return `need-more-evidence` or note an official/native semantic gap; do not invent a project asset.
+
+If a project method merely calls official APIs internally, model the project method only when callers use it as a reusable wrapper. Ordinary lifecycle helpers, UI/window helpers, permission helpers, restoration helpers, routing dispatchers, and layout/style helpers are usually `reject` or `need-more-evidence`, not reusable security assets.
+
+## Wrappers
+
+For HTTP/request wrappers, model request payloads as `rule.sink` endpoints when caller-provided inputs are sent outward. If the wrapper also returns response data, model returned data separately as `rule.source` only when the current focused evidence asks for returned-value semantics.
+
+For logging wrappers, model the message/payload endpoint that reaches `hilog`, `console`, or another log sink. Do not mark tag/category/context arguments as payload unless the code clearly uses that slot as the log message.
+
+For database/storage/file wrappers, distinguish payload from selector/control metadata. Values buckets, record objects, file bodies, buffers, and serialized content are payloads. Table names, keys, URIs, predicates, picker options, flags, callbacks, and status booleans are not payloads unless the evidence shows executable or disclosed content.
+
+For route/navigation wrappers, the page-stack operation itself is not a security sink. Route parameters can be semantic handoff carriers when later consumed by another surface.
+
+## Semantic Handoff
+
+Use `plane="module"` with `handoff.*` templates when a value is published through one surface and consumed by another:
+
+- storage save/load/delete;
+- route push/read;
+- event emit/on;
+- promise resolve/await-like wrappers;
+- declarative state slot/link;
+- callback maps or hidden receiver fields;
+- project wrappers such as `TokenCache.save/load`.
+
+Do not flatten hidden carriers into `rule.transfer`. The model declares `handoff.put/get/kill/link`; ArkTaint's handoff-sensitive solver consumes those effects.
+
+Handoff handles must use the registered handle template shape:
+
+```json
+{
+  "family": "storage",
+  "key": [
+    { "kind": "fromEndpoint", "endpoint": { "base": { "kind": "arg", "index": 0 } } }
+  ],
+  "owner": [
+    { "kind": "const", "value": "PreferenceUtils.pref" }
+  ],
+  "precision": "infer"
+}
+```
+
+Do not output `handle.kind`, `keyExpr`, `storeRef`, or arbitrary handle fields. `handoff.put` uses `value`; `handoff.get` uses `target`.
+
+Omit optional handoff `scope` or `owner` when unknown. Never output empty arrays for optional handle fields.
+
+If the matching consume/register surface is missing, return `need-more-evidence` with `kind="q_relation"` or `kind="q_effect"` instead of inventing a broad rule.
+
+## Facade
+
+Use `relations` only for transparent wrappers. A transparent facade must preserve relevant argument, return, and callback endpoints and must have code evidence. If the wrapper sanitizes, rewrites, conditionally drops, partially forwards, or asynchronously changes the payload, do not emit a facade relation.
+
+## Callback and UI Component APIs
+
+Project or third-party UI components may expose callback payloads through option-object callbacks such as `onChange`, `onPhoneChange`, or SDK listener callbacks. Model callback parameters as `rule.source` only when the payload is produced externally and delivered to project code. Use exact callback locators and access paths; do not model every callback parameter because the method name is `on`, `use`, or `subscribe`.
+
+Callback registration or scheduling belongs to `entry.callbackRegister` or `entry.scheduleUnit`. Callback argument payload transfer belongs to `rule.*` or `handoff.*`, not to the entry effect itself.
+
+## Need More Evidence
+
+Return `need-more-evidence` when the wrapper body, companion surface, callback registration, key/route/channel extraction, final sink call, return payload source, or facade transparency is not visible. The `draft` must be a partial v2 asset draft, not an old summary object.

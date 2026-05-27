@@ -1,34 +1,125 @@
 {
-  "schemaVersion": "2.0",
-  "sources": [],
-  "sinks": [],
-  "sanitizers": [],
-  "transfers": [
+  "id": "asset.rule.kernel.transfers.promise",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
     {
-      "id": "transfer.promise.resolve.arg0_to_result",
-      "description": "Promise.resolve(x): resolved promise carries taint from x.",
-      "match": {
-        "kind": "method_name_equals",
+      "surfaceId": "surface.transfer.promise.resolve.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "promise",
+      "methodName": "resolve",
+      "invokeKind": "static",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.promise.reject.arg0_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "promise",
+      "methodName": "reject",
+      "invokeKind": "static",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.transfer.promise.resolve.arg0_to_result.0",
+      "surfaceId": "surface.transfer.promise.resolve.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.promise",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "resolve",
         "invokeKind": "static",
         "argCount": 1,
         "typeHint": "promise"
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.promise.resolve.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Promise.resolve(x): resolved promise carries taint from x."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     },
     {
-      "id": "transfer.promise.reject.arg0_to_result",
-      "description": "Promise.reject(x): rejected promise carries taint from x.",
-      "match": {
-        "kind": "method_name_equals",
+      "bindingId": "binding.transfer.promise.reject.arg0_to_result.0",
+      "surfaceId": "surface.transfer.promise.reject.arg0_to_result",
+      "assetId": "asset.rule.kernel.transfers.promise",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
         "value": "reject",
         "invokeKind": "static",
         "argCount": 1,
         "typeHint": "promise"
       },
-      "from": "arg0",
-      "to": "result"
+      "effectTemplateRefs": [
+        "template.transfer.promise.reject.arg0_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Promise.reject(x): rejected promise carries taint from x."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
     }
-  ]
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.transfer.promise.resolve.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.promise.reject.arg0_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "src/models/kernel/rules/transfers/promise.rules.json"
+      }
+    ]
+  }
 }

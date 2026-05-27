@@ -33,9 +33,7 @@ export interface CliOptions {
     explainPluginName?: string;
     tracePluginName?: string;
     modelRoots?: string[];
-    moduleSpecFiles?: string[];
     disabledModuleIds?: string[];
-    arkMainSpecFiles?: string[];
     enabledModels?: string[];
     disabledModels?: string[];
     pluginPaths?: string[];
@@ -93,9 +91,7 @@ export function parseArgs(argv: string[]): CliOptions {
     let explainPluginName: string | undefined;
     let tracePluginName: string | undefined;
     let modelRoots: string[] = [];
-    let moduleSpecFiles: string[] = [];
     let disabledModuleIds: string[] = [];
-    let arkMainSpecFiles: string[] = [];
     let enabledModels: string[] = [];
     let disabledModels: string[] = [];
     let pluginPaths: string[] = [];
@@ -263,18 +259,6 @@ export function parseArgs(argv: string[]): CliOptions {
         if (tracePluginArg !== undefined) {
             tracePluginName = tracePluginArg.trim();
             if (arg === "--trace-plugin") i++;
-            continue;
-        }
-        const moduleSpecArg = readValue("--module-spec");
-        if (moduleSpecArg !== undefined) {
-            moduleSpecFiles.push(...splitCsv(moduleSpecArg));
-            if (arg === "--module-spec") i++;
-            continue;
-        }
-        const arkMainSpecArg = readValue("--arkmain-spec");
-        if (arkMainSpecArg !== undefined) {
-            arkMainSpecFiles.push(...splitCsv(arkMainSpecArg));
-            if (arg === "--arkmain-spec") i++;
             continue;
         }
         const disabledModuleArg = readValue("--disable-module");
@@ -483,9 +467,7 @@ export function parseArgs(argv: string[]): CliOptions {
     if (sourceDirs.length === 0) throw new Error("no sourceDir found. pass --sourceDir");
     sourceDirs = normalizeSourceDirsForCli(sourceDirs);
     modelRoots = [...new Set(modelRoots.map(d => path.isAbsolute(d) ? d : path.resolve(d)))];
-    moduleSpecFiles = [...new Set(moduleSpecFiles.map(d => path.isAbsolute(d) ? d : path.resolve(d)))];
     disabledModuleIds = [...new Set(disabledModuleIds.map(id => id.trim()).filter(Boolean))];
-    arkMainSpecFiles = [...new Set(arkMainSpecFiles.map(d => path.isAbsolute(d) ? d : path.resolve(d)))];
     enabledModels = [...new Set(enabledModels.map(id => id.trim()).filter(Boolean))];
     disabledModels = [...new Set(disabledModels.map(id => id.trim()).filter(Boolean))];
     pluginPaths = [...new Set(pluginPaths.map(d => path.isAbsolute(d) ? d : path.resolve(d)))];
@@ -616,9 +598,7 @@ export function parseArgs(argv: string[]): CliOptions {
         explainPluginName,
         tracePluginName,
         modelRoots,
-        moduleSpecFiles,
         disabledModuleIds,
-        arkMainSpecFiles,
         enabledModels,
         disabledModels,
         pluginPaths,

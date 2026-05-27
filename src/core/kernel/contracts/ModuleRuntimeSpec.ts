@@ -1,26 +1,24 @@
-import type {
+﻿import type {
     DeferredBindingActivation,
     DeferredBindingCompletion,
     DeferredBindingContinuationRole,
 } from "../model/DeferredBindingDeclaration";
 
-export interface ModuleSpec {
+export interface ModuleRuntimeSpec {
     id: string;
     description?: string;
     enabled?: boolean;
     semantics: ModuleSemantic[];
 }
 
-export interface ModuleSpecDocument {
-    modules: ModuleSpec[];
-}
-
 export interface ModuleInvokeSurfaceSelector {
+    modulePath?: string;
     methodName?: string;
     declaringClassName?: string;
     declaringClassIncludes?: string;
     signature?: string;
     signatureIncludes?: string;
+    argCount?: number;
     minArgs?: number;
     instanceOnly?: boolean;
     staticOnly?: boolean;

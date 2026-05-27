@@ -1,11 +1,16 @@
 {
-    "schemaVersion": "2.0",
-    "meta": {
-        "name": "minimal-rule-pack",
-        "description": "Empty baseline pack for rule-driven tests",
-        "updatedAt": "2026-02-14"
-    },
-    "sources": [],
-    "sinks": [],
-    "transfers": []
+  "id": "asset.rule.test.minimal",
+  "plane": "rule",
+  "status": "deprecated",
+  "surfaces": [],
+  "bindings": [],
+  "effectTemplates": [],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "tests/rules/minimal.rules.json"
+      }
+    ]
+  }
 }

@@ -7,7 +7,6 @@ function assert(condition: unknown, message: string): asserts condition {
 
 function buildRuleSetWithSink(sinkRule: SinkRule) {
     return {
-        schemaVersion: "2.0",
         sources: [
             {
                 id: "source.min.entry_param",

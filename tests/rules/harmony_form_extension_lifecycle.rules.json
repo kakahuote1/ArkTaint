@@ -1,34 +1,113 @@
 {
-    "schemaVersion": "2.0",
-    "meta": {
-        "name": "harmony-form-extension-lifecycle",
-        "description": "Benchmark full FormExtensionAbility lifecycle entry families",
-        "updatedAt": "2026-03-15"
+  "id": "asset.rule.test.harmony_form_extension_lifecycle",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
+    {
+      "surfaceId": "surface.source.harmony.form_extension.source",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "Source",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
-    "sources": [
-        {
-            "id": "source.harmony.form_extension.source",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "Source"
-            },
-            "sourceKind": "call_return",
-            "target": {
-                "endpoint": "result"
-            }
+    {
+      "surfaceId": "surface.sink.harmony.form_extension.sink",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "Sink",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.source.harmony.form_extension.source.0",
+      "surfaceId": "surface.source.harmony.form_extension.source",
+      "assetId": "asset.rule.test.harmony_form_extension_lifecycle",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Source"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
-    ],
-    "sinks": [
-        {
-            "id": "sink.harmony.form_extension.sink",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "Sink"
-            },
-            "target": {
-                "endpoint": "arg0"
-            }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.form_extension.source"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.form_extension.sink.0",
+      "surfaceId": "surface.sink.harmony.form_extension.sink",
+      "assetId": "asset.rule.test.harmony_form_extension_lifecycle",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Sink"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
-    ],
-    "transfers": []
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.form_extension.sink"
+      ],
+      "semanticsFamily": "sink",
+      "completeness": "partial",
+      "confidence": "likely"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.source.harmony.form_extension.source",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    },
+    {
+      "id": "template.sink.harmony.form_extension.sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "tests/rules/harmony_form_extension_lifecycle.rules.json"
+      }
+    ]
+  }
 }

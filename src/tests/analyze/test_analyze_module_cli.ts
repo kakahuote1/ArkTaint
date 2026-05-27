@@ -7,6 +7,7 @@ import {
     getAnalyzeRunJsonPath,
     getAnalyzeSummaryJsonPath,
 } from "../helpers/AnalyzeCliRunner";
+import { stringifyRuleAssetFixture } from "../helpers/RuleAssetFixtureFactory";
 import { resolveTestRunDir, resolveTestRunPath } from "../helpers/TestWorkspaceLayout";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -87,8 +88,8 @@ async function main(): Promise<void> {
 
     writeText(
         brokenRulePath,
-        JSON.stringify({
-            schemaVersion: "2.0",
+        stringifyRuleAssetFixture({
+            id: "asset.rule.fixture.cli",
             sources: [
                 {
                     id: "source.fixture.cli",
@@ -112,7 +113,7 @@ async function main(): Promise<void> {
             ],
             sanitizers: [],
             transfers: [],
-        }, null, 2),
+        }),
     );
 
     const healthyCommand = [

@@ -1,145 +1,557 @@
 {
-    "schemaVersion": "2.0",
-    "meta": {
-        "name": "harmony-framework-entry-probe",
-        "description": "Framework-first probe rules for additional Harmony entry variants",
-        "updatedAt": "2026-03-15"
+  "id": "asset.rule.test.harmony_framework_entry_probe",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
+    {
+      "surfaceId": "surface.source.framework_probe.mock_source",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "Source",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
-    "sources": [
-        {
-            "id": "source.framework_probe.mock_source",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "Source"
-            },
-            "sourceKind": "call_return",
-            "target": {
-                "endpoint": "result"
-            }
-        },
-        {
-            "id": "source.framework_probe.entry_param",
-            "match": {
-                "kind": "local_name_regex",
-                "value": "^taint_src$"
-            },
-            "sourceKind": "entry_param",
-            "target": "arg0"
-        },
-        {
-            "id": "source.framework_probe.navpathstack.getparams",
-            "match": {
-                "kind": "signature_regex",
-                "value": "\\bNavPathStack\\.getParams\\("
-            },
-            "sourceKind": "call_return",
-            "target": {
-                "endpoint": "result"
-            }
-        },
-        {
-            "id": "source.framework_probe.onclick.arg0",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "onClick"
-            },
-            "sourceKind": "callback_param",
-            "target": {
-                "endpoint": "arg0"
-            },
-            "callbackArgIndexes": [
-                0
-            ]
-        },
-        {
-            "id": "source.framework_probe.webview.onMessage.arg0",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "onMessage"
-            },
-            "sourceKind": "callback_param",
-            "target": {
-                "endpoint": "arg0"
-            },
-            "callbackArgIndexes": [
-                0
-            ]
-        },
-        {
-            "id": "source.framework_probe.windowstage.loadContent.arg1",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "loadContent"
-            },
-            "sourceKind": "callback_param",
-            "target": {
-                "endpoint": "arg1"
-            },
-            "callbackArgIndexes": [
-                0
-            ]
+    {
+      "surfaceId": "surface.source.framework_probe.entry_param",
+      "kind": "access",
+      "modulePath": "@arktaint/local",
+      "ownerName": "LocalBinding",
+      "propertyName": "source.framework_probe.entry_param",
+      "accessKind": "read",
+      "receiverKind": "namespace",
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.framework_probe.navpathstack.getparams",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "source.framework_probe.navpathstack.getparams",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.framework_probe.onclick.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "onClick",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.framework_probe.webview.onMessage.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "onMessage",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.framework_probe.windowstage.loadContent.arg1",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "loadContent",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.framework_probe.mock_sink",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "Sink",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.framework_probe.distributedkv.put.arg1_to_base",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "put",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.framework_probe.distributedkv.get.base_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "get",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.framework_probe.globalcontext.setObject.arg1_to_base",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "setObject",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.framework_probe.globalcontext.getObject.base_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "getObject",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.source.framework_probe.mock_source.0",
+      "surfaceId": "surface.source.framework_probe.mock_source",
+      "assetId": "asset.rule.test.harmony_framework_entry_probe",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Source"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
-    ],
-    "sinks": [
-        {
-            "id": "sink.framework_probe.mock_sink",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "Sink"
-            },
-            "target": {
-                "endpoint": "arg0"
-            }
+      },
+      "effectTemplateRefs": [
+        "template.source.framework_probe.mock_source"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.framework_probe.entry_param.0",
+      "surfaceId": "surface.source.framework_probe.entry_param",
+      "assetId": "asset.rule.test.harmony_framework_entry_probe",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "local-name-regex",
+        "value": "^taint_src$"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
-    ],
-    "transfers": [
-        {
-            "id": "transfer.framework_probe.distributedkv.put.arg1_to_base",
-            "description": "DistributedKVStore.put(key, value): value taints store base for entry probe.",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "put",
-                "invokeKind": "instance",
-                "argCount": 2
-            },
-            "from": "arg1",
-            "to": "base"
-        },
-        {
-            "id": "transfer.framework_probe.distributedkv.get.base_to_result",
-            "description": "DistributedKVStore.get(key): tainted store base taints read result for entry probe.",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "get",
-                "invokeKind": "instance",
-                "argCount": 1
-            },
-            "from": "base",
-            "to": "result"
-        },
-        {
-            "id": "transfer.framework_probe.globalcontext.setObject.arg1_to_base",
-            "description": "GlobalContext.setObject(key, value): value taints context base for entry probe.",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "setObject",
-                "invokeKind": "instance",
-                "argCount": 2
-            },
-            "from": "arg1",
-            "to": "base"
-        },
-        {
-            "id": "transfer.framework_probe.globalcontext.getObject.base_to_result",
-            "description": "GlobalContext.getObject(key): tainted context base taints read result for entry probe.",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "getObject",
-                "invokeKind": "instance",
-                "argCount": 1
-            },
-            "from": "base",
-            "to": "result"
+      },
+      "effectTemplateRefs": [
+        "template.source.framework_probe.entry_param"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.framework_probe.navpathstack.getparams.0",
+      "surfaceId": "surface.source.framework_probe.navpathstack.getparams",
+      "assetId": "asset.rule.test.harmony_framework_entry_probe",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "signature-regex",
+        "value": "\\bNavPathStack\\.getParams\\("
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
         }
+      },
+      "effectTemplateRefs": [
+        "template.source.framework_probe.navpathstack.getparams"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.framework_probe.onclick.arg0.0",
+      "surfaceId": "surface.source.framework_probe.onclick.arg0",
+      "assetId": "asset.rule.test.harmony_framework_entry_probe",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "onClick"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.framework_probe.onclick.arg0"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.framework_probe.webview.onMessage.arg0.0",
+      "surfaceId": "surface.source.framework_probe.webview.onMessage.arg0",
+      "assetId": "asset.rule.test.harmony_framework_entry_probe",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "onMessage"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.framework_probe.webview.onMessage.arg0"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.framework_probe.windowstage.loadContent.arg1.0",
+      "surfaceId": "surface.source.framework_probe.windowstage.loadContent.arg1",
+      "assetId": "asset.rule.test.harmony_framework_entry_probe",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "loadContent"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.framework_probe.windowstage.loadContent.arg1"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.framework_probe.mock_sink.0",
+      "surfaceId": "surface.sink.framework_probe.mock_sink",
+      "assetId": "asset.rule.test.harmony_framework_entry_probe",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Sink"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.framework_probe.mock_sink"
+      ],
+      "semanticsFamily": "sink",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.framework_probe.distributedkv.put.arg1_to_base.0",
+      "surfaceId": "surface.transfer.framework_probe.distributedkv.put.arg1_to_base",
+      "assetId": "asset.rule.test.harmony_framework_entry_probe",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "put",
+        "invokeKind": "instance",
+        "argCount": 2
+      },
+      "effectTemplateRefs": [
+        "template.transfer.framework_probe.distributedkv.put.arg1_to_base"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "DistributedKVStore.put(key, value): value taints store base for entry probe."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.framework_probe.distributedkv.get.base_to_result.0",
+      "surfaceId": "surface.transfer.framework_probe.distributedkv.get.base_to_result",
+      "assetId": "asset.rule.test.harmony_framework_entry_probe",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "get",
+        "invokeKind": "instance",
+        "argCount": 1
+      },
+      "effectTemplateRefs": [
+        "template.transfer.framework_probe.distributedkv.get.base_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "DistributedKVStore.get(key): tainted store base taints read result for entry probe."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.framework_probe.globalcontext.setObject.arg1_to_base.0",
+      "surfaceId": "surface.transfer.framework_probe.globalcontext.setObject.arg1_to_base",
+      "assetId": "asset.rule.test.harmony_framework_entry_probe",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "setObject",
+        "invokeKind": "instance",
+        "argCount": 2
+      },
+      "effectTemplateRefs": [
+        "template.transfer.framework_probe.globalcontext.setObject.arg1_to_base"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "GlobalContext.setObject(key, value): value taints context base for entry probe."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.framework_probe.globalcontext.getObject.base_to_result.0",
+      "surfaceId": "surface.transfer.framework_probe.globalcontext.getObject.base_to_result",
+      "assetId": "asset.rule.test.harmony_framework_entry_probe",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "getObject",
+        "invokeKind": "instance",
+        "argCount": 1
+      },
+      "effectTemplateRefs": [
+        "template.transfer.framework_probe.globalcontext.getObject.base_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "GlobalContext.getObject(key): tainted context base taints read result for entry probe."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.source.framework_probe.mock_source",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    },
+    {
+      "id": "template.source.framework_probe.entry_param",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.framework_probe.navpathstack.getparams",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    },
+    {
+      "id": "template.source.framework_probe.onclick.arg0",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.source.framework_probe.webview.onMessage.arg0",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.source.framework_probe.windowstage.loadContent.arg1",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.sink.framework_probe.mock_sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
+    },
+    {
+      "id": "template.transfer.framework_probe.distributedkv.put.arg1_to_base",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.framework_probe.distributedkv.get.base_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.framework_probe.globalcontext.setObject.arg1_to_base",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.framework_probe.globalcontext.getObject.base_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "tests/rules/harmony_framework_entry_probe.rules.json"
+      }
     ]
+  }
 }

@@ -1,108 +1,457 @@
 {
-    "schemaVersion": "2.0",
-    "meta": {
-        "name": "transfer-only-rule-pack",
-        "description": "Rules used by transfer execution tests",
-        "updatedAt": "2026-02-14"
+  "id": "asset.rule.test.transfer_only",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
+    {
+      "surfaceId": "surface.source.test.entry_param.taint_src",
+      "kind": "access",
+      "modulePath": "@arktaint/local",
+      "ownerName": "LocalBinding",
+      "propertyName": "source.test.entry_param.taint_src",
+      "accessKind": "read",
+      "receiverKind": "namespace",
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
     },
-    "sources": [
-        {
-            "id": "source.test.entry_param.taint_src",
-            "match": {
-                "kind": "local_name_regex",
-                "value": "^taint_src$"
-            },
-            "sourceKind": "entry_param",
-            "target": "arg0"
+    {
+      "surfaceId": "surface.sink.test.method.Sink",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "Sink",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.test.putData.arg0_to_base",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "putData",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.test.get.base_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "get",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.test.putPair.arg1_to_base",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "putPair",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.test.bind.arg0_to_base",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "bind",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.test.paint.base_to_arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "paint",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.test.blend.arg1_to_result",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "blend",
+      "invokeKind": "static",
+      "argCount": 2,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.test.project.result_to_arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "RuntimeSelector",
+      "methodName": "project",
+      "invokeKind": "static",
+      "argCount": 1,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.source.test.entry_param.taint_src.0",
+      "surfaceId": "surface.source.test.entry_param.taint_src",
+      "assetId": "asset.rule.test.transfer_only",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "local-name-regex",
+        "value": "^taint_src$"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
-    ],
-    "sinks": [
-        {
-            "id": "sink.test.method.Sink",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "Sink"
-            },
-            "target": "arg0"
+      },
+      "effectTemplateRefs": [
+        "template.source.test.entry_param.taint_src"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.test.method.Sink.0",
+      "surfaceId": "surface.sink.test.method.Sink",
+      "assetId": "asset.rule.test.transfer_only",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Sink"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
-    ],
-    "transfers": [
-        {
-            "id": "transfer.test.putData.arg0_to_base",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "putData",
-                "invokeKind": "instance",
-                "argCount": 1
-            },
-            "from": "arg0",
-            "to": "base"
-        },
-        {
-            "id": "transfer.test.get.base_to_result",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "get",
-                "invokeKind": "instance",
-                "argCount": 0
-            },
-            "from": "base",
-            "to": "result"
-        },
-        {
-            "id": "transfer.test.putPair.arg1_to_base",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "putPair",
-                "invokeKind": "instance",
-                "argCount": 2
-            },
-            "from": "arg1",
-            "to": "base"
-        },
-        {
-            "id": "transfer.test.bind.arg0_to_base",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "bind",
-                "invokeKind": "instance",
-                "argCount": 1
-            },
-            "from": "arg0",
-            "to": "base"
-        },
-        {
-            "id": "transfer.test.paint.base_to_arg0",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "paint",
-                "invokeKind": "instance",
-                "argCount": 1
-            },
-            "from": "base",
-            "to": "arg0"
-        },
-        {
-            "id": "transfer.test.blend.arg1_to_result",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "blend",
-                "invokeKind": "static",
-                "argCount": 2
-            },
-            "from": "arg1",
-            "to": "result"
-        },
-        {
-            "id": "transfer.test.project.result_to_arg0",
-            "match": {
-                "kind": "method_name_equals",
-                "value": "project",
-                "invokeKind": "static",
-                "argCount": 1
-            },
-            "from": "result",
-            "to": "arg0"
+      },
+      "effectTemplateRefs": [
+        "template.sink.test.method.Sink"
+      ],
+      "semanticsFamily": "sink",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.test.putData.arg0_to_base.0",
+      "surfaceId": "surface.transfer.test.putData.arg0_to_base",
+      "assetId": "asset.rule.test.transfer_only",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "putData",
+        "invokeKind": "instance",
+        "argCount": 1
+      },
+      "effectTemplateRefs": [
+        "template.transfer.test.putData.arg0_to_base"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.test.get.base_to_result.0",
+      "surfaceId": "surface.transfer.test.get.base_to_result",
+      "assetId": "asset.rule.test.transfer_only",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "get",
+        "invokeKind": "instance",
+        "argCount": 0
+      },
+      "effectTemplateRefs": [
+        "template.transfer.test.get.base_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.test.putPair.arg1_to_base.0",
+      "surfaceId": "surface.transfer.test.putPair.arg1_to_base",
+      "assetId": "asset.rule.test.transfer_only",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "putPair",
+        "invokeKind": "instance",
+        "argCount": 2
+      },
+      "effectTemplateRefs": [
+        "template.transfer.test.putPair.arg1_to_base"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.test.bind.arg0_to_base.0",
+      "surfaceId": "surface.transfer.test.bind.arg0_to_base",
+      "assetId": "asset.rule.test.transfer_only",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "bind",
+        "invokeKind": "instance",
+        "argCount": 1
+      },
+      "effectTemplateRefs": [
+        "template.transfer.test.bind.arg0_to_base"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.test.paint.base_to_arg0.0",
+      "surfaceId": "surface.transfer.test.paint.base_to_arg0",
+      "assetId": "asset.rule.test.transfer_only",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "paint",
+        "invokeKind": "instance",
+        "argCount": 1
+      },
+      "effectTemplateRefs": [
+        "template.transfer.test.paint.base_to_arg0"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.test.blend.arg1_to_result.0",
+      "surfaceId": "surface.transfer.test.blend.arg1_to_result",
+      "assetId": "asset.rule.test.transfer_only",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "blend",
+        "invokeKind": "static",
+        "argCount": 2
+      },
+      "effectTemplateRefs": [
+        "template.transfer.test.blend.arg1_to_result"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.test.project.result_to_arg0.0",
+      "surfaceId": "surface.transfer.test.project.result_to_arg0",
+      "assetId": "asset.rule.test.transfer_only",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "project",
+        "invokeKind": "static",
+        "argCount": 1
+      },
+      "effectTemplateRefs": [
+        "template.transfer.test.project.result_to_arg0"
+      ],
+      "semanticsFamily": "transfer",
+      "completeness": "partial",
+      "confidence": "likely"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.source.test.entry_param.taint_src",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
         }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.sink.test.method.Sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
+    },
+    {
+      "id": "template.transfer.test.putData.arg0_to_base",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.test.get.base_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.test.putPair.arg1_to_base",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.test.bind.arg0_to_base",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.test.paint.base_to_arg0",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.test.blend.arg1_to_result",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.test.project.result_to_arg0",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "transferKind": "transfer"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "tests/rules/transfer_only.rules.json"
+      }
     ]
+  }
 }

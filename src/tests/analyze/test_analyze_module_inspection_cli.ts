@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { runShell } from "../helpers/ProcessRunner";
+import { stringifyRuleAssetFixture } from "../helpers/RuleAssetFixtureFactory";
 import { resolveTestRunDir, resolveTestRunPath } from "../helpers/TestWorkspaceLayout";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -53,8 +54,8 @@ async function main(): Promise<void> {
 
     writeText(
         path.join(moduleRoot, "trace.rules.json"),
-        JSON.stringify({
-            schemaVersion: "2.0",
+        stringifyRuleAssetFixture({
+            id: "asset.rule.fixture.trace",
             sources: [
                 {
                     id: "source.fixture.trace",
@@ -78,7 +79,7 @@ async function main(): Promise<void> {
             ],
             sanitizers: [],
             transfers: [],
-        }, null, 2),
+        }),
     );
 
     writeText(
