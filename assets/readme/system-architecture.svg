@@ -1,0 +1,173 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1180" viewBox="0 0 1800 1180" role="img" aria-labelledby="title desc">
+  <title id="title">ArkTaint 架构概览</title>
+  <desc id="desc">ArkTaint 从项目输入、资产注册、预分析、语义建模、资产提升、完整分析到证据后处理和输出的架构概览。</desc>
+  <defs>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb" />
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0f766e" />
+    </marker>
+    <marker id="arrow-orange" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#ea580c" />
+    </marker>
+    <filter id="soft-shadow" x="-8%" y="-8%" width="116%" height="116%">
+      <feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="#0f172a" flood-opacity="0.10" />
+    </filter>
+    <style>
+      .bg { fill: #f8fbff; }
+      .panel-blue { fill: #eef6ff; stroke: #2563eb; stroke-width: 2; }
+      .panel-green { fill: #ecfdf5; stroke: #0f766e; stroke-width: 2; }
+      .panel-orange { fill: #fff7ed; stroke: #ea580c; stroke-width: 2; }
+      .panel-purple { fill: #f5f3ff; stroke: #7c3aed; stroke-width: 2; }
+      .panel-gray { fill: #f8fafc; stroke: #64748b; stroke-width: 2; }
+      .node { fill: #ffffff; stroke: #94a3b8; stroke-width: 1.6; filter: url(#soft-shadow); }
+      .node-blue { fill: #ffffff; stroke: #60a5fa; stroke-width: 1.7; filter: url(#soft-shadow); }
+      .node-green { fill: #ffffff; stroke: #34d399; stroke-width: 1.7; filter: url(#soft-shadow); }
+      .node-orange { fill: #ffffff; stroke: #fb923c; stroke-width: 1.7; filter: url(#soft-shadow); }
+      .node-purple { fill: #ffffff; stroke: #a78bfa; stroke-width: 1.7; filter: url(#soft-shadow); }
+      .label { font-family: "Microsoft YaHei", "Noto Sans SC", "PingFang SC", Arial, sans-serif; fill: #0f172a; font-weight: 700; font-size: 25px; }
+      .text { font-family: "Microsoft YaHei", "Noto Sans SC", "PingFang SC", Arial, sans-serif; fill: #0f172a; font-size: 20px; font-weight: 650; }
+      .sub { font-family: "Microsoft YaHei", "Noto Sans SC", "PingFang SC", Arial, sans-serif; fill: #334155; font-size: 17px; font-weight: 500; }
+      .small { font-family: "Microsoft YaHei", "Noto Sans SC", "PingFang SC", Arial, sans-serif; fill: #334155; font-size: 16px; font-weight: 500; }
+      .blue { stroke: #2563eb; }
+      .green { stroke: #0f766e; }
+      .orange { stroke: #ea580c; }
+      .edge { fill: none; stroke-width: 4; stroke-linecap: square; stroke-linejoin: miter; }
+      .thin-edge { fill: none; stroke-width: 2.2; stroke-linecap: square; stroke-linejoin: miter; }
+      .dashed { stroke-dasharray: 12 10; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1800" height="1180" />
+
+  <rect class="panel-blue" x="35" y="380" width="190" height="360" />
+  <text class="label" x="130" y="420" text-anchor="middle">输入</text>
+  <rect class="node-blue" x="65" y="455" width="130" height="80" />
+  <text class="text" x="130" y="489" text-anchor="middle">项目源码</text>
+  <text class="sub" x="130" y="516" text-anchor="middle">ArkTS 应用</text>
+  <rect class="node-blue" x="65" y="565" width="130" height="80" />
+  <text class="text" x="130" y="600" text-anchor="middle">SDK</text>
+  <text class="sub" x="130" y="627" text-anchor="middle">官方接口</text>
+  <rect class="node-blue" x="65" y="675" width="130" height="45" />
+  <text class="text" x="130" y="704" text-anchor="middle">安全资产</text>
+
+  <rect class="panel-green" x="300" y="40" width="940" height="230" />
+  <text class="label" x="770" y="78" text-anchor="middle">资产身份与建模</text>
+  <rect class="node-green" x="630" y="105" width="280" height="62" />
+  <text class="text" x="770" y="131" text-anchor="middle">资产注册中心</text>
+  <text class="sub" x="770" y="156" text-anchor="middle">身份、语义与覆盖索引</text>
+  <rect class="node-green" x="340" y="195" width="190" height="52" />
+  <text class="text" x="435" y="227" text-anchor="middle">资产表面</text>
+  <rect class="node-green" x="570" y="195" width="190" height="52" />
+  <text class="text" x="665" y="227" text-anchor="middle">身份标识</text>
+  <rect class="node-green" x="800" y="195" width="190" height="52" />
+  <text class="text" x="895" y="227" text-anchor="middle">语义绑定</text>
+  <rect class="node-green" x="1030" y="195" width="170" height="52" />
+  <text class="text" x="1115" y="227" text-anchor="middle">覆盖账本</text>
+  <path class="thin-edge green" d="M 770 167 V 182 H 435 V 195" />
+  <path class="thin-edge green" d="M 770 182 H 665 V 195" />
+  <path class="thin-edge green" d="M 770 182 H 895 V 195" />
+  <path class="thin-edge green" d="M 770 182 H 1115 V 195" />
+
+  <rect class="panel-blue" x="300" y="330" width="360" height="240" />
+  <text class="label" x="480" y="367" text-anchor="middle">预分析</text>
+  <rect class="node-blue" x="330" y="392" width="300" height="45" />
+  <text class="text" x="480" y="421" text-anchor="middle">观察到的接口面</text>
+  <rect class="node-blue" x="330" y="455" width="300" height="45" />
+  <text class="text" x="480" y="484" text-anchor="middle">覆盖状态与缺口</text>
+  <rect class="node-blue" x="330" y="518" width="300" height="45" />
+  <text class="text" x="480" y="547" text-anchor="middle">建模证据包</text>
+
+  <rect class="panel-blue" x="720" y="330" width="350" height="240" />
+  <text class="label" x="895" y="367" text-anchor="middle">语义建模</text>
+  <rect class="node-blue" x="750" y="392" width="290" height="55" />
+  <text class="text" x="895" y="426" text-anchor="middle">证据切片</text>
+  <rect class="node-blue" x="750" y="475" width="130" height="65" />
+  <text class="text" x="815" y="501" text-anchor="middle">大模型</text>
+  <text class="sub" x="815" y="526" text-anchor="middle">适配</text>
+  <rect class="node-blue" x="910" y="475" width="130" height="65" />
+  <text class="text" x="975" y="501" text-anchor="middle">候选</text>
+  <text class="sub" x="975" y="526" text-anchor="middle">项目资产</text>
+  <path class="thin-edge blue" d="M 895 447 V 460 H 815 V 475" marker-end="url(#arrow-blue)" />
+  <path class="thin-edge blue" d="M 895 460 H 975 V 475" marker-end="url(#arrow-blue)" />
+
+  <rect class="panel-orange" x="1130" y="310" width="410" height="280" />
+  <text class="label" x="1335" y="350" text-anchor="middle" fill="#c2410c">资产提升</text>
+  <rect class="node-orange" x="1160" y="395" width="82" height="110" />
+  <text class="text" x="1201" y="438" text-anchor="middle">结构</text>
+  <text class="sub" x="1201" y="466" text-anchor="middle">校验</text>
+  <rect class="node-orange" x="1260" y="395" width="82" height="110" />
+  <text class="text" x="1301" y="438" text-anchor="middle">源码</text>
+  <text class="sub" x="1301" y="466" text-anchor="middle">锚定</text>
+  <rect class="node-orange" x="1360" y="395" width="82" height="110" />
+  <text class="text" x="1401" y="438" text-anchor="middle">审计</text>
+  <text class="sub" x="1401" y="466" text-anchor="middle">复跑</text>
+  <rect class="node-orange" x="1460" y="395" width="58" height="110" />
+  <text class="text" x="1489" y="438" text-anchor="middle">项目</text>
+  <text class="sub" x="1489" y="466" text-anchor="middle">资产</text>
+  <path class="thin-edge orange" d="M 1242 450 H 1260" marker-end="url(#arrow-orange)" />
+  <path class="thin-edge orange" d="M 1342 450 H 1360" marker-end="url(#arrow-orange)" />
+  <path class="thin-edge orange" d="M 1442 450 H 1460" marker-end="url(#arrow-orange)" />
+
+  <rect class="panel-blue" x="310" y="650" width="940" height="245" />
+  <text class="label" x="780" y="690" text-anchor="middle">完整污点分析</text>
+  <rect class="node-blue" x="345" y="735" width="150" height="75" />
+  <text class="text" x="420" y="765" text-anchor="middle">入口恢复</text>
+  <text class="sub" x="420" y="792" text-anchor="middle">延后执行</text>
+  <rect class="node-blue" x="525" y="735" width="160" height="75" />
+  <text class="text" x="605" y="765" text-anchor="middle">语义效果</text>
+  <text class="sub" x="605" y="792" text-anchor="middle">实例化</text>
+  <rect class="node-blue" x="715" y="735" width="160" height="75" />
+  <text class="text" x="795" y="765" text-anchor="middle">状态效果</text>
+  <text class="sub" x="795" y="792" text-anchor="middle">归一化</text>
+  <rect class="node-blue" x="905" y="715" width="210" height="115" />
+  <text class="text" x="1010" y="755" text-anchor="middle">流敏感求解</text>
+  <text class="sub" x="1010" y="785" text-anchor="middle">当前性证明</text>
+  <rect class="node-blue" x="1140" y="735" width="80" height="75" />
+  <text class="text" x="1180" y="765" text-anchor="middle">汇点</text>
+  <text class="sub" x="1180" y="792" text-anchor="middle">命中</text>
+  <path class="thin-edge blue" d="M 495 772 H 525" marker-end="url(#arrow-blue)" />
+  <path class="thin-edge blue" d="M 685 772 H 715" marker-end="url(#arrow-blue)" />
+  <path class="thin-edge blue" d="M 875 772 H 905" marker-end="url(#arrow-blue)" />
+  <path class="thin-edge blue" d="M 1115 772 H 1140" marker-end="url(#arrow-blue)" />
+
+  <rect class="panel-purple" x="310" y="955" width="940" height="170" />
+  <text class="label" x="780" y="993" text-anchor="middle">证据记录与后处理</text>
+  <rect class="node-purple" x="340" y="1030" width="175" height="58" />
+  <text class="text" x="427" y="1066" text-anchor="middle">基础证据图</text>
+  <rect class="node-purple" x="550" y="1030" width="175" height="58" />
+  <text class="text" x="637" y="1066" text-anchor="middle">路径物化</text>
+  <rect class="node-purple" x="760" y="1030" width="175" height="58" />
+  <text class="text" x="847" y="1066" text-anchor="middle">路径缺口</text>
+  <rect class="node-purple" x="970" y="1030" width="175" height="58" />
+  <text class="text" x="1057" y="1066" text-anchor="middle">路径后处理</text>
+  <path class="thin-edge" stroke="#7c3aed" d="M 515 1059 H 550" marker-end="url(#arrow-blue)" />
+  <path class="thin-edge" stroke="#7c3aed" d="M 725 1059 H 760" marker-end="url(#arrow-blue)" />
+  <path class="thin-edge" stroke="#7c3aed" d="M 935 1059 H 970" marker-end="url(#arrow-blue)" />
+
+  <rect class="panel-gray" x="1585" y="660" width="175" height="365" />
+  <text class="label" x="1672" y="700" text-anchor="middle">输出</text>
+  <rect class="node" x="1615" y="735" width="115" height="68" />
+  <text class="text" x="1672" y="763" text-anchor="middle">污点流</text>
+  <text class="sub" x="1672" y="789" text-anchor="middle">报告</text>
+  <rect class="node" x="1615" y="835" width="115" height="68" />
+  <text class="text" x="1672" y="863" text-anchor="middle">路径</text>
+  <text class="sub" x="1672" y="889" text-anchor="middle">证据</text>
+  <rect class="node" x="1615" y="935" width="115" height="68" />
+  <text class="text" x="1672" y="963" text-anchor="middle">资产</text>
+  <text class="sub" x="1672" y="989" text-anchor="middle">缺口</text>
+
+  <path class="edge blue" d="M 225 495 H 260 V 155 H 300" marker-end="url(#arrow-blue)" />
+  <path class="edge blue" d="M 225 605 H 265 V 450 H 300" marker-end="url(#arrow-blue)" />
+  <path class="edge green" d="M 480 270 V 330" marker-end="url(#arrow-green)" />
+  <path class="edge blue" d="M 660 450 H 720" marker-end="url(#arrow-blue)" />
+  <path class="edge blue" d="M 1070 450 H 1130" marker-end="url(#arrow-blue)" />
+  <path class="edge orange" d="M 1335 590 V 620 H 1080 V 650" marker-end="url(#arrow-orange)" />
+  <path class="edge blue" d="M 780 895 V 955" marker-end="url(#arrow-blue)" />
+  <path class="edge blue" d="M 1250 1059 H 1470 V 855 H 1585" marker-end="url(#arrow-blue)" />
+  <path class="edge green" d="M 1489 395 V 160 H 1240" marker-end="url(#arrow-green)" />
+  <text class="small" x="1370" y="138" text-anchor="middle">提升后回流注册中心</text>
+  <path class="thin-edge blue dashed" d="M 1585 969 H 1460 V 615 H 895 V 570" marker-end="url(#arrow-blue)" />
+  <text class="small" x="1335" y="636" text-anchor="middle">缺口反馈到建模</text>
+</svg>
