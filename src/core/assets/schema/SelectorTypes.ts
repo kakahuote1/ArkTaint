@@ -23,6 +23,7 @@ export interface RuntimeSelectorScope {
     module?: SelectorStringConstraint;
     className?: SelectorStringConstraint;
     methodName?: SelectorStringConstraint;
+    methodDecorators?: SelectorStringConstraint[];
 }
 
 export interface RuntimeSelector {
@@ -40,4 +41,5 @@ export interface EndpointSelectorRef {
     endpoint: AssetEndpoint;
     pathFrom?: AssetEndpoint;
     slotKind?: string;
+    taintScope?: "self" | "contained-values";
 }

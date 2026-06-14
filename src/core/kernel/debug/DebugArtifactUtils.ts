@@ -1,34 +1,38 @@
 import * as fs from "fs";
 import * as path from "path";
 import { WorklistProfiler, WorklistProfileSnapshot } from "./WorklistProfiler";
-import { PropagationTrace } from "./PropagationTrace";
+import {
+    TraceGraph,
+    TraceGraphRecorder,
+    writeTraceGraphArtifacts,
+} from "../../trace/TraceGraph";
 
 export interface DebugCollectorOptions {
     enableWorklistProfile?: boolean;
-    enablePropagationTrace?: boolean;
-    propagationTraceMaxEdges?: number;
+    enableTraceGraph?: boolean;
+    traceRun?: ConstructorParameters<typeof TraceGraphRecorder>[0]["run"];
 }
 
 export interface DebugCollectors {
     worklistProfiler?: WorklistProfiler;
-    propagationTrace?: PropagationTrace;
+    traceGraph?: TraceGraphRecorder;
 }
 
 export function createDebugCollectors(debug?: DebugCollectorOptions): DebugCollectors {
     const worklistProfiler = debug?.enableWorklistProfile ? new WorklistProfiler() : undefined;
-    const propagationTrace = debug?.enablePropagationTrace
-        ? new PropagationTrace({ maxEdges: debug?.propagationTraceMaxEdges })
+    const traceGraph = debug?.enableTraceGraph
+        ? new TraceGraphRecorder({ run: debug.traceRun })
         : undefined;
-    return { worklistProfiler, propagationTrace };
+    return { worklistProfiler, traceGraph };
 }
 
 export function dumpDebugArtifactsToDir(args: {
     tag: string;
     outputDir?: string;
     profile?: WorklistProfileSnapshot;
-    dot?: string;
-}): { profilePath?: string; dotPath?: string } {
-    const out: { profilePath?: string; dotPath?: string } = {};
+    traceGraph?: TraceGraph;
+}): { profilePath?: string; traceGraphJsonPath?: string; traceGraphMarkdownPath?: string } {
+    const out: { profilePath?: string; traceGraphJsonPath?: string; traceGraphMarkdownPath?: string } = {};
     const outputDir = args.outputDir || "tmp";
     const safeTag = args.tag.replace(/[^A-Za-z0-9_.-]/g, "_");
     fs.mkdirSync(outputDir, { recursive: true });
@@ -39,10 +43,11 @@ export function dumpDebugArtifactsToDir(args: {
         out.profilePath = profilePath;
     }
 
-    if (args.dot) {
-        const dotPath = path.join(outputDir, `taint_trace_${safeTag}.dot`);
-        fs.writeFileSync(dotPath, args.dot, "utf-8");
-        out.dotPath = dotPath;
+    if (args.traceGraph) {
+        const traceDir = path.join(outputDir, `trace_graph_${safeTag}`);
+        const paths = writeTraceGraphArtifacts(traceDir, args.traceGraph);
+        out.traceGraphJsonPath = paths.jsonPath;
+        out.traceGraphMarkdownPath = paths.markdownPath;
     }
 
     return out;

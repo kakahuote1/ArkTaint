@@ -55,7 +55,7 @@ export function detectFlows(
     const bySignature: Record<string, number> = {};
     const uniqueFlowKeys = new Set<string>();
     const uniqueFlows: TaintFlow[] = [];
-    const flowTraceMap = new Map<string, FlowRuleTrace>();
+    const flowRuleAuditMap = new Map<string, FlowRuleTrace>();
 
     const sourcePattern = buildSmokeRuleConfig(loadedRules);
     const sinkKeywords = sourcePattern.sinkKeywords;
@@ -71,10 +71,10 @@ export function detectFlows(
         return id.length > 0 ? id : undefined;
     };
 
-    const pushFlowTrace = (key: string, flow: TaintFlow): void => {
-        if (flowTraceMap.has(key)) return;
+    const pushFlowRuleAudit = (key: string, flow: TaintFlow): void => {
+        if (flowRuleAuditMap.has(key)) return;
         const transferRuleIds = [...new Set(flow.transferRuleIds || [])].sort();
-        flowTraceMap.set(key, {
+        flowRuleAuditMap.set(key, {
             source: flow.source,
             sink: flow.sink.toString(),
             sourceRuleId: flow.sourceRuleId || parseSourceRuleId(flow.source),
@@ -109,7 +109,7 @@ export function detectFlows(
                 if (sinkSamples.length < 8) sinkSamples.push(`[${label}:${token}] ${sinkText}`);
             }
             if (detailed) {
-                pushFlowTrace(key, flow);
+                pushFlowRuleAudit(key, flow);
             }
         }
         return bucket.size;
@@ -131,7 +131,7 @@ export function detectFlows(
             byKeyword,
             bySignature,
             flows: uniqueFlows,
-            flowRuleTraces: detailed ? [...flowTraceMap.values()] : [],
+            flowRuleTraces: detailed ? [...flowRuleAuditMap.values()] : [],
         };
     }
 
@@ -162,7 +162,7 @@ export function detectFlows(
         byKeyword,
         bySignature,
         flows: uniqueFlows,
-        flowRuleTraces: detailed ? [...flowTraceMap.values()] : [],
+        flowRuleTraces: detailed ? [...flowRuleAuditMap.values()] : [],
     };
 }
 

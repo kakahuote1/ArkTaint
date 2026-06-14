@@ -19,21 +19,35 @@ import type {
     ExecutionHandoffContractRecord,
     ExecutionHandoffResolvedEdgeBinding,
 } from "./ExecutionHandoffContract";
+import {
+    assertExecutionHandoffBudget,
+    ExecutionHandoffBuildBudget,
+} from "./ExecutionHandoffBudget";
 
 const MAX_PROMISE_SETTLEMENT_TRACE_DEPTH = 8;
 const MAX_PROMISE_SETTLEMENT_VISITED = 256;
+const ENV_CLOSURE_FIELD_READ_CACHE = new WeakMap<any, Array<{ callbackLocal: Local; fieldName: string; anchorStmt: ArkAssignStmt }>>();
+const ENV_FREE_LOCAL_READ_CACHE = new WeakMap<any, Array<{ callbackLocal: Local; localName: string; anchorStmt: any }>>();
+const ENV_DIRECT_THIS_FIELD_READ_CACHE = new WeakMap<any, boolean>();
+const ENV_METHOD_SOURCE_NODE_IDS_BY_PAG = new WeakMap<Pag, WeakMap<any, Map<string, number[]>>>();
 
 export function buildExecutionHandoffContractEdgeBindings(
     scene: Scene,
     _cg: CallGraph,
     pag: Pag,
     contract: ExecutionHandoffContractRecord,
+    budget?: ExecutionHandoffBuildBudget,
 ): ExecutionHandoffResolvedEdgeBinding[] {
     const bindings: ExecutionHandoffResolvedEdgeBinding[] = [];
+    assertExecutionHandoffBudget(budget, "edge_bindings.activation");
     bindings.push(...resolveActivationBindings(pag, contract));
+    assertExecutionHandoffBudget(budget, "edge_bindings.payload");
     bindings.push(...resolvePayloadBindings(scene, pag, contract));
+    assertExecutionHandoffBudget(budget, "edge_bindings.env");
     bindings.push(...resolveEnvBindings(scene, pag, contract));
+    assertExecutionHandoffBudget(budget, "edge_bindings.completion");
     bindings.push(...resolveCompletionBindings(scene, pag, contract));
+    assertExecutionHandoffBudget(budget, "edge_bindings.filter");
     return bindings.filter(binding => binding.sourceNodeIds.length > 0 && binding.targetNodeIds.length > 0);
 }
 
@@ -237,6 +251,20 @@ function resolvePromiseSettlementSourceNodeIdsFromInvoke(
         );
     }
     return dedupeNodeIds(sourceNodeIds);
+}
+
+export function resolvePromiseFulfillmentSourceNodeIdsFromInvoke(
+    scene: Scene,
+    pag: Pag,
+    invokeExpr: any,
+): number[] {
+    return resolvePromiseSettlementSourceNodeIdsFromInvoke(
+        scene,
+        pag,
+        invokeExpr,
+        "settle(fulfilled)",
+        new Set<string>(),
+    );
 }
 
 function collectPromiseSettlementSourceNodeIdsFromMethod(
@@ -555,13 +583,13 @@ function resolveEnvBindings(
         }
     }
 
-    for (const mapping of collectClosureFieldReadMappings(contract.unit)) {
+    for (const mapping of collectClosureFieldReadMappingsCached(contract.unit)) {
         let sourceNodeIds = isPromiseObserveContract(contract)
             ? collectPromiseObserveEnvSourceNodeIds(scene, pag, contract, mapping.fieldName)
             : [];
         if (sourceNodeIds.length === 0) {
             sourceNodeIds = dedupeNodeIds(
-                sourceMethods.flatMap(method => collectMethodSourceNodeIdsByName(pag, method, mapping.fieldName)),
+                sourceMethods.flatMap(method => collectMethodSourceNodeIdsByNameCached(pag, method, mapping.fieldName)),
             );
         }
         const targetNodeIds = collectNodeIds(
@@ -575,9 +603,9 @@ function resolveEnvBindings(
         });
     }
 
-    for (const mapping of collectFreeLocalReadMappings(contract.unit)) {
+    for (const mapping of collectFreeLocalReadMappingsCached(contract.unit)) {
         const sourceNodeIds = dedupeNodeIds(
-            sourceMethods.flatMap(method => collectMethodSourceNodeIdsByName(pag, method, mapping.localName)),
+            sourceMethods.flatMap(method => collectMethodSourceNodeIdsByNameCached(pag, method, mapping.localName)),
         );
         const targetNodeIds = collectNodeIds(
             safeGetOrCreatePagNodes(pag, mapping.callbackLocal, mapping.anchorStmt),
@@ -590,7 +618,7 @@ function resolveEnvBindings(
         });
     }
 
-    if (methodReadsDirectThisField(contract.unit)) {
+    if (methodReadsDirectThisFieldCached(contract.unit)) {
         const sourceNodeIds = dedupeNodeIds(
             sourceMethods.flatMap(method => collectThisCarrierNodeIds(pag, method, contract.stmt)),
         );
@@ -605,6 +633,56 @@ function resolveEnvBindings(
     }
 
     return bindings;
+}
+
+function collectClosureFieldReadMappingsCached(
+    method: any,
+): Array<{ callbackLocal: Local; fieldName: string; anchorStmt: ArkAssignStmt }> {
+    const cached = ENV_CLOSURE_FIELD_READ_CACHE.get(method);
+    if (cached) return cached;
+    const mappings = collectClosureFieldReadMappings(method);
+    ENV_CLOSURE_FIELD_READ_CACHE.set(method, mappings);
+    return mappings;
+}
+
+function collectFreeLocalReadMappingsCached(
+    method: any,
+): Array<{ callbackLocal: Local; localName: string; anchorStmt: any }> {
+    const cached = ENV_FREE_LOCAL_READ_CACHE.get(method);
+    if (cached) return cached;
+    const mappings = collectFreeLocalReadMappings(method);
+    ENV_FREE_LOCAL_READ_CACHE.set(method, mappings);
+    return mappings;
+}
+
+function methodReadsDirectThisFieldCached(method: any): boolean {
+    const cached = ENV_DIRECT_THIS_FIELD_READ_CACHE.get(method);
+    if (cached !== undefined) return cached;
+    const result = methodReadsDirectThisField(method);
+    ENV_DIRECT_THIS_FIELD_READ_CACHE.set(method, result);
+    return result;
+}
+
+function collectMethodSourceNodeIdsByNameCached(
+    pag: Pag,
+    method: any,
+    localName: string,
+): number[] {
+    let byMethod = ENV_METHOD_SOURCE_NODE_IDS_BY_PAG.get(pag);
+    if (!byMethod) {
+        byMethod = new WeakMap<any, Map<string, number[]>>();
+        ENV_METHOD_SOURCE_NODE_IDS_BY_PAG.set(pag, byMethod);
+    }
+    let byName = byMethod.get(method);
+    if (!byName) {
+        byName = new Map<string, number[]>();
+        byMethod.set(method, byName);
+    }
+    const cached = byName.get(localName);
+    if (cached) return cached;
+    const result = collectMethodSourceNodeIdsByName(pag, method, localName);
+    byName.set(localName, result);
+    return result;
 }
 
 function isPromiseObserveContract(contract: ExecutionHandoffContractRecord): boolean {

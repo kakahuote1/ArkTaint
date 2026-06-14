@@ -51,10 +51,6 @@ export function isArkMainCandidateCoveredByKernelContracts(candidate: ArkMainEnt
     if (ownerKinds.has("extension_owner") && resolveExtensionLifecycleContract(candidate.methodName)) {
         return true;
     }
-    if ((ownerKinds.has("component_owner") || ownerKinds.has("builder_owner"))
-        && resolveComponentLifecycleContract(candidate.methodName)) {
-        return true;
-    }
     return false;
 }
 

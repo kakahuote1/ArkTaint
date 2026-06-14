@@ -4,6 +4,7 @@ import { lowerModuleAssetToInternalModuleLoweringIR } from "../../core/kernel/co
 import abilityHandoff from "../../models/kernel/modules/harmony/ability_handoff";
 import appstorage from "../../models/kernel/modules/harmony/appstorage";
 import emitter from "../../models/kernel/modules/harmony/emitter";
+import { modules as officialSemanticSlots } from "../../models/kernel/modules/harmony/official_semantic_slots";
 import router from "../../models/kernel/modules/harmony/router";
 import state from "../../models/kernel/modules/harmony/state";
 import workerTaskpool from "../../models/kernel/modules/harmony/worker_taskpool";
@@ -22,6 +23,7 @@ function main(): void {
         ...flatten(abilityHandoff),
         ...flatten(appstorage),
         ...flatten(emitter),
+        ...flatten(officialSemanticSlots),
         ...flatten(router),
         ...flatten(state),
         ...flatten(workerTaskpool),
@@ -36,7 +38,16 @@ function main(): void {
         assert(asset.status === "official", `${asset.id} must be official`);
         assert(asset.surfaces.length > 0, `${asset.id} must declare surfaces`);
         assert(asset.bindings.length > 0, `${asset.id} must declare bindings`);
-        assert((asset.effectTemplates || []).every(template => template.kind === "core.capability"), `${asset.id} should only use controlled core capability templates`);
+        assert(
+            (asset.effectTemplates || []).every(template =>
+                template.kind === "core.capability"
+                || template.kind === "handoff.put"
+                || template.kind === "handoff.get"
+                || template.kind === "handoff.kill"
+                || template.kind === "module.eventEmitter",
+            ),
+            `${asset.id} should only use controlled module semantic templates`,
+        );
 
         const serialized = JSON.stringify(asset);
         for (const forbidden of ["schemaVersion", "coverageSurfaces", "semanticsRef", "semantics.effects", "\"semantics\""]) {
@@ -45,8 +56,26 @@ function main(): void {
 
         const lowered = lowerModuleAssetToInternalModuleLoweringIR(asset);
         assert(lowered.id === asset.id, `${asset.id} lowered id mismatch`);
-        assert(lowered.semantics.length === (asset.effectTemplates || []).length, `${asset.id} lowered semantic count mismatch`);
+        if ((asset.effectTemplates || []).every(template => template.kind === "core.capability" || template.kind === "module.eventEmitter")) {
+            assert(lowered.semantics.length === (asset.effectTemplates || []).length, `${asset.id} lowered semantic count mismatch`);
+        } else {
+            assert(lowered.semantics.length > 0, `${asset.id} should lower handoff templates to at least one semantic bundle`);
+            assert(
+                lowered.semantics.every(semantic => semantic.kind === "handoff_effect" || semantic.kind === "keyed_storage"),
+                `${asset.id} handoff templates should lower only to handoff_effect/keyed_storage semantics`,
+            );
+        }
     }
+
+    const appstorageAsset = flatten(appstorage)[0] as any;
+    const appstorageCapability = appstorageAsset.effectTemplates?.find(
+        (template: any) => template.id === "harmony.appstorage.capability",
+    );
+    const appstorageWriteMethods = appstorageCapability?.payload?.writeMethods || [];
+    assert(
+        appstorageWriteMethods.some((method: any) => method.methodName === "putBatch" && method.valueIndex === 0),
+        "harmony.appstorage must model KVStore/SingleKVStore putBatch(entries) as a keyed-storage write from arg0",
+    );
 
     console.log(`PASS test_module_assets_v2_schema assets=${assets.length}`);
 }

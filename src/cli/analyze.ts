@@ -294,6 +294,7 @@ export async function runAnalyzeCliCommand(options: CliOptions): Promise<void> {
         });
         const inspection = inspectModules({
             moduleRoots: options.modelRoots || [],
+            semanticflowEvaluationModelRoots: options.semanticflowEvaluationModelRoots,
             enabledModuleProjects: resolved.enabledModuleProjects,
             disabledModuleProjects: resolved.disabledModuleProjects,
             disabledModuleIds: options.disabledModuleIds || [],

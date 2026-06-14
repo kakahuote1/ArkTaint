@@ -17,6 +17,7 @@ import { TaintFact } from "../model/TaintFact";
 import {
     normalizeEndpoint,
     RuleEndpoint,
+    RuleEndpointRef,
     RuleEndpointOrRef,
     RuleInvokeKind,
     RuleScopeConstraint,
@@ -24,6 +25,9 @@ import {
     SourceRule,
     SourceRuleKind,
 } from "../../rules/RuleSchema";
+import { resolvePromiseFulfillmentSourceNodeIdsFromInvoke } from "../handoff/ExecutionHandoffContractBindingResolver";
+
+const RECEIVER_TYPE_HINT_TRACE_CACHE = new WeakMap<ArkMethod, Map<string, string[]>>();
 
 export interface SourceRuleSeedCollectionArgs {
     scene: Scene;
@@ -38,6 +42,43 @@ export interface SourceRuleSeedCollectionResult {
     seededLocals: string[];
     sourceRuleHits: Record<string, number>;
     activatedMethodSignatures: string[];
+    sourceSeedAudit: SourceRuleSeedAuditEntry[];
+    sourceRuleZeroHitAudit: SourceRuleZeroHitAuditEntry[];
+}
+
+export interface SourceRuleSeedAuditEntry {
+    ruleId: string;
+    source: string;
+    factId: string;
+    nodeId: number;
+    contextId: number;
+    fieldPath?: string[];
+    label: string;
+}
+
+export type SourceRuleZeroHitReason =
+    | "source_rule_no_matching_callsite"
+    | "source_rule_callsite_outside_allowed_methods"
+    | "source_rule_matching_callsite_no_seed_fact"
+    | "source_rule_non_call_zero_hit";
+
+export interface SourceRuleZeroHitCallsiteSample {
+    methodSignature: string;
+    calleeSignature: string;
+    stmtText: string;
+    line: number;
+    allowed: boolean;
+}
+
+export interface SourceRuleZeroHitAuditEntry {
+    ruleId: string;
+    sourceKind: SourceRuleKind;
+    reason: SourceRuleZeroHitReason;
+    allowedMethodFilterActive: boolean;
+    matchedCallsiteCount: number;
+    matchedAllowedCallsiteCount: number;
+    matchedExcludedCallsiteCount: number;
+    sampleCallsites: SourceRuleZeroHitCallsiteSample[];
 }
 
 export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): SourceRuleSeedCollectionResult {
@@ -46,15 +87,34 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
     const seededLocals = new Set<string>();
     const seenFactIds = new Set<string>();
     const sourceRuleHits = new Map<string, number>();
+    const sourceSeedAudit: SourceRuleSeedAuditEntry[] = [];
     const activatedMethodSignatures = new Set<string>();
     const bestTierBySiteFamily = new Map<string, number>();
+    const parameterLocalCache = new WeakMap<ArkMethod, ParameterLocalInfo[]>();
+
+    const getCachedParameterLocals = (method: ArkMethod): ParameterLocalInfo[] => {
+        const cached = parameterLocalCache.get(method);
+        if (cached) return cached;
+        const resolved = getParameterLocals(method);
+        parameterLocalCache.set(method, resolved);
+        return resolved;
+    };
 
     const pushFact = (fact: TaintFact, label: string, ruleId: string): boolean => {
-        if (seenFactIds.has(fact.id)) return false;
-        seenFactIds.add(fact.id);
+        if (seenFactIds.has(fact.taintId)) return false;
+        seenFactIds.add(fact.taintId);
         facts.push(fact);
         seededLocals.add(label);
         sourceRuleHits.set(ruleId, (sourceRuleHits.get(ruleId) || 0) + 1);
+        sourceSeedAudit.push({
+            ruleId,
+            source: fact.source,
+            factId: fact.taintId,
+            nodeId: fact.node.getID(),
+            contextId: fact.contextID,
+            fieldPath: fact.field ? [...fact.field] : undefined,
+            label,
+        });
         return true;
     };
 
@@ -92,7 +152,6 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
         if (rule.enabled === false) continue;
         const kind = resolveSourceRuleKind(rule);
         const target = resolveSourceRuleTarget(rule, kind);
-        const sourceTag = `source_rule:${rule.id}`;
 
         for (const method of methods) {
             if (!matchesScope(method, rule.scope)) continue;
@@ -100,7 +159,7 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
             if (kind === "seed_local_name" || kind === "entry_param") {
                 const body = method.getBody();
                 if (!body) continue;
-                const paramLocals = getParameterLocals(method);
+                const paramLocals = getCachedParameterLocals(method);
                 const methodParameters = method.getParameters?.() || [];
 
                 for (const local of body.getLocals().values()) {
@@ -111,10 +170,11 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
 
                     if (!matchesSourceLocalRule(rule, kind, method, localName, paramIndex, parameter)) continue;
 
-                    const localFacts = seedFactsFromValue(args.pag, local, sourceTag, args.emptyContextId, target.path);
                     let applied = false;
                     const siteKey = `${method.getSignature().toString()}|local:${localName}`;
                     if (!canApplyRuleAtSite(rule, siteKey)) continue;
+                    const sourceTag = sourceTagForOccurrence(rule.id, siteKey, `local:${localName}`);
+                    const localFacts = seedFactsFromValue(args.pag, local, sourceTag, args.emptyContextId, target.path);
                     for (const fact of localFacts) {
                         if (pushFact(fact, `${method.getName()}:${localName}`, rule.id)) {
                             applied = true;
@@ -143,14 +203,35 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
                     const targetValue = resolveInvokeTargetValue(stmt, invokeExpr, target.endpoint);
                     if (!targetValue) continue;
 
-                    const callFacts = seedFactsFromValue(args.pag, targetValue, sourceTag, args.emptyContextId, target.path);
-                    let applied = false;
-                    const line = stmt.getOriginPositionInfo?.().getLineNo?.() ?? -1;
-                    const siteKey = `${method.getSignature().toString()}|call:${calleeSignature}|line:${line}`;
+                    const promiseResultNodeIds = target.semanticEndpointKind === "promiseResult"
+                        ? resolvePromiseFulfillmentSourceNodeIdsFromInvoke(args.scene, args.pag, invokeExpr)
+                        : [];
+                    const site = resolveStmtSite(method, stmt);
+                    const siteKey = `${method.getSignature().toString()}|call:${calleeSignature}|${site.key}`;
                     if (!canApplyRuleAtSite(rule, siteKey)) continue;
+                    const sourceTag = sourceTagForOccurrence(rule.id, siteKey, `call:${calleeName || "invoke"}:${site.label}`);
+                    const callFacts = promiseResultNodeIds.length > 0
+                        ? seedFactsFromNodeIds(args.pag, promiseResultNodeIds, sourceTag, args.emptyContextId, target.path)
+                        : seedFactsFromValue(args.pag, targetValue, sourceTag, args.emptyContextId, target.path);
+                    let applied = false;
                     for (const fact of callFacts) {
-                        if (pushFact(fact, `${method.getName()}:line${line}`, rule.id)) {
+                        if (pushFact(fact, `${method.getName()}:${site.label}`, rule.id)) {
                             applied = true;
+                        }
+                    }
+                    if (targetValue instanceof Local) {
+                        const aliasFacts = seedLocalAliasFactsInMethod(
+                            args.pag,
+                            method,
+                            targetValue,
+                            sourceTag,
+                            args.emptyContextId,
+                            target.path,
+                        );
+                        for (const fact of aliasFacts) {
+                            if (pushFact(fact, `${method.getName()}:${site.label}:alias`, rule.id)) {
+                                applied = true;
+                            }
                         }
                     }
                     if (applied) {
@@ -180,12 +261,17 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
                     );
                     if (boundFieldNames.length === 0) continue;
 
-                    const line = stmt.getOriginPositionInfo?.().getLineNo?.() ?? -1;
-                    const siteKey = `${method.getSignature().toString()}|bound_state:${calleeSignature}|line:${line}`;
+                    const site = resolveStmtSite(method, stmt);
+                    const siteKey = `${method.getSignature().toString()}|bound_state:${calleeSignature}|${site.key}`;
                     if (!canApplyRuleAtSite(rule, siteKey)) continue;
 
                     let applied = false;
                     for (const fieldName of boundFieldNames) {
+                        const sourceTag = sourceTagForOccurrence(
+                            rule.id,
+                            `${siteKey}|field:${fieldName}`,
+                            `bound:${fieldName}:${site.label}`,
+                        );
                         const facts = seedDeclaringClassFieldNameFacts(
                             args.pag,
                             method,
@@ -212,46 +298,50 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
 
                 for (const stmt of cfg.getStmts()) {
                     if (!stmt.containsInvokeExpr || !stmt.containsInvokeExpr()) continue;
-                    const registrations = [
-                        ...resolveCallbackRegistrationsFromStmt(
+                    const knownOptionRegistrations = resolveKnownOptionCallbackRegistrationsForSourceRule(
                         stmt,
                         args.scene,
                         method,
-                        ({ invokeExpr, explicitArgs, scene, sourceMethod }) => {
-                            const calleeSignature = invokeExpr.getMethodSignature?.().toString?.() || "";
-                            const calleeName = resolveInvokeMethodName(invokeExpr, calleeSignature);
-                            if (!matchesSourceCallRule(rule, calleeSignature, calleeName, invokeExpr, method)) {
-                                return null;
-                            }
-
-                            const callbackArgIndexes = resolveCallbackArgIndexes(
-                                rule,
-                                explicitArgs,
-                                scene,
-                                sourceMethod
-                            );
-                            if (callbackArgIndexes.length === 0) {
-                                return null;
-                            }
-
-                            return {
-                                callbackArgIndexes,
-                                callbackFieldNames: normalizeCallbackFieldNames(rule),
-                                reason: `Source callback registration ${calleeName || calleeSignature} from ${sourceMethod.getName()}`,
-                            };
-                        }
-                        ),
-                        ...resolveKnownOptionCallbackRegistrationsForSourceRule(
+                        rule,
+                    );
+                    const genericRegistrations = shouldPreferKnownOptionCallbackRegistrations(rule, knownOptionRegistrations)
+                        ? []
+                        : resolveCallbackRegistrationsFromStmt(
                             stmt,
                             args.scene,
                             method,
-                            rule,
-                        ),
+                            ({ invokeExpr, explicitArgs, scene, sourceMethod }) => {
+                                const calleeSignature = invokeExpr.getMethodSignature?.().toString?.() || "";
+                                const calleeName = resolveInvokeMethodName(invokeExpr, calleeSignature);
+                                if (!matchesSourceCallRule(rule, calleeSignature, calleeName, invokeExpr, method)) {
+                                    return null;
+                                }
+
+                                const callbackArgIndexes = resolveCallbackArgIndexes(
+                                    rule,
+                                    explicitArgs,
+                                    scene,
+                                    sourceMethod
+                                );
+                                if (callbackArgIndexes.length === 0) {
+                                    return null;
+                                }
+
+                                return {
+                                    callbackArgIndexes,
+                                    callbackFieldNames: normalizeCallbackFieldNames(rule),
+                                    reason: `Source callback registration ${calleeName || calleeSignature} from ${sourceMethod.getName()}`,
+                                };
+                            }
+                        );
+                    const registrations = [
+                        ...knownOptionRegistrations,
+                        ...genericRegistrations,
                     ];
 
                     for (const registration of registrations) {
                         activatedMethodSignatures.add(registration.callbackMethod.getSignature().toString());
-                        const callbackParams = getParameterLocals(registration.callbackMethod);
+                        const callbackParams = getCachedParameterLocals(registration.callbackMethod);
                         const callbackParam = resolveCallbackUserParam(callbackParams, targetParamIndex);
                         if (!callbackParam) continue;
 
@@ -261,6 +351,11 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
                         const siteKey = `${method.getSignature().toString()}|callback:${registration.registrationSignature}|line:${line}|cbArg:${registration.callbackArgIndex}`;
                         if (!canApplyRuleAtSite(rule, siteKey)) continue;
                         let applied = false;
+                        const sourceTag = sourceTagForOccurrence(
+                            rule.id,
+                            siteKey,
+                            `callback:arg${targetParamIndex}:line${line}`,
+                        );
 
                         const callbackFacts = seedFactsFromValue(
                             args.pag,
@@ -344,11 +439,12 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
                     const targetValue = resolveFieldReadTargetValue(stmt, right, target.endpoint);
                     if (!targetValue) continue;
 
-                    const readFacts = seedFactsFromValue(args.pag, targetValue, sourceTag, args.emptyContextId, undefined);
                     let applied = false;
-                    const line = stmt.getOriginPositionInfo?.().getLineNo?.() ?? -1;
-                    const siteKey = `${method.getSignature().toString()}|field:${fieldSignature}|line:${line}`;
+                    const site = resolveStmtSite(method, stmt);
+                    const siteKey = `${method.getSignature().toString()}|field:${fieldSignature}|${site.key}`;
                     if (!canApplyRuleAtSite(rule, siteKey)) continue;
+                    const sourceTag = sourceTagForOccurrence(rule.id, siteKey, `field:${fieldName}:${site.label}`);
+                    const readFacts = seedFactsFromValue(args.pag, targetValue, sourceTag, args.emptyContextId, undefined);
                     for (const fact of readFacts) {
                         if (pushFact(fact, `${method.getName()}:${fieldName}`, rule.id)) {
                             applied = true;
@@ -367,7 +463,133 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
         seededLocals: [...seededLocals].sort(),
         sourceRuleHits: toRecord(sourceRuleHits),
         activatedMethodSignatures: [...activatedMethodSignatures].sort(),
+        sourceSeedAudit,
+        sourceRuleZeroHitAudit: buildSourceRuleZeroHitAudit(
+            args.scene,
+            orderedSourceRules,
+            sourceRuleHits,
+            args.allowedMethodSignatures,
+        ),
     };
+}
+
+function buildSourceRuleZeroHitAudit(
+    scene: Scene,
+    sourceRules: SourceRule[],
+    sourceRuleHits: Map<string, number>,
+    allowedMethodSignatures?: Set<string>,
+): SourceRuleZeroHitAuditEntry[] {
+    const out: SourceRuleZeroHitAuditEntry[] = [];
+    for (const rule of sourceRules) {
+        const ruleId = typeof rule?.id === "string" ? rule.id.trim() : "";
+        if (!ruleId || rule.enabled === false) continue;
+        if ((sourceRuleHits.get(ruleId) || 0) > 0) continue;
+        const kind = resolveSourceRuleKind(rule);
+        if (!isCallLikeSourceKind(kind)) {
+            out.push({
+                ruleId,
+                sourceKind: kind,
+                reason: "source_rule_non_call_zero_hit",
+                allowedMethodFilterActive: !!allowedMethodSignatures,
+                matchedCallsiteCount: 0,
+                matchedAllowedCallsiteCount: 0,
+                matchedExcludedCallsiteCount: 0,
+                sampleCallsites: [],
+            });
+            continue;
+        }
+        const samples: SourceRuleZeroHitCallsiteSample[] = [];
+        let matchedCallsiteCount = 0;
+        let matchedAllowedCallsiteCount = 0;
+        let matchedExcludedCallsiteCount = 0;
+        for (const method of scene.getMethods()) {
+            if (!matchesScope(method, rule.scope)) continue;
+            const cfg = method.getCfg?.();
+            if (!cfg) continue;
+            const methodSignature = method.getSignature().toString();
+            const allowed = !allowedMethodSignatures || allowedMethodSignatures.has(methodSignature);
+            for (const stmt of cfg.getStmts()) {
+                if (!stmt.containsInvokeExpr || !stmt.containsInvokeExpr()) continue;
+                const invokeExpr = stmt.getInvokeExpr();
+                if (!invokeExpr) continue;
+                const calleeSignature = invokeExpr.getMethodSignature?.().toString?.() || "";
+                const calleeName = resolveInvokeMethodName(invokeExpr, calleeSignature);
+                if (!matchesSourceCallRule(rule, calleeSignature, calleeName, invokeExpr, method)) continue;
+                matchedCallsiteCount += 1;
+                if (allowed) {
+                    matchedAllowedCallsiteCount += 1;
+                } else {
+                    matchedExcludedCallsiteCount += 1;
+                }
+                if (samples.length < 5) {
+                    samples.push({
+                        methodSignature,
+                        calleeSignature,
+                        stmtText: stmt.toString?.() || "",
+                        line: stmt.getOriginPositionInfo?.()?.getLineNo?.() ?? -1,
+                        allowed,
+                    });
+                }
+            }
+        }
+        const reason: SourceRuleZeroHitReason = matchedCallsiteCount === 0
+            ? "source_rule_no_matching_callsite"
+            : matchedAllowedCallsiteCount === 0
+                ? "source_rule_callsite_outside_allowed_methods"
+                : "source_rule_matching_callsite_no_seed_fact";
+        out.push({
+            ruleId,
+            sourceKind: kind,
+            reason,
+            allowedMethodFilterActive: !!allowedMethodSignatures,
+            matchedCallsiteCount,
+            matchedAllowedCallsiteCount,
+            matchedExcludedCallsiteCount,
+            sampleCallsites: samples,
+        });
+    }
+    return out;
+}
+
+function isCallLikeSourceKind(kind: SourceRuleKind): boolean {
+    return kind === "call_return"
+        || kind === "call_arg"
+        || kind === "callback_param"
+        || kind === "bound_state";
+}
+
+function sourceTagForOccurrence(ruleId: string, occurrenceKey: string, label: string): string {
+    const normalizedLabel = String(label || "site")
+        .replace(/[^A-Za-z0-9_.:-]+/g, "_")
+        .replace(/^_+|_+$/g, "")
+        .slice(0, 80) || "site";
+    return `source_rule:${ruleId}#occ=${normalizedLabel}:${stableSourceOccurrenceHash(occurrenceKey)}`;
+}
+
+function resolveStmtSite(method: ArkMethod, stmt: unknown): { key: string; label: string } {
+    const line = (stmt as any)?.getOriginPositionInfo?.()?.getLineNo?.() ?? -1;
+    if (Number.isFinite(line) && line >= 0) {
+        return { key: `line:${line}`, label: `line${line}` };
+    }
+
+    const stmts = method.getCfg?.()?.getStmts?.() || [];
+    const index = stmts.indexOf(stmt as any);
+    const safeIndex = index >= 0 ? index : -1;
+    const text = String((stmt as any)?.toString?.() || "");
+    const hash = stableSourceOccurrenceHash(`${method.getSignature().toString()}|${safeIndex}|${text}`);
+    return {
+        key: `stmt:${safeIndex}:${hash}`,
+        label: `stmt${safeIndex}`,
+    };
+}
+
+function stableSourceOccurrenceHash(text: string): string {
+    let hash = 2166136261;
+    for (let i = 0; i < text.length; i++) {
+        hash ^= text.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0).toString(36);
 }
 
 function resolveSourceScopeMethods(
@@ -445,11 +667,12 @@ function defaultEndpointForSourceKind(kind: SourceRuleKind): RuleEndpoint | unde
 function resolveSourceRuleTarget(
     rule: SourceRule,
     kind: SourceRuleKind
-): { endpoint?: RuleEndpoint; path?: string[] } {
+): { endpoint?: RuleEndpoint; path?: string[]; semanticEndpointKind?: RuleEndpointRef["semanticEndpointKind"] } {
     const norm = normalizeEndpoint(rule.target);
     return {
         endpoint: norm.endpoint ?? defaultEndpointForSourceKind(kind),
         path: norm.path,
+        semanticEndpointKind: norm.semanticEndpointKind,
     };
 }
 
@@ -629,6 +852,7 @@ function matchesInvokeCalleeScope(
     const classText = classSig?.getClassName?.() || classSig?.toString?.() || "";
     const fileText = classSig?.getDeclaringFileSignature?.()?.toString?.() || extractFilePathFromSignature(calleeSignature);
     const moduleText = calleeSignature || fileText;
+    if (scope.methodDecorators && scope.methodDecorators.length > 0) return false;
     if (!matchStringConstraint(scope.methodName, calleeName)) return false;
 
     const fallback = resolveSdkImportScopeCandidates(sourceMethod, invokeExpr);
@@ -699,6 +923,7 @@ function matchesFieldReadCalleeScope(
     const fileText = declaringSig?.getDeclaringFileSignature?.()?.toString?.() || extractFilePathFromSignature(fieldSignature);
     const classText = (declaringSig as any)?.getClassName?.() || declaringSig?.toString?.() || "";
     const moduleText = fieldSignature || fileText;
+    if (scope.methodDecorators && scope.methodDecorators.length > 0) return false;
     if (!matchStringConstraint(scope.methodName, fieldName)) return false;
 
     const syntheticInvoke = {
@@ -729,6 +954,10 @@ function matchesInvokeShape(
         if (args.length !== rule.match.argCount) return false;
     }
 
+    if (!matchesLiteralArgConstraints(rule, invokeExpr)) {
+        return false;
+    }
+
     const typeHint = rule.match.typeHint;
     if (typeHint && typeHint.trim().length > 0) {
         const hint = typeHint.trim().toLowerCase();
@@ -742,6 +971,40 @@ function matchesInvokeShape(
     }
 
     return true;
+}
+
+function matchesLiteralArgConstraints(rule: SourceRule, invokeExpr: any): boolean {
+    const constraints = rule.match.literalArgs;
+    if (!Array.isArray(constraints) || constraints.length === 0) return true;
+    const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
+    for (const constraint of constraints) {
+        if (!constraint || !Number.isInteger(constraint.index) || constraint.index < 0) {
+            return false;
+        }
+        const arg = args[constraint.index];
+        if (arg === undefined) return false;
+        const actual = normalizeLiteralArgText(arg);
+        const allowed = Array.isArray(constraint.values)
+            ? constraint.values.map(value => normalizeLiteralArgText(value))
+            : [];
+        if (allowed.length === 0 || !allowed.includes(actual)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function normalizeLiteralArgText(value: unknown): string {
+    let text = String((value as any)?.getValue?.() ?? (value as any)?.getText?.() ?? (value as any)?.toString?.() ?? value ?? "");
+    text = text.trim();
+    if (
+        (text.startsWith("\"") && text.endsWith("\""))
+        || (text.startsWith("'") && text.endsWith("'"))
+        || (text.startsWith("`") && text.endsWith("`"))
+    ) {
+        text = text.slice(1, -1);
+    }
+    return text;
 }
 
 function matchesTypeHint(haystack: string, hint: string): boolean {
@@ -762,8 +1025,18 @@ function collectReceiverTypeHintTrace(sourceMethod: ArkMethod | undefined, invok
     if (!sourceMethod || !(invokeExpr instanceof ArkInstanceInvokeExpr)) return [];
     const base = invokeExpr.getBase?.();
     if (!(base instanceof Local)) return [];
+    const localKey = base.toString?.() || base.getName?.() || "";
+    if (!localKey) return [];
+    let methodCache = RECEIVER_TYPE_HINT_TRACE_CACHE.get(sourceMethod);
+    if (!methodCache) {
+        methodCache = new Map<string, string[]>();
+        RECEIVER_TYPE_HINT_TRACE_CACHE.set(sourceMethod, methodCache);
+    }
+    const cached = methodCache.get(localKey);
+    if (cached) return cached;
     const out: string[] = [];
     collectLocalProducerTrace(sourceMethod, base, out, new Set<string>(), 16);
+    methodCache.set(localKey, out);
     return out;
 }
 
@@ -910,6 +1183,12 @@ function normalizeCallbackFieldNames(rule: SourceRule): string[] | undefined {
         if (text) out.add(text);
     }
     return out.size > 0 ? [...out.values()].sort((a, b) => a.localeCompare(b)) : undefined;
+}
+
+function shouldPreferKnownOptionCallbackRegistrations(rule: SourceRule, registrations: any[]): boolean {
+    return rule.callbackResolution === "known_option"
+        && Array.isArray(registrations)
+        && registrations.length > 0;
 }
 
 function resolveKnownOptionCallbackRegistrationsForSourceRule(
@@ -1282,6 +1561,40 @@ function seedLocalAliasFactsInMethod(
     return out;
 }
 
+function seedFactsFromNodeIds(
+    pag: Pag,
+    nodeIds: number[],
+    sourceTag: string,
+    contextId: number,
+    targetPath?: string[],
+): TaintFact[] {
+    const out: TaintFact[] = [];
+    const seen = new Set<string>();
+    const add = (fact: TaintFact): void => {
+        if (seen.has(fact.id)) return;
+        seen.add(fact.id);
+        out.push(fact);
+    };
+    for (const nodeId of nodeIds) {
+        const rootNode: any = pag.getNode(nodeId);
+        if (!rootNode) continue;
+        if (targetPath && targetPath.length > 0) {
+            let hasPointTo = false;
+            for (const objId of rootNode.getPointTo?.() || []) {
+                hasPointTo = true;
+                const objNode: any = pag.getNode(objId);
+                if (objNode) add(new TaintFact(objNode, sourceTag, contextId, [...targetPath]));
+            }
+            if (!hasPointTo) {
+                add(new TaintFact(rootNode, sourceTag, contextId, [...targetPath]));
+            }
+            continue;
+        }
+        add(new TaintFact(rootNode, sourceTag, contextId));
+    }
+    return out;
+}
+
 function resolveCallbackMethodsFromRuleArg(
     scene: Scene,
     callbackArg: any,
@@ -1492,8 +1805,42 @@ function matchesScope(method: ArkMethod, scope?: RuleScopeConstraint): boolean {
     if (!matchStringConstraint(scope.file, filePath)) return false;
     if (!matchStringConstraint(scope.module, moduleText)) return false;
     if (!matchStringConstraint(scope.className, classText)) return false;
-    if (!matchStringConstraint(scope.methodName, method.getName())) return false;
+    if (!matchesMethodNameOrDecoratorScope(method, scope)) return false;
     return true;
+}
+
+function matchesMethodNameOrDecoratorScope(method: ArkMethod, scope: RuleScopeConstraint): boolean {
+    const hasMethodNameScope = !!scope.methodName;
+    const hasDecoratorScope = Array.isArray(scope.methodDecorators) && scope.methodDecorators.length > 0;
+    const methodNameMatches = hasMethodNameScope
+        ? matchStringConstraint(scope.methodName, method.getName())
+        : true;
+    if (methodNameMatches && !hasDecoratorScope) return true;
+    if (methodNameMatches && hasMethodNameScope) return true;
+    if (!hasDecoratorScope) return methodNameMatches;
+    return methodHasAnyMatchingDecorator(method, scope.methodDecorators || []);
+}
+
+function methodHasAnyMatchingDecorator(method: ArkMethod, constraints: RuleStringConstraint[]): boolean {
+    const decoratorKinds = (method.getDecorators?.() || [])
+        .map((decorator: any) => normalizeDecoratorKind(decorator?.getKind?.()))
+        .filter((kind: string | undefined): kind is string => !!kind);
+    if (decoratorKinds.length === 0) return false;
+    for (const constraint of constraints) {
+        if (decoratorKinds.some(kind => matchStringConstraint(constraint, kind))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function normalizeDecoratorKind(raw: string | undefined): string | undefined {
+    if (!raw) return undefined;
+    const normalized = raw.replace(/^@/, "").trim();
+    if (!normalized) return undefined;
+    return normalized.endsWith("()")
+        ? normalized.slice(0, normalized.length - 2)
+        : normalized;
 }
 
 function extractFilePathFromSignature(signature: string): string {

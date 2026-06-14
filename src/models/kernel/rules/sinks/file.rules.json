@@ -4,118 +4,105 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.sink.harmony.fs.write.arg1",
+      "surfaceId": "surface.sink.harmony.fs.write.arg1.exact.write.className.File",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "fs.File.FileIo.FileOutput.FileAccess.FileOperator",
+      "modulePath": "request",
+      "ownerName": "File",
       "methodName": "write",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 2
     },
     {
-      "surfaceId": "surface.sink.harmony.fs.open.arg0",
+      "surfaceId": "surface.sink.harmony.fs.open.arg0.exact.open.className.File",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "fs.File.FileIo.FileInput.FileAccess.FileOperator",
+      "modulePath": "request",
+      "ownerName": "File",
       "methodName": "open",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 1
     },
     {
-      "surfaceId": "surface.sink.harmony.fs.rename.arg0",
+      "surfaceId": "surface.sink.harmony.fs.rename.arg0.exact.rename.className.File",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "fs.File.FileIo.FileInput.FileAccess.FileOperator",
+      "modulePath": "request",
+      "ownerName": "File",
       "methodName": "rename",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 1
     },
     {
-      "surfaceId": "surface.sink.harmony.fs.rename.arg1",
+      "surfaceId": "surface.sink.harmony.fs.rename.arg1.exact.rename.className.File",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "fs.File.FileIo.FileInput.FileAccess.FileOperator",
+      "modulePath": "request",
+      "ownerName": "File",
       "methodName": "rename",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 2
     },
     {
-      "surfaceId": "surface.sink.harmony.fs.unlink.arg0",
+      "surfaceId": "surface.sink.harmony.fs.unlink.arg0.exact.unlink.className.File",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "fs.File.FileIo.FileInput.FileAccess.FileOperator",
+      "modulePath": "request",
+      "ownerName": "File",
       "methodName": "unlink",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 1
+    },
+    {
+      "surfaceId": "surface.sink.harmony.filePicker.PhotoViewPicker.save.arg0.arg0.argCount2.exact.save.className.PhotoViewPicker",
+      "kind": "invoke",
+      "modulePath": "@ohos.file.picker",
+      "ownerName": "PhotoViewPicker",
+      "methodName": "save",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
       "provenance": {
         "source": "manual"
       }
     },
     {
-      "surfaceId": "surface.sink.harmony.fs.writeSync",
+      "surfaceId": "surface.sink.harmony.filePicker.DocumentViewPicker.save.arg0.arg0.argCount2.exact.save.className.DocumentViewPicker",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "fs.fileio.FileIo",
-      "methodName": "writeSync",
+      "modulePath": "@ohos.file.picker",
+      "ownerName": "DocumentViewPicker",
+      "methodName": "save",
       "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "argCount": 2,
+      "confidence": "certain",
       "provenance": {
         "source": "manual"
       }
     },
     {
-      "surfaceId": "surface.sink.harmony.fs.copyFile",
+      "surfaceId": "surface.sink.harmony.filePicker.AudioViewPicker.save.arg0.arg0.argCount2.exact.save.className.AudioViewPicker",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "fs.fileio.FileIo",
-      "methodName": "copyFile",
+      "modulePath": "@ohos.file.picker",
+      "ownerName": "AudioViewPicker",
+      "methodName": "save",
       "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.fs.copyFileSync",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "fs.fileio.FileIo",
-      "methodName": "copyFileSync",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.fs.moveFile",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "fs.fileio.FileIo",
-      "methodName": "moveFile",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "argCount": 2,
+      "confidence": "certain",
       "provenance": {
         "source": "manual"
       }
@@ -123,18 +110,20 @@
   ],
   "bindings": [
     {
-      "bindingId": "binding.sink.harmony.fs.write.arg1.0",
-      "surfaceId": "surface.sink.harmony.fs.write.arg1",
+      "bindingId": "binding.sink.harmony.fs.write.arg1.0.exact.write.className.File",
+      "surfaceId": "surface.sink.harmony.fs.write.arg1.exact.write.className.File",
       "assetId": "asset.rule.kernel.sinks.file",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
         "value": "write",
-        "scope": {
+        "invokeKind": "instance",
+        "typeHint": "File",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(fs|File|FileIo|FileOutput|FileAccess|FileOperator)"
+            "mode": "equals",
+            "value": "File"
           }
         }
       },
@@ -145,7 +134,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.fs.write.arg1"
+        "template.sink.harmony.fs.write.arg1.for.sink.harmony.fs.write.arg1.0.exact.write.class.File"
       ],
       "semanticsFamily": "file_operation_injection",
       "metadata": {
@@ -157,18 +146,20 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.fs.open.arg0.0",
-      "surfaceId": "surface.sink.harmony.fs.open.arg0",
+      "bindingId": "binding.sink.harmony.fs.open.arg0.0.exact.open.className.File",
+      "surfaceId": "surface.sink.harmony.fs.open.arg0.exact.open.className.File",
       "assetId": "asset.rule.kernel.sinks.file",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
         "value": "open",
-        "scope": {
+        "invokeKind": "instance",
+        "typeHint": "File",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
+            "mode": "equals",
+            "value": "File"
           }
         }
       },
@@ -179,7 +170,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.fs.open.arg0"
+        "template.sink.harmony.fs.open.arg0.for.sink.harmony.fs.open.arg0.0.exact.open.class.File"
       ],
       "semanticsFamily": "file_operation_injection",
       "metadata": {
@@ -191,18 +182,20 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.fs.rename.arg0.0",
-      "surfaceId": "surface.sink.harmony.fs.rename.arg0",
+      "bindingId": "binding.sink.harmony.fs.rename.arg0.0.exact.rename.className.File",
+      "surfaceId": "surface.sink.harmony.fs.rename.arg0.exact.rename.className.File",
       "assetId": "asset.rule.kernel.sinks.file",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
         "value": "rename",
-        "scope": {
+        "invokeKind": "instance",
+        "typeHint": "File",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
+            "mode": "equals",
+            "value": "File"
           }
         }
       },
@@ -213,7 +206,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.fs.rename.arg0"
+        "template.sink.harmony.fs.rename.arg0.for.sink.harmony.fs.rename.arg0.0.exact.rename.class.File"
       ],
       "semanticsFamily": "file_operation_injection",
       "metadata": {
@@ -225,18 +218,20 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.fs.rename.arg1.0",
-      "surfaceId": "surface.sink.harmony.fs.rename.arg1",
+      "bindingId": "binding.sink.harmony.fs.rename.arg1.0.exact.rename.className.File",
+      "surfaceId": "surface.sink.harmony.fs.rename.arg1.exact.rename.className.File",
       "assetId": "asset.rule.kernel.sinks.file",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
         "value": "rename",
-        "scope": {
+        "invokeKind": "instance",
+        "typeHint": "File",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
+            "mode": "equals",
+            "value": "File"
           }
         }
       },
@@ -247,7 +242,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.fs.rename.arg1"
+        "template.sink.harmony.fs.rename.arg1.for.sink.harmony.fs.rename.arg1.0.exact.rename.class.File"
       ],
       "semanticsFamily": "file_operation_injection",
       "metadata": {
@@ -259,18 +254,20 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.fs.unlink.arg0.0",
-      "surfaceId": "surface.sink.harmony.fs.unlink.arg0",
+      "bindingId": "binding.sink.harmony.fs.unlink.arg0.0.exact.unlink.className.File",
+      "surfaceId": "surface.sink.harmony.fs.unlink.arg0.exact.unlink.className.File",
       "assetId": "asset.rule.kernel.sinks.file",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
         "value": "unlink",
-        "scope": {
+        "invokeKind": "instance",
+        "typeHint": "File",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(fs|File|FileIo|FileInput|FileAccess|FileOperator)"
+            "mode": "equals",
+            "value": "File"
           }
         }
       },
@@ -281,7 +278,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.fs.unlink.arg0"
+        "template.sink.harmony.fs.unlink.arg0.for.sink.harmony.fs.unlink.arg0.0.exact.unlink.class.File"
       ],
       "semanticsFamily": "file_operation_injection",
       "metadata": {
@@ -293,173 +290,138 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.fs.writeSync.0",
-      "surfaceId": "surface.sink.harmony.fs.writeSync",
+      "bindingId": "binding.sink.harmony.filePicker.PhotoViewPicker.save.arg0",
+      "surfaceId": "surface.sink.harmony.filePicker.PhotoViewPicker.save.arg0.arg0.argCount2.exact.save.className.PhotoViewPicker",
       "assetId": "asset.rule.kernel.sinks.file",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
-        "value": "writeSync",
+        "value": "save",
         "invokeKind": "instance",
-        "scope": {
+        "argCount": 2,
+        "typeHint": "PhotoViewPicker",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(fs|fileio|FileIo)"
+            "mode": "equals",
+            "value": "PhotoViewPicker"
           }
         }
       },
       "endpoint": {
         "base": {
           "kind": "arg",
-          "index": 1
+          "index": 0
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.fs.writeSync"
+        "template.sink.harmony.filePicker.PhotoViewPicker.save.arg0"
       ],
       "semanticsFamily": "file_operation_injection",
       "metadata": {
-        "description": "File sync write (complement async write)",
+        "enabled": true,
+        "description": "PhotoViewPicker.save(option, callback) consumes tainted save options at the file picker boundary.",
         "tags": [
           "harmony",
-          "phase7118",
-          "file",
-          "P1"
+          "file_operation_injection",
+          "official"
         ],
         "category": "file_operation_injection",
         "severity": "medium"
       },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain"
     },
     {
-      "bindingId": "binding.sink.harmony.fs.copyFile.0",
-      "surfaceId": "surface.sink.harmony.fs.copyFile",
+      "bindingId": "binding.sink.harmony.filePicker.DocumentViewPicker.save.arg0",
+      "surfaceId": "surface.sink.harmony.filePicker.DocumentViewPicker.save.arg0.arg0.argCount2.exact.save.className.DocumentViewPicker",
       "assetId": "asset.rule.kernel.sinks.file",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
-        "value": "copyFile",
+        "value": "save",
         "invokeKind": "instance",
-        "scope": {
+        "argCount": 2,
+        "typeHint": "DocumentViewPicker",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(fs|fileio|FileIo)"
+            "mode": "equals",
+            "value": "DocumentViewPicker"
           }
         }
       },
       "endpoint": {
         "base": {
           "kind": "arg",
-          "index": 1
+          "index": 0
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.fs.copyFile"
+        "template.sink.harmony.filePicker.DocumentViewPicker.save.arg0"
       ],
       "semanticsFamily": "file_operation_injection",
       "metadata": {
-        "description": "File copy path injection",
+        "enabled": true,
+        "description": "DocumentViewPicker.save(option, callback) consumes tainted save options at the file picker boundary.",
         "tags": [
           "harmony",
-          "phase7118",
-          "file",
-          "P2"
+          "file_operation_injection",
+          "official"
         ],
         "category": "file_operation_injection",
-        "severity": "low"
+        "severity": "medium"
       },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain"
     },
     {
-      "bindingId": "binding.sink.harmony.fs.copyFileSync.0",
-      "surfaceId": "surface.sink.harmony.fs.copyFileSync",
+      "bindingId": "binding.sink.harmony.filePicker.AudioViewPicker.save.arg0",
+      "surfaceId": "surface.sink.harmony.filePicker.AudioViewPicker.save.arg0.arg0.argCount2.exact.save.className.AudioViewPicker",
       "assetId": "asset.rule.kernel.sinks.file",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
-        "value": "copyFileSync",
+        "value": "save",
         "invokeKind": "instance",
-        "scope": {
+        "argCount": 2,
+        "typeHint": "AudioViewPicker",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(fs|fileio|FileIo)"
+            "mode": "equals",
+            "value": "AudioViewPicker"
           }
         }
       },
       "endpoint": {
         "base": {
           "kind": "arg",
-          "index": 1
+          "index": 0
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.fs.copyFileSync"
+        "template.sink.harmony.filePicker.AudioViewPicker.save.arg0"
       ],
       "semanticsFamily": "file_operation_injection",
       "metadata": {
-        "description": "File sync copy path injection",
+        "enabled": true,
+        "description": "AudioViewPicker.save(option, callback) consumes tainted save options at the file picker boundary.",
         "tags": [
           "harmony",
-          "phase7118",
-          "file",
-          "P2"
+          "file_operation_injection",
+          "official"
         ],
         "category": "file_operation_injection",
-        "severity": "low"
+        "severity": "medium"
       },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.sink.harmony.fs.moveFile.0",
-      "surfaceId": "surface.sink.harmony.fs.moveFile",
-      "assetId": "asset.rule.kernel.sinks.file",
-      "plane": "rule",
-      "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "moveFile",
-        "invokeKind": "instance",
-        "scope": {
-          "className": {
-            "mode": "regex",
-            "value": "(fs|fileio|FileIo)"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 1
-        }
-      },
-      "effectTemplateRefs": [
-        "template.sink.harmony.fs.moveFile"
-      ],
-      "semanticsFamily": "file_operation_injection",
-      "metadata": {
-        "description": "File move path injection",
-        "tags": [
-          "harmony",
-          "phase7118",
-          "file",
-          "P2"
-        ],
-        "category": "file_operation_injection",
-        "severity": "low"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain"
     }
   ],
   "effectTemplates": [
     {
-      "id": "template.sink.harmony.fs.write.arg1",
+      "id": "template.sink.harmony.fs.write.arg1.for.sink.harmony.fs.write.arg1.0.exact.write.class.File",
       "confidence": "certain",
       "kind": "rule.sink",
       "value": {
@@ -471,7 +433,7 @@
       "sinkKind": "file_operation_injection"
     },
     {
-      "id": "template.sink.harmony.fs.open.arg0",
+      "id": "template.sink.harmony.fs.open.arg0.for.sink.harmony.fs.open.arg0.0.exact.open.class.File",
       "confidence": "certain",
       "kind": "rule.sink",
       "value": {
@@ -483,7 +445,7 @@
       "sinkKind": "file_operation_injection"
     },
     {
-      "id": "template.sink.harmony.fs.rename.arg0",
+      "id": "template.sink.harmony.fs.rename.arg0.for.sink.harmony.fs.rename.arg0.0.exact.rename.class.File",
       "confidence": "certain",
       "kind": "rule.sink",
       "value": {
@@ -495,7 +457,7 @@
       "sinkKind": "file_operation_injection"
     },
     {
-      "id": "template.sink.harmony.fs.rename.arg1",
+      "id": "template.sink.harmony.fs.rename.arg1.for.sink.harmony.fs.rename.arg1.0.exact.rename.class.File",
       "confidence": "certain",
       "kind": "rule.sink",
       "value": {
@@ -507,7 +469,7 @@
       "sinkKind": "file_operation_injection"
     },
     {
-      "id": "template.sink.harmony.fs.unlink.arg0",
+      "id": "template.sink.harmony.fs.unlink.arg0.for.sink.harmony.fs.unlink.arg0.0.exact.unlink.class.File",
       "confidence": "certain",
       "kind": "rule.sink",
       "value": {
@@ -519,49 +481,37 @@
       "sinkKind": "file_operation_injection"
     },
     {
-      "id": "template.sink.harmony.fs.writeSync",
+      "id": "template.sink.harmony.filePicker.PhotoViewPicker.save.arg0",
       "confidence": "certain",
       "kind": "rule.sink",
       "value": {
         "base": {
           "kind": "arg",
-          "index": 1
+          "index": 0
         }
       },
       "sinkKind": "file_operation_injection"
     },
     {
-      "id": "template.sink.harmony.fs.copyFile",
+      "id": "template.sink.harmony.filePicker.DocumentViewPicker.save.arg0",
       "confidence": "certain",
       "kind": "rule.sink",
       "value": {
         "base": {
           "kind": "arg",
-          "index": 1
+          "index": 0
         }
       },
       "sinkKind": "file_operation_injection"
     },
     {
-      "id": "template.sink.harmony.fs.copyFileSync",
+      "id": "template.sink.harmony.filePicker.AudioViewPicker.save.arg0",
       "confidence": "certain",
       "kind": "rule.sink",
       "value": {
         "base": {
           "kind": "arg",
-          "index": 1
-        }
-      },
-      "sinkKind": "file_operation_injection"
-    },
-    {
-      "id": "template.sink.harmony.fs.moveFile",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 1
+          "index": 0
         }
       },
       "sinkKind": "file_operation_injection"

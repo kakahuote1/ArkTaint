@@ -10,6 +10,7 @@ export interface AnalyzeOutputLayout {
     feedbackDir: string;
     ruleFeedbackDir: string;
     auditDir: string;
+    traceGraphDir: string;
     debugDir: string;
     runJsonPath: string;
     summaryJsonPath: string;
@@ -17,6 +18,8 @@ export interface AnalyzeOutputLayout {
     diagnosticsJsonPath: string;
     diagnosticsTextPath: string;
     pluginAuditJsonPath: string;
+    traceGraphJsonPath: string;
+    traceGraphMarkdownPath: string;
 }
 
 function toRelative(rootDir: string, targetPath: string): string {
@@ -31,6 +34,7 @@ export function resolveAnalyzeOutputLayout(outputDir: string): AnalyzeOutputLayo
     const feedbackDir = path.resolve(rootDir, "feedback");
     const ruleFeedbackDir = path.resolve(feedbackDir, "rule_feedback");
     const auditDir = path.resolve(rootDir, "audit");
+    const traceGraphDir = path.resolve(auditDir, "trace_graph");
     const debugDir = path.resolve(rootDir, "debug");
     return {
         rootDir,
@@ -40,6 +44,7 @@ export function resolveAnalyzeOutputLayout(outputDir: string): AnalyzeOutputLayo
         feedbackDir,
         ruleFeedbackDir,
         auditDir,
+        traceGraphDir,
         debugDir,
         runJsonPath: path.resolve(rootDir, "run.json"),
         summaryJsonPath: path.resolve(summaryDir, "summary.json"),
@@ -47,6 +52,8 @@ export function resolveAnalyzeOutputLayout(outputDir: string): AnalyzeOutputLayo
         diagnosticsJsonPath: path.resolve(diagnosticsDir, "diagnostics.json"),
         diagnosticsTextPath: path.resolve(diagnosticsDir, "diagnostics.txt"),
         pluginAuditJsonPath: path.resolve(auditDir, "plugin_audit.json"),
+        traceGraphJsonPath: path.resolve(traceGraphDir, "full_trace_graph.json"),
+        traceGraphMarkdownPath: path.resolve(traceGraphDir, "full_trace_graph.md"),
     };
 }
 
@@ -58,6 +65,7 @@ export function ensureAnalyzeOutputLayout(layout: AnalyzeOutputLayout): void {
     fs.mkdirSync(layout.feedbackDir, { recursive: true });
     fs.mkdirSync(layout.ruleFeedbackDir, { recursive: true });
     fs.mkdirSync(layout.auditDir, { recursive: true });
+    fs.mkdirSync(layout.traceGraphDir, { recursive: true });
     fs.mkdirSync(layout.debugDir, { recursive: true });
 }
 
@@ -66,6 +74,7 @@ export function writeAnalyzeRunManifest(
     report: AnalyzeReport,
     options: {
         pluginAuditEnabled: boolean;
+        traceGraphEnabled?: boolean;
     },
 ): void {
     const payload = {
@@ -84,6 +93,12 @@ export function writeAnalyzeRunManifest(
             ruleFeedbackDir: toRelative(layout.rootDir, layout.ruleFeedbackDir),
             pluginAuditJson: options.pluginAuditEnabled
                 ? toRelative(layout.rootDir, layout.pluginAuditJsonPath)
+                : undefined,
+            traceGraphJson: options.traceGraphEnabled
+                ? toRelative(layout.rootDir, layout.traceGraphJsonPath)
+                : undefined,
+            traceGraphMd: options.traceGraphEnabled
+                ? toRelative(layout.rootDir, layout.traceGraphMarkdownPath)
                 : undefined,
         },
     };

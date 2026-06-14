@@ -12,6 +12,8 @@ import {
     serializeSemanticFlowSession,
 } from "../core/semanticflow/SemanticFlowSerialize";
 import { publishSemanticFlowProjectAssets } from "../core/semanticflow/SemanticFlowProjectAssets";
+import type { PublishSemanticFlowProjectAssetsResult } from "../core/semanticflow/SemanticFlowProjectAssets";
+import type { AssetDocumentBase } from "../core/assets/schema";
 import { createSemanticFlowModelInvokerFromConfig } from "./semanticflowLlmClient";
 import { resolveLlmProfile } from "./llmConfig";
 import { runAnalyze } from "./analyzeRunner";
@@ -19,7 +21,17 @@ import type { AnalyzeEntryModel, AnalyzeProfile, CliOptions, ReportMode } from "
 import type { SemanticFlowProgressEvent } from "../core/semanticflow/SemanticFlowPipeline";
 import { filterKnownSemanticFlowRuleCandidates } from "./semanticflowKnownRuleCandidates";
 import { normalizeSemanticFlowSessionCacheMode, SemanticFlowSessionCache } from "../core/semanticflow/SemanticFlowSessionCache";
+import {
+    normalizeSemanticFlowRuleInputCandidatesWithTrace,
+    type SemanticFlowRuleInputNormalizationTrace,
+} from "../core/semanticflow/SemanticFlowRuleInputCandidates";
 import { discoverArkTsSourceDirs, normalizeSourceDirsForCli } from "./sourceDiscovery";
+import {
+    appendTraceGraphFragments,
+    TraceGraph,
+    writeTraceGraphArtifacts,
+} from "../core/trace/TraceGraph";
+import { buildSemanticFlowTraceGraph } from "../core/trace/SemanticFlowTraceGraph";
 
 declare const require: any;
 declare const module: any;
@@ -67,8 +79,12 @@ export interface SemanticFlowCliOptions {
     maxLlmItems?: number;
 }
 
+export const DEFAULT_SEMANTICFLOW_MAX_LLM_ITEMS = 12;
+export const DEFAULT_SEMANTICFLOW_LLM_REPAIR_ATTEMPTS = 1;
+
 interface SemanticFlowSessionBundle {
     sourceDir: string;
+    artifactName?: string;
     skippedKnownRuleCandidates: number;
     result: Awaited<ReturnType<typeof runSemanticFlowProject>>;
 }
@@ -79,6 +95,9 @@ interface SemanticFlowSourceRunRecord {
     status: "ok" | "missing" | "exception";
     methods?: number;
     itemCount?: number;
+    ruleCandidateCount?: number;
+    ruleBatchCount?: number;
+    ruleCandidatePackagingTrace?: SemanticFlowRuleInputNormalizationTrace;
     arkMainCandidateCount?: number;
     arkMainIneligibleCount?: number;
     elapsedMs: number;
@@ -88,6 +107,37 @@ interface SemanticFlowSourceRunRecord {
 interface BootstrapAnalyzeResult {
     ruleInputPath: string;
     run?: Awaited<ReturnType<typeof runAnalyze>>;
+}
+
+interface SemanticFlowEvaluationOverlayInfo {
+    applied: boolean;
+    modelRoot?: string;
+    projectId?: string;
+    assetCount: number;
+    assetCountByPlane: Record<string, number>;
+    loadMode?: "semanticflow-evaluation";
+    promoted: false;
+}
+
+interface SemanticFlowProgressRecorder {
+    path: string;
+    write(event: string, detail?: Record<string, unknown>): void;
+}
+
+function createSemanticFlowProgressRecorder(outputDir: string): SemanticFlowProgressRecorder {
+    fs.mkdirSync(outputDir, { recursive: true });
+    const progressPath = path.join(outputDir, "semanticflow_progress.jsonl");
+    fs.writeFileSync(progressPath, "", "utf-8");
+    return {
+        path: progressPath,
+        write(event: string, detail: Record<string, unknown> = {}): void {
+            fs.appendFileSync(progressPath, JSON.stringify({
+                ts: new Date().toISOString(),
+                event,
+                ...detail,
+            }) + "\n", "utf-8");
+        },
+    };
 }
 
 async function withAnalyzeHeartbeat<T>(
@@ -230,8 +280,8 @@ function parseArgs(argv: string[]): SemanticFlowCliOptions {
     let llmConnectTimeoutMs: number | undefined;
     let llmMaxAttempts = 1;
     let llmMaxFailures = 3;
-    let llmRepairAttempts = 0;
-    let maxLlmItems = 12;
+    let llmRepairAttempts = DEFAULT_SEMANTICFLOW_LLM_REPAIR_ATTEMPTS;
+    let maxLlmItems = DEFAULT_SEMANTICFLOW_MAX_LLM_ITEMS;
 
     for (let i = 0; i < argv.length; i++) {
         const repoArg = readValue(argv, i, "--repo");
@@ -302,7 +352,7 @@ function parseArgs(argv: string[]): SemanticFlowCliOptions {
         }
         const arkArg = readValue(argv, i, "--arkMainMaxCandidates");
         if (arkArg !== undefined) {
-            arkMainMaxCandidates = normalizePositiveInt(arkArg, "--arkMainMaxCandidates", 1);
+            arkMainMaxCandidates = normalizeNonNegativeInt(arkArg, "--arkMainMaxCandidates", 0);
             if (argv[i] === "--arkMainMaxCandidates") i++;
             continue;
         }
@@ -587,26 +637,47 @@ function loadRuleCandidates(
 ): {
     items: NormalizedCallsiteItem[];
     skippedKnown: number;
+    packagingTrace: SemanticFlowRuleInputNormalizationTrace;
 } {
     if (!ruleInputPath || !fs.existsSync(ruleInputPath)) {
-        return { items: [], skippedKnown: 0 };
+        return {
+            items: [],
+            skippedKnown: 0,
+            packagingTrace: {
+                rawCount: 0,
+                normalizedCount: 0,
+                returnedValueSiblingCreatedCount: 0,
+                events: [],
+            },
+        };
     }
     const parsed = JSON.parse(fs.readFileSync(ruleInputPath, "utf-8"));
     const items = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.items) ? parsed.items : []);
     if (!Array.isArray(items)) {
-        return { items: [], skippedKnown: 0 };
+        return {
+            items: [],
+            skippedKnown: 0,
+            packagingTrace: {
+                rawCount: 0,
+                normalizedCount: 0,
+                returnedValueSiblingCreatedCount: 0,
+                events: [],
+            },
+        };
     }
     const filterOptions = {
         modelRoots: options.modelRoots,
         enabledModels: options.enabledModels,
         disabledModels: options.disabledModels,
     };
-    const filtered = filterKnownSemanticFlowRuleCandidates(items as NormalizedCallsiteItem[], filterOptions);
-    const rankedForContext = rankSemanticFlowRuleCandidatesForModeling(filtered.candidates);
+    const normalized = normalizeSemanticFlowRuleInputCandidatesWithTrace(items as NormalizedCallsiteItem[]);
+    const normalizedInput = normalized.items;
+    const filtered = filterKnownSemanticFlowRuleCandidates(normalizedInput, filterOptions);
+    const orderedForContext = orderSemanticFlowRuleCandidatesForModeling(filtered.candidates);
     const enriched = enrichNoCandidateItemsWithCallsiteSlices({
         repoRoot: options.repo,
         sourceDirs: options.sourceDirs,
-        items: rankedForContext,
+        items: orderedForContext,
         maxItems: options.maxSliceItems,
         maxExamplesPerItem: options.examplesPerItem,
         contextRadius: options.contextRadius,
@@ -616,6 +687,7 @@ function loadRuleCandidates(
     return {
         items: contextFiltered.candidates,
         skippedKnown: filtered.skippedKnown.length + contextFiltered.skippedKnown.length,
+        packagingTrace: normalized.trace,
     };
 }
 
@@ -668,7 +740,37 @@ export function semanticFlowCandidateBelongsToSourceDir(sourceDir: string, sourc
     if (sourceDir === ".") {
         return true;
     }
-    const sourceFile = String(item.sourceFile || "").replace(/\\/g, "/").replace(/^\/+/g, "");
+    const candidatePaths = semanticFlowCandidateScopePaths(item);
+    if (candidatePaths.length === 0) {
+        return true;
+    }
+    return candidatePaths.some(candidatePath =>
+        semanticFlowPathBelongsToSourceDir(sourceDir, sourceAbs, candidatePath));
+}
+
+function semanticFlowCandidateScopePaths(item: NormalizedCallsiteItem): string[] {
+    const paths: string[] = [];
+    const add = (value: unknown): void => {
+        const normalized = String(value || "").replace(/\\/g, "/").replace(/^\/+/g, "").trim();
+        if (normalized) {
+            paths.push(normalized);
+        }
+    };
+    add(item.sourceFile);
+    const callerFiles = Array.isArray((item as any).callerFiles) ? (item as any).callerFiles : [];
+    for (const callerFile of callerFiles) {
+        add(callerFile);
+    }
+    const contextSlices = Array.isArray((item as any).contextSlices) ? (item as any).contextSlices : [];
+    for (const slice of contextSlices) {
+        add(slice?.callerFile);
+        add(slice?.sourceFile);
+    }
+    return [...new Set(paths)];
+}
+
+function semanticFlowPathBelongsToSourceDir(sourceDir: string, sourceAbs: string, candidatePath: string): boolean {
+    const sourceFile = String(candidatePath || "").replace(/\\/g, "/").replace(/^\/+/g, "");
     if (!sourceFile || sourceFile.includes("%unk") || sourceFile.includes("arkui-builtin")) {
         return true;
     }
@@ -711,14 +813,34 @@ function semanticFlowEtsRelativeSourceDirPrefix(normalizedSourceDir: string): st
     return undefined;
 }
 
-function capRuleCandidatesForSourceDir(
+interface SemanticFlowRuleCandidateBatch {
+    index: number;
+    candidates: NormalizedCallsiteItem[];
+}
+
+interface SemanticFlowRuleCandidateBatchPlan {
+    scoped: NormalizedCallsiteItem[];
+    queue: SemanticFlowModelingQueue;
+    batches: SemanticFlowRuleCandidateBatch[];
+}
+
+function buildRuleCandidateBatchPlanForSourceDir(
     sourceDir: string,
     sourceAbs: string,
     candidates: NormalizedCallsiteItem[],
-    maxItems: number | undefined,
-): NormalizedCallsiteItem[] {
+    batchSize: number | undefined,
+): SemanticFlowRuleCandidateBatchPlan {
     const scoped = scopeRuleCandidatesForSourceDir(sourceDir, sourceAbs, candidates);
-    return selectSemanticFlowRuleCandidatesForModeling(scoped, maxItems);
+    const queue = buildSemanticFlowRuleCandidateModelingQueue(scoped, batchSize);
+    const byBatch = new Map<number, NormalizedCallsiteItem[]>();
+    for (const entry of queue.selected) {
+        const index = entry.batchIndex ?? 0;
+        byBatch.set(index, [...(byBatch.get(index) || []), entry.item]);
+    }
+    const batches = [...byBatch.entries()]
+        .sort(([left], [right]) => left - right)
+        .map(([index, batchCandidates]) => ({ index, candidates: batchCandidates }));
+    return { scoped, queue, batches };
 }
 
 function scopeRuleCandidatesForSourceDir(
@@ -729,80 +851,368 @@ function scopeRuleCandidatesForSourceDir(
     return candidates.filter(item => semanticFlowCandidateBelongsToSourceDir(sourceDir, sourceAbs, item));
 }
 
-export function rankSemanticFlowRuleCandidatesForModeling(candidates: NormalizedCallsiteItem[]): NormalizedCallsiteItem[] {
-    return [...candidates].sort((a, b) => scoreSemanticFlowRuleCandidateForModeling(b) - scoreSemanticFlowRuleCandidateForModeling(a)
-        || (Number(b.count) || 0) - (Number(a.count) || 0)
-        || String(a.callee_signature || "").localeCompare(String(b.callee_signature || "")));
+export type SemanticFlowModelingQueueStatus =
+    | "selected"
+    | "need-more-evidence";
+
+export type SemanticFlowModelingQueueTier =
+    | "external-boundary"
+    | "security-wrapper"
+    | "returned-value-source"
+    | "state-handoff"
+    | "payload-transform"
+    | "callback-payload"
+    | "observed-callsite"
+    | "utility"
+    | "need-more-evidence";
+
+export interface SemanticFlowModelingQueueEntry {
+    item: NormalizedCallsiteItem;
+    tier: SemanticFlowModelingQueueTier;
+    status: SemanticFlowModelingQueueStatus;
+    reasons: string[];
+    originalIndex: number;
+    batchIndex?: number;
+}
+
+export interface SemanticFlowModelingQueue {
+    entries: SemanticFlowModelingQueueEntry[];
+    selected: SemanticFlowModelingQueueEntry[];
+    deferred: SemanticFlowModelingQueueEntry[];
+    needMoreEvidence: SemanticFlowModelingQueueEntry[];
+}
+
+const semanticFlowModelingTierOrder: SemanticFlowModelingQueueTier[] = [
+    "external-boundary",
+    "security-wrapper",
+    "returned-value-source",
+    "state-handoff",
+    "payload-transform",
+    "callback-payload",
+    "observed-callsite",
+    "utility",
+    "need-more-evidence",
+];
+
+const semanticFlowModelingTierRank = new Map(
+    semanticFlowModelingTierOrder.map((tier, index) => [tier, index]),
+);
+
+const SEMANTICFLOW_DATA_ENDPOINT_TOKEN_RE = /\b(payload|body|data|message|msg|content|text|value|values?|params?|query|header|authorization|token|password|passwd|credential|secret|cookie|file|buffer|record|url|uri|server|address|host|endpoint|user|username|key|path|result|response)\b/;
+const SEMANTICFLOW_CALL_SHAPE_RE = /\.\s*[A-Za-z_$][\w$]*\s*\(/;
+
+export function classifySemanticFlowRuleCandidateForModeling(
+    item: NormalizedCallsiteItem,
+): Pick<SemanticFlowModelingQueueEntry, "tier" | "reasons"> {
+    const method = String(item.method || "").toLowerCase();
+    const sig = String(item.callee_signature || "").toLowerCase();
+    const origin = String((item as any).candidateOrigin || "").trim();
+    const semanticFocus = String((item as any).semanticFocus || "").trim();
+    const evidenceText = semanticFlowCandidateModelingText(item).toLowerCase();
+    const hasStableMethod = method.length > 0 && !/%unk|@unk/.test(`${sig} ${method}`);
+    const isApiRecall = isApiModelingRecallOrigin(origin);
+    const isReturnedValue = isReturnedValueSemanticFocus(semanticFocus);
+    const hasOutboundBoundaryEvidence = hasSemanticFlowOutboundBoundaryEvidence(evidenceText);
+    const hasKeyedStateEvidence = hasKeyedStateModelingEvidence(evidenceText);
+    const hasSecuritySurfaceEvidence = hasSecurityRelevantModelingSurface(method, sig, evidenceText);
+    const hasPayloadCallbackEvidence = hasPayloadCallbackModelingEvidence(item, evidenceText);
+    const hasDelegatedWrapperEvidence = hasSemanticFlowDelegatedWrapperEvidence(item, evidenceText);
+    const hasDeclaredOwnerEvidence = hasSemanticFlowDeclaredOwnerEvidence(item);
+    const reasons: string[] = [];
+
+    if (!hasStableMethod && !hasPayloadCallbackEvidence) {
+        return { tier: "need-more-evidence", reasons: ["surface-identity-unresolved"] };
+    }
+
+    if (hasOutboundBoundaryEvidence) {
+        reasons.push("outbound-or-external-boundary-evidence");
+        if (/candidateboundary=project_or_third_party_wrapper_evidence/.test(evidenceText)) {
+            reasons.push("project-or-third-party-wrapper-evidence");
+        }
+        if (hasDeclaredOwnerEvidence) {
+            reasons.push("analyzer-backed-declared-owner-surface");
+        }
+        return { tier: "external-boundary", reasons };
+    }
+
+    if (hasDeclaredOwnerEvidence && (hasSecuritySurfaceEvidence || hasOutboundBoundaryEvidence || isReturnedValue)) {
+        reasons.push("analyzer-backed-declared-owner-surface");
+        reasons.push("payload-or-boundary-structure");
+        return { tier: "external-boundary", reasons };
+    }
+
+    if ((isApiRecall || isReturnedValue || origin === "") && hasSecuritySurfaceEvidence && hasDelegatedWrapperEvidence) {
+        reasons.push("security-relevant-wrapper-evidence");
+        return { tier: "security-wrapper", reasons };
+    }
+
+    if (isReturnedValue && (hasDelegatedWrapperEvidence || hasSecuritySurfaceEvidence || hasKeyedStateEvidence)) {
+        reasons.push("returned-value-source-candidate");
+        return { tier: "returned-value-source", reasons };
+    }
+
+    if (hasKeyedStateEvidence) {
+        reasons.push("state-or-handoff-storage-evidence");
+        return { tier: "state-handoff", reasons };
+    }
+
+    if (isProjectSerializationWrapperCandidate(method, sig, item.argCount)
+        || (SEMANTICFLOW_DATA_ENDPOINT_TOKEN_RE.test(evidenceText) && SEMANTICFLOW_CALL_SHAPE_RE.test(evidenceText))
+        || /^(process|parse|decode|encode|transform|convert|collect|save|insert|update)/.test(method)) {
+        reasons.push("payload-transform-or-persistence-evidence");
+        return { tier: "payload-transform", reasons };
+    }
+
+    if (origin === "recall_callback_surface"
+        && (hasCallbackPropertyModelingSignal(item)
+            || hasPayloadCallbackEvidence
+            || hasResolvedLifecycleCallbackModelingEvidence(item, evidenceText))) {
+        reasons.push(hasResolvedLifecycleCallbackModelingEvidence(item, evidenceText)
+            ? "resolved-lifecycle-callback-owner-evidence"
+            : "callback-payload-evidence");
+        return { tier: "callback-payload", reasons };
+    }
+
+    if (isLikelyContextOrUiSetupCandidate(method, sig)
+        || isNoPayloadMaintenanceCandidate(method, sig, item.argCount)
+        || isInternalNavigationControlCandidate(method, sig)
+        || isUiFeedbackOnlyModelingCandidate(method, sig, item.argCount, hasSecuritySurfaceEvidence)
+        || /pages\/|components\//.test(sig)) {
+        reasons.push("utility-or-ui-helper");
+        return { tier: "utility", reasons };
+    }
+
+    if (origin === "" || origin === "observed_callsite" || origin === "no_candidate") {
+        reasons.push("observed-uncovered-callsite");
+        return { tier: "observed-callsite", reasons };
+    }
+
+    reasons.push("uncovered-candidate-deferred-by-structural-order");
+    return { tier: "utility", reasons };
+}
+
+export function orderSemanticFlowRuleCandidatesForModeling(candidates: NormalizedCallsiteItem[]): NormalizedCallsiteItem[] {
+    return buildOrderedSemanticFlowModelingEntries(candidates).map(entry => entry.item);
+}
+
+function buildOrderedSemanticFlowModelingEntries(candidates: NormalizedCallsiteItem[]): SemanticFlowModelingQueueEntry[] {
+    return candidates
+        .map((item, originalIndex) => {
+            const classified = classifySemanticFlowRuleCandidateForModeling(item);
+            return {
+                item,
+                tier: classified.tier,
+                status: "selected" as SemanticFlowModelingQueueStatus,
+                reasons: classified.reasons,
+                originalIndex,
+            };
+        });
+}
+
+function compareSemanticFlowModelingQueueEntries(
+    left: SemanticFlowModelingQueueEntry,
+    right: SemanticFlowModelingQueueEntry,
+): number {
+    return semanticFlowTierIndex(left.tier) - semanticFlowTierIndex(right.tier)
+        || semanticFlowCandidateTieBreaker(left.item, right.item)
+        || left.originalIndex - right.originalIndex;
+}
+
+function semanticFlowTierIndex(tier: SemanticFlowModelingQueueTier): number {
+    return semanticFlowModelingTierRank.get(tier) ?? semanticFlowModelingTierOrder.length;
+}
+
+function semanticFlowCandidateTieBreaker(left: NormalizedCallsiteItem, right: NormalizedCallsiteItem): number {
+    const leftDeclaredOwner = hasSemanticFlowDeclaredOwnerEvidence(left) ? 0 : 1;
+    const rightDeclaredOwner = hasSemanticFlowDeclaredOwnerEvidence(right) ? 0 : 1;
+    const leftReturned = isReturnedValueSemanticFocus(String((left as any).semanticFocus || "").trim()) ? 0 : 1;
+    const rightReturned = isReturnedValueSemanticFocus(String((right as any).semanticFocus || "").trim()) ? 0 : 1;
+    return leftDeclaredOwner - rightDeclaredOwner
+        || leftReturned - rightReturned
+        || semanticFlowModelingDiversityKey(left).localeCompare(semanticFlowModelingDiversityKey(right))
+        || String(left.callee_signature || "").localeCompare(String(right.callee_signature || ""));
+}
+
+function hasSemanticFlowDeclaredOwnerEvidence(item: NormalizedCallsiteItem): boolean {
+    const topEntries = Array.isArray((item as any).topEntries)
+        ? (item as any).topEntries
+        : [];
+    return topEntries.some((entry: unknown) => String(entry || "").includes("declaredOwnerFromCallsite="));
 }
 
 export function selectSemanticFlowRuleCandidatesForModeling(
     candidates: NormalizedCallsiteItem[],
     maxItems?: number,
 ): NormalizedCallsiteItem[] {
-    const ranked = rankSemanticFlowRuleCandidatesForModeling(candidates);
-    const limit = Math.max(1, maxItems ?? ranked.length);
-    const byGroup = new Map<string, NormalizedCallsiteItem[]>();
-    for (const item of ranked) {
-        const key = semanticFlowModelingPairKey(item);
-        byGroup.set(key, [...(byGroup.get(key) || []), item]);
-    }
+    return buildSemanticFlowRuleCandidateModelingQueue(candidates, maxItems).selected.map(entry => entry.item);
+}
 
-    const selected: NormalizedCallsiteItem[] = [];
-    const selectedKeys = new Set<string>();
-    const groupCounts = new Map<string, number>();
-    const diversityCounts = new Map<string, number>();
-    const returnedValueFocusLimit = Math.max(1, Math.ceil(limit / 2));
-    const maxPerDiversityGroup = limit <= 2 ? 2 : Math.min(2, limit);
-    let forcedFirstPair = false;
-
-    const add = (item: NormalizedCallsiteItem, diversePass: boolean): boolean => {
-        if (selected.length >= limit) {
-            return false;
-        }
-        const itemKey = semanticFlowModelingItemKey(item);
-        if (selectedKeys.has(itemKey)) {
-            return false;
-        }
-        const groupKey = semanticFlowModelingPairKey(item);
-        const groupCount = groupCounts.get(groupKey) || 0;
-        if (groupCount >= 2) {
-            return false;
-        }
-        if (diversePass && !canAddUnderSemanticFlowDiversityBudget(
-            item,
-            diversityCounts,
-            selected,
-            maxPerDiversityGroup,
-            returnedValueFocusLimit,
-        )) {
-            return false;
-        }
-        selected.push(item);
-        selectedKeys.add(itemKey);
-        groupCounts.set(groupKey, groupCount + 1);
-        const diversityKey = semanticFlowModelingDiversityKey(item);
-        diversityCounts.set(diversityKey, (diversityCounts.get(diversityKey) || 0) + 1);
-        return true;
+export function buildSemanticFlowRuleCandidateModelingQueue(
+    candidates: NormalizedCallsiteItem[],
+    maxItems?: number,
+): SemanticFlowModelingQueue {
+    const ordered = buildOrderedSemanticFlowModelingEntries(candidates);
+    const batchSize = Math.max(1, maxItems ?? (ordered.length || 1));
+    let selectedCount = 0;
+    const entries = ordered.map(entry => {
+        const status: SemanticFlowModelingQueueStatus = entry.tier === "need-more-evidence"
+            ? "need-more-evidence"
+            : "selected";
+        const batchIndex = status === "selected"
+            ? Math.floor(selectedCount++ / batchSize)
+            : undefined;
+        return {
+            ...entry,
+            status,
+            batchIndex,
+        };
+    });
+    return {
+        entries,
+        selected: entries.filter(entry => entry.status === "selected"),
+        deferred: [],
+        needMoreEvidence: entries.filter(entry => entry.status === "need-more-evidence"),
     };
+}
 
-    for (const diversePass of [true, false]) {
-        for (let index = 0; index < ranked.length; index++) {
-            const item = ranked[index];
-            if (selected.length >= limit) {
-                break;
-            }
-            if (!add(item, diversePass)) {
-                continue;
-            }
-            const sibling = pairedSemanticFlowModelingCandidate(item, byGroup, selectedKeys);
-            if (sibling && shouldAddPairedSemanticFlowCandidate(sibling, ranked, index + 1, selectedKeys, forcedFirstPair)) {
-                if (add(sibling, diversePass)) {
-                    forcedFirstPair = true;
-                }
-            }
+function addContextLinkedSemanticFlowCandidates(
+    seed: NormalizedCallsiteItem,
+    ordered: SemanticFlowModelingQueueEntry[],
+    selectedKeys: Set<string>,
+    add: (item: NormalizedCallsiteItem, diversePass: boolean) => boolean,
+    depth: number,
+): void {
+    if (depth >= 2) {
+        return;
+    }
+    let added = 0;
+    for (const candidate of findContextLinkedSemanticFlowCandidates(seed, ordered, selectedKeys)) {
+        if (add(candidate, false)) {
+            added++;
+            addContextLinkedSemanticFlowCandidates(candidate, ordered, selectedKeys, add, depth + 1);
+        }
+        if (added >= 2) {
+            break;
         }
     }
-    return selected;
+}
+
+function addKeyedStateCompanionSemanticFlowCandidate(
+    seed: NormalizedCallsiteItem,
+    ordered: SemanticFlowModelingQueueEntry[],
+    selectedKeys: Set<string>,
+    add: (item: NormalizedCallsiteItem, diversePass: boolean) => boolean,
+): void {
+    if (!isKeyedStateReadModelingCandidate(seed)) {
+        return;
+    }
+    const seedGroup = semanticFlowModelingDiversityKey(seed);
+    const companions = ordered
+        .map(entry => entry.item)
+        .filter(candidate =>
+            !selectedKeys.has(semanticFlowModelingItemKey(candidate))
+            && semanticFlowModelingDiversityKey(candidate) === seedGroup
+            && isKeyedStateWriteModelingCandidate(candidate))
+        .sort(compareKeyedStateWriteCompanions);
+    for (const companion of companions) {
+        if (add(companion, false)) {
+            return;
+        }
+    }
+}
+
+function compareKeyedStateWriteCompanions(left: NormalizedCallsiteItem, right: NormalizedCallsiteItem): number {
+    const leftClass = classifySemanticFlowRuleCandidateForModeling(left);
+    const rightClass = classifySemanticFlowRuleCandidateForModeling(right);
+    const leftIsOrdinary = isReturnedValueSemanticFocus(String((left as any).semanticFocus || "").trim()) ? 1 : 0;
+    const rightIsOrdinary = isReturnedValueSemanticFocus(String((right as any).semanticFocus || "").trim()) ? 1 : 0;
+    const leftMethod = String(left.method || "").toLowerCase();
+    const rightMethod = String(right.method || "").toLowerCase();
+    const leftWrites = /^(put|set|save|write|store|update|insert)/.test(leftMethod) ? 0 : 1;
+    const rightWrites = /^(put|set|save|write|store|update|insert)/.test(rightMethod) ? 0 : 1;
+    const leftDeletes = /^(delete|remove|clear)/.test(leftMethod) ? 1 : 0;
+    const rightDeletes = /^(delete|remove|clear)/.test(rightMethod) ? 1 : 0;
+    return semanticFlowTierIndex(leftClass.tier) - semanticFlowTierIndex(rightClass.tier)
+        || leftIsOrdinary - rightIsOrdinary
+        || leftWrites - rightWrites
+        || leftDeletes - rightDeletes
+        || String(left.callee_signature || "").localeCompare(String(right.callee_signature || ""));
+}
+
+function findContextLinkedSemanticFlowCandidates(
+    seed: NormalizedCallsiteItem,
+    ordered: SemanticFlowModelingQueueEntry[],
+    selectedKeys: Set<string>,
+): NormalizedCallsiteItem[] {
+    const seedText = semanticFlowCandidateModelingText(seed);
+    if (!seedText.trim()) {
+        return [];
+    }
+    const out: SemanticFlowModelingQueueEntry[] = [];
+    for (const entry of ordered) {
+        const candidate = entry.item;
+        if (selectedKeys.has(semanticFlowModelingItemKey(candidate))) {
+            continue;
+        }
+        if (!isContextLinkableApiCandidate(candidate)) {
+            continue;
+        }
+        const method = String(candidate.method || "").trim();
+        if (!method || method.length < 4 || !methodOccursAsCall(seedText, method)) {
+            continue;
+        }
+        out.push(entry);
+    }
+    return out.sort(compareSemanticFlowModelingQueueEntries)
+        .map(entry => entry.item);
+}
+
+function isContextLinkableApiCandidate(item: NormalizedCallsiteItem): boolean {
+    const origin = String((item as any).candidateOrigin || "").trim();
+    if (!isApiModelingRecallOrigin(origin) && origin !== "recall_returned_value_surface") {
+        return false;
+    }
+    const text = semanticFlowCandidateModelingText(item).toLowerCase();
+    if (isLikelyContextOrUiSetupCandidate(String(item.method || "").toLowerCase(), text)) {
+        return false;
+    }
+    return /candidateboundary=/.test(text)
+        || SEMANTICFLOW_DATA_ENDPOINT_TOKEN_RE.test(text)
+        || SEMANTICFLOW_CALL_SHAPE_RE.test(text);
+}
+
+function isKeyedStateReadModelingCandidate(item: NormalizedCallsiteItem): boolean {
+    const method = String(item.method || "").toLowerCase();
+    const text = semanticFlowCandidateModelingText(item).toLowerCase();
+    if (!hasKeyedStateModelingEvidence(text)) {
+        return false;
+    }
+    return /^(get|load|read|query|fetch|select|find)/.test(method)
+        || /\.\s*(?:get|getall|load|read|query|select)\s*\(/.test(text)
+        || isReturnedValueSemanticFocus(String((item as any).semanticFocus || "").trim());
+}
+
+function isKeyedStateWriteModelingCandidate(item: NormalizedCallsiteItem): boolean {
+    const method = String(item.method || "").toLowerCase();
+    const text = semanticFlowCandidateModelingText(item).toLowerCase();
+    if (!hasKeyedStateModelingEvidence(text)) {
+        return false;
+    }
+    return /^(put|set|save|write|store|update|insert|delete|remove|clear)/.test(method)
+        || /\.\s*(?:put|set|save|write|store|update|insert|delete|remove|clear|flush)\s*\(/.test(text);
+}
+
+function hasKeyedStateModelingEvidence(text: string): boolean {
+    return /\b(preferences|appstorage|persistentstorage|persistent|localstorage)\b/.test(text);
+}
+
+function methodOccursAsCall(text: string, method: string): boolean {
+    const escaped = escapeRegExp(method);
+    return new RegExp(`(?:\\b|\\.|\\?\\.)${escaped}\\s*\\(`).test(text);
+}
+
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function canAddUnderSemanticFlowDiversityBudget(
@@ -829,21 +1239,41 @@ function canAddUnderSemanticFlowDiversityBudget(
 
 function shouldAddPairedSemanticFlowCandidate(
     sibling: NormalizedCallsiteItem,
-    ranked: NormalizedCallsiteItem[],
+    ordered: SemanticFlowModelingQueueEntry[],
     nextIndex: number,
     selectedKeys: Set<string>,
+    selected: NormalizedCallsiteItem[],
+    limit: number,
     forcedFirstPair: boolean,
+    diversePass: boolean,
+    diversityCounts: Map<string, number>,
+    maxPerDiversityGroup: number,
+    returnedValueFocusLimit: number,
 ): boolean {
+    if (pairedCandidateWouldCrowdHigherReturnedValueCandidate(
+        sibling,
+        ordered,
+        nextIndex,
+        selectedKeys,
+        selected,
+        limit,
+        diversePass,
+        diversityCounts,
+        maxPerDiversityGroup,
+        returnedValueFocusLimit,
+    )) {
+        return false;
+    }
     if (!forcedFirstPair) {
         return true;
     }
-    const siblingScore = scoreSemanticFlowRuleCandidateForModeling(sibling);
-    for (let i = nextIndex; i < ranked.length; i++) {
-        const candidate = ranked[i];
+    const siblingTier = classifySemanticFlowRuleCandidateForModeling(sibling).tier;
+    for (let i = nextIndex; i < ordered.length; i++) {
+        const candidate = ordered[i].item;
         if (selectedKeys.has(semanticFlowModelingItemKey(candidate))) {
             continue;
         }
-        if (scoreSemanticFlowRuleCandidateForModeling(candidate) > siblingScore) {
+        if (semanticFlowTierIndex(classifySemanticFlowRuleCandidateForModeling(candidate).tier) < semanticFlowTierIndex(siblingTier)) {
             return false;
         }
         return true;
@@ -851,38 +1281,201 @@ function shouldAddPairedSemanticFlowCandidate(
     return true;
 }
 
-export function scoreSemanticFlowRuleCandidateForModeling(item: NormalizedCallsiteItem): number {
-    const method = String(item.method || "").toLowerCase();
-    const sig = String(item.callee_signature || "").toLowerCase();
+function pairedCandidateWouldCrowdHigherReturnedValueCandidate(
+    sibling: NormalizedCallsiteItem,
+    ordered: SemanticFlowModelingQueueEntry[],
+    nextIndex: number,
+    selectedKeys: Set<string>,
+    selected: NormalizedCallsiteItem[],
+    limit: number,
+    diversePass: boolean,
+    diversityCounts: Map<string, number>,
+    maxPerDiversityGroup: number,
+    returnedValueFocusLimit: number,
+): boolean {
+    const siblingTier = classifySemanticFlowRuleCandidateForModeling(sibling).tier;
+    const siblingDiversityKey = semanticFlowModelingDiversityKey(sibling);
+    const wouldFillOverallBudget = selected.length >= limit - 1;
+    const wouldFillDiversityBudget = diversePass
+        && (diversityCounts.get(siblingDiversityKey) || 0) >= maxPerDiversityGroup - 1;
+    const siblingIsReturnedValue = isReturnedValueSemanticFocus(String((sibling as any).semanticFocus || "").trim());
+    const selectedReturnedValueCount = selected.filter(item => isReturnedValueSemanticFocus(
+        String((item as any).semanticFocus || "").trim(),
+    )).length;
+    const wouldFillReturnedValueBudget = siblingIsReturnedValue
+        && selectedReturnedValueCount >= returnedValueFocusLimit - 1;
+
+    if (!wouldFillOverallBudget && !wouldFillDiversityBudget && !wouldFillReturnedValueBudget) {
+        return false;
+    }
+
+    for (let i = nextIndex; i < ordered.length; i++) {
+        const candidate = ordered[i].item;
+        if (selectedKeys.has(semanticFlowModelingItemKey(candidate))) {
+            continue;
+        }
+        if (!isReturnedValueSemanticFocus(String((candidate as any).semanticFocus || "").trim())) {
+            continue;
+        }
+        if (semanticFlowTierIndex(classifySemanticFlowRuleCandidateForModeling(candidate).tier) > semanticFlowTierIndex(siblingTier)) {
+            continue;
+        }
+        if (wouldFillOverallBudget || wouldFillReturnedValueBudget) {
+            return true;
+        }
+        if (wouldFillDiversityBudget && semanticFlowModelingDiversityKey(candidate) === siblingDiversityKey) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function shouldSpendSemanticFlowBudgetOnSameSurfacePair(
+    selected: NormalizedCallsiteItem[],
+    limit: number,
+): boolean {
+    if (limit <= 2) {
+        return false;
+    }
+    const selectedPairs = new Set(selected.map(item => semanticFlowModelingPairKey(item)));
+    return selectedPairs.size >= 2 || selected.length <= Math.max(1, Math.floor(limit / 2));
+}
+
+function hasSemanticFlowOutboundBoundaryEvidence(text: string): boolean {
+    return /candidateboundary=project_or_third_party_wrapper_evidence/.test(text)
+        || /candidateboundary=project_or_third_party_bridge_evidence/.test(text)
+        || (SEMANTICFLOW_CALL_SHAPE_RE.test(text) && SEMANTICFLOW_DATA_ENDPOINT_TOKEN_RE.test(text))
+        || /\breturn\s+(?:await\s+)?[A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*\s*\(/.test(text);
+}
+
+function isApiModelingRecallOrigin(origin: string): boolean {
+    return origin === "recall_api_surface"
+        || origin === "recall_api_surface_declared_owner"
+        || origin === "recall_direct_boundary_surface";
+}
+
+function semanticFlowCandidateModelingText(item: NormalizedCallsiteItem): string {
+    const parts: string[] = [
+        String(item.method || ""),
+        String(item.callee_signature || ""),
+        String(item.sourceFile || ""),
+        String((item as any).methodSnippet || ""),
+    ];
+    const callbackProperties = Array.isArray((item as any).callbackProperties)
+        ? (item as any).callbackProperties
+        : [];
+    parts.push(...callbackProperties.map(value => String(value || "")));
+    const evidence = Array.isArray((item as any).evidence)
+        ? (item as any).evidence
+        : [];
+    parts.push(...evidence.map(value => String(value || "")));
+    const topEntries = Array.isArray((item as any).topEntries)
+        ? (item as any).topEntries
+        : [];
+    parts.push(...topEntries.map(value => String(value || "")));
+    const contextSlices = Array.isArray((item as any).contextSlices)
+        ? (item as any).contextSlices
+        : [];
+    for (const slice of contextSlices) {
+        parts.push(
+            String(slice?.callerFile || ""),
+            String(slice?.callerMethod || ""),
+            String(slice?.invokeStmtText || ""),
+            String(slice?.windowLines || ""),
+            ...(Array.isArray(slice?.cfgNeighborStmts) ? slice.cfgNeighborStmts.map((stmt: unknown) => String(stmt || "")) : []),
+        );
+    }
+    return parts.join("\n");
+}
+
+function hasCallbackPropertyModelingSignal(item: NormalizedCallsiteItem): boolean {
+    const callbackProperties = Array.isArray((item as any).callbackProperties)
+        ? (item as any).callbackProperties.map((value: unknown) => String(value || "").toLowerCase())
+        : [];
+    return callbackProperties.some(name =>
+        /(?:send|submit|input|change|save|upload|request|confirm|login|message|select|search|record|did)/.test(name),
+    );
+}
+
+function hasPayloadCallbackModelingEvidence(item: NormalizedCallsiteItem, evidenceLower: string): boolean {
+    if (!hasCallbackPropertyModelingSignal(item)) {
+        return false;
+    }
+    const payloadName = "(?:content|value|message|payload|body|data|text|keyword|token|password|userid|user|file|filepath|voicepath|imagepath|controller)";
+    const callbackWithPayload = new RegExp(
+        `\\bon[A-Za-z_$][\\w$]*\\s*:\\s*\\([^)]*\\b${payloadName}\\b[^)]*\\)\\s*=>[\\s\\S]{0,900}`
+        + `(?:\\b(?:send|submit|request|post|put|save|write|insert|update|login|emit|dispatch)[A-Za-z_$\\w]*\\s*\\(|\\.\\s*(?:send|submit|request|post|put|save|write|insert|update|login|emit|dispatch)[A-Za-z_$\\w]*\\s*\\(|\\?\\.\\s*\\()`,
+        "i",
+    );
+    if (callbackWithPayload.test(evidenceLower)) {
+        return true;
+    }
+    return /\bon[A-Za-z_$][\w$]*send\b[\s\S]{0,900}\b(?:getRichEditorContent|create[A-Za-z_$\w]*Message|send[A-Za-z_$\w]*Message|send[A-Za-z_$\w]*\s*\()/.test(evidenceLower);
+}
+
+function hasResolvedLifecycleCallbackModelingEvidence(item: NormalizedCallsiteItem, evidenceLower: string): boolean {
+    const callbackProperties = Array.isArray((item as any).callbackProperties)
+        ? (item as any).callbackProperties.map((value: unknown) => String(value || "").toLowerCase())
+        : [];
+    if (!callbackProperties.some(name => /(?:load|ready|appear|shown|pageend|complete|success|finish|mounted|init)/.test(name))) {
+        return false;
+    }
+    if (!/callbackownerresolved=true|resolvedcallbackownerfile=/.test(evidenceLower)) {
+        return false;
+    }
+    return /\b(?:this\.)?on[A-Za-z_$][\w$]*\s*\(/.test(evidenceLower)
+        || /\.on[A-Za-z_$][\w$]*\s*\(/.test(evidenceLower)
+        || /\b(?:onPageEnd|onReady|onAppear|aboutToAppear|onComplete|onSuccess)\b/.test(evidenceLower);
+}
+
+function hasSecurityRelevantModelingSurface(
+    methodLower: string,
+    signatureLower: string,
+    snippetLower: string,
+): boolean {
+    const text = `${methodLower} ${signatureLower} ${snippetLower}`;
+    if (SEMANTICFLOW_DATA_ENDPOINT_TOKEN_RE.test(text)
+        && (SEMANTICFLOW_CALL_SHAPE_RE.test(text) || /\breturn\b/.test(text))) {
+        return true;
+    }
+    if (!/(pages\/|components\/)/.test(signatureLower)
+        && /search/.test(methodLower)
+        && /\b(data|source|provider|repository)\b/.test(signatureLower)) {
+        return true;
+    }
+    return !/(pages\/|components\/)/.test(signatureLower)
+        && /(message|payload|body|url|header)/.test(methodLower)
+        && /\b(data|source|provider|repository|database)\b/.test(signatureLower);
+}
+
+function hasSemanticFlowDelegatedWrapperEvidence(item: NormalizedCallsiteItem, evidenceText: string): boolean {
     const origin = String((item as any).candidateOrigin || "").trim();
-    const semanticFocus = String((item as any).semanticFocus || "").trim();
-    const methodSnippet = String((item as any).methodSnippet || "").toLowerCase();
-    const hasExternalEffectEvidence = /\b(axios|http|request|fetch|post|get|put|delete|websocket|socket|hilog|console|logger|fileio|writesync|relationalstore|rdb|rdbstore|executesql|preferences|appstorage|persistent|localstorage)\b/.test(methodSnippet);
-    const hasDelegatedWrapperEvidence = /\b(datasource|networkdatasource|repository|repo|store|client|service|api|dao|orm|preferences|appstorage|persistent|localstorage)\b/.test(methodSnippet);
-    let score = Number(item.count) || 0;
-    if (origin !== "recall_callback_surface") score += 30;
-    if (origin === "recall_api_surface") score += 45;
-    if (origin === "recall_returned_value_surface") score += 55;
-    if (isReturnedValueSemanticFocus(semanticFocus)) score += 32;
-    if (item.argCount > 0) score += 20;
-    if (isProjectSerializationWrapperCandidate(method, sig, item.argCount)) score += 28;
-    if (/(process|parse|decode|encode|transform|convert|collect|save|insert|update|request|response)/.test(method)) score += 12;
-    if (/viewmodel|service|manager|repository|store|cache|client/.test(sig)) score += 8;
-    if (/(api|apis|service|services|network|net|request|requests|client|clients|repository|repositories|configure|axios|http|logger|cache)/.test(sig)) score += 16;
-    if (/(token|credential|auth|profile|login|register|password|phone|email|cookie|session)/.test(sig)) score += 10;
-    if ((origin === "recall_api_surface" || origin === "recall_returned_value_surface") && hasExternalEffectEvidence) score += 24;
-    if (origin === "recall_returned_value_surface" && hasDelegatedWrapperEvidence) score += 18;
-    if ((origin === "recall_api_surface" || origin === "recall_returned_value_surface") && !hasExternalEffectEvidence && !hasDelegatedWrapperEvidence) score -= 35;
-    if ((origin === "recall_api_surface" || origin === "recall_returned_value_surface") && /(\/context\.ets|\/stage\.ets|\/device\.ets|context|window|avoidarea|windowsize)/.test(sig)) score -= 35;
-    if ((origin === "recall_api_surface" || origin === "recall_returned_value_surface") && /(credential|profile|token|auth)/.test(method) && hasExternalEffectEvidence) score += 24;
-    if (origin === "recall_returned_value_surface" && /(credential|profile|token|auth|password|cookie|session|account|phone|email)/.test(method) && hasDelegatedWrapperEvidence) score += 26;
-    if (isLikelyContextOrUiSetupCandidate(method, sig)) score -= 70;
-    if (isNoPayloadMaintenanceCandidate(method, sig, item.argCount)) score -= 55;
-    if (isInternalNavigationControlCandidate(method, sig)) score -= 45;
-    if (/pages\/|components\//.test(sig)) score -= 8;
-    if (/^(check|validate|back|scroll|build|render|is|has|getui)/.test(method)) score -= 18;
-    if (/^get|^is|^has/.test(method) && item.argCount === 0) score -= 10;
-    return score;
+    if (isApiModelingRecallOrigin(origin) || origin === "recall_returned_value_surface") {
+        return true;
+    }
+    return /candidateboundary=/.test(evidenceText)
+        || /\bdeclaredownerfromcallsite=/.test(evidenceText)
+        || (SEMANTICFLOW_CALL_SHAPE_RE.test(evidenceText) && SEMANTICFLOW_DATA_ENDPOINT_TOKEN_RE.test(evidenceText));
+}
+
+function isUiFeedbackOnlyModelingCandidate(
+    methodLower: string,
+    signatureLower: string,
+    argCount: number | undefined,
+    hasSecuritySurfaceEvidence: boolean,
+): boolean {
+    if (hasSecuritySurfaceEvidence) {
+        return false;
+    }
+    if (!/(pages\/|components\/|viewmodels?\/)/.test(signatureLower)) {
+        return false;
+    }
+    if (/^(showtoast|toast|notify|notifymessagesupdated|hidenotification|showloading|hideloading|showdialog|dismissdialog|hidekeyboard|hidesidebar|syncstatetoviewmodel|resetsetupstate|scrolltobottom)$/.test(methodLower)) {
+        return true;
+    }
+    return (argCount ?? 0) === 0
+        && /^(hide|show|notify|sync|reset|refresh|scroll|load|initialize)/.test(methodLower)
+        && !/(settings|config|token|credential|message|request|search|database|storage)/.test(methodLower);
 }
 
 function pairedSemanticFlowModelingCandidate(
@@ -921,6 +1514,42 @@ function semanticFlowModelingItemKey(item: NormalizedCallsiteItem): string {
     return `${semanticFlowModelingPairKey(item)}|${String((item as any).semanticFocus || "")}`;
 }
 
+function semanticFlowDeclaredOwnerAlternativeKey(item: NormalizedCallsiteItem): string | undefined {
+    const origin = String((item as any).candidateOrigin || "").trim();
+    if (!isApiModelingRecallOrigin(origin)) {
+        return undefined;
+    }
+    const method = String(item.method || "").trim();
+    if (!method) {
+        return undefined;
+    }
+    const implementationOwner = semanticFlowImplementationOwnerForAlternative(item);
+    if (!implementationOwner) {
+        return undefined;
+    }
+    return [
+        String(item.sourceFile || "").replace(/\\/g, "/").toLowerCase(),
+        implementationOwner.toLowerCase(),
+        method.toLowerCase(),
+        String((item as any).invokeKind || ""),
+        String((item as any).argCount ?? ""),
+        String((item as any).semanticFocus || ""),
+    ].join("|");
+}
+
+function semanticFlowImplementationOwnerForAlternative(item: NormalizedCallsiteItem): string | undefined {
+    const topEntries = Array.isArray((item as any).topEntries)
+        ? (item as any).topEntries
+        : [];
+    for (const entry of topEntries) {
+        const match = String(entry || "").match(/^implementationOwner=([A-Za-z_$][\w$]*)$/);
+        if (match) {
+            return match[1];
+        }
+    }
+    return extractSemanticFlowOwnerFromSignature(String(item.callee_signature || ""));
+}
+
 function semanticFlowModelingDiversityKey(item: NormalizedCallsiteItem): string {
     const sourceFile = String(item.sourceFile || "").replace(/\\/g, "/").toLowerCase();
     const owner = extractSemanticFlowOwnerFromSignature(String(item.callee_signature || ""))
@@ -952,7 +1581,7 @@ function isNoPayloadMaintenanceCandidate(
     if (!/^(delete|clear|close|drop|destroy|release|init|connect|disconnect|start|stop)/.test(methodLower)) {
         return false;
     }
-    return /(database|db|cache|cacher|socket|configure|service|manager)/.test(signatureLower);
+    return /(database|db|cache|cacher|configure|service|manager)/.test(signatureLower);
 }
 
 function isInternalNavigationControlCandidate(methodLower: string, signatureLower: string): boolean {
@@ -987,6 +1616,8 @@ function writeSemanticFlowArtifacts(
     aggregateAssetsPath: string;
     generatedModelRoot: string;
     generatedModelProjectId: string;
+    generatedModelPublishResult: PublishSemanticFlowProjectAssetsResult;
+    generatedModelPublishedAssets: AssetDocumentBase[];
     aggregateSummaryPath: string;
 } {
     const aggregate = collectAggregateSummary(bundles);
@@ -995,7 +1626,7 @@ function writeSemanticFlowArtifacts(
     fs.mkdirSync(modelingDir, { recursive: true });
 
     for (const bundle of bundles) {
-        const base = path.join(modelingDir, safeSourceDirName(bundle.sourceDir));
+        const base = path.join(modelingDir, safeSourceDirName(bundle.artifactName || bundle.sourceDir));
         fs.mkdirSync(base, { recursive: true });
         fs.writeFileSync(path.join(base, "session.json"), JSON.stringify(serializeSemanticFlowSession(bundle.result.session), null, 2), "utf-8");
         fs.writeFileSync(path.join(base, "assets.json"), JSON.stringify(serializeSemanticFlowAssets(bundle.result.session.augment), null, 2), "utf-8");
@@ -1039,19 +1670,91 @@ function writeSemanticFlowArtifacts(
     fs.writeFileSync(aggregateSummaryPath, JSON.stringify(aggregate.summary, null, 2), "utf-8");
     const generatedModelRoot = path.join(rootDir, "generated_model_assets");
     const generatedModelProjectId = "semanticflow";
-    publishSemanticFlowProjectAssets({
+    const generatedModelPublishResult = publishSemanticFlowProjectAssets({
         projectId: generatedModelProjectId,
         modelRoot: generatedModelRoot,
         assets: aggregate.augment.assets,
     });
+    const generatedModelPublishedAssets = readPublishedSemanticFlowAssets(generatedModelPublishResult);
 
     return {
         aggregateSessionPath,
         aggregateAssetsPath,
         generatedModelRoot,
         generatedModelProjectId,
+        generatedModelPublishResult,
+        generatedModelPublishedAssets,
         aggregateSummaryPath,
     };
+}
+
+function writeSemanticFlowTraceArtifacts(
+    rootDir: string,
+    options: SemanticFlowCliOptions,
+    aggregate: ReturnType<typeof collectAggregateSummary>,
+    aggregatePaths: ReturnType<typeof writeSemanticFlowArtifacts>,
+    sourceRuns: SemanticFlowSourceRunRecord[],
+): { jsonPath: string; markdownPath: string } {
+    const graph = buildSemanticFlowTraceGraph({
+        run: {
+            runId: `semanticflow:${path.basename(options.repo)}:${Date.now()}`,
+            project: options.repo,
+            engineVersion: "arktaint",
+            assetVersion: "semanticflow",
+            configHash: `semanticflow:${aggregate.summary.itemCount}:${aggregate.summary.assetCount}`,
+            llmSession: options.llmSessionCacheDir,
+            startedAt: new Date().toISOString(),
+            completedAt: new Date().toISOString(),
+            status: sourceRuns.some(run => run.status === "exception") ? "completed_with_errors" : "completed",
+            notes: [
+                `sourceDirs=${sourceRuns.length}`,
+                `items=${aggregate.summary.itemCount}`,
+                `assets=${aggregate.summary.assetCount}`,
+            ],
+        },
+        items: aggregate.items,
+        assets: aggregate.augment.assets,
+        publishedModel: {
+            modelRoot: aggregatePaths.generatedModelRoot,
+            projectId: aggregatePaths.generatedModelProjectId,
+            paths: aggregatePaths.generatedModelPublishResult,
+            assets: aggregatePaths.generatedModelPublishedAssets,
+        },
+        sourceRuns,
+        summary: aggregate.summary,
+    });
+    return writeTraceGraphArtifacts(path.join(rootDir, "semanticflow_trace_graph"), graph);
+}
+
+function readPublishedSemanticFlowAssets(paths: PublishSemanticFlowProjectAssetsResult): AssetDocumentBase[] {
+    const assets: AssetDocumentBase[] = [];
+    for (const filePath of [paths.rulePath, paths.modulePath, paths.arkMainPath]) {
+        if (!filePath || !fs.existsSync(filePath)) continue;
+        assets.push(JSON.parse(fs.readFileSync(filePath, "utf-8")) as AssetDocumentBase);
+    }
+    return assets;
+}
+
+function mergeSemanticFlowTraceIntoFinalAnalyze(
+    finalRun: Awaited<ReturnType<typeof runAnalyze>>,
+    semanticFlowTracePath: string,
+): { jsonPath?: string; markdownPath?: string; merged: boolean } {
+    if (!fs.existsSync(semanticFlowTracePath)) {
+        return { merged: false };
+    }
+    const finalRoot = path.resolve(path.dirname(path.dirname(finalRun.jsonPath)));
+    const finalTraceDir = path.join(finalRoot, "audit", "trace_graph");
+    const finalTracePath = path.join(finalTraceDir, "full_trace_graph.json");
+    if (!fs.existsSync(finalTracePath)) {
+        return { merged: false };
+    }
+    const runtimeGraph = JSON.parse(fs.readFileSync(finalTracePath, "utf-8")) as TraceGraph;
+    const semanticGraph = JSON.parse(fs.readFileSync(semanticFlowTracePath, "utf-8")) as TraceGraph;
+    const merged = appendTraceGraphFragments(runtimeGraph, [
+        { graph: semanticGraph, prefix: "semanticflow" },
+    ]);
+    const written = writeTraceGraphArtifacts(finalTraceDir, merged);
+    return { ...written, merged: true };
 }
 
 function buildAnalyzeOptions(
@@ -1091,6 +1794,7 @@ function buildAnalyzeOptions(
         explainPluginName: undefined,
         tracePluginName: undefined,
         modelRoots: overrides.modelRoots || options.modelRoots || [],
+        semanticflowEvaluationModelRoots: overrides.semanticflowEvaluationModelRoots,
         enabledModels: overrides.enabledModels || options.enabledModels || [],
         disabledModels: overrides.disabledModels || options.disabledModels || [],
         disabledModuleIds: overrides.disabledModuleIds || [],
@@ -1212,13 +1916,8 @@ function readCandidatePayloadCount(filePath: string): number | null {
     return null;
 }
 
-function hasModeledSemanticFlowArtifacts(summary: ReturnType<typeof collectAggregateSummary>["summary"]): boolean {
-    return summary.trustedAnalysisAssetCount > 0
-        || summary.trustedAnalysisModuleCount > 0
-        || summary.sourceRuleCount > 0
-        || summary.sinkRuleCount > 0
-        || summary.sanitizerRuleCount > 0
-        || summary.transferRuleCount > 0;
+function hasGeneratedSemanticFlowEvaluationAssets(summary: ReturnType<typeof collectAggregateSummary>["summary"]): boolean {
+    return summary.assetCount > 0;
 }
 
 function canReuseBootstrapAnalyzeForFinal(
@@ -1228,7 +1927,7 @@ function canReuseBootstrapAnalyzeForFinal(
 ): bootstrap is BootstrapAnalyzeResult & { run: Awaited<ReturnType<typeof runAnalyze>> } {
     return !!bootstrap?.run
         && !options.publishModel
-        && !hasModeledSemanticFlowArtifacts(aggregate.summary);
+        && !hasGeneratedSemanticFlowEvaluationAssets(aggregate.summary);
 }
 
 function materializeReusedFinalAnalyzeArtifacts(
@@ -1264,7 +1963,11 @@ async function runFinalAnalyze(
 ): Promise<Awaited<ReturnType<typeof runAnalyze>>> {
     const arkMainCandidateLimit = resolveArkMainCandidateLimit(options);
     const finalOutputDir = path.join(options.outputDir, "final");
-    console.log(`semanticflow_phase=final_analyze start output_dir=${finalOutputDir}`);
+    const evaluationRoots = options.publishModel ? [] : [aggregatePaths.generatedModelRoot];
+    console.log(
+        `semanticflow_phase=final_analyze start output_dir=${finalOutputDir} `
+        + `evaluation_overlay=${evaluationRoots.length > 0 ? "semanticflow-evaluation" : "none"}`,
+    );
     return withAnalyzeHeartbeat("final_analyze", () => runAnalyze(buildAnalyzeOptions(options, finalOutputDir, {
         profile: options.profile,
         reportMode: options.reportMode,
@@ -1274,6 +1977,7 @@ async function runFinalAnalyze(
             aggregatePaths.generatedModelRoot,
             ...(options.modelRoots || []),
         ],
+        semanticflowEvaluationModelRoots: evaluationRoots,
         ...(options.publishModel
             ? {
                 enabledModels: [...new Set([...(options.enabledModels || []), options.publishModel])],
@@ -1299,6 +2003,25 @@ async function runFinalAnalyze(
     })));
 }
 
+function buildSemanticFlowEvaluationOverlayInfo(
+    aggregateSummary: ReturnType<typeof collectAggregateSummary>,
+    aggregatePaths: {
+        generatedModelRoot: string;
+        generatedModelProjectId: string;
+    },
+    applied: boolean,
+): SemanticFlowEvaluationOverlayInfo {
+    return {
+        applied,
+        modelRoot: applied ? aggregatePaths.generatedModelRoot : undefined,
+        projectId: applied ? aggregatePaths.generatedModelProjectId : undefined,
+        assetCount: aggregateSummary.summary.assetCount,
+        assetCountByPlane: { ...aggregateSummary.summary.assetCountByPlane },
+        loadMode: applied ? "semanticflow-evaluation" : undefined,
+        promoted: false,
+    };
+}
+
 function writeSemanticFlowRunManifest(
     outputDir: string,
     options: SemanticFlowCliOptions,
@@ -1315,8 +2038,11 @@ function writeSemanticFlowRunManifest(
         generatedModelProjectId: string;
         aggregateSummaryPath: string;
         sourceRunsPath: string;
+        semanticFlowTraceGraphPath: string;
+        progressJsonlPath: string;
         finalSummaryJsonPath?: string;
         finalSummaryMdPath?: string;
+        semanticflowEvaluationOverlay?: SemanticFlowEvaluationOverlayInfo;
     },
 ): void {
     const relative = (targetPath?: string) => targetPath ? path.relative(outputDir, targetPath).replace(/\\/g, "/") : undefined;
@@ -1346,9 +2072,12 @@ function writeSemanticFlowRunManifest(
             generatedModelProjectId: info.generatedModelProjectId,
             summary: relative(info.aggregateSummaryPath),
             sourceRuns: relative(info.sourceRunsPath),
+            semanticFlowTraceGraph: relative(info.semanticFlowTraceGraphPath),
+            progressJsonl: relative(info.progressJsonlPath),
             finalSummaryJson: relative(info.finalSummaryJsonPath),
             finalSummaryMd: relative(info.finalSummaryMdPath),
         },
+        semanticflowEvaluationOverlay: info.semanticflowEvaluationOverlay,
     }, null, 2), "utf-8");
 }
 
@@ -1358,6 +2087,18 @@ async function main(): Promise<void> {
 }
 
 export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promise<void> {
+    options = {
+        ...options,
+        maxLlmItems: resolveEffectiveSemanticFlowMaxLlmItems(options.maxLlmItems),
+        llmRepairAttempts: resolveEffectiveSemanticFlowLlmRepairAttempts(options.llmRepairAttempts),
+    };
+    const progress = createSemanticFlowProgressRecorder(options.outputDir);
+    progress.write("start", {
+        repo: options.repo,
+        sourceDirs: options.sourceDirs,
+        maxLlmItems: options.maxLlmItems,
+        analyze: options.analyze,
+    });
     const profile = resolveLlmProfile({
         configPath: options.llmConfigPath,
         profile: options.llmProfile,
@@ -1380,10 +2121,6 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
         throw new Error("semanticflow model invoker unavailable; check llm profile configuration");
     }
 
-    const loggedInvoker = createLoggedModelInvoker(invoker, {
-        maxFailures: options.llmMaxFailures,
-    });
-
     const sessionCache = options.llmSessionCacheDir
         ? new SemanticFlowSessionCache({
             rootDir: options.llmSessionCacheDir,
@@ -1395,11 +2132,17 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
         : undefined;
 
     const arkMainCandidateLimit = resolveArkMainCandidateLimit(options);
+    progress.write("bootstrap_analyze_start", {});
     const bootstrapAnalyze: BootstrapAnalyzeResult = options.ruleInput && fs.existsSync(options.ruleInput)
         ? { ruleInputPath: options.ruleInput }
         : await runBootstrapAnalyze(options);
     const bootstrapRuleInputPath = bootstrapAnalyze.ruleInputPath;
     const ruleCandidates = loadRuleCandidates(options, bootstrapRuleInputPath);
+    progress.write("load_candidates_done", {
+        ruleCandidates: ruleCandidates.items.length,
+        ruleKnownCovered: ruleCandidates.skippedKnown,
+        arkMainLimit: arkMainCandidateLimit,
+    });
     console.log(`semanticflow_phase=load_candidates done rule_candidates=${ruleCandidates.items.length} rule_known_covered=${ruleCandidates.skippedKnown} arkmain_limit=${arkMainCandidateLimit} min_interval_ms=${profile.minIntervalMs} timeout_ms=${options.llmTimeoutMs ?? profile.timeoutMs} max_attempts=${options.llmMaxAttempts ?? 1}`);
 
     const bundles: SemanticFlowSessionBundle[] = [];
@@ -1418,12 +2161,18 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
             continue;
         }
         try {
+            progress.write("source_dir_start", { sourceDir, absPath: sourceAbs });
             console.log(`semanticflow_phase=source_dir start source_dir=${sourceDir} abs=${sourceAbs}`);
             console.log(`semanticflow_phase=build_scene start source_dir=${sourceDir}`);
+            progress.write("build_scene_start", { sourceDir });
             const scene = buildScene(sourceAbs);
             const methodCount = scene.getMethods().length;
             console.log(`semanticflow_phase=build_scene done source_dir=${sourceDir} methods=${methodCount}`);
-            const sourceRuleCandidates = capRuleCandidatesForSourceDir(
+            progress.write("build_scene_done", { sourceDir, methods: methodCount });
+            const sourceDirModelInvoker = createLoggedModelInvoker(invoker, {
+                maxFailures: options.llmMaxFailures,
+            });
+            const ruleBatchPlan = buildRuleCandidateBatchPlanForSourceDir(
                 sourceDir,
                 sourceAbs,
                 ruleCandidates.items,
@@ -1434,40 +2183,118 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
                 sourceAbs,
                 ruleCandidates.items,
             );
-            if (sourceRuleCandidates.length !== ruleCandidates.items.length) {
-                console.log(`semanticflow_phase=source_dir candidates source_dir=${sourceDir} scoped=${sourceRuleCandidates.length} global=${ruleCandidates.items.length} max_items=${options.maxLlmItems ?? ""}`);
+            if (ruleBatchPlan.scoped.length !== ruleCandidates.items.length) {
+                console.log(`semanticflow_phase=source_dir candidates source_dir=${sourceDir} scoped=${ruleBatchPlan.scoped.length} global=${ruleCandidates.items.length} batch_items=${options.maxLlmItems ?? ""} batches=${ruleBatchPlan.batches.length} need_more_evidence=${ruleBatchPlan.queue.needMoreEvidence.length}`);
             }
-            const result = await runSemanticFlowProject({
-                scene,
-                modelInvoker: loggedInvoker,
-                model: profile.model,
-                ruleCandidates: sourceRuleCandidates,
-                ruleCompanionCandidates: sourceRuleCompanionCandidates,
-                includeArkMainCandidates: true,
-                arkMainMaxCandidates: arkMainCandidateLimit,
-                maxRounds: options.maxRounds,
-                maxRepairAttempts: options.llmRepairAttempts ?? 0,
-                concurrency: options.concurrency,
-                onProgress: emitSemanticFlowProgress,
-                sessionCache,
+            progress.write("source_dir_candidates", {
+                sourceDir,
+                scoped: ruleBatchPlan.scoped.length,
+                global: ruleCandidates.items.length,
+                selected: ruleBatchPlan.queue.selected.length,
+                batches: ruleBatchPlan.batches.length,
+                batchItems: options.maxLlmItems,
+                needMoreEvidence: ruleBatchPlan.queue.needMoreEvidence.length,
             });
+            if (ruleBatchPlan.batches.length === 0 && ruleBatchPlan.queue.needMoreEvidence.length > 0) {
+                console.log(`semanticflow_phase=source_dir no_modelable_candidates source_dir=${sourceDir} need_more_evidence=${ruleBatchPlan.queue.needMoreEvidence.length}`);
+                progress.write("source_dir_no_modelable_candidates", {
+                    sourceDir,
+                    needMoreEvidence: ruleBatchPlan.queue.needMoreEvidence.length,
+                });
+            }
+            let totalItems = 0;
+            let totalArkMainCandidates = 0;
+            let totalArkMainIneligible = 0;
+            for (const batch of ruleBatchPlan.batches.length
+                ? ruleBatchPlan.batches
+                : [{ index: 0, candidates: [] } as SemanticFlowRuleCandidateBatch]) {
+                const includeArkMainCandidates = batch.index === 0;
+                console.log(`semanticflow_phase=source_dir batch_start source_dir=${sourceDir} batch=${batch.index + 1}/${Math.max(1, ruleBatchPlan.batches.length)} rule_candidates=${batch.candidates.length} include_arkmain=${includeArkMainCandidates}`);
+                progress.write("source_dir_batch_start", {
+                    sourceDir,
+                    batch: batch.index + 1,
+                    batchCount: Math.max(1, ruleBatchPlan.batches.length),
+                    ruleCandidates: batch.candidates.length,
+                    includeArkMainCandidates,
+                });
+                const result = await runSemanticFlowProject({
+                    scene,
+                    modelInvoker: sourceDirModelInvoker,
+                    model: profile.model,
+                    ruleCandidates: batch.candidates,
+                    ruleCompanionCandidates: sourceRuleCompanionCandidates,
+                    includeArkMainCandidates,
+                    arkMainMaxCandidates: arkMainCandidateLimit,
+                    maxRounds: options.maxRounds,
+                    maxRepairAttempts: options.llmRepairAttempts ?? 0,
+                    concurrency: options.concurrency,
+                    onProgress: event => {
+                        emitSemanticFlowProgress(event);
+                        progress.write("session_progress", {
+                            sourceDir,
+                            batch: batch.index + 1,
+                            ...event,
+                        } as Record<string, unknown>);
+                    },
+                    sessionCache,
+                });
+                console.log(
+                    `semanticflow_phase=source_dir batch_done source_dir=${sourceDir} batch=${batch.index + 1}/${Math.max(1, ruleBatchPlan.batches.length)} items=${result.session.run.items.length} arkmain_candidates=${result.arkMainCandidates.length} arkmain_kernel_covered=${result.skippedArkMainCandidates.length} arkmain_ineligible=${result.ineligibleArkMainCandidates.length}`,
+                );
+                progress.write("source_dir_batch_done", {
+                    sourceDir,
+                    batch: batch.index + 1,
+                    batchCount: Math.max(1, ruleBatchPlan.batches.length),
+                    items: result.session.run.items.length,
+                    arkMainCandidates: result.arkMainCandidates.length,
+                    arkMainKernelCovered: result.skippedArkMainCandidates.length,
+                    arkMainIneligible: result.ineligibleArkMainCandidates.length,
+                });
+                totalItems += result.session.run.items.length;
+                totalArkMainCandidates += result.arkMainCandidates.length;
+                totalArkMainIneligible += result.ineligibleArkMainCandidates.length;
+                bundles.push({
+                    sourceDir,
+                    artifactName: ruleBatchPlan.batches.length > 1
+                        ? `${sourceDir}#batch-${batch.index + 1}`
+                        : sourceDir,
+                    result,
+                    skippedKnownRuleCandidates: batch.index === 0 ? ruleCandidates.skippedKnown : 0,
+                });
+            }
             console.log(
-                `semanticflow_phase=source_dir done source_dir=${sourceDir} items=${result.session.run.items.length} rule_known_covered=${ruleCandidates.skippedKnown} arkmain_candidates=${result.arkMainCandidates.length} arkmain_kernel_covered=${result.skippedArkMainCandidates.length} arkmain_ineligible=${result.ineligibleArkMainCandidates.length}`,
+                `semanticflow_phase=source_dir done source_dir=${sourceDir} batches=${Math.max(1, ruleBatchPlan.batches.length)} items=${totalItems} rule_known_covered=${ruleCandidates.skippedKnown} arkmain_candidates=${totalArkMainCandidates} arkmain_ineligible=${totalArkMainIneligible}`,
             );
+            progress.write("source_dir_done", {
+                sourceDir,
+                batches: Math.max(1, ruleBatchPlan.batches.length),
+                items: totalItems,
+                ruleKnownCovered: ruleCandidates.skippedKnown,
+                arkMainCandidates: totalArkMainCandidates,
+                arkMainIneligible: totalArkMainIneligible,
+                elapsedMs: Date.now() - sourceStartedAt,
+            });
             sourceRuns.push({
                 sourceDir,
                 absPath: sourceAbs,
                 status: "ok",
                 methods: methodCount,
-                itemCount: result.session.run.items.length,
-                arkMainCandidateCount: result.arkMainCandidates.length,
-                arkMainIneligibleCount: result.ineligibleArkMainCandidates.length,
+                itemCount: totalItems,
+                ruleCandidateCount: ruleBatchPlan.queue.selected.length,
+                ruleBatchCount: Math.max(1, ruleBatchPlan.batches.length),
+                ruleCandidatePackagingTrace: ruleCandidates.packagingTrace,
+                arkMainCandidateCount: totalArkMainCandidates,
+                arkMainIneligibleCount: totalArkMainIneligible,
                 elapsedMs: Date.now() - sourceStartedAt,
             });
-            bundles.push({ sourceDir, result, skippedKnownRuleCandidates: ruleCandidates.skippedKnown });
         } catch (error) {
             const detail = String((error as any)?.message || error).replace(/\s+/g, " ").trim();
             console.log(`semanticflow_phase=source_dir exception source_dir=${sourceDir} elapsed_ms=${Date.now() - sourceStartedAt} error=${detail}`);
+            progress.write("source_dir_exception", {
+                sourceDir,
+                elapsedMs: Date.now() - sourceStartedAt,
+                error: detail,
+            });
             sourceRuns.push({
                 sourceDir,
                 absPath: sourceAbs,
@@ -1479,10 +2306,23 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
     }
 
     const aggregatePaths = writeSemanticFlowArtifacts(options.outputDir, bundles);
+    const aggregateSummary = collectAggregateSummary(bundles);
+    const semanticFlowTraceArtifacts = writeSemanticFlowTraceArtifacts(
+        options.outputDir,
+        options,
+        aggregateSummary,
+        aggregatePaths,
+        sourceRuns,
+    );
+    progress.write("write_artifacts_done", {
+        session: aggregatePaths.aggregateSessionPath,
+        assets: aggregatePaths.aggregateAssetsPath,
+        summary: aggregatePaths.aggregateSummaryPath,
+        semanticFlowTraceGraph: semanticFlowTraceArtifacts.jsonPath,
+    });
     const sourceRunsPath = path.join(options.outputDir, "source_runs.json");
     fs.writeFileSync(sourceRunsPath, JSON.stringify(sourceRuns, null, 2), "utf-8");
     console.log(`semanticflow_phase=write_artifacts done session=${aggregatePaths.aggregateSessionPath}`);
-    const aggregateSummary = collectAggregateSummary(bundles);
     if (options.publishModel) {
         const aggregate = aggregateSummary;
         const published = publishSemanticFlowProjectAssets({
@@ -1491,18 +2331,45 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
             assets: aggregate.augment.assets,
         });
         console.log(`semanticflow_phase=publish_model done pack=${options.publishModel} rules=${published.rulePath || "-"} modules=${published.modulePath || "-"} arkmain=${published.arkMainPath || "-"}`);
+        progress.write("publish_model_done", {
+            pack: options.publishModel,
+            rulePath: published.rulePath,
+            modulePath: published.modulePath,
+            arkMainPath: published.arkMainPath,
+        });
     }
     let finalRun: Awaited<ReturnType<typeof runAnalyze>> | undefined;
+    let semanticflowEvaluationOverlay = buildSemanticFlowEvaluationOverlayInfo(
+        aggregateSummary,
+        aggregatePaths,
+        false,
+    );
     if (options.analyze) {
         if (canReuseBootstrapAnalyzeForFinal(options, aggregateSummary, bootstrapAnalyze)) {
             finalRun = materializeReusedFinalAnalyzeArtifacts(options.outputDir, bootstrapAnalyze.run);
             console.log(`semanticflow_phase=final_analyze skipped reason=no_modeled_artifacts reuse=bootstrap summary_json=${finalRun.jsonPath}`);
+            progress.write("final_analyze_skipped", {
+                reason: "no_modeled_artifacts",
+                summaryJson: finalRun.jsonPath,
+            });
         } else {
+            progress.write("final_analyze_start", {});
             finalRun = await runFinalAnalyze(options, aggregatePaths);
+            semanticflowEvaluationOverlay = buildSemanticFlowEvaluationOverlayInfo(
+                aggregateSummary,
+                aggregatePaths,
+                !options.publishModel,
+            );
         }
     }
     if (finalRun) {
+        const mergedTrace = mergeSemanticFlowTraceIntoFinalAnalyze(finalRun, semanticFlowTraceArtifacts.jsonPath);
         console.log(`semanticflow_phase=final_analyze done summary_json=${finalRun.jsonPath}`);
+        progress.write("final_analyze_done", {
+            summaryJson: finalRun.jsonPath,
+            semanticFlowTraceGraphMerged: mergedTrace.merged,
+            traceGraphJson: mergedTrace.jsonPath,
+        });
     }
 
     const analysisSummaryPath = path.join(options.outputDir, "analysis.json");
@@ -1520,6 +2387,9 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
             diagnosticsTextPath: finalRun.diagnosticsTextPath,
             sourceRunsPath,
             sourceRunStatusCount: countSourceRunStatuses(sourceRuns),
+            progressJsonlPath: progress.path,
+            semanticFlowTraceGraphPath: semanticFlowTraceArtifacts.jsonPath,
+            semanticflowEvaluationOverlay,
         }
         : {
             itemCount: aggregateSummary.summary.itemCount,
@@ -1530,6 +2400,9 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
             finalAnalyze: false,
             sourceRunsPath,
             sourceRunStatusCount: countSourceRunStatuses(sourceRuns),
+            progressJsonlPath: progress.path,
+            semanticFlowTraceGraphPath: semanticFlowTraceArtifacts.jsonPath,
+            semanticflowEvaluationOverlay,
         }, null, 2), "utf-8");
 
     writeSemanticFlowRunManifest(options.outputDir, options, {
@@ -1541,8 +2414,15 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
         bootstrapRuleInputPath,
         ...aggregatePaths,
         sourceRunsPath,
+        semanticFlowTraceGraphPath: semanticFlowTraceArtifacts.jsonPath,
         finalSummaryJsonPath: finalRun?.jsonPath,
         finalSummaryMdPath: finalRun?.mdPath,
+        semanticflowEvaluationOverlay,
+        progressJsonlPath: progress.path,
+    });
+    progress.write("complete", {
+        finalSummaryJson: finalRun?.jsonPath,
+        aggregateSummary: aggregatePaths.aggregateSummaryPath,
     });
 
     console.log("====== SemanticFlow ======");
@@ -1562,6 +2442,26 @@ export async function runSemanticFlowCli(options: SemanticFlowCliOptions): Promi
         console.log(`final_summary_json=${finalRun.jsonPath}`);
         console.log(`final_summary_md=${finalRun.mdPath}`);
     }
+}
+
+export function resolveEffectiveSemanticFlowMaxLlmItems(value: number | undefined): number {
+    if (value === undefined) {
+        return DEFAULT_SEMANTICFLOW_MAX_LLM_ITEMS;
+    }
+    if (!Number.isFinite(value) || value <= 0) {
+        throw new Error(`invalid semanticflow maxLlmItems: ${value}`);
+    }
+    return Math.floor(value);
+}
+
+export function resolveEffectiveSemanticFlowLlmRepairAttempts(value: number | undefined): number {
+    if (value === undefined) {
+        return DEFAULT_SEMANTICFLOW_LLM_REPAIR_ATTEMPTS;
+    }
+    if (!Number.isFinite(value) || value < 0) {
+        throw new Error(`invalid semanticflow llmRepairAttempts: ${value}`);
+    }
+    return Math.floor(value);
 }
 
 if (require.main === module) {

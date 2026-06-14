@@ -7,15 +7,19 @@ import { dedupeMethods, reasonFromFact, reasonFromScenarioSeed } from "./ArkMain
 export function buildBaselineRootEdges(
     facts: ArkMainEntryFact[],
     seedMethods: ArkMethod[],
+    options: {
+        scopeSeedMethods?: ArkMethod[];
+    } = {},
 ): ArkMainActivationEdge[] {
     const edges: ArkMainActivationEdge[] = [];
+    const scopeSeedMethods = options.scopeSeedMethods ?? seedMethods;
     const seedSignatures = new Set(
-        dedupeMethods(seedMethods)
+        dedupeMethods(scopeSeedMethods)
             .map(method => method.getSignature?.()?.toString?.())
             .filter((signature): signature is string => Boolean(signature)),
     );
     const seedFileKeys = new Set(
-        dedupeMethods(seedMethods)
+        dedupeMethods(scopeSeedMethods)
             .map(methodFileKey)
             .filter((fileKey): fileKey is string => Boolean(fileKey)),
     );

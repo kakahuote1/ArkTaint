@@ -186,9 +186,18 @@
         }
       },
       "to": {
-        "base": {
-          "kind": "receiver"
-        }
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "preference-key"
       },
       "transferKind": "transfer"
     },
@@ -197,9 +206,18 @@
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
-        "base": {
-          "kind": "receiver"
-        }
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "preference-key"
       },
       "to": {
         "base": {

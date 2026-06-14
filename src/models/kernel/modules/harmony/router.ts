@@ -7,6 +7,11 @@ const pushMethods = [
     { methodName: "pushPath", routeField: "name" },
     { methodName: "pushPathByName", routeField: "name" },
     { methodName: "replacePath", routeField: "name" },
+    { methodName: "replacePathByName", routeField: "name" },
+    { methodName: "pushDestination", routeField: "name" },
+    { methodName: "pushDestinationByName", routeField: "name" },
+    { methodName: "replaceDestination", routeField: "name" },
+    { methodName: "replaceDestinationByName", routeField: "name" },
 ];
 const getMethods = ["getParams"];
 const navDestinationRegisterMethods = ["register", "setBuilder", "setDestinationBuilder"];

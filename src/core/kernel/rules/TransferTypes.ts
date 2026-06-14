@@ -3,6 +3,7 @@ import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { TaintFact } from "../model/TaintFact";
 import type {
     RuleEndpoint,
+    RuleEndpointTaintScope,
     RuleInvokeKind,
     RuleMatchKind as SchemaRuleMatchKind,
     TransferRule
@@ -58,6 +59,7 @@ export interface EndpointDescriptor {
     path?: string[];
     pathFrom?: RuleEndpoint;
     slotKind?: string;
+    taintScope?: RuleEndpointTaintScope;
 }
 
 export interface InvokeSite {

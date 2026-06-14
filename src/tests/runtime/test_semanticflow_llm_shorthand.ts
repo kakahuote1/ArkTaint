@@ -38,6 +38,10 @@ function main(): void {
     const combinedPrompt = `${prompt.system}\n${prompt.user}`;
     assert(!combinedPrompt.includes("classification"), "prompt must not ask for legacy classification");
     assert(combinedPrompt.includes("effectTemplates"), "prompt must ask for declarative effectTemplates");
+    assert(
+        combinedPrompt.includes("Every rule.sink effect template must include a non-empty sinkKind"),
+        "prompt must require sinkKind on rule.sink templates",
+    );
 
     expectThrows(() => parseSemanticFlowAssetDecision(JSON.stringify({
         status: "done",

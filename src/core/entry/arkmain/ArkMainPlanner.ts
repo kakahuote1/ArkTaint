@@ -42,17 +42,21 @@ export interface ArkMainPlan {
 
 export function buildArkMainPlan(scene: Scene, options: ArkMainPlanOptions = {}): ArkMainPlan {
     const _t0 = Date.now();
+    const explicitSeedMethods = dedupeMethods(options.seedMethods || []);
     const initialSeedMethods = dedupeMethods([
-        ...(options.seedMethods || []),
+        ...explicitSeedMethods,
         ...(options.seededMethods || []),
     ]);
     const expandedSeedMethods = expandSeedMethodsByDirectCalls(scene, initialSeedMethods);
+    const expandedExplicitSeedMethods = expandSeedMethodsByDirectCalls(scene, explicitSeedMethods);
     const _t1 = Date.now();
     const facts = collectArkMainEntryFacts(scene, expandedSeedMethods, {
         externalFacts: options.seededFacts || [],
     });
     const _t2 = Date.now();
-    const activationGraph = buildArkMainActivationGraph(facts, expandedSeedMethods);
+    const activationGraph = buildArkMainActivationGraph(facts, expandedSeedMethods, {
+        baselineScopeSeedMethods: expandedExplicitSeedMethods,
+    });
     const _t3 = Date.now();
     const schedule = buildArkMainSchedule(activationGraph);
     const _t4 = Date.now();

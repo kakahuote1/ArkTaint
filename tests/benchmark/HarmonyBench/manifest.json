@@ -383,6 +383,14 @@
                                              "expected_flow":  true,
                                              "expected_sink_pattern":  "Sink(",
                                              "scored":  true
+                                         },
+                                         {
+                                             "case_id":  "C3_012",
+                                             "file":  "event_textinput_onsubmit_enterkey_020_F.ets",
+                                             "entry":  "event_textinput_onsubmit_enterkey_020_F",
+                                             "expected_flow":  false,
+                                             "expected_sink_pattern":  "Sink(",
+                                             "scored":  true
                                          }
                                      ]
                        },

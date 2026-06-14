@@ -184,12 +184,22 @@ async function main(): Promise<void> {
         assert(rootSummary.assetCountByPlane.module === 1, `expected one deduped module asset, got ${rootSummary.assetCountByPlane.module || 0}`);
         assert(rootSummary.arkMainKernelCoveredCount === 1, `expected one kernel-covered arkmain candidate, got ${rootSummary.arkMainKernelCoveredCount || 0}`);
         assert((assets.assets || assets).length === 2, `expected two generated assets, got ${(assets.assets || assets).length}`);
+        assert(analysis.semanticflowEvaluationOverlay?.applied === true, "expected final analyze to use semanticflow evaluation overlay");
+        assert(analysis.semanticflowEvaluationOverlay?.loadMode === "semanticflow-evaluation", "expected semanticflow evaluation load mode");
+        assert(analysis.semanticflowEvaluationOverlay?.assetCount === 2, `expected overlay asset count 2, got ${analysis.semanticflowEvaluationOverlay?.assetCount}`);
+        assert(!logsContainBootstrapReuse(root), "semanticflow auto should not reuse bootstrap when generated assets exist");
         assert(finalSummary.summary.totalFlows > 0, `expected final analyze flow, got ${finalSummary.summary.totalFlows}`);
 
         console.log("PASS testSemanticFlowAuto");
     } finally {
         await server.close();
     }
+}
+
+function logsContainBootstrapReuse(root: string): boolean {
+    const run = JSON.parse(fs.readFileSync(path.join(root, "run.json"), "utf8"));
+    return run.semanticflowEvaluationOverlay?.applied === false
+        && run.semanticflowEvaluationOverlay?.assetCount > 0;
 }
 
 main().catch(error => {

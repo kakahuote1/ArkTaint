@@ -9,11 +9,13 @@ export interface StatePropBridgeEdge {
     targetNodeId: number;
     targetFieldName: string;
     methodSignature: string;
+    scalarAlias?: boolean;
 }
 
 export interface StateManagementSemanticModel {
     edgesBySourceField: Map<string, StatePropBridgeEdge[]>;
     targetFieldLoadNodeIdsBySourceField: Map<string, Set<number>>;
+    scalarBridgeSourceFields: Set<string>;
     bridgeEdgeCount: number;
     constructorCallCount: number;
     stateCaptureAssignCount: number;
@@ -43,6 +45,7 @@ export function createEmptyStateManagementSemanticModel(): StateManagementSemant
     return {
         edgesBySourceField: new Map(),
         targetFieldLoadNodeIdsBySourceField: new Map(),
+        scalarBridgeSourceFields: new Set(),
         bridgeEdgeCount: 0,
         constructorCallCount: 0,
         stateCaptureAssignCount: 0,

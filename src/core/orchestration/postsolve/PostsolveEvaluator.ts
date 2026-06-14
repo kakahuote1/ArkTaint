@@ -23,7 +23,7 @@ export function evaluatePostsolveFlow(
     context: PostsolveContext,
 ): PostsolveSeedResult {
     const witness = flow.sinkFactId
-        ? materializeTaintFlowPaths(flow, context, {
+        ? materializeTaintFlowPaths(flow, context, context.materializationOptions || {
             maxPaths: 128,
             maxDepth: 128,
         })

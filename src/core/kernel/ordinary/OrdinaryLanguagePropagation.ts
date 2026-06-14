@@ -1,5 +1,6 @@
 import { Pag, PagArrayNode, PagNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { Constant } from "../../../../arkanalyzer/out/src/core/base/Constant";
+import { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import {
     AbstractExpr,
     ArkAwaitExpr,
@@ -15,7 +16,7 @@ import {
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { ArrayType } from "../../../../arkanalyzer/out/src/core/base/Type";
 import { ArkAssignStmt, ArkThrowStmt } from "../../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkArrayRef, ArkCaughtExceptionRef, ArkInstanceFieldRef, ArkParameterRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
+import { ArkArrayRef, ArkCaughtExceptionRef, ArkInstanceFieldRef, ArkParameterRef, ClosureFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
 import { TaintFact } from "../model/TaintFact";
 import { TaintTracker } from "../model/TaintTracker";
 import { toContainerFieldKey } from "../model/ContainerSlotKeys";
@@ -148,6 +149,7 @@ export function propagateOrdinaryExpressionTaint(
     tracker: TaintTracker,
     pag: Pag,
     fieldPath?: string[],
+    source?: string,
 ): number[] {
     const targetNodeIds: number[] = [];
     if (!(value instanceof Local)) {
@@ -166,7 +168,10 @@ export function propagateOrdinaryExpressionTaint(
         const leftPagNodes = safeGetOrCreatePagNodes(pag, leftOp, stmt);
         if (!leftPagNodes || leftPagNodes.size === 0) continue;
         for (const leftNodeId of leftPagNodes.values()) {
-            if (!tracker.isTainted(leftNodeId, currentCtx)) {
+            const alreadyHasThisSource = source
+                ? tracker.hasSource(leftNodeId, currentCtx, source, fieldPath)
+                : tracker.isTainted(leftNodeId, currentCtx, fieldPath);
+            if (!alreadyHasThisSource) {
                 targetNodeIds.push(leftNodeId);
             }
         }
@@ -309,7 +314,12 @@ export function collectNestedFieldStoreFactsFromTaintedLocal(
         for (const carrierNodeId of baseCarrierIds) {
             const carrierNode = pag.getNode(carrierNodeId) as PagNode;
             if (!carrierNode) continue;
-            results.push(new TaintFact(carrierNode, source, currentCtx, [fieldName, ...fieldPath]));
+            const targetFieldPath = isScalarLikeLocal(value)
+                ? [fieldName]
+                : fieldPath[0] === fieldName
+                ? [...fieldPath]
+                : [fieldName, ...fieldPath];
+            results.push(new TaintFact(carrierNode, source, currentCtx, targetFieldPath));
         }
     }
 
@@ -344,11 +354,42 @@ export function collectNestedArrayStoreFactsFromTaintedLocal(
         for (const carrierNodeId of baseCarrierIds) {
             const carrierNode = pag.getNode(carrierNodeId) as PagNode;
             if (!carrierNode) continue;
-            results.push(new TaintFact(carrierNode, source, currentCtx, [slotKey, ...fieldPath]));
+            const targetFieldPath = isScalarLikeLocal(value)
+                ? [slotKey]
+                : [slotKey, ...fieldPath];
+            results.push(new TaintFact(carrierNode, source, currentCtx, targetFieldPath));
         }
     }
 
     return dedupFacts(results);
+}
+
+function isScalarLikeLocal(local: Local): boolean {
+    return isScalarLikeTypeText(local.getType?.()?.toString?.());
+}
+
+function isScalarLikeTypeText(raw: string | undefined): boolean {
+    const text = String(raw || "").trim().toLowerCase();
+    if (!text) return false;
+    if (text.includes("[]") || text.includes("array<") || text.includes("map<") || text.includes("set<")) {
+        return false;
+    }
+    return text === "string"
+        || text === "boolean"
+        || text === "number"
+        || text === "bigint"
+        || text === "symbol"
+        || text === "null"
+        || text === "undefined"
+        || text === "void"
+        || text === "byte"
+        || text === "short"
+        || text === "int"
+        || text === "long"
+        || text === "float"
+        || text === "double"
+        || text.endsWith(".string")
+        || text.includes("std.core.string");
 }
 
 export function collectObjectLiteralFieldCaptureFactsFromTaintedObj(
@@ -392,6 +433,53 @@ export function collectObjectLiteralFieldCaptureFactsFromTaintedObj(
                         if (!projectedFieldPath) continue;
                         results.push(new TaintFact(carrierNode, source, currentCtx, projectedFieldPath));
                     }
+                }
+            }
+        }
+    }
+
+    return dedupFacts(results);
+}
+
+export function collectObjectLiteralFieldCaptureFactsFromTaintedLocal(
+    taintedNode: PagNode,
+    source: string,
+    currentCtx: number,
+    pag: Pag,
+    classBySignature: Map<string, any>,
+): TaintFact[] {
+    const value = taintedNode.getValue?.();
+    if (!(value instanceof Local)) return [];
+
+    const aliasName = value.getName?.() || "";
+    if (!aliasName) return [];
+    const aliasMethodSig = getDeclaringMethodSignatureFromLocal(value);
+    if (!aliasMethodSig) return [];
+
+    const results: TaintFact[] = [];
+    const aliasLine = getDeclaringStmtLine(value.getDeclaringStmt?.());
+    const captureIndex = getObjectLiteralCaptureIndex(pag, classBySignature);
+    const captureCandidates = captureIndex.get(objectLiteralCaptureIndexKey(aliasMethodSig, aliasName)) || [];
+
+    for (const candidate of captureCandidates) {
+        if (aliasLine > 0 && candidate.candidateLine > 0 && candidate.candidateLine < aliasLine) continue;
+        for (const candidateNodeId of candidate.nodeIds) {
+            const carrierNode = pag.getNode(candidateNodeId) as PagNode;
+            if (!carrierNode) continue;
+            let hasPointTo = false;
+            for (const objId of carrierNode.getPointTo()) {
+                hasPointTo = true;
+                const objNode = pag.getNode(objId) as PagNode;
+                if (!objNode) continue;
+                for (const capture of candidate.captures) {
+                    if (capture.sourceFieldPath && capture.sourceFieldPath.length > 0) continue;
+                    results.push(new TaintFact(objNode, source, currentCtx, [capture.targetFieldName]));
+                }
+            }
+            if (!hasPointTo) {
+                for (const capture of candidate.captures) {
+                    if (capture.sourceFieldPath && capture.sourceFieldPath.length > 0) continue;
+                    results.push(new TaintFact(carrierNode, source, currentCtx, [capture.targetFieldName]));
                 }
             }
         }
@@ -883,6 +971,51 @@ export function collectOrdinaryTaintPreservingDestinationLocals(value: any): Loc
     return [...results.values()];
 }
 
+export function collectOrdinaryClosureLocalWritebackFactsFromTaintedLocal(
+    taintedNode: PagNode,
+    source: string,
+    currentCtx: number,
+    pag: Pag,
+    scene: Scene,
+): TaintFact[] {
+    const value = taintedNode.getValue?.();
+    if (!(value instanceof Local)) return [];
+    const closureMethod = value.getDeclaringStmt?.()?.getCfg?.()?.getDeclaringMethod?.();
+    const closureMethodName = closureMethod?.getName?.() || "";
+    if (!closureMethodName.includes("$")) return [];
+
+    const capturedFieldName = resolveClosureCapturedFieldForLocal(closureMethod, value);
+    if (!capturedFieldName) return [];
+
+    const parentMethodName = closureMethodName.slice(closureMethodName.lastIndexOf("$") + 1);
+    if (!parentMethodName || parentMethodName === closureMethodName) return [];
+
+    const closureFileKey = methodFileKey(closureMethod);
+    const results: TaintFact[] = [];
+    const seen = new Set<number>();
+    for (const candidate of scene.getMethods()) {
+        if (candidate?.getName?.() !== parentMethodName) continue;
+        if (methodFileKey(candidate) !== closureFileKey) continue;
+        const locals = candidate.getBody?.()?.getLocals?.();
+        if (!locals) continue;
+        for (const parentLocal of locals.values()) {
+            if (!(parentLocal instanceof Local)) continue;
+            if ((parentLocal.getName?.() || "") !== capturedFieldName) continue;
+            const parentNodes = safeGetOrCreatePagNodes(pag, parentLocal, parentLocal.getDeclaringStmt?.());
+            if (!parentNodes || parentNodes.size === 0) continue;
+            for (const parentNodeId of parentNodes.values()) {
+                if (seen.has(parentNodeId)) continue;
+                seen.add(parentNodeId);
+                const parentNode = pag.getNode(parentNodeId) as PagNode;
+                if (!parentNode) continue;
+                results.push(new TaintFact(parentNode, source, currentCtx));
+            }
+        }
+    }
+
+    return results;
+}
+
 function shouldPropagateAssignedValue(rightOp: any, local: Local, preserveFieldCarrierOnly: boolean): boolean {
     if (preserveFieldCarrierOnly) {
         return shouldPropagateFieldCarrier(rightOp, local);
@@ -1011,6 +1144,38 @@ function isDeferredContinuationMethod(methodName: string, sigStr: string): boole
 function getDeclaringMethodSignatureFromLocal(local: Local): string | undefined {
     const declStmt = local.getDeclaringStmt?.();
     return declStmt?.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.();
+}
+
+function methodFileKey(method: any): string {
+    const sig = method?.getSignature?.()?.toString?.() || "";
+    const idx = sig.indexOf(": ");
+    return idx >= 0 ? sig.slice(0, idx) : sig;
+}
+
+function resolveClosureCapturedFieldForLocal(method: any, local: Local): string | undefined {
+    const localName = local.getName?.() || "";
+    if (!localName) return undefined;
+    const cfg = method?.getCfg?.();
+    if (!cfg) return undefined;
+
+    for (const stmt of cfg.getStmts()) {
+        if (!(stmt instanceof ArkAssignStmt)) continue;
+        const left = stmt.getLeftOp();
+        if (!(left instanceof Local) || !isSameLocal(left, local)) continue;
+        const right = stmt.getRightOp();
+        if (right instanceof ClosureFieldRef) {
+            const fieldName = right.getFieldName?.();
+            if (fieldName) return fieldName;
+        }
+        if (right instanceof ArkInstanceFieldRef) {
+            const base = right.getBase?.();
+            if (base instanceof Local && base.getName?.().startsWith("%closures")) {
+                const fieldName = right.getFieldSignature?.().getFieldName?.() || right.getFieldName?.();
+                if (fieldName) return fieldName;
+            }
+        }
+    }
+    return undefined;
 }
 
 function getDeclaringStmtLine(stmt: any): number {
@@ -1216,13 +1381,30 @@ function resolveCapturedSourcesFromValue(
     }
 
     if (value instanceof ArkNormalBinopExpr
+        || value instanceof ArkConditionExpr
         || value instanceof ArkPhiExpr
-        || value instanceof ArkArrayRef) {
-        return dedupCapturedSources((value.getUses?.() || [])
-            .flatMap((use: any) => resolveCapturedSourcesFromValue(use, stmts, visiting)));
+        || value instanceof ArkArrayRef
+        || value instanceof ArkStaticInvokeExpr
+        || value instanceof ArkInstanceInvokeExpr
+        || value instanceof ArkPtrInvokeExpr) {
+        return resolveCapturedSourcesFromPropagatingUses(value, stmts, visiting);
     }
 
     return [];
+}
+
+function resolveCapturedSourcesFromPropagatingUses(
+    value: any,
+    stmts: any[],
+    visiting: Set<string>,
+): Array<{ aliasName: string; sourceFieldPath?: string[] }> {
+    const uses = value?.getUses?.() || [];
+    const sources: Array<{ aliasName: string; sourceFieldPath?: string[] }> = [];
+    for (const use of uses) {
+        if (use instanceof Local && !shouldPropagateAssignedValue(value, use, false)) continue;
+        sources.push(...resolveCapturedSourcesFromValue(use, stmts, visiting));
+    }
+    return dedupCapturedSources(sources);
 }
 
 function asArray<T>(value: T | undefined): T[] {

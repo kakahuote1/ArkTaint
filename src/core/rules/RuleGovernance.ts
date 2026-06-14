@@ -80,13 +80,19 @@ const FRAMEWORK_GOVERNANCE_HINTS: readonly FrameworkGovernanceFamilyHint[] = [
     },
     {
         kind: "sink",
-        pattern: /^sink\.harmony\.rpc\.sendMessageRequest$/,
+        pattern: /^sink\.harmony\.rpc\.(sendRequest|sendMessageRequest)$/,
         family: "sink.harmony.rpc",
         defaultTier: "B",
     },
     {
         kind: "sink",
-        pattern: /^sink\.harmony\.webview\.(loadData|registerJavaScriptProxy)$/,
+        pattern: /^sink\.harmony\.ipc\.messageparcel\.write$/,
+        family: "sink.harmony.ipc.messageparcel",
+        defaultTier: "B",
+    },
+    {
+        kind: "sink",
+        pattern: /^sink\.harmony\.webview\.(loadData|registerJavaScriptProxy|webdatabase\.saveHttpAuthCredentials\.(?:username\.arg2|password\.arg3))$/,
         family: "sink.harmony.webview",
         defaultTier: "B",
     },
@@ -100,6 +106,30 @@ const FRAMEWORK_GOVERNANCE_HINTS: readonly FrameworkGovernanceFamilyHint[] = [
         kind: "sink",
         pattern: /^sink\.harmony\.dataShare\.(insert|update|batchInsert|publish)$/,
         family: "sink.harmony.datashare",
+        defaultTier: "B",
+    },
+    {
+        kind: "sink",
+        pattern: /^sink\.harmony\.request\.(downloadFile|cacheDownload)\.config\.arg1$/,
+        family: "sink.harmony.network.request",
+        defaultTier: "B",
+    },
+    {
+        kind: "sink",
+        pattern: /^sink\.harmony\.commonevent\.(publish\.arg1|publishAsUser\.arg2)$/,
+        family: "sink.harmony.commonevent",
+        defaultTier: "B",
+    },
+    {
+        kind: "sink",
+        pattern: /^sink\.harmony\.securityAsset\.(add|update)\.arg0$/,
+        family: "sink.harmony.security_asset",
+        defaultTier: "B",
+    },
+    {
+        kind: "sink",
+        pattern: /^sink\.harmony\.crypto\.verify\.arg0$/,
+        family: "sink.harmony.crypto.verify",
         defaultTier: "B",
     },
     {
@@ -301,7 +331,7 @@ function resolveFamilyAnchor(rule: GovernableRule): string {
 
 function hasStrongScopeConstraint(scope: RuleScopeConstraint | undefined): boolean {
     if (!scope) return false;
-    return !!(scope.file || scope.module || scope.className || scope.methodName);
+    return !!(scope.file || scope.module || scope.className || scope.methodName || scope.methodDecorators);
 }
 
 function hasStrongScopeAnchor(rule: GovernableRule): boolean {

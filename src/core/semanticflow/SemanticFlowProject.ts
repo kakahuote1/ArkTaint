@@ -37,10 +37,12 @@ export interface SemanticFlowProjectResult {
 export async function runSemanticFlowProject(
     options: SemanticFlowProjectOptions,
 ): Promise<SemanticFlowProjectResult> {
+    const ruleCandidates = options.ruleCandidates || [];
+    const arkMainCandidateLimit = options.arkMainMaxCandidates ?? 32;
     const rawArkMainCandidates = options.includeArkMainCandidates === false
         ? []
         : buildArkMainEntryCandidates(options.scene as never, {
-            maxCandidates: options.arkMainMaxCandidates,
+            maxCandidates: resolveRawArkMainCandidateLimit(arkMainCandidateLimit, ruleCandidates.length),
         });
     const {
         semanticFlowCandidates: arkMainCandidates,
@@ -48,7 +50,11 @@ export async function runSemanticFlowProject(
         ineligibleCandidates: ineligibleArkMainCandidates,
     } =
         splitArkMainEntryCandidatesForSemanticFlow(rawArkMainCandidates);
-    const ruleCandidates = options.ruleCandidates || [];
+    const selectedArkMainCandidates = selectArkMainCandidatesForRuleContext(
+        arkMainCandidates,
+        ruleCandidates,
+        arkMainCandidateLimit,
+    );
     const companionPool = options.ruleCompanionCandidates?.length
         ? options.ruleCompanionCandidates
         : ruleCandidates;
@@ -62,7 +68,7 @@ export async function runSemanticFlowProject(
                 sameDirectoryRuleCompanionCandidates(candidate, companionPool),
             ),
         })),
-        ...arkMainCandidates.map(candidate => buildSemanticFlowArkMainCandidateItem(candidate)),
+        ...selectedArkMainCandidates.map(candidate => buildSemanticFlowArkMainCandidateItem(candidate)),
     ];
 
     const decider = createSemanticFlowLlmDecider({
@@ -85,11 +91,111 @@ export async function runSemanticFlowProject(
 
     return {
         session,
-        arkMainCandidates,
+        arkMainCandidates: selectedArkMainCandidates,
         skippedArkMainCandidates,
         ineligibleArkMainCandidates,
         ruleCandidateCount: ruleCandidates.length,
     };
+}
+
+function resolveRawArkMainCandidateLimit(finalLimit: number, ruleCandidateCount: number): number {
+    const expandedForContext = Math.max(finalLimit * 16, finalLimit + ruleCandidateCount * 4, 128);
+    return Math.min(Math.max(finalLimit, expandedForContext), 512);
+}
+
+export function selectArkMainCandidatesForRuleContext(
+    candidates: ArkMainEntryCandidate[],
+    ruleCandidates: NormalizedCallsiteItem[],
+    maxCandidates = candidates.length,
+): ArkMainEntryCandidate[] {
+    const limit = Math.max(0, maxCandidates);
+    if (limit === 0) {
+        return [];
+    }
+    const callerFiles = collectRuleCallerFiles(ruleCandidates);
+    const seen = new Set<string>();
+    const out: ArkMainEntryCandidate[] = [];
+    const push = (candidate: ArkMainEntryCandidate): void => {
+        const key = candidate.methodSignature || `${candidate.className}.${candidate.methodName}`;
+        if (!key || seen.has(key)) {
+            return;
+        }
+        seen.add(key);
+        out.push(candidate);
+    };
+
+    const related = candidates
+        .filter(candidate => isCandidateInCallerFile(candidate, callerFiles))
+        .sort(compareRelatedArkMainCandidates);
+    for (const candidate of related) {
+        if (out.length >= limit) break;
+        push(candidate);
+    }
+    for (const candidate of candidates) {
+        if (out.length >= limit) break;
+        push(candidate);
+    }
+    return out;
+}
+
+function collectRuleCallerFiles(ruleCandidates: NormalizedCallsiteItem[]): Set<string> {
+    const out = new Set<string>();
+    for (const candidate of ruleCandidates) {
+        const contexts = Array.isArray((candidate as any).contextSlices)
+            ? (candidate as any).contextSlices
+            : [];
+        for (const context of contexts) {
+            const callerFile = normalizePathKey((context as any)?.callerFile);
+            if (callerFile) {
+                out.add(callerFile);
+            }
+        }
+    }
+    return out;
+}
+
+function isCandidateInCallerFile(candidate: ArkMainEntryCandidate, callerFiles: Set<string>): boolean {
+    if (callerFiles.size === 0) {
+        return false;
+    }
+    const candidateFile = normalizePathKey(candidate.filePath);
+    if (!candidateFile) {
+        return false;
+    }
+    for (const callerFile of callerFiles) {
+        if (candidateFile === callerFile || candidateFile.endsWith(`/${callerFile}`)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function compareRelatedArkMainCandidates(left: ArkMainEntryCandidate, right: ArkMainEntryCandidate): number {
+    return arkMainMethodTier(left) - arkMainMethodTier(right)
+        || arkMainSignalCompletenessTier(left) - arkMainSignalCompletenessTier(right)
+        || left.methodSignature.localeCompare(right.methodSignature);
+}
+
+function arkMainMethodTier(candidate: ArkMainEntryCandidate): number {
+    const methodName = String(candidate.methodName || "").toLowerCase();
+    if (methodName === "build") return 0;
+    if (methodName === "initialrender" || methodName === "rerender") return 1;
+    if (methodName === "abouttoappear" || methodName === "abouttodisappear") return 2;
+    return 3;
+}
+
+function arkMainSignalCompletenessTier(candidate: ArkMainEntryCandidate): number {
+    if (candidate.ownerSignals.length > 0 && candidate.overrideSignals.length > 0 && candidate.frameworkSignals.length > 0) return 0;
+    if (candidate.ownerSignals.length > 0 && candidate.frameworkSignals.length > 0) return 1;
+    if (candidate.ownerSignals.length > 0 || candidate.frameworkSignals.length > 0) return 2;
+    return 3;
+}
+
+function normalizePathKey(value: unknown): string {
+    return String(value || "")
+        .replace(/\\/g, "/")
+        .replace(/^\.\//, "")
+        .trim();
 }
 
 function mergeRuleCompanionCandidates(...groups: NormalizedCallsiteItem[][]): NormalizedCallsiteItem[] {

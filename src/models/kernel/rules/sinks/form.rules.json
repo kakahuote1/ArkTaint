@@ -1,0 +1,220 @@
+{
+  "id": "asset.rule.kernel.sinks.form",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
+    {
+      "surfaceId": "surface.sink.harmony.formbindingdata.create.arg0",
+      "kind": "invoke",
+      "modulePath": "@ohos.app.form.formBindingData",
+      "invokeKind": "namespace",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 1,
+      "ownerName": "formBindingData",
+      "methodName": "createFormBindingData"
+    },
+    {
+      "surfaceId": "surface.sink.harmony.formProvider.updateForm.arg1",
+      "kind": "invoke",
+      "modulePath": "@ohos.app.form.formProvider",
+      "invokeKind": "namespace",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 2,
+      "ownerName": "formProvider",
+      "methodName": "updateForm"
+    },
+    {
+      "surfaceId": "surface.sink.harmony.formProvider.requestPublishForm.arg1",
+      "kind": "invoke",
+      "modulePath": "@ohos.app.form.formProvider",
+      "invokeKind": "namespace",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 2,
+      "ownerName": "formProvider",
+      "methodName": "requestPublishForm"
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.sink.harmony.formbindingdata.create.arg0",
+      "surfaceId": "surface.sink.harmony.formbindingdata.create.arg0",
+      "assetId": "asset.rule.kernel.sinks.form",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "createFormBindingData",
+        "invokeKind": "any",
+        "argCount": 1,
+        "typeHint": "formBindingData",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "formBindingData"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.formbindingdata.create.arg0"
+      ],
+      "semanticsFamily": "form_data_boundary",
+      "metadata": {
+        "enabled": true,
+        "category": "form_data_boundary",
+        "severity": "medium",
+        "description": "formBindingData.createFormBindingData(obj) moves object/string payload into Form binding data."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.sink.harmony.formProvider.updateForm.arg1",
+      "surfaceId": "surface.sink.harmony.formProvider.updateForm.arg1",
+      "assetId": "asset.rule.kernel.sinks.form",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "updateForm",
+        "invokeKind": "any",
+        "argCount": 2,
+        "typeHint": "formProvider",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "formProvider"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.formProvider.updateForm.arg1"
+      ],
+      "semanticsFamily": "form_data_boundary",
+      "metadata": {
+        "enabled": true,
+        "category": "form_data_boundary",
+        "severity": "medium",
+        "description": "formProvider.updateForm(formId, formBindingData) publishes Form binding payload."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.sink.harmony.formProvider.requestPublishForm.arg1",
+      "surfaceId": "surface.sink.harmony.formProvider.requestPublishForm.arg1",
+      "assetId": "asset.rule.kernel.sinks.form",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "requestPublishForm",
+        "invokeKind": "any",
+        "argCount": 2,
+        "typeHint": "formProvider",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "formProvider"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.formProvider.requestPublishForm.arg1"
+      ],
+      "semanticsFamily": "form_data_boundary",
+      "metadata": {
+        "enabled": true,
+        "category": "form_data_boundary",
+        "severity": "medium",
+        "description": "formProvider.requestPublishForm(want, formBindingData) publishes Form binding payload."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.sink.harmony.formbindingdata.create.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "form_data_boundary"
+    },
+    {
+      "id": "template.sink.harmony.formProvider.updateForm.arg1",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "form_data_boundary"
+    },
+    {
+      "id": "template.sink.harmony.formProvider.requestPublishForm.arg1",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "form_data_boundary"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "api/@ohos.app.form.formBindingData.d.ts"
+      },
+      {
+        "file": "api/@ohos.application.formBindingData.d.ts"
+      },
+      {
+        "file": "api/@ohos.app.form.formProvider.d.ts"
+      },
+      {
+        "file": "api/@ohos.application.formProvider.d.ts"
+      },
+      {
+        "file": "internal_docs/security_asset_iteration/official_api_semantic_inventory.md"
+      }
+    ]
+  }
+}

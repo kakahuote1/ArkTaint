@@ -64,6 +64,7 @@ import {
     writeNoCandidateCallsiteArtifacts,
     writeNoCandidateCallsiteClassificationArtifacts,
 } from "./ruleFeedback";
+import { buildCurrentAssetCandidateTraceGraph } from "./ruleFeedbackTrace";
 import { injectArkUiSdk } from "../core/substrate/ArkUiSdkConfig";
 import { loadModules } from "../core/orchestration/modules/ModuleLoader";
 import { loadEnginePlugins } from "../core/orchestration/plugins/EnginePluginLoader";
@@ -71,11 +72,76 @@ import { loadArkMainSeeds, ArkMainLoadResult } from "../core/entry/arkmain/ArkMa
 import * as fs from "fs";
 import * as path from "path";
 import { resolveModelSelections } from "./modelSelection";
+import {
+    buildTraceGraph,
+    FullTraceRun,
+    mergeTraceGraphs,
+    TraceGate,
+    TraceGraph,
+    writeTraceGraphArtifacts,
+} from "../core/trace/TraceGraph";
+import {
+    buildSourceCandidateCoverageTraceGraph,
+    collectSourceCoverageCandidates,
+} from "../core/trace/SourceCandidateCoverageTraceGraph";
 
 function verboseAnalyzeLog(message: string): void {
     if (process.env.ARKTAINT_VERBOSE_BUILD === "1") {
         console.log(`[analyzeRunner] ${message}`);
     }
+}
+
+function buildRuleLayerTraceGraph(run: FullTraceRun, loadedRules: LoadedRuleSet): TraceGraph {
+    const gates: TraceGate[] = (loadedRules.layerStatus || []).map((status, index) => {
+        const sourceRuleCount = status.sourceRuleCount || 0;
+        const sinkRuleCount = status.sinkRuleCount || 0;
+        const sanitizerRuleCount = status.sanitizerRuleCount || 0;
+        const transferRuleCount = status.transferRuleCount || 0;
+        const totalRuleCount = sourceRuleCount + sinkRuleCount + sanitizerRuleCount + transferRuleCount;
+        const emitted = Boolean(status.applied && totalRuleCount > 0);
+        const skippedReason = status.exists === false
+            ? "rule_layer_missing"
+            : !status.applied
+                ? "rule_layer_not_enabled"
+                : emitted
+                    ? undefined
+                    : "rule_layer_lowered_zero_rules";
+        return {
+            id: `rule_layer:${index}`,
+            label: `${status.name}:${status.packId || status.path}`,
+            stage: "asset_lowering",
+            producer: "asset",
+            gateKind: "asset_lowering",
+            scope: `rule_layer:${status.name}:${status.packId || status.path}`,
+            attempted: true,
+            matched: Boolean(status.applied),
+            emitted,
+            skippedReason,
+            evidence: {
+                layerName: status.name,
+                path: status.path,
+                source: status.source,
+                packId: status.packId,
+                exists: status.exists,
+                applied: status.applied,
+                sourceRuleCount,
+                sinkRuleCount,
+                sanitizerRuleCount,
+                transferRuleCount,
+                sourceRuleIds: status.sourceRuleIds || [],
+                sinkRuleIds: status.sinkRuleIds || [],
+            },
+        };
+    });
+    return buildTraceGraph(
+        {
+            ...run,
+            notes: [...(run.notes || []), "rule_layer_asset_lowering_fragment"],
+        },
+        [],
+        [],
+        gates,
+    );
 }
 
 async function mapWithConcurrency<T, R>(
@@ -384,6 +450,8 @@ function createSourceDirExceptionResult(
         seedCount: 0,
         seedLocalNames: [],
         seedStrategies: [],
+        sourceSeedAudit: [],
+        sourceRuleZeroHitAudit: [],
         flowCount: 0,
         sinkSamples: [],
         flowRuleTraces: [],
@@ -391,6 +459,7 @@ function createSourceDirExceptionResult(
         ruleHitEndpoints: emptyRuleHitCounters(),
         transferProfile: emptyTransferProfile(),
         detectProfile: emptyDetectProfile(),
+        sinkDetectionAudit: { entries: [], overflowCount: 0 },
         stageProfile,
         transferNoHitReasons: ["source_dir_exception"],
         pagNodeResolutionAudit: emptyPagNodeResolutionAuditSnapshot(),
@@ -452,6 +521,7 @@ async function analyzeSourceDir(
             transferRules: loadedRules.ruleSet.transfers || [],
             executionHandoff: options.executionHandoff,
             moduleRoots: options.modelRoots,
+            semanticflowEvaluationModelRoots: options.semanticflowEvaluationModelRoots,
             enabledModuleProjects: resolvedSelections.enabledModuleProjects,
             disabledModuleProjects: resolvedSelections.disabledModuleProjects,
             disabledModuleIds: options.disabledModuleIds,
@@ -470,6 +540,17 @@ async function analyzeSourceDir(
                 : undefined,
             debug: {
                 enableWorklistProfile: true,
+                enableTraceGraph: true,
+                traceRun: {
+                    runId: `entry:${sourceDir || "."}:${Date.now()}`,
+                    project: options.repo,
+                    engineVersion: "arktaint",
+                    assetVersion: buildRuleFingerprint(loadedRules),
+                    configHash: `${options.profile}|k=${options.k}|entry=${options.entryModel || "arkMain"}`,
+                    llmSession: options.llmSessionCacheDir,
+                    status: "partial",
+                    notes: [`sourceDir=${sourceDir || "."}`],
+                },
                 worklistMaxElapsedMs: options.worklistBudgetMs && options.worklistBudgetMs > 0
                     ? options.worklistBudgetMs
                     : undefined,
@@ -479,6 +560,21 @@ async function analyzeSourceDir(
                 worklistMaxVisited: options.worklistMaxVisited && options.worklistMaxVisited > 0
                     ? options.worklistMaxVisited
                     : undefined,
+                moduleSetupMaxElapsedMs: options.moduleSetupBudgetMs && options.moduleSetupBudgetMs > 0
+                    ? options.moduleSetupBudgetMs
+                    : undefined,
+                executionHandoffMaxElapsedMs: options.executionHandoffBudgetMs && options.executionHandoffBudgetMs > 0
+                    ? options.executionHandoffBudgetMs
+                    : undefined,
+                pagIndexMaxElapsedMs: options.pagIndexBudgetMs && options.pagIndexBudgetMs > 0
+                    ? options.pagIndexBudgetMs
+                    : undefined,
+                lazyMaterializerMaxElapsedMs: options.lazyMaterializerBudgetMs && options.lazyMaterializerBudgetMs > 0
+                    ? options.lazyMaterializerBudgetMs
+                    : undefined,
+                reachableMaxElapsedMs: options.reachableBudgetMs && options.reachableBudgetMs > 0
+                    ? options.reachableBudgetMs
+                    : undefined,
             },
         });
         engine.verbose = process.env.ARKTAINT_VERBOSE_BUILD === "1";
@@ -486,6 +582,7 @@ async function analyzeSourceDir(
         verboseAnalyzeLog(`buildPAG start source_dir=${sourceDir || "."}`);
         await engine.buildPAG({ entryModel: options.entryModel || "arkMain" });
         stageProfile.buildPagMs = elapsedMsSince(buildPagT0);
+        stageProfile.buildPagProfile = engine.getPagBuildProfileSnapshot();
         verboseAnalyzeLog(`buildPAG done source_dir=${sourceDir || "."} elapsed_ms=${Math.round(stageProfile.buildPagMs)}`);
 
         const activeReachableMethodSignatures = engine.getActiveReachableMethodSignatures();
@@ -514,6 +611,7 @@ async function analyzeSourceDir(
         verboseAnalyzeLog(`source rule propagation start source_dir=${sourceDir || "."}`);
         const sourceRuleResult = engine.propagateWithSourceRules(getAnalyzeSourceRules(loadedRules));
         stageProfile.propagateRuleSeedMs = elapsedMsSince(sourceSeedT0);
+        stageProfile.sourceRulePropagationProfile = engine.getSourceRulePropagationProfileSnapshot();
         verboseAnalyzeLog(
             `source rule propagation done source_dir=${sourceDir || "."} elapsed_ms=${Math.round(stageProfile.propagateRuleSeedMs)} seeds=${sourceRuleResult.seedCount}`,
         );
@@ -535,6 +633,8 @@ async function analyzeSourceDir(
             seedCount: 0,
             seedLocalNames: [],
             seedStrategies: [],
+            sourceSeedAudit: [],
+            sourceRuleZeroHitAudit: [],
             flowCount: 0,
             sinkSamples: [],
             flowRuleTraces: [],
@@ -544,6 +644,7 @@ async function analyzeSourceDir(
                 ruleHitEndpoints: emptyRuleHitCounters(),
                 transferProfile: emptyTransferProfile(),
                 detectProfile: emptyDetectProfile(),
+                sinkDetectionAudit: { entries: [], overflowCount: 0 },
                 stageProfile,
                 transferNoHitReasons: ["no_source_seed"],
                 pagNodeResolutionAudit: engine.getPagNodeResolutionAuditSnapshot(),
@@ -551,51 +652,12 @@ async function analyzeSourceDir(
                 moduleAudit: engine.getModuleAuditSnapshot(),
                 enginePluginAudit: engine.getEnginePluginAuditSnapshot(),
                 arkMainSeeds: engine.getArkMainSeedReport(),
+                traceGraph: engine.getTraceGraphSnapshot({
+                    project: options.repo,
+                    status: "completed",
+                    notes: [`sourceDir=${sourceDir || "."}`, "no_source_seed"],
+                }),
                 elapsedMs: stageProfile.totalMs
-            };
-        }
-
-        if (worklistTruncation) {
-            const transferProfile = engine.getWorklistProfile()?.transfer || emptyTransferProfile();
-            const ruleHits = engine.getRuleHitCounters();
-            const ruleHitEndpoints = buildRuleEndpointHits(ruleHits, loadedRules);
-            engine.finishEnginePlugins({
-                sourceDir,
-                elapsedMs: stageProfile.propagateRuleSeedMs,
-                reachableMethodCount: engine.getActiveReachableMethodSignatures()?.size,
-            });
-            stageProfile.totalMs = elapsedMsSince(t0);
-            return {
-                sourceDir,
-                entryName: arkMainEntryName,
-                entryPathHint: sourceDir,
-                score: 100,
-                status: "budget_exceeded",
-                seedCount,
-                seedLocalNames: [...seedLocalNames].sort(),
-                seedStrategies: [...seedStrategies].sort(),
-                flowCount: 0,
-                sinkSamples: [],
-                flowRuleTraces: [],
-                materializedTaintFlows: [],
-                postsolveResults: [],
-                ruleHits,
-                ruleHitEndpoints,
-                transferProfile,
-                detectProfile: emptyDetectProfile(),
-                stageProfile,
-                transferNoHitReasons: [
-                    "propagation_budget_exceeded",
-                    `propagation_budget_exceeded:${worklistTruncation.reason}`,
-                ],
-                pagNodeResolutionAudit: engine.getPagNodeResolutionAuditSnapshot(),
-                executionHandoffAudit,
-                moduleAudit: engine.getModuleAuditSnapshot(),
-                enginePluginAudit: engine.getEnginePluginAuditSnapshot(),
-                arkMainSeeds: engine.getArkMainSeedReport(),
-                worklistProfile,
-                worklistTruncation,
-                elapsedMs: stageProfile.totalMs,
             };
         }
 
@@ -621,13 +683,7 @@ async function analyzeSourceDir(
             enableSecondarySinkSweep: seedingPolicy.enableSecondarySinkSweep,
             applyPreSinkSanitizers: false,
         });
-        const materializedFlows = engine.materializeDetectedSinkFlowPaths(
-            detected.flows,
-            {
-                maxPaths: 64,
-                maxDepth: 128,
-            },
-        );
+        const detectedFlows = detected.flows;
         detectProfile = engine.getDetectProfile();
         detectElapsedMs = elapsedMsSince(detectT0);
         verboseAnalyzeLog(
@@ -651,8 +707,21 @@ async function analyzeSourceDir(
             reachableMethodCount: engine.getActiveReachableMethodSignatures()?.size,
         });
         const postProcessT0 = process.hrtime.bigint();
-        const postsolveResults = engine.evaluatePostsolveFlowResults(materializedFlows.flows, {
+        const materializeOptions = options.profile === "fast"
+            ? {
+                maxPaths: 16,
+                maxDepth: 64,
+                maxDagFacts: 2000,
+                maxDagEdges: 5000,
+                maxElapsedMs: 1500,
+            }
+            : {
+                maxPaths: 128,
+                maxDepth: 128,
+            };
+        const postsolveResults = engine.evaluatePostsolveFlowResults(detectedFlows, {
             sanitizerRules: loadedRules.ruleSet.sanitizers || [],
+            materialize: materializeOptions,
         });
         const survivingFlows = postsolveResults.survivingFlows;
         const survivingSinkTexts = new Set<string>(survivingFlows.map(flow => flow.sink.toString()));
@@ -683,6 +752,30 @@ async function analyzeSourceDir(
                     })),
             }))
             .filter(item => item.sinkFactId && item.paths.length > 0);
+        const observedTaintFacts: Array<{
+            factId: string;
+            nodeId: number;
+            fieldPath?: string[];
+            source: string;
+            value?: string;
+        }> = [];
+        let observedTaintFactOverflowCount = 0;
+        const maxObservedTaintFactsForTrace = 50000;
+        for (const [nodeId, facts] of engine.getObservedTaintFacts().entries()) {
+            for (const fact of facts) {
+                if (observedTaintFacts.length >= maxObservedTaintFactsForTrace) {
+                    observedTaintFactOverflowCount++;
+                    continue;
+                }
+                observedTaintFacts.push({
+                    factId: fact.taintId,
+                    nodeId,
+                    fieldPath: fact.field ? [...fact.field] : undefined,
+                    source: fact.source,
+                    value: String(fact.node.getValue?.()?.toString?.() || ""),
+                });
+            }
+        }
         stageProfile.postProcessMs = elapsedMsSince(postProcessT0);
         stageProfile.totalMs = elapsedMsSince(t0);
         return {
@@ -694,6 +787,10 @@ async function analyzeSourceDir(
             seedCount,
             seedLocalNames: [...seedLocalNames].sort(),
             seedStrategies: [...seedStrategies].sort(),
+            sourceSeedAudit: sourceRuleResult.sourceSeedAudit,
+            sourceRuleZeroHitAudit: sourceRuleResult.sourceRuleZeroHitAudit,
+            observedTaintFacts,
+            observedTaintFactOverflowCount,
             flowCount: survivingFlows.length,
             sinkSamples: survivingSinkSamples,
             flowRuleTraces: survivingFlowRuleTraces,
@@ -717,6 +814,7 @@ async function analyzeSourceDir(
             ruleHitEndpoints,
             transferProfile,
             detectProfile,
+            sinkDetectionAudit: engine.getSinkDetectionAuditSnapshot(),
             stageProfile,
             transferNoHitReasons,
             pagNodeResolutionAudit: engine.getPagNodeResolutionAuditSnapshot(),
@@ -726,6 +824,11 @@ async function analyzeSourceDir(
             arkMainSeeds: engine.getArkMainSeedReport(),
             worklistProfile,
             worklistTruncation,
+            traceGraph: engine.getTraceGraphSnapshot({
+                project: options.repo,
+                status: worklistTruncation ? "partial" : "completed",
+                notes: [`sourceDir=${sourceDir || "."}`],
+            }),
             elapsedMs: stageProfile.totalMs,
         };
     } catch (err: any) {
@@ -739,6 +842,8 @@ async function analyzeSourceDir(
             seedCount: 0,
             seedLocalNames: [],
             seedStrategies: [],
+            sourceSeedAudit: [],
+            sourceRuleZeroHitAudit: [],
             flowCount: 0,
             sinkSamples: [],
             flowRuleTraces: [],
@@ -748,6 +853,7 @@ async function analyzeSourceDir(
             ruleHitEndpoints: emptyRuleHitCounters(),
             transferProfile: emptyTransferProfile(),
             detectProfile: emptyDetectProfile(),
+            sinkDetectionAudit: engine?.getSinkDetectionAuditSnapshot() || { entries: [], overflowCount: 0 },
             stageProfile,
             transferNoHitReasons: ["analyze_exception"],
             pagNodeResolutionAudit: engine?.getPagNodeResolutionAuditSnapshot() || emptyPagNodeResolutionAuditSnapshot(),
@@ -762,6 +868,11 @@ async function analyzeSourceDir(
             moduleAudit: engine?.getModuleAuditSnapshot() || emptyModuleAuditSnapshot(),
             enginePluginAudit: engine?.getEnginePluginAuditSnapshot() || emptyEnginePluginAuditSnapshot(),
             arkMainSeeds: engine?.getArkMainSeedReport(),
+            traceGraph: engine?.getTraceGraphSnapshot({
+                project: options.repo,
+                status: "failed",
+                notes: [`sourceDir=${sourceDir || "."}`, "analyze_exception"],
+            }),
             elapsedMs: stageProfile.totalMs,
             error: formatAnalyzeErrorMessage(err),
             errorStack: formatAnalyzeErrorStack(err),
@@ -782,9 +893,13 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     const memoryTracker = createAnalyzeMemoryTracker();
     const stageProfile = emptyAnalyzeStageProfile();
     ConfigBasedTransferExecutor.resetSceneRuleCacheStats();
+    const modelSelectionRoots = [
+        ...(options.modelRoots || []),
+        ...(options.semanticflowEvaluationModelRoots || []),
+    ];
     const resolvedSelections = resolveModelSelections({
         ruleOptions: options.ruleOptions,
-        modelRoots: options.modelRoots,
+        modelRoots: modelSelectionRoots,
         enabledModels: options.enabledModels,
         disabledModels: options.disabledModels,
     });
@@ -793,6 +908,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     const arkMainWarningSet = new Set<string>();
     const moduleResult = loadModules({
         moduleRoots: options.modelRoots || [],
+        semanticflowEvaluationModelRoots: options.semanticflowEvaluationModelRoots,
         enabledModuleProjects: resolvedSelections.enabledModuleProjects,
         disabledModuleProjects: resolvedSelections.disabledModuleProjects,
         disabledModuleIds: options.disabledModuleIds || [],
@@ -806,6 +922,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     const ruleLoadT0 = process.hrtime.bigint();
     const loadedRules = loadRuleSet({
         ...resolvedSelections.ruleOptions,
+        semanticflowEvaluationModelRoots: options.semanticflowEvaluationModelRoots,
     });
     stageProfile.ruleLoadMs = elapsedMsSince(ruleLoadT0);
     memoryTracker.sample();
@@ -829,6 +946,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         moduleFiles: buildLoadedFileFingerprint(moduleResult.loadedFiles),
         enginePluginFiles: buildLoadedFileFingerprint(enginePluginResult.loadedFiles),
         modelRoots: (options.modelRoots || []).map(item => path.resolve(item)).sort(),
+        semanticflowEvaluationModelRoots: (options.semanticflowEvaluationModelRoots || []).map(item => path.resolve(item)).sort(),
         enabledModuleProjects: [...resolvedSelections.enabledModuleProjects].sort(),
         disabledModuleProjects: [...resolvedSelections.disabledModuleProjects].sort(),
         disabledModuleIds: [...(options.disabledModuleIds || [])].sort(),
@@ -855,7 +973,13 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     const repoTag = path.basename(options.repo).replace(/[^A-Za-z0-9._-]/g, "_");
     const incrementalCachePath = options.incrementalCachePath
         || path.resolve("tmp", "analyze", ".incremental", `${repoTag}.analyze.cache.json`);
-    const incrementalCache = options.incremental
+    // A FullTraceRun must describe the current engine/assets/config execution.
+    // Reusing entry-level incremental results would mix old propagation facts into
+    // the current Trace Graph, so trace-enabled analysis deliberately bypasses
+    // entry cache reads and writes.
+    const traceGraphRequiresFreshEntries = true;
+    const useIncrementalEntryCache = options.incremental && !traceGraphRequiresFreshEntries;
+    const incrementalCache = useIncrementalEntryCache
         ? loadIncrementalCache<EntryAnalyzeResult>(incrementalCachePath, incrementalCacheScope)
         : new Map<string, IncrementalCacheEntry<EntryAnalyzeResult>>();
     const sourceContextCache = new Map<string, { scene: Scene; arkMainLoad: ArkMainLoadResult }>();
@@ -895,6 +1019,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
                     arkMainRoots: options.modelRoots,
                     enabledArkMainProjects: resolvedSelections.enabledArkMainProjects,
                     disabledArkMainProjects: resolvedSelections.disabledArkMainProjects,
+                    semanticflowEvaluationModelRoots: options.semanticflowEvaluationModelRoots,
                 });
                 traceAnalyzeBuild(`[analyze] sourceDir=${sourceDir} arkmain_load done`);
                 for (const warning of arkMainLoad.warnings) {
@@ -925,7 +1050,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         const syntheticCandidate = { pathHint: sourceDir, name: "@arkMain" };
         const entryCacheKey = buildEntryCacheKey(sourceDir, syntheticCandidate);
         const entryStamp = resolveDirectoryTreeStamp(path.resolve(options.repo, sourceDir));
-        if (options.incremental) {
+        if (useIncrementalEntryCache) {
             const cached = incrementalCache.get(entryCacheKey);
             if (cached && sameEntryFileStamp(cached.stamp, entryStamp)) {
                 const cachedResult = cloneCachedEntryResult(cached.result, 100, emptyEntryStageProfile);
@@ -972,7 +1097,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         orderedEntries[task.order] = entryResult;
         stageProfile.entryAnalyzeMs += entryResult.stageProfile.totalMs;
 
-        if (options.incremental && task.entryStamp && entryResult.status !== "exception") {
+        if (useIncrementalEntryCache && task.entryStamp && entryResult.status !== "exception") {
             incrementalCache.set(task.entryCacheKey, {
                 stamp: task.entryStamp,
                 result: {
@@ -1106,6 +1231,11 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
                 moduleAuditSummary.modules[moduleId] = {
                     ...stats,
                     recentDebugMessages: [...stats.recentDebugMessages],
+                    emissionSamples: (stats.emissionSamples || []).map(sample => ({
+                        ...sample,
+                        sourceFieldPath: sample.sourceFieldPath ? [...sample.sourceFieldPath] : undefined,
+                        targetFieldPath: sample.targetFieldPath ? [...sample.targetFieldPath] : undefined,
+                    })),
                 };
                 continue;
             }
@@ -1120,13 +1250,25 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
             current.invokeEmissionCount += stats.invokeEmissionCount;
             current.totalEmissionCount += stats.totalEmissionCount;
             current.skipCopyEdgeCount += stats.skipCopyEdgeCount;
-            current.debugHitCount += stats.debugHitCount;
-            current.debugSkipCount += stats.debugSkipCount;
-            current.debugLogCount += stats.debugLogCount;
-            current.recentDebugMessages = appendRecentModuleMessages(
-                current.recentDebugMessages,
-                stats.recentDebugMessages,
-            );
+                current.debugHitCount += stats.debugHitCount;
+                current.debugSkipCount += stats.debugSkipCount;
+                current.debugLogCount += stats.debugLogCount;
+                current.emissionSampleOverflowCount += stats.emissionSampleOverflowCount || 0;
+                for (const sample of stats.emissionSamples || []) {
+                    if (current.emissionSamples.length < 200) {
+                        current.emissionSamples.push({
+                            ...sample,
+                            sourceFieldPath: sample.sourceFieldPath ? [...sample.sourceFieldPath] : undefined,
+                            targetFieldPath: sample.targetFieldPath ? [...sample.targetFieldPath] : undefined,
+                        });
+                    } else {
+                        current.emissionSampleOverflowCount += 1;
+                    }
+                }
+                current.recentDebugMessages = appendRecentModuleMessages(
+                    current.recentDebugMessages,
+                    stats.recentDebugMessages,
+                );
         }
         for (const [pluginName, stats] of Object.entries(e.enginePluginAudit.pluginStats || {})) {
             const current = pluginAuditSummary.plugins[pluginName];
@@ -1227,7 +1369,20 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         k: options.k,
         maxEntries: options.maxEntries,
         ruleLayers: loadedRules.appliedLayerOrder,
-        ruleLayerStatus: loadedRules.layerStatus.map(s => ({ name: s.name, path: s.path, applied: s.applied, exists: s.exists, source: s.source })),
+        ruleLayerStatus: loadedRules.layerStatus.map(s => ({
+            name: s.name,
+            path: s.path,
+            applied: s.applied,
+            exists: s.exists,
+            source: s.source,
+            packId: s.packId,
+            sourceRuleCount: s.sourceRuleCount,
+            sinkRuleCount: s.sinkRuleCount,
+            sanitizerRuleCount: s.sanitizerRuleCount,
+            transferRuleCount: s.transferRuleCount,
+            sourceRuleIds: s.sourceRuleIds,
+            sinkRuleIds: s.sinkRuleIds,
+        })),
         summary: {
             totalEntries: entries.length,
             okEntries,
@@ -1272,11 +1427,10 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         },
         entries: reportEntries,
     };
-
     const reportWriteT0 = process.hrtime.bigint();
     const outputLayout = resolveAnalyzeOutputLayout(options.outputDir);
     ensureAnalyzeOutputLayout(outputLayout);
-    if (options.incremental) {
+    if (useIncrementalEntryCache) {
         saveIncrementalCache(incrementalCachePath, incrementalCacheScope, incrementalCache);
     }
     const jsonPath = outputLayout.summaryJsonPath;
@@ -1293,7 +1447,7 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
     fs.writeFileSync(jsonPath, JSON.stringify(report, null, 2), "utf-8");
     fs.writeFileSync(mdPath, renderMarkdownReport(report), "utf-8");
     writeNoCandidateCallsiteArtifacts(report, options.outputDir);
-    writeNoCandidateCallsiteClassificationArtifacts(report, loadedRules, options.outputDir);
+    const noCandidateClassificationArtifacts = writeNoCandidateCallsiteClassificationArtifacts(report, loadedRules, options.outputDir);
     const diagnosticsArtifacts = writeDiagnosticsArtifacts(outputLayout.diagnosticsDir, report.summary.diagnostics);
     if (options.pluginAudit) {
         const pluginAuditPayload = {
@@ -1309,8 +1463,108 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         };
         fs.writeFileSync(outputLayout.pluginAuditJsonPath, JSON.stringify(pluginAuditPayload, null, 2), "utf-8");
     }
+    const entryRecoveryGates: TraceGate[] = entries.map((entry, index) => ({
+        id: `gate:entry_recovery:${index + 1}`,
+        stage: "entry_recovery",
+        producer: "entry",
+        gateKind: "entry_recovery",
+        scope: `entry:${entry.sourceDir}:${entry.entryName}`,
+        attempted: true,
+        matched: entry.status !== "no_entry" && entry.status !== "exception",
+        emitted: entry.status === "ok" || entry.status === "no_seed" || entry.status === "budget_exceeded",
+        skippedReason: entry.status === "no_entry" || entry.status === "no_body" ? entry.status : undefined,
+        blockedReason: entry.status === "exception" ? entry.error || "entry_exception" : undefined,
+        evidence: {
+            sourceDir: entry.sourceDir,
+            entryName: entry.entryName,
+            entryPathHint: entry.entryPathHint,
+            status: entry.status,
+            seedCount: entry.seedCount,
+            flowCount: entry.flowCount,
+            fromCache: entry.fromCache,
+        },
+    }));
+    const entryRecoveryGraph = buildTraceGraph({
+        runId: `entry-recovery:${path.basename(options.repo)}:${Date.now()}`,
+        project: options.repo,
+        engineVersion: "arktaint",
+        assetVersion: ruleFingerprint,
+        configHash: analysisFingerprint,
+        llmSession: options.llmSessionCacheDir,
+        startedAt: report.generatedAt,
+        completedAt: new Date().toISOString(),
+        status: report.summary.statusCount.exception ? "partial" : "completed",
+        notes: ["entry_recovery_coverage_fragment"],
+    }, [], [], entryRecoveryGates);
+    const currentAssetCandidateGraph = buildCurrentAssetCandidateTraceGraph({
+        run: {
+            runId: `current-assets-candidates:${path.basename(options.repo)}:${Date.now()}`,
+            project: options.repo,
+            engineVersion: "arktaint",
+            assetVersion: ruleFingerprint,
+            configHash: analysisFingerprint,
+            llmSession: options.llmSessionCacheDir,
+            startedAt: report.generatedAt,
+            completedAt: new Date().toISOString(),
+            status: "completed",
+            notes: ["current_assets_api_modeling_candidate_coverage_fragment"],
+        },
+        report,
+        artifacts: noCandidateClassificationArtifacts,
+    });
+    const sourceCandidateCoverageGraphs = [...sourceContextCache.entries()].map(([sourceAbs, context], index) => {
+        const sourceDir = path.relative(options.repo, sourceAbs) || ".";
+        return {
+            graph: buildSourceCandidateCoverageTraceGraph({
+                run: {
+                    runId: `source-candidates:${path.basename(options.repo)}:${index + 1}:${Date.now()}`,
+                    project: options.repo,
+                    engineVersion: "arktaint",
+                    assetVersion: ruleFingerprint,
+                    configHash: analysisFingerprint,
+                    llmSession: options.llmSessionCacheDir,
+                    startedAt: report.generatedAt,
+                    completedAt: new Date().toISOString(),
+                    status: "completed",
+                    notes: ["source_candidate_coverage_fragment", `sourceDir=${sourceDir}`],
+                },
+                sourceDir,
+                candidates: collectSourceCoverageCandidates(context.scene),
+            }),
+            prefix: `source_candidates${index}`,
+        };
+    });
+    const entryTraceGraphs = entries
+        .map((entry, index) => entry.traceGraph ? { graph: entry.traceGraph, prefix: `entry${index}` } : undefined)
+        .filter((item): item is { graph: TraceGraph; prefix: string } => !!item);
+    const cachedTraceMissingCount = entries.filter(entry => entry.fromCache && !entry.traceGraph).length;
+    const runTrace: FullTraceRun = {
+        runId: `full:${path.basename(options.repo)}:${Date.now()}`,
+        project: options.repo,
+        engineVersion: "arktaint",
+        assetVersion: ruleFingerprint,
+        configHash: analysisFingerprint,
+        llmSession: options.llmSessionCacheDir,
+        startedAt: report.generatedAt,
+        completedAt: new Date().toISOString(),
+        status: cachedTraceMissingCount > 0 || report.summary.statusCount.exception ? "partial" : "completed",
+        notes: [
+            `sourceDirs=${options.sourceDirs.length}`,
+            `entryGraphs=${entryTraceGraphs.length}`,
+            ...(cachedTraceMissingCount > 0 ? [`cachedEntriesWithoutTrace=${cachedTraceMissingCount}`] : []),
+        ],
+    };
+    const traceGraph = mergeTraceGraphs(runTrace, [
+        ...entryTraceGraphs,
+        { graph: buildRuleLayerTraceGraph(runTrace, loadedRules), prefix: "rule_layers" },
+        { graph: entryRecoveryGraph, prefix: "entry_recovery" },
+        { graph: currentAssetCandidateGraph, prefix: "current_assets_candidates" },
+        ...sourceCandidateCoverageGraphs,
+    ]);
+    writeTraceGraphArtifacts(outputLayout.traceGraphDir, traceGraph);
     writeAnalyzeRunManifest(outputLayout, report, {
         pluginAuditEnabled: options.pluginAudit,
+        traceGraphEnabled: true,
     });
 
     return {

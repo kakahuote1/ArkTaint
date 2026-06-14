@@ -1,0 +1,352 @@
+{
+  "id": "asset.rule.kernel.sanitizers.official_declarations",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
+    {
+      "surfaceId": "surface.sanitizer.security-crypto-sensitive.sanitizer.08b9a113df1c",
+      "kind": "invoke",
+      "modulePath": "api/@ohos.security.cryptoFramework.d.ts",
+      "ownerName": "cryptoFramework.Mac",
+      "methodName": "doFinal",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "parameterTypes": [
+        "AsyncCallback<DataBlob>"
+      ],
+      "signatureId": "api/@ohos.security.cryptoFramework.d.ts#cryptoFramework.Mac#method#doFinal#2440",
+      "confidence": "certain",
+      "provenance": {
+        "source": "sdk",
+        "location": {
+          "file": "api/@ohos.security.cryptoFramework.d.ts",
+          "line": 2440
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.sanitizer.security-crypto-sensitive.sanitizer.31521bb466e6",
+      "kind": "invoke",
+      "modulePath": "api/@ohos.security.cryptoFramework.d.ts",
+      "ownerName": "cryptoFramework.Md",
+      "methodName": "digest",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "parameterTypes": [
+        "AsyncCallback<DataBlob>"
+      ],
+      "signatureId": "api/@ohos.security.cryptoFramework.d.ts#cryptoFramework.Md#method#digest#2759",
+      "confidence": "certain",
+      "provenance": {
+        "source": "sdk",
+        "location": {
+          "file": "api/@ohos.security.cryptoFramework.d.ts",
+          "line": 2759
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.sanitizer.security-crypto-sensitive.sanitizer.387fc2e3bfc6",
+      "kind": "invoke",
+      "modulePath": "api/@ohos.security.cryptoFramework.d.ts",
+      "ownerName": "cryptoFramework.Sign",
+      "methodName": "sign",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "parameterTypes": [
+        "DataBlob",
+        "AsyncCallback<DataBlob>"
+      ],
+      "signatureId": "api/@ohos.security.cryptoFramework.d.ts#cryptoFramework.Sign#method#sign#4224",
+      "confidence": "certain",
+      "provenance": {
+        "source": "sdk",
+        "location": {
+          "file": "api/@ohos.security.cryptoFramework.d.ts",
+          "line": 4224
+        }
+      }
+    },
+    {
+      "surfaceId": "surface.sanitizer.security-crypto-sensitive.sanitizer.e742182e0d53",
+      "kind": "invoke",
+      "modulePath": "api/@ohos.security.cryptoFramework.d.ts",
+      "ownerName": "cryptoFramework.Sign",
+      "methodName": "sign",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "parameterTypes": [
+        "DataBlob | null",
+        "AsyncCallback<DataBlob>"
+      ],
+      "signatureId": "api/@ohos.security.cryptoFramework.d.ts#cryptoFramework.Sign#method#sign#4268",
+      "confidence": "certain",
+      "provenance": {
+        "source": "sdk",
+        "location": {
+          "file": "api/@ohos.security.cryptoFramework.d.ts",
+          "line": 4268
+        }
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.sanitizer.security-crypto-sensitive.sanitizer.08b9a113df1c",
+      "surfaceId": "surface.sanitizer.security-crypto-sensitive.sanitizer.08b9a113df1c",
+      "assetId": "asset.rule.kernel.sanitizers.official_declarations",
+      "plane": "rule",
+      "role": "sanitizer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "doFinal",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "cryptoFramework.Mac",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "cryptoFramework.Mac"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 0
+          },
+          "argIndex": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sanitizer.security-crypto-sensitive.sanitizer.08b9a113df1c"
+      ],
+      "semanticsFamily": "security-crypto-sensitive",
+      "metadata": {
+        "enabled": true,
+        "description": "Official SDK declaration api/@ohos.security.cryptoFramework.d.ts#cryptoFramework.Mac#method#doFinal#2440#1 as sanitizer.",
+        "tags": [
+          "harmony",
+          "official-declaration"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.sanitizer.security-crypto-sensitive.sanitizer.31521bb466e6",
+      "surfaceId": "surface.sanitizer.security-crypto-sensitive.sanitizer.31521bb466e6",
+      "assetId": "asset.rule.kernel.sanitizers.official_declarations",
+      "plane": "rule",
+      "role": "sanitizer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "digest",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "cryptoFramework.Md",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "cryptoFramework.Md"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 0
+          },
+          "argIndex": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sanitizer.security-crypto-sensitive.sanitizer.31521bb466e6"
+      ],
+      "semanticsFamily": "security-crypto-sensitive",
+      "metadata": {
+        "enabled": true,
+        "description": "Official SDK declaration api/@ohos.security.cryptoFramework.d.ts#cryptoFramework.Md#method#digest#2759#1 as sanitizer.",
+        "tags": [
+          "harmony",
+          "official-declaration"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.sanitizer.security-crypto-sensitive.sanitizer.387fc2e3bfc6",
+      "surfaceId": "surface.sanitizer.security-crypto-sensitive.sanitizer.387fc2e3bfc6",
+      "assetId": "asset.rule.kernel.sanitizers.official_declarations",
+      "plane": "rule",
+      "role": "sanitizer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "sign",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "cryptoFramework.Sign",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "cryptoFramework.Sign"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 1
+          },
+          "argIndex": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sanitizer.security-crypto-sensitive.sanitizer.387fc2e3bfc6"
+      ],
+      "semanticsFamily": "security-crypto-sensitive",
+      "metadata": {
+        "enabled": true,
+        "description": "Official SDK declaration api/@ohos.security.cryptoFramework.d.ts#cryptoFramework.Sign#method#sign#4224#2 as sanitizer.",
+        "tags": [
+          "harmony",
+          "official-declaration"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.sanitizer.security-crypto-sensitive.sanitizer.e742182e0d53",
+      "surfaceId": "surface.sanitizer.security-crypto-sensitive.sanitizer.e742182e0d53",
+      "assetId": "asset.rule.kernel.sanitizers.official_declarations",
+      "plane": "rule",
+      "role": "sanitizer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "sign",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "cryptoFramework.Sign",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "cryptoFramework.Sign"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 1
+          },
+          "argIndex": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sanitizer.security-crypto-sensitive.sanitizer.e742182e0d53"
+      ],
+      "semanticsFamily": "security-crypto-sensitive",
+      "metadata": {
+        "enabled": true,
+        "description": "Official SDK declaration api/@ohos.security.cryptoFramework.d.ts#cryptoFramework.Sign#method#sign#4268#2 as sanitizer.",
+        "tags": [
+          "harmony",
+          "official-declaration"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.sanitizer.security-crypto-sensitive.sanitizer.08b9a113df1c",
+      "confidence": "certain",
+      "kind": "rule.sanitizer",
+      "value": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 0
+          },
+          "argIndex": 0
+        }
+      },
+      "sanitizerKind": "security-crypto-sensitive",
+      "strength": "strong"
+    },
+    {
+      "id": "template.sanitizer.security-crypto-sensitive.sanitizer.31521bb466e6",
+      "confidence": "certain",
+      "kind": "rule.sanitizer",
+      "value": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 0
+          },
+          "argIndex": 0
+        }
+      },
+      "sanitizerKind": "security-crypto-sensitive",
+      "strength": "strong"
+    },
+    {
+      "id": "template.sanitizer.security-crypto-sensitive.sanitizer.387fc2e3bfc6",
+      "confidence": "certain",
+      "kind": "rule.sanitizer",
+      "value": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 1
+          },
+          "argIndex": 0
+        }
+      },
+      "sanitizerKind": "security-crypto-sensitive",
+      "strength": "strong"
+    },
+    {
+      "id": "template.sanitizer.security-crypto-sensitive.sanitizer.e742182e0d53",
+      "confidence": "certain",
+      "kind": "rule.sanitizer",
+      "value": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 1
+          },
+          "argIndex": 0
+        }
+      },
+      "sanitizerKind": "security-crypto-sensitive",
+      "strength": "strong"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "internal_docs/security_asset_iteration/official_api_declaration_manual_review.jsonl"
+      },
+      {
+        "file": "internal_docs/security_asset_iteration/official_api_declaration_coverage_ledger.json"
+      }
+    ]
+  }
+}

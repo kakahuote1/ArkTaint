@@ -67,8 +67,8 @@ async function main(): Promise<void> {
         )]
     );
 
-    assert(expectedKeywords.length > 0, "expected kernel sink sweep keyword inventory");
-    assert(expectedSignatures.length > 0, "expected kernel sink sweep signature inventory");
+    assert(expectedKeywords.length === 0, "kernel official assets must not contain keyword sweep inventory");
+    assert(expectedSignatures.length === 0, "kernel official assets must not contain signature sweep inventory");
 
     const loaded = loadRuleSet({
         kernelRulePath: path.resolve("tests/rules/minimal.rules.json"),
@@ -93,11 +93,11 @@ async function main(): Promise<void> {
     const smokeConfig = buildSmokeRuleConfig(loaded);
     assert(
         JSON.stringify(sortStrings(smokeConfig.sinkKeywords)) === JSON.stringify(expectedKeywords),
-        "smoke sink keyword sweep should come from dedicated sweep inventory",
+        "smoke sink keyword sweep must stay empty without dedicated exact inventory",
     );
     assert(
         JSON.stringify(sortStrings(smokeConfig.sinkSignatures)) === JSON.stringify(expectedSignatures),
-        "smoke sink signature sweep should come from dedicated sweep inventory",
+        "smoke sink signature sweep must stay empty without dedicated exact inventory",
     );
 
     console.log("====== Sink Inventory Boundary ======");

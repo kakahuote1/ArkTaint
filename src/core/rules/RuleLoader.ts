@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { normalizeEndpoint, RuleLayer, SanitizerRule, SinkRule, SourceRule, TaintRuleSet, TransferRule } from "./RuleSchema";
 import { validateRuleSet } from "./RuleValidator";
-import { validateAssetDocument, type AssetDocumentBase } from "../assets/schema";
+import { validateAssetDocument, type AnalysisAssetLoadMode, type AssetDocumentBase } from "../assets/schema";
 import { lowerRuleAssetsToRuleSet } from "./RuleAssetLowering";
 import { buildFrameworkBoundStateSourceRules, buildFrameworkCallbackSourceRules } from "./FrameworkCallbackSourceCatalog";
 import { buildFrameworkApiSourceRules } from "./FrameworkApiSourceCatalog";
@@ -28,6 +28,7 @@ export interface RuleLoaderOptions {
     autoDiscoverProjectPacks?: boolean;
     allowMissingProject?: boolean;
     allowMissingCandidate?: boolean;
+    semanticflowEvaluationModelRoots?: string[];
 }
 
 export interface RuleLayerStatus {
@@ -37,6 +38,12 @@ export interface RuleLayerStatus {
     exists: boolean;
     applied: boolean;
     packId?: string;
+    sourceRuleCount?: number;
+    sinkRuleCount?: number;
+    sanitizerRuleCount?: number;
+    transferRuleCount?: number;
+    sourceRuleIds?: string[];
+    sinkRuleIds?: string[];
 }
 
 export interface LoadedRuleSet {
@@ -100,36 +107,30 @@ interface LoadedLayerEntry {
     knownFiles: string[];
 }
 
+function summarizeRuleLayer(ruleSet: TaintRuleSet): Pick<
+    RuleLayerStatus,
+    | "sourceRuleCount"
+    | "sinkRuleCount"
+    | "sanitizerRuleCount"
+    | "transferRuleCount"
+    | "sourceRuleIds"
+    | "sinkRuleIds"
+> {
+    const sourceRules = ruleSet.sources || [];
+    const sinkRules = ruleSet.sinks || [];
+    return {
+        sourceRuleCount: sourceRules.length,
+        sinkRuleCount: sinkRules.length,
+        sanitizerRuleCount: (ruleSet.sanitizers || []).length,
+        transferRuleCount: (ruleSet.transfers || []).length,
+        sourceRuleIds: sourceRules.map(rule => rule.id).filter(Boolean).sort((a, b) => a.localeCompare(b)),
+        sinkRuleIds: sinkRules.map(rule => rule.id).filter(Boolean).sort((a, b) => a.localeCompare(b)),
+    };
+}
+
 const FALLBACK_SOURCE_LOCAL_PATTERN = /a^/;
-const FALLBACK_SINK_KEYWORDS = [
-    "axios",
-    "fetch",
-    "request",
-    "router",
-    "pushUrl",
-    "relationalStore",
-    "rdb",
-    "preferences",
-    "console",
-];
-const FALLBACK_SINK_SIGNATURES = [
-    "router.pushUrl",
-    "router.back",
-    "router.getParams",
-    "fetch(",
-    "axios.get",
-    "axios.post",
-    "relationalStore",
-    "getRdbStore",
-    "execDML",
-    "execDQL",
-    "insertSync",
-    "querySqlSync",
-    "preferences.getPreferencesSync",
-    "dataPreferences.putSync",
-    "dataPreferences.getSync",
-    "dataPreferences.deleteSync",
-];
+const FALLBACK_SINK_KEYWORDS: string[] = [];
+const FALLBACK_SINK_SIGNATURES: string[] = [];
 const SAFE_RULE_DIR_EXTENSIONS = new Set([".json", ".ts", ".md"]);
 
 function extractValidationFieldPath(message: string): string | undefined {
@@ -452,7 +453,28 @@ function listRuleJsonFilesRecursive(dirPath: string): string[] {
     return files.sort((a, b) => a.localeCompare(b));
 }
 
-function loadAndValidateRuleFile(layerName: RuleLayerName | "extra", absPath: string): TaintRuleSet {
+function normalizeRootList(input?: string[]): string[] {
+    return [...new Set((input || [])
+        .map(item => path.resolve(item))
+        .filter(Boolean))];
+}
+
+function isUnderRoot(filePath: string, rootPath: string): boolean {
+    const relative = path.relative(path.resolve(rootPath), path.resolve(filePath));
+    return !!relative && !relative.startsWith("..") && !path.isAbsolute(relative);
+}
+
+function resolveRuleAssetLoadMode(absPath: string, evaluationRoots: readonly string[]): AnalysisAssetLoadMode {
+    return evaluationRoots.some(root => isUnderRoot(absPath, root))
+        ? "semanticflow-evaluation"
+        : "trusted-analysis";
+}
+
+function loadAndValidateRuleFile(
+    layerName: RuleLayerName | "extra",
+    absPath: string,
+    evaluationRoots: readonly string[] = [],
+): TaintRuleSet {
     const rawText = fs.readFileSync(absPath, "utf-8").replace(/^\uFEFF/, "");
     const raw = readJsonFile(layerName, absPath);
     const assetValidation = validateAssetDocument(raw);
@@ -475,7 +497,9 @@ function loadAndValidateRuleFile(layerName: RuleLayerName | "extra", absPath: st
             issues,
         );
     }
-    const lowered = lowerRuleAssetsToRuleSet([raw as AssetDocumentBase]);
+    const lowered = lowerRuleAssetsToRuleSet([raw as AssetDocumentBase], {
+        loadMode: resolveRuleAssetLoadMode(absPath, evaluationRoots),
+    });
     if (lowered.diagnostics.length > 0) {
         const issues = lowered.diagnostics.map(message => createRuleLoadIssue({
             kind: "schema_assert",
@@ -511,8 +535,13 @@ function loadAndValidateRuleFile(layerName: RuleLayerName | "extra", absPath: st
     return lowered.ruleSet;
 }
 
-function loadAndValidateKindFile(layerName: RuleLayerName | "extra", kind: RuleBundleKind, memberPath: string): LoadedLayerEntry {
-    const ruleSet = loadAndValidateRuleFile(layerName, memberPath);
+function loadAndValidateKindFile(
+    layerName: RuleLayerName | "extra",
+    kind: RuleBundleKind,
+    memberPath: string,
+    evaluationRoots: readonly string[] = [],
+): LoadedLayerEntry {
+    const ruleSet = loadAndValidateRuleFile(layerName, memberPath, evaluationRoots);
     assertSingleKindRuleSet(layerName, kind, ruleSet, memberPath);
     return {
         ruleSet,
@@ -524,14 +553,15 @@ function loadAndValidateRuleFiles(
     layerName: RuleLayerName | "extra",
     files: string[],
     kind: RuleBundleKind | undefined,
+    evaluationRoots: readonly string[] = [],
 ): LoadedLayerEntry {
     let merged = buildEmptyRuleSet();
     const knownFiles: string[] = [];
     for (const file of files) {
         const loaded = kind
-            ? loadAndValidateKindFile(layerName, kind, file)
+            ? loadAndValidateKindFile(layerName, kind, file, evaluationRoots)
             : {
-                ruleSet: loadAndValidateRuleFile(layerName, file),
+                ruleSet: loadAndValidateRuleFile(layerName, file, evaluationRoots),
                 knownFiles: [file],
             };
         merged = normalizeRules(mergeRuleSets(merged, loaded.ruleSet));
@@ -544,10 +574,14 @@ function loadAndValidateRuleFiles(
     return { ruleSet: merged, knownFiles };
 }
 
-function loadAndValidateLayerEntry(layerName: RuleLayerName | "extra", absPath: string): LoadedLayerEntry {
+function loadAndValidateLayerEntry(
+    layerName: RuleLayerName | "extra",
+    absPath: string,
+    evaluationRoots: readonly string[] = [],
+): LoadedLayerEntry {
     if (!fs.statSync(absPath).isDirectory()) {
         return {
-            ruleSet: loadAndValidateRuleFile(layerName, absPath),
+            ruleSet: loadAndValidateRuleFile(layerName, absPath, evaluationRoots),
             knownFiles: [absPath],
         };
     }
@@ -558,7 +592,7 @@ function loadAndValidateLayerEntry(layerName: RuleLayerName | "extra", absPath: 
         .filter(item => fs.existsSync(item.dir) && fs.statSync(item.dir).isDirectory());
 
     if (kindDirs.length === 0) {
-        return loadAndValidateRuleFiles(layerName, directRuleFiles, undefined);
+        return loadAndValidateRuleFiles(layerName, directRuleFiles, undefined, evaluationRoots);
     }
 
     let merged = buildEmptyRuleSet();
@@ -568,7 +602,7 @@ function loadAndValidateLayerEntry(layerName: RuleLayerName | "extra", absPath: 
         if (files.length === 0) {
             continue;
         }
-        const member = loadAndValidateRuleFiles(layerName, files, kind);
+        const member = loadAndValidateRuleFiles(layerName, files, kind, evaluationRoots);
         merged = normalizeRules(mergeRuleSets(merged, member.ruleSet));
         for (const file of member.knownFiles) {
             if (!knownFiles.includes(file)) {
@@ -727,6 +761,7 @@ function resolveEnabledProjectPacks(
 
 export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
     const warnings: string[] = [];
+    const evaluationRoots = normalizeRootList(options.semanticflowEvaluationModelRoots);
     const explicitKernelRulePath = options.kernelRulePath ? path.resolve(options.kernelRulePath) : undefined;
     const explicitRuleCatalogPaths = (options.ruleCatalogPaths || [])
         .map(item => path.resolve(item))
@@ -771,7 +806,7 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
                 message: `kernel rule file not found: ${explicitKernelRulePath}`,
             });
         }
-        const explicitKernelRules = loadAndValidateLayerEntry("kernel", explicitKernelRulePath);
+        const explicitKernelRules = loadAndValidateLayerEntry("kernel", explicitKernelRulePath, evaluationRoots);
         mergeKnownFiles(knownRuleFiles, explicitKernelRules.knownFiles);
         merged = normalizeRules(mergeRuleSets(merged, normalizeLoadedLayerRules(
             explicitKernelRules.ruleSet,
@@ -783,6 +818,7 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
             source: "explicit",
             exists: true,
             applied: true,
+            ...summarizeRuleLayer(explicitKernelRules.ruleSet),
         });
         kernelLayerApplied = true;
     }
@@ -790,7 +826,7 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
     const kernelKnownFiles: string[] = [];
     const kernelRuleRoots = collectKernelRuleRoots(ruleCatalogRoots);
     for (const kernelRulesDir of kernelRuleRoots) {
-        const loadedKernelPack = loadAndValidateLayerEntry("kernel", kernelRulesDir);
+        const loadedKernelPack = loadAndValidateLayerEntry("kernel", kernelRulesDir, evaluationRoots);
         merged = normalizeRules(mergeRuleSets(merged, loadedKernelPack.ruleSet));
         mergeKnownFiles(kernelKnownFiles, loadedKernelPack.knownFiles);
         layerStatus.push({
@@ -799,6 +835,7 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
             source: "auto",
             exists: true,
             applied: true,
+            ...summarizeRuleLayer(loadedKernelPack.ruleSet),
         });
     }
     if (kernelKnownFiles.length === 0) {
@@ -860,7 +897,7 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
             });
             continue;
         }
-        const rawPackRules = loadAndValidateRuleFiles("project", spec.files, undefined);
+        const rawPackRules = loadAndValidateRuleFiles("project", spec.files, undefined, evaluationRoots);
         mergeKnownFiles(knownRuleFiles, rawPackRules.knownFiles);
         const layerRules = normalizeLoadedLayerRules(rawPackRules.ruleSet, {
             kind: "builtin_project_pack_json",
@@ -878,6 +915,7 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
             exists: true,
             applied: true,
             packId: spec.packId,
+            ...summarizeRuleLayer(rawPackRules.ruleSet),
         });
     }
 
@@ -895,7 +933,7 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
                 });
             }
         } else {
-            const rawProjectRules = loadAndValidateLayerEntry("project", projectPath);
+            const rawProjectRules = loadAndValidateLayerEntry("project", projectPath, evaluationRoots);
             mergeKnownFiles(knownRuleFiles, rawProjectRules.knownFiles);
             merged = normalizeRules(mergeRuleSets(merged, normalizeLoadedLayerRules(rawProjectRules.ruleSet, {
                 kind: "external_project_json",
@@ -911,6 +949,7 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
                 source: "explicit",
                 exists: true,
                 applied: true,
+                ...summarizeRuleLayer(rawProjectRules.ruleSet),
             });
         }
     }
@@ -929,7 +968,7 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
                 });
             }
         } else {
-            const rawCandidateRules = loadAndValidateLayerEntry("project", candidateRulePath);
+            const rawCandidateRules = loadAndValidateLayerEntry("project", candidateRulePath, evaluationRoots);
             mergeKnownFiles(knownRuleFiles, rawCandidateRules.knownFiles);
             merged = normalizeRules(mergeRuleSets(merged, normalizeLoadedLayerRules(rawCandidateRules.ruleSet, {
                 kind: "llm_candidate_json",
@@ -945,6 +984,7 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
                 source: "explicit",
                 exists: true,
                 applied: true,
+                ...summarizeRuleLayer(rawCandidateRules.ruleSet),
             });
         }
     }
@@ -959,7 +999,7 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
                 message: `extra rule file not found: ${absPath}`,
             });
         }
-        const extraRules = loadAndValidateLayerEntry("extra", absPath);
+        const extraRules = loadAndValidateLayerEntry("extra", absPath, evaluationRoots);
         mergeKnownFiles(knownRuleFiles, extraRules.knownFiles);
         merged = normalizeRules(mergeRuleSets(merged, normalizeLoadedLayerRules(extraRules.ruleSet, {
             kind: "user_project_extra_json",

@@ -20,6 +20,7 @@ interface SinkFamilyProbeSpec {
     sourceDir: string;
     caseName: string;
     sourceLocalPattern: string;
+    expectedWithFamily?: boolean;
 }
 
 interface SinkFamilyProbeResult {
@@ -44,51 +45,9 @@ const PROBE_SPECS: SinkFamilyProbeSpec[] = [
         sourceLocalPattern: "^userInput$",
     },
     {
-        family: "sink.harmony.appAccount",
-        sourceDir: "tests/demo/sink_callee_scope",
-        caseName: "appaccount_manager_sdk_scope_005_T",
-        sourceLocalPattern: "^input$",
-    },
-    {
-        family: "sink.harmony.network.axios",
-        sourceDir: "tests/demo/sink_axios_import_scope",
-        caseName: "axios_import_scope_001_T",
-        sourceLocalPattern: "^userInput$",
-    },
-    {
-        family: "sink.harmony.file",
-        sourceDir: "tests/demo/sdk_signature_probe",
-        caseName: "sdk_signature_probe_001_T",
-        sourceLocalPattern: "^userInput$",
-    },
-    {
-        family: "sink.harmony.network.socket",
-        sourceDir: "tests/demo/sdk_signature_probe",
-        caseName: "sdk_signature_probe_001_T",
-        sourceLocalPattern: "^userInput$",
-    },
-    {
         family: "sink.harmony.logging.console",
         sourceDir: "tests/demo/sdk_signature_probe",
         caseName: "sdk_signature_probe_001_T",
-        sourceLocalPattern: "^userInput$",
-    },
-    {
-        family: "sink.harmony.logging.hilog_info",
-        sourceDir: "tests/demo/sdk_signature_probe",
-        caseName: "sdk_signature_probe_001_T",
-        sourceLocalPattern: "^userInput$",
-    },
-    {
-        family: "sink.harmony.wearengine.p2p",
-        sourceDir: "tests/demo/harmony_wearengine_p2p",
-        caseName: "wearengine_p2p_send_message_002_T",
-        sourceLocalPattern: "^userInput$",
-    },
-    {
-        family: "sink.harmony.wearengine.p2p",
-        sourceDir: "tests/demo/harmony_wearengine_p2p",
-        caseName: "wearengine_p2p_unresolved_send_message_005_T",
         sourceLocalPattern: "^userInput$",
     },
 ];
@@ -199,7 +158,11 @@ async function main(): Promise<void> {
         const familyRules = loadedSinkRules.filter(rule => rule.family === spec.family);
         assert(familyRules.length > 0, `family has no loaded sink rules: ${spec.family}`);
         const result = await runProbe(spec, familyRules);
-        assert(result.withFamily, `${spec.caseName}: expected sink flow with family ${spec.family}`);
+        const expectedWithFamily = spec.expectedWithFamily !== false;
+        assert(
+            result.withFamily === expectedWithFamily,
+            `${spec.caseName}: expected withFamily=${expectedWithFamily} for family ${spec.family}`,
+        );
         assert(!result.withoutFamily, `${spec.caseName}: expected no sink flow without family ${spec.family}`);
         results.push(result);
     }

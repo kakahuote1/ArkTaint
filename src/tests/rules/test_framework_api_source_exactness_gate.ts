@@ -87,14 +87,54 @@ const EXACTNESS_PROBES: ExactnessProbeSpec[] = [
         },
     },
     {
+        family: "source.harmony.file",
+        positiveCase: "api_filepicker_select_034_T",
+        negativeCase: "api_project_filepicker_select_035_F",
+    },
+    {
         family: "source.harmony.request",
         positiveCase: "api_request_download_010_T",
         negativeCase: "api_requestagentwrapper_download_011_F",
     },
     {
+        family: "source.harmony.request",
+        positiveCase: "api_request_downloadfile_021_T",
+        negativeCase: "api_requestagentwrapper_downloadfile_022_F",
+    },
+    {
         family: "source.harmony.distributedkv",
         positiveCase: "api_distributedkv_get_012_T",
         negativeCase: "api_mydistributedkv_get_013_F",
+    },
+    {
+        family: "source.harmony.distributedkv",
+        positiveCase: "api_distributedkv_getentries_036_T",
+        negativeCase: "api_mydistributedkv_getentries_037_F",
+    },
+    {
+        family: "source.harmony.webview.auth_cache",
+        positiveCase: "api_webdatabase_getauth_018_T",
+        negativeCase: "api_webdatabase_proxy_getauth_019_F",
+    },
+    {
+        family: "source.harmony.webview.request",
+        positiveCase: "api_webresource_request_url_027_T",
+        negativeCase: "api_webresource_request_proxy_url_028_F",
+    },
+    {
+        family: "source.harmony.rpc",
+        positiveCase: "api_rpc_sendrequest_reply_024_T",
+        negativeCase: "api_projectremote_sendrequest_026_F",
+    },
+    {
+        family: "source.harmony.ipc.messageparcel",
+        positiveCase: "api_messageparcel_readstring_029_T",
+        negativeCase: "api_projectmessageparcel_readstring_031_F",
+    },
+    {
+        family: "source.harmony.security_asset",
+        positiveCase: "api_security_asset_query_032_T",
+        negativeCase: "api_project_asset_query_033_F",
     },
     {
         family: "source.harmony.device_id",

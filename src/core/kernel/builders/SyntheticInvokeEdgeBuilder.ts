@@ -37,6 +37,7 @@ import {
     type SyntheticInvokeLookupStats,
 } from "./SyntheticInvokeCallbacks";
 import { buildExecutionHandoffSiteKeyFromStmt } from "../handoff/ExecutionHandoffSiteKey";
+import { assertBuildStageBudget, BuildStageBudget } from "../../shared/BuildStageBudget";
 export {
     buildSyntheticConstructorStoreMap,
     buildSyntheticFieldBridgeMap,
@@ -62,6 +63,7 @@ export interface SyntheticConstructorStoreInfo {
     srcNodeId: number;
     objId: number;
     fieldName: string;
+    sourceFieldPath?: string[];
 }
 
 export interface SyntheticFieldBridgeInfo {
@@ -139,7 +141,8 @@ export function buildSyntheticInvokeLazyMaterializer(
     scene: Scene,
     cg: CallGraph,
     pag: Pag,
-    _log: (msg: string) => void
+    _log: (msg: string) => void,
+    budget?: BuildStageBudget,
 ): SyntheticInvokeLazyMaterializer {
     const invokedParamCache = new Map<string, Set<number>>();
     const lookupContext: SyntheticInvokeLookupContext = {
@@ -161,10 +164,12 @@ export function buildSyntheticInvokeLazyMaterializer(
     let siteId = 0;
 
     for (const caller of scene.getMethods()) {
+        assertBuildStageBudget(budget, "synthetic_invoke_lazy.methods");
         const cfg = caller.getCfg();
         if (!cfg) continue;
 
         for (const stmt of cfg.getStmts()) {
+            assertBuildStageBudget(budget, "synthetic_invoke_lazy.statements");
             if (!stmt.containsInvokeExpr()) continue;
             const invokeExpr = stmt.getInvokeExpr();
             if (!invokeExpr) continue;
@@ -179,6 +184,7 @@ export function buildSyntheticInvokeLazyMaterializer(
                 invokeExpr,
                 invokedParamCache
             );
+            assertBuildStageBudget(budget, "synthetic_invoke_lazy.resolved_bindings");
             const triggerNodeIds = collectSyntheticInvokeTriggerNodeIds(
                     scene,
                     cg,
@@ -223,6 +229,7 @@ export function materializeSyntheticInvokeSitesForNode(
     nodeId: number,
     excludedDeferredSiteKeys?: ReadonlySet<string>,
     forceDirectCallerSignatures?: ReadonlySet<string>,
+    budget?: BuildStageBudget,
 ): { callCount: number; returnCount: number; fallbackCalleeCount: number } {
     const siteIds = lazy.siteIdsByTriggerNodeId.get(nodeId) || [];
     let callCount = 0;
@@ -230,11 +237,12 @@ export function materializeSyntheticInvokeSitesForNode(
     let fallbackCalleeCount = 0;
 
     for (const siteId of siteIds) {
+        assertBuildStageBudget(budget, `synthetic_invoke_materialize.node_site(site=${siteId})`);
         if (lazy.materializedSiteIds.has(siteId)) continue;
         lazy.materializedSiteIds.add(siteId);
         const site = lazy.siteById.get(siteId);
         if (!site) continue;
-        const stats = materializeSyntheticInvokeSite(scene, cg, pag, edgeMap, lazy, site, excludedDeferredSiteKeys, forceDirectCallerSignatures);
+        const stats = materializeSyntheticInvokeSite(scene, cg, pag, edgeMap, lazy, site, excludedDeferredSiteKeys, forceDirectCallerSignatures, budget);
         callCount += stats.callCount;
         returnCount += stats.returnCount;
         fallbackCalleeCount += stats.fallbackCalleeCount;
@@ -251,6 +259,7 @@ export function materializeEagerSyntheticInvokeSites(
     lazy: SyntheticInvokeLazyMaterializer,
     excludedDeferredSiteKeys?: ReadonlySet<string>,
     forceDirectCallerSignatures?: ReadonlySet<string>,
+    budget?: BuildStageBudget,
 ): { callCount: number; returnCount: number; fallbackCalleeCount: number } {
     if (lazy.eagerSitesMaterialized) {
         return { callCount: 0, returnCount: 0, fallbackCalleeCount: 0 };
@@ -261,11 +270,12 @@ export function materializeEagerSyntheticInvokeSites(
     let returnCount = 0;
     let fallbackCalleeCount = 0;
     for (const siteId of lazy.eagerSiteIds) {
+        assertBuildStageBudget(budget, `synthetic_invoke_materialize.eager_site(site=${siteId})`);
         if (lazy.materializedSiteIds.has(siteId)) continue;
         lazy.materializedSiteIds.add(siteId);
         const site = lazy.siteById.get(siteId);
         if (!site) continue;
-        const stats = materializeSyntheticInvokeSite(scene, cg, pag, edgeMap, lazy, site, excludedDeferredSiteKeys, forceDirectCallerSignatures);
+        const stats = materializeSyntheticInvokeSite(scene, cg, pag, edgeMap, lazy, site, excludedDeferredSiteKeys, forceDirectCallerSignatures, budget);
         callCount += stats.callCount;
         returnCount += stats.returnCount;
         fallbackCalleeCount += stats.fallbackCalleeCount;
@@ -281,12 +291,14 @@ export function materializeAllSyntheticInvokeSites(
     lazy: SyntheticInvokeLazyMaterializer,
     excludedDeferredSiteKeys?: ReadonlySet<string>,
     forceDirectCallerSignatures?: ReadonlySet<string>,
+    budget?: BuildStageBudget,
 ): void {
     lazy.eagerSitesMaterialized = true;
     for (const site of lazy.sites) {
+        assertBuildStageBudget(budget, `synthetic_invoke_materialize.all_site(site=${site.id})`);
         if (lazy.materializedSiteIds.has(site.id)) continue;
         lazy.materializedSiteIds.add(site.id);
-        materializeSyntheticInvokeSite(scene, cg, pag, edgeMap, lazy, site, excludedDeferredSiteKeys, forceDirectCallerSignatures);
+        materializeSyntheticInvokeSite(scene, cg, pag, edgeMap, lazy, site, excludedDeferredSiteKeys, forceDirectCallerSignatures, budget);
     }
 }
 
@@ -389,8 +401,10 @@ function materializeSyntheticInvokeSite(
     site: SyntheticInvokeLazySite,
     excludedDeferredSiteKeys?: ReadonlySet<string>,
     forceDirectCallerSignatures?: ReadonlySet<string>,
+    budget?: BuildStageBudget,
 ): { callCount: number; returnCount: number; fallbackCalleeCount: number } {
     const { caller, stmt, invokeExpr } = site;
+    assertBuildStageBudget(budget, `synthetic_invoke_materialize.site.start(site=${site.id})`);
     const siteKey = buildExecutionHandoffSiteKeyFromStmt(caller, stmt);
     const skipDeferredCallbacks = shouldSkipDeferredSyntheticInvokeSite(
         excludedDeferredSiteKeys,
@@ -409,6 +423,7 @@ function materializeSyntheticInvokeSite(
             edgeMap,
             lazy.invokedParamCache
         );
+    assertBuildStageBudget(budget, `synthetic_invoke_materialize.site.callback_edges_done(site=${site.id})`);
 
     const directStats = skipDeferredCallbacks
         ? { callCount: 0, returnCount: 0, fallbackCalleeCount: 0 }
@@ -422,7 +437,9 @@ function materializeSyntheticInvokeSite(
             edgeMap,
             lazy.lookupContext,
             forceDirectCallerSignatures,
+            budget,
         );
+    assertBuildStageBudget(budget, `synthetic_invoke_materialize.site.done(site=${site.id})`);
 
     return {
         callCount: callCount + directStats.callCount,
@@ -460,6 +477,7 @@ function materializeDirectSyntheticInvokeEdges(
     edgeMap: Map<number, SyntheticInvokeEdgeInfo[]>,
     lookupContext: SyntheticInvokeLookupContext,
     forceDirectCallerSignatures?: ReadonlySet<string>,
+    budget?: BuildStageBudget,
 ): { callCount: number; returnCount: number; fallbackCalleeCount: number } {
     let callCount = 0;
     let returnCount = 0;
@@ -475,10 +493,13 @@ function materializeDirectSyntheticInvokeEdges(
         && !allowUnknownInvokeFallback
         && !forceDirectFallback;
 
+    assertBuildStageBudget(budget, "synthetic_invoke_materialize.direct.resolve_callees.start");
     let callees = repairResolvedCallSiteCopies
         ? collectCalleesFromCallSites(cg, callSites)
         : resolveCalleeCandidates(scene, invokeExpr);
+    assertBuildStageBudget(budget, `synthetic_invoke_materialize.direct.resolve_callees.done(count=${callees.length})`);
     if (forceFallback) {
+        assertBuildStageBudget(budget, "synthetic_invoke_materialize.direct.reflect_fallback.start");
         const oneHopFallback = resolveReflectDispatchOneHopFallbackCallees(
             scene,
             cg,
@@ -497,8 +518,10 @@ function materializeDirectSyntheticInvokeEdges(
             }
             callees = merged;
         }
+        assertBuildStageBudget(budget, `synthetic_invoke_materialize.direct.reflect_fallback.done(count=${callees.length})`);
     }
     if (callees.length === 0) {
+        assertBuildStageBudget(budget, "synthetic_invoke_materialize.direct.dynamic_fallback.start");
         const dynamicPropFallback = resolveDynamicPropertyOneHopFallbackCallees(
             scene,
             cg,
@@ -509,12 +532,14 @@ function materializeDirectSyntheticInvokeEdges(
         if (dynamicPropFallback.length > 0) {
             callees = dynamicPropFallback;
         }
+        assertBuildStageBudget(budget, `synthetic_invoke_materialize.direct.dynamic_fallback.done(count=${callees.length})`);
     }
     if (callees.length === 0) {
         return { callCount, returnCount, fallbackCalleeCount };
     }
 
     for (const resolved of callees) {
+        assertBuildStageBudget(budget, `synthetic_invoke_materialize.direct.callee.start(count=${callees.length})`);
         const callee = resolved.method;
         if (!callee || !callee.getCfg()) continue;
         if (resolved.reason !== "exact") {
@@ -528,6 +553,7 @@ function materializeDirectSyntheticInvokeEdges(
         const pairs = mapInvokeArgsToParamAssigns(invokeExpr, explicitArgs, paramStmts);
 
         for (const pair of pairs) {
+            assertBuildStageBudget(budget, "synthetic_invoke_materialize.direct.param_pair");
             const arg = pair.arg;
             const paramStmt = pair.paramStmt;
             const srcNodes = pag.getNodesByValue(arg) || safeGetOrCreatePagNodes(pag, arg, stmt);
@@ -568,6 +594,7 @@ function materializeDirectSyntheticInvokeEdges(
         const retDst = stmt.getLeftOp();
         const retStmts = callee.getReturnStmt();
         for (const retStmt of retStmts) {
+            assertBuildStageBudget(budget, "synthetic_invoke_materialize.direct.return_pair");
             const retValue = (retStmt as ArkReturnStmt).getOp();
             if (!(retValue instanceof Local)) continue;
 

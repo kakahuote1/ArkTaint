@@ -15,6 +15,8 @@ export interface InternalModuleQueryApi {
 
 export type InternalRawModuleSetupContext = RawModuleSetupContext & {
     queries: InternalModuleQueryApi;
+    moduleSetupStartedAtMs?: number;
+    moduleSetupModuleId?: string;
 };
 
 export type InternalRawModuleFactEvent = RawModuleFactEvent & {

@@ -63,6 +63,28 @@ export const DEFAULT_CELL_KIND_REGISTRY = new CellKindRegistry([
     semanticLocation("callback-context-slot", "Context bound at callback registration or framework invocation.", ["owner", "key"]),
     semanticLocation("global-context-slot", "Global or application context store.", ["owner", "key"]),
     semanticLocation("persistent-storage-slot", "File, database, KV, DataShare, or other persistent storage slot.", ["owner", "key"]),
+
+    semanticLocation("account-credential-slot", "Official account, auth, user identity, or credential state slot.", ["owner", "key"]),
+    semanticLocation("datashare-slot", "Official DataShare data, predicate, or row-set handoff slot.", ["owner", "key"]),
+    semanticLocation("event-payload-slot", "Official event, IPC, notification, or message payload slot.", ["owner", "key"]),
+    semanticLocation("file-content-slot", "Official file, URI, picker, document, or stream content slot.", ["owner", "key"]),
+    semanticLocation("keyed-preferences-slot", "Official Preferences or key-value storage slot.", ["owner", "key"]),
+    semanticLocation("media-source-slot", "Official media, image, camera, AV, or pixel-map content slot.", ["owner", "key"]),
+    semanticLocation("network-request-slot", "Official network request, response, header, or socket payload slot.", ["owner", "key"]),
+    semanticLocation("rdb-distributed-handoff-cell", "Official distributed relational database handoff slot.", ["owner", "key"]),
+    semanticLocation("rdb-file-handoff-cell", "Official relational database import, export, backup, or attachment file slot.", ["owner", "key"]),
+    semanticLocation("rdb-handle-cell", "Official relational database handle, transaction, or connection slot.", ["owner", "key"]),
+    semanticLocation("rdb-predicate-cell", "Official relational database predicate, query condition, or selection slot.", ["owner", "key"]),
+    semanticLocation("rdb-remote-query-cell", "Official relational database remote query or device query slot.", ["owner", "key"]),
+    semanticLocation("rdb-resultset-cell", "Official relational database result-set or row cursor slot.", ["owner", "key"]),
+    semanticLocation("rdb-security-config-cell", "Official relational database security, encryption, or access-control config slot.", ["owner", "key"]),
+    semanticLocation("rdb-sql-cell", "Official relational database SQL statement, bind-argument, or execution slot.", ["owner", "key"]),
+    semanticLocation("rdb-store-cell", "Official relational database store, table, row, or value slot.", ["owner", "key"]),
+    semanticLocation("security-asset-slot", "Official security asset, keychain, credential manager, or protected asset slot.", ["owner", "key"]),
+    semanticLocation("security-credential-slot", "Official credential, token, key, crypto material, or auth secret slot.", ["owner", "key"]),
+    semanticLocation("system-pasteboard-slot", "Official pasteboard, clipboard, or unified-data slot.", ["owner", "key"]),
+    semanticLocation("ui-display-slot", "Official UI display, form, notification, dialog, canvas, or visible content slot.", ["owner", "key"]),
+    semanticLocation("webview-resource-slot", "Official WebView URL, request, resource, JavaScript bridge, or web payload slot.", ["owner", "key"]),
 ]);
 
 export function isRegisteredCellKindId(id: unknown): id is CellKindId {

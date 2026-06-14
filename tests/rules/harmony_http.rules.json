@@ -192,10 +192,13 @@
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
-        "base": {
-          "kind": "arg",
-          "index": 1
-        }
+        "endpoint": {
+          "base": {
+            "kind": "arg",
+            "index": 1
+          }
+        },
+        "taintScope": "contained-values"
       },
       "to": {
         "base": {

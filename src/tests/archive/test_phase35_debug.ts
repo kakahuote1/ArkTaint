@@ -33,8 +33,7 @@ async function run(): Promise<void> {
     const engine = new TaintPropagationEngine(scene, 1, {
         debug: {
             enableWorklistProfile: true,
-            enablePropagationTrace: true,
-            propagationTraceMaxEdges: 20000,
+            enableTraceGraph: true,
         },
     });
     engine.verbose = false;
@@ -71,7 +70,7 @@ async function run(): Promise<void> {
 
     console.log(`flows=${flows.length}`);
     console.log(`profile=${artifacts.profilePath ?? "disabled"}`);
-    console.log(`trace=${artifacts.dotPath ?? "disabled"}`);
+    console.log(`trace=${artifacts.traceGraphJsonPath ?? "disabled"}`);
     console.log("top_enqueue_reasons:");
     for (const reason of topReasons) {
         console.log(`  ${reason.reason}: attempts=${reason.attempts}, success=${reason.successes}, dedup=${reason.dedupDrops}`);

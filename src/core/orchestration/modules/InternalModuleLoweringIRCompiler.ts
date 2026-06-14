@@ -734,6 +734,7 @@ function matchesInvokeSurface(
         signature: string;
         methodName: string;
         declaringClassName: string;
+        baseLocalName?: string;
         argCount: number;
         isInstanceInvoke?: boolean;
     },
@@ -742,6 +743,10 @@ function matchesInvokeSurface(
     if (surface.modulePath && !modulePathMatchesSignature(surface.modulePath, call.signature)) return false;
     if (surface.declaringClassName && surface.declaringClassName !== call.declaringClassName) return false;
     if (surface.declaringClassIncludes && !call.declaringClassName.includes(surface.declaringClassIncludes)) return false;
+    if (surface.baseLocalName && surface.baseLocalName !== call.baseLocalName) return false;
+    if (surface.baseLocalNames && surface.baseLocalNames.length > 0) {
+        if (!call.baseLocalName || !surface.baseLocalNames.includes(call.baseLocalName)) return false;
+    }
     if (surface.signature && surface.signature !== call.signature) return false;
     if (surface.signatureIncludes && !call.signature.includes(surface.signatureIncludes)) return false;
     if (surface.argCount !== undefined && call.argCount !== surface.argCount) return false;
@@ -752,10 +757,48 @@ function matchesInvokeSurface(
 }
 
 function modulePathMatchesSignature(modulePath: string, signature: string): boolean {
-    const expected = String(modulePath || "").replace(/^@/, "").replace(/\\/g, "/").toLowerCase();
+    const expected = normalizeModulePathForSelector(modulePath);
     const match = String(signature || "").match(/@([^:>]+):/);
-    const actual = (match?.[1] || "").replace(/^@/, "").replace(/\\/g, "/").toLowerCase();
-    return !!expected && actual === expected;
+    const actual = normalizeModulePathForSelector(match?.[1] || "");
+    const expectedSource = normalizeArkTsSourceSuffix(expected);
+    const actualSource = normalizeArkTsSourceSuffix(actual);
+    return !!expected
+        && !!actual
+        && (
+            actual === expected
+            || actual.endsWith(`/${expected}`)
+            || expected.endsWith(`/${actual}`)
+            || (!!expectedSource && !!actualSource && expectedSource === actualSource)
+        );
+}
+
+function normalizeModulePathForSelector(pathValue: string): string {
+    return String(pathValue || "")
+        .replace(/^@/, "")
+        .replace(/\\/g, "/")
+        .replace(/^\/+|\/+$/g, "")
+        .toLowerCase();
+}
+
+function normalizeArkTsSourceSuffix(pathValue: string): string | undefined {
+    const normalized = normalizeModulePathForSelector(pathValue);
+    if (!normalized) return undefined;
+    const markers = [
+        "/src/main/ets/",
+        "/src/ohostest/ets/",
+        "/src/test/ets/",
+        "/ets/",
+    ];
+    for (const marker of markers) {
+        const index = normalized.lastIndexOf(marker);
+        if (index >= 0) {
+            return normalized.slice(index + marker.length);
+        }
+    }
+    if (normalized.startsWith("ets/")) {
+        return normalized.slice("ets/".length);
+    }
+    return undefined;
 }
 
 function matchesEventInvokeSurface(surface: ModuleInvokeSurfaceSelector, event: ModuleInvokeEvent): boolean {
@@ -4191,6 +4234,8 @@ function materializeInternalModuleLoweringIR(spec: PublicInternalModuleLoweringI
                     seenTriggerIds,
                     semantic,
                 );
+                break;
+            case "handoff_effect":
                 break;
             case "container":
             case "ability_handoff":

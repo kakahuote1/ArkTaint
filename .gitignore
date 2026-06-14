@@ -6,8 +6,11 @@ output
 .idea
 *.log
 *.txt
+__pycache__/
 tmp/
 implementation_plan.md
+/scripts/*
+!/scripts/prepare-arkanalyzer.js
 arkanalyzer/out
 arkanalyzer/output
 internal_docs/
@@ -16,7 +19,7 @@ overview-*.png
 workbench-*.png
 zhuan_*.png
 main.tex.pre_rewrite_*
-
+.kilo/
 # Local drafts, generated reports, and review scratch files must not live at repo root.
 # Move them under internal_docs/root_drafts/ or tmp/ instead.
 /change_log.md

@@ -73,13 +73,17 @@ export function createHarmonyEventEmitterSemanticModule(
     };
     const onMethodNames = new Set(resolved.onMethods);
     const emitMethodNames = new Set(resolved.emitMethods);
+    const hasPayloadArg = resolved.payloadArgIndex >= 0;
     const maxChannelArgIndex = resolved.channelArgIndexes.length > 0
         ? Math.max(...resolved.channelArgIndexes)
         : 0;
-    const minArgs = Math.max(
+    const onMinArgs = Math.max(
         maxChannelArgIndex,
-        resolved.payloadArgIndex,
         resolved.callbackArgIndex,
+    ) + 1;
+    const emitMinArgs = Math.max(
+        maxChannelArgIndex,
+        hasPayloadArg ? resolved.payloadArgIndex : -1,
     ) + 1;
 
     return defineModule({
@@ -106,7 +110,7 @@ export function createHarmonyEventEmitterSemanticModule(
             const classProfiles = mergeEmitterClassProfiles(declaredProfiles, observedProfiles);
             const callbackMethodsByEventKey = new Map<string, Map<string, any>>();
 
-            for (const call of ctx.scan.invokes({ minArgs })) {
+            for (const call of ctx.scan.invokes({ minArgs: onMinArgs })) {
                 const isOnCall = resolved.onMethods.some(methodName => call.call.matchesMethod(methodName));
                 if (!isOnCall) {
                     continue;
@@ -174,7 +178,7 @@ export function createHarmonyEventEmitterSemanticModule(
                 }
             }
 
-            for (const call of ctx.scan.invokes({ minArgs })) {
+            for (const call of ctx.scan.invokes({ minArgs: emitMinArgs })) {
                 const isEmitCall = resolved.emitMethods.some(methodName => call.call.matchesMethod(methodName));
                 if (!isEmitCall) {
                     continue;
@@ -208,7 +212,17 @@ export function createHarmonyEventEmitterSemanticModule(
                 emitCount++;
                 const sourceMethod = call.stmt?.getCfg?.()?.getDeclaringMethod?.();
                 if (!sourceMethod?.getCfg?.()) continue;
-                const payloadNodeIds = call.argNodeIds(resolved.payloadArgIndex);
+                const payloadNodeIds = hasPayloadArg
+                    ? call.argNodeIds(resolved.payloadArgIndex)
+                    : [];
+                const activationArgIndex = hasPayloadArg
+                    ? resolved.payloadArgIndex
+                    : (resolveEmitterChannelArgIndexes(
+                        callArgs,
+                        resolved.channelArgIndexes,
+                        resolved.payloadArgIndex,
+                        resolved.callbackArgIndex,
+                    )[0] ?? 0);
                 for (const eventKey of buildEmitterEventKeys(call, classKey, channelKey)) {
                     for (const nodeId of payloadNodeIds) {
                         handoffEffects.push({
@@ -229,8 +243,8 @@ export function createHarmonyEventEmitterSemanticModule(
                             handlerMethod,
                             anchorStmt: call.stmt,
                             triggerLabel: eventKey,
-                            activationSource: { kind: "arg", index: resolved.payloadArgIndex },
-                            payloadSource: { kind: "arg", index: resolved.payloadArgIndex },
+                            activationSource: { kind: "arg", index: activationArgIndex },
+                            ...(hasPayloadArg ? { payloadSource: { kind: "arg" as const, index: resolved.payloadArgIndex } } : {}),
                             reason: `Harmony event dispatch ${eventKey}`,
                         });
                         deferredBindingCount++;
@@ -420,7 +434,7 @@ function buildEmitterCallsiteProfiles(
                 }
             } else if (isEmit) {
                 profile.hasEmit = true;
-                if (channelLike && invokeArgs.length > payloadArgIndex) {
+                if (channelLike && (payloadArgIndex < 0 || invokeArgs.length > payloadArgIndex)) {
                     profile.hasEmitShape = true;
                 }
             }
@@ -454,31 +468,41 @@ function isOnMethodShape(method: any): boolean {
     if (params.length < 2) return false;
     const eventType = String(params[0]?.getType?.()?.toString?.() || "").toLowerCase();
     const callbackType = String(params[1]?.getType?.()?.toString?.() || "").toLowerCase();
-    const hasEventString = eventType.includes("string");
+    const hasEventChannel = isEmitterChannelTypeText(eventType);
     const hasCallable = callbackType.includes("=>")
         || callbackType.includes("function")
         || callbackType.includes("callable")
         || callbackType.includes("callback")
         || callbackType.includes("%am");
-    if (hasEventString && hasCallable) {
+    if (hasEventChannel && hasCallable) {
         return true;
     }
 
     const sigText = String(method.getSignature?.()?.toString?.() || "").toLowerCase();
     return sigText.includes("on(")
-        && sigText.includes("string")
+        && isEmitterChannelTypeText(sigText)
         && (sigText.includes("=>") || sigText.includes("function") || sigText.includes("%am"));
 }
 
 function isEmitMethodShape(method: any): boolean {
     const params = method.getParameters?.() || [];
-    if (params.length < 2) return false;
+    if (params.length < 1) return false;
     const eventType = String(params[0]?.getType?.()?.toString?.() || "").toLowerCase();
-    if (eventType.includes("string")) {
+    if (isEmitterChannelTypeText(eventType)) {
         return true;
     }
     const sigText = String(method.getSignature?.()?.toString?.() || "").toLowerCase();
-    return sigText.includes("emit(") && sigText.includes("string");
+    return (sigText.includes("emit(") || sigText.includes("send") || sigText.includes("publish"))
+        && isEmitterChannelTypeText(sigText);
+}
+
+function isEmitterChannelTypeText(text: string): boolean {
+    const lowered = String(text || "").toLowerCase();
+    return lowered.includes("string")
+        || lowered.includes("number")
+        || lowered.includes("boolean")
+        || lowered.includes("enum")
+        || lowered.includes("eventkey");
 }
 
 function hasLikelyChannelShape(methodSignature: string, invokeArgs: any[], channelArgIndexes: number[]): boolean {
@@ -548,6 +572,8 @@ function resolveEmitterAddressToken(methodSignature: string, eventArg: any): str
     const literal = resolveScalarLiteral(eventArg);
     if (literal) return literal;
     if (!(eventArg instanceof Local)) return undefined;
+    const typeToken = resolveStaticMemberTokenFromTypeText(eventArg.getType?.()?.toString?.());
+    if (typeToken) return typeToken;
     return traceLocalScalarLiteral(methodSignature, eventArg);
 }
 
@@ -567,6 +593,9 @@ function resolveScalarLiteral(value: any): string | undefined {
     if (text === "true" || text === "false") {
         return normalizeScalarLiteral(text === "true");
     }
+    if (/^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)+$/.test(text)) {
+        return `sym:${text}`;
+    }
     return undefined;
 }
 
@@ -580,6 +609,17 @@ function normalizeScalarLiteral(raw: unknown): string | undefined {
         return `${typeof raw}:${String(raw)}`;
     }
     return undefined;
+}
+
+function resolveStaticMemberTokenFromTypeText(raw: unknown): string | undefined {
+    const text = String(raw || "").trim();
+    if (!text.includes("[static]")) return undefined;
+    const normalized = text
+        .replace(/\s+/g, "")
+        .replace(/\.?\[static\]/g, ".");
+    const memberMatch = /(?:^|:)([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)+)$/u.exec(normalized);
+    if (!memberMatch) return undefined;
+    return `sym:${memberMatch[1]}`;
 }
 
 function traceLocalScalarLiteral(methodSignature: string, local: Local): string | undefined {

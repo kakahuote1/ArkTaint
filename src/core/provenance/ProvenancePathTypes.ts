@@ -12,6 +12,9 @@ import { FactPredecessorRecord } from "../kernel/propagation/PropagationTypes";
 export interface PathMaterializationOptions {
     maxPaths?: number;
     maxDepth?: number;
+    maxDagFacts?: number;
+    maxDagEdges?: number;
+    maxElapsedMs?: number;
 }
 
 export type PathMaterializationStatus =
@@ -147,6 +150,7 @@ export interface ProvenanceDag {
     factIds: Set<string>;
     edges: ProvenanceDagEdge[];
     sourceFactIds: Set<string>;
+    incompleteReasons?: ProvenancePathIncompleteReason[];
 }
 
 export interface ProvenancePath {

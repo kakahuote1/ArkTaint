@@ -1,0 +1,86 @@
+{
+  "id": "asset.rule.kernel.transfers.form",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
+    {
+      "surfaceId": "surface.transfer.official.formbindingdata.create.exact.createFormBindingData.module.formBindingData",
+      "kind": "invoke",
+      "modulePath": "@ohos.app.form.formBindingData",
+      "ownerName": "formBindingData",
+      "methodName": "createFormBindingData",
+      "invokeKind": "namespace",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 1
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.transfer.official.formbindingdata.create.exact.createFormBindingData.module.formBindingData",
+      "surfaceId": "surface.transfer.official.formbindingdata.create.exact.createFormBindingData.module.formBindingData",
+      "assetId": "asset.rule.kernel.transfers.form",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "createFormBindingData",
+        "invokeKind": "any",
+        "argCount": 1,
+        "typeHint": "formBindingData",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "formBindingData"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.formbindingdata.create"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "enabled": true,
+        "category": "transfer",
+        "description": "formBindingData.createFormBindingData(obj): object/string payload becomes the returned FormBindingData."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.transfer.official.formbindingdata.create",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "api/@ohos.app.form.formBindingData.d.ts"
+      },
+      {
+        "file": "api/@ohos.application.formBindingData.d.ts"
+      },
+      {
+        "file": "internal_docs/security_asset_iteration/official_transfer_model_semantic_todo.md"
+      }
+    ]
+  }
+}

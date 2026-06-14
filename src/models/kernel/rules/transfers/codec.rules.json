@@ -4,10 +4,10 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.transfer.harmony.textdecoder.decodeToString.base_to_result",
+      "surfaceId": "surface.transfer.harmony.textdecoder.decodeToString.base_to_result.exact.decodeToString.className.TextDecoder",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "TextDecoder",
       "methodName": "decodeToString",
       "invokeKind": "instance",
       "argCount": 2,
@@ -17,10 +17,10 @@
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.textdecoder.decodeToString.arg0_to_result",
+      "surfaceId": "surface.transfer.harmony.textdecoder.decodeToString.arg0_to_result.exact.decodeToString.className.TextDecoder",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "TextDecoder",
       "methodName": "decodeToString",
       "invokeKind": "instance",
       "argCount": 2,
@@ -30,10 +30,10 @@
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.textencoder.encodeInto.arg0_to_result",
+      "surfaceId": "surface.transfer.harmony.textencoder.encodeInto.arg0_to_result.exact.encodeInto.className.TextEncoder",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "TextEncoder",
       "methodName": "encodeInto",
       "invokeKind": "instance",
       "argCount": 1,
@@ -45,8 +45,8 @@
   ],
   "bindings": [
     {
-      "bindingId": "binding.transfer.harmony.textdecoder.decodeToString.base_to_result.0",
-      "surfaceId": "surface.transfer.harmony.textdecoder.decodeToString.base_to_result",
+      "bindingId": "binding.transfer.harmony.textdecoder.decodeToString.base_to_result.exact.decodeToString.className.TextDecoder",
+      "surfaceId": "surface.transfer.harmony.textdecoder.decodeToString.base_to_result.exact.decodeToString.className.TextDecoder",
       "assetId": "asset.rule.kernel.transfers.codec",
       "plane": "rule",
       "role": "transfer",
@@ -54,10 +54,16 @@
         "kind": "method-name-equals",
         "value": "decodeToString",
         "invokeKind": "instance",
-        "argCount": 2
+        "argCount": 2,
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "TextDecoder"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.textdecoder.decodeToString.base_to_result"
+        "template.transfer.harmony.textdecoder.decodeToString.base_to_result.exact.decodeToString.className.TextDecoder"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -67,8 +73,8 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.transfer.harmony.textdecoder.decodeToString.arg0_to_result.0",
-      "surfaceId": "surface.transfer.harmony.textdecoder.decodeToString.arg0_to_result",
+      "bindingId": "binding.transfer.harmony.textdecoder.decodeToString.arg0_to_result.exact.decodeToString.className.TextDecoder",
+      "surfaceId": "surface.transfer.harmony.textdecoder.decodeToString.arg0_to_result.exact.decodeToString.className.TextDecoder",
       "assetId": "asset.rule.kernel.transfers.codec",
       "plane": "rule",
       "role": "transfer",
@@ -76,10 +82,16 @@
         "kind": "method-name-equals",
         "value": "decodeToString",
         "invokeKind": "instance",
-        "argCount": 2
+        "argCount": 2,
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "TextDecoder"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.textdecoder.decodeToString.arg0_to_result"
+        "template.transfer.harmony.textdecoder.decodeToString.arg0_to_result.exact.decodeToString.className.TextDecoder"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -89,8 +101,8 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.transfer.harmony.textencoder.encodeInto.arg0_to_result.0",
-      "surfaceId": "surface.transfer.harmony.textencoder.encodeInto.arg0_to_result",
+      "bindingId": "binding.transfer.harmony.textencoder.encodeInto.arg0_to_result.exact.encodeInto.className.TextEncoder",
+      "surfaceId": "surface.transfer.harmony.textencoder.encodeInto.arg0_to_result.exact.encodeInto.className.TextEncoder",
       "assetId": "asset.rule.kernel.transfers.codec",
       "plane": "rule",
       "role": "transfer",
@@ -98,10 +110,16 @@
         "kind": "method-name-equals",
         "value": "encodeInto",
         "invokeKind": "instance",
-        "argCount": 1
+        "argCount": 1,
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "TextEncoder"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.textencoder.encodeInto.arg0_to_result"
+        "template.transfer.harmony.textencoder.encodeInto.arg0_to_result.exact.encodeInto.className.TextEncoder"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -113,7 +131,7 @@
   ],
   "effectTemplates": [
     {
-      "id": "template.transfer.harmony.textdecoder.decodeToString.base_to_result",
+      "id": "template.transfer.harmony.textdecoder.decodeToString.base_to_result.exact.decodeToString.className.TextDecoder",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -129,7 +147,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.textdecoder.decodeToString.arg0_to_result",
+      "id": "template.transfer.harmony.textdecoder.decodeToString.arg0_to_result.exact.decodeToString.className.TextDecoder",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -146,7 +164,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.textencoder.encodeInto.arg0_to_result",
+      "id": "template.transfer.harmony.textencoder.encodeInto.arg0_to_result.exact.encodeInto.className.TextEncoder",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {

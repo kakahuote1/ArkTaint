@@ -2,6 +2,7 @@ import {
     DetectProfileSnapshot,
     ArkMainSeedReport,
     RuleHitCounters,
+    StageTimingProfile,
 } from "../core/orchestration/TaintPropagationEngine";
 import { WorklistProfileSnapshot } from "../core/kernel/debug/WorklistProfiler";
 import { WorklistBudgetTruncation } from "../core/kernel/propagation/WorklistSolver";
@@ -18,6 +19,11 @@ import {
 } from "../core/kernel/contracts/PagNodeResolution";
 import { RuleLoadIssue } from "../core/rules/RuleLoader";
 import { RuleInvokeKind } from "../core/rules/RuleSchema";
+import {
+    SourceRuleSeedAuditEntry,
+    SourceRuleZeroHitAuditEntry,
+} from "../core/kernel/rules/SourceRuleSeedCollector";
+import { SinkDetectAuditEntry } from "../core/kernel/rules/SinkDetector";
 import { AnalyzeProfile, ReportMode } from "./analyzeCliOptions";
 import { FlowRuleTrace } from "./analyzeUtils";
 import {
@@ -27,10 +33,13 @@ import {
     PostsolveReport,
     PostsolveSkeleton,
 } from "../core/orchestration/postsolve/PostsolveTypes";
+import { TraceGraph } from "../core/trace/TraceGraph";
 
 export interface EntryStageProfile {
     buildPagMs: number;
+    buildPagProfile: StageTimingProfile;
     propagateRuleSeedMs: number;
+    sourceRulePropagationProfile: StageTimingProfile;
     propagateHeuristicSeedMs: number;
     detectMs: number;
     postProcessMs: number;
@@ -87,6 +96,16 @@ export interface EntryAnalyzeResult {
     seedCount: number;
     seedLocalNames: string[];
     seedStrategies: string[];
+    sourceSeedAudit: SourceRuleSeedAuditEntry[];
+    sourceRuleZeroHitAudit: SourceRuleZeroHitAuditEntry[];
+    observedTaintFacts?: Array<{
+        factId: string;
+        nodeId: number;
+        fieldPath?: string[];
+        source: string;
+        value?: string;
+    }>;
+    observedTaintFactOverflowCount?: number;
     flowCount: number;
     sinkSamples: string[];
     flowRuleTraces: FlowRuleTrace[];
@@ -129,6 +148,10 @@ export interface EntryAnalyzeResult {
         }>;
     };
     detectProfile: DetectProfileSnapshot;
+    sinkDetectionAudit: {
+        entries: SinkDetectAuditEntry[];
+        overflowCount: number;
+    };
     stageProfile: EntryStageProfile;
     transferNoHitReasons: string[];
     pagNodeResolutionAudit: PagNodeResolutionAuditSnapshot;
@@ -138,6 +161,7 @@ export interface EntryAnalyzeResult {
     arkMainSeeds?: ArkMainSeedReport;
     worklistProfile?: WorklistProfileSnapshot;
     worklistTruncation?: WorklistBudgetTruncation;
+    traceGraph?: TraceGraph;
     elapsedMs: number;
     fromCache?: boolean;
     error?: string;
@@ -188,7 +212,20 @@ export interface AnalyzeReport {
     k: number;
     maxEntries: number;
     ruleLayers: string[];
-    ruleLayerStatus: Array<{ name: string; path: string; applied: boolean; exists: boolean; source: string }>;
+    ruleLayerStatus: Array<{
+        name: string;
+        path: string;
+        applied: boolean;
+        exists: boolean;
+        source: string;
+        packId?: string;
+        sourceRuleCount?: number;
+        sinkRuleCount?: number;
+        sanitizerRuleCount?: number;
+        transferRuleCount?: number;
+        sourceRuleIds?: string[];
+        sinkRuleIds?: string[];
+    }>;
     summary: {
         totalEntries: number;
         okEntries: number;
@@ -241,6 +278,7 @@ export interface AnalyzeReport {
         arkMainSeeds?: ArkMainSeedReport;
         ruleFeedback: {
             zeroHitRules: RuleHitCounters;
+            sourceZeroHitAudit: SourceRuleZeroHitAuditEntry[];
             ruleHitRanking: {
                 source: Array<{ key: string; count: number }>;
                 sink: Array<{ key: string; count: number }>;
@@ -332,7 +370,9 @@ export function emptyDetectProfile(): DetectProfileSnapshot {
 export function emptyEntryStageProfile(): EntryStageProfile {
     return {
         buildPagMs: 0,
+        buildPagProfile: {},
         propagateRuleSeedMs: 0,
+        sourceRulePropagationProfile: {},
         propagateHeuristicSeedMs: 0,
         detectMs: 0,
         postProcessMs: 0,
@@ -420,19 +460,23 @@ export function elapsedMsSince(t0: bigint): number {
 }
 
 export function toReportEntry(entry: EntryAnalyzeResult, reportMode: ReportMode): EntryAnalyzeResult {
+    const { traceGraph: _traceGraph, ...entryWithoutTraceGraph } = entry;
     if (reportMode === "full") {
-        return entry;
+        return entryWithoutTraceGraph as EntryAnalyzeResult;
     }
     return {
-        ...entry,
+        ...entryWithoutTraceGraph,
         sinkSamples: [],
         flowRuleTraces: [],
+        sourceSeedAudit: [],
+        sourceRuleZeroHitAudit: [],
         materializedTaintFlows: [],
         postsolveResults: [],
         ruleHits: emptyRuleHitCounters(),
         ruleHitEndpoints: emptyRuleHitCounters(),
         transferProfile: emptyTransferProfile(),
         detectProfile: emptyDetectProfile(),
+        sinkDetectionAudit: { entries: [], overflowCount: 0 },
         transferNoHitReasons: [],
         pagNodeResolutionAudit: emptyPagNodeResolutionAuditSnapshot(),
         // Keep lightweight numeric/structural audits in light mode so

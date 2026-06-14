@@ -4,111 +4,59 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.sink.harmony.hilog.info.arg3.exact",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "info",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.hilog.error.arg3.exact",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "error",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.hilog.info.arg3",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "hilog",
-      "methodName": "info",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.hilog.error.arg3",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "hilog",
-      "methodName": "error",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.hilog.info.arg3.sig.0",
+      "surfaceId": "surface.sink.harmony.hilog.info.arg3.exact.info.module.hilog",
       "kind": "invoke",
       "modulePath": "ohos/hilog",
       "ownerName": "hilog",
       "methodName": "info",
       "invokeKind": "instance",
-      "argCount": 4,
-      "confidence": "certain",
+      "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 4
     },
     {
-      "surfaceId": "surface.sink.harmony.hilog.info.arg2.sig",
+      "surfaceId": "surface.sink.harmony.hilog.error.arg3.exact.error.module.hilog",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "ohos/hilog",
+      "ownerName": "hilog",
+      "methodName": "error",
+      "invokeKind": "instance",
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 4
+    },
+    {
+      "surfaceId": "surface.sink.harmony.hilog.info.arg2.exact.info.module.hilog",
+      "kind": "invoke",
+      "modulePath": "ohos/hilog",
+      "ownerName": "hilog",
       "methodName": "info",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 3
     },
     {
-      "surfaceId": "surface.sink.harmony.hilog.error.arg3.sig",
+      "surfaceId": "surface.sink.harmony.hilog.error.arg2.exact.error.module.hilog",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "ohos/hilog",
+      "ownerName": "hilog",
       "methodName": "error",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 3
     },
     {
-      "surfaceId": "surface.sink.harmony.hilog.error.arg2.sig",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "error",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.console.log.arg0.0",
+      "surfaceId": "surface.sink.harmony.console.log.arg0.0.exact.log.className.console",
       "kind": "invoke",
       "modulePath": "ohos/console",
       "ownerName": "console",
@@ -121,172 +69,166 @@
       }
     },
     {
-      "surfaceId": "surface.sink.harmony.console.info.arg0",
+      "surfaceId": "surface.sink.harmony.console.info.arg0.exact.info.module.console",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "ohos/console",
+      "ownerName": "console",
       "methodName": "info",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 1
     },
     {
-      "surfaceId": "surface.sink.harmony.console.warn.arg0",
+      "surfaceId": "surface.sink.harmony.console.warn.arg0.exact.warn.module.console",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "ohos/console",
+      "ownerName": "console",
       "methodName": "warn",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 1
     },
     {
-      "surfaceId": "surface.sink.harmony.console.error.arg0",
+      "surfaceId": "surface.sink.harmony.console.error.arg0.exact.error.module.console",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "ohos/console",
+      "ownerName": "console",
       "methodName": "error",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 1
     },
     {
-      "surfaceId": "surface.sink.harmony.console.debug.arg0",
+      "surfaceId": "surface.sink.harmony.console.debug.arg0.exact.debug.module.console",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "ohos/console",
+      "ownerName": "console",
       "methodName": "debug",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 1
     },
     {
-      "surfaceId": "surface.sink.harmony.console.log.arg0.unresolved_instance",
+      "surfaceId": "surface.sink.harmony.console.log.arg0.unresolved_instance.exact.log.className.console",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
+      "modulePath": "ohos/console",
       "ownerName": "console",
       "methodName": "log",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 2
     },
     {
-      "surfaceId": "surface.sink.harmony.console.info.arg0.unresolved_instance",
+      "surfaceId": "surface.sink.harmony.console.info.arg0.unresolved_instance.exact.info.className.console",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
+      "modulePath": "ohos/console",
       "ownerName": "console",
       "methodName": "info",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 2
     },
     {
-      "surfaceId": "surface.sink.harmony.console.warn.arg0.unresolved_instance",
+      "surfaceId": "surface.sink.harmony.console.warn.arg0.unresolved_instance.exact.warn.className.console",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
+      "modulePath": "ohos/console",
       "ownerName": "console",
       "methodName": "warn",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 2
     },
     {
-      "surfaceId": "surface.sink.harmony.console.error.arg0.unresolved_instance",
+      "surfaceId": "surface.sink.harmony.console.error.arg0.unresolved_instance.exact.error.className.console",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
+      "modulePath": "ohos/console",
       "ownerName": "console",
       "methodName": "error",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 2
     },
     {
-      "surfaceId": "surface.sink.harmony.console.debug.arg0.unresolved_instance",
+      "surfaceId": "surface.sink.harmony.console.debug.arg0.unresolved_instance.exact.debug.className.console",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
+      "modulePath": "ohos/console",
       "ownerName": "console",
       "methodName": "debug",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 2
     },
     {
-      "surfaceId": "surface.sink.harmony.hilog.debug",
+      "surfaceId": "surface.sink.harmony.hilog.debug.exact.debug.module.hilog",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "ohos/hilog",
+      "ownerName": "hilog",
       "methodName": "debug",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 4
     },
     {
-      "surfaceId": "surface.sink.harmony.hilog.warn",
+      "surfaceId": "surface.sink.harmony.hilog.warn.exact.warn.module.hilog",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "ohos/hilog",
+      "ownerName": "hilog",
       "methodName": "warn",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.hiAppEvent.write",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "hiAppEvent",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
+      },
+      "argCount": 4
     }
   ],
   "bindings": [
     {
-      "bindingId": "binding.sink.harmony.hilog.info.arg3.exact.0",
-      "surfaceId": "surface.sink.harmony.hilog.info.arg3.exact",
+      "bindingId": "binding.sink.harmony.hilog.info.arg3.exact.info.module.hilog",
+      "surfaceId": "surface.sink.harmony.hilog.info.arg3.exact.info.module.hilog",
       "assetId": "asset.rule.kernel.sinks.logging",
       "plane": "rule",
       "role": "sink",
       "selector": {
-        "kind": "signature-equals",
-        "value": "@sdk_signature_probe/taint_mock.ts: HiLog.info(number, string, string, any)"
+        "kind": "method-name-equals",
+        "value": "info",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "module": {
+            "mode": "equals",
+            "value": "hilog"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -307,14 +249,21 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.hilog.error.arg3.exact.0",
-      "surfaceId": "surface.sink.harmony.hilog.error.arg3.exact",
+      "bindingId": "binding.sink.harmony.hilog.error.arg3.exact.error.module.hilog",
+      "surfaceId": "surface.sink.harmony.hilog.error.arg3.exact.error.module.hilog",
       "assetId": "asset.rule.kernel.sinks.logging",
       "plane": "rule",
       "role": "sink",
       "selector": {
-        "kind": "signature-equals",
-        "value": "@sdk_signature_probe/taint_mock.ts: HiLog.error(number, string, string, any)"
+        "kind": "method-name-equals",
+        "value": "error",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "module": {
+            "mode": "equals",
+            "value": "hilog"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -335,8 +284,8 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.hilog.info.arg3.0",
-      "surfaceId": "surface.sink.harmony.hilog.info.arg3",
+      "bindingId": "binding.sink.harmony.hilog.info.arg3.0.exact.info.module.hilog",
+      "surfaceId": "surface.sink.harmony.hilog.info.arg3.exact.info.module.hilog",
       "assetId": "asset.rule.kernel.sinks.logging",
       "plane": "rule",
       "role": "sink",
@@ -344,7 +293,13 @@
         "kind": "method-name-equals",
         "value": "info",
         "invokeKind": "instance",
-        "typeHint": "hilog"
+        "typeHint": "hilog",
+        "calleeScope": {
+          "module": {
+            "mode": "equals",
+            "value": "hilog"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -365,8 +320,8 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.hilog.error.arg3.0",
-      "surfaceId": "surface.sink.harmony.hilog.error.arg3",
+      "bindingId": "binding.sink.harmony.hilog.error.arg3.0.exact.error.module.hilog",
+      "surfaceId": "surface.sink.harmony.hilog.error.arg3.exact.error.module.hilog",
       "assetId": "asset.rule.kernel.sinks.logging",
       "plane": "rule",
       "role": "sink",
@@ -374,7 +329,13 @@
         "kind": "method-name-equals",
         "value": "error",
         "invokeKind": "instance",
-        "typeHint": "hilog"
+        "typeHint": "hilog",
+        "calleeScope": {
+          "module": {
+            "mode": "equals",
+            "value": "hilog"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -395,42 +356,21 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.hilog.info.arg3.sig.0",
-      "surfaceId": "surface.sink.harmony.hilog.info.arg3.sig.0",
+      "bindingId": "binding.sink.harmony.hilog.info.arg2.0.exact.info.module.hilog",
+      "surfaceId": "surface.sink.harmony.hilog.info.arg2.exact.info.module.hilog",
       "assetId": "asset.rule.kernel.sinks.logging",
       "plane": "rule",
       "role": "sink",
       "selector": {
-        "kind": "signature-contains",
-        "value": "hilog.info"
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 3
+        "kind": "method-name-equals",
+        "value": "info",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "module": {
+            "mode": "equals",
+            "value": "hilog"
+          }
         }
-      },
-      "effectTemplateRefs": [
-        "template.sink.harmony.hilog.info.arg3.sig"
-      ],
-      "semanticsFamily": "information_leak",
-      "metadata": {
-        "enabled": true,
-        "category": "information_leak",
-        "severity": "medium"
-      },
-      "completeness": "complete",
-      "confidence": "certain"
-    },
-    {
-      "bindingId": "binding.sink.harmony.hilog.info.arg2.sig.0",
-      "surfaceId": "surface.sink.harmony.hilog.info.arg2.sig",
-      "assetId": "asset.rule.kernel.sinks.logging",
-      "plane": "rule",
-      "role": "sink",
-      "selector": {
-        "kind": "signature-contains",
-        "value": "hilog.info"
       },
       "endpoint": {
         "base": {
@@ -439,7 +379,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.hilog.info.arg2.sig"
+        "template.sink.harmony.hilog.info.arg2"
       ],
       "semanticsFamily": "information_leak",
       "metadata": {
@@ -451,42 +391,21 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.hilog.error.arg3.sig.0",
-      "surfaceId": "surface.sink.harmony.hilog.error.arg3.sig",
+      "bindingId": "binding.sink.harmony.hilog.error.arg2.0.exact.error.module.hilog",
+      "surfaceId": "surface.sink.harmony.hilog.error.arg2.exact.error.module.hilog",
       "assetId": "asset.rule.kernel.sinks.logging",
       "plane": "rule",
       "role": "sink",
       "selector": {
-        "kind": "signature-contains",
-        "value": "hilog.error"
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 3
+        "kind": "method-name-equals",
+        "value": "error",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "module": {
+            "mode": "equals",
+            "value": "hilog"
+          }
         }
-      },
-      "effectTemplateRefs": [
-        "template.sink.harmony.hilog.error.arg3.sig"
-      ],
-      "semanticsFamily": "information_leak",
-      "metadata": {
-        "enabled": true,
-        "category": "information_leak",
-        "severity": "medium"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.sink.harmony.hilog.error.arg2.sig.0",
-      "surfaceId": "surface.sink.harmony.hilog.error.arg2.sig",
-      "assetId": "asset.rule.kernel.sinks.logging",
-      "plane": "rule",
-      "role": "sink",
-      "selector": {
-        "kind": "signature-contains",
-        "value": "hilog.error"
       },
       "endpoint": {
         "base": {
@@ -495,7 +414,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.hilog.error.arg2.sig"
+        "template.sink.harmony.hilog.error.arg2"
       ],
       "semanticsFamily": "information_leak",
       "metadata": {
@@ -507,14 +426,23 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.console.log.arg0.0",
-      "surfaceId": "surface.sink.harmony.console.log.arg0.0",
+      "bindingId": "binding.sink.harmony.console.log.arg0.0.exact.log.className.console",
+      "surfaceId": "surface.sink.harmony.console.log.arg0.0.exact.log.className.console",
       "assetId": "asset.rule.kernel.sinks.logging",
       "plane": "rule",
       "role": "sink",
       "selector": {
-        "kind": "signature-contains",
-        "value": "console.log"
+        "kind": "method-name-equals",
+        "value": "log",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "console",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "console"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -535,14 +463,21 @@
       "confidence": "certain"
     },
     {
-      "bindingId": "binding.sink.harmony.console.info.arg0.0",
-      "surfaceId": "surface.sink.harmony.console.info.arg0",
+      "bindingId": "binding.sink.harmony.console.info.arg0.0.exact.info.module.console",
+      "surfaceId": "surface.sink.harmony.console.info.arg0.exact.info.module.console",
       "assetId": "asset.rule.kernel.sinks.logging",
       "plane": "rule",
       "role": "sink",
       "selector": {
-        "kind": "signature-contains",
-        "value": "console.info"
+        "kind": "method-name-equals",
+        "value": "info",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "module": {
+            "mode": "equals",
+            "value": "console"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -563,14 +498,21 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.console.warn.arg0.0",
-      "surfaceId": "surface.sink.harmony.console.warn.arg0",
+      "bindingId": "binding.sink.harmony.console.warn.arg0.0.exact.warn.module.console",
+      "surfaceId": "surface.sink.harmony.console.warn.arg0.exact.warn.module.console",
       "assetId": "asset.rule.kernel.sinks.logging",
       "plane": "rule",
       "role": "sink",
       "selector": {
-        "kind": "signature-contains",
-        "value": "console.warn"
+        "kind": "method-name-equals",
+        "value": "warn",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "module": {
+            "mode": "equals",
+            "value": "console"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -591,14 +533,21 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.console.error.arg0.0",
-      "surfaceId": "surface.sink.harmony.console.error.arg0",
+      "bindingId": "binding.sink.harmony.console.error.arg0.0.exact.error.module.console",
+      "surfaceId": "surface.sink.harmony.console.error.arg0.exact.error.module.console",
       "assetId": "asset.rule.kernel.sinks.logging",
       "plane": "rule",
       "role": "sink",
       "selector": {
-        "kind": "signature-contains",
-        "value": "console.error"
+        "kind": "method-name-equals",
+        "value": "error",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "module": {
+            "mode": "equals",
+            "value": "console"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -619,14 +568,21 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.console.debug.arg0.0",
-      "surfaceId": "surface.sink.harmony.console.debug.arg0",
+      "bindingId": "binding.sink.harmony.console.debug.arg0.0.exact.debug.module.console",
+      "surfaceId": "surface.sink.harmony.console.debug.arg0.exact.debug.module.console",
       "assetId": "asset.rule.kernel.sinks.logging",
       "plane": "rule",
       "role": "sink",
       "selector": {
-        "kind": "signature-contains",
-        "value": "console.debug"
+        "kind": "method-name-equals",
+        "value": "debug",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "module": {
+            "mode": "equals",
+            "value": "console"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -647,16 +603,21 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.console.log.arg0.unresolved_instance.0",
-      "surfaceId": "surface.sink.harmony.console.log.arg0.unresolved_instance",
+      "bindingId": "binding.sink.harmony.console.log.arg0.unresolved_instance.0.exact.log.className.console",
+      "surfaceId": "surface.sink.harmony.console.log.arg0.unresolved_instance.exact.log.className.console",
       "assetId": "asset.rule.kernel.sinks.logging",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
         "value": "log",
-        "invokeKind": "instance",
-        "typeHint": "console"
+        "typeHint": "console",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "console"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -677,16 +638,56 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.console.info.arg0.unresolved_instance.0",
-      "surfaceId": "surface.sink.harmony.console.info.arg0.unresolved_instance",
+      "bindingId": "binding.sink.harmony.console.log.arg1.unresolved_instance.0.exact.log.className.console",
+      "surfaceId": "surface.sink.harmony.console.log.arg0.unresolved_instance.exact.log.className.console",
+      "assetId": "asset.rule.kernel.sinks.logging",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "log",
+        "typeHint": "console",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "console"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.console.log.arg1.unresolved_instance"
+      ],
+      "semanticsFamily": "information_leak",
+      "metadata": {
+        "enabled": true,
+        "category": "information_leak",
+        "severity": "low"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.console.info.arg0.unresolved_instance.0.exact.info.className.console",
+      "surfaceId": "surface.sink.harmony.console.info.arg0.unresolved_instance.exact.info.className.console",
       "assetId": "asset.rule.kernel.sinks.logging",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
         "value": "info",
-        "invokeKind": "instance",
-        "typeHint": "console"
+        "typeHint": "console",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "console"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -707,16 +708,56 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.console.warn.arg0.unresolved_instance.0",
-      "surfaceId": "surface.sink.harmony.console.warn.arg0.unresolved_instance",
+      "bindingId": "binding.sink.harmony.console.info.arg1.unresolved_instance.0.exact.info.className.console",
+      "surfaceId": "surface.sink.harmony.console.info.arg0.unresolved_instance.exact.info.className.console",
+      "assetId": "asset.rule.kernel.sinks.logging",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "info",
+        "typeHint": "console",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "console"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.console.info.arg1.unresolved_instance"
+      ],
+      "semanticsFamily": "information_leak",
+      "metadata": {
+        "enabled": true,
+        "category": "information_leak",
+        "severity": "low"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.console.warn.arg0.unresolved_instance.0.exact.warn.className.console",
+      "surfaceId": "surface.sink.harmony.console.warn.arg0.unresolved_instance.exact.warn.className.console",
       "assetId": "asset.rule.kernel.sinks.logging",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
         "value": "warn",
-        "invokeKind": "instance",
-        "typeHint": "console"
+        "typeHint": "console",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "console"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -737,16 +778,56 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.console.error.arg0.unresolved_instance.0",
-      "surfaceId": "surface.sink.harmony.console.error.arg0.unresolved_instance",
+      "bindingId": "binding.sink.harmony.console.warn.arg1.unresolved_instance.0.exact.warn.className.console",
+      "surfaceId": "surface.sink.harmony.console.warn.arg0.unresolved_instance.exact.warn.className.console",
+      "assetId": "asset.rule.kernel.sinks.logging",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "warn",
+        "typeHint": "console",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "console"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.console.warn.arg1.unresolved_instance"
+      ],
+      "semanticsFamily": "information_leak",
+      "metadata": {
+        "enabled": true,
+        "category": "information_leak",
+        "severity": "low"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.console.error.arg0.unresolved_instance.0.exact.error.className.console",
+      "surfaceId": "surface.sink.harmony.console.error.arg0.unresolved_instance.exact.error.className.console",
       "assetId": "asset.rule.kernel.sinks.logging",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
         "value": "error",
-        "invokeKind": "instance",
-        "typeHint": "console"
+        "typeHint": "console",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "console"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -767,16 +848,56 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.console.debug.arg0.unresolved_instance.0",
-      "surfaceId": "surface.sink.harmony.console.debug.arg0.unresolved_instance",
+      "bindingId": "binding.sink.harmony.console.error.arg1.unresolved_instance.0.exact.error.className.console",
+      "surfaceId": "surface.sink.harmony.console.error.arg0.unresolved_instance.exact.error.className.console",
+      "assetId": "asset.rule.kernel.sinks.logging",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "error",
+        "typeHint": "console",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "console"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.console.error.arg1.unresolved_instance"
+      ],
+      "semanticsFamily": "information_leak",
+      "metadata": {
+        "enabled": true,
+        "category": "information_leak",
+        "severity": "low"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.console.debug.arg0.unresolved_instance.0.exact.debug.className.console",
+      "surfaceId": "surface.sink.harmony.console.debug.arg0.unresolved_instance.exact.debug.className.console",
       "assetId": "asset.rule.kernel.sinks.logging",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
         "value": "debug",
-        "invokeKind": "instance",
-        "typeHint": "console"
+        "typeHint": "console",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "console"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -797,14 +918,56 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.hilog.debug.0",
-      "surfaceId": "surface.sink.harmony.hilog.debug",
+      "bindingId": "binding.sink.harmony.console.debug.arg1.unresolved_instance.0.exact.debug.className.console",
+      "surfaceId": "surface.sink.harmony.console.debug.arg0.unresolved_instance.exact.debug.className.console",
       "assetId": "asset.rule.kernel.sinks.logging",
       "plane": "rule",
       "role": "sink",
       "selector": {
-        "kind": "signature-contains",
-        "value": "hilog.debug"
+        "kind": "method-name-equals",
+        "value": "debug",
+        "typeHint": "console",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "console"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.console.debug.arg1.unresolved_instance"
+      ],
+      "semanticsFamily": "information_leak",
+      "metadata": {
+        "enabled": true,
+        "category": "information_leak",
+        "severity": "low"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.hilog.debug.0.exact.debug.module.hilog",
+      "surfaceId": "surface.sink.harmony.hilog.debug.exact.debug.module.hilog",
+      "assetId": "asset.rule.kernel.sinks.logging",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "debug",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "module": {
+            "mode": "equals",
+            "value": "hilog"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -831,14 +994,21 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.hilog.warn.0",
-      "surfaceId": "surface.sink.harmony.hilog.warn",
+      "bindingId": "binding.sink.harmony.hilog.warn.0.exact.warn.module.hilog",
+      "surfaceId": "surface.sink.harmony.hilog.warn.exact.warn.module.hilog",
       "assetId": "asset.rule.kernel.sinks.logging",
       "plane": "rule",
       "role": "sink",
       "selector": {
-        "kind": "signature-contains",
-        "value": "hilog.warn"
+        "kind": "method-name-equals",
+        "value": "warn",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "module": {
+            "mode": "equals",
+            "value": "hilog"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -860,46 +1030,6 @@
         ],
         "category": "information_leak",
         "severity": "medium"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.sink.harmony.hiAppEvent.write.0",
-      "surfaceId": "surface.sink.harmony.hiAppEvent.write",
-      "assetId": "asset.rule.kernel.sinks.logging",
-      "plane": "rule",
-      "role": "sink",
-      "selector": {
-        "kind": "signature-contains",
-        "value": "hiAppEvent",
-        "scope": {
-          "methodName": {
-            "mode": "equals",
-            "value": "write"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.sink.harmony.hiAppEvent.write"
-      ],
-      "semanticsFamily": "information_leak",
-      "metadata": {
-        "description": "App event logging with sensitive data",
-        "tags": [
-          "harmony",
-          "phase7118",
-          "logging",
-          "P2"
-        ],
-        "category": "information_leak",
-        "severity": "low"
       },
       "completeness": "partial",
       "confidence": "likely"
@@ -955,19 +1085,7 @@
       "sinkKind": "information_leak"
     },
     {
-      "id": "template.sink.harmony.hilog.info.arg3.sig",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 3
-        }
-      },
-      "sinkKind": "information_leak"
-    },
-    {
-      "id": "template.sink.harmony.hilog.info.arg2.sig",
+      "id": "template.sink.harmony.hilog.info.arg2",
       "confidence": "certain",
       "kind": "rule.sink",
       "value": {
@@ -979,19 +1097,7 @@
       "sinkKind": "information_leak"
     },
     {
-      "id": "template.sink.harmony.hilog.error.arg3.sig",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 3
-        }
-      },
-      "sinkKind": "information_leak"
-    },
-    {
-      "id": "template.sink.harmony.hilog.error.arg2.sig",
+      "id": "template.sink.harmony.hilog.error.arg2",
       "confidence": "certain",
       "kind": "rule.sink",
       "value": {
@@ -1075,6 +1181,18 @@
       "sinkKind": "information_leak"
     },
     {
+      "id": "template.sink.harmony.console.log.arg1.unresolved_instance",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "information_leak"
+    },
+    {
       "id": "template.sink.harmony.console.info.arg0.unresolved_instance",
       "confidence": "certain",
       "kind": "rule.sink",
@@ -1082,6 +1200,18 @@
         "base": {
           "kind": "arg",
           "index": 0
+        }
+      },
+      "sinkKind": "information_leak"
+    },
+    {
+      "id": "template.sink.harmony.console.info.arg1.unresolved_instance",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
         }
       },
       "sinkKind": "information_leak"
@@ -1099,6 +1229,18 @@
       "sinkKind": "information_leak"
     },
     {
+      "id": "template.sink.harmony.console.warn.arg1.unresolved_instance",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "information_leak"
+    },
+    {
       "id": "template.sink.harmony.console.error.arg0.unresolved_instance",
       "confidence": "certain",
       "kind": "rule.sink",
@@ -1111,6 +1253,18 @@
       "sinkKind": "information_leak"
     },
     {
+      "id": "template.sink.harmony.console.error.arg1.unresolved_instance",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "information_leak"
+    },
+    {
       "id": "template.sink.harmony.console.debug.arg0.unresolved_instance",
       "confidence": "certain",
       "kind": "rule.sink",
@@ -1118,6 +1272,18 @@
         "base": {
           "kind": "arg",
           "index": 0
+        }
+      },
+      "sinkKind": "information_leak"
+    },
+    {
+      "id": "template.sink.harmony.console.debug.arg1.unresolved_instance",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
         }
       },
       "sinkKind": "information_leak"
@@ -1142,18 +1308,6 @@
         "base": {
           "kind": "arg",
           "index": 3
-        }
-      },
-      "sinkKind": "information_leak"
-    },
-    {
-      "id": "template.sink.harmony.hiAppEvent.write",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
         }
       },
       "sinkKind": "information_leak"

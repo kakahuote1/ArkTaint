@@ -153,11 +153,20 @@ export function resolveKnownFrameworkCallbackRegistration(
     if (isKnownSynchronousHigherOrderFunction(args.invokeExpr)) {
         return null;
     }
+    const methodSig = args.invokeExpr?.getMethodSignature?.();
+    if (!isSdkBackedMethodSignature(args.scene, methodSig, { sourceMethod: args.sourceMethod, invokeExpr: args.invokeExpr })) {
+        return null;
+    }
+    const methodName = methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "";
+    const slotFamily = inferFrameworkCallbackSlotFamily(methodName, args.explicitArgs || []);
+    if (!slotFamily) {
+        return null;
+    }
     const callbackArgIndexes = inferCallableArgIndexes(args.scene, args.explicitArgs || []);
     if (callbackArgIndexes.length === 0) {
         return null;
     }
-    return resolveSdkProvenanceFrameworkCallbackRegistration(args, callbackArgIndexes);
+    return buildSdkProvenanceFrameworkCallbackRegistration(args, methodSig, methodName, slotFamily, callbackArgIndexes);
 }
 
 export function resolveKnownSchedulerCallbackRegistration(
@@ -362,19 +371,13 @@ function inferFrameworkCallbackSlotFamily(
     return undefined;
 }
 
-function resolveSdkProvenanceFrameworkCallbackRegistration(
+function buildSdkProvenanceFrameworkCallbackRegistration(
     args: CallbackRegistrationMatchArgs,
+    methodSig: any,
+    methodName: string,
+    slotFamily: CallbackRegistrationSlotFamily,
     callbackArgIndexes: number[],
 ): CallbackRegistrationMatch | null {
-    const methodSig = args.invokeExpr?.getMethodSignature?.();
-    if (!isSdkBackedMethodSignature(args.scene, methodSig, { sourceMethod: args.sourceMethod, invokeExpr: args.invokeExpr })) {
-        return null;
-    }
-    const methodName = methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "";
-    const slotFamily = inferFrameworkCallbackSlotFamily(methodName, args.explicitArgs || []);
-    if (!slotFamily) {
-        return null;
-    }
     const callbackFlavor: CallbackRegistrationFlavor =
         slotFamily === "ui_direct_slot" || slotFamily === "gesture_direct_slot"
             ? "ui_event"

@@ -4,6 +4,7 @@ import { FactPredecessorRecord } from "../../kernel/propagation/PropagationTypes
 import { SanitizerRule } from "../../rules/RuleSchema";
 import {
     MaterializedTaintFlow,
+    PathMaterializationOptions,
     ProvenancePathIncompleteReason,
     ProvenancePathStatus,
     ProvenancePathContext,
@@ -149,6 +150,7 @@ export interface TaintFactWitness {
 export interface PostsolveContext extends ProvenancePathContext {
     pag?: Pag;
     sanitizerRules?: readonly SanitizerRule[];
+    materializationOptions?: PathMaterializationOptions;
 }
 
 export type TypeofTag =

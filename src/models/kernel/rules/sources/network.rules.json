@@ -4,23 +4,10 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.source.harmony.network.http.request.result",
+      "surfaceId": "surface.source.harmony.request.download.result.exact.download.className.DownloadTask",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "Http",
-      "methodName": "request",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.source.harmony.request.download.result",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "request.Request.Download.DownloadTask.RequestAgent",
+      "modulePath": "request",
+      "ownerName": "DownloadTask",
       "methodName": "download",
       "invokeKind": "instance",
       "argCount": 0,
@@ -30,10 +17,10 @@
       }
     },
     {
-      "surfaceId": "surface.source.harmony.request.upload.result",
+      "surfaceId": "surface.source.harmony.request.upload.result.exact.upload.className.UploadTask",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "request.Request.Upload.UploadTask.RequestAgent",
+      "modulePath": "request",
+      "ownerName": "UploadTask",
       "methodName": "upload",
       "invokeKind": "instance",
       "argCount": 0,
@@ -45,58 +32,21 @@
   ],
   "bindings": [
     {
-      "bindingId": "binding.source.harmony.network.http.request.result.0",
-      "surfaceId": "surface.source.harmony.network.http.request.result",
-      "assetId": "asset.rule.kernel.sources.network",
-      "plane": "rule",
-      "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "request",
-        "invokeKind": "instance",
-        "scope": {
-          "className": {
-            "mode": "regex",
-            "value": "Http"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "effectTemplateRefs": [
-        "template.source.harmony.network.http.request.result"
-      ],
-      "semanticsFamily": "source",
-      "metadata": {
-        "enabled": true,
-        "description": "Http.request() promise result as network response source.",
-        "tags": [
-          "harmony",
-          "t1",
-          "t2",
-          "t3",
-          "t5"
-        ]
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.source.harmony.request.download.result.0",
-      "surfaceId": "surface.source.harmony.request.download.result",
+      "bindingId": "binding.source.harmony.request.download.result.0.exact.download.className.DownloadTask",
+      "surfaceId": "surface.source.harmony.request.download.result.exact.download.className.DownloadTask",
       "assetId": "asset.rule.kernel.sources.network",
       "plane": "rule",
       "role": "source",
       "selector": {
         "kind": "method-name-equals",
         "value": "download",
-        "scope": {
+        "invokeKind": "instance",
+        "argCount": 0,
+        "typeHint": "DownloadTask",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(request|Request|Download|DownloadTask|RequestAgent)"
+            "mode": "equals",
+            "value": "DownloadTask"
           }
         }
       },
@@ -106,7 +56,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.harmony.request.download.result"
+        "template.source.harmony.request.download.result.for.source.harmony.request.download.result.0.exact.download.class.DownloadTask"
       ],
       "semanticsFamily": "source",
       "metadata": {
@@ -122,18 +72,21 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.source.harmony.request.upload.result.0",
-      "surfaceId": "surface.source.harmony.request.upload.result",
+      "bindingId": "binding.source.harmony.request.upload.result.0.exact.upload.className.UploadTask",
+      "surfaceId": "surface.source.harmony.request.upload.result.exact.upload.className.UploadTask",
       "assetId": "asset.rule.kernel.sources.network",
       "plane": "rule",
       "role": "source",
       "selector": {
         "kind": "method-name-equals",
         "value": "upload",
-        "scope": {
+        "invokeKind": "instance",
+        "argCount": 0,
+        "typeHint": "UploadTask",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(request|Request|Upload|UploadTask|RequestAgent)"
+            "mode": "equals",
+            "value": "UploadTask"
           }
         }
       },
@@ -143,7 +96,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.harmony.request.upload.result"
+        "template.source.harmony.request.upload.result.for.source.harmony.request.upload.result.0.exact.upload.class.UploadTask"
       ],
       "semanticsFamily": "source",
       "metadata": {
@@ -161,7 +114,7 @@
   ],
   "effectTemplates": [
     {
-      "id": "template.source.harmony.network.http.request.result",
+      "id": "template.source.harmony.request.download.result.for.source.harmony.request.download.result.0.exact.download.class.DownloadTask",
       "confidence": "certain",
       "kind": "rule.source",
       "value": {
@@ -172,18 +125,7 @@
       "sourceKind": "call_return"
     },
     {
-      "id": "template.source.harmony.request.download.result",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "sourceKind": "call_return"
-    },
-    {
-      "id": "template.source.harmony.request.upload.result",
+      "id": "template.source.harmony.request.upload.result.for.source.harmony.request.upload.result.0.exact.upload.class.UploadTask",
       "confidence": "certain",
       "kind": "rule.source",
       "value": {

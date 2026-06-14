@@ -1,9 +1,9 @@
-import { UIInput, cbOnSubmit } from "./taint_mock";
+import { UIInput, cbTextInputOnSubmitEventText } from "./taint_mock";
 
 class EventPage003 {
     build(): void {
         const input = new UIInput();
-        input.onSubmit(cbOnSubmit);
+        input.onSubmit(cbTextInputOnSubmitEventText);
     }
 }
 

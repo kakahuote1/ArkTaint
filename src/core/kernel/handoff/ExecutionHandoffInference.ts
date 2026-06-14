@@ -16,17 +16,27 @@ import {
 } from "./ExecutionHandoffSemanticProjection";
 import { buildExecutionUnitSummary } from "./ExecutionUnitSummary";
 import { buildExecutionHandoffContractEdgeBindings } from "./ExecutionHandoffContractBindingResolver";
+import {
+    assertExecutionHandoffBudget,
+    ExecutionHandoffBuildBudget,
+} from "./ExecutionHandoffBudget";
 
 export function buildExecutionHandoffContracts(
     scene: Scene,
     cg: CallGraph,
     pag: Pag,
     explicitBindings: ModuleExplicitDeferredBindingRecord[] = [],
+    budget?: ExecutionHandoffBuildBudget,
 ): ExecutionHandoffContractRecord[] {
-    const activationPaths = buildExecutionHandoffActivationPaths(scene, cg, explicitBindings);
+    assertExecutionHandoffBudget(budget, "contracts.activation_paths.start");
+    const activationPaths = buildExecutionHandoffActivationPaths(scene, cg, explicitBindings, budget);
+    assertExecutionHandoffBudget(budget, "contracts.activation_paths.done");
     return activationPaths
         .filter(path => isDeferredHandoffActivationToken(path.semantics.activation))
-        .map(path => exportExecutionHandoffContract(scene, cg, pag, path));
+        .map(path => {
+            assertExecutionHandoffBudget(budget, "contracts.export");
+            return exportExecutionHandoffContract(scene, cg, pag, path, budget);
+        });
 }
 
 export function buildExecutionHandoffSnapshot(
@@ -60,9 +70,11 @@ function exportExecutionHandoffContract(
     cg: CallGraph,
     pag: Pag,
     path: ExecutionHandoffActivationPathRecord,
+    budget?: ExecutionHandoffBuildBudget,
 ): ExecutionHandoffContractRecord {
     const summary = buildExecutionUnitSummary(path);
     const ports = buildExecutionHandoffPortSummary(summary, path.semantics);
+    assertExecutionHandoffBudget(budget, "contracts.edge_bindings.start");
     const edgeBindings = buildExecutionHandoffContractEdgeBindings(
         scene,
         cg,
@@ -74,7 +86,9 @@ function exportExecutionHandoffContract(
             summary,
             edgeBindings: [],
         },
+        budget,
     );
+    assertExecutionHandoffBudget(budget, "contracts.edge_bindings.done");
     return {
         ...path,
         activation: projectDeferredActivation(path.semantics),

@@ -48,31 +48,40 @@ import {
     createEmptySinkDetectProfile,
     detectSinks as runSinkDetector,
     mergeSinkDetectProfiles,
+    SinkDetectAuditEntry,
     SinkDetectProfile,
 } from "../kernel/rules/SinkDetector";
-import { collectSourceRuleSeeds as collectSourceRuleSeedsFromRules } from "../kernel/rules/SourceRuleSeedCollector";
+import {
+    collectSourceRuleSeeds as collectSourceRuleSeedsFromRules,
+    SourceRuleSeedAuditEntry,
+    SourceRuleZeroHitAuditEntry,
+} from "../kernel/rules/SourceRuleSeedCollector";
 import { resolveSinkRuleSignatures as resolveSinkRuleSignaturesByRule } from "../kernel/rules/SinkRuleSignatureResolver";
 import { createDebugCollectors, dumpDebugArtifactsToDir } from "../kernel/debug/DebugArtifactUtils";
 import { WorklistProfiler, WorklistProfileSnapshot } from "../kernel/debug/WorklistProfiler";
-import { PropagationTrace } from "../kernel/debug/PropagationTrace";
+import { TraceGraph, TraceGraphRecorder } from "../trace/TraceGraph";
 import {
     expandEntryMethodsByDirectCalls,
-    expandMethodsByDirectCalls,
+    collectDirectCallExpansionTargetMethods,
 } from "../entry/shared/ExplicitEntryScopeResolver";
 import {
     collectParameterAssignStmts,
+    isCallableValue,
     resolveMethodsFromCallable,
 } from "../substrate/queries/CalleeResolver";
 import { resolveCallbackRegistrationsFromStmt } from "../substrate/queries/CallbackBindingQuery";
 import { collectFiniteStringCandidatesFromValue } from "../substrate/queries/FiniteStringCandidateResolver";
 import { resolveKnownOptionCallbackRegistrationsFromStmt } from "../substrate/semantics/KnownOptionCallbackRegistration";
-import { resolveKnownFrameworkCallbackRegistration } from "../entry/shared/FrameworkCallbackClassifier";
+import {
+    isKnownFrameworkCallbackMethodName,
+    resolveKnownFrameworkCallbackRegistration,
+} from "../entry/shared/FrameworkCallbackClassifier";
 import { collectOrdinaryHigherOrderCallbackMethodSignaturesFromMethod } from "../kernel/ordinary/OrdinaryArrayPropagation";
 import { buildOrdinarySharedStateIndex } from "../kernel/ordinary/OrdinarySharedStatePropagation";
 import { buildArkMainPlan } from "../entry/arkmain/ArkMainPlanner";
 import { ArkMainEntryFact } from "../entry/arkmain/ArkMainTypes";
 import { ArkMainSyntheticRootBuilder } from "../entry/arkmain/ArkMainSyntheticRootBuilder";
-import { expandReachableComponentEntrypoints } from "../entry/arkmain/facts/ArkMainComponentInstantiationResolver";
+import { buildComponentEntrypointExpansionIndex } from "../entry/arkmain/facts/ArkMainComponentInstantiationResolver";
 import {
     emptyModuleAuditSnapshot,
     ModuleAuditSnapshot,
@@ -140,14 +149,20 @@ import { currentnessEvidenceFromCertificate } from "../provenance/CurrentnessEvi
 import { CurrentnessEvidence } from "../provenance/ProvenancePathTypes";
 import { evaluatePostsolveFlow, materializePostsolveFlowResult } from "./postsolve/PostsolveEvaluator";
 import { runWorklistSolvingStage } from "./full_analysis/FullAnalysisStages";
+import { assertBuildStageBudget, BuildStageBudget } from "../shared/BuildStageBudget";
 
 export interface DebugOptions {
     enableWorklistProfile?: boolean;
-    enablePropagationTrace?: boolean;
-    propagationTraceMaxEdges?: number;
+    enableTraceGraph?: boolean;
+    traceRun?: ConstructorParameters<typeof TraceGraphRecorder>[0]["run"];
     worklistMaxDequeues?: number;
     worklistMaxVisited?: number;
     worklistMaxElapsedMs?: number;
+    moduleSetupMaxElapsedMs?: number;
+    executionHandoffMaxElapsedMs?: number;
+    pagIndexMaxElapsedMs?: number;
+    lazyMaterializerMaxElapsedMs?: number;
+    reachableMaxElapsedMs?: number;
 }
 
 export interface ArkMainSeedOptions {
@@ -169,6 +184,7 @@ export interface TaintEngineOptions {
     modules?: TaintModule[];
     moduleRoots?: string[];
     moduleFiles?: string[];
+    semanticflowEvaluationModelRoots?: string[];
     includeBuiltinModules?: boolean;
     enabledModuleProjects?: string[];
     disabledModuleProjects?: string[];
@@ -218,6 +234,8 @@ export interface RuleHitCounters {
     transfer: Record<string, number>;
 }
 
+export type StageTimingProfile = Record<string, number>;
+
 export interface FlowRuleChain {
     sourceRuleId?: string;
     transferRuleIds: string[];
@@ -242,6 +260,8 @@ interface PagBuildCacheEntry {
     syntheticInvokeEdgeMapReady: boolean;
     executionHandoffSnapshot?: ExecutionHandoffContractSnapshot;
     executionHandoffDeferredSiteKeys?: Set<string>;
+    executionHandoffEmitEdges?: boolean;
+    executionHandoffBindingsKey?: string;
 }
 
 export class TaintPropagationEngine {
@@ -266,7 +286,7 @@ export class TaintPropagationEngine {
     private syntheticInvokeLazyMaterializer?: SyntheticInvokeLazyMaterializer;
     private adaptiveContextSelector?: AdaptiveContextSelector;
     private worklistProfiler?: WorklistProfiler;
-    private propagationTrace?: PropagationTrace;
+    private traceGraph?: TraceGraphRecorder;
     private options: TaintEngineOptions;
     private modules: TaintModule[];
     private moduleRuntime?: ModuleRuntime;
@@ -293,14 +313,21 @@ export class TaintPropagationEngine {
     private autoEntrySourceRules: SourceRule[] = [];
     private autoAmbientSourceRules: SourceRule[] = [];
     private detectProfile: SinkDetectProfile = createEmptySinkDetectProfile();
+    private sinkDetectionAudit: SinkDetectAuditEntry[] = [];
+    private sinkDetectionAuditOverflowCount = 0;
     private factPredecessorsByFactId: Map<string, FactPredecessorRecord[]> = new Map();
+    private factPredecessorEdgeKeys: Set<string> = new Set();
     private currentnessEvidenceById: Map<string, CurrentnessEvidence> = new Map();
     private lastWorklistTruncation?: WorklistBudgetTruncation;
     private activePagCacheEntry?: PagBuildCacheEntry;
+    private interproceduralTaintTargetNodeIdsCache?: Set<number>;
     private executionHandoffSnapshot?: ExecutionHandoffContractSnapshot;
     private executionHandoffDeferredSiteKeys?: Set<string>;
     private currentEntryModel: EntryModel = "arkMain";
     private arkMainSeedReport?: ArkMainSeedReport;
+    private lastPagBuildProfile: StageTimingProfile = {};
+    private lastSourceRulePropagationProfile: StageTimingProfile = {};
+    private lastReachableProfile: StageTimingProfile = {};
 
     public verbose: boolean = true;
 
@@ -326,6 +353,7 @@ export class TaintPropagationEngine {
             disabledModuleIds: this.resolveDisabledModuleIds(options),
             moduleRoots: options.moduleRoots,
             moduleFiles: options.moduleFiles,
+            semanticflowEvaluationModelRoots: options.semanticflowEvaluationModelRoots,
             modules: options.modules,
             enabledModuleProjects: options.enabledModuleProjects,
             disabledModuleProjects: options.disabledModuleProjects,
@@ -403,6 +431,10 @@ export class TaintPropagationEngine {
         return out;
     }
 
+    private elapsedMsSince(startedAt: bigint): number {
+        return Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+    }
+
     public getRuleHitCounters(): RuleHitCounters {
         return {
             source: this.toRecord(this.ruleHits.source),
@@ -441,6 +473,14 @@ export class TaintPropagationEngine {
         return {
             ...this.arkMainSeedReport,
         };
+    }
+
+    public getPagBuildProfileSnapshot(): StageTimingProfile {
+        return { ...this.lastPagBuildProfile };
+    }
+
+    public getSourceRulePropagationProfileSnapshot(): StageTimingProfile {
+        return { ...this.lastSourceRulePropagationProfile };
     }
 
     public getExecutionHandoffContractSnapshot(): ExecutionHandoffContractSnapshot | undefined {
@@ -491,6 +531,7 @@ export class TaintPropagationEngine {
                 collectFiniteStringCandidatesFromValue,
             },
             log: this.log.bind(this),
+            moduleSetupDeadlineMs: this.options.debug?.moduleSetupMaxElapsedMs,
         });
         this.moduleRuntimeKey = nextKey;
         this.moduleRuntimePag = this.pag;
@@ -539,11 +580,30 @@ export class TaintPropagationEngine {
     }
 
     private rebuildExecutionHandoffLayer(cacheEntry: PagBuildCacheEntry, emitEdges: boolean = true): void {
+        const deferredBindings = this.moduleRuntime?.getDeferredBindingDeclarations() || [];
+        const deferredBindingsKey = this.buildDeferredBindingKey(deferredBindings);
+        if (
+            cacheEntry.executionHandoffSnapshot
+            && cacheEntry.executionHandoffDeferredSiteKeys
+            && cacheEntry.executionHandoffEmitEdges === emitEdges
+            && cacheEntry.executionHandoffBindingsKey === deferredBindingsKey
+        ) {
+            this.executionHandoffSnapshot = this.cloneExecutionHandoffSnapshot(cacheEntry.executionHandoffSnapshot);
+            this.executionHandoffDeferredSiteKeys = new Set(cacheEntry.executionHandoffDeferredSiteKeys);
+            this.syntheticInvokeEdgeMap = cacheEntry.syntheticInvokeEdgeMap;
+            this.log(`[ExecutionHandoff] reused cached contracts=${cacheEntry.executionHandoffSnapshot.totalContracts}`);
+            return;
+        }
+
         const contracts = buildExecutionHandoffContracts(
             this.scene,
             this.cg,
             this.pag,
-            this.moduleRuntime?.getDeferredBindingDeclarations() || [],
+            deferredBindings,
+            {
+                startedAtMs: Date.now(),
+                maxElapsedMs: this.options.debug?.executionHandoffMaxElapsedMs,
+            },
         );
         const deferredSiteKeys = new Set<string>();
         for (const contract of contracts) {
@@ -560,6 +620,8 @@ export class TaintPropagationEngine {
         const snapshot = buildExecutionHandoffSnapshot(contracts);
         this.executionHandoffSnapshot = snapshot;
         cacheEntry.executionHandoffSnapshot = this.cloneExecutionHandoffSnapshot(snapshot);
+        cacheEntry.executionHandoffEmitEdges = emitEdges;
+        cacheEntry.executionHandoffBindingsKey = deferredBindingsKey;
         this.log(`[ExecutionHandoff] contracts=${snapshot.totalContracts}`);
 
         if (!emitEdges) {
@@ -581,6 +643,23 @@ export class TaintPropagationEngine {
         cacheEntry.syntheticInvokeEdgeMap = this.syntheticInvokeEdgeMap;
         cacheEntry.syntheticInvokeLazyMaterializer = this.syntheticInvokeLazyMaterializer;
         cacheEntry.syntheticInvokeEdgeMapReady = false;
+    }
+
+    private buildDeferredBindingKey(bindings: unknown[]): string {
+        return bindings
+            .map((binding: any) => [
+                binding?.moduleId || "",
+                binding?.bindingKind || "",
+                binding?.sourceMethod?.getSignature?.()?.toString?.() || "",
+                binding?.unit?.getSignature?.()?.toString?.() || "",
+                binding?.anchorStmt?.getOriginPositionInfo?.()?.getLineNo?.() || 0,
+                binding?.carrierKind || "",
+                binding?.activationSource || "",
+                binding?.payloadSource || "",
+                binding?.reason || "",
+            ].join("\u001f"))
+            .sort()
+            .join("\u001e");
     }
 
     private mergeSyntheticInvokeEdgeMaps(
@@ -624,7 +703,8 @@ export class TaintPropagationEngine {
 
     private parseSourceRuleId(source: string): string | undefined {
         if (!source.startsWith("source_rule:")) return undefined;
-        const id = source.slice("source_rule:".length).trim();
+        const rawId = source.slice("source_rule:".length).trim();
+        const id = rawId.split("#occ=")[0]?.trim() || "";
         return id.length > 0 ? id : undefined;
     }
 
@@ -649,6 +729,7 @@ export class TaintPropagationEngine {
     private clearFactRuleChains(): void {
         this.factRuleChains.clear();
         this.factPredecessorsByFactId.clear();
+        this.factPredecessorEdgeKeys.clear();
         this.currentnessEvidenceById.clear();
     }
 
@@ -659,14 +740,69 @@ export class TaintPropagationEngine {
         this.clearFactRuleChains();
         this.clearRuleHits();
         this.resetDetectProfile();
+        this.interproceduralTaintTargetNodeIdsCache = undefined;
     }
 
     public resetDetectProfile(): void {
         this.detectProfile = createEmptySinkDetectProfile();
+        this.sinkDetectionAudit = [];
+        this.sinkDetectionAuditOverflowCount = 0;
     }
 
     public getDetectProfile(): DetectProfileSnapshot {
         return { ...this.detectProfile };
+    }
+
+    public getSinkDetectionAuditSnapshot(): {
+        entries: SinkDetectAuditEntry[];
+        overflowCount: number;
+    } {
+        return {
+            entries: this.sinkDetectionAudit.map(entry => ({
+                ...entry,
+                candidateNodeIds: entry.candidateNodeIds ? [...entry.candidateNodeIds] : undefined,
+                sinkFieldPath: entry.sinkFieldPath ? [...entry.sinkFieldPath] : undefined,
+            })),
+            overflowCount: this.sinkDetectionAuditOverflowCount,
+        };
+    }
+
+    private recordSinkDetectionAudit(entry: SinkDetectAuditEntry): void {
+        const emitted = entry.kind === "hit";
+        this.traceGraph?.recordAuditGate({
+            label: entry.source,
+            toFact: entry.sinkNodeId !== undefined
+                ? `${entry.sinkNodeId}@0${entry.sinkFieldPath && entry.sinkFieldPath.length > 0 ? `.${entry.sinkFieldPath.join(".")}` : ""}#src=${encodeURIComponent(entry.source || "")}`
+                : undefined,
+            stage: "sink_candidate",
+            producer: "sink",
+            gateKind: "sink_candidate",
+            scope: entry.ruleId ? `sink_rule:${entry.ruleId}` : `sink:${entry.signatureQuery || "unknown"}`,
+            attempted: true,
+            matched: entry.kind !== "callsite",
+            emitted,
+            skippedReason: entry.kind === "rejected" ? entry.reason : undefined,
+            blockedReason: entry.kind === "sanitized" ? entry.reason : undefined,
+            evidence: {
+                kind: entry.kind,
+                ruleId: entry.ruleId,
+                signatureQuery: entry.signatureQuery,
+                calleeSignature: entry.calleeSignature,
+                sinkText: entry.sinkText,
+                endpoint: entry.endpoint,
+                candidateNodeIds: entry.candidateNodeIds,
+                reason: entry.reason,
+            },
+        });
+        if (this.sinkDetectionAudit.length >= 500) {
+            this.sinkDetectionAuditOverflowCount += 1;
+            return;
+        }
+        this.sinkDetectionAudit.push({
+            ...entry,
+            candidateNodeIds: entry.candidateNodeIds ? [...entry.candidateNodeIds] : undefined,
+            sinkFieldPath: entry.sinkFieldPath ? [...entry.sinkFieldPath] : undefined,
+        });
     }
 
     private mergeDetectProfile(profile: SinkDetectProfile): void {
@@ -697,9 +833,17 @@ export class TaintPropagationEngine {
         return out;
     }
 
-    private resolveBestSinkFactId(nodeId: number, fieldPath?: string[], sourceRuleId?: string): string | undefined {
+    private resolveBestSinkFactId(nodeId: number, fieldPath?: string[], source?: string, sourceRuleId?: string): string | undefined {
         const factIds = this.tracker.getTaintFactIdsAnyContext(nodeId, fieldPath);
         if (factIds.length === 0) return undefined;
+        if (source) {
+            for (const factId of factIds) {
+                const fact = this.observedFacts.get(factId);
+                if (fact?.source === source) {
+                    return factId;
+                }
+            }
+        }
         if (!sourceRuleId) return factIds[0];
         for (const factId of factIds) {
             const chain = this.factRuleChains.get(factId);
@@ -712,6 +856,11 @@ export class TaintPropagationEngine {
 
     public async buildPAG(options: BuildPAGOptions = {}): Promise<void> {
         this.log("[buildPAG] start");
+        this.lastPagBuildProfile = {};
+        const buildProfileStart = process.hrtime.bigint();
+        const recordBuildProfile = (key: string, startedAt: bigint): void => {
+            this.lastPagBuildProfile[key] = this.elapsedMsSince(startedAt);
+        };
         this.resetPropagationState();
         this.moduleRuntime = undefined;
         this.moduleRuntimeKey = undefined;
@@ -723,6 +872,7 @@ export class TaintPropagationEngine {
         const explicitSyntheticEntries = this.normalizeSyntheticEntryMethods(options.syntheticEntryMethods);
         this.explicitEntryScopeMethodSignatures = this.resolveExplicitEntryScope(explicitSyntheticEntries);
         this.log("[buildPAG] arkmain plan start");
+        const arkMainPlanT0 = process.hrtime.bigint();
         const arkMainPlan = entryModel === "arkMain"
             ? buildArkMainPlan(this.scene, {
                 seedMethods: explicitSyntheticEntries,
@@ -730,6 +880,7 @@ export class TaintPropagationEngine {
                 seededFacts: this.options.arkMainSeeds?.facts,
             })
             : undefined;
+        recordBuildProfile("arkMainPlanMs", arkMainPlanT0);
         this.log("[buildPAG] arkmain plan done");
         this.arkMainSeedReport = entryModel === "arkMain"
             ? {
@@ -771,6 +922,7 @@ export class TaintPropagationEngine {
         const sceneCache = this.getPagBuildCacheForScene();
         const cached = sceneCache.get(cacheKey);
         if (cached) {
+            const cacheRestoreT0 = process.hrtime.bigint();
             this.activePagCacheEntry = cached;
             this.pag = cached.pag;
             this.cg = cached.cg;
@@ -795,33 +947,55 @@ export class TaintPropagationEngine {
             this.log(`PAG nodes: ${this.pag.getNodeNum()}, edges: ${this.pag.getEdgeNum()}`);
             this.log(`CG nodes: ${this.cg.getNodeNum()}, edges: ${this.cg.getEdgeNum()}`);
             this.configureContextStrategy();
-            this.setActiveReachableMethodSignatures(this.computeReachableMethodSignatures());
+            recordBuildProfile("cacheRestoreMs", cacheRestoreT0);
+            const computeReachableT0 = process.hrtime.bigint();
+            const reachable = this.computeReachableMethodSignatures();
+            recordBuildProfile("computeReachableMs", computeReachableT0);
+            this.mergeReachableProfileIntoBuildProfile();
+            const setReachableT0 = process.hrtime.bigint();
+            this.setActiveReachableMethodSignatures(reachable);
+            recordBuildProfile("setActiveReachableMs", setReachableT0);
+            this.lastPagBuildProfile.reachableMs =
+                (this.lastPagBuildProfile.computeReachableMs || 0)
+                + (this.lastPagBuildProfile.setActiveReachableMs || 0);
+            this.lastPagBuildProfile.totalMs = this.elapsedMsSince(buildProfileStart);
+            this.lastPagBuildProfile.cacheHit = 1;
             return;
         }
 
         this.log("[buildPAG] callgraph scene start");
+        const sceneCallGraphT0 = process.hrtime.bigint();
         const cg = new CallGraph(this.scene);
         const cgBuilder = new CallGraphBuilder(cg, this.scene);
         cgBuilder.buildDirectCallGraphForScene();
+        recordBuildProfile("directCallGraphSceneMs", sceneCallGraphT0);
         this.log("[buildPAG] callgraph scene done");
         const pag = new Pag();
         resetPagNodeResolutionAudit(pag);
         const config = PointerAnalysisConfig.create(0, "./out", false, false, false);
         this.pta = new PointerAnalysis(pag, cg, this.scene, config);
         this.log("[buildPAG] synthetic root start");
+        const syntheticRootT0 = process.hrtime.bigint();
         const { syntheticRootMethod, cleanup } = this.createSyntheticEntry(entryModel, syntheticEntryMethods);
+        recordBuildProfile("syntheticRootCreateMs", syntheticRootT0);
         try {
             this.log("[buildPAG] direct callgraph root start");
+            const rootCallGraphT0 = process.hrtime.bigint();
             cgBuilder.buildDirectCallGraph([syntheticRootMethod]);
+            recordBuildProfile("directCallGraphRootMs", rootCallGraphT0);
             this.log("[buildPAG] direct callgraph root done");
             const syntheticRootMethodId = cg.getCallGraphNodeByMethod(syntheticRootMethod.getSignature()).getID();
             cg.setDummyMainFuncID(syntheticRootMethodId);
             this.pta.setEntries([syntheticRootMethodId]);
             this.log("[buildPAG] pointer analysis start");
+            const pointerAnalysisT0 = process.hrtime.bigint();
             this.pta.start();
+            recordBuildProfile("pointerAnalysisMs", pointerAnalysisT0);
             this.log("[buildPAG] pointer analysis done");
         } finally {
+            const cleanupT0 = process.hrtime.bigint();
             cleanup();
+            recordBuildProfile("syntheticRootCleanupMs", cleanupT0);
         }
         this.pag = this.pta.getPag();
         this.cg = cg;
@@ -830,16 +1004,32 @@ export class TaintPropagationEngine {
         this.log(`CG nodes: ${this.cg.getNodeNum()}, edges: ${this.cg.getEdgeNum()}`);
 
         this.log("[buildPAG] indexes start");
+        const fieldIndexT0 = process.hrtime.bigint();
         this.fieldToVarIndex = buildFieldToVarIndex(this.pag, this.log.bind(this));
+        recordBuildProfile("fieldToVarIndexMs", fieldIndexT0);
+        const callEdgeMapT0 = process.hrtime.bigint();
         this.callEdgeMap = buildCallEdgeMap(this.scene, this.cg, this.pag, this.log.bind(this));
-        this.receiverFieldBridgeMap = buildReceiverFieldBridgeMap(this.scene, this.cg, this.pag, this.log.bind(this));
+        recordBuildProfile("callEdgeMapMs", callEdgeMapT0);
+        const receiverFieldBridgeT0 = process.hrtime.bigint();
+        this.receiverFieldBridgeMap = buildReceiverFieldBridgeMap(this.scene, this.cg, this.pag, this.log.bind(this), {
+            startedAtMs: Date.now(),
+            maxElapsedMs: this.options.debug?.pagIndexMaxElapsedMs,
+            label: "receiver_field_bridge_map",
+        });
+        recordBuildProfile("receiverFieldBridgeMapMs", receiverFieldBridgeT0);
         this.log("[buildPAG] indexes done");
         this.captureEdgeMap = new Map<number, CaptureEdgeInfo[]>();
         this.syntheticInvokeEdgeMap = new Map<number, SyntheticInvokeEdgeInfo[]>();
         this.log("[buildPAG] synthetic summaries start");
+        const syntheticConstructorStoreT0 = process.hrtime.bigint();
         this.syntheticConstructorStoreMap = buildSyntheticConstructorStoreMap(this.scene, this.cg, this.pag, this.log.bind(this));
+        recordBuildProfile("syntheticConstructorStoreMapMs", syntheticConstructorStoreT0);
+        const syntheticStaticInitStoreT0 = process.hrtime.bigint();
         this.syntheticStaticInitStoreMap = buildSyntheticStaticInitStoreMap(this.scene, this.cg, this.pag, this.log.bind(this));
+        recordBuildProfile("syntheticStaticInitStoreMapMs", syntheticStaticInitStoreT0);
+        const syntheticFieldBridgeT0 = process.hrtime.bigint();
         this.syntheticFieldBridgeMap = buildSyntheticFieldBridgeMap(this.scene, this.cg, this.pag, this.log.bind(this));
+        recordBuildProfile("syntheticFieldBridgeMapMs", syntheticFieldBridgeT0);
         this.log("[buildPAG] synthetic summaries done");
         const cacheEntry: PagBuildCacheEntry = {
             pag: this.pag,
@@ -861,24 +1051,56 @@ export class TaintPropagationEngine {
         };
         this.activePagCacheEntry = cacheEntry;
         this.log("[buildPAG] execution handoff start");
+        const executionHandoffT0 = process.hrtime.bigint();
         this.configureExecutionHandoffLayer(cacheEntry, executionHandoffEnabled);
+        recordBuildProfile("executionHandoffMs", executionHandoffT0);
         this.log("[buildPAG] execution handoff done");
         this.log("[buildPAG] lazy materializers start");
+        const captureLazyT0 = process.hrtime.bigint();
         this.captureLazyMaterializer = buildCaptureLazyMaterializer(
             this.scene,
             this.cg,
             this.pag,
             this.executionHandoffDeferredSiteKeys,
+            {
+                startedAtMs: Date.now(),
+                maxElapsedMs: this.options.debug?.lazyMaterializerMaxElapsedMs,
+                label: "capture_lazy_materializer",
+            },
         );
-        this.syntheticInvokeLazyMaterializer = buildSyntheticInvokeLazyMaterializer(this.scene, this.cg, this.pag, this.log.bind(this));
+        recordBuildProfile("captureLazyMaterializerMs", captureLazyT0);
+        const syntheticInvokeLazyT0 = process.hrtime.bigint();
+        this.syntheticInvokeLazyMaterializer = buildSyntheticInvokeLazyMaterializer(this.scene, this.cg, this.pag, this.log.bind(this), {
+            startedAtMs: Date.now(),
+            maxElapsedMs: this.options.debug?.lazyMaterializerMaxElapsedMs,
+            label: "synthetic_invoke_lazy_materializer",
+        });
+        recordBuildProfile("syntheticInvokeLazyMaterializerMs", syntheticInvokeLazyT0);
         this.log("[buildPAG] lazy materializers done");
         cacheEntry.captureLazyMaterializer = this.captureLazyMaterializer;
         cacheEntry.syntheticInvokeLazyMaterializer = this.syntheticInvokeLazyMaterializer;
         sceneCache.set(cacheKey, cacheEntry);
         this.configureContextStrategy();
         this.log("[buildPAG] reachable start");
-        this.setActiveReachableMethodSignatures(this.computeReachableMethodSignatures());
+        const computeReachableT0 = process.hrtime.bigint();
+        const reachable = this.computeReachableMethodSignatures();
+        recordBuildProfile("computeReachableMs", computeReachableT0);
+        this.mergeReachableProfileIntoBuildProfile();
+        const setReachableT0 = process.hrtime.bigint();
+        this.setActiveReachableMethodSignatures(reachable);
+        recordBuildProfile("setActiveReachableMs", setReachableT0);
+        this.lastPagBuildProfile.reachableMs =
+            (this.lastPagBuildProfile.computeReachableMs || 0)
+            + (this.lastPagBuildProfile.setActiveReachableMs || 0);
         this.log("[buildPAG] reachable done");
+        this.lastPagBuildProfile.totalMs = this.elapsedMsSince(buildProfileStart);
+        this.lastPagBuildProfile.cacheHit = 0;
+    }
+
+    private mergeReachableProfileIntoBuildProfile(): void {
+        for (const [key, value] of Object.entries(this.lastReachableProfile)) {
+            this.lastPagBuildProfile[`reachable.${key}`] = value;
+        }
     }
 
     private resolveSyntheticEntryMethods(
@@ -965,7 +1187,22 @@ export class TaintPropagationEngine {
         return new Set(this.activeReachableMethodSignatures);
     }
 
+    private shortReachableSignature(signature: string): string {
+        if (signature.length <= 96) return signature;
+        return `${signature.slice(0, 48)}...${signature.slice(-40)}`;
+    }
+
     public computeReachableMethodSignatures(): Set<string> {
+        this.lastReachableProfile = {};
+        const reachableProfileStart = process.hrtime.bigint();
+        const reachableBudget: BuildStageBudget = {
+            startedAtMs: Date.now(),
+            maxElapsedMs: this.options.debug?.reachableMaxElapsedMs,
+            label: "reachable",
+        };
+        const recordReachableProfile = (key: string, startedAt: bigint): void => {
+            this.lastReachableProfile[key] = this.elapsedMsSince(startedAt);
+        };
         if (!this.cg) {
             throw new Error("PAG/CG not built. Call buildPAG() first.");
         }
@@ -983,7 +1220,9 @@ export class TaintPropagationEngine {
                 .map(contract => contract.unitSignature as string),
         );
 
+        const directCgBfsT0 = process.hrtime.bigint();
         for (let head = 0; head < queue.length; head++) {
+            assertBuildStageBudget(reachableBudget, `direct_cg_bfs(head=${head},queue=${queue.length})`);
             const nodeId = queue[head];
             if (visited.has(nodeId)) continue;
             visited.add(nodeId);
@@ -1006,10 +1245,18 @@ export class TaintPropagationEngine {
                 queue.push(edge.getDstID());
             }
         }
+        recordReachableProfile("directCgBfsMs", directCgBfsT0);
+        this.lastReachableProfile.directCgVisitedCount = visited.size;
 
-        this.ensureAllSyntheticInvokeEdgesMaterialized();
+        const syntheticMaterializeT0 = process.hrtime.bigint();
+        assertBuildStageBudget(reachableBudget, "synthetic_materialize.start");
+        this.ensureAllSyntheticInvokeEdgesMaterialized(reachableBudget);
+        assertBuildStageBudget(reachableBudget, "synthetic_materialize.done");
+        recordReachableProfile("syntheticInvokeMaterializeMs", syntheticMaterializeT0);
+        const syntheticAdjT0 = process.hrtime.bigint();
         const syntheticAdj = new Map<string, Set<string>>();
         for (const edges of this.syntheticInvokeEdgeMap.values()) {
+            assertBuildStageBudget(reachableBudget, "synthetic_adj.edges");
             for (const edge of edges) {
                 if (edge.type !== CallEdgeType.CALL) continue;
                 if (!edge.callerSignature || !edge.calleeSignature) continue;
@@ -1019,9 +1266,12 @@ export class TaintPropagationEngine {
                 syntheticAdj.get(edge.callerSignature)!.add(edge.calleeSignature);
             }
         }
+        recordReachableProfile("syntheticAdjBuildMs", syntheticAdjT0);
         const syntheticQueue = [...reachable];
         const syntheticVisited = new Set<string>(reachable);
+        const syntheticBfsT0 = process.hrtime.bigint();
         for (let head = 0; head < syntheticQueue.length; head++) {
+            assertBuildStageBudget(reachableBudget, `synthetic_bfs(head=${head},queue=${syntheticQueue.length})`);
             const sig = syntheticQueue[head];
             const callees = syntheticAdj.get(sig);
             if (!callees) continue;
@@ -1032,110 +1282,135 @@ export class TaintPropagationEngine {
                 syntheticQueue.push(callee);
             }
         }
+        recordReachableProfile("syntheticBfsMs", syntheticBfsT0);
 
-        for (let round = 0; round < 6; round++) {
-            let changed = false;
-            const reachableMethods = this.scene.getMethods().filter(method => {
-                const signature = safeMethodSignatureText(method);
-                return !!signature && reachable.has(signature);
-            });
-            for (const method of expandMethodsByDirectCalls(this.scene, reachableMethods, {
-                includeKeyedDispatchCallbacks: false,
-            })) {
-                const signature = safeMethodSignatureText(method);
-                if (!signature || reachable.has(signature)) continue;
-                reachable.add(signature);
-                changed = true;
-            }
-            for (const method of expandReachableComponentEntrypoints(this.scene, reachable)) {
-                const signature = safeMethodSignatureText(method);
-                if (!signature || reachable.has(signature)) continue;
-                reachable.add(signature);
-                changed = true;
-            }
-            if (!changed) break;
-        }
-
-        const frameworkCallbackMethodsBySig = new Map<string, ArkMethod>();
-        for (const method of this.scene.getMethods()) {
-            const signature = safeMethodSignatureText(method);
-            if (!signature) continue;
-            frameworkCallbackMethodsBySig.set(signature, method);
-        }
-        const frameworkCallbackQueue = [...reachable];
-        const frameworkCallbackVisited = new Set<string>(reachable);
-        for (let head = 0; head < frameworkCallbackQueue.length; head++) {
-            const signature = frameworkCallbackQueue[head];
-            const method = frameworkCallbackMethodsBySig.get(signature);
-            if (!method) continue;
-            for (const callbackSignature of collectKnownFrameworkCallbackMethodSignaturesFromMethod(this.scene, method)) {
-                if (frameworkCallbackVisited.has(callbackSignature)) continue;
-                frameworkCallbackVisited.add(callbackSignature);
-                reachable.add(callbackSignature);
-                frameworkCallbackQueue.push(callbackSignature);
-            }
-        }
-
+        const methodsBySigT0 = process.hrtime.bigint();
         const methodsBySig = new Map<string, ArkMethod>();
         for (const method of this.scene.getMethods()) {
+            assertBuildStageBudget(reachableBudget, "methods_by_sig");
             const signature = safeMethodSignatureText(method);
             if (!signature) continue;
             methodsBySig.set(signature, method);
         }
-        const ordinaryCallbackQueue = [...reachable];
-        const ordinaryCallbackVisited = new Set<string>(reachable);
-        for (let head = 0; head < ordinaryCallbackQueue.length; head++) {
-            const signature = ordinaryCallbackQueue[head];
-            const method = methodsBySig.get(signature);
-            if (!method) continue;
-            for (const callbackSignature of collectOrdinaryHigherOrderCallbackMethodSignaturesFromMethod(this.scene, method)) {
-                if (ordinaryCallbackVisited.has(callbackSignature)) continue;
-                ordinaryCallbackVisited.add(callbackSignature);
-                reachable.add(callbackSignature);
-                ordinaryCallbackQueue.push(callbackSignature);
-            }
-        }
+        recordReachableProfile("methodsBySigMs", methodsBySigT0);
 
-        for (let round = 0; round < 6; round++) {
-            let changed = false;
-            const reachableMethods = this.scene.getMethods().filter(method => {
-                const signature = safeMethodSignatureText(method);
-                return !!signature && reachable.has(signature);
-            });
-            for (const method of expandMethodsByDirectCalls(this.scene, reachableMethods, {
+        const fixedPointT0 = process.hrtime.bigint();
+        const componentIndexT0 = process.hrtime.bigint();
+        assertBuildStageBudget(reachableBudget, "component_entrypoint_index.start");
+        const componentEntrypointIndex = buildComponentEntrypointExpansionIndex(this.scene);
+        assertBuildStageBudget(reachableBudget, "component_entrypoint_index.done");
+        recordReachableProfile("componentEntrypointIndexMs", componentIndexT0);
+
+        const directTargetsCache = new Map<string, string[]>();
+        const frameworkCallbackCache = new Map<string, string[]>();
+        const ordinaryCallbackCache = new Map<string, string[]>();
+        let directExpansionMs = 0;
+        let componentExpansionMs = 0;
+        let frameworkCallbackMs = 0;
+        let ordinaryCallbackMs = 0;
+        let expansionAddedCount = 0;
+
+        const getDirectTargets = (signature: string): string[] => {
+            const cached = directTargetsCache.get(signature);
+            if (cached) return cached;
+            const method = methodsBySig.get(signature);
+            if (!method) {
+                directTargetsCache.set(signature, []);
+                return [];
+            }
+            const startedAt = process.hrtime.bigint();
+            assertBuildStageBudget(reachableBudget, `direct_targets.start(${this.shortReachableSignature(signature)})`);
+            const targets = collectDirectCallExpansionTargetMethods(this.scene, method, {
                 includeKeyedDispatchCallbacks: false,
-            })) {
-                const signature = safeMethodSignatureText(method);
-                if (!signature || reachable.has(signature)) continue;
-                reachable.add(signature);
-                changed = true;
+                budget: reachableBudget,
+                budgetLabel: this.shortReachableSignature(signature),
+            })
+                .map(target => safeMethodSignatureText(target))
+                .filter((target): target is string => !!target);
+            assertBuildStageBudget(reachableBudget, `direct_targets.done(count=${targets.length},sig=${this.shortReachableSignature(signature)})`);
+            directExpansionMs += this.elapsedMsSince(startedAt);
+            directTargetsCache.set(signature, targets);
+            return targets;
+        };
+
+        const getFrameworkCallbackTargets = (signature: string): string[] => {
+            const cached = frameworkCallbackCache.get(signature);
+            if (cached) return cached;
+            const method = methodsBySig.get(signature);
+            if (!method) {
+                frameworkCallbackCache.set(signature, []);
+                return [];
             }
-            for (const method of expandReachableComponentEntrypoints(this.scene, reachable)) {
-                const signature = safeMethodSignatureText(method);
-                if (!signature || reachable.has(signature)) continue;
-                reachable.add(signature);
-                changed = true;
+            const startedAt = process.hrtime.bigint();
+            assertBuildStageBudget(reachableBudget, `framework_callback_targets.start(${this.shortReachableSignature(signature)})`);
+            const targets = collectKnownFrameworkCallbackMethodSignaturesFromMethod(this.scene, method);
+            assertBuildStageBudget(reachableBudget, `framework_callback_targets.done(count=${targets.length},sig=${this.shortReachableSignature(signature)})`);
+            frameworkCallbackMs += this.elapsedMsSince(startedAt);
+            frameworkCallbackCache.set(signature, targets);
+            return targets;
+        };
+
+        const getOrdinaryCallbackTargets = (signature: string): string[] => {
+            const cached = ordinaryCallbackCache.get(signature);
+            if (cached) return cached;
+            const method = methodsBySig.get(signature);
+            if (!method) {
+                ordinaryCallbackCache.set(signature, []);
+                return [];
             }
-            for (const signature of [...reachable]) {
-                const method = frameworkCallbackMethodsBySig.get(signature);
-                if (!method) continue;
-                for (const callbackSignature of collectKnownFrameworkCallbackMethodSignaturesFromMethod(this.scene, method)) {
-                    if (reachable.has(callbackSignature)) continue;
-                    reachable.add(callbackSignature);
-                    changed = true;
-                }
+            const startedAt = process.hrtime.bigint();
+            assertBuildStageBudget(reachableBudget, `ordinary_callback_targets.start(${this.shortReachableSignature(signature)})`);
+            const targets = collectOrdinaryHigherOrderCallbackMethodSignaturesFromMethod(this.scene, method);
+            assertBuildStageBudget(reachableBudget, `ordinary_callback_targets.done(count=${targets.length},sig=${this.shortReachableSignature(signature)})`);
+            ordinaryCallbackMs += this.elapsedMsSince(startedAt);
+            ordinaryCallbackCache.set(signature, targets);
+            return targets;
+        };
+
+        const expansionQueue = [...reachable];
+        const expanded = new Set<string>();
+        const enqueueReachable = (signature: string): void => {
+            if (!signature || reachable.has(signature)) return;
+            reachable.add(signature);
+            expansionQueue.push(signature);
+            expansionAddedCount++;
+        };
+
+        for (let head = 0; head < expansionQueue.length; head++) {
+            assertBuildStageBudget(reachableBudget, `fixed_point(head=${head},queue=${expansionQueue.length},reachable=${reachable.size})`);
+            const signature = expansionQueue[head];
+            if (expanded.has(signature)) continue;
+            expanded.add(signature);
+
+            for (const target of getDirectTargets(signature)) {
+                enqueueReachable(target);
             }
-            for (const signature of [...reachable]) {
-                const method = methodsBySig.get(signature);
-                if (!method) continue;
-                for (const callbackSignature of collectOrdinaryHigherOrderCallbackMethodSignaturesFromMethod(this.scene, method)) {
-                    if (reachable.has(callbackSignature)) continue;
-                    reachable.add(callbackSignature);
-                    changed = true;
-                }
+
+            const componentStartedAt = process.hrtime.bigint();
+            const componentTargets = componentEntrypointIndex.get(signature) || [];
+            componentExpansionMs += this.elapsedMsSince(componentStartedAt);
+            for (const target of componentTargets) {
+                enqueueReachable(target);
             }
-            if (!changed) break;
+
+            for (const callbackSignature of getFrameworkCallbackTargets(signature)) {
+                enqueueReachable(callbackSignature);
+            }
+
+            for (const callbackSignature of getOrdinaryCallbackTargets(signature)) {
+                enqueueReachable(callbackSignature);
+            }
         }
+        this.lastReachableProfile.directExpansionFirstPassMs = directExpansionMs;
+        this.lastReachableProfile.frameworkCallbackIndexMs = 0;
+        this.lastReachableProfile.frameworkCallbackBfsMs = frameworkCallbackMs;
+        this.lastReachableProfile.ordinaryCallbackBfsMs = ordinaryCallbackMs;
+        this.lastReachableProfile.componentEntrypointExpansionMs = componentExpansionMs;
+        this.lastReachableProfile.incrementalExpandedMethodCount = expanded.size;
+        this.lastReachableProfile.incrementalExpansionAddedCount = expansionAddedCount;
+        recordReachableProfile("fixedPointExpansionMs", fixedPointT0);
+        this.lastReachableProfile.totalMs = this.elapsedMsSince(reachableProfileStart);
+        this.lastReachableProfile.reachableCount = reachable.size;
 
         return reachable;
     }
@@ -1181,8 +1456,8 @@ export class TaintPropagationEngine {
                 const node = this.pag.getNode(nodeId) as PagNode;
                 const fact = new TaintFact(node, sourceSignature, emptyCtx);
                 worklist.push(fact);
-                this.tracker.markTainted(nodeId, emptyCtx, sourceSignature, undefined, fact.id);
-                this.upsertFactRuleChain(fact.id, this.initialFlowRuleChainForFact(fact));
+                this.tracker.markTainted(nodeId, emptyCtx, sourceSignature, undefined, fact.taintId);
+                this.upsertFactRuleChain(fact.taintId, this.initialFlowRuleChainForFact(fact));
                 this.log(`  Added taint fact for node ${nodeId}`);
             }
         }
@@ -1209,11 +1484,27 @@ export class TaintPropagationEngine {
         const worklist: TaintFact[] = [];
         const visited: Set<string> = new Set();
         for (const fact of seedFacts) {
-            if (visited.has(fact.id)) continue;
-            visited.add(fact.id);
+            if (visited.has(fact.taintId)) continue;
+            visited.add(fact.taintId);
             worklist.push(fact);
-            this.tracker.markTainted(fact.node.getID(), fact.contextID, fact.source, fact.field, fact.id);
-            this.upsertFactRuleChain(fact.id, this.initialFlowRuleChainForFact(fact));
+            this.tracker.markTainted(fact.node.getID(), fact.contextID, fact.source, fact.field, fact.taintId);
+            this.upsertFactRuleChain(fact.taintId, this.initialFlowRuleChainForFact(fact));
+            this.traceGraph?.recordAuditGate({
+                label: fact.source,
+                toFact: fact.taintId,
+                stage: "source_seed",
+                producer: "rule",
+                gateKind: "seed",
+                scope: "initial_seed_fact",
+                attempted: true,
+                matched: true,
+                emitted: true,
+                evidence: {
+                    nodeId: fact.node.getID(),
+                    contextId: fact.contextID,
+                    fieldPath: fact.field ? [...fact.field] : undefined,
+                },
+            });
         }
 
         this.log(`Initialized WorkList with ${worklist.length} seeds.`);
@@ -1222,8 +1513,20 @@ export class TaintPropagationEngine {
 
     public propagateWithSourceRules(
         sourceRules: SourceRule[]
-    ): { seedCount: number; seededLocals: string[]; sourceRuleHits: Record<string, number> } {
+    ): {
+        seedCount: number;
+        seededLocals: string[];
+        sourceRuleHits: Record<string, number>;
+        sourceSeedAudit: SourceRuleSeedAuditEntry[];
+        sourceRuleZeroHitAudit: SourceRuleZeroHitAuditEntry[];
+    } {
+        this.lastSourceRulePropagationProfile = {};
+        const profileStart = process.hrtime.bigint();
+        const recordProfile = (key: string, startedAt: bigint): void => {
+            this.lastSourceRulePropagationProfile[key] = this.elapsedMsSince(startedAt);
+        };
         this.clearRuleHits("source");
+        const normalizeT0 = process.hrtime.bigint();
         const pluginSourceRules = this.normalizeRuntimeSourceRules(
             this.enginePluginRuntime.getAdditionalSourceRules(),
             "plugin_runtime",
@@ -1232,9 +1535,30 @@ export class TaintPropagationEngine {
             ...this.normalizeRuntimeSourceRules(sourceRules || [], "runtime_project"),
             ...pluginSourceRules,
         ]);
-        let ruleSeeds = this.collectSourceRuleSeeds(effectiveSourceRules, this.activeReachableMethodSignatures);
+        recordProfile("normalizeAndMergeMs", normalizeT0);
+        this.lastSourceRulePropagationProfile.effectiveRuleCount = effectiveSourceRules.length;
+        const collectT0 = process.hrtime.bigint();
+        let ruleSeeds = this.collectSourceRuleSeedsToFixedPoint(
+            effectiveSourceRules,
+            this.activeReachableMethodSignatures,
+        );
+        this.recordSourceSeedAuditGates(ruleSeeds.sourceSeedAudit);
+        this.recordSourceRuleZeroHitGates(
+            effectiveSourceRules,
+            ruleSeeds.sourceRuleHits,
+            ruleSeeds.passCount,
+            ruleSeeds.activatedMethodSignatures.length,
+            ruleSeeds.sourceRuleZeroHitAudit,
+        );
+        recordProfile("collectSeedsMs", collectT0);
+        this.lastSourceRulePropagationProfile.rawSeedFactCount = ruleSeeds.facts.length;
+        this.lastSourceRulePropagationProfile.activatedMethodCount = ruleSeeds.activatedMethodSignatures.length;
+        this.lastSourceRulePropagationProfile.collectionPassCount = ruleSeeds.passCount;
+        const invalidationT0 = process.hrtime.bigint();
         this.invalidateModuleRuntimeAfterPagMutation();
+        recordProfile("invalidateModuleRuntimeMs", invalidationT0);
         if (ruleSeeds.activatedMethodSignatures.length > 0) {
+            const reachableMergeT0 = process.hrtime.bigint();
             const mergedReachable = new Set<string>(this.activeReachableMethodSignatures || []);
             for (const sig of ruleSeeds.activatedMethodSignatures) {
                 mergedReachable.add(sig);
@@ -1242,37 +1566,69 @@ export class TaintPropagationEngine {
             // NOTE: flow-insensitive propagation does not model event-loop ordering.
             // We expand reachable methods to activate callback bodies discovered at registration sites.
             this.setActiveReachableMethodSignatures(mergedReachable);
+            recordProfile("reachableMergeMs", reachableMergeT0);
         }
+        const factMergeT0 = process.hrtime.bigint();
         const mergedFacts = new Map<string, TaintFact>();
         for (const fact of ruleSeeds.facts) {
-            if (!mergedFacts.has(fact.id)) {
-                mergedFacts.set(fact.id, fact);
+            if (!mergedFacts.has(fact.taintId)) {
+                mergedFacts.set(fact.taintId, fact);
             }
         }
         const seededLocals = new Set<string>(ruleSeeds.seededLocals);
+        recordProfile("deduplicateSeedsMs", factMergeT0);
 
+        const markHitsT0 = process.hrtime.bigint();
         for (const [ruleId, hitCount] of Object.entries(ruleSeeds.sourceRuleHits)) {
             this.markRuleHit("source", ruleId, Number(hitCount) || 0);
         }
+        recordProfile("markSourceHitsMs", markHitsT0);
         if (mergedFacts.size === 0) {
+            this.traceGraph?.recordAuditGate({
+                stage: "source_seed",
+                producer: "rule",
+                gateKind: "seed",
+                scope: "source_rule_collection",
+                attempted: true,
+                matched: false,
+                emitted: false,
+                skippedReason: "no_source_seed_matches",
+                evidence: {
+                    effectiveRuleCount: effectiveSourceRules.length,
+                    activatedMethodCount: ruleSeeds.activatedMethodSignatures.length,
+                    passCount: ruleSeeds.passCount,
+                },
+            });
             this.log("No source seeds matched by source rules.");
+            this.lastSourceRulePropagationProfile.totalMs = this.elapsedMsSince(profileStart);
+            this.lastSourceRulePropagationProfile.seedCount = 0;
             return {
                 seedCount: 0,
                 seededLocals: [],
                 sourceRuleHits: this.toRecord(this.ruleHits.source),
+                sourceSeedAudit: [],
+                sourceRuleZeroHitAudit: ruleSeeds.sourceRuleZeroHitAudit,
             };
         }
 
         this.log(`Initialized WorkList with ${mergedFacts.size} source-rule seeds.`);
         const sourceHitEntries = Object.entries(ruleSeeds.sourceRuleHits);
+        const initialPropagationT0 = process.hrtime.bigint();
         this.propagateWithFacts(Array.from(mergedFacts.values()));
+        recordProfile("initialPropagationMs", initialPropagationT0);
+        const finalHitMarkT0 = process.hrtime.bigint();
         for (const [ruleId, hitCount] of sourceHitEntries) {
             this.markRuleHit("source", ruleId, Number(hitCount) || 0);
         }
+        recordProfile("finalMarkSourceHitsMs", finalHitMarkT0);
+        this.lastSourceRulePropagationProfile.totalMs = this.elapsedMsSince(profileStart);
+        this.lastSourceRulePropagationProfile.seedCount = mergedFacts.size;
         return {
             seedCount: mergedFacts.size,
             seededLocals: [...seededLocals].sort(),
             sourceRuleHits: this.toRecord(this.ruleHits.source),
+            sourceSeedAudit: ruleSeeds.sourceSeedAudit,
+            sourceRuleZeroHitAudit: ruleSeeds.sourceRuleZeroHitAudit,
         };
     }
 
@@ -1280,6 +1636,165 @@ export class TaintPropagationEngine {
         this.moduleRuntime = undefined;
         this.moduleRuntimeKey = undefined;
         this.moduleRuntimePag = undefined;
+    }
+
+    private recordSourceSeedAuditGates(audit: SourceRuleSeedAuditEntry[]): void {
+        if (!this.traceGraph) return;
+        for (const entry of audit) {
+            this.traceGraph.recordAuditGate({
+                label: entry.source,
+                toFact: entry.factId,
+                stage: "source_seed",
+                producer: "rule",
+                gateKind: "seed",
+                scope: `source_rule:${entry.ruleId}`,
+                attempted: true,
+                matched: true,
+                emitted: true,
+                evidence: {
+                    ruleId: entry.ruleId,
+                    nodeId: entry.nodeId,
+                    contextId: entry.contextId,
+                    fieldPath: entry.fieldPath,
+                    label: entry.label,
+                },
+            });
+        }
+    }
+
+    private recordSourceRuleZeroHitGates(
+        sourceRules: SourceRule[],
+        sourceRuleHits: Record<string, number>,
+        passCount: number,
+        activatedMethodCount: number,
+        zeroHitAudit: SourceRuleZeroHitAuditEntry[] = [],
+    ): void {
+        if (!this.traceGraph) return;
+        const seenRuleIds = new Set<string>();
+        const zeroHitAuditByRuleId = new Map(zeroHitAudit.map(entry => [entry.ruleId, entry]));
+        for (const rule of sourceRules || []) {
+            const ruleId = typeof rule?.id === "string" ? rule.id.trim() : "";
+            if (!ruleId || seenRuleIds.has(ruleId)) continue;
+            seenRuleIds.add(ruleId);
+            if (rule.enabled === false) continue;
+            if ((Number(sourceRuleHits[ruleId]) || 0) > 0) continue;
+            const diagnostic = zeroHitAuditByRuleId.get(ruleId);
+
+            this.traceGraph.recordAuditGate({
+                label: `source_rule:${ruleId}`,
+                stage: "source_seed",
+                producer: "rule",
+                gateKind: "seed",
+                scope: `source_rule:${ruleId}`,
+                attempted: true,
+                matched: false,
+                emitted: false,
+                skippedReason: "source_rule_zero_hit",
+                evidence: {
+                    ruleId,
+                    sourceKind: rule.sourceKind,
+                    match: rule.match,
+                    scope: rule.scope,
+                    target: rule.target,
+                    endpoint: (rule as any).endpoint,
+                    calleeScope: (rule as any).calleeScope,
+                    typeHint: (rule as any).typeHint,
+                    effectiveRuleCount: sourceRules.length,
+                    activatedMethodCount,
+                    passCount,
+                    zeroHitReason: diagnostic?.reason,
+                    allowedMethodFilterActive: diagnostic?.allowedMethodFilterActive,
+                    matchedCallsiteCount: diagnostic?.matchedCallsiteCount,
+                    matchedAllowedCallsiteCount: diagnostic?.matchedAllowedCallsiteCount,
+                    matchedExcludedCallsiteCount: diagnostic?.matchedExcludedCallsiteCount,
+                    sampleCallsites: diagnostic?.sampleCallsites,
+                },
+            });
+        }
+    }
+
+    private recordModuleAuditTraceGates(): void {
+        if (!this.traceGraph) return;
+        const snapshot = this.getModuleAuditSnapshot();
+        for (const moduleId of snapshot.loadedModuleIds || []) {
+            const stats = snapshot.moduleStats[moduleId];
+            this.traceGraph.recordAuditGate({
+                stage: "asset_lowering",
+                producer: "asset",
+                gateKind: "asset_lowering",
+                scope: `module_loaded:${moduleId}`,
+                attempted: true,
+                matched: true,
+                emitted: true,
+                evidence: {
+                    moduleId,
+                    sourcePath: stats?.sourcePath,
+                },
+            });
+        }
+        for (const failure of snapshot.failureEvents || []) {
+            this.traceGraph.recordAuditGate({
+                stage: "asset_lowering",
+                producer: "asset",
+                gateKind: "asset_lowering",
+                scope: `module_failure:${failure.moduleId}:${failure.phase}`,
+                attempted: true,
+                matched: false,
+                emitted: false,
+                blockedReason: failure.code || failure.phase || "module_failure",
+                evidence: {
+                    ...failure,
+                },
+            });
+        }
+        for (const [moduleId, stats] of Object.entries(snapshot.moduleStats || {})) {
+            const hookCounts = [
+                { hook: "onFact", calls: stats.factHookCalls, emissions: stats.factEmissionCount, elapsedMs: stats.factHookMs },
+                { hook: "onInvoke", calls: stats.invokeHookCalls, emissions: stats.invokeEmissionCount, elapsedMs: stats.invokeHookMs },
+                { hook: "shouldSkipCopyEdge", calls: stats.copyEdgeChecks, emissions: stats.skipCopyEdgeCount, elapsedMs: stats.copyEdgeMs },
+            ];
+            for (const hook of hookCounts) {
+                if (hook.calls <= 0 && hook.emissions <= 0) continue;
+                this.traceGraph.recordAuditGate({
+                    stage: hook.hook === "shouldSkipCopyEdge" ? "module" : "module_lowering",
+                    producer: "module",
+                    gateKind: hook.hook === "shouldSkipCopyEdge" ? "propagation" : "effect",
+                    scope: `module_hook:${moduleId}:${hook.hook}`,
+                    attempted: hook.calls > 0,
+                    matched: hook.emissions > 0 || hook.hook === "shouldSkipCopyEdge",
+                    emitted: hook.emissions > 0,
+                    skippedReason: hook.calls > 0 && hook.emissions === 0 ? "module_hook_no_emission" : undefined,
+                    evidence: {
+                        moduleId,
+                        hook: hook.hook,
+                        calls: hook.calls,
+                        emissions: hook.emissions,
+                        elapsedMs: hook.elapsedMs,
+                        debugHitCount: stats.debugHitCount,
+                        debugSkipCount: stats.debugSkipCount,
+                        debugLogCount: stats.debugLogCount,
+                        recentDebugMessages: stats.recentDebugMessages,
+                    },
+                });
+            }
+            for (const sample of stats.emissionSamples || []) {
+                this.traceGraph.recordAuditGate({
+                    label: sample.source,
+                    fromFact: sample.sourceFactId,
+                    toFact: sample.targetFactId,
+                    stage: "module",
+                    producer: "module",
+                    gateKind: "effect",
+                    scope: `module_emission:${moduleId}:${sample.hook}:${sample.reason}`,
+                    attempted: true,
+                    matched: true,
+                    emitted: true,
+                    evidence: {
+                        ...sample,
+                    },
+                });
+            }
+        }
     }
 
     public getAutoEntrySourceRules(): SourceRule[] {
@@ -1336,6 +1851,9 @@ export class TaintPropagationEngine {
         );
         const finalized = this.enginePluginRuntime.applyResultHooks(detected);
         this.lastEnginePluginFindings = [...finalized];
+        for (const flow of finalized) {
+            this.traceGraph?.recordSinkFlow(flow);
+        }
         return finalized;
     }
 
@@ -1372,6 +1890,48 @@ export class TaintPropagationEngine {
             const item = materializeTaintFlowPaths(flow, context, materializeOptions);
             if (item) {
                 materialized.push(item);
+                this.traceGraph?.recordAuditGate({
+                    label: flow.source,
+                    toFact: flow.sinkFactId,
+                    stage: "provenance",
+                    producer: "provenance",
+                    gateKind: "path_materialization",
+                    scope: `path_materialization:${flow.sinkFactId || flow.toString()}`,
+                    attempted: true,
+                    matched: true,
+                    emitted: item.materializationStatus === "complete" || item.materializationStatus === "bounded-complete",
+                    skippedReason: item.materializationStatus === "truncated" ? "truncated_materialization" : undefined,
+                    blockedReason: item.materializationStatus === "failed" || item.materializationStatus === "incomplete"
+                        ? item.incompleteReasons[0] || item.materializationStatus
+                        : undefined,
+                    evidence: {
+                        sink: flow.sink.toString(),
+                        sinkFactId: flow.sinkFactId,
+                        status: item.status,
+                        materializationStatus: item.materializationStatus,
+                        incompleteReasons: item.incompleteReasons,
+                        pathCount: item.paths.length,
+                        pathClassCount: item.pathClasses?.length || 0,
+                        gapCount: item.gaps?.length || 0,
+                    },
+                });
+            } else {
+                this.traceGraph?.recordAuditGate({
+                    label: flow.source,
+                    toFact: flow.sinkFactId,
+                    stage: "provenance",
+                    producer: "provenance",
+                    gateKind: "path_materialization",
+                    scope: `path_materialization:${flow.sinkFactId || flow.toString()}`,
+                    attempted: true,
+                    matched: false,
+                    emitted: false,
+                    blockedReason: "materialization_failed",
+                    evidence: {
+                        sink: flow.sink.toString(),
+                        sinkFactId: flow.sinkFactId,
+                    },
+                });
             }
         }
         return { flows, materialized };
@@ -1381,6 +1941,7 @@ export class TaintPropagationEngine {
         flows: TaintFlow[],
         options?: {
             sanitizerRules?: SanitizerRule[];
+            materialize?: PathMaterializationOptions;
         },
     ): {
         results: PostsolveFlowResult[];
@@ -1396,11 +1957,53 @@ export class TaintPropagationEngine {
             const seedResult = evaluatePostsolveFlow(flow, context);
             const flowResult = materializePostsolveFlowResult(flow, seedResult);
             results.push(flowResult);
+            this.traceGraph?.recordPostsolveDecision({
+                flowId: flow.toString(),
+                sinkFactId: flow.sinkFactId,
+                label: flow.source,
+                judgement: flowResult.judgement.kind,
+                reason: `postsolve:${flowResult.judgement.kind}`,
+                evidence: {
+                    sink: flow.sink.toString(),
+                    evidenceKinds: flowResult.evidenceSummary.evidenceKinds,
+                },
+            });
             if (flowResult.judgement.kind === "Refuted-Strong") {
+                this.traceGraph?.recordAuditGate({
+                    label: flow.source,
+                    toFact: flow.sinkFactId,
+                    stage: "reporting",
+                    producer: "reporting",
+                    gateKind: "report_emission",
+                    scope: `reporting:${flow.sinkFactId || flow.toString()}`,
+                    attempted: true,
+                    matched: true,
+                    emitted: false,
+                    blockedReason: "postsolve_refuted_strong",
+                    evidence: {
+                        sink: flow.sink.toString(),
+                        judgement: flowResult.judgement.kind,
+                    },
+                });
                 suppressed.push(flowResult);
                 continue;
             }
             survivingFlows.push(flow);
+            this.traceGraph?.recordAuditGate({
+                label: flow.source,
+                toFact: flow.sinkFactId,
+                stage: "reporting",
+                producer: "reporting",
+                gateKind: "report_emission",
+                scope: `reporting:${flow.sinkFactId || flow.toString()}`,
+                attempted: true,
+                matched: true,
+                emitted: true,
+                evidence: {
+                    sink: flow.sink.toString(),
+                    judgement: flowResult.judgement.kind,
+                },
+            });
         }
 
         return { results, suppressed, survivingFlows };
@@ -1444,6 +2047,7 @@ export class TaintPropagationEngine {
             },
             signatureMatchMode: "contains" | "equals",
             effectiveCalleeScope?: RuleScopeConstraint,
+            effectiveCallerScope?: RuleScopeConstraint,
         ): string => {
             const endpoint = target.targetEndpoint || "";
             const path = target.targetPath && target.targetPath.length > 0
@@ -1453,7 +2057,8 @@ export class TaintPropagationEngine {
             const argCount = target.argCount === undefined ? "" : String(target.argCount);
             const typeHint = target.typeHint || "";
             const calleeScope = stringifyRuleScope(effectiveCalleeScope);
-            return `${signature}|${endpoint}|${path}|${invokeKind}|${argCount}|${typeHint}|${calleeScope}|${signatureMatchMode}`;
+            const callerScope = stringifyRuleScope(effectiveCallerScope);
+            return `${signature}|${endpoint}|${path}|${invokeKind}|${argCount}|${typeHint}|${calleeScope}|${callerScope}|${signatureMatchMode}`;
         };
         const buildFlowDedupKey = (flow: TaintFlow): string => {
             const sinkMethodSig = flow.sink?.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.() || "";
@@ -1495,9 +2100,14 @@ export class TaintPropagationEngine {
                 : "";
             const family = resolveRuleFamily(rule);
             const tier = resolveRuleTierWeight(rule);
-            const effectiveCalleeScope = rule.scope ? { ...rule.scope } : undefined;
+            const effectiveCalleeScope = rule.calleeScope
+                ? { ...rule.calleeScope }
+                : (rule.scope ? { ...rule.scope } : undefined);
+            const effectiveCallerScope = rule.calleeScope && rule.scope
+                ? { ...rule.scope }
+                : undefined;
             for (const signature of signatures) {
-                const cacheKey = buildDetectCacheKey(signature, target, signatureMatchMode, effectiveCalleeScope);
+                const cacheKey = buildDetectCacheKey(signature, target, signatureMatchMode, effectiveCalleeScope, effectiveCallerScope);
                 let flows: TaintFlow[];
                 const cached = detectCache.get(cacheKey);
                 if (cached) {
@@ -1505,8 +2115,10 @@ export class TaintPropagationEngine {
                 } else {
                     const computed = this.detectSinks(signature, {
                         ...target,
+                        callerScope: effectiveCallerScope,
                         calleeScope: effectiveCalleeScope,
                         signatureMatchMode,
+                        sinkRuleId: rule.id,
                         sanitizerRules: options?.sanitizerRules || [],
                     });
                     detectCache.set(cacheKey, computed.map(cloneFlow));
@@ -1530,7 +2142,7 @@ export class TaintPropagationEngine {
                             }
                         }
                         flow.transferRuleIds = [...transferSet].sort();
-                        flow.sinkFactId = this.resolveBestSinkFactId(flow.sinkNodeId, flow.sinkFieldPath, flow.sourceRuleId);
+                        flow.sinkFactId = this.resolveBestSinkFactId(flow.sinkNodeId, flow.sinkFieldPath, flow.source, flow.sourceRuleId);
                     }
                 }
                 if (family) {
@@ -1626,7 +2238,7 @@ export class TaintPropagationEngine {
             getInitialRuleChainForFact: (fact) => this.initialFlowRuleChainForFact(fact),
             onFactRuleChain: (factId, chain) => this.upsertFactRuleChain(factId, chain),
             profiler: this.worklistProfiler,
-            propagationTrace: this.propagationTrace,
+            traceGraph: this.traceGraph,
             allowedMethodSignatures: this.activeReachableMethodSignatures,
             moduleRuntime,
             moduleQueries,
@@ -1659,11 +2271,14 @@ export class TaintPropagationEngine {
     }
 
     private recordObservedFact(fact: TaintFact): void {
-        this.observedFacts.set(fact.id, fact);
+        this.observedFacts.set(fact.taintId, fact);
     }
 
     private recordFactPredecessor(record: FactPredecessorRecord): void {
         if (!record.toFactId || !record.fromFactId) return;
+        const edgeKey = `${record.toFactId}|${record.fromFactId}|${record.reason || ""}`;
+        if (this.factPredecessorEdgeKeys.has(edgeKey)) return;
+        this.factPredecessorEdgeKeys.add(edgeKey);
         const currentnessEvidenceIds = [
             ...(record.currentnessCertificateIds || []).map(id => `evidence|${id}`),
         ];
@@ -1683,19 +2298,17 @@ export class TaintPropagationEngine {
         if (!this.factPredecessorsByFactId.has(record.toFactId)) {
             this.factPredecessorsByFactId.set(record.toFactId, bucket);
         }
-        if (bucket.some(item => item.fromFactId === record.fromFactId && item.reason === record.reason)) {
-            return;
-        }
         bucket.push(normalizedRecord);
     }
 
-    private buildPostsolveContext(options?: { sanitizerRules?: SanitizerRule[] }): PostsolveContext {
+    private buildPostsolveContext(options?: { sanitizerRules?: SanitizerRule[]; materialize?: PathMaterializationOptions }): PostsolveContext {
         return {
             pag: this.pag,
             observedFactsById: this.observedFacts,
             factPredecessorsByFactId: this.factPredecessorsByFactId,
             currentnessEvidenceById: this.currentnessEvidenceById,
             sanitizerRules: options?.sanitizerRules || [],
+            materializationOptions: options?.materialize,
         };
     }
 
@@ -1806,7 +2419,7 @@ export class TaintPropagationEngine {
         return this.syntheticInvokeEdgeMap.get(nodeId);
     }
 
-    private ensureAllSyntheticInvokeEdgesMaterialized(): void {
+    private ensureAllSyntheticInvokeEdgesMaterialized(budget?: BuildStageBudget): void {
         const cacheEntry = this.activePagCacheEntry;
         const forcedDirectCallerSignatures = this.getDeferredUnitSignatures();
         if (!cacheEntry) return;
@@ -1819,6 +2432,7 @@ export class TaintPropagationEngine {
                 cacheEntry.syntheticInvokeLazyMaterializer,
                 cacheEntry.executionHandoffDeferredSiteKeys,
                 forcedDirectCallerSignatures,
+                budget,
             );
             return;
         }
@@ -1854,6 +2468,8 @@ export class TaintPropagationEngine {
         seededLocals: string[];
         sourceRuleHits: Record<string, number>;
         activatedMethodSignatures: string[];
+        sourceSeedAudit: SourceRuleSeedAuditEntry[];
+        sourceRuleZeroHitAudit: SourceRuleZeroHitAuditEntry[];
     } {
         return collectSourceRuleSeedsFromRules({
             scene: this.scene,
@@ -1862,6 +2478,95 @@ export class TaintPropagationEngine {
             emptyContextId: this.ctxManager.getEmptyContextID(),
             allowedMethodSignatures,
         });
+    }
+
+    private collectSourceRuleSeedsToFixedPoint(
+        sourceRules: SourceRule[],
+        initialAllowedMethodSignatures?: Set<string>
+    ): {
+        facts: TaintFact[];
+        seededLocals: string[];
+        sourceRuleHits: Record<string, number>;
+        activatedMethodSignatures: string[];
+        sourceSeedAudit: SourceRuleSeedAuditEntry[];
+        sourceRuleZeroHitAudit: SourceRuleZeroHitAuditEntry[];
+        passCount: number;
+    } {
+        const facts: TaintFact[] = [];
+        const seenFactIds = new Set<string>();
+        const seededLocals = new Set<string>();
+        const sourceRuleHits = new Map<string, number>();
+        const activatedMethodSignatures = new Set<string>();
+        const scannedMethodSignatures = new Set<string>();
+        const sourceSeedAudit: SourceRuleSeedAuditEntry[] = [];
+        const seenSourceSeedAuditFactIds = new Set<string>();
+        const sourceRuleZeroHitAuditByRuleId = new Map<string, SourceRuleZeroHitAuditEntry>();
+
+        let nextAllowed = initialAllowedMethodSignatures
+            ? new Set(initialAllowedMethodSignatures)
+            : undefined;
+        let passCount = 0;
+        const maxPasses = 4;
+
+        for (let pass = 0; pass < maxPasses; pass += 1) {
+            if (nextAllowed && nextAllowed.size === 0) break;
+            passCount += 1;
+            const passAllowed = nextAllowed ? new Set(nextAllowed) : undefined;
+            if (passAllowed) {
+                for (const sig of passAllowed) {
+                    scannedMethodSignatures.add(sig);
+                }
+            }
+
+            const passSeeds = this.collectSourceRuleSeeds(sourceRules, passAllowed);
+            for (const audit of passSeeds.sourceRuleZeroHitAudit || []) {
+                if (!sourceRuleZeroHitAuditByRuleId.has(audit.ruleId)) {
+                    sourceRuleZeroHitAuditByRuleId.set(audit.ruleId, audit);
+                }
+            }
+            for (const fact of passSeeds.facts) {
+                if (seenFactIds.has(fact.taintId)) continue;
+                seenFactIds.add(fact.taintId);
+                facts.push(fact);
+                const ruleId = this.parseSourceRuleId(fact.source);
+                if (ruleId) {
+                    sourceRuleHits.set(ruleId, (sourceRuleHits.get(ruleId) || 0) + 1);
+                }
+            }
+            for (const audit of passSeeds.sourceSeedAudit) {
+                if (seenSourceSeedAuditFactIds.has(audit.factId)) continue;
+                if (!facts.some(fact => fact.taintId === audit.factId)) continue;
+                seenSourceSeedAuditFactIds.add(audit.factId);
+                sourceSeedAudit.push({ ...audit, fieldPath: audit.fieldPath ? [...audit.fieldPath] : undefined });
+            }
+            for (const label of passSeeds.seededLocals) {
+                seededLocals.add(label);
+            }
+
+            const pending = new Set<string>();
+            for (const sig of passSeeds.activatedMethodSignatures) {
+                if (!sig) continue;
+                activatedMethodSignatures.add(sig);
+                if (!scannedMethodSignatures.has(sig)) {
+                    pending.add(sig);
+                }
+            }
+
+            if (!initialAllowedMethodSignatures) {
+                break;
+            }
+            nextAllowed = pending;
+        }
+
+        return {
+            facts,
+            seededLocals: [...seededLocals].sort(),
+            sourceRuleHits: Object.fromEntries([...sourceRuleHits.entries()].sort(([a], [b]) => a.localeCompare(b))),
+            activatedMethodSignatures: [...activatedMethodSignatures].sort(),
+            sourceSeedAudit,
+            sourceRuleZeroHitAudit: [...sourceRuleZeroHitAuditByRuleId.values()].sort((a, b) => a.ruleId.localeCompare(b.ruleId)),
+            passCount,
+        };
     }
 
     private mergeAutoEntrySourceRules(sourceRules: SourceRule[]): SourceRule[] {
@@ -2078,9 +2783,11 @@ export class TaintPropagationEngine {
             invokeKind?: RuleInvokeKind;
             argCount?: number;
             typeHint?: string;
+            callerScope?: RuleScopeConstraint;
             calleeScope?: RuleScopeConstraint;
             signatureMatchMode?: "contains" | "equals";
             sanitizerRules?: SanitizerRule[];
+            sinkRuleId?: string;
         }
     ): TaintFlow[] {
         if (!this.cg) return [];
@@ -2103,12 +2810,16 @@ export class TaintPropagationEngine {
                 interproceduralTaintTargetNodeIds: this.collectInterproceduralTaintTargetNodeIds(),
                 transferRules: orderedTransferRules,
                 onProfile: (profile) => this.mergeDetectProfile(profile),
+                onAudit: (entry) => this.recordSinkDetectionAudit(entry),
             }
         );
         return scoped;
     }
 
     private collectInterproceduralTaintTargetNodeIds(): Set<number> {
+        if (this.interproceduralTaintTargetNodeIdsCache) {
+            return this.interproceduralTaintTargetNodeIdsCache;
+        }
         const out = new Set<number>();
         for (const edges of this.captureEdgeMap.values()) {
             for (const edge of edges) {
@@ -2133,6 +2844,7 @@ export class TaintPropagationEngine {
                 }
             }
         }
+        this.interproceduralTaintTargetNodeIdsCache = out;
         return out;
     }
 
@@ -2196,16 +2908,17 @@ export class TaintPropagationEngine {
             : undefined;
     }
 
-    public getPropagationTraceDot(graphName: string = "arktaint_propagation"): string | undefined {
-        if (!this.propagationTrace) return undefined;
-        return this.propagationTrace.toDot(graphName);
+    public getTraceGraphSnapshot(overrides: Partial<TraceGraph["run"]> = {}): TraceGraph | undefined {
+        if (!this.traceGraph) return undefined;
+        this.recordModuleAuditTraceGates();
+        return this.traceGraph.snapshot(overrides);
     }
 
-    public dumpDebugArtifacts(tag: string, outputDir: string = "tmp"): { profilePath?: string; dotPath?: string } {
+    public dumpDebugArtifacts(tag: string, outputDir: string = "tmp"): { profilePath?: string; traceGraphJsonPath?: string; traceGraphMarkdownPath?: string } {
         const safeTag = tag.replace(/[^A-Za-z0-9_.-]/g, "_");
         const profile = this.getWorklistProfile();
-        const dot = this.getPropagationTraceDot(`propagation_${safeTag}`);
-        return dumpDebugArtifactsToDir({ tag: safeTag, outputDir, profile, dot });
+        const traceGraph = this.getTraceGraphSnapshot({ runId: `debug-${safeTag}` });
+        return dumpDebugArtifactsToDir({ tag: safeTag, outputDir, profile, traceGraph });
     }
 
     private configureContextStrategy(): void {
@@ -2235,7 +2948,7 @@ export class TaintPropagationEngine {
     private prepareDebugCollectors(): void {
         const collectors = createDebugCollectors(this.options.debug);
         this.worklistProfiler = collectors.worklistProfiler;
-        this.propagationTrace = collectors.propagationTrace;
+        this.traceGraph = collectors.traceGraph;
     }
 
     private resolveExplicitEntryScope(seedMethods: ArkMethod[]): Set<string> | undefined {
@@ -2303,14 +3016,16 @@ function collectKnownFrameworkCallbackMethodSignaturesFromMethod(scene: Scene, m
     if (!cfg) return [];
 
     const out = new Set<string>();
+    const reachableCallbackResolveMaxDepth = 0;
     for (const stmt of cfg.getStmts()) {
         if (!stmt.containsInvokeExpr?.()) continue;
+        if (!shouldInspectFrameworkCallbackStmt(stmt)) continue;
         const registrations = resolveCallbackRegistrationsFromStmt(
             stmt,
             scene,
             method,
             args => resolveKnownFrameworkCallbackRegistration(args),
-            { maxDepth: 4 },
+            { maxDepth: reachableCallbackResolveMaxDepth },
         );
         for (const registration of registrations) {
             const signature = safeMethodSignatureText(registration.callbackMethod);
@@ -2324,6 +3039,20 @@ function collectKnownFrameworkCallbackMethodSignaturesFromMethod(scene: Scene, m
         }
     }
     return [...out.values()];
+}
+
+function shouldInspectFrameworkCallbackStmt(stmt: any): boolean {
+    const invokeExpr = stmt?.getInvokeExpr?.();
+    if (!invokeExpr) return false;
+    const methodName = invokeExpr?.getMethodSignature?.()?.getMethodSubSignature?.()?.getMethodName?.() || "";
+    if (isKnownFrameworkCallbackMethodName(methodName)) return true;
+    const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
+    return args.some(isFrameworkCallbackLikeArg);
+}
+
+function isFrameworkCallbackLikeArg(value: any): boolean {
+    if (!value) return false;
+    return isCallableValue(value);
 }
 
 function safeValueText(value: any): string {

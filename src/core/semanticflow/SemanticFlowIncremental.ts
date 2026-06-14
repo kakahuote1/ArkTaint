@@ -48,6 +48,12 @@ export function createSemanticFlowExpandPlan(
     deficit: SemanticFlowDeficit,
 ): SemanticFlowExpandPlan {
     const seed = (() => {
+        if (deficit.scope.locality === "import" && deficit.scope.importSource) {
+            return { mode: "import" as const, value: deficit.scope.importSource };
+        }
+        if (deficit.scope.locality === "owner" && (deficit.scope.owner || anchor.owner)) {
+            return { mode: "owner" as const, value: deficit.scope.owner || anchor.owner as string };
+        }
         if (deficit.kind === "q_relation" || deficit.kind === "q_evidence") {
             if (deficit.scope.importSource) {
                 return { mode: "import" as const, value: deficit.scope.importSource };

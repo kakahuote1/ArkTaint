@@ -1,12 +1,41 @@
 import { createBuiltinModuleAsset, decoratorSurface, moduleInvokeSurface } from "../../moduleAssetHelpers";
 
-const storageClasses = ["AppStorage", "LocalStorage", "PersistentStorage"];
+const storageClasses = [
+    "AppStorage",
+    "LocalStorage",
+    "PersistentStorage",
+    "Preferences",
+    "SendablePreferences",
+    "KVStore",
+    "SingleKVStore",
+    "DeviceKVStore",
+    "DistributedKVStore",
+];
 const writeMethods = [
     { methodName: "set", valueIndex: 1 },
     { methodName: "setOrCreate", valueIndex: 1 },
     { methodName: "persistProp", valueIndex: 1 },
+    { methodName: "put", valueIndex: 1 },
+    { methodName: "putBatch", valueIndex: 0 },
+    { methodName: "putSync", valueIndex: 1 },
 ];
-const readMethods = ["get", "prop", "link", "setOrCreate"];
+const readMethods = [
+    "get",
+    "getSync",
+    "getEntries",
+    "getEntriesSync",
+    "prop",
+    "link",
+    "setOrCreate",
+];
+const killMethods = [
+    "delete",
+    "deleteSync",
+    "remove",
+    "removeSync",
+    "deleteKey",
+    "deleteItem",
+];
 
 const harmonyAppStorageModuleAsset = createBuiltinModuleAsset({
     id: "harmony.appstorage",
@@ -28,6 +57,12 @@ const harmonyAppStorageModuleAsset = createBuiltinModuleAsset({
                 method,
                 method === "setOrCreate" ? 2 : 1,
             )),
+            ...killMethods.map(method => moduleInvokeSurface(
+                `harmony.appstorage.${owner}.${method}`,
+                owner,
+                method,
+                1,
+            )),
         ]),
         decoratorSurface("harmony.appstorage.decorator.StorageProp", "StorageProp"),
         decoratorSurface("harmony.appstorage.decorator.LocalStorageProp", "LocalStorageProp"),
@@ -38,6 +73,7 @@ const harmonyAppStorageModuleAsset = createBuiltinModuleAsset({
         storageClasses,
         writeMethods,
         readMethods,
+        killMethods,
         propDecorators: ["StorageProp", "LocalStorageProp"],
         linkDecorators: ["StorageLink", "LocalStorageLink"],
     },

@@ -101,6 +101,84 @@ export function createTsjsContainerSemanticModule(
             }
             return emissions.done();
         };
+        const slotStoreCache = new WeakMap<Local, ContainerSlotStoreInfo[]>();
+        const mutationBaseCache = new WeakMap<Local, number[]>();
+        const objectFromEntriesCache = new WeakMap<Local, ObjectFromEntriesEffects>();
+        const promiseAggregateCache = new WeakMap<Local, PromiseAggregateEffects>();
+        const resultSetProducerCache = new WeakMap<Local, Map<string, ResultContainerEffects>>();
+        const slotLoadCache = new Map<string, number[]>();
+        const viewEffectsCache = new Map<string, ResultContainerEffects>();
+
+        const cachedSlotStores = (local: Local, pag: Pag): ContainerSlotStoreInfo[] => {
+            const cached = slotStoreCache.get(local);
+            if (cached) return cached;
+            const value = collectContainerSlotStoresFromTaintedLocal(local, pag, families);
+            slotStoreCache.set(local, value);
+            return value;
+        };
+        const cachedMutationBaseNodeIds = (local: Local, pag: Pag): number[] => {
+            const cached = mutationBaseCache.get(local);
+            if (cached) return cached;
+            const value = collectContainerMutationBaseNodeIdsFromTaintedLocal(local, pag, families);
+            mutationBaseCache.set(local, value);
+            return value;
+        };
+        const cachedObjectFromEntriesEffects = (local: Local, pag: Pag): ObjectFromEntriesEffects => {
+            const cached = objectFromEntriesCache.get(local);
+            if (cached) return cached;
+            const value = collectObjectFromEntriesEffectsFromTaintedLocal(local, pag);
+            objectFromEntriesCache.set(local, value);
+            return value;
+        };
+        const cachedPromiseAggregateEffects = (local: Local, pag: Pag): PromiseAggregateEffects => {
+            const cached = promiseAggregateCache.get(local);
+            if (cached) return cached;
+            const value = collectPromiseAggregateEffectsFromTaintedLocal(local, pag);
+            promiseAggregateCache.set(local, value);
+            return value;
+        };
+        const cachedResultSetProducerEffects = (
+            local: Local,
+            pag: Pag,
+            resultSetSlot?: string,
+        ): ResultContainerEffects => {
+            const slotKey = resultSetSlot || "<all>";
+            let bySlot = resultSetProducerCache.get(local);
+            if (!bySlot) {
+                bySlot = new Map<string, ResultContainerEffects>();
+                resultSetProducerCache.set(local, bySlot);
+            }
+            const cached = bySlot.get(slotKey);
+            if (cached) return cached;
+            const value = collectResultSetProducerEffectsFromTaintedLocal(local, pag, resultSetSlot);
+            bySlot.set(slotKey, value);
+            return value;
+        };
+        const cachedContainerSlotLoadNodeIds = (
+            objId: number,
+            slot: string,
+            pag: Pag,
+            callbacks: ModuleFactEvent["callbacks"],
+        ): number[] => {
+            const key = `${objId}|${slot}`;
+            const cached = slotLoadCache.get(key);
+            if (cached) return cached;
+            const value = collectContainerSlotLoadNodeIds(objId, slot, pag, callbacks);
+            slotLoadCache.set(key, value);
+            return value;
+        };
+        const cachedContainerViewEffectsBySlot = (
+            objId: number,
+            slot: string,
+            pag: Pag,
+        ): ResultContainerEffects => {
+            const key = `${objId}|${slot}`;
+            const cached = viewEffectsCache.get(key);
+            if (cached) return cached;
+            const value = collectContainerViewEffectsBySlot(objId, slot, pag);
+            viewEffectsCache.set(key, value);
+            return value;
+        };
         return {
             onFact(event) {
                 const { pag, fact, node } = event.raw;
@@ -110,7 +188,7 @@ export function createTsjsContainerSemanticModule(
                     const value = node.getValue?.();
                     if (value instanceof Local) {
                         if (capabilities.has("store")) {
-                            for (const info of collectContainerSlotStoresFromTaintedLocal(value, pag, families)) {
+                            for (const info of cachedSlotStores(value, pag)) {
                                 if (info.slot.startsWith("arr:")) continue;
                                 emissions.push(event.emit.toField(
                                     info.objId,
@@ -122,14 +200,14 @@ export function createTsjsContainerSemanticModule(
 
                         if (capabilities.has("mutation_base")) {
                             emissions.push(event.emit.toNodes(
-                                collectContainerMutationBaseNodeIdsFromTaintedLocal(value, pag, families)
+                                cachedMutationBaseNodeIds(value, pag)
                                     .filter(nodeId => !isNativeArrayBaseNode(pag, nodeId)),
                                 "Container-Mutation-Base",
                             ));
                         }
 
                         if (capabilities.has("object_from_entries")) {
-                            const objectFromEntries = collectObjectFromEntriesEffectsFromTaintedLocal(value, pag);
+                            const objectFromEntries = cachedObjectFromEntriesEffects(value, pag);
                             emissions.push(event.emit.loadLikeToNodes(
                                 objectFromEntries.resultLoadNodeIds,
                                 "Object-FromEntries-Load",
@@ -145,12 +223,12 @@ export function createTsjsContainerSemanticModule(
                         }
 
                         if (capabilities.has("promise_aggregate")) {
-                            const promiseAggregate = collectPromiseAggregateEffectsFromTaintedLocal(value, pag);
+                            const promiseAggregate = cachedPromiseAggregateEffects(value, pag);
                             emissions.push(collectResultContainerEmissions(event, "Promise-Aggregate", promiseAggregate.resultNodeIds, promiseAggregate.resultSlotStores));
                         }
 
                         if (capabilities.has("resultset") && families.has("resultset")) {
-                            const resultSetProducer = collectResultSetProducerEffectsFromTaintedLocal(value, pag);
+                            const resultSetProducer = cachedResultSetProducerEffects(value, pag);
                             emissions.push(collectResultContainerEmissions(event, "ResultSet-Producer", resultSetProducer.resultNodeIds, resultSetProducer.resultSlotStores));
                         }
                     }
@@ -160,7 +238,7 @@ export function createTsjsContainerSemanticModule(
                     const slot = fromContainerFieldKey(fact.field[0]);
                     if (slot === null) {
                         for (const aliasLocal of event.analysis.aliasLocalsForCarrier(node.getID())) {
-                            for (const info of collectContainerSlotStoresFromTaintedLocal(aliasLocal, pag, families)) {
+                            for (const info of cachedSlotStores(aliasLocal, pag)) {
                                 emissions.push(event.emit.toField(
                                     info.objId,
                                     [toContainerFieldKey(info.slot), ...fact.field],
@@ -170,7 +248,7 @@ export function createTsjsContainerSemanticModule(
 
                             if (capabilities.has("resultset") && families.has("resultset")) {
                                 const resultSetSlot = fact.field.length > 0 ? `rs:${fact.field[0]}` : "rs:*";
-                                for (const info of collectResultSetProducerEffectsFromTaintedLocal(aliasLocal, pag, resultSetSlot).resultSlotStores) {
+                                for (const info of cachedResultSetProducerEffects(aliasLocal, pag, resultSetSlot).resultSlotStores) {
                                     emissions.push(event.emit.toField(
                                         info.objId,
                                         [toContainerFieldKey(info.slot), ...(fact.field.slice(1) || [])],
@@ -188,13 +266,13 @@ export function createTsjsContainerSemanticModule(
                         const remaining = fact.field.length > 1 ? fact.field.slice(1) : undefined;
                         if (capabilities.has("load")) {
                             emissions.push(event.emit.loadLikeToNodes(
-                                collectContainerSlotLoadNodeIds(node.getID(), slot, pag, event.callbacks),
+                                cachedContainerSlotLoadNodeIds(node.getID(), slot, pag, event.callbacks),
                                 "Container-Load",
                                 remaining,
                             ));
                         }
                         if (capabilities.has("view")) {
-                            const viewEffects = collectContainerViewEffectsBySlot(node.getID(), slot, pag);
+                            const viewEffects = cachedContainerViewEffectsBySlot(node.getID(), slot, pag);
                             emissions.push(collectResultContainerEmissions(
                                 event,
                                 "Container-View",
@@ -1848,6 +1926,19 @@ function isContainerSlotLiveAtStmt(base: Local, slot: string, anchorStmt: any): 
     for (const stmt of stmts) {
         const stmtIndex = order.get(stmt);
         if (stmtIndex === undefined || stmtIndex >= anchorIndex) break;
+
+        if (stmt instanceof ArkAssignStmt) {
+            const left = stmt.getLeftOp();
+            const right = stmt.getRightOp();
+            if (left instanceof ArkArrayRef && left.getBase() === base && slot.startsWith("arr:")) {
+                const idxKey = resolveValueKey(left.getIndex());
+                if (idxKey !== undefined && isContainerSlotMatch(slot, `arr:${idxKey}`)) {
+                    state = isDefinitelyCleanContainerValue(right) ? "dead" : "live";
+                    continue;
+                }
+            }
+        }
+
         if (!stmt.containsInvokeExpr || !stmt.containsInvokeExpr()) continue;
 
         const invokeExpr = stmt.getInvokeExpr();
@@ -1865,6 +1956,11 @@ function isContainerSlotLiveAtStmt(base: Local, slot: string, anchorStmt: any): 
         }
 
         if (isContainerSlotDeleteInvalidation(methodName, containerKind, slot, args)) {
+            state = "dead";
+            continue;
+        }
+
+        if (isContainerSlotCleanOverwriteMutation(methodName, containerKind, slot, args)) {
             state = "dead";
             continue;
         }
@@ -1916,6 +2012,42 @@ function isContainerSlotDeleteInvalidation(
         return containerKind === "set" ? slot.startsWith("set:") : slot.startsWith("weakset:");
     }
 
+    return false;
+}
+
+function isContainerSlotCleanOverwriteMutation(
+    methodName: string,
+    containerKind: "array" | "map" | "weakmap" | "set" | "weakset" | "list" | "queue" | "stack" | "resultset" | undefined,
+    slot: string,
+    args: any[],
+): boolean {
+    if ((containerKind === "map" || containerKind === "weakmap") && isMapLikeStoreMethod(methodName)) {
+        if (args.length < 2) return false;
+        const key = resolveValueKey(args[0]);
+        if (key === undefined) return false;
+        if (!isDefinitelyCleanContainerValue(args[1])) return false;
+        if (containerKind === "weakmap") {
+            return isContainerSlotMatch(slot, `weakmap:${key}`);
+        }
+        return isContainerSlotMatch(slot, `map:${key}`);
+    }
+
+    return false;
+}
+
+function isDefinitelyCleanContainerValue(value: any): boolean {
+    if (value instanceof Constant) return true;
+    if (value instanceof Local) {
+        const decl = value.getDeclaringStmt();
+        if (decl instanceof ArkAssignStmt) {
+            const right = decl.getRightOp();
+            if (right instanceof Constant) return true;
+            if (right instanceof ArkNormalBinopExpr) {
+                return resolveNumber(right.getOp1()) !== undefined
+                    && resolveNumber(right.getOp2()) !== undefined;
+            }
+        }
+    }
     return false;
 }
 

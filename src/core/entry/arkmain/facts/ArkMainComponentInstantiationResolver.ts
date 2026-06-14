@@ -1,18 +1,42 @@
 import { Scene } from "../../../../../arkanalyzer/out/src/Scene";
 import { ArkMethod } from "../../../../../arkanalyzer/out/src/core/model/ArkMethod";
+import { resolveComponentLifecycleContract } from "./ArkMainLifecycleContracts";
 
 interface ComponentClassRecord {
     className: string;
     cls: any;
-    buildMethods: ArkMethod[];
+    entrypointMethods: ArkMethod[];
 }
 
 export function expandReachableComponentEntrypoints(
     scene: Scene,
     reachableMethodSignatures: ReadonlySet<string>,
 ): ArkMethod[] {
+    const index = buildComponentEntrypointExpansionIndex(scene);
+    if (index.size === 0) return [];
+
+    const methodsBySig = new Map<string, ArkMethod>();
+    for (const method of scene.getMethods()) {
+        const sig = method.getSignature?.()?.toString?.();
+        if (sig) methodsBySig.set(sig, method);
+    }
+
+    const out = new Map<string, ArkMethod>();
+    for (const reachableSig of reachableMethodSignatures) {
+        for (const targetSig of index.get(reachableSig) || []) {
+            const target = methodsBySig.get(targetSig);
+            if (!target) continue;
+            out.set(targetSig, target);
+        }
+    }
+
+    return [...out.values()];
+}
+
+export function buildComponentEntrypointExpansionIndex(scene: Scene): Map<string, string[]> {
     const componentRecords = collectComponentClassRecords(scene);
-    if (componentRecords.length === 0) return [];
+    const index = new Map<string, string[]>();
+    if (componentRecords.length === 0) return index;
 
     const byName = new Map<string, ComponentClassRecord[]>();
     const byClassSignature = new Map<string, ComponentClassRecord>();
@@ -24,26 +48,41 @@ export function expandReachableComponentEntrypoints(
         byName.set(record.className, bucket);
     }
 
-    const out = new Map<string, ArkMethod>();
+        const addTarget = (targets: Set<string>, method: ArkMethod): void => {
+            const sig = method.getSignature?.()?.toString?.();
+            if (sig) targets.add(sig);
+        };
+        const addComponentEntrypoints = (targets: Set<string>, record: ComponentClassRecord): void => {
+            for (const entrypoint of record.entrypointMethods) addTarget(targets, entrypoint);
+        };
+
     for (const method of scene.getMethods()) {
         const methodSig = method.getSignature?.()?.toString?.();
-        if (!methodSig || !reachableMethodSignatures.has(methodSig)) continue;
+        if (!methodSig) continue;
+        const targets = new Set<string>();
 
         const ownerRecord = byClassSignature.get(method.getDeclaringArkClass?.()?.getSignature?.()?.toString?.() || "");
         if (ownerRecord && isComponentConstructionMethod(method)) {
-            addMethods(out, ownerRecord.buildMethods);
+            addComponentEntrypoints(targets, ownerRecord);
+        }
+        if (ownerRecord && isComponentEntrypointMethod(method)) {
+            addComponentEntrypoints(targets, ownerRecord);
         }
 
         for (const stmt of collectMethodAndDeclaringInitializerStmts(method)) {
             for (const componentName of resolveInstantiatedComponentNames(stmt)) {
                 for (const target of byName.get(componentName) || []) {
-                    addMethods(out, target.buildMethods);
+                    addComponentEntrypoints(targets, target);
                 }
             }
         }
+
+        if (targets.size > 0) {
+            index.set(methodSig, [...targets]);
+        }
     }
 
-    return [...out.values()];
+    return index;
 }
 
 function collectComponentClassRecords(scene: Scene): ComponentClassRecord[] {
@@ -52,10 +91,10 @@ function collectComponentClassRecords(scene: Scene): ComponentClassRecord[] {
         if (!isArkUiComponentClass(cls)) continue;
         const className = String(cls.getName?.() || "");
         if (!className) continue;
-        const buildMethods = (cls.getMethods?.() || [])
-            .filter((method: ArkMethod) => method.getName?.() === "build");
-        if (buildMethods.length === 0) continue;
-        records.push({ className, cls, buildMethods });
+        const entrypointMethods = (cls.getMethods?.() || [])
+            .filter((method: ArkMethod) => isComponentEntrypointMethod(method));
+        if (entrypointMethods.length === 0) continue;
+        records.push({ className, cls, entrypointMethods });
     }
     return records;
 }
@@ -70,6 +109,11 @@ function isArkUiComponentClass(cls: any): boolean {
 function isComponentConstructionMethod(method: ArkMethod): boolean {
     const name = method.getName?.() || "";
     return name === "constructor" || name === "%instInit";
+}
+
+function isComponentEntrypointMethod(method: ArkMethod): boolean {
+    const name = method.getName?.() || "";
+    return !!resolveComponentLifecycleContract(name);
 }
 
 function collectMethodAndDeclaringInitializerStmts(method: ArkMethod): any[] {

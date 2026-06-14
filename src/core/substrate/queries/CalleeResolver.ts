@@ -14,6 +14,7 @@ export interface CalleeResolveOptions {
     callableVisitKeys?: Set<string>;
     callableResolveDepth?: number;
     maxCallableResolveDepth?: number;
+    enableDirectCallableTargets?: boolean;
 }
 
 export interface CallableResolveOptions {
@@ -134,9 +135,11 @@ export function resolveCalleeCandidates(
         }
     }
 
-    const typeTargets = resolveDirectCallableTargets(scene, invokeExpr, maxNameMatchCandidates, options);
-    if (typeTargets.length > 0) {
-        return typeTargets.map(method => ({ method, reason: "type_fallback" as const }));
+    if (options.enableDirectCallableTargets !== false) {
+        const typeTargets = resolveDirectCallableTargets(scene, invokeExpr, maxNameMatchCandidates, options);
+        if (typeTargets.length > 0) {
+            return typeTargets.map(method => ({ method, reason: "type_fallback" as const }));
+        }
     }
 
     const methodName = resolveInvokeMethodName(invokeExpr);
@@ -150,7 +153,7 @@ export function resolveCalleeCandidates(
 
     let candidates = (idx.byNormalizedName.get(methodName) || [])
         .filter(m => !!m.getCfg())
-        .filter(m => isArgCountCompatible(getFormalParamCount(m), argCount));
+        .filter(m => isMethodArgCountCompatible(m, argCount, isInstanceInvoke));
 
     if (isInstanceInvoke) {
         candidates = candidates.filter(m => !isStaticMethod(m));
@@ -162,6 +165,16 @@ export function resolveCalleeCandidates(
         const ownerMatched = candidates.filter(m => extractOwnerNameFromSignature(safeMethodSignatureText(m)) === expectedOwner);
         if (ownerMatched.length > 0) {
             candidates = ownerMatched;
+        }
+    }
+
+    if (isInstanceInvoke) {
+        const symbolicReceiverOwner = resolveSymbolicReceiverOwnerForInvoke(invokeExpr);
+        if (symbolicReceiverOwner) {
+            const ownerMatched = candidates.filter(m => methodOwnerMatches(m, symbolicReceiverOwner));
+            if (ownerMatched.length > 0) {
+                candidates = ownerMatched;
+            }
         }
     }
 
@@ -506,14 +519,25 @@ function getFormalParamCount(method: any): number {
     return collectParameterAssignStmts(method).length;
 }
 
+function isMethodArgCountCompatible(method: any, argCount: number, isInstanceInvoke: boolean): boolean {
+    const paramStmts = collectParameterAssignStmts(method);
+    if (isArgCountCompatible(paramStmts.length, argCount)) return true;
+    if (!isInstanceInvoke || paramStmts.length === 0) return false;
+    const firstParam = paramStmts[0].getRightOp();
+    const firstLooksLikeThis = firstParam instanceof ArkParameterRef && firstParam.getIndex() === 0;
+    return firstLooksLikeThis && isArgCountCompatible(paramStmts.length - 1, argCount);
+}
+
 function isArgCountCompatible(paramCount: number, argCount: number): boolean {
     if (paramCount === argCount) return true;
     return paramCount === 1 && argCount > 1;
 }
 
 function isStaticMethod(method: any): boolean {
-        const sig = safeMethodSignatureText(method);
-    return sig.includes(".[static]");
+    const sig = safeMethodSignatureText(method);
+    const openIdx = sig.indexOf("(");
+    const methodHeader = openIdx >= 0 ? sig.slice(0, openIdx) : sig;
+    return methodHeader.includes(".[static]");
 }
 
 function isInstanceInvokeLike(invokeExpr: any): boolean {
@@ -615,6 +639,30 @@ function resolveExpectedOwnerForInvoke(invokeExpr: any, invokeSig: string): stri
     const normalized = text.replace(/^@/, "").trim();
     if (!normalized || normalized.includes("%unk")) return undefined;
     return normalized;
+}
+
+function resolveSymbolicReceiverOwnerForInvoke(invokeExpr: any): string | undefined {
+    if (!isInstanceInvokeLike(invokeExpr)) return undefined;
+    const base = invokeExpr.getBase?.();
+    if (!base) return undefined;
+    if (base instanceof Local && safeGetDeclaringStmt(base)) return undefined;
+
+    const candidates = [
+        typeof base.getName === "function" ? base.getName() : "",
+        safeValueText(base),
+    ];
+    for (const candidate of candidates) {
+        const owner = normalizeSymbolicReceiverOwner(candidate);
+        if (owner) return owner;
+    }
+    return undefined;
+}
+
+function normalizeSymbolicReceiverOwner(value: unknown): string | undefined {
+    const text = normalizeOwnerName(String(value || "").trim());
+    if (!text || text === "this" || text.includes("%unk") || text.startsWith("%")) return undefined;
+    if (!/^[A-Z][A-Za-z0-9_$]*$/.test(text)) return undefined;
+    return text;
 }
 
 function extractOwnerScopeKeyFromSignature(signature: string): string | undefined {
@@ -856,6 +904,18 @@ function resolveMethodsFromCallableValue(
             return candidates;
         }
 
+        for (const boundMethod of resolveMethodsFromBoundCallableFactory(
+            scene,
+            resolvedCallable,
+            nestedOptions,
+            visitKeys,
+        )) {
+            addMethod(boundMethod);
+        }
+        if (candidates.length > 0) {
+            return candidates;
+        }
+
         for (const memberMethod of resolveMethodsFromCallableCarrierValue(
             scene,
             resolvedCallable,
@@ -903,6 +963,38 @@ function resolveMethodsFromCallableValue(
             visitKeys.delete(valueVisitKey);
         }
     }
+}
+
+function resolveMethodsFromBoundCallableFactory(
+    scene: Scene,
+    callableValue: any,
+    options: CallableResolveOptions,
+    visitingFactoryMethods: Set<string>,
+): any[] {
+    if (!(callableValue instanceof Local)) return [];
+    const declStmt = safeGetDeclaringStmt(callableValue);
+    if (!(declStmt instanceof ArkAssignStmt) || declStmt.getLeftOp() !== callableValue) {
+        return [];
+    }
+
+    const rightOp = declStmt.getRightOp();
+    if (!(rightOp instanceof ArkInstanceInvokeExpr) && !(rightOp instanceof ArkPtrInvokeExpr)) {
+        return [];
+    }
+    if (resolveInvokeMethodName(rightOp) !== "bind") {
+        return [];
+    }
+
+    const base = getInvokeCallableBase(rightOp);
+    if (!base || isReflectBase(base)) {
+        return [];
+    }
+    return resolveMethodsFromCallableValue(
+        scene,
+        base,
+        options,
+        visitingFactoryMethods,
+    );
 }
 
 function resolveMethodsFromCallableCarrierValue(

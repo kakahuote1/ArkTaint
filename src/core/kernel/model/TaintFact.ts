@@ -20,12 +20,24 @@ export class TaintFact {
     }
 
     public get id(): string {
+        return this.locationId;
+    }
+
+    public get locationId(): string {
         let id = `${this.node.getID()}@${this.contextID}`;
         if (this.field && this.field.length > 0) {
             id += `.${this.field.join('.')}`;
         }
         return id;
     }
+
+    public get taintId(): string {
+        return `${this.locationId}#src=${encodeTaintIdPart(this.source)}`;
+    }
+}
+
+function encodeTaintIdPart(value: string): string {
+    return encodeURIComponent(String(value || ""));
 }
 
 function normalizeFieldPath(field?: string[]): string[] | undefined {

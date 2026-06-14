@@ -4,10 +4,10 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.source.harmony.distributedkv.get.result",
+      "surfaceId": "surface.source.harmony.distributedkv.get.result.exact.get.className.KVStore",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "DistributedKVStore.distributedKVStore.KVStore.SingleKVStore",
+      "modulePath": "distributedData",
+      "ownerName": "KVStore",
       "methodName": "get",
       "invokeKind": "instance",
       "argCount": 0,
@@ -17,11 +17,11 @@
       }
     },
     {
-      "surfaceId": "surface.source.harmony.distributed.getLocalDeviceId",
+      "surfaceId": "surface.source.harmony.distributedkv.get.result.exact.get.className.SingleKVStore",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "getLocalDeviceId",
+      "modulePath": "distributedKVStore",
+      "ownerName": "SingleKVStore",
+      "methodName": "get",
       "invokeKind": "instance",
       "argCount": 0,
       "confidence": "likely",
@@ -30,53 +30,92 @@
       }
     },
     {
-      "surfaceId": "surface.source.harmony.distributed.getLocalDeviceName",
+      "surfaceId": "surface.source.harmony.distributedkv.getEntries.argCount1.exact.getEntries.className.KVStore",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "getLocalDeviceName",
+      "modulePath": "distributedData",
+      "ownerName": "KVStore",
+      "methodName": "getEntries",
       "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "argCount": 1,
+      "confidence": "certain",
       "provenance": {
         "source": "manual"
       }
     },
     {
-      "surfaceId": "surface.source.harmony.distributed.getLocalDeviceNetworkId",
+      "surfaceId": "surface.source.harmony.distributedkv.getEntries.argCount2.exact.getEntries.className.KVStore",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "getLocalDeviceNetworkId",
+      "modulePath": "distributedData",
+      "ownerName": "KVStore",
+      "methodName": "getEntries",
       "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "argCount": 2,
+      "confidence": "certain",
       "provenance": {
         "source": "manual"
       }
     },
     {
-      "surfaceId": "surface.source.harmony.distributed.getAvailableDeviceList",
+      "surfaceId": "surface.source.harmony.distributedkv.getEntries.argCount1.exact.getEntries.className.SingleKVStore",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "getAvailableDeviceList",
+      "modulePath": "distributedKVStore",
+      "ownerName": "SingleKVStore",
+      "methodName": "getEntries",
       "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "argCount": 1,
+      "confidence": "certain",
       "provenance": {
         "source": "manual"
       }
     },
     {
-      "surfaceId": "surface.source.harmony.wantAgent.getWant",
+      "surfaceId": "surface.source.harmony.distributedkv.getEntries.argCount2.exact.getEntries.className.SingleKVStore",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "wantAgent",
-      "methodName": "getWant",
+      "modulePath": "distributedKVStore",
+      "ownerName": "SingleKVStore",
+      "methodName": "getEntries",
       "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.distributedkv.getEntries.argCount1.exact.getEntries.className.DeviceKVStore",
+      "kind": "invoke",
+      "modulePath": "distributedData",
+      "ownerName": "DeviceKVStore",
+      "methodName": "getEntries",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.distributedkv.getEntries.argCount2.exact.getEntries.className.DeviceKVStore",
+      "kind": "invoke",
+      "modulePath": "distributedData",
+      "ownerName": "DeviceKVStore",
+      "methodName": "getEntries",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.distributedkv.getEntries.argCount3.exact.getEntries.className.DeviceKVStore",
+      "kind": "invoke",
+      "modulePath": "distributedData",
+      "ownerName": "DeviceKVStore",
+      "methodName": "getEntries",
+      "invokeKind": "instance",
+      "argCount": 3,
+      "confidence": "certain",
       "provenance": {
         "source": "manual"
       }
@@ -84,8 +123,8 @@
   ],
   "bindings": [
     {
-      "bindingId": "binding.source.harmony.distributedkv.get.result.0",
-      "surfaceId": "surface.source.harmony.distributedkv.get.result",
+      "bindingId": "binding.source.harmony.distributedkv.get.result.0.exact.get.className.KVStore",
+      "surfaceId": "surface.source.harmony.distributedkv.get.result.exact.get.className.KVStore",
       "assetId": "asset.rule.kernel.sources.distributed",
       "plane": "rule",
       "role": "source",
@@ -93,10 +132,12 @@
         "kind": "method-name-equals",
         "value": "get",
         "invokeKind": "instance",
-        "scope": {
+        "argCount": 0,
+        "typeHint": "KVStore",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(DistributedKVStore|distributedKVStore|KVStore|SingleKVStore)"
+            "mode": "equals",
+            "value": "KVStore"
           }
         }
       },
@@ -106,7 +147,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.harmony.distributedkv.get.result"
+        "template.source.harmony.distributedkv.get.result.for.source.harmony.distributedkv.get.result.0.exact.get.class.KVStore"
       ],
       "semanticsFamily": "source",
       "metadata": {
@@ -122,150 +163,21 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.source.harmony.distributed.getLocalDeviceId.0",
-      "surfaceId": "surface.source.harmony.distributed.getLocalDeviceId",
+      "bindingId": "binding.source.harmony.distributedkv.get.result.0.exact.get.className.SingleKVStore",
+      "surfaceId": "surface.source.harmony.distributedkv.get.result.exact.get.className.SingleKVStore",
       "assetId": "asset.rule.kernel.sources.distributed",
       "plane": "rule",
       "role": "source",
       "selector": {
         "kind": "method-name-equals",
-        "value": "getLocalDeviceId"
-      },
-      "endpoint": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "effectTemplateRefs": [
-        "template.source.harmony.distributed.getLocalDeviceId"
-      ],
-      "semanticsFamily": "device_identifier",
-      "metadata": {
-        "description": "Local distributed device ID",
-        "tags": [
-          "harmony",
-          "phase7118",
-          "distributed",
-          "P2"
-        ],
-        "category": "device_identifier",
-        "severity": "medium"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.source.harmony.distributed.getLocalDeviceName.0",
-      "surfaceId": "surface.source.harmony.distributed.getLocalDeviceName",
-      "assetId": "asset.rule.kernel.sources.distributed",
-      "plane": "rule",
-      "role": "source",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "getLocalDeviceName"
-      },
-      "endpoint": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "effectTemplateRefs": [
-        "template.source.harmony.distributed.getLocalDeviceName"
-      ],
-      "semanticsFamily": "device_identifier",
-      "metadata": {
-        "description": "Local distributed device name",
-        "tags": [
-          "harmony",
-          "phase7118",
-          "distributed",
-          "P2"
-        ],
-        "category": "device_identifier",
-        "severity": "medium"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.source.harmony.distributed.getLocalDeviceNetworkId.0",
-      "surfaceId": "surface.source.harmony.distributed.getLocalDeviceNetworkId",
-      "assetId": "asset.rule.kernel.sources.distributed",
-      "plane": "rule",
-      "role": "source",
-      "selector": {
-        "kind": "signature-contains",
-        "value": "getLocalDeviceNetworkId"
-      },
-      "endpoint": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "effectTemplateRefs": [
-        "template.source.harmony.distributed.getLocalDeviceNetworkId"
-      ],
-      "semanticsFamily": "device_identifier",
-      "metadata": {
-        "description": "Local distributed device network ID",
-        "tags": [
-          "harmony",
-          "phase7118",
-          "distributed",
-          "P2"
-        ],
-        "category": "device_identifier",
-        "severity": "medium"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.source.harmony.distributed.getAvailableDeviceList.0",
-      "surfaceId": "surface.source.harmony.distributed.getAvailableDeviceList",
-      "assetId": "asset.rule.kernel.sources.distributed",
-      "plane": "rule",
-      "role": "source",
-      "selector": {
-        "kind": "signature-contains",
-        "value": "getAvailableDeviceList"
-      },
-      "endpoint": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "effectTemplateRefs": [
-        "template.source.harmony.distributed.getAvailableDeviceList"
-      ],
-      "semanticsFamily": "device_identifier",
-      "metadata": {
-        "description": "Available distributed devices list",
-        "tags": [
-          "harmony",
-          "phase7118",
-          "distributed",
-          "P2"
-        ],
-        "category": "device_identifier",
-        "severity": "medium"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.source.harmony.wantAgent.getWant.0",
-      "surfaceId": "surface.source.harmony.wantAgent.getWant",
-      "assetId": "asset.rule.kernel.sources.distributed",
-      "plane": "rule",
-      "role": "source",
-      "selector": {
-        "kind": "signature-contains",
-        "value": "getWant",
-        "scope": {
+        "value": "get",
+        "invokeKind": "instance",
+        "argCount": 0,
+        "typeHint": "SingleKVStore",
+        "calleeScope": {
           "className": {
-            "mode": "contains",
-            "value": "wantAgent"
+            "mode": "equals",
+            "value": "SingleKVStore"
           }
         }
       },
@@ -275,27 +187,535 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.harmony.wantAgent.getWant"
+        "template.source.harmony.distributedkv.get.result.for.source.harmony.distributedkv.get.result.0.exact.get.class.SingleKVStore"
       ],
-      "semanticsFamily": "intent_data",
+      "semanticsFamily": "source",
       "metadata": {
-        "description": "Extract Want params from WantAgent",
+        "enabled": true,
+        "description": "Distributed KV get() return value as source.",
         "tags": [
           "harmony",
-          "phase7118",
-          "ability",
-          "P2"
-        ],
-        "category": "intent_data",
-        "severity": "medium"
+          "t2",
+          "t5"
+        ]
       },
       "completeness": "partial",
       "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.distributedkv.getEntries.result.argCount1.distributedData.KVStore",
+      "surfaceId": "surface.source.harmony.distributedkv.getEntries.argCount1.exact.getEntries.className.KVStore",
+      "assetId": "asset.rule.kernel.sources.distributed",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "getEntries",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "KVStore",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "KVStore"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.distributedkv.getEntries.result.argCount1.distributedData.KVStore"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "KVStore.getEntries(key/query) Promise result as distributed key-value source.",
+        "tags": [
+          "harmony",
+          "official",
+          "source"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.harmony.distributedkv.getEntries.callbackArg1.result.argCount2.distributedData.KVStore",
+      "surfaceId": "surface.source.harmony.distributedkv.getEntries.argCount2.exact.getEntries.className.KVStore",
+      "assetId": "asset.rule.kernel.sources.distributed",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "getEntries",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "KVStore",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "KVStore"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 1
+          },
+          "argIndex": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.distributedkv.getEntries.callbackArg1.result.argCount2.distributedData.KVStore"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "KVStore.getEntries(key/query, callback) entries callback result as source.",
+        "tags": [
+          "harmony",
+          "official",
+          "source"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.harmony.distributedkv.getEntries.result.argCount1.distributedKVStore.SingleKVStore",
+      "surfaceId": "surface.source.harmony.distributedkv.getEntries.argCount1.exact.getEntries.className.SingleKVStore",
+      "assetId": "asset.rule.kernel.sources.distributed",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "getEntries",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "SingleKVStore",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "SingleKVStore"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.distributedkv.getEntries.result.argCount1.distributedKVStore.SingleKVStore"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "SingleKVStore.getEntries(key/query) Promise result as distributed key-value source.",
+        "tags": [
+          "harmony",
+          "official",
+          "source"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.harmony.distributedkv.getEntries.callbackArg1.result.argCount2.distributedKVStore.SingleKVStore",
+      "surfaceId": "surface.source.harmony.distributedkv.getEntries.argCount2.exact.getEntries.className.SingleKVStore",
+      "assetId": "asset.rule.kernel.sources.distributed",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "getEntries",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "SingleKVStore",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "SingleKVStore"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 1
+          },
+          "argIndex": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.distributedkv.getEntries.callbackArg1.result.argCount2.distributedKVStore.SingleKVStore"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "SingleKVStore.getEntries(key/query, callback) entries callback result as source.",
+        "tags": [
+          "harmony",
+          "official",
+          "source"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.harmony.distributedkv.getEntries.result.argCount1.distributedData.DeviceKVStore",
+      "surfaceId": "surface.source.harmony.distributedkv.getEntries.argCount1.exact.getEntries.className.DeviceKVStore",
+      "assetId": "asset.rule.kernel.sources.distributed",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "getEntries",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "DeviceKVStore",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "DeviceKVStore"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.distributedkv.getEntries.result.argCount1.distributedData.DeviceKVStore"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "DeviceKVStore.getEntries(key/query) Promise result as distributed key-value source.",
+        "tags": [
+          "harmony",
+          "official",
+          "source"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.harmony.distributedkv.getEntries.callbackArg1.result.argCount2.distributedData.DeviceKVStore",
+      "surfaceId": "surface.source.harmony.distributedkv.getEntries.argCount2.exact.getEntries.className.DeviceKVStore",
+      "assetId": "asset.rule.kernel.sources.distributed",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "getEntries",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "DeviceKVStore",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "DeviceKVStore"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 1
+          },
+          "argIndex": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.distributedkv.getEntries.callbackArg1.result.argCount2.distributedData.DeviceKVStore"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "DeviceKVStore.getEntries(key/query, callback) entries callback result as source.",
+        "tags": [
+          "harmony",
+          "official",
+          "source"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.harmony.distributedkv.getEntries.result.argCount2.distributedData.DeviceKVStore",
+      "surfaceId": "surface.source.harmony.distributedkv.getEntries.argCount2.exact.getEntries.className.DeviceKVStore",
+      "assetId": "asset.rule.kernel.sources.distributed",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "getEntries",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "DeviceKVStore",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "DeviceKVStore"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.distributedkv.getEntries.result.argCount2.distributedData.DeviceKVStore"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "DeviceKVStore.getEntries(deviceId, key/query) Promise result as distributed key-value source.",
+        "tags": [
+          "harmony",
+          "official",
+          "source"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.harmony.distributedkv.getEntries.callbackArg2.result.argCount3.distributedData.DeviceKVStore",
+      "surfaceId": "surface.source.harmony.distributedkv.getEntries.argCount3.exact.getEntries.className.DeviceKVStore",
+      "assetId": "asset.rule.kernel.sources.distributed",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "getEntries",
+        "invokeKind": "instance",
+        "argCount": 3,
+        "typeHint": "DeviceKVStore",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "DeviceKVStore"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 2
+          },
+          "argIndex": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.distributedkv.getEntries.callbackArg2.result.argCount3.distributedData.DeviceKVStore"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "DeviceKVStore.getEntries(deviceId, key/query, callback) entries callback result as source.",
+        "tags": [
+          "harmony",
+          "official",
+          "source"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.harmony.distributedkv.getEntries.result.argCount1.distributedKVStore.DeviceKVStore",
+      "surfaceId": "surface.source.harmony.distributedkv.getEntries.argCount1.exact.getEntries.className.DeviceKVStore",
+      "assetId": "asset.rule.kernel.sources.distributed",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "getEntries",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "DeviceKVStore",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "DeviceKVStore"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.distributedkv.getEntries.result.argCount1.distributedKVStore.DeviceKVStore"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "DeviceKVStore.getEntries(key/query) Promise result as distributed key-value source.",
+        "tags": [
+          "harmony",
+          "official",
+          "source"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.harmony.distributedkv.getEntries.callbackArg1.result.argCount2.distributedKVStore.DeviceKVStore",
+      "surfaceId": "surface.source.harmony.distributedkv.getEntries.argCount2.exact.getEntries.className.DeviceKVStore",
+      "assetId": "asset.rule.kernel.sources.distributed",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "getEntries",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "DeviceKVStore",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "DeviceKVStore"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 1
+          },
+          "argIndex": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.distributedkv.getEntries.callbackArg1.result.argCount2.distributedKVStore.DeviceKVStore"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "DeviceKVStore.getEntries(key/query, callback) entries callback result as source.",
+        "tags": [
+          "harmony",
+          "official",
+          "source"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.harmony.distributedkv.getEntries.result.argCount2.distributedKVStore.DeviceKVStore",
+      "surfaceId": "surface.source.harmony.distributedkv.getEntries.argCount2.exact.getEntries.className.DeviceKVStore",
+      "assetId": "asset.rule.kernel.sources.distributed",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "getEntries",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "DeviceKVStore",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "DeviceKVStore"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.distributedkv.getEntries.result.argCount2.distributedKVStore.DeviceKVStore"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "DeviceKVStore.getEntries(deviceId, key/query) Promise result as distributed key-value source.",
+        "tags": [
+          "harmony",
+          "official",
+          "source"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.harmony.distributedkv.getEntries.callbackArg2.result.argCount3.distributedKVStore.DeviceKVStore",
+      "surfaceId": "surface.source.harmony.distributedkv.getEntries.argCount3.exact.getEntries.className.DeviceKVStore",
+      "assetId": "asset.rule.kernel.sources.distributed",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "getEntries",
+        "invokeKind": "instance",
+        "argCount": 3,
+        "typeHint": "DeviceKVStore",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "DeviceKVStore"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 2
+          },
+          "argIndex": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.distributedkv.getEntries.callbackArg2.result.argCount3.distributedKVStore.DeviceKVStore"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "DeviceKVStore.getEntries(deviceId, key/query, callback) entries callback result as source.",
+        "tags": [
+          "harmony",
+          "official",
+          "source"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
     }
   ],
   "effectTemplates": [
     {
-      "id": "template.source.harmony.distributedkv.get.result",
+      "id": "template.source.harmony.distributedkv.get.result.for.source.harmony.distributedkv.get.result.0.exact.get.class.KVStore",
       "confidence": "certain",
       "kind": "rule.source",
       "value": {
@@ -306,7 +726,7 @@
       "sourceKind": "call_return"
     },
     {
-      "id": "template.source.harmony.distributed.getLocalDeviceId",
+      "id": "template.source.harmony.distributedkv.get.result.for.source.harmony.distributedkv.get.result.0.exact.get.class.SingleKVStore",
       "confidence": "certain",
       "kind": "rule.source",
       "value": {
@@ -317,7 +737,7 @@
       "sourceKind": "call_return"
     },
     {
-      "id": "template.source.harmony.distributed.getLocalDeviceName",
+      "id": "template.source.harmony.distributedkv.getEntries.result.argCount1.distributedData.KVStore",
       "confidence": "certain",
       "kind": "rule.source",
       "value": {
@@ -328,7 +748,23 @@
       "sourceKind": "call_return"
     },
     {
-      "id": "template.source.harmony.distributed.getLocalDeviceNetworkId",
+      "id": "template.source.harmony.distributedkv.getEntries.callbackArg1.result.argCount2.distributedData.KVStore",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 1
+          },
+          "argIndex": 1
+        }
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.source.harmony.distributedkv.getEntries.result.argCount1.distributedKVStore.SingleKVStore",
       "confidence": "certain",
       "kind": "rule.source",
       "value": {
@@ -339,7 +775,23 @@
       "sourceKind": "call_return"
     },
     {
-      "id": "template.source.harmony.distributed.getAvailableDeviceList",
+      "id": "template.source.harmony.distributedkv.getEntries.callbackArg1.result.argCount2.distributedKVStore.SingleKVStore",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 1
+          },
+          "argIndex": 1
+        }
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.source.harmony.distributedkv.getEntries.result.argCount1.distributedData.DeviceKVStore",
       "confidence": "certain",
       "kind": "rule.source",
       "value": {
@@ -350,7 +802,23 @@
       "sourceKind": "call_return"
     },
     {
-      "id": "template.source.harmony.wantAgent.getWant",
+      "id": "template.source.harmony.distributedkv.getEntries.callbackArg1.result.argCount2.distributedData.DeviceKVStore",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 1
+          },
+          "argIndex": 1
+        }
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.source.harmony.distributedkv.getEntries.result.argCount2.distributedData.DeviceKVStore",
       "confidence": "certain",
       "kind": "rule.source",
       "value": {
@@ -359,6 +827,76 @@
         }
       },
       "sourceKind": "call_return"
+    },
+    {
+      "id": "template.source.harmony.distributedkv.getEntries.callbackArg2.result.argCount3.distributedData.DeviceKVStore",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 2
+          },
+          "argIndex": 1
+        }
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.source.harmony.distributedkv.getEntries.result.argCount1.distributedKVStore.DeviceKVStore",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    },
+    {
+      "id": "template.source.harmony.distributedkv.getEntries.callbackArg1.result.argCount2.distributedKVStore.DeviceKVStore",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 1
+          },
+          "argIndex": 1
+        }
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.source.harmony.distributedkv.getEntries.result.argCount2.distributedKVStore.DeviceKVStore",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    },
+    {
+      "id": "template.source.harmony.distributedkv.getEntries.callbackArg2.result.argCount3.distributedKVStore.DeviceKVStore",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 2
+          },
+          "argIndex": 1
+        }
+      },
+      "sourceKind": "callback_param"
     }
   ],
   "provenance": {

@@ -121,7 +121,7 @@
       ],
       "semanticsFamily": "transfer",
       "metadata": {
-        "description": "Model insert(table, row): row taints db instance."
+        "description": "Model insert(table, row): values contained in row taint a table-specific database slot."
       },
       "completeness": "partial",
       "confidence": "likely"
@@ -144,7 +144,7 @@
       ],
       "semanticsFamily": "transfer",
       "metadata": {
-        "description": "Model query(sql): tainted db instance taints query result."
+        "description": "Model query(sql): a table-specific database slot taints the query result when the table can be resolved."
       },
       "completeness": "partial",
       "confidence": "likely"
@@ -180,15 +180,27 @@
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
-        "base": {
-          "kind": "arg",
-          "index": 1
-        }
+        "endpoint": {
+          "base": {
+            "kind": "arg",
+            "index": 1
+          }
+        },
+        "taintScope": "contained-values"
       },
       "to": {
-        "base": {
-          "kind": "receiver"
-        }
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "sql-table"
       },
       "transferKind": "transfer"
     },
@@ -197,9 +209,18 @@
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
-        "base": {
-          "kind": "receiver"
-        }
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "sql-table"
       },
       "to": {
         "base": {

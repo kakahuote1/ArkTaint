@@ -65,7 +65,7 @@ function isNonEmptyString(value: unknown): value is string {
 
 function hasScopeAnchor(scope: RuleScopeConstraint | undefined): boolean {
     if (!scope) return false;
-    return !!(scope.file || scope.module || scope.className || scope.methodName);
+    return !!(scope.file || scope.module || scope.className || scope.methodName || scope.methodDecorators);
 }
 
 function hasAnyScopeAnchor(...scopes: Array<RuleScopeConstraint | undefined>): boolean {
@@ -111,6 +111,24 @@ function validateMatch(rulePath: string, match: unknown, out: RuleValidationResu
     }
     if (match.typeHint !== undefined && !isNonEmptyString(match.typeHint)) {
         out.errors.push(`${rulePath}.match.typeHint must be a non-empty string`);
+    }
+    if (match.literalArgs !== undefined) {
+        if (!Array.isArray(match.literalArgs)) {
+            out.errors.push(`${rulePath}.match.literalArgs must be an array`);
+        } else {
+            match.literalArgs.forEach((raw: unknown, index: number) => {
+                if (!isObject(raw)) {
+                    out.errors.push(`${rulePath}.match.literalArgs[${index}] must be an object`);
+                    return;
+                }
+                if (typeof raw.index !== "number" || !Number.isInteger(raw.index) || raw.index < 0) {
+                    out.errors.push(`${rulePath}.match.literalArgs[${index}].index must be a non-negative integer`);
+                }
+                if (!Array.isArray(raw.values) || raw.values.length === 0 || raw.values.some(value => !isNonEmptyString(value))) {
+                    out.errors.push(`${rulePath}.match.literalArgs[${index}].values must be a non-empty string[]`);
+                }
+            });
+        }
     }
 }
 
@@ -158,6 +176,16 @@ function validateScopeConstraint(
         if (raw === undefined) continue;
         validateStringConstraint(rulePath, `${fieldName}.${scopeFieldName}`, raw, out);
     }
+    const methodDecorators = scope.methodDecorators;
+    if (methodDecorators !== undefined) {
+        if (!Array.isArray(methodDecorators) || methodDecorators.length === 0) {
+            out.errors.push(`${rulePath}.${fieldName}.methodDecorators must be a non-empty array`);
+        } else {
+            methodDecorators.forEach((raw, index) => {
+                validateStringConstraint(rulePath, `${fieldName}.methodDecorators[${index}]`, raw, out);
+            });
+        }
+    }
     return true;
 }
 
@@ -198,6 +226,11 @@ function validateEndpointRef(
     const slotKind = value.slotKind;
     if (slotKind !== undefined && !isNonEmptyString(slotKind)) {
         out.errors.push(`${rulePath}.${fieldName}.slotKind must be a non-empty string`);
+    }
+
+    const taintScope = value.taintScope;
+    if (taintScope !== undefined && taintScope !== "self" && taintScope !== "contained-values") {
+        out.errors.push(`${rulePath}.${fieldName}.taintScope must be self/contained-values`);
     }
 
     if (pathFrom !== undefined && !isNonEmptyString(slotKind)) {
@@ -305,7 +338,7 @@ function validateRuleCommon(rulePath: string, rule: unknown, out: RuleValidation
             );
             if (!hasScopeConstraint || !hasShapeConstraint) {
                 const missing: string[] = [];
-                if (!hasScopeConstraint) missing.push("scope anchor(file/module/className/methodName)");
+                if (!hasScopeConstraint) missing.push("scope anchor(file/module/className/methodName/methodDecorators)");
                 if (!hasShapeConstraint) missing.push("match.invokeKind(instance/static)/match.argCount/match.typeHint");
                 out.warnings.push(
                     `${rulePath} uses high-risk method_name_equals('${methodName}') without combined constraints `
@@ -322,7 +355,7 @@ function validateRuleCommon(rulePath: string, rule: unknown, out: RuleValidation
         if (mk === undefined || mk === "any") missing.push("match.invokeKind(instance/static)");
         if (m.argCount === undefined) missing.push("match.argCount");
         if (!hasAnyScopeAnchor(normalizedRule.scope, (rule as any).calleeScope as RuleScopeConstraint | undefined)) {
-            missing.push("scope/calleeScope anchor(file/module/className/methodName)");
+            missing.push("scope/calleeScope anchor(file/module/className/methodName/methodDecorators)");
         }
         if (missing.length > 0) {
             out.warnings.push(

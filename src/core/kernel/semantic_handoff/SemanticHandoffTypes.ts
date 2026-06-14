@@ -31,6 +31,7 @@ export interface HandoffCurrentFieldMapping {
     unwrapPrefixes?: string[];
     stripPrefixes?: string[][];
     requireField?: boolean;
+    scalarAlias?: boolean;
 }
 
 export interface HandoffTargetEndpoint {

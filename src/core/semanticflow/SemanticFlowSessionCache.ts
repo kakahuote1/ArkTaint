@@ -367,12 +367,18 @@ export class SemanticFlowSessionCache {
 
     private persistStats(): void {
         if (!this.canWrite()) return;
-        writeJsonAtomic(this.statsPath, {
-            cacheKind: SEMANTIC_FLOW_SESSION_CACHE_KIND,
-            generatedAt: this.isoNow(),
-            mode: this.mode,
-            ...this.getStats(),
-        });
+        try {
+            writeJsonAtomic(this.statsPath, {
+                cacheKind: SEMANTIC_FLOW_SESSION_CACHE_KIND,
+                generatedAt: this.isoNow(),
+                mode: this.mode,
+                ...this.getStats(),
+            });
+        } catch {
+            // Stats are diagnostic only. Item and decision records remain the
+            // durable cache contract, so a transient Windows file lock must not
+            // abort a SemanticFlow source-dir run.
+        }
     }
 
     private cacheMeta(anchorId: string, model: string): Record<string, unknown> {
@@ -468,7 +474,46 @@ function writeJsonAtomic(filePath: string, value: unknown): void {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     const tmpPath = `${filePath}.tmp-${process.pid}-${Date.now()}`;
     fs.writeFileSync(tmpPath, JSON.stringify(value, null, 2), "utf-8");
-    fs.renameSync(tmpPath, filePath);
+    try {
+        renameWithRetry(tmpPath, filePath);
+    } catch (error) {
+        try {
+            fs.rmSync(tmpPath, { force: true });
+        } catch {
+            // Best-effort cleanup only.
+        }
+        throw error;
+    }
+}
+
+function renameWithRetry(tmpPath: string, filePath: string): void {
+    const retryableCodes = new Set(["EACCES", "EBUSY", "EPERM"]);
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 4; attempt++) {
+        try {
+            fs.renameSync(tmpPath, filePath);
+            return;
+        } catch (error) {
+            lastError = error;
+            const code = typeof error === "object" && error ? String((error as NodeJS.ErrnoException).code || "") : "";
+            if (!retryableCodes.has(code)) {
+                throw error;
+            }
+            try {
+                fs.rmSync(filePath, { force: true });
+            } catch {
+                // The target may be locked. Retry below.
+            }
+            sleepSync(10 * (attempt + 1));
+        }
+    }
+    throw lastError;
+}
+
+function sleepSync(ms: number): void {
+    const buffer = new SharedArrayBuffer(4);
+    const view = new Int32Array(buffer);
+    Atomics.wait(view, 0, 0, ms);
 }
 
 function buildAnchorKey(anchorId: string): string {

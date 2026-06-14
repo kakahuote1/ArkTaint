@@ -439,6 +439,18 @@ const CASES: CaseSpec[] = [
         engineOptions: { includeBuiltinModules: false },
     },
     {
+        filePath: "tests/adhoc/ordinary_rest_array_language/rest_for_each_helper_001_T.ets",
+        expected: true,
+    },
+    {
+        filePath: "tests/adhoc/ordinary_rest_array_language/rest_for_each_helper_002_F.ets",
+        expected: false,
+    },
+    {
+        filePath: "tests/adhoc/ordinary_rest_array_language/rest_for_each_helper_003_F.ets",
+        expected: false,
+    },
+    {
         filePath: "tests/adhoc/ordinary_callable_language/function_value_alias_001_T.ets",
         expected: true,
     },

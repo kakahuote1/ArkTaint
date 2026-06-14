@@ -20,6 +20,7 @@ interface FrameworkCallbackSourceFamilyContract {
     tags: string[];
     match: RuleMatch;
     scope?: RuleScopeConstraint;
+    calleeScope?: RuleScopeConstraint;
     callbackArgIndexes: number[];
     callbackResolution?: SourceRule["callbackResolution"];
     schemas: FrameworkCallbackSourceSchema[];
@@ -27,6 +28,23 @@ interface FrameworkCallbackSourceFamilyContract {
 
 const CALLBACK_SOURCE_TAGS = ["harmony", "framework_callback_source", "callback_param"];
 const BOUND_STATE_SOURCE_TAGS = ["harmony", "framework_callback_source", "ui_input", "bound_state"];
+const ARKUI_BUILD_SCOPE: RuleScopeConstraint = {
+    methodName: { mode: "regex", value: "^(build|.*\\$build)$" },
+    methodDecorators: [{ mode: "equals", value: "Builder" }],
+};
+
+function exactClassRegexScope(...classNames: string[]): RuleScopeConstraint {
+    return {
+        className: {
+            mode: "regex",
+            value: `^(${classNames.map(escapeRegex).join("|")})$`,
+        },
+    };
+}
+
+function escapeRegex(text: string): string {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallbackSourceFamilyContract[] = [
     {
@@ -34,8 +52,8 @@ export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallb
         tier: "B",
         description: "Framework text-input callbacks carry untrusted user input.",
         tags: [...CALLBACK_SOURCE_TAGS, "ui_input"],
-        match: { kind: "method_name_regex", value: "^(onChange|onInput|onSubmit)$", typeHint: "Input" },
-        scope: { methodName: { mode: "regex", value: "^(build|.*\\$build)$" } },
+        match: { kind: "method_name_regex", value: "^(onChange|onInput)$", typeHint: "Input" },
+        scope: ARKUI_BUILD_SCOPE,
         callbackArgIndexes: [0],
         schemas: [
             {
@@ -48,10 +66,21 @@ export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallb
                 target: { endpoint: "arg0" },
                 description: "Text input callback parameter for onInput.",
             },
+        ],
+    },
+    {
+        family: "source.harmony.callback.input",
+        tier: "B",
+        description: "Framework text-input submit callbacks carry submitted text on the event object.",
+        tags: [...CALLBACK_SOURCE_TAGS, "ui_input"],
+        match: { kind: "method_name_equals", value: "onSubmit", typeHint: "Input" },
+        scope: ARKUI_BUILD_SCOPE,
+        callbackArgIndexes: [0],
+        schemas: [
             {
-                id: "source.harmony.input.onSubmit.arg0",
-                target: { endpoint: "arg0" },
-                description: "Text input callback parameter for onSubmit.",
+                id: "source.harmony.input.onSubmit.arg1.text",
+                target: { endpoint: "arg1", path: ["text"] },
+                description: "TextInput onSubmit event.text submitted value.",
             },
         ],
     },
@@ -61,7 +90,7 @@ export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallb
         description: "Framework text-area callbacks carry untrusted user input.",
         tags: [...CALLBACK_SOURCE_TAGS, "ui_input"],
         match: { kind: "method_name_equals", value: "onChange", typeHint: "TextArea" },
-        scope: { methodName: { mode: "regex", value: "^(build|.*\\$build)$" } },
+        scope: ARKUI_BUILD_SCOPE,
         callbackArgIndexes: [0],
         schemas: [
             {
@@ -77,13 +106,29 @@ export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallb
         description: "Framework search callbacks carry untrusted user input.",
         tags: [...CALLBACK_SOURCE_TAGS, "ui_input"],
         match: { kind: "method_name_equals", value: "onChange", typeHint: "Search" },
-        scope: { methodName: { mode: "regex", value: "^(build|.*\\$build)$" } },
+        scope: ARKUI_BUILD_SCOPE,
         callbackArgIndexes: [0],
         schemas: [
             {
                 id: "source.harmony.search.onChange.arg0",
                 target: { endpoint: "arg0" },
                 description: "Search callback parameter for onChange.",
+            },
+        ],
+    },
+    {
+        family: "source.harmony.callback.input",
+        tier: "B",
+        description: "Framework search submission callbacks carry untrusted user input.",
+        tags: [...CALLBACK_SOURCE_TAGS, "ui_input"],
+        match: { kind: "method_name_equals", value: "onSubmit", typeHint: "Search" },
+        scope: ARKUI_BUILD_SCOPE,
+        callbackArgIndexes: [0],
+        schemas: [
+            {
+                id: "source.harmony.search.onSubmit.arg0",
+                target: { endpoint: "arg0" },
+                description: "Search callback parameter for onSubmit.",
             },
         ],
     },
@@ -104,6 +149,21 @@ export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallb
                 id: "source.harmony.network.http.requestAsync.callback.arg1",
                 target: { endpoint: "arg1" },
                 description: "requestAsync callback second parameter as response data source.",
+            },
+        ],
+    },
+    {
+        family: "source.harmony.callback.network.http_completion",
+        tier: "B",
+        description: "HTTP request completion callbacks surface response objects.",
+        tags: [...CALLBACK_SOURCE_TAGS, "network_http"],
+        match: { kind: "signature_regex", value: "(Http|HttpRequest).*\\.request", invokeKind: "instance", argCount: 3 },
+        callbackArgIndexes: [2],
+        schemas: [
+            {
+                id: "source.harmony.network.http.request.callback.arg1",
+                target: { endpoint: "arg1" },
+                description: "Http.request callback second parameter as response data source.",
             },
         ],
     },
@@ -170,7 +230,7 @@ export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallb
         tags: [...CALLBACK_SOURCE_TAGS, "observer_subscription"],
         match: {
             kind: "signature_regex",
-            value: "(MediaQueryListener.*\\.on\\(|CommonEventSubscriber.*subscribe|NotificationManager.*subscribe)",
+            value: "(MediaQueryListener.*\\.on\\(|CommonEventSubscriber.*subscribe|commonEventManager.*subscribeToEvent|NotificationManager.*subscribe)",
         },
         callbackArgIndexes: [1],
         schemas: [
@@ -202,6 +262,69 @@ export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallb
         ],
     },
     {
+        family: "source.harmony.callback.request_task.response",
+        tier: "B",
+        description: "Request task response callbacks surface network response metadata and payload descriptors.",
+        tags: [...CALLBACK_SOURCE_TAGS, "request_task", "network_response"],
+        match: {
+            kind: "method_name_equals",
+            value: "on",
+            invokeKind: "instance",
+            argCount: 2,
+            typeHint: "Task",
+            literalArgs: [{ index: 0, values: ["response"] }],
+        },
+        calleeScope: exactClassRegexScope("Task", "DownloadTask", "UploadTask", "RequestTask"),
+        callbackArgIndexes: [1],
+        schemas: [
+            {
+                id: "source.harmony.request.task.on.response.arg0",
+                target: { endpoint: "arg0" },
+                description: "Task.on(\"response\") callback payload as request response source.",
+            },
+        ],
+    },
+    {
+        family: "source.harmony.callback.file_picker",
+        tier: "B",
+        description: "File/photo/audio picker callbacks surface user-selected URI results.",
+        tags: [...CALLBACK_SOURCE_TAGS, "file_picker", "file_uri"],
+        match: {
+            kind: "method_name_equals",
+            value: "select",
+            invokeKind: "instance",
+        },
+        calleeScope: exactClassRegexScope("PhotoViewPicker", "DocumentViewPicker", "AudioViewPicker"),
+        callbackArgIndexes: [0, 1],
+        schemas: [
+            {
+                id: "source.harmony.filePicker.select.callback.arg1",
+                target: { endpoint: "arg1" },
+                description: "Picker select callback result parameter as user-selected URI source.",
+            },
+        ],
+    },
+    {
+        family: "source.harmony.callback.distributedkv",
+        tier: "B",
+        description: "Distributed KV callbacks surface persisted key-value entries.",
+        tags: [...CALLBACK_SOURCE_TAGS, "distributed_kv"],
+        match: {
+            kind: "method_name_equals",
+            value: "getEntries",
+            invokeKind: "instance",
+        },
+        calleeScope: exactClassRegexScope("DistributedKVStore", "distributedKVStore", "KVStore", "SingleKVStore", "DeviceKVStore"),
+        callbackArgIndexes: [1, 2],
+        schemas: [
+            {
+                id: "source.harmony.distributedkv.getEntries.callback.arg1",
+                target: { endpoint: "arg1" },
+                description: "Distributed KV getEntries callback entries parameter as source.",
+            },
+        ],
+    },
+    {
         family: "source.harmony.callback.network.stream",
         tier: "B",
         description: "Streaming/network message callbacks surface external payloads.",
@@ -226,26 +349,6 @@ export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallb
                 id: "source.harmony.http.onDataReceive",
                 target: { endpoint: "arg0" },
                 description: "HttpRequest onDataReceive callback payload as network source.",
-            },
-        ],
-    },
-    {
-        family: "source.harmony.callback.wearengine.p2p",
-        tier: "B",
-        description: "WearEngine P2P message receiver callbacks surface cross-device payloads.",
-        tags: [...CALLBACK_SOURCE_TAGS, "wearengine", "p2p", "cross_device"],
-        match: {
-            kind: "method_name_equals",
-            value: "registerMessageReceiver",
-            invokeKind: "instance",
-            argCount: 3,
-        },
-        callbackArgIndexes: [2],
-        schemas: [
-            {
-                id: "source.harmony.wearengine.p2p.registerMessageReceiver.message.content",
-                target: { endpoint: "arg0", path: ["content"] },
-                description: "WearEngine registerMessageReceiver callback P2pMessage.content as cross-device source.",
             },
         ],
     },
@@ -369,6 +472,7 @@ export function buildFrameworkCallbackSourceRules(): SourceRule[] {
                 tier: contract.tier,
                 match: contract.match,
                 scope: contract.scope,
+                calleeScope: contract.calleeScope,
                 sourceKind: "callback_param",
                 target: schema.target,
                 callbackArgIndexes: [...contract.callbackArgIndexes],

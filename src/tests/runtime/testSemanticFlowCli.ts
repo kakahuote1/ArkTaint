@@ -257,6 +257,7 @@ async function main(): Promise<void> {
     const root = path.resolve("tmp/test_runs/runtime/semanticflow_cli/latest");
     const projectDir = path.join(root, "project");
     const ruleInput = path.join(root, "rule_candidates.json");
+    const singleRuleInput = path.join(root, "single_rule_candidate.json");
     const llmSessionCacheDir = path.join(root, "llm_session_cache");
     fs.rmSync(root, { recursive: true, force: true });
     fs.mkdirSync(root, { recursive: true });
@@ -264,6 +265,21 @@ async function main(): Promise<void> {
     writeFixture(projectDir);
     const scene = buildScene(projectDir);
     buildRuleInput(scene, ruleInput);
+    const allRuleInput = JSON.parse(fs.readFileSync(ruleInput, "utf8"));
+    fs.writeFileSync(singleRuleInput, JSON.stringify({
+        items: [
+            {
+                ...allRuleInput.items[0],
+                returnType: "Promise<string>",
+                candidateOrigin: "recall_api_surface",
+                topEntries: [
+                    "candidateTier=project-wrapper",
+                    "coverageGapSource=semanticflow_cli_trace_fixture",
+                    "coverageGapReason=coverage.role_endpoint_guard_gap",
+                ],
+            },
+        ],
+    }, null, 2), "utf8");
 
     const server = await createMockServer();
     const llmConfigPath = path.join(root, "llm.json");
@@ -280,6 +296,64 @@ async function main(): Promise<void> {
     }, llmConfigPath);
 
     try {
+        const noArkMainRoot = path.join(root, "no_arkmain_gate");
+        await runSemanticFlowCli({
+            repo: projectDir,
+            sourceDirs: ["."],
+            llmConfigPath,
+            llmProfile: "test",
+            ruleInput: singleRuleInput,
+            outputDir: noArkMainRoot,
+            model: "mock-semanticflow-cli",
+            arkMainMaxCandidates: 0,
+            maxRounds: 2,
+            concurrency: 1,
+            contextRadius: 4,
+            cfgNeighborRadius: 2,
+            maxSliceItems: 48,
+            examplesPerItem: 2,
+            analyze: false,
+            profile: "default",
+            reportMode: "light",
+            maxEntries: 12,
+            k: 1,
+            stopOnFirstFlow: false,
+            maxFlowsPerEntry: undefined,
+            maxLlmItems: 1,
+            llmSessionCacheDir: path.join(noArkMainRoot, "llm_session_cache"),
+            llmSessionCacheMode: "rw",
+        });
+        const noArkMainSummary = JSON.parse(fs.readFileSync(path.join(noArkMainRoot, "analysis.json"), "utf8"));
+        assert(noArkMainSummary.itemCount === 2, `expected original plus returned-value focus item, got ${noArkMainSummary.itemCount}`);
+        assert(noArkMainSummary.finalAnalyze === false, "standalone semanticflow gate should not run final analyze");
+        assert((noArkMainSummary.planes.arkmain || 0) === 0, `expected zero ArkMain LLM items, got ${noArkMainSummary.planes.arkmain || 0}`);
+        const noArkMainTrace = JSON.parse(fs.readFileSync(path.join(noArkMainRoot, "semanticflow_trace_graph", "full_trace_graph.json"), "utf8"));
+        assert(
+            noArkMainTrace.gates.some((gate: any) => gate.scope?.includes("rule_input_normalization")
+                && gate.evidence?.returnedValueSiblingCreatedCount === 1),
+            "standalone SemanticFlow CLI trace must record ruleInput normalization summary",
+        );
+        assert(
+            noArkMainTrace.coverage.some((record: any) => record.kind === "semanticflow_candidate"
+                && JSON.stringify(record.evidence || {}).includes("returned_value_sibling_created")
+                && JSON.stringify(record.evidence || {}).includes("returned_value_surface")),
+            "standalone SemanticFlow CLI trace coverage must expose returned-value sibling packaging",
+        );
+        assert(
+            noArkMainTrace.coverage.some((record: any) => record.kind === "asset_promotion"
+                && record.stage === "asset_promotion"
+                && record.status === "emitted"
+                && record.evidence?.toStatus === "schema-valid"),
+            "standalone SemanticFlow CLI trace must record generated asset promotion to schema-valid",
+        );
+        assert(
+            noArkMainTrace.coverage.some((record: any) => record.kind === "asset_lowering"
+                && record.stage === "asset_lowering"
+                && record.status === "emitted"
+                && record.evidence?.sourceRuleCount === 1),
+            "standalone SemanticFlow CLI trace must record evaluation lowering for generated source assets",
+        );
+
         await runSemanticFlowCli({
             repo: projectDir,
             sourceDirs: ["."],

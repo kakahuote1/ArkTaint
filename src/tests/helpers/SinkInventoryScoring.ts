@@ -1,7 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
 import { TaintFlow } from "../../core/kernel/model/TaintFlow";
-import { SinkRule, TaintRuleSet } from "../../core/rules/RuleSchema";
+import { lowerRuleAssetsToRuleSet } from "../../core/rules/RuleAssetLowering";
+import { SinkRule, SourceRule, TaintRuleSet } from "../../core/rules/RuleSchema";
 
 export interface SinkInventoryFlowSummary {
     inventoryFlowCount: number;
@@ -10,10 +11,13 @@ export interface SinkInventoryFlowSummary {
     detectedInventory: boolean;
     detectedTarget: boolean;
     sinkRuleHits: Record<string, number>;
+    sourceRuleHits: Record<string, number>;
     sinkFamilyHits: Record<string, number>;
     sinkEndpointHits: Record<string, number>;
     targetSinkRuleIds: string[];
+    targetSourceRuleIds: string[];
     hitSinkRuleIds: string[];
+    hitSourceRuleIds: string[];
 }
 
 function uniqueSorted(values: Iterable<string>): string[] {
@@ -24,13 +28,57 @@ function toEnabledSinkRules(ruleSet: TaintRuleSet): SinkRule[] {
     return (ruleSet.sinks || []).filter(rule => rule.enabled !== false);
 }
 
+function toEnabledSourceRules(ruleSet: TaintRuleSet): SourceRule[] {
+    return (ruleSet.sources || []).filter(rule => rule.enabled !== false);
+}
+
+function parseSourceRuleId(source: string | undefined): string {
+    const text = String(source || "").trim();
+    if (!text.startsWith("source_rule:")) {
+        return "";
+    }
+    const rawId = text.slice("source_rule:".length).trim();
+    return rawId
+        ? rawId.split("#occ=")[0]?.trim() || ""
+        : "";
+}
+
 export function readEnabledProjectSinkRuleIds(projectRulePath: string): string[] {
     const absPath = path.resolve(projectRulePath);
     if (!fs.existsSync(absPath)) {
         return [];
     }
-    const ruleSet = JSON.parse(fs.readFileSync(absPath, "utf-8")) as TaintRuleSet;
+    const parsed = JSON.parse(fs.readFileSync(absPath, "utf-8"));
+    if (isV2AssetDocument(parsed)) {
+        const lowered = lowerRuleAssetsToRuleSet([parsed]);
+        return uniqueSorted(toEnabledSinkRules(lowered.ruleSet).map(rule => String(rule.id || "")));
+    }
+    const ruleSet = parsed as TaintRuleSet;
     return uniqueSorted(toEnabledSinkRules(ruleSet).map(rule => String(rule.id || "")));
+}
+
+export function readEnabledProjectSourceRuleIds(projectRulePath: string): string[] {
+    const absPath = path.resolve(projectRulePath);
+    if (!fs.existsSync(absPath)) {
+        return [];
+    }
+    const parsed = JSON.parse(fs.readFileSync(absPath, "utf-8"));
+    if (isV2AssetDocument(parsed)) {
+        const lowered = lowerRuleAssetsToRuleSet([parsed]);
+        return uniqueSorted(toEnabledSourceRules(lowered.ruleSet).map(rule => String(rule.id || "")));
+    }
+    const ruleSet = parsed as TaintRuleSet;
+    return uniqueSorted(toEnabledSourceRules(ruleSet).map(rule => String(rule.id || "")));
+}
+
+function isV2AssetDocument(value: unknown): value is any {
+    if (!value || typeof value !== "object") return false;
+    const doc = value as Record<string, unknown>;
+    return typeof doc.id === "string"
+        && typeof doc.plane === "string"
+        && Array.isArray(doc.surfaces)
+        && Array.isArray(doc.bindings)
+        && Array.isArray(doc.effectTemplates);
 }
 
 export function resolveExpectedSinkRuleIds(projectRulePath: string, loadedSinkRules: SinkRule[]): string[] {
@@ -41,10 +89,15 @@ export function resolveExpectedSinkRuleIds(projectRulePath: string, loadedSinkRu
     return uniqueSorted((loadedSinkRules || []).map(rule => String(rule.id || "")));
 }
 
+export function resolveExpectedSourceRuleIds(projectRulePath: string): string[] {
+    return readEnabledProjectSourceRuleIds(projectRulePath);
+}
+
 export function summarizeSinkInventoryFlows(
     flows: TaintFlow[],
     sinkRules: SinkRule[],
-    expectedSinkRuleIds?: Iterable<string>
+    expectedSinkRuleIds?: Iterable<string>,
+    expectedSourceRuleIds?: Iterable<string>
 ): SinkInventoryFlowSummary {
     const sinkRuleById = new Map<string, SinkRule>();
     for (const rule of sinkRules || []) {
@@ -55,10 +108,14 @@ export function summarizeSinkInventoryFlows(
 
     const targetIds = uniqueSorted(expectedSinkRuleIds || []);
     const targetIdSet = new Set(targetIds);
+    const targetSourceIds = uniqueSorted(expectedSourceRuleIds || []);
+    const targetSourceIdSet = new Set(targetSourceIds);
     const sinkRuleHits: Record<string, number> = {};
+    const sourceRuleHits: Record<string, number> = {};
     const sinkFamilyHits: Record<string, number> = {};
     const sinkEndpointHits: Record<string, number> = {};
     const hitSinkRuleIds = new Set<string>();
+    const hitSourceRuleIds = new Set<string>();
 
     let inventoryFlowCount = 0;
     let targetFlowCount = 0;
@@ -72,6 +129,12 @@ export function summarizeSinkInventoryFlows(
         hitSinkRuleIds.add(sinkRuleId);
         sinkRuleHits[sinkRuleId] = (sinkRuleHits[sinkRuleId] || 0) + 1;
 
+        const sourceRuleId = String(flow.sourceRuleId || parseSourceRuleId(flow.source)).trim();
+        if (sourceRuleId) {
+            hitSourceRuleIds.add(sourceRuleId);
+            sourceRuleHits[sourceRuleId] = (sourceRuleHits[sourceRuleId] || 0) + 1;
+        }
+
         const rule = sinkRuleById.get(sinkRuleId);
         const family = String(rule?.family || "").trim();
         if (family) {
@@ -83,7 +146,9 @@ export function summarizeSinkInventoryFlows(
             sinkEndpointHits[endpoint] = (sinkEndpointHits[endpoint] || 0) + 1;
         }
 
-        const isTargetFlow = targetIdSet.size === 0 || targetIdSet.has(sinkRuleId);
+        const isTargetSink = targetIdSet.size === 0 || targetIdSet.has(sinkRuleId);
+        const isTargetSource = targetSourceIdSet.size === 0 || targetSourceIdSet.has(sourceRuleId);
+        const isTargetFlow = isTargetSink && isTargetSource;
         if (isTargetFlow) {
             targetFlowCount += 1;
         }
@@ -96,9 +161,12 @@ export function summarizeSinkInventoryFlows(
         detectedInventory: inventoryFlowCount > 0,
         detectedTarget: targetFlowCount > 0,
         sinkRuleHits,
+        sourceRuleHits,
         sinkFamilyHits,
         sinkEndpointHits,
         targetSinkRuleIds: targetIds,
+        targetSourceRuleIds: targetSourceIds,
         hitSinkRuleIds: uniqueSorted(hitSinkRuleIds),
+        hitSourceRuleIds: uniqueSorted(hitSourceRuleIds),
     };
 }

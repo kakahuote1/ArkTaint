@@ -163,6 +163,7 @@ export function isExternalImportRooted(
 export function resolveSdkImportScopeCandidates(
     sourceMethod: ArkMethod | undefined,
     invokeExpr: any,
+    scene?: Scene,
 ): SdkImportScopeCandidates {
     const classTexts = new Set<string>();
     const moduleTexts = new Set<string>();
@@ -177,6 +178,11 @@ export function resolveSdkImportScopeCandidates(
     const className = methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";
     if (className) {
         symbols.add(className);
+    }
+
+    const methodName = methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "";
+    if (methodName) {
+        symbols.add(methodName);
     }
 
     const baseName = resolveValueSymbolName(invokeExpr.getBase?.());
@@ -196,6 +202,7 @@ export function resolveSdkImportScopeCandidates(
             symbols.add(ancestorBaseName);
         }
         addSdkTypeScopeCandidates(sourceFile, rhs, classTexts, moduleTexts, fileTexts);
+        addGetterReturnScopeCandidates(scene, sourceFile, rhs, classTexts, moduleTexts, fileTexts);
         return false;
     });
 
@@ -218,6 +225,53 @@ export function resolveSdkImportScopeCandidates(
     };
 }
 
+function addGetterReturnScopeCandidates(
+    scene: Scene | undefined,
+    sourceFile: any,
+    rhs: any,
+    classTexts: Set<string>,
+    moduleTexts: Set<string>,
+    fileTexts: Set<string>,
+): void {
+    if (!scene || !sourceFile || !rhs?.getMethodSignature) return;
+    const methodSignatureText = safeToString(rhs.getMethodSignature?.());
+    if (!methodSignatureText) return;
+
+    for (const method of scene.getMethods?.() || []) {
+        if (safeToString(method?.getSignature?.()) !== methodSignatureText) continue;
+        const cfg = method?.getCfg?.();
+        if (!cfg) continue;
+        for (const stmt of cfg.getStmts?.() || []) {
+            const returnedValue = (stmt as any)?.getOp?.();
+            if (!returnedValue) continue;
+            addSdkTypeTextCandidates(
+                sourceFile,
+                safeToString(returnedValue?.getType?.()),
+                classTexts,
+                moduleTexts,
+                fileTexts,
+            );
+            const returnedDecl = returnedValue?.getDeclaringStmt?.();
+            const returnedRhs = returnedDecl?.getRightOp?.();
+            addSdkTypeTextCandidates(
+                sourceFile,
+                safeToString(returnedRhs?.getType?.()),
+                classTexts,
+                moduleTexts,
+                fileTexts,
+            );
+            const fieldSig = returnedRhs?.getFieldSignature?.();
+            addSdkTypeTextCandidates(
+                sourceFile,
+                safeToString(fieldSig?.getType?.()),
+                classTexts,
+                moduleTexts,
+                fileTexts,
+            );
+        }
+    }
+}
+
 function addSdkTypeScopeCandidates(
     sourceFile: any,
     value: any,
@@ -226,7 +280,7 @@ function addSdkTypeScopeCandidates(
     fileTexts: Set<string>,
 ): void {
     if (!sourceFile || !value) return;
-    addSdkNamespaceQualifiedTypeCandidates(
+    addSdkTypeTextCandidates(
         sourceFile,
         safeToString(value?.getType?.()),
         classTexts,
@@ -237,7 +291,7 @@ function addSdkTypeScopeCandidates(
     const defStmt = value?.getDeclaringStmt?.();
     const rhs = defStmt?.getRightOp?.();
     if (!rhs || rhs === value) return;
-    addSdkNamespaceQualifiedTypeCandidates(
+    addSdkTypeTextCandidates(
         sourceFile,
         safeToString(rhs?.getType?.()),
         classTexts,
@@ -246,13 +300,25 @@ function addSdkTypeScopeCandidates(
     );
 
     const fieldSig = rhs?.getFieldSignature?.();
-    addSdkNamespaceQualifiedTypeCandidates(
+    addSdkTypeTextCandidates(
         sourceFile,
         safeToString(fieldSig?.getType?.()),
         classTexts,
         moduleTexts,
         fileTexts,
     );
+}
+
+function addSdkTypeTextCandidates(
+    sourceFile: any,
+    typeText: string,
+    classTexts: Set<string>,
+    moduleTexts: Set<string>,
+    fileTexts: Set<string>,
+): void {
+    addSdkNamespaceQualifiedTypeCandidates(sourceFile, typeText, classTexts, moduleTexts, fileTexts);
+    addSdkImportedTypeCandidates(sourceFile, typeText, classTexts, moduleTexts, fileTexts);
+    addSdkInlineImportTypeCandidates(typeText, classTexts, moduleTexts, fileTexts);
 }
 
 function addSdkNamespaceQualifiedTypeCandidates(
@@ -273,6 +339,52 @@ function addSdkNamespaceQualifiedTypeCandidates(
             continue;
         }
         addClassLikeCandidates(classTexts, namespace);
+        addClassLikeCandidates(classTexts, typeName);
+        moduleTexts.add(importFrom);
+        fileTexts.add(importFrom);
+        addImportPathCandidates(classTexts, importFrom);
+    }
+}
+
+function addSdkImportedTypeCandidates(
+    sourceFile: any,
+    typeText: string,
+    classTexts: Set<string>,
+    moduleTexts: Set<string>,
+    fileTexts: Set<string>,
+): void {
+    if (!sourceFile || !typeText) return;
+    const re = /\b([A-Za-z_$][A-Za-z0-9_$]*)\b/g;
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(typeText)) !== null) {
+        const symbol = match[1] || "";
+        if (!symbol) continue;
+        const importFrom = sourceFile?.getImportInfoBy?.(symbol)?.getFrom?.() || "";
+        if (!isSdkImportFrom(importFrom)) {
+            continue;
+        }
+        addClassLikeCandidates(classTexts, symbol);
+        moduleTexts.add(importFrom);
+        fileTexts.add(importFrom);
+        addImportPathCandidates(classTexts, importFrom);
+    }
+}
+
+function addSdkInlineImportTypeCandidates(
+    typeText: string,
+    classTexts: Set<string>,
+    moduleTexts: Set<string>,
+    fileTexts: Set<string>,
+): void {
+    if (!typeText) return;
+    const re = /import\s*\(\s*['"]([^'"]+)['"]\s*\)\s*\.\s*([A-Za-z_$][A-Za-z0-9_$]*)/g;
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(typeText)) !== null) {
+        const importFrom = match[1] || "";
+        const typeName = match[2] || "";
+        if (!typeName || !isSdkImportFrom(importFrom)) {
+            continue;
+        }
         addClassLikeCandidates(classTexts, typeName);
         moduleTexts.add(importFrom);
         fileTexts.add(importFrom);

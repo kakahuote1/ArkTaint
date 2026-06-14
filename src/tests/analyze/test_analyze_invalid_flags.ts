@@ -29,6 +29,16 @@ function assertUnknown(flag: string): void {
     }
 }
 
+function assertInvalidValue(flag: string, value: string, expectedMessage: string): void {
+    const result = runAnalyzeWithFlag(flag, value);
+    if (result.status === 0) {
+        throw new Error(`expected ${flag} ${value} to be rejected by analyze CLI`);
+    }
+    if (!result.output.includes(expectedMessage)) {
+        throw new Error(`expected ${expectedMessage} for ${flag}, got: ${result.output}`);
+    }
+}
+
 async function main(): Promise<void> {
     assertUnknown("--entryHint");
     assertUnknown("--include");
@@ -43,9 +53,11 @@ async function main(): Promise<void> {
     assertUnknown("--externalEntryMaxCandidates");
     assertUnknown("--enableExternalEntryFacts");
     assertUnknown("--externalEntryCachePath");
+    assertInvalidValue("--arkMainMaxCandidates", "-1", "invalid --arkMainMaxCandidates");
 
     console.log("====== Analyze Invalid Flags Test ======");
     console.log("rejected_flags=13");
+    console.log("rejected_invalid_values=1");
 }
 
 main().catch(err => {

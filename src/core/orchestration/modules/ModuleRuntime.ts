@@ -15,12 +15,14 @@ import {
     ModuleDeferredBindingApi,
     ModuleDebugApi,
     ModuleEmission,
+    ModuleEmissionAuditEntry,
     ModuleEmitCollector,
     ModuleEmitApi,
     ModuleEmitOptions,
     ModuleFactEvent,
     ModuleInvokeEvent,
     ModuleInvokeMatchApi,
+    ModuleConstructScanFilter,
     ModuleInvokeScanFilter,
     ModuleAssignScanFilter,
     ModuleScannedAssign,
@@ -66,6 +68,7 @@ import type {
 } from "../../kernel/model/DeferredBindingDeclaration";
 import { TaintFact } from "../../kernel/model/TaintFact";
 import { safeGetOrCreatePagNodes } from "../../kernel/contracts/PagNodeResolution";
+import { collectCarrierNodeIdsForValueAtStmt } from "../../kernel/ordinary/OrdinaryAliasPropagation";
 import {
     extractErrorLocation,
     getExtensionSourceModulePath,
@@ -76,6 +79,7 @@ interface RegisteredSession {
     moduleId: string;
     session: ModuleSession;
     sourcePath?: string;
+    runtimeContext: ModuleSetupContext;
 }
 
 interface DeferredBindingCollector {
@@ -215,13 +219,21 @@ function buildDebugApi(moduleId: string, entry: ModuleAuditEntry, log: (msg: str
     };
 }
 
-function buildSetupDebugApi(log: (msg: string) => void): ModuleSetupContext["debug"] {
+function buildSetupDebugApi(
+    log: (msg: string) => void,
+    entry?: ModuleAuditEntry,
+): ModuleSetupContext["debug"] {
     return {
         summary(label, metrics, options = {}) {
             if (options.enabled === false) return;
             const parts = formatSummaryParts(metrics, options.omitEmpty !== false);
             if (parts.length === 0) return;
-            log(`[${label}] ${parts.join(", ")}`);
+            const message = `[${label}] ${parts.join(", ")}`;
+            if (entry) {
+                entry.debugLogCount += 1;
+                appendRecentDebugMessage(entry, "LOG", message);
+            }
+            log(message);
         },
     };
 }
@@ -249,7 +261,34 @@ function createDeferredBindingCollector(): DeferredBindingCollector {
     };
 }
 
+function assertModuleSetupBudget(
+    raw: InternalRawModuleSetupContext,
+    phase: string,
+): void {
+    const budgetMs = raw.moduleSetupDeadlineMs;
+    const startedAtMs = raw.moduleSetupStartedAtMs;
+    if (!budgetMs || budgetMs <= 0 || !startedAtMs) return;
+    const elapsedMs = Date.now() - startedAtMs;
+    if (elapsedMs <= budgetMs) return;
+    const moduleId = raw.moduleSetupModuleId || "<unknown-module>";
+    throw new ModuleRuntimeDiagnosticError(
+        `module ${moduleId} setup exceeded ${budgetMs}ms during ${phase} (elapsed=${elapsedMs}ms)`,
+        "MODULE_SETUP_BUDGET_EXCEEDED",
+        "The module exceeded its setup scan budget and was disabled for this run. Use a narrower asset selector or raise --moduleSetupBudgetMs for stress validation.",
+    );
+}
+
 function createAnalysisApi(raw: InternalRawModuleSetupContext): ModuleAnalysisApi {
+    let classBySignature: Map<string, any> | undefined;
+    const getClassBySignature = (): Map<string, any> => {
+        if (classBySignature) return classBySignature;
+        classBySignature = new Map<string, any>();
+        for (const cls of raw.scene.getClasses()) {
+            const sig = cls.getSignature?.().toString?.() || "";
+            if (sig) classBySignature.set(sig, cls);
+        }
+        return classBySignature;
+    };
     const nodeIdsForValue = (value: any, anchorStmt?: any): number[] => {
         if (!raw.pag) return [];
         const direct = collectNodeIdsFromValue(raw.pag, value);
@@ -267,9 +306,13 @@ function createAnalysisApi(raw: InternalRawModuleSetupContext): ModuleAnalysisAp
         nodeIdsForValue,
         objectNodeIdsForValue,
         carrierNodeIdsForValue(value: any, anchorStmt?: any): number[] {
+            const carrierResolved = raw.pag && value && anchorStmt
+                ? collectCarrierNodeIdsForValueAtStmt(raw.pag, value, anchorStmt, getClassBySignature())
+                : [];
             return [...new Set<number>([
                 ...nodeIdsForValue(value, anchorStmt),
                 ...objectNodeIdsForValue(value),
+                ...carrierResolved,
             ])];
         },
         aliasLocalsForCarrier(carrierNodeId: number): any[] {
@@ -416,6 +459,82 @@ function resolveMethodMeta(method: any): {
     };
 }
 
+function collectCalleeReceiverEndpointNodeIds(
+    raw: InternalRawModuleSetupContext,
+    analysis: ModuleAnalysisApi,
+    args: {
+        signature: string;
+        methodName: string;
+        declaringClassName: string;
+        accessPath: string[];
+    },
+): number[] {
+    const accessPath = args.accessPath.map(part => String(part || "").trim()).filter(Boolean);
+    if (accessPath.length === 0) return [];
+    const methods = resolveCalleeMethods(raw, args);
+    const out = new Set<number>();
+    for (const method of methods) {
+        for (const nodeId of collectReceiverEndpointReadResultNodeIds(method, analysis, accessPath)) {
+            out.add(nodeId);
+        }
+    }
+    return [...out.values()];
+}
+
+function resolveCalleeMethods(
+    raw: InternalRawModuleSetupContext,
+    args: {
+        signature: string;
+        methodName: string;
+        declaringClassName: string;
+    },
+): any[] {
+    const methods = getActiveModuleMethodIndex(raw).methods;
+    const exact = methods.filter(method => method.getSignature?.().toString?.() === args.signature);
+    if (exact.length > 0) return exact;
+    return methods.filter(method => {
+        const meta = resolveMethodMeta(method);
+        return meta.ownerMethodName === args.methodName
+            && meta.declaringClassName === args.declaringClassName;
+    });
+}
+
+function collectReceiverEndpointReadResultNodeIds(
+    method: any,
+    analysis: ModuleAnalysisApi,
+    accessPath: string[],
+): number[] {
+    const cfg = method.getCfg?.();
+    if (!cfg) return [];
+    const stmts = cfg.getStmts?.() || [];
+    let baseLocalNames = new Set<string>(["this"]);
+    let terminalNodeIds: number[] = [];
+    for (const segment of accessPath) {
+        const nextBaseLocalNames = new Set<string>();
+        const nextNodeIds = new Set<number>();
+        for (const stmt of stmts) {
+            if (!isAssignStmtLike(stmt)) continue;
+            const left = stmt.getLeftOp?.();
+            const right = stmt.getRightOp?.();
+            if (!isFieldRefLike(right)) continue;
+            if (resolveFieldName(right) !== segment) continue;
+            const baseLocalName = resolveLocalName(right.getBase?.());
+            if (!baseLocalName || !baseLocalNames.has(baseLocalName)) continue;
+            const resultLocalName = resolveLocalName(left);
+            if (resultLocalName) nextBaseLocalNames.add(resultLocalName);
+            for (const nodeId of analysis.nodeIdsForValue(left, stmt)) nextNodeIds.add(nodeId);
+            for (const nodeId of analysis.carrierNodeIdsForValue(left, stmt)) nextNodeIds.add(nodeId);
+        }
+        terminalNodeIds = [...nextNodeIds.values()];
+        if (terminalNodeIds.length === 0) return [];
+        baseLocalNames = nextBaseLocalNames;
+        if (baseLocalNames.size === 0 && segment !== accessPath[accessPath.length - 1]) {
+            return [];
+        }
+    }
+    return terminalNodeIds;
+}
+
 function matchesOwnerScanFilter(
     ownerMethodSignature: string,
     ownerMethodName: string,
@@ -439,6 +558,7 @@ function matchesInvokeScanFilter(
     isInstanceInvoke: boolean,
     methodName: string,
     declaringClassName: string,
+    baseLocalName: string | undefined,
     signature: string,
     argCount: number,
     filter?: ModuleInvokeScanFilter,
@@ -450,6 +570,33 @@ function matchesInvokeScanFilter(
     if (filter.modulePath && !modulePathMatchesSignature(filter.modulePath, signature)) return false;
     if (filter.declaringClassName && filter.declaringClassName !== declaringClassName) return false;
     if (filter.declaringClassIncludes && !declaringClassName.includes(filter.declaringClassIncludes)) return false;
+    if (filter.baseLocalName && filter.baseLocalName !== baseLocalName) return false;
+    if (filter.baseLocalNames && filter.baseLocalNames.length > 0) {
+        if (!baseLocalName || !filter.baseLocalNames.includes(baseLocalName)) return false;
+    }
+    if (filter.signature && filter.signature !== signature) return false;
+    if (filter.signatureIncludes && !signature.includes(filter.signatureIncludes)) return false;
+    if (filter.argCount !== undefined && argCount !== filter.argCount) return false;
+    if (filter.minArgs !== undefined && argCount < filter.minArgs) return false;
+    return true;
+}
+
+function isConstructorInvokeSignature(methodName: string, signature: string): boolean {
+    return methodName === "constructor" || String(signature || "").includes(".constructor(");
+}
+
+function matchesConstructScanFilter(
+    methodName: string,
+    declaringClassName: string,
+    signature: string,
+    argCount: number,
+    filter?: ModuleConstructScanFilter,
+): boolean {
+    if (!isConstructorInvokeSignature(methodName, signature)) return false;
+    if (!filter) return true;
+    if (filter.modulePath && !modulePathMatchesSignature(filter.modulePath, signature)) return false;
+    if (filter.className && filter.className !== declaringClassName) return false;
+    if (filter.classNameIncludes && !declaringClassName.includes(filter.classNameIncludes)) return false;
     if (filter.signature && filter.signature !== signature) return false;
     if (filter.signatureIncludes && !signature.includes(filter.signatureIncludes)) return false;
     if (filter.argCount !== undefined && argCount !== filter.argCount) return false;
@@ -458,10 +605,48 @@ function matchesInvokeScanFilter(
 }
 
 function modulePathMatchesSignature(modulePath: string, signature: string): boolean {
-    const expected = String(modulePath || "").replace(/^@/, "").replace(/\\/g, "/").toLowerCase();
+    const expected = normalizeModulePathForSelector(modulePath);
     const match = String(signature || "").match(/@([^:>]+):/);
-    const actual = (match?.[1] || "").replace(/^@/, "").replace(/\\/g, "/").toLowerCase();
-    return !!expected && actual === expected;
+    const actual = normalizeModulePathForSelector(match?.[1] || "");
+    const expectedSource = normalizeArkTsSourceSuffix(expected);
+    const actualSource = normalizeArkTsSourceSuffix(actual);
+    return !!expected
+        && !!actual
+        && (
+            actual === expected
+            || actual.endsWith(`/${expected}`)
+            || expected.endsWith(`/${actual}`)
+            || (!!expectedSource && !!actualSource && expectedSource === actualSource)
+        );
+}
+
+function normalizeModulePathForSelector(pathValue: string): string {
+    return String(pathValue || "")
+        .replace(/^@/, "")
+        .replace(/\\/g, "/")
+        .replace(/^\/+|\/+$/g, "")
+        .toLowerCase();
+}
+
+function normalizeArkTsSourceSuffix(pathValue: string): string | undefined {
+    const normalized = normalizeModulePathForSelector(pathValue);
+    if (!normalized) return undefined;
+    const markers = [
+        "/src/main/ets/",
+        "/src/ohostest/ets/",
+        "/src/test/ets/",
+        "/ets/",
+    ];
+    for (const marker of markers) {
+        const index = normalized.lastIndexOf(marker);
+        if (index >= 0) {
+            return normalized.slice(index + marker.length);
+        }
+    }
+    if (normalized.startsWith("ets/")) {
+        return normalized.slice("ets/".length);
+    }
+    return undefined;
 }
 
 function isInvokeExprLike(value: any): boolean {
@@ -610,6 +795,7 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
         invokes(filter?: ModuleInvokeScanFilter): ModuleScannedInvoke[] {
             const out: ModuleScannedInvoke[] = [];
             for (const method of getMethods()) {
+                assertModuleSetupBudget(raw, "scan.invokes");
                 const ownerMethodSignature = method.getSignature?.().toString?.() || "";
                 const ownerDeclaringClassName = method.getDeclaringArkClass?.()?.getName?.()
                     || method.getSignature?.()?.getDeclaringClassSignature?.()?.getClassName?.()
@@ -617,6 +803,7 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
                 const cfg = method.getCfg?.();
                 if (!cfg) continue;
                 for (const stmt of cfg.getStmts()) {
+                    assertModuleSetupBudget(raw, "scan.invokes");
                     if (!stmt.containsInvokeExpr || !stmt.containsInvokeExpr()) continue;
                     const invokeExpr = stmt.getInvokeExpr();
                     if (!isInvokeExprLike(invokeExpr)) {
@@ -628,10 +815,12 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
                     const declaringClassName = methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";
                     const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
                     const isInstanceInvoke = isInstanceInvokeExprLike(invokeExpr);
+                    const baseLocalName = isInstanceInvoke ? resolveLocalName(invokeExpr.getBase?.()) : undefined;
                     if (!matchesInvokeScanFilter(
                         isInstanceInvoke,
                         methodName,
                         declaringClassName,
+                        baseLocalName,
                         signature,
                         args.length,
                         filter,
@@ -699,6 +888,149 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
                             if (!isInstanceInvoke) return [];
                             return getAnalysis().carrierNodeIdsForValue(invokeExpr.getBase(), stmt);
                         },
+                        calleeReceiverEndpointNodeIds(accessPath: string[]): number[] {
+                            if (!isInstanceInvoke) return [];
+                            return collectCalleeReceiverEndpointNodeIds(raw, getAnalysis(), {
+                                signature,
+                                methodName,
+                                declaringClassName,
+                                accessPath,
+                            });
+                        },
+                        resultNodeIds(): number[] {
+                            return resultValue !== undefined
+                                ? getAnalysis().nodeIdsForValue(resultValue, stmt)
+                                : [];
+                        },
+                        resultCarrierNodeIds(): number[] {
+                            return resultValue !== undefined
+                                ? getAnalysis().carrierNodeIdsForValue(resultValue, stmt)
+                                : [];
+                        },
+                        callbackParamNodeIds(
+                            callbackArgIndex: number,
+                            paramIndex: number,
+                            options = {},
+                        ): number[] {
+                            const callbackValue = callbackArgIndex >= 0 && callbackArgIndex < args.length
+                                ? args[callbackArgIndex]
+                                : undefined;
+                            return collectCallbackParamNodeIdsWithQueries(
+                                raw.scene,
+                                raw.pag,
+                                raw.queries,
+                                callbackValue,
+                                paramIndex,
+                                options,
+                            );
+                        },
+                    });
+                }
+            }
+            return out;
+        },
+        constructs(filter?: ModuleConstructScanFilter): ModuleScannedInvoke[] {
+            const out: ModuleScannedInvoke[] = [];
+            for (const method of getMethods()) {
+                assertModuleSetupBudget(raw, "scan.constructs");
+                const ownerMethodSignature = method.getSignature?.().toString?.() || "";
+                const ownerDeclaringClassName = method.getDeclaringArkClass?.()?.getName?.()
+                    || method.getSignature?.()?.getDeclaringClassSignature?.()?.getClassName?.()
+                    || "";
+                const cfg = method.getCfg?.();
+                if (!cfg) continue;
+                for (const stmt of cfg.getStmts()) {
+                    assertModuleSetupBudget(raw, "scan.constructs");
+                    if (!stmt.containsInvokeExpr || !stmt.containsInvokeExpr()) continue;
+                    const invokeExpr = stmt.getInvokeExpr();
+                    if (!isInvokeExprLike(invokeExpr)) {
+                        continue;
+                    }
+                    const methodSig = invokeExpr.getMethodSignature?.();
+                    const signature = methodSig?.toString?.() || "";
+                    const methodName = methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "";
+                    const declaringClassName = methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";
+                    const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
+                    if (!matchesConstructScanFilter(
+                        methodName,
+                        declaringClassName,
+                        signature,
+                        args.length,
+                        filter,
+                    )) {
+                        continue;
+                    }
+                    const isInstanceInvoke = isInstanceInvokeExprLike(invokeExpr);
+                    const resultValue = typeof stmt.getLeftOp === "function"
+                        ? stmt.getLeftOp()
+                        : undefined;
+                    out.push({
+                        ownerMethodSignature,
+                        ownerDeclaringClassName,
+                        stmt,
+                        invokeExpr,
+                        call: {
+                            signature,
+                            methodName,
+                            declaringClassName,
+                            argCount: args.length,
+                            matchesSignature(expected: string): boolean {
+                                return signature === expected;
+                            },
+                            matchesMethod(expected: string): boolean {
+                                return methodName === expected;
+                            },
+                            matchesClass(expected: string): boolean {
+                                return declaringClassName === expected;
+                            },
+                        },
+                        arg(index: number): any | undefined {
+                            return index >= 0 && index < args.length ? args[index] : undefined;
+                        },
+                        args(): any[] {
+                            return [...args];
+                        },
+                        base(): any | undefined {
+                            return isInstanceInvoke
+                                ? invokeExpr.getBase()
+                                : undefined;
+                        },
+                        result(): any | undefined {
+                            return resultValue;
+                        },
+                        argNodeIds(index: number): number[] {
+                            const value = index >= 0 && index < args.length ? args[index] : undefined;
+                            return getAnalysis().nodeIdsForValue(value, stmt);
+                        },
+                        argObjectNodeIds(index: number): number[] {
+                            const value = index >= 0 && index < args.length ? args[index] : undefined;
+                            return getAnalysis().objectNodeIdsForValue(value);
+                        },
+                        argCarrierNodeIds(index: number): number[] {
+                            const value = index >= 0 && index < args.length ? args[index] : undefined;
+                            return getAnalysis().carrierNodeIdsForValue(value, stmt);
+                        },
+                        baseNodeIds(): number[] {
+                            if (!isInstanceInvoke) return [];
+                            return getAnalysis().nodeIdsForValue(invokeExpr.getBase(), stmt);
+                        },
+                        baseObjectNodeIds(): number[] {
+                            if (!isInstanceInvoke) return [];
+                            return getAnalysis().objectNodeIdsForValue(invokeExpr.getBase());
+                        },
+                        baseCarrierNodeIds(): number[] {
+                            if (!isInstanceInvoke) return [];
+                            return getAnalysis().carrierNodeIdsForValue(invokeExpr.getBase(), stmt);
+                        },
+                        calleeReceiverEndpointNodeIds(accessPath: string[]): number[] {
+                            if (!isInstanceInvoke) return [];
+                            return collectCalleeReceiverEndpointNodeIds(raw, getAnalysis(), {
+                                signature,
+                                methodName,
+                                declaringClassName,
+                                accessPath,
+                            });
+                        },
                         resultNodeIds(): number[] {
                             return resultValue !== undefined
                                 ? getAnalysis().nodeIdsForValue(resultValue, stmt)
@@ -734,6 +1066,7 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
         parameterBindings(filter?: ModuleParameterBindingScanFilter): ModuleScannedParameterBinding[] {
             const out: ModuleScannedParameterBinding[] = [];
             for (const method of getMethods()) {
+                assertModuleSetupBudget(raw, "scan.parameterBindings");
                 const meta = resolveMethodMeta(method);
                 if (!matchesOwnerScanFilter(
                     meta.ownerMethodSignature,
@@ -747,6 +1080,7 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
                 const cfg = method.getCfg?.();
                 if (!cfg) continue;
                 for (const stmt of cfg.getStmts()) {
+                    assertModuleSetupBudget(raw, "scan.parameterBindings");
                     if (!isAssignStmtLike(stmt)) continue;
                     const right = stmt.getRightOp();
                     if (!isParameterRefLike(right)) continue;
@@ -789,6 +1123,7 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
         assigns(filter?: ModuleAssignScanFilter): ModuleScannedAssign[] {
             const out: ModuleScannedAssign[] = [];
             for (const method of getMethods()) {
+                assertModuleSetupBudget(raw, "scan.assigns");
                 const meta = resolveMethodMeta(method);
                 if (!matchesOwnerScanFilter(
                     meta.ownerMethodSignature,
@@ -801,6 +1136,7 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
                 const cfg = method.getCfg?.();
                 if (!cfg) continue;
                 for (const stmt of cfg.getStmts()) {
+                    assertModuleSetupBudget(raw, "scan.assigns");
                     if (!isAssignStmtLike(stmt)) continue;
                     const left = stmt.getLeftOp();
                     const right = stmt.getRightOp();
@@ -843,6 +1179,7 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
         fieldLoads(filter?: ModuleFieldLoadScanFilter): ModuleScannedFieldLoad[] {
             const out: ModuleScannedFieldLoad[] = [];
             for (const method of getMethods()) {
+                assertModuleSetupBudget(raw, "scan.fieldLoads");
                 const meta = resolveMethodMeta(method);
                 if (!matchesOwnerScanFilter(
                     meta.ownerMethodSignature,
@@ -855,6 +1192,7 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
                 const cfg = method.getCfg?.();
                 if (!cfg) continue;
                 for (const stmt of cfg.getStmts()) {
+                    assertModuleSetupBudget(raw, "scan.fieldLoads");
                     if (!isAssignStmtLike(stmt)) continue;
                     const left = stmt.getLeftOp();
                     const right = stmt.getRightOp();
@@ -912,6 +1250,7 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
         fieldStores(filter?: ModuleFieldStoreScanFilter): ModuleScannedFieldStore[] {
             const out: ModuleScannedFieldStore[] = [];
             for (const method of getMethods()) {
+                assertModuleSetupBudget(raw, "scan.fieldStores");
                 const meta = resolveMethodMeta(method);
                 if (!matchesOwnerScanFilter(
                     meta.ownerMethodSignature,
@@ -924,6 +1263,7 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
                 const cfg = method.getCfg?.();
                 if (!cfg) continue;
                 for (const stmt of cfg.getStmts()) {
+                    assertModuleSetupBudget(raw, "scan.fieldStores");
                     if (!isAssignStmtLike(stmt)) continue;
                     const left = stmt.getLeftOp();
                     const right = stmt.getRightOp();
@@ -982,8 +1322,10 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
         decoratedFields(filter?: ModuleDecoratedFieldScanFilter): ModuleScannedDecoratedField[] {
             const out: ModuleScannedDecoratedField[] = [];
             for (const cls of raw.scene.getClasses?.() || []) {
+                assertModuleSetupBudget(raw, "scan.decoratedFields");
                 const className = cls.getName?.() || "";
                 for (const field of cls.getFields?.() || []) {
+                    assertModuleSetupBudget(raw, "scan.decoratedFields");
                     const fieldName = field.getName?.() || "";
                     const fieldSignature = field.getSignature?.()?.toString?.() || "";
                     const decorators = (field.getDecorators?.() || [])
@@ -1715,7 +2057,7 @@ function createSetupContext(
         callbacks: createSetupCallbackApi(raw),
         analysis,
         log: raw.log,
-        debug: buildSetupDebugApi(raw.log),
+        debug: buildSetupDebugApi(raw.log, (raw as any).__moduleAuditEntry as ModuleAuditEntry | undefined),
     };
 }
 
@@ -2120,10 +2462,14 @@ function createCallbackApi(event: InternalRawModuleInvokeEvent): ModuleCallbackA
     };
 }
 
-function createFactEvent(moduleId: string, raw: InternalRawModuleFactEvent): ModuleFactEvent {
+function createFactEvent(
+    moduleId: string,
+    raw: InternalRawModuleFactEvent,
+    runtimeContext?: ModuleSetupContext,
+): ModuleFactEvent {
     const entry = (raw as any).__moduleAuditEntry as ModuleAuditEntry;
     return {
-        ...createSetupContext(raw, { moduleId }),
+        ...(runtimeContext || createSetupContext(raw, { moduleId })),
         raw: toPublicRawFactEvent(raw),
         current: createCurrentFactView(raw),
         emit: createEmitApi(raw),
@@ -2131,9 +2477,13 @@ function createFactEvent(moduleId: string, raw: InternalRawModuleFactEvent): Mod
     };
 }
 
-function createInvokeEvent(moduleId: string, raw: InternalRawModuleInvokeEvent): ModuleInvokeEvent {
+function createInvokeEvent(
+    moduleId: string,
+    raw: InternalRawModuleInvokeEvent,
+    runtimeContext?: ModuleSetupContext,
+): ModuleInvokeEvent {
     return {
-        ...createFactEvent(moduleId, raw),
+        ...createFactEvent(moduleId, raw, runtimeContext),
         raw: toPublicRawInvokeEvent(raw),
         call: createCallView(raw),
         values: createValuesView(raw),
@@ -2169,7 +2519,41 @@ function createModuleAuditEntry(moduleId: string, sourcePath?: string): ModuleAu
         debugSkipCount: 0,
         debugLogCount: 0,
         recentDebugMessages: [],
+        emissionSamples: [],
+        emissionSampleOverflowCount: 0,
     };
+}
+
+const MODULE_EMISSION_AUDIT_SAMPLE_LIMIT = 200;
+
+function pushModuleEmissionAuditSample(
+    entry: ModuleAuditEntry,
+    moduleId: string,
+    hook: "onFact" | "onInvoke",
+    raw: InternalRawModuleFactEvent | InternalRawModuleInvokeEvent,
+    emission: ModuleEmission,
+): void {
+    if (entry.emissionSamples.length >= MODULE_EMISSION_AUDIT_SAMPLE_LIMIT) {
+        entry.emissionSampleOverflowCount += 1;
+        return;
+    }
+    const sample: ModuleEmissionAuditEntry = {
+        moduleId,
+        hook,
+        reason: emission.reason,
+        sourceFactId: raw.fact.taintId,
+        sourceNodeId: raw.node.getID(),
+        sourceContextId: raw.fact.contextID,
+        source: raw.fact.source,
+        sourceFieldPath: raw.fact.field ? [...raw.fact.field] : undefined,
+        targetFactId: emission.fact.taintId,
+        targetNodeId: emission.fact.node.getID(),
+        targetContextId: emission.fact.contextID,
+        targetFieldPath: emission.fact.field ? [...emission.fact.field] : undefined,
+        ownerMethodSignature: (raw as any).ownerMethodSignature,
+        callSignature: (raw as any).callSignature,
+    };
+    entry.emissionSamples.push(sample);
 }
 
 class DefaultModuleRuntime implements ModuleRuntime {
@@ -2206,6 +2590,11 @@ class DefaultModuleRuntime implements ModuleRuntime {
                     {
                         ...entry,
                         recentDebugMessages: [...entry.recentDebugMessages],
+                        emissionSamples: entry.emissionSamples.map(sample => ({
+                            ...sample,
+                            sourceFieldPath: sample.sourceFieldPath ? [...sample.sourceFieldPath] : undefined,
+                            targetFieldPath: sample.targetFieldPath ? [...sample.targetFieldPath] : undefined,
+                        })),
                     },
                 ]),
             ),
@@ -2231,7 +2620,7 @@ class DefaultModuleRuntime implements ModuleRuntime {
     ): ModuleEmission[] {
         const out: ModuleEmission[] = [];
         const traceModules = process.env.ARKTAINT_TRACE_MODULE_HOOKS === "1";
-        for (const { moduleId, session, sourcePath } of this.sessions) {
+        for (const { moduleId, session, sourcePath, runtimeContext } of this.sessions) {
             if (this.failedModuleIds.has(moduleId)) continue;
             const callback = session[hook];
             if (!callback) continue;
@@ -2249,8 +2638,8 @@ class DefaultModuleRuntime implements ModuleRuntime {
                 }
                 (event as any).__moduleAuditEntry = auditEntry;
                 const authorEvent = hook === "onInvoke"
-                    ? createInvokeEvent(moduleId, event as InternalRawModuleInvokeEvent)
-                    : createFactEvent(moduleId, event as InternalRawModuleFactEvent);
+                    ? createInvokeEvent(moduleId, event as InternalRawModuleInvokeEvent, runtimeContext)
+                    : createFactEvent(moduleId, event as InternalRawModuleFactEvent, runtimeContext);
                 const emitted = callback(authorEvent as any);
                 if (!emitted || emitted.length === 0) continue;
                 for (const item of emitted) {
@@ -2269,6 +2658,9 @@ class DefaultModuleRuntime implements ModuleRuntime {
                     auditEntry.invokeEmissionCount += staged.length;
                 }
                 auditEntry.totalEmissionCount += staged.length;
+                for (const item of staged) {
+                    pushModuleEmissionAuditSample(auditEntry, moduleId, hook, event as any, item);
+                }
                 if (traceModules) {
                     process.stderr.write(`[module-hook] done hook=${hook} module=${moduleId} emissions=${staged.length}\n`);
                 }
@@ -2360,11 +2752,20 @@ export function createModuleRuntime(
     for (const module of modules) {
         let session: ModuleSession | void;
         const moduleDeferredBindings = createDeferredBindingCollector();
+        const setupStartedAtMs = Date.now();
+        const setupRaw: InternalRawModuleSetupContext = {
+            ...ctx,
+            moduleSetupStartedAtMs: setupStartedAtMs,
+            moduleSetupModuleId: module.id,
+        };
+        (setupRaw as any).__moduleAuditEntry = (runtime as any).audit?.moduleStats?.[module.id];
         try {
-            session = module.setup?.(createSetupContext(ctx, {
+            ctx.log(`[ModuleRuntime] setup start id=${module.id}`);
+            session = module.setup?.(createSetupContext(setupRaw, {
                 moduleId: module.id,
                 deferredBindings: moduleDeferredBindings,
             }));
+            ctx.log(`[ModuleRuntime] setup done id=${module.id} elapsed_ms=${Date.now() - setupStartedAtMs}`);
         } catch (error) {
             runtime.disableModule(module.id, "setup", error, getExtensionSourceModulePath(module));
             continue;
@@ -2377,6 +2778,9 @@ export function createModuleRuntime(
             moduleId: module.id,
             session,
             sourcePath: getExtensionSourceModulePath(module),
+            runtimeContext: createSetupContext(ctx, {
+                moduleId: module.id,
+            }),
         });
     }
 

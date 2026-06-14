@@ -134,6 +134,7 @@
         "ownerDecorators": [
           "Entry",
           "Component",
+          "ComponentV2",
           "CustomDialog"
         ],
         "builderDecorator": "Builder",

@@ -1,0 +1,3623 @@
+{
+  "id": "asset.rule.kernel.transfers.official_structured",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
+    {
+      "surfaceId": "surface.transfer.official.urlsearchparams.set.exact.set.className.URLSearchParams",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "URLSearchParams",
+      "methodName": "set",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.urlsearchparams.append.exact.append.className.URLSearchParams",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "URLSearchParams",
+      "methodName": "append",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.urlsearchparams.get.exact.get.className.URLSearchParams",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "URLSearchParams",
+      "methodName": "get",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.urlsearchparams.getAll.exact.getAll.className.URLSearchParams",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "URLSearchParams",
+      "methodName": "getAll",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.urlsearchparams.toString.exact.toString.className.URLSearchParams",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "URLSearchParams",
+      "methodName": "toString",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.formdata.set.exact.set.className.FormData",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "FormData",
+      "methodName": "set",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.formdata.append.exact.append.className.FormData",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "FormData",
+      "methodName": "append",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.formdata.get.exact.get.className.FormData",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "FormData",
+      "methodName": "get",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.formdata.getAll.exact.getAll.className.FormData",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "FormData",
+      "methodName": "getAll",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.formdata.entries.exact.entries.className.FormData",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "FormData",
+      "methodName": "entries",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.formdata.values.exact.values.className.FormData",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "FormData",
+      "methodName": "values",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.headers.set.exact.set.className.Headers",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "Headers",
+      "methodName": "set",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.headers.append.exact.append.className.Headers",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "Headers",
+      "methodName": "append",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.headers.get.exact.get.className.Headers",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "Headers",
+      "methodName": "get",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.headers.entries.exact.entries.className.Headers",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "Headers",
+      "methodName": "entries",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.headers.values.exact.values.className.Headers",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "Headers",
+      "methodName": "values",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.resultset.getString.exact.getString.className.ResultSet",
+      "kind": "invoke",
+      "modulePath": "relationalStore",
+      "ownerName": "ResultSet",
+      "methodName": "getString",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.resultset.getBlob.exact.getBlob.className.ResultSet",
+      "kind": "invoke",
+      "modulePath": "relationalStore",
+      "ownerName": "ResultSet",
+      "methodName": "getBlob",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.resultset.getDouble.exact.getDouble.className.ResultSet",
+      "kind": "invoke",
+      "modulePath": "relationalStore",
+      "ownerName": "ResultSet",
+      "methodName": "getDouble",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.resultset.getLong.exact.getLong.className.ResultSet",
+      "kind": "invoke",
+      "modulePath": "relationalStore",
+      "ownerName": "ResultSet",
+      "methodName": "getLong",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.resultset.getInt.exact.getInt.className.ResultSet",
+      "kind": "invoke",
+      "modulePath": "relationalStore",
+      "ownerName": "ResultSet",
+      "methodName": "getInt",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.resultset.getAsset.exact.getAsset.className.ResultSet",
+      "kind": "invoke",
+      "modulePath": "relationalStore",
+      "ownerName": "ResultSet",
+      "methodName": "getAsset",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.resultset.getAssets.exact.getAssets.className.ResultSet",
+      "kind": "invoke",
+      "modulePath": "relationalStore",
+      "ownerName": "ResultSet",
+      "methodName": "getAssets",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.resultset.getValue.exact.getValue.className.ResultSet",
+      "kind": "invoke",
+      "modulePath": "relationalStore",
+      "ownerName": "ResultSet",
+      "methodName": "getValue",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.resultset.getRow.exact.getRow.className.ResultSet",
+      "kind": "invoke",
+      "modulePath": "relationalStore",
+      "ownerName": "ResultSet",
+      "methodName": "getRow",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.resultset.getSendableRow.exact.getSendableRow.className.ResultSet",
+      "kind": "invoke",
+      "modulePath": "relationalStore",
+      "ownerName": "ResultSet",
+      "methodName": "getSendableRow",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.rdbpredicates.equalTo.exact.equalTo.className.RdbPredicates",
+      "kind": "invoke",
+      "modulePath": "relationalStore",
+      "ownerName": "RdbPredicates",
+      "methodName": "equalTo",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.rdbpredicates.notEqualTo.exact.notEqualTo.className.RdbPredicates",
+      "kind": "invoke",
+      "modulePath": "relationalStore",
+      "ownerName": "RdbPredicates",
+      "methodName": "notEqualTo",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.rdbpredicates.greaterThan.exact.greaterThan.className.RdbPredicates",
+      "kind": "invoke",
+      "modulePath": "relationalStore",
+      "ownerName": "RdbPredicates",
+      "methodName": "greaterThan",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.rdbpredicates.lessThan.exact.lessThan.className.RdbPredicates",
+      "kind": "invoke",
+      "modulePath": "relationalStore",
+      "ownerName": "RdbPredicates",
+      "methodName": "lessThan",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.rdbpredicates.greaterThanOrEqualTo.exact.greaterThanOrEqualTo.className.RdbPredicates",
+      "kind": "invoke",
+      "modulePath": "relationalStore",
+      "ownerName": "RdbPredicates",
+      "methodName": "greaterThanOrEqualTo",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.rdbpredicates.lessThanOrEqualTo.exact.lessThanOrEqualTo.className.RdbPredicates",
+      "kind": "invoke",
+      "modulePath": "relationalStore",
+      "ownerName": "RdbPredicates",
+      "methodName": "lessThanOrEqualTo",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.rdbpredicates.like.exact.like.className.RdbPredicates",
+      "kind": "invoke",
+      "modulePath": "relationalStore",
+      "ownerName": "RdbPredicates",
+      "methodName": "like",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.rdbpredicates.glob.exact.glob.className.RdbPredicates",
+      "kind": "invoke",
+      "modulePath": "relationalStore",
+      "ownerName": "RdbPredicates",
+      "methodName": "glob",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.rdbpredicates.contains.exact.contains.className.RdbPredicates",
+      "kind": "invoke",
+      "modulePath": "relationalStore",
+      "ownerName": "RdbPredicates",
+      "methodName": "contains",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.rdbpredicates.beginsWith.exact.beginsWith.className.RdbPredicates",
+      "kind": "invoke",
+      "modulePath": "relationalStore",
+      "ownerName": "RdbPredicates",
+      "methodName": "beginsWith",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.rdbpredicates.endsWith.exact.endsWith.className.RdbPredicates",
+      "kind": "invoke",
+      "modulePath": "relationalStore",
+      "ownerName": "RdbPredicates",
+      "methodName": "endsWith",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.rdbpredicates.between.lower.exact.between.className.RdbPredicates",
+      "kind": "invoke",
+      "modulePath": "relationalStore",
+      "ownerName": "RdbPredicates",
+      "methodName": "between",
+      "invokeKind": "instance",
+      "argCount": 3,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.rdbpredicates.between.upper.exact.between.className.RdbPredicates",
+      "kind": "invoke",
+      "modulePath": "relationalStore",
+      "ownerName": "RdbPredicates",
+      "methodName": "between",
+      "invokeKind": "instance",
+      "argCount": 3,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.rdbpredicates.in.exact.in.className.RdbPredicates",
+      "kind": "invoke",
+      "modulePath": "relationalStore",
+      "ownerName": "RdbPredicates",
+      "methodName": "in",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.rdbpredicates.notIn.exact.notIn.className.RdbPredicates",
+      "kind": "invoke",
+      "modulePath": "relationalStore",
+      "ownerName": "RdbPredicates",
+      "methodName": "notIn",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.datasharepredicates.equalTo.exact.equalTo.className.DataSharePredicates",
+      "kind": "invoke",
+      "modulePath": "dataSharePredicates",
+      "ownerName": "DataSharePredicates",
+      "methodName": "equalTo",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.datasharepredicates.notEqualTo.exact.notEqualTo.className.DataSharePredicates",
+      "kind": "invoke",
+      "modulePath": "dataSharePredicates",
+      "ownerName": "DataSharePredicates",
+      "methodName": "notEqualTo",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.datasharepredicates.greaterThan.exact.greaterThan.className.DataSharePredicates",
+      "kind": "invoke",
+      "modulePath": "dataSharePredicates",
+      "ownerName": "DataSharePredicates",
+      "methodName": "greaterThan",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.datasharepredicates.lessThan.exact.lessThan.className.DataSharePredicates",
+      "kind": "invoke",
+      "modulePath": "dataSharePredicates",
+      "ownerName": "DataSharePredicates",
+      "methodName": "lessThan",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.datasharepredicates.like.exact.like.className.DataSharePredicates",
+      "kind": "invoke",
+      "modulePath": "dataSharePredicates",
+      "ownerName": "DataSharePredicates",
+      "methodName": "like",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.datasharepredicates.contains.exact.contains.className.DataSharePredicates",
+      "kind": "invoke",
+      "modulePath": "dataSharePredicates",
+      "ownerName": "DataSharePredicates",
+      "methodName": "contains",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.datasharepredicates.beginsWith.exact.beginsWith.className.DataSharePredicates",
+      "kind": "invoke",
+      "modulePath": "dataSharePredicates",
+      "ownerName": "DataSharePredicates",
+      "methodName": "beginsWith",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.datasharepredicates.endsWith.exact.endsWith.className.DataSharePredicates",
+      "kind": "invoke",
+      "modulePath": "dataSharePredicates",
+      "ownerName": "DataSharePredicates",
+      "methodName": "endsWith",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.crypto.cipher.doFinal.exact.doFinal.className.Cipher",
+      "kind": "invoke",
+      "modulePath": "cryptoFramework",
+      "ownerName": "Cipher",
+      "methodName": "doFinal",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.crypto.cipher.update.exact.update.className.Cipher",
+      "kind": "invoke",
+      "modulePath": "cryptoFramework",
+      "ownerName": "Cipher",
+      "methodName": "update",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.crypto.md.update.exact.update.className.Md",
+      "kind": "invoke",
+      "modulePath": "cryptoFramework",
+      "ownerName": "Md",
+      "methodName": "update",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.crypto.md.digest.exact.digest.className.Md",
+      "kind": "invoke",
+      "modulePath": "cryptoFramework",
+      "ownerName": "Md",
+      "methodName": "digest",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.crypto.mac.update.exact.update.className.Mac",
+      "kind": "invoke",
+      "modulePath": "cryptoFramework",
+      "ownerName": "Mac",
+      "methodName": "update",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.official.crypto.mac.doFinal.exact.doFinal.className.Mac",
+      "kind": "invoke",
+      "modulePath": "cryptoFramework",
+      "ownerName": "Mac",
+      "methodName": "doFinal",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.transfer.official.urlsearchparams.set.exact.set.className.URLSearchParams",
+      "surfaceId": "surface.transfer.official.urlsearchparams.set.exact.set.className.URLSearchParams",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "set",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "URLSearchParams",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "URLSearchParams"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.urlsearchparams.set"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "URLSearchParams.set(name, value): value writes into the named receiver slot."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.urlsearchparams.append.exact.append.className.URLSearchParams",
+      "surfaceId": "surface.transfer.official.urlsearchparams.append.exact.append.className.URLSearchParams",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "append",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "URLSearchParams",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "URLSearchParams"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.urlsearchparams.append"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "URLSearchParams.append(name, value): value writes into the named receiver slot."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.urlsearchparams.get.exact.get.className.URLSearchParams",
+      "surfaceId": "surface.transfer.official.urlsearchparams.get.exact.get.className.URLSearchParams",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "get",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "URLSearchParams",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "URLSearchParams"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.urlsearchparams.get"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "URLSearchParams.get(name): named slot reads to result."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.urlsearchparams.getAll.exact.getAll.className.URLSearchParams",
+      "surfaceId": "surface.transfer.official.urlsearchparams.getAll.exact.getAll.className.URLSearchParams",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "getAll",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "URLSearchParams",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "URLSearchParams"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.urlsearchparams.getAll"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "URLSearchParams.getAll(name): named slot reads to result."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.urlsearchparams.toString.exact.toString.className.URLSearchParams",
+      "surfaceId": "surface.transfer.official.urlsearchparams.toString.exact.toString.className.URLSearchParams",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "toString",
+        "invokeKind": "instance",
+        "argCount": 0,
+        "typeHint": "URLSearchParams",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "URLSearchParams"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.urlsearchparams.toString"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "URLSearchParams.toString(): receiver content serializes to result."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.formdata.set.exact.set.className.FormData",
+      "surfaceId": "surface.transfer.official.formdata.set.exact.set.className.FormData",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "set",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "FormData",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "FormData"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.formdata.set"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "FormData.set(name, value): value writes into named receiver slot."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.formdata.append.exact.append.className.FormData",
+      "surfaceId": "surface.transfer.official.formdata.append.exact.append.className.FormData",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "append",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "FormData",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "FormData"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.formdata.append"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "FormData.append(name, value): value writes into named receiver slot."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.formdata.get.exact.get.className.FormData",
+      "surfaceId": "surface.transfer.official.formdata.get.exact.get.className.FormData",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "get",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "FormData",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "FormData"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.formdata.get"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "FormData.get(name): named slot reads to result."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.formdata.getAll.exact.getAll.className.FormData",
+      "surfaceId": "surface.transfer.official.formdata.getAll.exact.getAll.className.FormData",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "getAll",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "FormData",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "FormData"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.formdata.getAll"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "FormData.getAll(name): named slot reads to result."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.formdata.entries.exact.entries.className.FormData",
+      "surfaceId": "surface.transfer.official.formdata.entries.exact.entries.className.FormData",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "entries",
+        "invokeKind": "instance",
+        "argCount": 0,
+        "typeHint": "FormData",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "FormData"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.formdata.entries"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "FormData.entries(): receiver content flows to iterator result."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.formdata.values.exact.values.className.FormData",
+      "surfaceId": "surface.transfer.official.formdata.values.exact.values.className.FormData",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "values",
+        "invokeKind": "instance",
+        "argCount": 0,
+        "typeHint": "FormData",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "FormData"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.formdata.values"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "FormData.values(): receiver content flows to iterator result."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.headers.set.exact.set.className.Headers",
+      "surfaceId": "surface.transfer.official.headers.set.exact.set.className.Headers",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "set",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "Headers",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "Headers"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.headers.set"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Headers.set(name, value): value writes into named header slot."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.headers.append.exact.append.className.Headers",
+      "surfaceId": "surface.transfer.official.headers.append.exact.append.className.Headers",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "append",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "Headers",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "Headers"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.headers.append"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Headers.append(name, value): value writes into named header slot."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.headers.get.exact.get.className.Headers",
+      "surfaceId": "surface.transfer.official.headers.get.exact.get.className.Headers",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "get",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "Headers",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "Headers"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.headers.get"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Headers.get(name): named header slot reads to result."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.headers.entries.exact.entries.className.Headers",
+      "surfaceId": "surface.transfer.official.headers.entries.exact.entries.className.Headers",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "entries",
+        "invokeKind": "instance",
+        "argCount": 0,
+        "typeHint": "Headers",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "Headers"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.headers.entries"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Headers.entries(): receiver content flows to iterator result."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.headers.values.exact.values.className.Headers",
+      "surfaceId": "surface.transfer.official.headers.values.exact.values.className.Headers",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "values",
+        "invokeKind": "instance",
+        "argCount": 0,
+        "typeHint": "Headers",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "Headers"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.headers.values"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Headers.values(): receiver content flows to iterator result."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.resultset.getString.exact.getString.className.ResultSet",
+      "surfaceId": "surface.transfer.official.resultset.getString.exact.getString.className.ResultSet",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "getString",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "ResultSet",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "ResultSet"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.resultset.getString"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "ResultSet.getString(column): selected column taints result."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.resultset.getBlob.exact.getBlob.className.ResultSet",
+      "surfaceId": "surface.transfer.official.resultset.getBlob.exact.getBlob.className.ResultSet",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "getBlob",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "ResultSet",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "ResultSet"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.resultset.getBlob"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "ResultSet.getBlob(column): selected column taints result."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.resultset.getDouble.exact.getDouble.className.ResultSet",
+      "surfaceId": "surface.transfer.official.resultset.getDouble.exact.getDouble.className.ResultSet",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "getDouble",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "ResultSet",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "ResultSet"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.resultset.getDouble"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "ResultSet.getDouble(column): selected column taints result."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.resultset.getLong.exact.getLong.className.ResultSet",
+      "surfaceId": "surface.transfer.official.resultset.getLong.exact.getLong.className.ResultSet",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "getLong",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "ResultSet",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "ResultSet"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.resultset.getLong"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "ResultSet.getLong(column): selected column taints result."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.resultset.getInt.exact.getInt.className.ResultSet",
+      "surfaceId": "surface.transfer.official.resultset.getInt.exact.getInt.className.ResultSet",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "getInt",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "ResultSet",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "ResultSet"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.resultset.getInt"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "ResultSet.getInt(column): selected column taints result."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.resultset.getAsset.exact.getAsset.className.ResultSet",
+      "surfaceId": "surface.transfer.official.resultset.getAsset.exact.getAsset.className.ResultSet",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "getAsset",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "ResultSet",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "ResultSet"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.resultset.getAsset"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "ResultSet.getAsset(column): selected column taints result."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.resultset.getAssets.exact.getAssets.className.ResultSet",
+      "surfaceId": "surface.transfer.official.resultset.getAssets.exact.getAssets.className.ResultSet",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "getAssets",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "ResultSet",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "ResultSet"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.resultset.getAssets"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "ResultSet.getAssets(column): selected column taints result."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.resultset.getValue.exact.getValue.className.ResultSet",
+      "surfaceId": "surface.transfer.official.resultset.getValue.exact.getValue.className.ResultSet",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "getValue",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "ResultSet",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "ResultSet"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.resultset.getValue"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "ResultSet.getValue(column): selected column taints result."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.resultset.getRow.exact.getRow.className.ResultSet",
+      "surfaceId": "surface.transfer.official.resultset.getRow.exact.getRow.className.ResultSet",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "getRow",
+        "invokeKind": "instance",
+        "argCount": 0,
+        "typeHint": "ResultSet",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "ResultSet"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.resultset.getRow"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "ResultSet.getRow(): current row content flows to result."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.resultset.getSendableRow.exact.getSendableRow.className.ResultSet",
+      "surfaceId": "surface.transfer.official.resultset.getSendableRow.exact.getSendableRow.className.ResultSet",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "getSendableRow",
+        "invokeKind": "instance",
+        "argCount": 0,
+        "typeHint": "ResultSet",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "ResultSet"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.resultset.getSendableRow"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "ResultSet.getSendableRow(): current row content flows to result."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.rdbpredicates.equalTo.exact.equalTo.className.RdbPredicates",
+      "surfaceId": "surface.transfer.official.rdbpredicates.equalTo.exact.equalTo.className.RdbPredicates",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "equalTo",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "RdbPredicates",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "RdbPredicates"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.rdbpredicates.equalTo"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "RdbPredicates.equalTo(field, value): value writes into predicate receiver."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.rdbpredicates.notEqualTo.exact.notEqualTo.className.RdbPredicates",
+      "surfaceId": "surface.transfer.official.rdbpredicates.notEqualTo.exact.notEqualTo.className.RdbPredicates",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "notEqualTo",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "RdbPredicates",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "RdbPredicates"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.rdbpredicates.notEqualTo"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "RdbPredicates.notEqualTo(field, value): value writes into predicate receiver."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.rdbpredicates.greaterThan.exact.greaterThan.className.RdbPredicates",
+      "surfaceId": "surface.transfer.official.rdbpredicates.greaterThan.exact.greaterThan.className.RdbPredicates",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "greaterThan",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "RdbPredicates",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "RdbPredicates"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.rdbpredicates.greaterThan"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "RdbPredicates.greaterThan(field, value): value writes into predicate receiver."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.rdbpredicates.lessThan.exact.lessThan.className.RdbPredicates",
+      "surfaceId": "surface.transfer.official.rdbpredicates.lessThan.exact.lessThan.className.RdbPredicates",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "lessThan",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "RdbPredicates",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "RdbPredicates"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.rdbpredicates.lessThan"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "RdbPredicates.lessThan(field, value): value writes into predicate receiver."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.rdbpredicates.greaterThanOrEqualTo.exact.greaterThanOrEqualTo.className.RdbPredicates",
+      "surfaceId": "surface.transfer.official.rdbpredicates.greaterThanOrEqualTo.exact.greaterThanOrEqualTo.className.RdbPredicates",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "greaterThanOrEqualTo",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "RdbPredicates",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "RdbPredicates"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.rdbpredicates.greaterThanOrEqualTo"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "RdbPredicates.greaterThanOrEqualTo(field, value): value writes into predicate receiver."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.rdbpredicates.lessThanOrEqualTo.exact.lessThanOrEqualTo.className.RdbPredicates",
+      "surfaceId": "surface.transfer.official.rdbpredicates.lessThanOrEqualTo.exact.lessThanOrEqualTo.className.RdbPredicates",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "lessThanOrEqualTo",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "RdbPredicates",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "RdbPredicates"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.rdbpredicates.lessThanOrEqualTo"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "RdbPredicates.lessThanOrEqualTo(field, value): value writes into predicate receiver."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.rdbpredicates.like.exact.like.className.RdbPredicates",
+      "surfaceId": "surface.transfer.official.rdbpredicates.like.exact.like.className.RdbPredicates",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "like",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "RdbPredicates",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "RdbPredicates"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.rdbpredicates.like"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "RdbPredicates.like(field, value): value writes into predicate receiver."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.rdbpredicates.glob.exact.glob.className.RdbPredicates",
+      "surfaceId": "surface.transfer.official.rdbpredicates.glob.exact.glob.className.RdbPredicates",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "glob",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "RdbPredicates",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "RdbPredicates"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.rdbpredicates.glob"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "RdbPredicates.glob(field, value): value writes into predicate receiver."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.rdbpredicates.contains.exact.contains.className.RdbPredicates",
+      "surfaceId": "surface.transfer.official.rdbpredicates.contains.exact.contains.className.RdbPredicates",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "contains",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "RdbPredicates",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "RdbPredicates"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.rdbpredicates.contains"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "RdbPredicates.contains(field, value): value writes into predicate receiver."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.rdbpredicates.beginsWith.exact.beginsWith.className.RdbPredicates",
+      "surfaceId": "surface.transfer.official.rdbpredicates.beginsWith.exact.beginsWith.className.RdbPredicates",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "beginsWith",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "RdbPredicates",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "RdbPredicates"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.rdbpredicates.beginsWith"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "RdbPredicates.beginsWith(field, value): value writes into predicate receiver."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.rdbpredicates.endsWith.exact.endsWith.className.RdbPredicates",
+      "surfaceId": "surface.transfer.official.rdbpredicates.endsWith.exact.endsWith.className.RdbPredicates",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "endsWith",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "RdbPredicates",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "RdbPredicates"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.rdbpredicates.endsWith"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "RdbPredicates.endsWith(field, value): value writes into predicate receiver."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.rdbpredicates.between.lower.exact.between.className.RdbPredicates",
+      "surfaceId": "surface.transfer.official.rdbpredicates.between.lower.exact.between.className.RdbPredicates",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "between",
+        "invokeKind": "instance",
+        "argCount": 3,
+        "typeHint": "RdbPredicates",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "RdbPredicates"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.rdbpredicates.between.lower"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "RdbPredicates.between(field, low, high): lower bound writes into predicate receiver."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.rdbpredicates.between.upper.exact.between.className.RdbPredicates",
+      "surfaceId": "surface.transfer.official.rdbpredicates.between.upper.exact.between.className.RdbPredicates",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "between",
+        "invokeKind": "instance",
+        "argCount": 3,
+        "typeHint": "RdbPredicates",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "RdbPredicates"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.rdbpredicates.between.upper"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "RdbPredicates.between(field, low, high): upper bound writes into predicate receiver."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.rdbpredicates.in.exact.in.className.RdbPredicates",
+      "surfaceId": "surface.transfer.official.rdbpredicates.in.exact.in.className.RdbPredicates",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "in",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "RdbPredicates",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "RdbPredicates"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.rdbpredicates.in"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "RdbPredicates.in(field, values): values write into predicate receiver."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.rdbpredicates.notIn.exact.notIn.className.RdbPredicates",
+      "surfaceId": "surface.transfer.official.rdbpredicates.notIn.exact.notIn.className.RdbPredicates",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "notIn",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "RdbPredicates",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "RdbPredicates"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.rdbpredicates.notIn"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "RdbPredicates.notIn(field, values): values write into predicate receiver."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.datasharepredicates.equalTo.exact.equalTo.className.DataSharePredicates",
+      "surfaceId": "surface.transfer.official.datasharepredicates.equalTo.exact.equalTo.className.DataSharePredicates",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "equalTo",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "DataSharePredicates",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "DataSharePredicates"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.datasharepredicates.equalTo"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "DataSharePredicates.equalTo(field, value): value writes into predicate receiver."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.datasharepredicates.notEqualTo.exact.notEqualTo.className.DataSharePredicates",
+      "surfaceId": "surface.transfer.official.datasharepredicates.notEqualTo.exact.notEqualTo.className.DataSharePredicates",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "notEqualTo",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "DataSharePredicates",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "DataSharePredicates"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.datasharepredicates.notEqualTo"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "DataSharePredicates.notEqualTo(field, value): value writes into predicate receiver."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.datasharepredicates.greaterThan.exact.greaterThan.className.DataSharePredicates",
+      "surfaceId": "surface.transfer.official.datasharepredicates.greaterThan.exact.greaterThan.className.DataSharePredicates",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "greaterThan",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "DataSharePredicates",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "DataSharePredicates"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.datasharepredicates.greaterThan"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "DataSharePredicates.greaterThan(field, value): value writes into predicate receiver."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.datasharepredicates.lessThan.exact.lessThan.className.DataSharePredicates",
+      "surfaceId": "surface.transfer.official.datasharepredicates.lessThan.exact.lessThan.className.DataSharePredicates",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "lessThan",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "DataSharePredicates",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "DataSharePredicates"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.datasharepredicates.lessThan"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "DataSharePredicates.lessThan(field, value): value writes into predicate receiver."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.datasharepredicates.like.exact.like.className.DataSharePredicates",
+      "surfaceId": "surface.transfer.official.datasharepredicates.like.exact.like.className.DataSharePredicates",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "like",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "DataSharePredicates",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "DataSharePredicates"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.datasharepredicates.like"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "DataSharePredicates.like(field, value): value writes into predicate receiver."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.datasharepredicates.contains.exact.contains.className.DataSharePredicates",
+      "surfaceId": "surface.transfer.official.datasharepredicates.contains.exact.contains.className.DataSharePredicates",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "contains",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "DataSharePredicates",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "DataSharePredicates"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.datasharepredicates.contains"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "DataSharePredicates.contains(field, value): value writes into predicate receiver."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.datasharepredicates.beginsWith.exact.beginsWith.className.DataSharePredicates",
+      "surfaceId": "surface.transfer.official.datasharepredicates.beginsWith.exact.beginsWith.className.DataSharePredicates",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "beginsWith",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "DataSharePredicates",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "DataSharePredicates"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.datasharepredicates.beginsWith"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "DataSharePredicates.beginsWith(field, value): value writes into predicate receiver."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.datasharepredicates.endsWith.exact.endsWith.className.DataSharePredicates",
+      "surfaceId": "surface.transfer.official.datasharepredicates.endsWith.exact.endsWith.className.DataSharePredicates",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "endsWith",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "DataSharePredicates",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "DataSharePredicates"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.datasharepredicates.endsWith"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "DataSharePredicates.endsWith(field, value): value writes into predicate receiver."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.crypto.cipher.doFinal.exact.doFinal.className.Cipher",
+      "surfaceId": "surface.transfer.official.crypto.cipher.doFinal.exact.doFinal.className.Cipher",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "doFinal",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "Cipher",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "Cipher"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.crypto.cipher.doFinal"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Cipher.doFinal(data): encrypted/decrypted output depends on data arg0."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.crypto.cipher.update.exact.update.className.Cipher",
+      "surfaceId": "surface.transfer.official.crypto.cipher.update.exact.update.className.Cipher",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "update",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "Cipher",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "Cipher"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.crypto.cipher.update"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Cipher.update(data): transformed output depends on data arg0."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.crypto.md.update.exact.update.className.Md",
+      "surfaceId": "surface.transfer.official.crypto.md.update.exact.update.className.Md",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "update",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "Md",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "Md"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.crypto.md.update"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Md.update(input): input contributes to digest state."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.crypto.md.digest.exact.digest.className.Md",
+      "surfaceId": "surface.transfer.official.crypto.md.digest.exact.digest.className.Md",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "digest",
+        "invokeKind": "instance",
+        "argCount": 0,
+        "typeHint": "Md",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "Md"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.crypto.md.digest"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Md.digest(): digest result depends on receiver state."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.crypto.mac.update.exact.update.className.Mac",
+      "surfaceId": "surface.transfer.official.crypto.mac.update.exact.update.className.Mac",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "update",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "Mac",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "Mac"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.crypto.mac.update"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Mac.update(input): input contributes to MAC state."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.transfer.official.crypto.mac.doFinal.exact.doFinal.className.Mac",
+      "surfaceId": "surface.transfer.official.crypto.mac.doFinal.exact.doFinal.className.Mac",
+      "assetId": "asset.rule.kernel.transfers.official_structured",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "doFinal",
+        "invokeKind": "instance",
+        "argCount": 0,
+        "typeHint": "Mac",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "Mac"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.official.crypto.mac.doFinal"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Mac.doFinal(): MAC result depends on receiver state."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.transfer.official.urlsearchparams.set",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "url-search-param"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.urlsearchparams.append",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "url-search-param"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.urlsearchparams.get",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "url-search-param"
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.urlsearchparams.getAll",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "url-search-param"
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.urlsearchparams.toString",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.formdata.set",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "form-data-field"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.formdata.append",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "form-data-field"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.formdata.get",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "form-data-field"
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.formdata.getAll",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "form-data-field"
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.formdata.entries",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.formdata.values",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.headers.set",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "header-field"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.headers.append",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "header-field"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.headers.get",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "header-field"
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.headers.entries",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.headers.values",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.resultset.getString",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "rdb-column"
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.resultset.getBlob",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "rdb-column"
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.resultset.getDouble",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "rdb-column"
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.resultset.getLong",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "rdb-column"
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.resultset.getInt",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "rdb-column"
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.resultset.getAsset",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "rdb-column"
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.resultset.getAssets",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "rdb-column"
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.resultset.getValue",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "rdb-column"
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.resultset.getRow",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.resultset.getSendableRow",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.rdbpredicates.equalTo",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "rdb-predicate-column"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.rdbpredicates.notEqualTo",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "rdb-predicate-column"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.rdbpredicates.greaterThan",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "rdb-predicate-column"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.rdbpredicates.lessThan",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "rdb-predicate-column"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.rdbpredicates.greaterThanOrEqualTo",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "rdb-predicate-column"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.rdbpredicates.lessThanOrEqualTo",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "rdb-predicate-column"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.rdbpredicates.like",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "rdb-predicate-column"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.rdbpredicates.glob",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "rdb-predicate-column"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.rdbpredicates.contains",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "rdb-predicate-column"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.rdbpredicates.beginsWith",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "rdb-predicate-column"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.rdbpredicates.endsWith",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "rdb-predicate-column"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.rdbpredicates.between.lower",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "rdb-predicate-column"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.rdbpredicates.between.upper",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 2
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "rdb-predicate-column"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.rdbpredicates.in",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "rdb-predicate-column"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.rdbpredicates.notIn",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "rdb-predicate-column"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.datasharepredicates.equalTo",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "datashare-predicate-column"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.datasharepredicates.notEqualTo",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "datashare-predicate-column"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.datasharepredicates.greaterThan",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "datashare-predicate-column"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.datasharepredicates.lessThan",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "datashare-predicate-column"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.datasharepredicates.like",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "datashare-predicate-column"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.datasharepredicates.contains",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "datashare-predicate-column"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.datasharepredicates.beginsWith",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "datashare-predicate-column"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.datasharepredicates.endsWith",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "endpoint": {
+          "base": {
+            "kind": "receiver"
+          }
+        },
+        "pathFrom": {
+          "base": {
+            "kind": "arg",
+            "index": 0
+          }
+        },
+        "slotKind": "datashare-predicate-column"
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.crypto.cipher.doFinal",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.crypto.cipher.update",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.crypto.md.update",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.crypto.md.digest",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.crypto.mac.update",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.official.crypto.mac.doFinal",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "internal_docs/security_asset_iteration/official_transfer_model_semantic_todo.md"
+      },
+      {
+        "file": "internal_docs/security_asset_iteration/official_transfer_model_sdk_crosscheck_report.md"
+      }
+    ]
+  }
+}

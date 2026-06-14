@@ -12,6 +12,7 @@ export type RuleMatchKind =
 export type RuleEndpoint = "base" | "result" | "matched_param" | `arg${number}`;
 export type RuleInvokeKind = "any" | "instance" | "static";
 export type RuleConstraintMode = "equals" | "contains" | "regex";
+export type RuleEndpointTaintScope = "self" | "contained-values";
 export type SourceRuleKind =
     | "seed_local_name"
     | "entry_param"
@@ -38,6 +39,10 @@ export interface RuleMatch {
     invokeKind?: RuleInvokeKind;
     argCount?: number;
     typeHint?: string;
+    literalArgs?: Array<{
+        index: number;
+        values: string[];
+    }>;
 }
 
 export interface RuleScopeConstraint {
@@ -45,6 +50,7 @@ export interface RuleScopeConstraint {
     module?: RuleStringConstraint;
     className?: RuleStringConstraint;
     methodName?: RuleStringConstraint;
+    methodDecorators?: RuleStringConstraint[];
 }
 
 export interface RuleEndpointRef {
@@ -52,6 +58,8 @@ export interface RuleEndpointRef {
     path?: string[];
     pathFrom?: RuleEndpoint;
     slotKind?: string;
+    taintScope?: RuleEndpointTaintScope;
+    semanticEndpointKind?: "return" | "promiseResult" | "constructorResult" | "callbackReturn";
 }
 
 export type RuleEndpointOrRef = RuleEndpoint | RuleEndpointRef;
@@ -89,10 +97,12 @@ export interface SourceRule extends BaseRule {
 }
 
 export interface SinkRule extends BaseRule {
+    calleeScope?: RuleScopeConstraint;
     target?: RuleEndpointOrRef;
 }
 
 export interface SanitizerRule extends BaseRule {
+    calleeScope?: RuleScopeConstraint;
     target?: RuleEndpointOrRef;
 }
 

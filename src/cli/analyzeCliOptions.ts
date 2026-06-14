@@ -33,6 +33,7 @@ export interface CliOptions {
     explainPluginName?: string;
     tracePluginName?: string;
     modelRoots?: string[];
+    semanticflowEvaluationModelRoots?: string[];
     disabledModuleIds?: string[];
     enabledModels?: string[];
     disabledModels?: string[];
@@ -55,6 +56,11 @@ export interface CliOptions {
     worklistBudgetMs?: number;
     worklistMaxDequeues?: number;
     worklistMaxVisited?: number;
+    moduleSetupBudgetMs?: number;
+    executionHandoffBudgetMs?: number;
+    pagIndexBudgetMs?: number;
+    lazyMaterializerBudgetMs?: number;
+    reachableBudgetMs?: number;
     enableSecondarySinkSweep: boolean;
     showLoadWarnings?: boolean;
     ruleOptions: RuleLoaderOptions;
@@ -91,6 +97,7 @@ export function parseArgs(argv: string[]): CliOptions {
     let explainPluginName: string | undefined;
     let tracePluginName: string | undefined;
     let modelRoots: string[] = [];
+    let semanticflowEvaluationModelRoots: string[] = [];
     let disabledModuleIds: string[] = [];
     let enabledModels: string[] = [];
     let disabledModels: string[] = [];
@@ -113,6 +120,11 @@ export function parseArgs(argv: string[]): CliOptions {
     let worklistBudgetMsRaw: number | undefined;
     let worklistMaxDequeuesRaw: number | undefined;
     let worklistMaxVisitedRaw: number | undefined;
+    let moduleSetupBudgetMsRaw: number | undefined;
+    let executionHandoffBudgetMsRaw: number | undefined;
+    let pagIndexBudgetMsRaw: number | undefined;
+    let lazyMaterializerBudgetMsRaw: number | undefined;
+    let reachableBudgetMsRaw: number | undefined;
     let secondarySinkSweepRaw: boolean | undefined;
     const ruleOptions: RuleLoaderOptions = {};
 
@@ -273,6 +285,14 @@ export function parseArgs(argv: string[]): CliOptions {
             if (arg === "--model-root") i++;
             continue;
         }
+        const semanticflowEvaluationModelRootArg =
+            readValue("--semanticflow-evaluation-model-root")
+            ?? readValue("--semanticflowEvaluationModelRoot");
+        if (semanticflowEvaluationModelRootArg !== undefined) {
+            semanticflowEvaluationModelRoots.push(...splitCsv(semanticflowEvaluationModelRootArg));
+            if (arg === "--semanticflow-evaluation-model-root" || arg === "--semanticflowEvaluationModelRoot") i++;
+            continue;
+        }
         const enableModelArg = readValue("--enable-model");
         if (enableModelArg !== undefined) {
             enabledModels.push(...splitCsv(enableModelArg));
@@ -429,6 +449,36 @@ export function parseArgs(argv: string[]): CliOptions {
             if (arg === "--worklistMaxVisited" || arg === "--worklist-max-visited") i++;
             continue;
         }
+        const moduleSetupBudgetArg = readValue("--moduleSetupBudgetMs") ?? readValue("--module-setup-budget-ms");
+        if (moduleSetupBudgetArg !== undefined) {
+            moduleSetupBudgetMsRaw = Number(moduleSetupBudgetArg);
+            if (arg === "--moduleSetupBudgetMs" || arg === "--module-setup-budget-ms") i++;
+            continue;
+        }
+        const executionHandoffBudgetArg = readValue("--executionHandoffBudgetMs") ?? readValue("--execution-handoff-budget-ms");
+        if (executionHandoffBudgetArg !== undefined) {
+            executionHandoffBudgetMsRaw = Number(executionHandoffBudgetArg);
+            if (arg === "--executionHandoffBudgetMs" || arg === "--execution-handoff-budget-ms") i++;
+            continue;
+        }
+        const pagIndexBudgetArg = readValue("--pagIndexBudgetMs") ?? readValue("--pag-index-budget-ms");
+        if (pagIndexBudgetArg !== undefined) {
+            pagIndexBudgetMsRaw = Number(pagIndexBudgetArg);
+            if (arg === "--pagIndexBudgetMs" || arg === "--pag-index-budget-ms") i++;
+            continue;
+        }
+        const lazyMaterializerBudgetArg = readValue("--lazyMaterializerBudgetMs") ?? readValue("--lazy-materializer-budget-ms");
+        if (lazyMaterializerBudgetArg !== undefined) {
+            lazyMaterializerBudgetMsRaw = Number(lazyMaterializerBudgetArg);
+            if (arg === "--lazyMaterializerBudgetMs" || arg === "--lazy-materializer-budget-ms") i++;
+            continue;
+        }
+        const reachableBudgetArg = readValue("--reachableBudgetMs") ?? readValue("--reachable-budget-ms");
+        if (reachableBudgetArg !== undefined) {
+            reachableBudgetMsRaw = Number(reachableBudgetArg);
+            if (arg === "--reachableBudgetMs" || arg === "--reachable-budget-ms") i++;
+            continue;
+        }
         if (arg === "--secondarySinkSweep") {
             secondarySinkSweepRaw = true;
             continue;
@@ -467,13 +517,13 @@ export function parseArgs(argv: string[]): CliOptions {
     if (sourceDirs.length === 0) throw new Error("no sourceDir found. pass --sourceDir");
     sourceDirs = normalizeSourceDirsForCli(sourceDirs);
     modelRoots = [...new Set(modelRoots.map(d => path.isAbsolute(d) ? d : path.resolve(d)))];
+    semanticflowEvaluationModelRoots = [...new Set(semanticflowEvaluationModelRoots.map(d => path.isAbsolute(d) ? d : path.resolve(d)))];
     disabledModuleIds = [...new Set(disabledModuleIds.map(id => id.trim()).filter(Boolean))];
     enabledModels = [...new Set(enabledModels.map(id => id.trim()).filter(Boolean))];
     disabledModels = [...new Set(disabledModels.map(id => id.trim()).filter(Boolean))];
     pluginPaths = [...new Set(pluginPaths.map(d => path.isAbsolute(d) ? d : path.resolve(d)))];
     disabledPluginNames = [...new Set(disabledPluginNames.map(name => name.trim()).filter(Boolean))];
     pluginIsolate = [...new Set(pluginIsolate.map(name => name.trim()).filter(Boolean))];
-
     const profileDefaults = profile === "fast"
         ? { k: 0, maxEntries: 8, concurrency: 6 }
         : profile === "strict"
@@ -509,6 +559,21 @@ export function parseArgs(argv: string[]): CliOptions {
     const worklistMaxVisited = worklistMaxVisitedRaw === undefined
         ? undefined
         : Math.floor(worklistMaxVisitedRaw);
+    const moduleSetupBudgetMs = moduleSetupBudgetMsRaw === undefined
+        ? undefined
+        : Math.floor(moduleSetupBudgetMsRaw);
+    const executionHandoffBudgetMs = executionHandoffBudgetMsRaw === undefined
+        ? undefined
+        : Math.floor(executionHandoffBudgetMsRaw);
+    const pagIndexBudgetMs = pagIndexBudgetMsRaw === undefined
+        ? undefined
+        : Math.floor(pagIndexBudgetMsRaw);
+    const lazyMaterializerBudgetMs = lazyMaterializerBudgetMsRaw === undefined
+        ? undefined
+        : Math.floor(lazyMaterializerBudgetMsRaw);
+    const reachableBudgetMs = reachableBudgetMsRaw === undefined
+        ? undefined
+        : Math.floor(reachableBudgetMsRaw);
     if (!Number.isFinite(worklistBudgetMs) || worklistBudgetMs < 0) {
         throw new Error(`invalid --worklistBudgetMs: ${worklistBudgetMsRaw}`);
     }
@@ -518,9 +583,24 @@ export function parseArgs(argv: string[]): CliOptions {
     if (worklistMaxVisited !== undefined && (!Number.isFinite(worklistMaxVisited) || worklistMaxVisited < 0)) {
         throw new Error(`invalid --worklistMaxVisited: ${worklistMaxVisitedRaw}`);
     }
+    if (moduleSetupBudgetMs !== undefined && (!Number.isFinite(moduleSetupBudgetMs) || moduleSetupBudgetMs < 0)) {
+        throw new Error(`invalid --moduleSetupBudgetMs: ${moduleSetupBudgetMsRaw}`);
+    }
+    if (executionHandoffBudgetMs !== undefined && (!Number.isFinite(executionHandoffBudgetMs) || executionHandoffBudgetMs < 0)) {
+        throw new Error(`invalid --executionHandoffBudgetMs: ${executionHandoffBudgetMsRaw}`);
+    }
+    if (pagIndexBudgetMs !== undefined && (!Number.isFinite(pagIndexBudgetMs) || pagIndexBudgetMs < 0)) {
+        throw new Error(`invalid --pagIndexBudgetMs: ${pagIndexBudgetMsRaw}`);
+    }
+    if (lazyMaterializerBudgetMs !== undefined && (!Number.isFinite(lazyMaterializerBudgetMs) || lazyMaterializerBudgetMs < 0)) {
+        throw new Error(`invalid --lazyMaterializerBudgetMs: ${lazyMaterializerBudgetMsRaw}`);
+    }
+    if (reachableBudgetMs !== undefined && (!Number.isFinite(reachableBudgetMs) || reachableBudgetMs < 0)) {
+        throw new Error(`invalid --reachableBudgetMs: ${reachableBudgetMsRaw}`);
+    }
     if (
         arkMainMaxCandidates !== undefined
-        && (!Number.isFinite(arkMainMaxCandidates) || arkMainMaxCandidates <= 0)
+        && (!Number.isFinite(arkMainMaxCandidates) || arkMainMaxCandidates < 0)
     ) {
         throw new Error(`invalid --arkMainMaxCandidates: ${arkMainMaxCandidates}`);
     }
@@ -598,6 +678,7 @@ export function parseArgs(argv: string[]): CliOptions {
         explainPluginName,
         tracePluginName,
         modelRoots,
+        semanticflowEvaluationModelRoots,
         disabledModuleIds,
         enabledModels,
         disabledModels,
@@ -620,6 +701,11 @@ export function parseArgs(argv: string[]): CliOptions {
         worklistBudgetMs,
         worklistMaxDequeues,
         worklistMaxVisited,
+        moduleSetupBudgetMs,
+        executionHandoffBudgetMs,
+        pagIndexBudgetMs,
+        lazyMaterializerBudgetMs,
+        reachableBudgetMs,
         enableSecondarySinkSweep,
         showLoadWarnings: true,
         ruleOptions,

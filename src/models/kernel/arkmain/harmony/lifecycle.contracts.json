@@ -233,7 +233,8 @@
                 "onLiveFormCreate",
                 "onAccessibilityConnect",
                 "onAdminEnabled",
-                "onWindowReady"
+                "onWindowReady",
+                "onAttachedToEngine"
               ],
               "composition": [],
               "interaction": [
@@ -316,7 +317,8 @@
                 "onRelease",
                 "onAdminDisabled",
                 "onAccessibilityDisconnect",
-                "onStop"
+                "onStop",
+                "onDetachedFromEngine"
               ]
             }
           }

@@ -177,6 +177,9 @@ async function main(): Promise<void> {
         assert(phase1Report.summary.stageProfile.incrementalCacheWriteCount === 0, `--no-incremental should disable phase1 cache writes, got ${phase1Report.summary.stageProfile.incrementalCacheWriteCount}`);
         assert(fs.existsSync(path.join(root, "phase1", "feedback", "rule_feedback", "no_candidate_callsites.json")), "missing phase1 rule feedback");
         assert(fs.existsSync(path.join(root, "assets.json")), "missing modeled assets artifact");
+        const runManifest = JSON.parse(fs.readFileSync(path.join(root, "run.json"), "utf8"));
+        assert(runManifest.profile?.maxLlmItems === 12, `expected analyze --autoModel to use default maxLlmItems=12, got ${runManifest.profile?.maxLlmItems}`);
+        assert(runManifest.profile?.llmRepairAttempts === 1, `expected analyze --autoModel to use default llmRepairAttempts=1, got ${runManifest.profile?.llmRepairAttempts}`);
 
         console.log("PASS test_analyze_auto_model");
     } finally {

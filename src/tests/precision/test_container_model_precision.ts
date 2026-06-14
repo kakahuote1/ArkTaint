@@ -167,6 +167,11 @@ const CASES: CaseSpec[] = [
         family: "named_maplike",
     },
     {
+        filePath: "tests/adhoc/container_model_language/preferences_overwrite_safe_023_F.ets",
+        expected: false,
+        family: "named_maplike",
+    },
+    {
         filePath: "tests/adhoc/container_model_language/globalcontext_getobject_015_T.ets",
         expected: true,
         family: "named_maplike",

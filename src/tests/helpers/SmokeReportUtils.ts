@@ -25,6 +25,28 @@ function inventoryFlowCount(entry: EntrySmokeResult): number {
     return sinkHitCount > 0 ? sinkHitCount : entry.flowCount;
 }
 
+export function entryFatalReason(entry: EntrySmokeResult): string | undefined {
+    if (entry.status !== "exception" && entry.status !== "budget_exceeded") {
+        return undefined;
+    }
+    const name = entry.entryName || entry.signature || "@arkMain";
+    const detail = entry.error ? `: ${entry.error}` : "";
+    return `entry_${entry.status}[${name}]${detail}`;
+}
+
+export function projectFatalReasons(project: ProjectSmokeResult): string[] {
+    const reasons = [...(project.fatalErrors || [])];
+    for (const entry of project.entries || []) {
+        const reason = entryFatalReason(entry);
+        if (reason) reasons.push(reason);
+    }
+    return reasons;
+}
+
+export function projectHasFatalAnalysis(project: ProjectSmokeResult): boolean {
+    return projectFatalReasons(project).length > 0;
+}
+
 function mergeCounts(dst: Record<string, number>, src: Record<string, number>): void {
     for (const [key, value] of Object.entries(src || {})) {
         dst[key] = (dst[key] || 0) + value;
@@ -92,7 +114,7 @@ export function aggregateReport(options: CliOptions, projects: ProjectSmokeResul
         totalEntriesWithSeeds += p.withSeeds;
         totalEntriesWithFlows += p.withFlows;
         totalFlows += p.totalFlows;
-        if (p.fatalErrors.length > 0) fatalProjectCount++;
+        if (projectHasFatalAnalysis(p)) fatalProjectCount++;
 
         mergeCounts(sinkRuleHits, p.sinkRuleHits);
         mergeCounts(sinkFamilyHits, p.sinkFamilyHits);
@@ -185,10 +207,11 @@ export function renderMarkdownReport(report: SmokeReport): string {
         if (topProjectSinkRules.length > 0) {
             lines.push(`- sinkRuleHits(top): ${topProjectSinkRules.map(([id, count]) => `${id}:${count}`).join(", ")}`);
         }
-        if (project.fatalErrors.length > 0) {
-            lines.push("- fatalErrors:");
-            for (const err of project.fatalErrors) {
-                lines.push(`  - ${err}`);
+        const fatalReasons = projectFatalReasons(project);
+        if (fatalReasons.length > 0) {
+            lines.push("- fatalReasons:");
+            for (const reason of fatalReasons) {
+                lines.push(`  - ${reason}`);
             }
         }
         lines.push("");
@@ -222,6 +245,10 @@ export function renderMarkdownReport(report: SmokeReport): string {
                     lines.push(`  - ${sample}`);
                 }
             }
+            const fatalReason = entryFatalReason(e);
+            if (fatalReason) {
+                lines.push(`  - fatalReason: ${fatalReason}`);
+            }
         }
         lines.push("");
     }
@@ -244,7 +271,11 @@ export function printConsoleSummary(report: SmokeReport): void {
             p.sourceSummaries.length > 0
                 ? p.sourceSummaries.reduce((acc, s) => acc + s.entryCoverageRate, 0) / p.sourceSummaries.length
                 : 0;
-        console.log(`  ${p.id.padEnd(30)} priority=${(p.priority || "N/A").padEnd(6)} analyzed=${String(p.analyzed).padEnd(3)} withSeeds=${String(p.withSeeds).padEnd(3)} withFlows=${String(p.withFlows).padEnd(3)} totalFlows=${String(p.totalFlows).padEnd(3)} cov=${(coverage * 100).toFixed(1)}% fatal=${p.fatalErrors.length}`);
+        const fatalReasons = projectFatalReasons(p);
+        console.log(`  ${p.id.padEnd(30)} priority=${(p.priority || "N/A").padEnd(6)} analyzed=${String(p.analyzed).padEnd(3)} withSeeds=${String(p.withSeeds).padEnd(3)} withFlows=${String(p.withFlows).padEnd(3)} totalFlows=${String(p.totalFlows).padEnd(3)} cov=${(coverage * 100).toFixed(1)}% fatal=${fatalReasons.length}`);
+        for (const reason of fatalReasons.slice(0, 2)) {
+            console.log(`    fatal_reason=${reason}`);
+        }
     }
 
     console.log("\n------ sink flow totals (rule) ------");

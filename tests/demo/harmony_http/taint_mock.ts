@@ -1,5 +1,5 @@
 ﻿export class Http {
-    request(_url: string, _data: any): any { return undefined; }
+    request(_url: string, _data: any, _cb?: (err: any, data: any) => void): any { return undefined; }
     requestAsync(_url: string, _cb: (resp: any) => void): void {}
 }
 

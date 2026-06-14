@@ -9,7 +9,8 @@ export function propagateExpressionTaint(
     tracker: TaintTracker,
     pag: Pag,
     fieldPath?: string[],
+    source?: string,
 ): number[] {
     void nodeId;
-    return propagateOrdinaryExpressionTaint(value, currentCtx, tracker, pag, fieldPath);
+    return propagateOrdinaryExpressionTaint(value, currentCtx, tracker, pag, fieldPath, source);
 }

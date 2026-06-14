@@ -252,6 +252,155 @@ function main(): void {
         "handoff template with unknown cellKind",
     );
 
+    const validModuleAsset: any = validRuleAsset();
+    validModuleAsset.id = "asset.module.token-cache";
+    validModuleAsset.plane = "module";
+    validModuleAsset.bindings[0].assetId = validModuleAsset.id;
+    validModuleAsset.bindings[0].plane = "module";
+    validModuleAsset.bindings[0].role = "handoff";
+    validModuleAsset.bindings[0].effectTemplateRefs = ["template.token-cache.put"];
+    validModuleAsset.effectTemplates = [
+        {
+            id: "template.token-cache.put",
+            kind: "handoff.put",
+            handle: {
+                cellKind: "keyed-semantic-slot",
+                family: "project.token_cache",
+                key: [{ kind: "fromLiteralArg", index: 0 }],
+                precision: "infer",
+            },
+            value: { base: { kind: "arg", index: 1 } },
+            updateStrength: "infer",
+            confidence: "likely",
+        },
+    ];
+    expectValid(validModuleAsset, "valid module handoff asset");
+
+    const validPairedHandoffAsset: any = validRuleAsset();
+    validPairedHandoffAsset.id = "asset.module.project-kvdb";
+    validPairedHandoffAsset.plane = "module";
+    validPairedHandoffAsset.surfaces = [
+        {
+            surfaceId: "surface.ProjectKv.put",
+            kind: "invoke",
+            modulePath: "project/storage/Kv.ets",
+            ownerName: "ProjectKv",
+            methodName: "put",
+            invokeKind: "namespace",
+            argCount: 2,
+            confidence: "likely",
+            provenance: { source: "llm-proposal" },
+        },
+        {
+            surfaceId: "surface.ProjectKv.get",
+            kind: "invoke",
+            modulePath: "project/storage/Kv.ets",
+            ownerName: "ProjectKv",
+            methodName: "get",
+            invokeKind: "namespace",
+            argCount: 1,
+            confidence: "likely",
+            provenance: { source: "llm-proposal" },
+        },
+    ];
+    validPairedHandoffAsset.bindings = [
+        {
+            bindingId: "binding.ProjectKv.put",
+            surfaceId: "surface.ProjectKv.put",
+            assetId: validPairedHandoffAsset.id,
+            plane: "module",
+            role: "handoff",
+            effectTemplateRefs: ["template.ProjectKv.put"],
+            semanticsFamily: "project-keyed-storage",
+            completeness: "partial",
+            confidence: "likely",
+        },
+        {
+            bindingId: "binding.ProjectKv.get",
+            surfaceId: "surface.ProjectKv.get",
+            assetId: validPairedHandoffAsset.id,
+            plane: "module",
+            role: "handoff",
+            effectTemplateRefs: ["template.ProjectKv.get"],
+            semanticsFamily: "project-keyed-storage",
+            completeness: "partial",
+            confidence: "likely",
+        },
+    ];
+    validPairedHandoffAsset.effectTemplates = [
+        {
+            id: "template.ProjectKv.put",
+            kind: "handoff.put",
+            handle: {
+                cellKind: "persistent-storage-slot",
+                family: "project.kvdb",
+                key: [{ kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 0 } } }],
+                precision: "infer",
+            },
+            value: { base: { kind: "arg", index: 1 } },
+            updateStrength: "infer",
+            confidence: "likely",
+        },
+        {
+            id: "template.ProjectKv.get",
+            kind: "handoff.get",
+            handle: {
+                cellKind: "persistent-storage-slot",
+                family: "project.kvdb",
+                key: [{ kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 0 } } }],
+                precision: "infer",
+            },
+            target: { base: { kind: "return" } },
+            confidence: "likely",
+        },
+    ];
+    expectValid(validPairedHandoffAsset, "valid paired module handoff asset");
+
+    const mismatchedPairedHandoffFamily: any = JSON.parse(JSON.stringify(validPairedHandoffAsset));
+    mismatchedPairedHandoffFamily.effectTemplates[1].handle.family = "project.other_kvdb";
+    expectInvalid(
+        mismatchedPairedHandoffFamily,
+        "same handle.family",
+        "paired handoff asset with mismatched families",
+    );
+
+    const unrelatedDifferentKeyFamily: any = JSON.parse(JSON.stringify(validPairedHandoffAsset));
+    unrelatedDifferentKeyFamily.effectTemplates[1].handle.family = "project.other_kvdb";
+    unrelatedDifferentKeyFamily.effectTemplates[1].handle.key = [
+        { kind: "fromEndpoint", endpoint: { base: { kind: "arg", index: 0 }, accessPath: ["name"] } },
+    ];
+    expectValid(unrelatedDifferentKeyFamily, "different keyed handoff families are independent");
+
+    const moduleWithRuleEffect: any = validRuleAsset();
+    moduleWithRuleEffect.id = "asset.module.bad.rule-effect";
+    moduleWithRuleEffect.plane = "module";
+    moduleWithRuleEffect.bindings[0].assetId = moduleWithRuleEffect.id;
+    moduleWithRuleEffect.bindings[0].plane = "module";
+    expectInvalid(
+        moduleWithRuleEffect,
+        "rule.sink is not compatible with asset plane module",
+        "module asset with rule effect",
+    );
+
+    const ruleWithHandoffEffect: any = validModuleAsset;
+    ruleWithHandoffEffect.id = "asset.rule.bad.handoff-effect";
+    ruleWithHandoffEffect.plane = "rule";
+    ruleWithHandoffEffect.bindings[0].assetId = ruleWithHandoffEffect.id;
+    ruleWithHandoffEffect.bindings[0].plane = "rule";
+    expectInvalid(
+        ruleWithHandoffEffect,
+        "handoff.put is not compatible with asset plane rule",
+        "rule asset with handoff effect",
+    );
+
+    const bindingPlaneMismatch: any = validRuleAsset();
+    bindingPlaneMismatch.bindings[0].plane = "module";
+    expectInvalid(
+        bindingPlaneMismatch,
+        "plane must match asset plane rule",
+        "binding plane mismatch",
+    );
+
     const badSelectorRegex = validRuleAsset();
     badSelectorRegex.bindings[0].selector = {
         kind: "signature-regex",

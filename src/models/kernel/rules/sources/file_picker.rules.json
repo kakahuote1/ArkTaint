@@ -1,0 +1,811 @@
+{
+  "id": "asset.rule.kernel.sources.file_picker",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
+    {
+      "surfaceId": "surface.source.harmony.filePicker.select.argCount0.exact.select.className.PhotoViewPicker",
+      "kind": "invoke",
+      "modulePath": "@ohos.file.picker",
+      "ownerName": "PhotoViewPicker",
+      "methodName": "select",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.filePicker.select.argCount1.exact.select.className.PhotoViewPicker",
+      "kind": "invoke",
+      "modulePath": "@ohos.file.picker",
+      "ownerName": "PhotoViewPicker",
+      "methodName": "select",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.filePicker.select.argCount2.exact.select.className.PhotoViewPicker",
+      "kind": "invoke",
+      "modulePath": "@ohos.file.picker",
+      "ownerName": "PhotoViewPicker",
+      "methodName": "select",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.filePicker.select.argCount0.exact.select.className.DocumentViewPicker",
+      "kind": "invoke",
+      "modulePath": "@ohos.file.picker",
+      "ownerName": "DocumentViewPicker",
+      "methodName": "select",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.filePicker.select.argCount1.exact.select.className.DocumentViewPicker",
+      "kind": "invoke",
+      "modulePath": "@ohos.file.picker",
+      "ownerName": "DocumentViewPicker",
+      "methodName": "select",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.filePicker.select.argCount2.exact.select.className.DocumentViewPicker",
+      "kind": "invoke",
+      "modulePath": "@ohos.file.picker",
+      "ownerName": "DocumentViewPicker",
+      "methodName": "select",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.filePicker.select.argCount0.exact.select.className.AudioViewPicker",
+      "kind": "invoke",
+      "modulePath": "@ohos.file.picker",
+      "ownerName": "AudioViewPicker",
+      "methodName": "select",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.filePicker.select.argCount1.exact.select.className.AudioViewPicker",
+      "kind": "invoke",
+      "modulePath": "@ohos.file.picker",
+      "ownerName": "AudioViewPicker",
+      "methodName": "select",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.filePicker.select.argCount2.exact.select.className.AudioViewPicker",
+      "kind": "invoke",
+      "modulePath": "@ohos.file.picker",
+      "ownerName": "AudioViewPicker",
+      "methodName": "select",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.source.harmony.filePicker.select.result.argCount0.PhotoViewPicker",
+      "surfaceId": "surface.source.harmony.filePicker.select.argCount0.exact.select.className.PhotoViewPicker",
+      "assetId": "asset.rule.kernel.sources.file_picker",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "select",
+        "invokeKind": "instance",
+        "argCount": 0,
+        "typeHint": "PhotoViewPicker",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "PhotoViewPicker"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.filePicker.select.result.argCount0.PhotoViewPicker"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "PhotoViewPicker.select() Promise result as user-selected URI source.",
+        "tags": [
+          "harmony",
+          "official",
+          "source"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.harmony.filePicker.select.result.argCount1.PhotoViewPicker",
+      "surfaceId": "surface.source.harmony.filePicker.select.argCount1.exact.select.className.PhotoViewPicker",
+      "assetId": "asset.rule.kernel.sources.file_picker",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "select",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "PhotoViewPicker",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "PhotoViewPicker"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.filePicker.select.result.argCount1.PhotoViewPicker"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "PhotoViewPicker.select(option) Promise result as user-selected URI source.",
+        "tags": [
+          "harmony",
+          "official",
+          "source"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.harmony.filePicker.select.callbackArg0.result.PhotoViewPicker",
+      "surfaceId": "surface.source.harmony.filePicker.select.argCount1.exact.select.className.PhotoViewPicker",
+      "assetId": "asset.rule.kernel.sources.file_picker",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "select",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "PhotoViewPicker",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "PhotoViewPicker"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 0
+          },
+          "argIndex": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.filePicker.select.callbackArg0.result.PhotoViewPicker"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "PhotoViewPicker.select(callback) callback result as user-selected URI source.",
+        "tags": [
+          "harmony",
+          "official",
+          "source"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.harmony.filePicker.select.callbackArg1.result.PhotoViewPicker",
+      "surfaceId": "surface.source.harmony.filePicker.select.argCount2.exact.select.className.PhotoViewPicker",
+      "assetId": "asset.rule.kernel.sources.file_picker",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "select",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "PhotoViewPicker",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "PhotoViewPicker"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 1
+          },
+          "argIndex": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.filePicker.select.callbackArg1.result.PhotoViewPicker"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "PhotoViewPicker.select(option, callback) callback result as user-selected URI source.",
+        "tags": [
+          "harmony",
+          "official",
+          "source"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.harmony.filePicker.select.result.argCount0.DocumentViewPicker",
+      "surfaceId": "surface.source.harmony.filePicker.select.argCount0.exact.select.className.DocumentViewPicker",
+      "assetId": "asset.rule.kernel.sources.file_picker",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "select",
+        "invokeKind": "instance",
+        "argCount": 0,
+        "typeHint": "DocumentViewPicker",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "DocumentViewPicker"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.filePicker.select.result.argCount0.DocumentViewPicker"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "DocumentViewPicker.select() Promise result as user-selected URI source.",
+        "tags": [
+          "harmony",
+          "official",
+          "source"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.harmony.filePicker.select.result.argCount1.DocumentViewPicker",
+      "surfaceId": "surface.source.harmony.filePicker.select.argCount1.exact.select.className.DocumentViewPicker",
+      "assetId": "asset.rule.kernel.sources.file_picker",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "select",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "DocumentViewPicker",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "DocumentViewPicker"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.filePicker.select.result.argCount1.DocumentViewPicker"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "DocumentViewPicker.select(option) Promise result as user-selected URI source.",
+        "tags": [
+          "harmony",
+          "official",
+          "source"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.harmony.filePicker.select.callbackArg0.result.DocumentViewPicker",
+      "surfaceId": "surface.source.harmony.filePicker.select.argCount1.exact.select.className.DocumentViewPicker",
+      "assetId": "asset.rule.kernel.sources.file_picker",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "select",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "DocumentViewPicker",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "DocumentViewPicker"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 0
+          },
+          "argIndex": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.filePicker.select.callbackArg0.result.DocumentViewPicker"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "DocumentViewPicker.select(callback) callback result as user-selected URI source.",
+        "tags": [
+          "harmony",
+          "official",
+          "source"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.harmony.filePicker.select.callbackArg1.result.DocumentViewPicker",
+      "surfaceId": "surface.source.harmony.filePicker.select.argCount2.exact.select.className.DocumentViewPicker",
+      "assetId": "asset.rule.kernel.sources.file_picker",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "select",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "DocumentViewPicker",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "DocumentViewPicker"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 1
+          },
+          "argIndex": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.filePicker.select.callbackArg1.result.DocumentViewPicker"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "DocumentViewPicker.select(option, callback) callback result as user-selected URI source.",
+        "tags": [
+          "harmony",
+          "official",
+          "source"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.harmony.filePicker.select.result.argCount0.AudioViewPicker",
+      "surfaceId": "surface.source.harmony.filePicker.select.argCount0.exact.select.className.AudioViewPicker",
+      "assetId": "asset.rule.kernel.sources.file_picker",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "select",
+        "invokeKind": "instance",
+        "argCount": 0,
+        "typeHint": "AudioViewPicker",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "AudioViewPicker"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.filePicker.select.result.argCount0.AudioViewPicker"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "AudioViewPicker.select() Promise result as user-selected URI source.",
+        "tags": [
+          "harmony",
+          "official",
+          "source"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.harmony.filePicker.select.result.argCount1.AudioViewPicker",
+      "surfaceId": "surface.source.harmony.filePicker.select.argCount1.exact.select.className.AudioViewPicker",
+      "assetId": "asset.rule.kernel.sources.file_picker",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "select",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "AudioViewPicker",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "AudioViewPicker"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.filePicker.select.result.argCount1.AudioViewPicker"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "AudioViewPicker.select(option) Promise result as user-selected URI source.",
+        "tags": [
+          "harmony",
+          "official",
+          "source"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.harmony.filePicker.select.callbackArg0.result.AudioViewPicker",
+      "surfaceId": "surface.source.harmony.filePicker.select.argCount1.exact.select.className.AudioViewPicker",
+      "assetId": "asset.rule.kernel.sources.file_picker",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "select",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "AudioViewPicker",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "AudioViewPicker"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 0
+          },
+          "argIndex": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.filePicker.select.callbackArg0.result.AudioViewPicker"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "AudioViewPicker.select(callback) callback result as user-selected URI source.",
+        "tags": [
+          "harmony",
+          "official",
+          "source"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.harmony.filePicker.select.callbackArg1.result.AudioViewPicker",
+      "surfaceId": "surface.source.harmony.filePicker.select.argCount2.exact.select.className.AudioViewPicker",
+      "assetId": "asset.rule.kernel.sources.file_picker",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "select",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "AudioViewPicker",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "AudioViewPicker"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 1
+          },
+          "argIndex": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.filePicker.select.callbackArg1.result.AudioViewPicker"
+      ],
+      "semanticsFamily": "source",
+      "metadata": {
+        "enabled": true,
+        "description": "AudioViewPicker.select(option, callback) callback result as user-selected URI source.",
+        "tags": [
+          "harmony",
+          "official",
+          "source"
+        ]
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.source.harmony.filePicker.select.result.argCount0.PhotoViewPicker",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    },
+    {
+      "id": "template.source.harmony.filePicker.select.result.argCount1.PhotoViewPicker",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    },
+    {
+      "id": "template.source.harmony.filePicker.select.callbackArg0.result.PhotoViewPicker",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 0
+          },
+          "argIndex": 1
+        }
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.source.harmony.filePicker.select.callbackArg1.result.PhotoViewPicker",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 1
+          },
+          "argIndex": 1
+        }
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.source.harmony.filePicker.select.result.argCount0.DocumentViewPicker",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    },
+    {
+      "id": "template.source.harmony.filePicker.select.result.argCount1.DocumentViewPicker",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    },
+    {
+      "id": "template.source.harmony.filePicker.select.callbackArg0.result.DocumentViewPicker",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 0
+          },
+          "argIndex": 1
+        }
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.source.harmony.filePicker.select.callbackArg1.result.DocumentViewPicker",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 1
+          },
+          "argIndex": 1
+        }
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.source.harmony.filePicker.select.result.argCount0.AudioViewPicker",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    },
+    {
+      "id": "template.source.harmony.filePicker.select.result.argCount1.AudioViewPicker",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "call_return"
+    },
+    {
+      "id": "template.source.harmony.filePicker.select.callbackArg0.result.AudioViewPicker",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 0
+          },
+          "argIndex": 1
+        }
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.source.harmony.filePicker.select.callbackArg1.result.AudioViewPicker",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "callbackArg",
+          "callback": {
+            "kind": "arg",
+            "index": 1
+          },
+          "argIndex": 1
+        }
+      },
+      "sourceKind": "callback_param"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "src/models/kernel/rules/sources/file_picker.rules.json"
+      },
+      {
+        "file": "internal_docs/security_asset_iteration/official_api_semantic_inventory.md"
+      }
+    ]
+  }
+}

@@ -21,7 +21,10 @@ import {
     discoverApiCallbackModelingCandidates,
     discoverApiSurfaceModelingCandidates,
 } from "../core/semanticflow/ApiModelingCandidateScanner";
-import type { NormalizedCallsiteItem } from "../core/model/callsite/callsiteContextSlices";
+import {
+    enrichNoCandidateItemsWithCallsiteSlices,
+    type NormalizedCallsiteItem,
+} from "../core/model/callsite/callsiteContextSlices";
 
 interface InvokeSiteStat {
     signature: string;
@@ -47,12 +50,18 @@ interface NoCandidateCallsiteStat {
     topEntries: string[];
 }
 
-type NoCandidateCategory = "C0_NON_TRANSFER_HELPER" | "C1_UI_NOISE" | "C2_API_MODELING_CANDIDATE" | "C3_FRAMEWORK_GAP";
+export type NoCandidateCategory = "C0_NON_TRANSFER_HELPER" | "C1_UI_NOISE" | "C2_API_MODELING_CANDIDATE" | "C3_FRAMEWORK_GAP";
 
-interface ClassifiedNoCandidateCallsite extends NoCandidateCallsiteStat {
+export interface ClassifiedNoCandidateCallsite extends NoCandidateCallsiteStat {
     category: NoCandidateCategory;
     reason: string;
     evidence: string[];
+}
+
+export interface NoCandidateCallsiteClassificationArtifacts {
+    items: ClassifiedNoCandidateCallsite[];
+    categoryCount: Record<NoCandidateCategory, number>;
+    apiModelingCandidates: ClassifiedNoCandidateCallsite[];
 }
 
 export function buildRuleFeedback(
@@ -166,9 +175,11 @@ export function buildRuleFeedback(
     const noCandidateCallsites = [...noCandidateAggregate.values()]
         .sort((a, b) => b.count - a.count || a.callee_signature.localeCompare(b.callee_signature))
         .slice(0, 200);
+    const sourceZeroHitAudit = collectSourceZeroHitAudit(entryResults);
 
     return {
         zeroHitRules,
+        sourceZeroHitAudit,
         ruleHitRanking: {
             source: rank(ruleHits.source),
             sink: rank(ruleHits.sink),
@@ -177,6 +188,35 @@ export function buildRuleFeedback(
         uncoveredHighFrequencyInvokes: uncovered,
         noCandidateCallsites,
     };
+}
+
+function collectSourceZeroHitAudit(entryResults: EntryAnalyzeResult[]) {
+    const byRuleId = new Map<string, NonNullable<EntryAnalyzeResult["sourceRuleZeroHitAudit"]>[number]>();
+    const reasonRank: Record<string, number> = {
+        source_rule_callsite_outside_allowed_methods: 4,
+        source_rule_matching_callsite_no_seed_fact: 3,
+        source_rule_no_matching_callsite: 2,
+        source_rule_non_call_zero_hit: 1,
+    };
+    for (const entry of entryResults || []) {
+        for (const audit of entry.sourceRuleZeroHitAudit || []) {
+            const existing = byRuleId.get(audit.ruleId);
+            if (!existing) {
+                byRuleId.set(audit.ruleId, audit);
+                continue;
+            }
+            const existingRank = reasonRank[existing.reason] || 0;
+            const nextRank = reasonRank[audit.reason] || 0;
+            if (nextRank > existingRank) {
+                byRuleId.set(audit.ruleId, audit);
+                continue;
+            }
+            if (nextRank === existingRank && audit.matchedCallsiteCount > existing.matchedCallsiteCount) {
+                byRuleId.set(audit.ruleId, audit);
+            }
+        }
+    }
+    return [...byRuleId.values()].sort((a, b) => a.ruleId.localeCompare(b.ruleId));
 }
 
 export function writeNoCandidateCallsiteArtifacts(report: AnalyzeReport, outputDir: string): void {
@@ -199,24 +239,9 @@ export function writeNoCandidateCallsiteClassificationArtifacts(
     report: AnalyzeReport,
     loadedRules: LoadedRuleSet,
     outputDir: string,
-): void {
-    const baseItems = collectSemanticFlowRuleCandidateItems(report);
-    const kernelTransferRules = loadAppliedKernelTransferRules(loadedRules);
-    const items = baseItems.map(site => classifyNoCandidateCallsite(site, kernelTransferRules));
-    const categoryCount = items.reduce((acc, item) => {
-        acc[item.category] = (acc[item.category] || 0) + 1;
-        return acc;
-    }, {
-        C0_NON_TRANSFER_HELPER: 0,
-        C1_UI_NOISE: 0,
-        C2_API_MODELING_CANDIDATE: 0,
-        C3_FRAMEWORK_GAP: 0,
-    } as Record<NoCandidateCategory, number>);
-    const apiModelingCandidates = mergeApiModelingCandidatePools(
-        buildApiModelingCandidatePool(items),
-        buildRecalledApiModelingCandidates(report),
-    );
-
+): NoCandidateCallsiteClassificationArtifacts {
+    const artifacts = buildNoCandidateCallsiteClassificationArtifacts(report, loadedRules);
+    const { items, categoryCount, apiModelingCandidates } = artifacts;
     const feedbackOutputDir = resolveRuleFeedbackOutputDir(outputDir);
     fs.mkdirSync(feedbackOutputDir, { recursive: true });
     const jsonPath = path.resolve(feedbackOutputDir, "no_candidate_callsites_classified.json");
@@ -241,6 +266,36 @@ export function writeNoCandidateCallsiteClassificationArtifacts(
         items: apiModelingCandidates,
     }, null, 2), "utf-8");
     fs.writeFileSync(apiModelingCandidateMdPath, renderApiModelingCandidatesMarkdown(apiModelingCandidates, report), "utf-8");
+
+    return artifacts;
+}
+
+export function buildNoCandidateCallsiteClassificationArtifacts(
+    report: AnalyzeReport,
+    loadedRules: LoadedRuleSet,
+): NoCandidateCallsiteClassificationArtifacts {
+    const baseItems = collectSemanticFlowRuleCandidateItems(report);
+    const kernelTransferRules = loadAppliedKernelTransferRules(loadedRules);
+    const items = baseItems.map(site => classifyNoCandidateCallsite(site, kernelTransferRules));
+    const categoryCount = items.reduce((acc, item) => {
+        acc[item.category] = (acc[item.category] || 0) + 1;
+        return acc;
+    }, {
+        C0_NON_TRANSFER_HELPER: 0,
+        C1_UI_NOISE: 0,
+        C2_API_MODELING_CANDIDATE: 0,
+        C3_FRAMEWORK_GAP: 0,
+    } as Record<NoCandidateCategory, number>);
+    const apiModelingCandidates = enrichApiModelingCandidatesForArtifacts(report, mergeApiModelingCandidatePools(
+        buildApiModelingCandidatePool(items),
+        buildRecalledApiModelingCandidates(report),
+    ));
+
+    return {
+        items,
+        categoryCount,
+        apiModelingCandidates,
+    };
 }
 
 function collectSemanticFlowRuleCandidateItems(report: AnalyzeReport): NoCandidateCallsiteStat[] {
@@ -849,11 +904,11 @@ function renderNoCandidateCallsitesClassifiedMarkdown(
 
 function buildApiModelingCandidatePool(items: ClassifiedNoCandidateCallsite[]): ClassifiedNoCandidateCallsite[] {
     return items
-        .filter(item => item.category === "C2_API_MODELING_CANDIDATE" || isSelectedExternalSdkNoCandidate(item))
+        .filter(item => item.category === "C2_API_MODELING_CANDIDATE" || isUnresolvedModelableSurfaceCandidate(item))
         .sort((a, b) => b.count - a.count || a.callee_signature.localeCompare(b.callee_signature));
 }
 
-function isSelectedExternalSdkNoCandidate(item: ClassifiedNoCandidateCallsite): boolean {
+function isUnresolvedModelableSurfaceCandidate(item: ClassifiedNoCandidateCallsite): boolean {
     if (item.category !== "C3_FRAMEWORK_GAP") {
         return false;
     }
@@ -862,21 +917,6 @@ function isSelectedExternalSdkNoCandidate(item: ClassifiedNoCandidateCallsite): 
         return false;
     }
     if (!/[a-z][a-z0-9_$]*\.[a-z_][a-z0-9_$]*\./i.test(item.callee_signature)) {
-        return false;
-    }
-    const officialOrBuiltinNamespaces = [
-        "date.",
-        "view.",
-        "photoaccesshelper.",
-        "router.",
-        "preferences.",
-        "relationalstore.",
-        "fileio.",
-        "webview.",
-        "window.",
-        "display.",
-    ];
-    if (officialOrBuiltinNamespaces.some(namespace => sig.includes(namespace))) {
         return false;
     }
     const method = item.method.toLowerCase();
@@ -894,10 +934,10 @@ function isSelectedExternalSdkNoCandidate(item: ClassifiedNoCandidateCallsite): 
 
 function buildRecalledApiModelingCandidates(report: AnalyzeReport): ClassifiedNoCandidateCallsite[] {
     const callbackCandidates = discoverApiCallbackModelingCandidates(report.repo, report.sourceDirs || [], {
-        maxCandidates: 80,
+        maxCandidates: Number.MAX_SAFE_INTEGER,
     });
     const apiSurfaceCandidates = discoverApiSurfaceModelingCandidates(report.repo, report.sourceDirs || [], {
-        maxCandidates: 80,
+        maxCandidates: Number.MAX_SAFE_INTEGER,
     });
     return [...callbackCandidates, ...apiSurfaceCandidates].map(candidate => toRecalledClassifiedCandidate(candidate));
 }
@@ -962,6 +1002,24 @@ function mergeApiModelingCandidatePools(
     return [...merged.values()]
         .sort((a, b) => b.count - a.count || a.callee_signature.localeCompare(b.callee_signature))
         .slice(0, 200);
+}
+
+function enrichApiModelingCandidatesForArtifacts(
+    report: AnalyzeReport,
+    candidates: ClassifiedNoCandidateCallsite[],
+): ClassifiedNoCandidateCallsite[] {
+    if (candidates.length === 0 || !report.repo || !Array.isArray(report.sourceDirs) || report.sourceDirs.length === 0) {
+        return candidates;
+    }
+    return enrichNoCandidateItemsWithCallsiteSlices({
+        repoRoot: report.repo,
+        sourceDirs: report.sourceDirs,
+        items: candidates,
+        maxItems: candidates.length,
+        maxExamplesPerItem: 1,
+        contextRadius: 3,
+        cfgNeighborRadius: 1,
+    }) as unknown as ClassifiedNoCandidateCallsite[];
 }
 
 function renderApiModelingCandidatesMarkdown(

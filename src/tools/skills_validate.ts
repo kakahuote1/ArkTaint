@@ -65,7 +65,7 @@ function parseArgs(argv: string[]): { registryPath: string; repoRoot: string } {
 
 function readJson<T>(absPath: string): T {
     const raw = fs.readFileSync(absPath, "utf-8");
-    return JSON.parse(raw) as T;
+    return JSON.parse(raw.replace(/^\uFEFF/, "")) as T;
 }
 
 function unquoteScalar(raw: string): string {

@@ -13,6 +13,7 @@ import { emptyModuleAuditSnapshot } from "../../core/kernel/contracts/ModuleCont
 import { emptyPagNodeResolutionAuditSnapshot } from "../../core/kernel/contracts/PagNodeResolution";
 import { CliOptions as AnalyzeCliOptions } from "../../cli/analyzeCliOptions";
 import { runAnalyze } from "../../cli/analyzeRunner";
+import { runAnalyzeCliCommand } from "../../cli/analyze";
 import { loadRuleSet } from "../../core/rules/RuleLoader";
 import {
     CliOptions,
@@ -25,6 +26,8 @@ import {
     aggregateReport,
     createSourceSummary,
     printConsoleSummary,
+    projectFatalReasons,
+    projectHasFatalAnalysis,
     renderMarkdownReport,
 } from "../helpers/SmokeReportUtils";
 import * as fs from "fs";
@@ -41,6 +44,13 @@ import {
 function sumCounts(counts: Record<string, number>): number {
     return Object.values(counts || {}).reduce((sum, value) => sum + value, 0);
 }
+
+const DEFAULT_SMOKE_WORKLIST_BUDGET_MS = 45000;
+const DEFAULT_SMOKE_MODULE_SETUP_BUDGET_MS = 30000;
+const DEFAULT_SMOKE_EXECUTION_HANDOFF_BUDGET_MS = 30000;
+const DEFAULT_SMOKE_PAG_INDEX_BUDGET_MS = 30000;
+const DEFAULT_SMOKE_LAZY_MATERIALIZER_BUDGET_MS = 30000;
+const DEFAULT_SMOKE_REACHABLE_BUDGET_MS = 30000;
 
 function buildSinkEndpointHits(flowRuleTraces: EntryAnalyzeResult["flowRuleTraces"]): Record<string, number> {
     const hits: Record<string, number> = {};
@@ -73,6 +83,26 @@ function parseArgs(argv: string[]): CliOptions {
     let maxEntries = 12;
     let outputDir = "tmp/test_runs/real_projects/smoke/latest";
     let projectFilter: string | undefined;
+    let autoModel = false;
+    const autoModelProjects: string[] = [];
+    let llmProfile: string | undefined;
+    let llmModel: string | undefined;
+    let llmSessionCacheDir: string | undefined;
+    let llmSessionCacheMode: string | undefined;
+    let llmTimeoutMs: number | undefined;
+    let llmConnectTimeoutMs: number | undefined;
+    let llmMaxAttempts: number | undefined;
+    let llmMaxFailures: number | undefined;
+    let llmRepairAttempts: number | undefined;
+    let maxLlmItems: number | undefined;
+    let worklistBudgetMs: number | undefined;
+    let worklistMaxDequeues: number | undefined;
+    let worklistMaxVisited: number | undefined;
+    let moduleSetupBudgetMs: number | undefined;
+    let executionHandoffBudgetMs: number | undefined;
+    let pagIndexBudgetMs: number | undefined;
+    let lazyMaterializerBudgetMs: number | undefined;
+    let reachableBudgetMs: number | undefined;
 
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
@@ -116,6 +146,182 @@ function parseArgs(argv: string[]): CliOptions {
             projectFilter = arg.slice("--project=".length);
             continue;
         }
+        if (arg === "--autoModel") {
+            autoModel = true;
+            continue;
+        }
+        if (arg === "--autoModelProject" && i + 1 < argv.length) {
+            autoModelProjects.push(...splitCsv(argv[++i]));
+            continue;
+        }
+        if (arg.startsWith("--autoModelProject=")) {
+            autoModelProjects.push(...splitCsv(arg.slice("--autoModelProject=".length)));
+            continue;
+        }
+        if (arg === "--autoModelProjects" && i + 1 < argv.length) {
+            autoModelProjects.push(...splitCsv(argv[++i]));
+            continue;
+        }
+        if (arg.startsWith("--autoModelProjects=")) {
+            autoModelProjects.push(...splitCsv(arg.slice("--autoModelProjects=".length)));
+            continue;
+        }
+        if (arg === "--llmProfile" && i + 1 < argv.length) {
+            llmProfile = argv[++i];
+            continue;
+        }
+        if (arg.startsWith("--llmProfile=")) {
+            llmProfile = arg.slice("--llmProfile=".length);
+            continue;
+        }
+        if ((arg === "--llmModel" || arg === "--model") && i + 1 < argv.length) {
+            llmModel = argv[++i];
+            continue;
+        }
+        if (arg.startsWith("--llmModel=")) {
+            llmModel = arg.slice("--llmModel=".length);
+            continue;
+        }
+        if (arg.startsWith("--model=")) {
+            llmModel = arg.slice("--model=".length);
+            continue;
+        }
+        if (arg === "--llmSessionCacheDir" && i + 1 < argv.length) {
+            llmSessionCacheDir = argv[++i];
+            continue;
+        }
+        if (arg.startsWith("--llmSessionCacheDir=")) {
+            llmSessionCacheDir = arg.slice("--llmSessionCacheDir=".length);
+            continue;
+        }
+        if (arg === "--llmSessionCacheMode" && i + 1 < argv.length) {
+            llmSessionCacheMode = argv[++i];
+            continue;
+        }
+        if (arg.startsWith("--llmSessionCacheMode=")) {
+            llmSessionCacheMode = arg.slice("--llmSessionCacheMode=".length);
+            continue;
+        }
+        const llmTimeoutArg = readNumberArg(arg, argv, i, "--llmTimeoutMs");
+        if (llmTimeoutArg !== undefined) {
+            llmTimeoutMs = llmTimeoutArg.value;
+            if (llmTimeoutArg.consumedNext) i++;
+            continue;
+        }
+        const llmConnectTimeoutArg = readNumberArg(arg, argv, i, "--llmConnectTimeoutMs");
+        if (llmConnectTimeoutArg !== undefined) {
+            llmConnectTimeoutMs = llmConnectTimeoutArg.value;
+            if (llmConnectTimeoutArg.consumedNext) i++;
+            continue;
+        }
+        const llmMaxAttemptsArg = readNumberArg(arg, argv, i, "--llmMaxAttempts");
+        if (llmMaxAttemptsArg !== undefined) {
+            llmMaxAttempts = llmMaxAttemptsArg.value;
+            if (llmMaxAttemptsArg.consumedNext) i++;
+            continue;
+        }
+        const llmMaxFailuresArg = readNumberArg(arg, argv, i, "--llmMaxFailures");
+        if (llmMaxFailuresArg !== undefined) {
+            llmMaxFailures = llmMaxFailuresArg.value;
+            if (llmMaxFailuresArg.consumedNext) i++;
+            continue;
+        }
+        const llmRepairAttemptsArg = readNumberArg(arg, argv, i, "--llmRepairAttempts");
+        if (llmRepairAttemptsArg !== undefined) {
+            llmRepairAttempts = llmRepairAttemptsArg.value;
+            if (llmRepairAttemptsArg.consumedNext) i++;
+            continue;
+        }
+        const maxLlmItemsArg = readNumberArg(arg, argv, i, "--maxLlmItems");
+        if (maxLlmItemsArg !== undefined) {
+            maxLlmItems = maxLlmItemsArg.value;
+            if (maxLlmItemsArg.consumedNext) i++;
+            continue;
+        }
+        const worklistBudgetArg = readNumberArg(arg, argv, i, "--worklistBudgetMs");
+        if (worklistBudgetArg !== undefined) {
+            worklistBudgetMs = worklistBudgetArg.value;
+            if (worklistBudgetArg.consumedNext) i++;
+            continue;
+        }
+        const worklistBudgetKebabArg = readNumberArg(arg, argv, i, "--worklist-budget-ms");
+        if (worklistBudgetKebabArg !== undefined) {
+            worklistBudgetMs = worklistBudgetKebabArg.value;
+            if (worklistBudgetKebabArg.consumedNext) i++;
+            continue;
+        }
+        const worklistDequeuesArg = readNumberArg(arg, argv, i, "--worklistMaxDequeues");
+        if (worklistDequeuesArg !== undefined) {
+            worklistMaxDequeues = worklistDequeuesArg.value;
+            if (worklistDequeuesArg.consumedNext) i++;
+            continue;
+        }
+        const worklistVisitedArg = readNumberArg(arg, argv, i, "--worklistMaxVisited");
+        if (worklistVisitedArg !== undefined) {
+            worklistMaxVisited = worklistVisitedArg.value;
+            if (worklistVisitedArg.consumedNext) i++;
+            continue;
+        }
+        const moduleSetupBudgetArg = readNumberArg(arg, argv, i, "--moduleSetupBudgetMs");
+        if (moduleSetupBudgetArg !== undefined) {
+            moduleSetupBudgetMs = moduleSetupBudgetArg.value;
+            if (moduleSetupBudgetArg.consumedNext) i++;
+            continue;
+        }
+        const moduleSetupBudgetKebabArg = readNumberArg(arg, argv, i, "--module-setup-budget-ms");
+        if (moduleSetupBudgetKebabArg !== undefined) {
+            moduleSetupBudgetMs = moduleSetupBudgetKebabArg.value;
+            if (moduleSetupBudgetKebabArg.consumedNext) i++;
+            continue;
+        }
+        const executionHandoffBudgetArg = readNumberArg(arg, argv, i, "--executionHandoffBudgetMs");
+        if (executionHandoffBudgetArg !== undefined) {
+            executionHandoffBudgetMs = executionHandoffBudgetArg.value;
+            if (executionHandoffBudgetArg.consumedNext) i++;
+            continue;
+        }
+        const executionHandoffBudgetKebabArg = readNumberArg(arg, argv, i, "--execution-handoff-budget-ms");
+        if (executionHandoffBudgetKebabArg !== undefined) {
+            executionHandoffBudgetMs = executionHandoffBudgetKebabArg.value;
+            if (executionHandoffBudgetKebabArg.consumedNext) i++;
+            continue;
+        }
+        const pagIndexBudgetArg = readNumberArg(arg, argv, i, "--pagIndexBudgetMs");
+        if (pagIndexBudgetArg !== undefined) {
+            pagIndexBudgetMs = pagIndexBudgetArg.value;
+            if (pagIndexBudgetArg.consumedNext) i++;
+            continue;
+        }
+        const pagIndexBudgetKebabArg = readNumberArg(arg, argv, i, "--pag-index-budget-ms");
+        if (pagIndexBudgetKebabArg !== undefined) {
+            pagIndexBudgetMs = pagIndexBudgetKebabArg.value;
+            if (pagIndexBudgetKebabArg.consumedNext) i++;
+            continue;
+        }
+        const lazyMaterializerBudgetArg = readNumberArg(arg, argv, i, "--lazyMaterializerBudgetMs");
+        if (lazyMaterializerBudgetArg !== undefined) {
+            lazyMaterializerBudgetMs = lazyMaterializerBudgetArg.value;
+            if (lazyMaterializerBudgetArg.consumedNext) i++;
+            continue;
+        }
+        const lazyMaterializerBudgetKebabArg = readNumberArg(arg, argv, i, "--lazy-materializer-budget-ms");
+        if (lazyMaterializerBudgetKebabArg !== undefined) {
+            lazyMaterializerBudgetMs = lazyMaterializerBudgetKebabArg.value;
+            if (lazyMaterializerBudgetKebabArg.consumedNext) i++;
+            continue;
+        }
+        const reachableBudgetArg = readNumberArg(arg, argv, i, "--reachableBudgetMs");
+        if (reachableBudgetArg !== undefined) {
+            reachableBudgetMs = reachableBudgetArg.value;
+            if (reachableBudgetArg.consumedNext) i++;
+            continue;
+        }
+        const reachableBudgetKebabArg = readNumberArg(arg, argv, i, "--reachable-budget-ms");
+        if (reachableBudgetKebabArg !== undefined) {
+            reachableBudgetMs = reachableBudgetKebabArg.value;
+            if (reachableBudgetKebabArg.consumedNext) i++;
+            continue;
+        }
     }
 
     if (k !== 0 && k !== 1) {
@@ -124,6 +330,12 @@ function parseArgs(argv: string[]): CliOptions {
     if (!Number.isFinite(maxEntries) || maxEntries <= 0) {
         throw new Error(`Invalid --maxEntries value: ${maxEntries}. Expected positive integer.`);
     }
+    if (llmTimeoutMs !== undefined && (!Number.isFinite(llmTimeoutMs) || llmTimeoutMs <= 0)) {
+        throw new Error(`Invalid --llmTimeoutMs value: ${llmTimeoutMs}. Expected positive integer.`);
+    }
+    if (llmConnectTimeoutMs !== undefined && (!Number.isFinite(llmConnectTimeoutMs) || llmConnectTimeoutMs <= 0)) {
+        throw new Error(`Invalid --llmConnectTimeoutMs value: ${llmConnectTimeoutMs}. Expected positive integer.`);
+    }
 
     return {
         manifestPath,
@@ -131,11 +343,88 @@ function parseArgs(argv: string[]): CliOptions {
         maxEntries: Math.floor(maxEntries),
         outputDir,
         projectFilter,
+        autoModel,
+        autoModelProjects: [...new Set(autoModelProjects)],
+        llmProfile,
+        llmModel,
+        llmSessionCacheDir,
+        llmSessionCacheMode,
+        llmTimeoutMs,
+        llmConnectTimeoutMs,
+        llmMaxAttempts,
+        llmMaxFailures,
+        llmRepairAttempts,
+        maxLlmItems,
+        worklistBudgetMs,
+        worklistMaxDequeues,
+        worklistMaxVisited,
+        moduleSetupBudgetMs,
+        executionHandoffBudgetMs,
+        pagIndexBudgetMs,
+        lazyMaterializerBudgetMs,
+        reachableBudgetMs,
     };
+}
+
+function splitCsv(raw: string): string[] {
+    return String(raw || "").split(",").map(item => item.trim()).filter(Boolean);
+}
+
+function readNumberArg(
+    arg: string,
+    argv: string[],
+    index: number,
+    flag: string,
+): { value: number; consumedNext: boolean } | undefined {
+    let raw: string | undefined;
+    let consumedNext = false;
+    if (arg === flag && index + 1 < argv.length) {
+        raw = argv[index + 1];
+        consumedNext = true;
+    } else if (arg.startsWith(`${flag}=`)) {
+        raw = arg.slice(flag.length + 1);
+    }
+    if (raw === undefined) return undefined;
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value < 0) {
+        throw new Error(`Invalid ${flag} value: ${raw}. Expected non-negative integer.`);
+    }
+    return { value: Math.floor(value), consumedNext };
 }
 
 function ensureDir(dir: string): void {
     fs.mkdirSync(dir, { recursive: true });
+}
+
+function isInsideDirectory(parentDir: string, candidateDir: string): boolean {
+    const parentAbs = path.resolve(parentDir);
+    const candidateAbs = path.resolve(candidateDir);
+    const relative = path.relative(parentAbs, candidateAbs);
+    return relative.length > 0 && !relative.startsWith("..") && !path.isAbsolute(relative);
+}
+
+function prepareSmokeOutputDirectory(rootDir: string): void {
+    const rootAbs = path.resolve(rootDir);
+    const managedSmokeRoot = path.resolve("tmp", "test_runs", "real_projects");
+    if (isInsideDirectory(managedSmokeRoot, rootAbs)) {
+        fs.rmSync(rootAbs, { recursive: true, force: true });
+        ensureDir(rootAbs);
+        return;
+    }
+
+    ensureDir(rootAbs);
+    for (const artifactName of [
+        "progress.json",
+        "report.json",
+        "report.md",
+        "run.json",
+        "smoke_report.json",
+        "smoke_report.md",
+        "summary.json",
+        "summary.md",
+    ]) {
+        fs.rmSync(path.resolve(rootAbs, artifactName), { force: true });
+    }
 }
 
 function readManifest(manifestPath: string): SmokeManifest {
@@ -155,6 +444,94 @@ function sanitizeProjectId(raw: string): string {
         .replace(/[^A-Za-z0-9._-]+/g, "_")
         .replace(/^_+|_+$/g, "");
     return normalized.length > 0 ? normalized : "project";
+}
+
+function shouldAutoModelProject(project: SmokeProjectConfig, options: CliOptions): boolean {
+    return options.autoModel
+        || project.autoModel === true
+        || (options.autoModelProjects || []).includes(project.id);
+}
+
+function readAnalyzeReportFromSummary(outputDir: string): AnalyzeReport {
+    const summaryPath = path.resolve(outputDir, "summary", "summary.json");
+    if (!fs.existsSync(summaryPath)) {
+        throw new Error(`auto_model_summary_missing: ${summaryPath}`);
+    }
+    return JSON.parse(fs.readFileSync(summaryPath, "utf-8")) as AnalyzeReport;
+}
+
+function createAutoModelOptions(
+    base: AnalyzeCliOptions,
+    project: SmokeProjectConfig,
+    options: CliOptions,
+): AnalyzeCliOptions {
+    const llmSessionCacheDir = project.llmSessionCacheDir || options.llmSessionCacheDir;
+    return {
+        ...base,
+        autoModel: true,
+        llmProfile: project.llmProfile || options.llmProfile,
+        llmModel: project.llmModel || options.llmModel,
+        llmSessionCacheDir: llmSessionCacheDir
+            ? (path.isAbsolute(llmSessionCacheDir) ? llmSessionCacheDir : path.resolve(llmSessionCacheDir))
+            : undefined,
+        llmSessionCacheMode: project.llmSessionCacheMode || options.llmSessionCacheMode,
+        llmTimeoutMs: project.llmTimeoutMs ?? options.llmTimeoutMs,
+        llmConnectTimeoutMs: project.llmConnectTimeoutMs ?? options.llmConnectTimeoutMs,
+        llmMaxAttempts: project.llmMaxAttempts ?? options.llmMaxAttempts,
+        llmMaxFailures: project.llmMaxFailures ?? options.llmMaxFailures,
+        llmRepairAttempts: project.llmRepairAttempts ?? options.llmRepairAttempts,
+        maxLlmItems: project.maxLlmItems ?? options.maxLlmItems,
+    };
+}
+
+function resolveSmokeWorklistBudgetMs(project: SmokeProjectConfig, options: CliOptions): number {
+    return project.worklistBudgetMs ?? options.worklistBudgetMs ?? DEFAULT_SMOKE_WORKLIST_BUDGET_MS;
+}
+
+function resolveSmokeLlmTimeoutMs(project: SmokeProjectConfig, options: CliOptions): number | undefined {
+    return project.llmTimeoutMs ?? options.llmTimeoutMs;
+}
+
+function resolveSmokeLlmConnectTimeoutMs(project: SmokeProjectConfig, options: CliOptions): number | undefined {
+    return project.llmConnectTimeoutMs ?? options.llmConnectTimeoutMs;
+}
+
+function resolveSmokeModuleSetupBudgetMs(project: SmokeProjectConfig, options: CliOptions): number {
+    return project.moduleSetupBudgetMs ?? options.moduleSetupBudgetMs ?? DEFAULT_SMOKE_MODULE_SETUP_BUDGET_MS;
+}
+
+function resolveSmokeExecutionHandoffBudgetMs(project: SmokeProjectConfig, options: CliOptions): number {
+    return project.executionHandoffBudgetMs ?? options.executionHandoffBudgetMs ?? DEFAULT_SMOKE_EXECUTION_HANDOFF_BUDGET_MS;
+}
+
+function resolveSmokePagIndexBudgetMs(project: SmokeProjectConfig, options: CliOptions): number {
+    return project.pagIndexBudgetMs ?? options.pagIndexBudgetMs ?? DEFAULT_SMOKE_PAG_INDEX_BUDGET_MS;
+}
+
+function resolveSmokeLazyMaterializerBudgetMs(project: SmokeProjectConfig, options: CliOptions): number {
+    return project.lazyMaterializerBudgetMs ?? options.lazyMaterializerBudgetMs ?? DEFAULT_SMOKE_LAZY_MATERIALIZER_BUDGET_MS;
+}
+
+function resolveSmokeReachableBudgetMs(project: SmokeProjectConfig, options: CliOptions): number {
+    return project.reachableBudgetMs ?? options.reachableBudgetMs ?? DEFAULT_SMOKE_REACHABLE_BUDGET_MS;
+}
+
+function applySmokeWorklistBudget(
+    analyzeOptions: AnalyzeCliOptions,
+    project: SmokeProjectConfig,
+    options: CliOptions,
+): AnalyzeCliOptions {
+    return {
+        ...analyzeOptions,
+        worklistBudgetMs: resolveSmokeWorklistBudgetMs(project, options),
+        worklistMaxDequeues: project.worklistMaxDequeues ?? options.worklistMaxDequeues,
+        worklistMaxVisited: project.worklistMaxVisited ?? options.worklistMaxVisited,
+        moduleSetupBudgetMs: resolveSmokeModuleSetupBudgetMs(project, options),
+        executionHandoffBudgetMs: resolveSmokeExecutionHandoffBudgetMs(project, options),
+        pagIndexBudgetMs: resolveSmokePagIndexBudgetMs(project, options),
+        lazyMaterializerBudgetMs: resolveSmokeLazyMaterializerBudgetMs(project, options),
+        reachableBudgetMs: resolveSmokeReachableBudgetMs(project, options),
+    };
 }
 
 function createSyntheticEntryResult(
@@ -221,6 +598,7 @@ function createAnalyzeOptions(
     repoAbs: string,
     validSourceDirs: string[],
     outputDir: string,
+    projectId: string,
     k: number,
     maxEntries: number
 ): AnalyzeCliOptions {
@@ -238,6 +616,7 @@ function createAnalyzeOptions(
         stopOnFirstFlow: false,
         maxFlowsPerEntry: undefined,
         enableSecondarySinkSweep: false,
+        enabledModels: [projectId],
         ruleOptions: {
             autoDiscoverLayers: true,
         },
@@ -277,8 +656,11 @@ function createFallbackAnalyzeReport(repoAbs: string, sourceDirs: string[]): Ana
         seedCount: 0,
         seedLocalNames: [],
         seedStrategies: [],
+        sourceSeedAudit: [],
+        sourceRuleZeroHitAudit: [],
         flowCount: 0,
         sinkSamples: [],
+        sinkDetectionAudit: { entries: [], overflowCount: 0 },
         flowRuleTraces: [],
         ruleHits: emptyRuleHitCounters(),
         ruleHitEndpoints: emptyRuleHitCounters(),
@@ -369,6 +751,7 @@ function createFallbackAnalyzeReport(repoAbs: string, sourceDirs: string[]): Ana
             transferNoHitReasons: {},
             ruleFeedback: {
                 zeroHitRules: emptyRuleHitCounters(),
+                sourceZeroHitAudit: [],
                 ruleHitRanking: {
                     source: [],
                     sink: [],
@@ -382,7 +765,14 @@ function createFallbackAnalyzeReport(repoAbs: string, sourceDirs: string[]): Ana
     };
 }
 
-async function runProject(project: SmokeProjectConfig, options: CliOptions): Promise<ProjectSmokeResult> {
+type ProjectProgressUpdate = (detail: string) => void;
+
+async function runProject(
+    project: SmokeProjectConfig,
+    options: CliOptions,
+    updateProgress?: ProjectProgressUpdate,
+): Promise<ProjectSmokeResult> {
+    const stage = (name: string): void => updateProgress?.(`stage=${name}`);
     const repoAbs = path.isAbsolute(project.repoPath) ? project.repoPath : path.resolve(project.repoPath);
     const sourceDirs = project.sourceDirs || [];
     let effectiveMaxEntries = options.maxEntries;
@@ -399,10 +789,13 @@ async function runProject(project: SmokeProjectConfig, options: CliOptions): Pro
         commit: project.commit,
         tags: project.tags || [],
         sourceDirs,
+        autoModel: shouldAutoModelProject(project, options),
         sourceSummaries: [],
         entries: [],
         sinkSignatures: project.sinkSignatures || [],
         effectiveMaxEntries,
+        effectiveLlmTimeoutMs: resolveSmokeLlmTimeoutMs(project, options),
+        effectiveLlmConnectTimeoutMs: resolveSmokeLlmConnectTimeoutMs(project, options),
         analyzed: 0,
         withSeeds: 0,
         withFlows: 0,
@@ -413,10 +806,20 @@ async function runProject(project: SmokeProjectConfig, options: CliOptions): Pro
         sinkFlowByKeyword: {},
         sinkFlowBySignature: {},
         fatalErrors: [],
+        effectiveWorklistBudgetMs: resolveSmokeWorklistBudgetMs(project, options),
+        effectiveWorklistMaxDequeues: project.worklistMaxDequeues ?? options.worklistMaxDequeues,
+        effectiveWorklistMaxVisited: project.worklistMaxVisited ?? options.worklistMaxVisited,
+        effectiveModuleSetupBudgetMs: resolveSmokeModuleSetupBudgetMs(project, options),
+        effectiveExecutionHandoffBudgetMs: resolveSmokeExecutionHandoffBudgetMs(project, options),
+        effectivePagIndexBudgetMs: resolveSmokePagIndexBudgetMs(project, options),
+        effectiveLazyMaterializerBudgetMs: resolveSmokeLazyMaterializerBudgetMs(project, options),
+        effectiveReachableBudgetMs: resolveSmokeReachableBudgetMs(project, options),
     };
 
+    stage("check_project_paths");
     if (!fs.existsSync(repoAbs)) {
         result.fatalErrors.push(`repo_path_missing: ${repoAbs}`);
+        stage("project_path_missing");
         return result;
     }
 
@@ -430,6 +833,7 @@ async function runProject(project: SmokeProjectConfig, options: CliOptions): Pro
         validSourceDirs.push(sourceDir);
     }
     if (validSourceDirs.length === 0) {
+        stage("source_dirs_missing");
         return result;
     }
 
@@ -437,15 +841,18 @@ async function runProject(project: SmokeProjectConfig, options: CliOptions): Pro
         console.log(`[smoke][project_cap] ${project.id}: cli_maxEntries=${options.maxEntries}, cap=${effectiveMaxEntries}`);
     }
 
+    stage("prepare_analyze_options");
     const projectOutputDir = path.resolve(options.outputDir, sanitizeProjectId(project.id));
     ensureDir(projectOutputDir);
-    const analyzeOptions = createAnalyzeOptions(
+    const analyzeOptions = applySmokeWorklistBudget(createAnalyzeOptions(
         repoAbs,
         validSourceDirs,
         projectOutputDir,
+        project.id,
         options.k,
         effectiveMaxEntries
-    );
+    ), project, options);
+    stage("load_active_rules");
     const activeRules = loadRuleSet({
         ...analyzeOptions.ruleOptions,
         allowMissingProject: true,
@@ -456,12 +863,21 @@ async function runProject(project: SmokeProjectConfig, options: CliOptions): Pro
     );
     let analyzeReport: AnalyzeReport;
     try {
-        analyzeReport = (await runAnalyze(analyzeOptions)).report;
+        stage(result.autoModel ? "run_analyze_automodel_start" : "run_analyze_start");
+        if (result.autoModel) {
+            await runAnalyzeCliCommand(createAutoModelOptions(analyzeOptions, project, options));
+            analyzeReport = readAnalyzeReportFromSummary(projectOutputDir);
+        } else {
+            analyzeReport = (await runAnalyze(analyzeOptions)).report;
+        }
+        stage("run_analyze_done");
     } catch (err: any) {
         result.fatalErrors.push(`analyze_failed: ${String(err?.message || err)}`);
         analyzeReport = createFallbackAnalyzeReport(repoAbs, validSourceDirs);
+        stage("run_analyze_failed");
     }
 
+    stage("map_entries");
     const mappedEntries = (analyzeReport.entries || []).map(entry => mapAnalyzeEntryToSmokeEntry(entry, sinkFamilyById));
     result.entries = buildSourceDirEntries(validSourceDirs, mappedEntries, result.fatalErrors);
 
@@ -486,6 +902,7 @@ async function runProject(project: SmokeProjectConfig, options: CliOptions): Pro
         result.sourceSummaries.push(summary);
     }
 
+    stage("aggregate_entry_results");
     for (const entry of result.entries) {
         result.analyzed++;
         if (entry.seedCount > 0) result.withSeeds++;
@@ -505,6 +922,7 @@ async function runProject(project: SmokeProjectConfig, options: CliOptions): Pro
         }
     }
 
+    stage("project_result_ready");
     return result;
 }
 
@@ -519,7 +937,7 @@ async function main(): Promise<void> {
         throw new Error("No projects selected. Check manifest or --project filter.");
     }
     const outputLayout = resolveTestOutputLayout(options.outputDir);
-    ensureDir(outputLayout.rootDir);
+    prepareSmokeOutputDirectory(outputLayout.rootDir);
     const metadata: TestOutputMetadata = {
         suite: "real_project_smoke",
         domain: "real_projects",
@@ -538,7 +956,9 @@ async function main(): Promise<void> {
         const project = projects[index];
         progressReporter.update(index, project.id, "stage=project_start");
         console.log(`\n>>> Smoke project: ${project.id}`);
-        const result = await runProject(project, options);
+        const result = await runProject(project, options, detail => {
+            progressReporter.update(index, project.id, detail);
+        });
         projectResults.push(result);
         progressReporter.update(index + 1, project.id, "stage=project_done");
     }
@@ -556,15 +976,18 @@ async function main(): Promise<void> {
     const finishedAt = new Date().toISOString();
     const durationMs = Date.now() - startedAtMs;
     const failureItems: TestFailureSummary[] = report.projects
-        .filter(project => project.fatalErrors.length > 0)
-        .map(project => ({
-            name: project.id,
-            expected: "no_fatal_errors",
-            actual: `fatal_errors=${project.fatalErrors.length}`,
-            reason: project.fatalErrors.join("; "),
-            severity: "high",
-            nextHint: "Inspect the project section in smoke_report.md for source-dir and analyze failure details.",
-        }));
+        .filter(projectHasFatalAnalysis)
+        .map(project => {
+            const fatalReasons = projectFatalReasons(project);
+            return {
+                name: project.id,
+                expected: "no_fatal_errors",
+                actual: `fatal_reasons=${fatalReasons.length}`,
+                reason: fatalReasons.join("; "),
+                severity: "high",
+                nextHint: "Inspect the project section in smoke_report.md for source-dir and analyze failure details.",
+            };
+        });
     writeTestSummary(outputLayout, metadata, {
         status: report.fatalProjectCount > 0 ? "fail" : "pass",
         verdict: report.fatalProjectCount > 0
@@ -583,7 +1006,7 @@ async function main(): Promise<void> {
             fatalProjects: report.fatalProjectCount,
         },
         highlights: report.projects.slice(0, 5).map(project =>
-            `${project.id}: analyzed=${project.analyzed}, withSeeds=${project.withSeeds}, withFlows=${project.withFlows}, fatal=${project.fatalErrors.length}`),
+            `${project.id}: analyzed=${project.analyzed}, withSeeds=${project.withSeeds}, withFlows=${project.withFlows}, fatal=${projectFatalReasons(project).length}`),
         failures: failureItems,
     });
     printTestConsoleSummary(metadata, outputLayout, {

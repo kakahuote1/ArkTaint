@@ -38,6 +38,19 @@ function writeFixture(projectDir: string): void {
         "  onCreate(want: string): void {}",
         "}",
         "",
+        "@Entry",
+        "@Component",
+        "struct HostPage {",
+        "  build() {",
+        "    ModeledChild()",
+        "  }",
+        "}",
+        "",
+        "@Component",
+        "struct ModeledChild {",
+        "  build() {}",
+        "}",
+        "",
     ].join("\n"), "utf8");
 }
 
@@ -67,6 +80,43 @@ async function main(): Promise<void> {
 
     assert(result.orderedMethods.length > 0, "preseeded arkmain plan should keep ordered methods");
     assert(result.facts.some(item => item.method === method && item.kind === "ability_lifecycle"), "preseeded fact should be preserved");
+
+    const hostBuild = scene.getMethods().find(item =>
+        item.getName?.() === "build"
+        && item.getDeclaringArkClass?.()?.getName?.() === "HostPage"
+    );
+    const childBuild = scene.getMethods().find(item =>
+        item.getName?.() === "build"
+        && item.getDeclaringArkClass?.()?.getName?.() === "ModeledChild"
+    );
+    assert(hostBuild, "missing HostPage.build");
+    assert(childBuild, "missing ModeledChild.build");
+
+    const projectAssetSupplementResult = buildArkMainPlan(scene, {
+        seededMethods: [childBuild],
+        seededFacts: [{
+            phase: "composition",
+            kind: "page_build",
+            method: childBuild,
+            ownerKind: "component_owner",
+            reason: "project arkmain asset supplement",
+            schedule: true,
+            entryFamily: "semanticflow",
+            entryShape: "component_build",
+            recognitionLayer: "project_arkmain_asset",
+        }],
+    });
+    const orderedSigs = new Set(projectAssetSupplementResult.orderedMethods.map(item =>
+        item.getSignature?.()?.toString?.() || "",
+    ));
+    assert(
+        orderedSigs.has(hostBuild.getSignature().toString()),
+        "project arkmain seededMethods must supplement default @Entry roots instead of filtering them out",
+    );
+    assert(
+        orderedSigs.has(childBuild.getSignature().toString()),
+        "project arkmain seededMethods should still add the modeled component entry",
+    );
 
     console.log("PASS test_entry_model_external_entry_preseed_short_circuit");
 }

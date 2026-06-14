@@ -4,10 +4,10 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.sanitizer.harmony.crypto.md.digest.result",
+      "surfaceId": "surface.sanitizer.harmony.crypto.md.digest.result.exact.digest.className.Md",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": ":.s.Md",
+      "modulePath": "cryptoFramework",
+      "ownerName": "Md",
       "methodName": "digest",
       "invokeKind": "instance",
       "argCount": 0,
@@ -17,10 +17,10 @@
       }
     },
     {
-      "surfaceId": "surface.sanitizer.harmony.crypto.md.digestSync.result",
+      "surfaceId": "surface.sanitizer.harmony.crypto.md.digestSync.result.exact.digestSync.className.Md",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": ":.s.Md",
+      "modulePath": "cryptoFramework",
+      "ownerName": "Md",
       "methodName": "digestSync",
       "invokeKind": "instance",
       "argCount": 0,
@@ -30,10 +30,10 @@
       }
     },
     {
-      "surfaceId": "surface.sanitizer.harmony.crypto.mac.doFinal.result",
+      "surfaceId": "surface.sanitizer.harmony.crypto.mac.doFinal.result.exact.doFinal.className.Mac",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": ":.s.Mac",
+      "modulePath": "cryptoFramework",
+      "ownerName": "Mac",
       "methodName": "doFinal",
       "invokeKind": "instance",
       "argCount": 0,
@@ -43,10 +43,10 @@
       }
     },
     {
-      "surfaceId": "surface.sanitizer.harmony.crypto.mac.doFinalSync.result",
+      "surfaceId": "surface.sanitizer.harmony.crypto.mac.doFinalSync.result.exact.doFinalSync.className.Mac",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": ":.s.Mac",
+      "modulePath": "cryptoFramework",
+      "ownerName": "Mac",
       "methodName": "doFinalSync",
       "invokeKind": "instance",
       "argCount": 0,
@@ -56,10 +56,10 @@
       }
     },
     {
-      "surfaceId": "surface.sanitizer.harmony.crypto.sign.sign.result",
+      "surfaceId": "surface.sanitizer.harmony.crypto.sign.sign.result.exact.sign.className.Sign",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": ":.s.Sign",
+      "modulePath": "cryptoFramework",
+      "ownerName": "Sign",
       "methodName": "sign",
       "invokeKind": "instance",
       "argCount": 1,
@@ -69,39 +69,13 @@
       }
     },
     {
-      "surfaceId": "surface.sanitizer.harmony.crypto.sign.signSync.result",
+      "surfaceId": "surface.sanitizer.harmony.crypto.sign.signSync.result.exact.signSync.className.Sign",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": ":.s.Sign",
+      "modulePath": "cryptoFramework",
+      "ownerName": "Sign",
       "methodName": "signSync",
       "invokeKind": "instance",
       "argCount": 1,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sanitizer.harmony.file.hash.hash.result",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": ":.s.hash",
-      "methodName": "hash",
-      "invokeKind": "instance",
-      "argCount": 2,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sanitizer.harmony.file.hashstream.digest.result",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": ":.s.HashStream",
-      "methodName": "digest",
-      "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
@@ -110,8 +84,8 @@
   ],
   "bindings": [
     {
-      "bindingId": "binding.sanitizer.harmony.crypto.md.digest.result.0",
-      "surfaceId": "surface.sanitizer.harmony.crypto.md.digest.result",
+      "bindingId": "binding.sanitizer.harmony.crypto.md.digest.result.0.exact.digest.className.Md",
+      "surfaceId": "surface.sanitizer.harmony.crypto.md.digest.result.exact.digest.className.Md",
       "assetId": "asset.rule.kernel.sanitizers.core",
       "plane": "rule",
       "role": "sanitizer",
@@ -120,10 +94,11 @@
         "value": "digest",
         "invokeKind": "instance",
         "argCount": 0,
-        "scope": {
+        "typeHint": "Md",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(^|[.:\\s$])Md$"
+            "mode": "equals",
+            "value": "Md"
           }
         }
       },
@@ -133,7 +108,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sanitizer.harmony.crypto.md.digest.result"
+        "template.sanitizer.harmony.crypto.md.digest.result.for.sanitizer.harmony.crypto.md.digest.result.0.exact.digest.class.Md"
       ],
       "semanticsFamily": "cryptographic_derivation",
       "metadata": {
@@ -145,8 +120,8 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sanitizer.harmony.crypto.md.digestSync.result.0",
-      "surfaceId": "surface.sanitizer.harmony.crypto.md.digestSync.result",
+      "bindingId": "binding.sanitizer.harmony.crypto.md.digestSync.result.0.exact.digestSync.className.Md",
+      "surfaceId": "surface.sanitizer.harmony.crypto.md.digestSync.result.exact.digestSync.className.Md",
       "assetId": "asset.rule.kernel.sanitizers.core",
       "plane": "rule",
       "role": "sanitizer",
@@ -155,10 +130,11 @@
         "value": "digestSync",
         "invokeKind": "instance",
         "argCount": 0,
-        "scope": {
+        "typeHint": "Md",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(^|[.:\\s$])Md$"
+            "mode": "equals",
+            "value": "Md"
           }
         }
       },
@@ -168,7 +144,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sanitizer.harmony.crypto.md.digestSync.result"
+        "template.sanitizer.harmony.crypto.md.digestSync.result.for.sanitizer.harmony.crypto.md.digestSync.result.0.exact.digestSync.class.Md"
       ],
       "semanticsFamily": "cryptographic_derivation",
       "metadata": {
@@ -180,8 +156,8 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sanitizer.harmony.crypto.mac.doFinal.result.0",
-      "surfaceId": "surface.sanitizer.harmony.crypto.mac.doFinal.result",
+      "bindingId": "binding.sanitizer.harmony.crypto.mac.doFinal.result.0.exact.doFinal.className.Mac",
+      "surfaceId": "surface.sanitizer.harmony.crypto.mac.doFinal.result.exact.doFinal.className.Mac",
       "assetId": "asset.rule.kernel.sanitizers.core",
       "plane": "rule",
       "role": "sanitizer",
@@ -190,10 +166,11 @@
         "value": "doFinal",
         "invokeKind": "instance",
         "argCount": 0,
-        "scope": {
+        "typeHint": "Mac",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(^|[.:\\s$])Mac$"
+            "mode": "equals",
+            "value": "Mac"
           }
         }
       },
@@ -203,7 +180,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sanitizer.harmony.crypto.mac.doFinal.result"
+        "template.sanitizer.harmony.crypto.mac.doFinal.result.for.sanitizer.harmony.crypto.mac.doFinal.result.0.exact.doFinal.class.Mac"
       ],
       "semanticsFamily": "cryptographic_derivation",
       "metadata": {
@@ -215,8 +192,8 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sanitizer.harmony.crypto.mac.doFinalSync.result.0",
-      "surfaceId": "surface.sanitizer.harmony.crypto.mac.doFinalSync.result",
+      "bindingId": "binding.sanitizer.harmony.crypto.mac.doFinalSync.result.0.exact.doFinalSync.className.Mac",
+      "surfaceId": "surface.sanitizer.harmony.crypto.mac.doFinalSync.result.exact.doFinalSync.className.Mac",
       "assetId": "asset.rule.kernel.sanitizers.core",
       "plane": "rule",
       "role": "sanitizer",
@@ -225,10 +202,11 @@
         "value": "doFinalSync",
         "invokeKind": "instance",
         "argCount": 0,
-        "scope": {
+        "typeHint": "Mac",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(^|[.:\\s$])Mac$"
+            "mode": "equals",
+            "value": "Mac"
           }
         }
       },
@@ -238,7 +216,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sanitizer.harmony.crypto.mac.doFinalSync.result"
+        "template.sanitizer.harmony.crypto.mac.doFinalSync.result.for.sanitizer.harmony.crypto.mac.doFinalSync.result.0.exact.doFinalSync.class.Mac"
       ],
       "semanticsFamily": "cryptographic_derivation",
       "metadata": {
@@ -250,8 +228,8 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sanitizer.harmony.crypto.sign.sign.result.0",
-      "surfaceId": "surface.sanitizer.harmony.crypto.sign.sign.result",
+      "bindingId": "binding.sanitizer.harmony.crypto.sign.sign.result.0.exact.sign.className.Sign",
+      "surfaceId": "surface.sanitizer.harmony.crypto.sign.sign.result.exact.sign.className.Sign",
       "assetId": "asset.rule.kernel.sanitizers.core",
       "plane": "rule",
       "role": "sanitizer",
@@ -260,10 +238,11 @@
         "value": "sign",
         "invokeKind": "instance",
         "argCount": 1,
-        "scope": {
+        "typeHint": "Sign",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(^|[.:\\s$])Sign$"
+            "mode": "equals",
+            "value": "Sign"
           }
         }
       },
@@ -273,7 +252,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sanitizer.harmony.crypto.sign.sign.result"
+        "template.sanitizer.harmony.crypto.sign.sign.result.for.sanitizer.harmony.crypto.sign.sign.result.0.exact.sign.class.Sign"
       ],
       "semanticsFamily": "cryptographic_derivation",
       "metadata": {
@@ -285,8 +264,8 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sanitizer.harmony.crypto.sign.signSync.result.0",
-      "surfaceId": "surface.sanitizer.harmony.crypto.sign.signSync.result",
+      "bindingId": "binding.sanitizer.harmony.crypto.sign.signSync.result.0.exact.signSync.className.Sign",
+      "surfaceId": "surface.sanitizer.harmony.crypto.sign.signSync.result.exact.signSync.className.Sign",
       "assetId": "asset.rule.kernel.sanitizers.core",
       "plane": "rule",
       "role": "sanitizer",
@@ -295,10 +274,11 @@
         "value": "signSync",
         "invokeKind": "instance",
         "argCount": 1,
-        "scope": {
+        "typeHint": "Sign",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(^|[.:\\s$])Sign$"
+            "mode": "equals",
+            "value": "Sign"
           }
         }
       },
@@ -308,7 +288,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sanitizer.harmony.crypto.sign.signSync.result"
+        "template.sanitizer.harmony.crypto.sign.signSync.result.for.sanitizer.harmony.crypto.sign.signSync.result.0.exact.signSync.class.Sign"
       ],
       "semanticsFamily": "cryptographic_derivation",
       "metadata": {
@@ -318,80 +298,11 @@
       },
       "completeness": "partial",
       "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.sanitizer.harmony.file.hash.hash.result.0",
-      "surfaceId": "surface.sanitizer.harmony.file.hash.hash.result",
-      "assetId": "asset.rule.kernel.sanitizers.core",
-      "plane": "rule",
-      "role": "sanitizer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "hash",
-        "argCount": 2,
-        "scope": {
-          "className": {
-            "mode": "regex",
-            "value": "(^|[.:\\s$])hash$"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "effectTemplateRefs": [
-        "template.sanitizer.harmony.file.hash.hash.result"
-      ],
-      "semanticsFamily": "cryptographic_derivation",
-      "metadata": {
-        "enabled": true,
-        "description": "ohos.file.hash.hash returns the hash string for file content.",
-        "category": "cryptographic_derivation"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.sanitizer.harmony.file.hashstream.digest.result.0",
-      "surfaceId": "surface.sanitizer.harmony.file.hashstream.digest.result",
-      "assetId": "asset.rule.kernel.sanitizers.core",
-      "plane": "rule",
-      "role": "sanitizer",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "digest",
-        "invokeKind": "instance",
-        "argCount": 0,
-        "scope": {
-          "className": {
-            "mode": "regex",
-            "value": "(^|[.:\\s$])HashStream$"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "effectTemplateRefs": [
-        "template.sanitizer.harmony.file.hashstream.digest.result"
-      ],
-      "semanticsFamily": "cryptographic_derivation",
-      "metadata": {
-        "enabled": true,
-        "description": "ohos.file.hash.HashStream.digest returns a hexadecimal digest string.",
-        "category": "cryptographic_derivation"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
     }
   ],
   "effectTemplates": [
     {
-      "id": "template.sanitizer.harmony.crypto.md.digest.result",
+      "id": "template.sanitizer.harmony.crypto.md.digest.result.for.sanitizer.harmony.crypto.md.digest.result.0.exact.digest.class.Md",
       "confidence": "certain",
       "kind": "rule.sanitizer",
       "value": {
@@ -403,7 +314,7 @@
       "strength": "strong"
     },
     {
-      "id": "template.sanitizer.harmony.crypto.md.digestSync.result",
+      "id": "template.sanitizer.harmony.crypto.md.digestSync.result.for.sanitizer.harmony.crypto.md.digestSync.result.0.exact.digestSync.class.Md",
       "confidence": "certain",
       "kind": "rule.sanitizer",
       "value": {
@@ -415,7 +326,7 @@
       "strength": "strong"
     },
     {
-      "id": "template.sanitizer.harmony.crypto.mac.doFinal.result",
+      "id": "template.sanitizer.harmony.crypto.mac.doFinal.result.for.sanitizer.harmony.crypto.mac.doFinal.result.0.exact.doFinal.class.Mac",
       "confidence": "certain",
       "kind": "rule.sanitizer",
       "value": {
@@ -427,7 +338,7 @@
       "strength": "strong"
     },
     {
-      "id": "template.sanitizer.harmony.crypto.mac.doFinalSync.result",
+      "id": "template.sanitizer.harmony.crypto.mac.doFinalSync.result.for.sanitizer.harmony.crypto.mac.doFinalSync.result.0.exact.doFinalSync.class.Mac",
       "confidence": "certain",
       "kind": "rule.sanitizer",
       "value": {
@@ -439,7 +350,7 @@
       "strength": "strong"
     },
     {
-      "id": "template.sanitizer.harmony.crypto.sign.sign.result",
+      "id": "template.sanitizer.harmony.crypto.sign.sign.result.for.sanitizer.harmony.crypto.sign.sign.result.0.exact.sign.class.Sign",
       "confidence": "certain",
       "kind": "rule.sanitizer",
       "value": {
@@ -451,31 +362,7 @@
       "strength": "strong"
     },
     {
-      "id": "template.sanitizer.harmony.crypto.sign.signSync.result",
-      "confidence": "certain",
-      "kind": "rule.sanitizer",
-      "value": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "sanitizerKind": "cryptographic_derivation",
-      "strength": "strong"
-    },
-    {
-      "id": "template.sanitizer.harmony.file.hash.hash.result",
-      "confidence": "certain",
-      "kind": "rule.sanitizer",
-      "value": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "sanitizerKind": "cryptographic_derivation",
-      "strength": "strong"
-    },
-    {
-      "id": "template.sanitizer.harmony.file.hashstream.digest.result",
+      "id": "template.sanitizer.harmony.crypto.sign.signSync.result.for.sanitizer.harmony.crypto.sign.signSync.result.0.exact.signSync.class.Sign",
       "confidence": "certain",
       "kind": "rule.sanitizer",
       "value": {

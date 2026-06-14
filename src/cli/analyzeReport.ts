@@ -102,7 +102,20 @@ interface AnalyzeReportLike {
     k: number;
     maxEntries: number;
     ruleLayers: string[];
-    ruleLayerStatus: Array<{ name: string; path: string; applied: boolean }>;
+    ruleLayerStatus: Array<{
+        name: string;
+        path: string;
+        applied: boolean;
+        exists?: boolean;
+        source?: string;
+        packId?: string;
+        sourceRuleCount?: number;
+        sinkRuleCount?: number;
+        sanitizerRuleCount?: number;
+        transferRuleCount?: number;
+        sourceRuleIds?: string[];
+        sinkRuleIds?: string[];
+    }>;
     summary: {
         totalEntries: number;
         okEntries: number;
@@ -165,6 +178,7 @@ interface AnalyzeReportLike {
         }>;
         ruleFeedback?: {
             zeroHitRules?: RuleHitCountersLike;
+            sourceZeroHitAudit?: unknown[];
             ruleHitRanking?: {
                 source?: RankedCounter[];
                 sink?: RankedCounter[];
@@ -234,9 +248,7 @@ function noHitReasonAdvice(reason: string): string {
 function resolveProjectRulePath(report: AnalyzeReportLike): string {
     const appliedProject = report.ruleLayerStatus.find(s => s.name === "project" && s.applied);
     if (appliedProject) return appliedProject.path;
-    const knownProject = report.ruleLayerStatus.find(s => s.name === "project");
-    if (knownProject) return knownProject.path;
-    return "src/models/project/<pack>/rules/semanticflow.rules.json";
+    return "a reviewed project asset package for this analyzed project";
 }
 
 function renderGuidance(report: AnalyzeReportLike): string[] {

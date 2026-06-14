@@ -12,6 +12,8 @@ import {
 import { recoverDeferredCompletionSemantics } from "../model/DeferredCompletionSemantics";
 import type { ModuleExplicitDeferredBindingRecord } from "../model/DeferredBindingDeclaration";
 import {
+    isKnownFrameworkCallbackMethodName,
+    isKnownSchedulerMethodName,
     resolveKnownChannelCallbackRegistration,
     resolveKnownFrameworkCallbackRegistration,
     resolveKnownSchedulerCallbackRegistration,
@@ -37,6 +39,10 @@ import {
     collectDeclarativeDeferredBindings,
     type DeclarativeDeferredBindingRecord,
 } from "./ExecutionHandoffDeclarativeBinding";
+import {
+    assertExecutionHandoffBudget,
+    ExecutionHandoffBuildBudget,
+} from "./ExecutionHandoffBudget";
 
 const CALLBACK_RESOLVE_OPTIONS = {
     maxCandidates: 8,
@@ -78,9 +84,10 @@ export function buildExecutionHandoffActivationPaths(
     scene: Scene,
     cg: CallGraph,
     explicitBindings: ModuleExplicitDeferredBindingRecord[] = [],
+    budget?: ExecutionHandoffBuildBudget,
 ): ExecutionHandoffActivationPathRecord[] {
     const context: ExecutionHandoffProvenanceContext = {
-        incomingCallsiteIndexByCalleeSig: buildIncomingCallsiteIndex(scene, cg),
+        incomingCallsiteIndexByCalleeSig: buildIncomingCallsiteIndex(scene, cg, budget),
         callbackMethodsWithReturnsByValue: new Map<any, any[]>(),
         callableMethodsByValue: new Map<any, any[]>(),
         anonymousCarrierMethodsByBaseAndField: new Map<any, Map<string, any[]>>(),
@@ -88,12 +95,15 @@ export function buildExecutionHandoffActivationPaths(
     const records = new Map<string, ExecutionHandoffActivationPathRecord>();
 
     for (const caller of scene.getMethods()) {
+        assertExecutionHandoffBudget(budget, "activation_paths.methods");
         const cfg = caller.getCfg?.();
         if (!cfg) continue;
         for (const stmt of cfg.getStmts()) {
+            assertExecutionHandoffBudget(budget, "activation_paths.statements");
             const invokeExpr = stmt?.getInvokeExpr?.();
             if (!invokeExpr) continue;
-            for (const candidate of collectFutureUnitCandidates(scene, cg, caller, stmt, context)) {
+            for (const candidate of collectFutureUnitCandidates(scene, cg, caller, stmt, context, budget)) {
+                assertExecutionHandoffBudget(budget, "activation_paths.candidates");
                 const record = buildExecutionHandoffActivationPathRecord(scene, caller, stmt, candidate, context);
                 if (!record) continue;
                 records.set(record.id, record);
@@ -101,11 +111,13 @@ export function buildExecutionHandoffActivationPaths(
         }
     }
     for (const binding of collectDeclarativeDeferredBindings(scene)) {
+        assertExecutionHandoffBudget(budget, "activation_paths.declarative_bindings");
         const record = buildDeclarativeExecutionHandoffActivationPathRecord(binding);
         if (!record) continue;
         records.set(record.id, record);
     }
     for (const binding of explicitBindings) {
+        assertExecutionHandoffBudget(budget, "activation_paths.explicit_bindings");
         const record = buildExplicitExecutionHandoffActivationPathRecord(binding);
         if (!record) continue;
         records.set(record.id, record);
@@ -320,6 +332,7 @@ function collectFutureUnitCandidates(
     caller: any,
     stmt: any,
     context: ExecutionHandoffProvenanceContext,
+    budget?: ExecutionHandoffBuildBudget,
 ): ExecutionHandoffCandidate[] {
     const invokeExpr = stmt?.getInvokeExpr?.();
     if (!invokeExpr) return [];
@@ -341,17 +354,23 @@ function collectFutureUnitCandidates(
         }
         candidate.carrierKinds.add(carrierKind);
     };
-    const addMethodsFromValue = (value: any): void => {
+    let hasPotentialDeferredCarrier = false;
+    const addMethodsFromValue = (value: any, phase: string): void => {
         if (!value) return;
+        if (!isPotentialDeferredUnitCarrierValue(value)) return;
+        hasPotentialDeferredCarrier = true;
+        assertExecutionHandoffBudget(budget, `${phase}.returns`);
         for (const method of resolveCallbackMethodsFromValueWithReturnsCached(scene, value, context)) {
             addMethod(method, caller, "returned");
         }
+        assertExecutionHandoffBudget(budget, `${phase}.anonymous_carrier`);
         for (const { baseValue, fieldName } of collectAnonymousCarrierFieldLookups(value)) {
             if (!fieldName || !baseValue) continue;
             for (const method of resolveMethodsFromAnonymousCarrierByFieldCached(scene, baseValue, fieldName, context)) {
                 addMethod(method, caller, "field");
             }
         }
+        assertExecutionHandoffBudget(budget, `${phase}.callable`);
         for (const method of resolveMethodsFromCallableCached(scene, value, context)) {
             addMethod(method, caller, "direct");
         }
@@ -359,14 +378,34 @@ function collectFutureUnitCandidates(
 
     const explicitArgs = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
     for (const arg of explicitArgs) {
-        addMethodsFromValue(arg);
+        addMethodsFromValue(arg, "activation_paths.candidates.explicit_args");
     }
 
     const base = invokeExpr.getBase?.();
     if (base && (isCallableValue(base) || String(stmt.toString?.() || "").includes("ptrinvoke "))) {
-        addMethodsFromValue(base);
+        addMethodsFromValue(base, "activation_paths.candidates.base");
     }
 
+    const methodName = invokeMethodName(stmt) || "";
+    const isKnownRegistrationInvoke = isKnownFrameworkCallbackMethodName(methodName)
+        || isKnownSchedulerMethodName(methodName);
+    const isPtrInvoke = String(stmt.toString?.() || "").includes("ptrinvoke ");
+    if (!hasPotentialDeferredCarrier && !isKnownRegistrationInvoke && !isPtrInvoke) {
+        return [...out.values()];
+    }
+    const hasDirectDeferredCallbackArg = explicitArgs.some(isDirectDeferredCallbackArgument);
+    const shouldRunRegistrationExpansion = isKnownRegistrationInvoke
+        || isPtrInvoke
+        || hasDirectDeferredCallbackArg;
+    if (!shouldRunRegistrationExpansion) {
+        assertExecutionHandoffBudget(
+            budget,
+            `activation_paths.candidates.registration_skip(site=${formatCandidateSite(caller, stmt)})`,
+        );
+        return [...out.values()];
+    }
+
+    assertExecutionHandoffBudget(budget, "activation_paths.candidates.registration_query");
     const registrations = resolveCallbackRegistrationsFromStmt(
         stmt,
         scene,
@@ -375,13 +414,25 @@ function collectFutureUnitCandidates(
         { maxDepth: 4 },
     );
     for (const registration of registrations) {
+        assertExecutionHandoffBudget(
+            budget,
+            `activation_paths.candidates.registration_results(count=${registrations.length},site=${formatCandidateSite(caller, stmt)})`,
+        );
         addMethod(
             registration.callbackMethod,
             registration.sourceMethod || caller,
             methodSignature(registration.registrationMethod) !== methodSignature(caller) ? "relay" : "direct",
         );
     }
+    assertExecutionHandoffBudget(
+        budget,
+        `activation_paths.candidates.registration_done(count=${registrations.length},site=${formatCandidateSite(caller, stmt)})`,
+    );
 
+    assertExecutionHandoffBudget(
+        budget,
+        `activation_paths.candidates.resolved_callback_bindings.start(site=${formatCandidateSite(caller, stmt)})`,
+    );
     const resolvedBindings = collectResolvedCallbackBindingsForStmt(
         scene,
         cg,
@@ -391,6 +442,7 @@ function collectFutureUnitCandidates(
         new Map<string, Set<number>>(),
     );
     for (const binding of resolvedBindings) {
+        assertExecutionHandoffBudget(budget, "activation_paths.candidates.resolved_callback_results");
         addMethod(
             binding.method,
             binding.sourceMethod || caller,
@@ -398,16 +450,80 @@ function collectFutureUnitCandidates(
         );
     }
 
+    assertExecutionHandoffBudget(budget, "activation_paths.candidates.approved_registration");
     const registrationMatch = resolveApprovedImperativeRegistrationMatch(scene, caller, invokeExpr, explicitArgs);
     const callbackArgIndexes = registrationMatch?.callbackArgIndexes || [];
     for (const callbackArgIndex of callbackArgIndexes) {
+        assertExecutionHandoffBudget(budget, "activation_paths.candidates.relay_origins");
         const callbackValue = explicitArgs[callbackArgIndex];
         for (const origin of resolveRelayCallbackOrigins(scene, caller, callbackValue, context)) {
+            assertExecutionHandoffBudget(budget, "activation_paths.candidates.relay_origin_results");
             addMethod(origin.method, origin.sourceMethod, origin.carrierKind);
         }
     }
 
     return [...out.values()];
+}
+
+function isPotentialDeferredUnitCarrierValue(value: any): boolean {
+    if (!value) return false;
+    if (isCallableValue(value)) return true;
+    if (value instanceof ArkInstanceFieldRef || value instanceof ClosureFieldRef) return true;
+
+    const typeText = String(value.getType?.()?.toString?.() || "").toLowerCase();
+    if (/(function|callback|lambda|closure|=>)/.test(typeText)) return true;
+
+    const text = String(value.toString?.() || "").toLowerCase();
+    if (/(callback|cb|handler|listener|success|fail|complete|resolve|reject|continuation)/.test(text)) {
+        return true;
+    }
+
+    if (value instanceof Local) {
+        const declaringStmt = value.getDeclaringStmt?.();
+        const right = (declaringStmt as any)?.getRightOp?.();
+        if (right instanceof ArkInstanceFieldRef || right instanceof ClosureFieldRef) return true;
+        if (right && isCallableValue(right)) return true;
+        const rightText = String(right?.toString?.() || "").toLowerCase();
+        if (/(callback|cb|handler|listener|success|fail|complete|resolve|reject|continuation|=>)/.test(rightText)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function isDirectDeferredCallbackArgument(value: any): boolean {
+    if (!value) return false;
+    if (isCallableValue(value)) return true;
+
+    const typeText = String(value.getType?.()?.toString?.() || "").toLowerCase();
+    if (/(function|callback|lambda|closure|=>)/.test(typeText)) return true;
+
+    const text = String(value.toString?.() || "").toLowerCase();
+    if (/(callback|cb|handler|listener|success|fail|complete|resolve|reject|continuation)/.test(text)) {
+        return true;
+    }
+
+    if (value instanceof Local) {
+        const declaringStmt = value.getDeclaringStmt?.();
+        const right = (declaringStmt as any)?.getRightOp?.();
+        if (right && isCallableValue(right)) return true;
+        const rightType = String(right?.getType?.()?.toString?.() || "").toLowerCase();
+        if (/(function|callback|lambda|closure|=>)/.test(rightType)) return true;
+        const rightText = String(right?.toString?.() || "").toLowerCase();
+        if (/(callback|cb|handler|listener|success|fail|complete|resolve|reject|continuation|=>)/.test(rightText)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function formatCandidateSite(caller: any, stmt: any): string {
+    const sig = methodSignature(caller);
+    const line = stmt?.getOriginPositionInfo?.()?.getLineNo?.() || 0;
+    const shortSig = sig.length > 120 ? `${sig.slice(0, 117)}...` : sig;
+    return `${shortSig}#${line}`;
 }
 
 function resolveCallbackMethodsFromValueWithReturnsCached(
@@ -666,14 +782,20 @@ function collectIncomingRelayCallSites(
     return scanned;
 }
 
-function buildIncomingCallsiteIndex(scene: Scene, cg: CallGraph): Map<string, IncomingCallSite[]> {
+function buildIncomingCallsiteIndex(
+    scene: Scene,
+    cg: CallGraph,
+    budget?: ExecutionHandoffBuildBudget,
+): Map<string, IncomingCallSite[]> {
     const out = new Map<string, IncomingCallSite[]>();
     const dedup = new Map<string, Set<string>>();
 
     for (const method of scene.getMethods()) {
+        assertExecutionHandoffBudget(budget, "incoming_callsite_index.methods");
         const cfg = method.getCfg?.();
         if (!cfg) continue;
         for (const stmt of cfg.getStmts()) {
+            assertExecutionHandoffBudget(budget, "incoming_callsite_index.statements");
             if (!stmt.containsInvokeExpr || !stmt.containsInvokeExpr()) continue;
             const callSites = cg.getCallSiteByStmt(stmt) || [];
             for (const cs of callSites) {

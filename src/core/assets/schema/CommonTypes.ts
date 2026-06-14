@@ -22,6 +22,18 @@ export function isTrustedAnalysisAssetStatus(status: AssetStatus): status is Tru
     return (TRUSTED_ANALYSIS_ASSET_STATUSES as readonly string[]).includes(status);
 }
 
+export type AnalysisAssetLoadMode = "trusted-analysis" | "semanticflow-evaluation";
+
+export function isAnalysisLoadableAssetStatus(
+    status: AssetStatus,
+    mode: AnalysisAssetLoadMode = "trusted-analysis",
+): boolean {
+    if (isTrustedAnalysisAssetStatus(status)) {
+        return true;
+    }
+    return mode === "semanticflow-evaluation" && status === "schema-valid";
+}
+
 export type Confidence = "certain" | "likely" | "unknown";
 
 export interface SourceLocation {

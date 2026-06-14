@@ -3,6 +3,11 @@
     DeferredBindingCompletion,
     DeferredBindingContinuationRole,
 } from "../model/DeferredBindingDeclaration";
+import type {
+    AssetEndpoint,
+    Confidence,
+    HandoffHandleTemplate,
+} from "../../assets/schema";
 
 export interface InternalModuleLoweringIR {
     id: string;
@@ -12,10 +17,13 @@ export interface InternalModuleLoweringIR {
 }
 
 export interface ModuleInvokeSurfaceSelector {
+    surfaceKind?: "invoke";
     modulePath?: string;
     methodName?: string;
     declaringClassName?: string;
     declaringClassIncludes?: string;
+    baseLocalName?: string;
+    baseLocalNames?: string[];
     signature?: string;
     signatureIncludes?: string;
     argCount?: number;
@@ -23,6 +31,21 @@ export interface ModuleInvokeSurfaceSelector {
     instanceOnly?: boolean;
     staticOnly?: boolean;
 }
+
+export interface ModuleConstructSurfaceSelector {
+    surfaceKind: "construct";
+    modulePath?: string;
+    className?: string;
+    classNameIncludes?: string;
+    signature?: string;
+    signatureIncludes?: string;
+    argCount?: number;
+    minArgs?: number;
+}
+
+export type ModuleCallSurfaceSelector =
+    | ModuleInvokeSurfaceSelector
+    | ModuleConstructSurfaceSelector;
 
 export interface ModuleMethodSelector {
     methodSignature?: string;
@@ -337,6 +360,7 @@ export interface ModuleEventEmitterSemantic {
     onMethods?: string[];
     emitMethods?: string[];
     channelArgIndexes?: number[];
+    /** Use -1 for dispatch methods that activate callbacks without carrying a payload argument. */
     payloadArgIndex?: number;
     callbackArgIndex?: number;
     callbackParamIndex?: number;
@@ -359,6 +383,23 @@ export interface ModuleKeyedStorageSemantic {
     linkDecorators?: string[];
 }
 
+export interface ModuleHandoffEffectSpec {
+    id: string;
+    effectKind: "put" | "get" | "kill";
+    surface: ModuleCallSurfaceSelector;
+    handle: HandoffHandleTemplate;
+    value?: AssetEndpoint;
+    target?: AssetEndpoint;
+    updateStrength?: "strong" | "weak" | "infer";
+    confidence?: Confidence;
+}
+
+export interface ModuleHandoffEffectSemantic {
+    id?: string;
+    kind: "handoff_effect";
+    effects: ModuleHandoffEffectSpec[];
+}
+
 export interface ModuleRoutePushMethodSpec {
     methodName: string;
     routeField?: string;
@@ -369,6 +410,7 @@ export interface ModuleRouteBridgeSemantic {
     kind: "route_bridge";
     pushMethods: ModuleRoutePushMethodSpec[];
     getMethods: string[];
+    routerClassNames?: string[];
     navDestinationClassNames?: string[];
     navDestinationRegisterMethods?: string[];
     frameworkSignatureHints?: string[];
@@ -390,6 +432,7 @@ export type ModuleSemantic =
     | ModuleBridgeSemantic
     | ModuleStateSemantic
     | ModuleDeclarativeBindingSemantic
+    | ModuleHandoffEffectSemantic
     | ModuleContainerSemantic
     | ModuleAbilityHandoffSemantic
     | ModuleKeyedStorageSemantic

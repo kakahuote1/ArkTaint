@@ -1,7 +1,7 @@
 ﻿import * as fs from "fs";
 import * as path from "path";
-import type { AssetDocumentBase } from "../../assets/schema";
-import { ModuleSession, TaintModule } from "../../kernel/contracts/ModuleContract";
+import type { AnalysisAssetLoadMode, AssetDocumentBase } from "../../assets/schema";
+import type { ModuleSession, TaintModule } from "../../kernel/contracts/ModuleContract";
 import type { InternalModuleLoweringIR } from "../../kernel/contracts/InternalModuleLoweringIR";
 import {
     collectExtensionExportCandidates,
@@ -29,6 +29,7 @@ export interface ModuleLoaderOptions {
     modules?: TaintModule[];
     enabledModuleProjects?: string[];
     disabledModuleProjects?: string[];
+    semanticflowEvaluationModelRoots?: string[];
     onWarning?: (warning: string) => void;
 }
 
@@ -96,12 +97,13 @@ export function loadModules(options: ModuleLoaderOptions = {}): ModuleLoadResult
     const disabledModuleIds = new Set(options.disabledModuleIds || []);
     const discoveredModuleProjects = new Set<string>();
     const enabledModuleProjects = resolveEnabledModuleProjects(options);
+    const evaluationRoots = normalizeRootList(options.semanticflowEvaluationModelRoots);
 
     const builtinRoots = options.includeBuiltinModules === false
         ? []
         : getBuiltinModuleRoots(options.builtinModuleRoots);
     const extraRoots = resolveExistingDirectories(options.moduleRoots);
-    const allRoots = [...new Set([...builtinRoots, ...extraRoots])];
+    const allRoots = [...new Set([...builtinRoots, ...extraRoots, ...evaluationRoots])];
 
     for (const kernelModuleRoot of collectKernelModuleRoots(allRoots)) {
         auditExtensionDirectoryFiles(kernelModuleRoot, "module", warnings, options.onWarning);
@@ -145,7 +147,13 @@ export function loadModules(options: ModuleLoaderOptions = {}): ModuleLoadResult
             );
         }
         for (const file of pack.assetFiles) {
-            const module = loadModuleAssetFile(file, warnings, options.onWarning);
+            const module = loadModuleAssetFile(
+                file,
+                warnings,
+                options.onWarning,
+                resolveAssetLoadMode(file, evaluationRoots),
+                loadIssues,
+            );
             if (!module) continue;
             loadedFiles.add(path.resolve(file));
             if (disabledModuleIds.has(module.id)) continue;
@@ -203,12 +211,13 @@ export function inspectModules(options: ModuleLoaderOptions = {}): ModuleInspect
     const disabledModuleIds = new Set(options.disabledModuleIds || []);
     const discoveredModuleProjects = new Set<string>();
     const enabledModuleProjects = resolveEnabledModuleProjects(options);
+    const evaluationRoots = normalizeRootList(options.semanticflowEvaluationModelRoots);
 
     const builtinRoots = options.includeBuiltinModules === false
         ? []
         : getBuiltinModuleRoots(options.builtinModuleRoots);
     const extraRoots = resolveExistingDirectories(options.moduleRoots);
-    const allRoots = [...new Set([...builtinRoots, ...extraRoots])];
+    const allRoots = [...new Set([...builtinRoots, ...extraRoots, ...evaluationRoots])];
     let order = 0;
 
     const pushCandidate = (
@@ -273,7 +282,13 @@ export function inspectModules(options: ModuleLoaderOptions = {}): ModuleInspect
             inspectFile(file, "project_module", pack.projectId, pack.rootDir);
         }
         for (const file of pack.assetFiles) {
-            const module = loadModuleAssetFile(file, warnings, options.onWarning);
+            const module = loadModuleAssetFile(
+                file,
+                warnings,
+                options.onWarning,
+                resolveAssetLoadMode(file, evaluationRoots),
+                loadIssues,
+            );
             if (!module) continue;
             pushCandidate(module, module.enabled !== false, "project_module", pack.projectId);
         }
@@ -643,32 +658,83 @@ function bundleInternalModuleLoweringIR(spec: InternalModuleLoweringIR, modulePa
     return bundled;
 }
 
-function bundleModuleAsset(asset: AssetDocumentBase, modulePath: string): TaintModule {
-    return bundleInternalModuleLoweringIR(lowerModuleAssetToInternalModuleLoweringIR(asset), modulePath);
+function bundleModuleAsset(
+    asset: AssetDocumentBase,
+    modulePath: string,
+    loadMode: AnalysisAssetLoadMode = "trusted-analysis",
+): TaintModule {
+    return bundleInternalModuleLoweringIR(
+        lowerModuleAssetToInternalModuleLoweringIR(asset, { loadMode }),
+        modulePath,
+    );
 }
 
 function loadModuleAssetFile(
     file: string,
     warnings: string[],
     onWarning?: (warning: string) => void,
+    loadMode: AnalysisAssetLoadMode = "trusted-analysis",
+    loadIssues?: ExtensionModuleLoadIssue[],
 ): TaintModule | undefined {
     const modulePath = path.resolve(file);
     if (!fs.existsSync(modulePath) || !fs.statSync(modulePath).isFile()) {
-        pushLoaderWarning(warnings, onWarning, `module asset file not found: ${modulePath}`);
+        const message = `module asset file not found: ${modulePath}`;
+        pushLoaderWarning(warnings, onWarning, message);
+        loadIssues?.push(makeModuleAssetLoadIssue(modulePath, message, "MODULE_ASSET_FILE_NOT_FOUND"));
         return undefined;
     }
     try {
         const parsed = JSON.parse(fs.readFileSync(modulePath, "utf-8"));
         if (!isModuleAsset(parsed)) {
-            pushLoaderWarning(warnings, onWarning, `module asset file is not a v2 module asset: ${modulePath}`);
+            const message = `module asset file is not a v2 module asset: ${modulePath}`;
+            pushLoaderWarning(warnings, onWarning, message);
+            loadIssues?.push(makeModuleAssetLoadIssue(modulePath, message, "MODULE_ASSET_INVALID_SHAPE"));
             return undefined;
         }
-        return bundleModuleAsset(parsed, modulePath);
+        return bundleModuleAsset(parsed, modulePath, loadMode);
     } catch (error) {
         const message = String((error as any)?.message || error);
         pushLoaderWarning(warnings, onWarning, `failed to load module asset file ${modulePath}: ${message}`);
+        loadIssues?.push(makeModuleAssetLoadIssue(
+            modulePath,
+            message,
+            "MODULE_ASSET_LOAD_FAILED",
+        ));
         return undefined;
     }
+}
+
+function makeModuleAssetLoadIssue(
+    modulePath: string,
+    message: string,
+    code: string,
+): ExtensionModuleLoadIssue {
+    return {
+        kindLabel: "module",
+        modulePath,
+        phase: "module_load",
+        message,
+        code,
+        advice: "Inspect the declarative module asset schema, effect templates, cellKind bindings, and handle family consistency before debugging runtime emissions.",
+        userMessage: `module asset load failed @ ${modulePath}: ${message}`,
+    };
+}
+
+function normalizeRootList(input?: string[]): string[] {
+    return [...new Set((input || [])
+        .map(item => path.resolve(item))
+        .filter(Boolean))];
+}
+
+function isUnderRoot(filePath: string, rootPath: string): boolean {
+    const relative = path.relative(path.resolve(rootPath), path.resolve(filePath));
+    return !!relative && !relative.startsWith("..") && !path.isAbsolute(relative);
+}
+
+function resolveAssetLoadMode(filePath: string, evaluationRoots: readonly string[]): AnalysisAssetLoadMode {
+    return evaluationRoots.some(root => isUnderRoot(filePath, root))
+        ? "semanticflow-evaluation"
+        : "trusted-analysis";
 }
 
 function registerModule(

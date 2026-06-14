@@ -73,6 +73,7 @@ export function validateAssetDocument(asset: unknown, options: AssetDocumentVali
     }
 
     const surfaceIds = new Set<string>();
+    const surfacesById = new Map<string, AssetSurface>();
     surfaces.forEach((surface, index) => {
         validateSurface(surface as AssetSurface, `$.surfaces[${index}]`, errors);
         if (isObject(surface) && typeof (surface as any).surfaceId === "string") {
@@ -80,15 +81,19 @@ export function validateAssetDocument(asset: unknown, options: AssetDocumentVali
                 errors.push(`duplicate surfaceId ${(surface as any).surfaceId}`);
             }
             surfaceIds.add((surface as any).surfaceId);
+            surfacesById.set((surface as any).surfaceId, surface as AssetSurface);
         }
     });
 
     const templateIds = new Set<string>();
+    const templatesById = new Map<string, SemanticEffectTemplate>();
     templates.forEach((template, index) => {
         validateTemplate(template as SemanticEffectTemplate, `$.effectTemplates[${index}]`, errors, validationOptions);
+        validateTemplatePlaneCompatibility(doc.plane, template as SemanticEffectTemplate, `$.effectTemplates[${index}]`, errors);
         if (isObject(template) && typeof (template as any).id === "string") {
             if (templateIds.has((template as any).id)) errors.push(`duplicate effect template id ${(template as any).id}`);
             templateIds.add((template as any).id);
+            templatesById.set((template as any).id, template as SemanticEffectTemplate);
         }
     });
 
@@ -102,8 +107,11 @@ export function validateAssetDocument(asset: unknown, options: AssetDocumentVali
     });
 
     bindings.forEach((binding, index) => {
-        validateBinding(binding as AssetBinding, `$.bindings[${index}]`, surfaceIds, templateIds, relationIds, errors);
+        validateBinding(binding as AssetBinding, `$.bindings[${index}]`, doc.plane, surfaceIds, templateIds, relationIds, errors);
     });
+
+    validateConstructSurfaceEndpointCompatibility(surfacesById, bindings as AssetBinding[], templatesById, errors);
+    validatePairedHandoffHandleFamilies(surfaces as AssetSurface[], bindings as AssetBinding[], templates as SemanticEffectTemplate[], errors);
 
     if (isObject(doc.provenance) && (doc.provenance as any).source === "llm") {
         for (const template of templates) {
@@ -114,6 +122,140 @@ export function validateAssetDocument(asset: unknown, options: AssetDocumentVali
     }
 
     return result(errors, warnings);
+}
+
+function validatePairedHandoffHandleFamilies(
+    surfaces: AssetSurface[],
+    bindings: AssetBinding[],
+    templates: SemanticEffectTemplate[],
+    errors: string[],
+): void {
+    const surfacesById = new Map<string, AssetSurface>();
+    for (const surface of surfaces) {
+        if (isObject(surface) && typeof (surface as any).surfaceId === "string") {
+            surfacesById.set((surface as any).surfaceId, surface);
+        }
+    }
+
+    const templateToSurfaceOwner = new Map<string, Set<string>>();
+    for (const binding of bindings) {
+        if (!isObject(binding) || !Array.isArray((binding as any).effectTemplateRefs)) continue;
+        const ownerKey = surfaceOwnerKey(surfacesById.get((binding as any).surfaceId));
+        if (!ownerKey) continue;
+        for (const ref of (binding as any).effectTemplateRefs) {
+            if (typeof ref !== "string") continue;
+            let owners = templateToSurfaceOwner.get(ref);
+            if (!owners) {
+                owners = new Set<string>();
+                templateToSurfaceOwner.set(ref, owners);
+            }
+            owners.add(ownerKey);
+        }
+    }
+
+    const groups = new Map<string, { family: string; templateId: string; kind: string }>();
+    for (const template of templates) {
+        if (!isObject(template) || typeof (template as any).id !== "string") continue;
+        const handle = primaryHandoffHandle(template);
+        if (!handle || !isObject(handle)) continue;
+        const family = typeof (handle as any).family === "string" ? (handle as any).family : "";
+        if (!family) continue;
+        const ownerKeys = templateToSurfaceOwner.get((template as any).id);
+        if (!ownerKeys || ownerKeys.size === 0) continue;
+        for (const ownerKey of ownerKeys) {
+            const key = [
+                ownerKey,
+                String((handle as any).cellKind || ""),
+                canonicalHandlePartArray((handle as any).scope),
+                canonicalHandlePartArray((handle as any).key),
+                canonicalHandlePartArray((handle as any).owner),
+                (handle as any).index === undefined ? "" : String((handle as any).index),
+            ].join("|");
+            const previous = groups.get(key);
+            if (previous && previous.family !== family) {
+                errors.push(
+                    `paired handoff templates for ${ownerKey} over the same cellKind/key/scope/owner layout must use the same handle.family: ` +
+                    `${previous.templateId} (${previous.kind}) uses ${previous.family}, ${(template as any).id} (${(template as any).kind}) uses ${family}`,
+                );
+                continue;
+            }
+            groups.set(key, {
+                family,
+                templateId: (template as any).id,
+                kind: String((template as any).kind || ""),
+            });
+        }
+    }
+}
+
+function primaryHandoffHandle(template: SemanticEffectTemplate): unknown {
+    const kind = (template as any).kind;
+    if (kind === "handoff.put" || kind === "handoff.get" || kind === "handoff.kill") {
+        return (template as any).handle;
+    }
+    return undefined;
+}
+
+function surfaceOwnerKey(surface: AssetSurface | undefined): string | undefined {
+    if (!surface || !isObject(surface)) return undefined;
+    if ((surface as any).kind !== "invoke") return undefined;
+    const modulePath = String((surface as any).modulePath || "");
+    const owner = String((surface as any).ownerName || (surface as any).functionName || "");
+    if (!modulePath || !owner) return undefined;
+    return `${modulePath}::${owner}`;
+}
+
+function canonicalHandlePartArray(value: unknown): string {
+    if (value === undefined) return "<absent>";
+    if (!Array.isArray(value)) return "<invalid>";
+    return JSON.stringify(value.map(canonicalHandlePartTemplate));
+}
+
+function canonicalHandlePartTemplate(part: unknown): unknown {
+    if (!isObject(part)) return part;
+    const kind = (part as any).kind;
+    if (kind === "fromEndpointPath") {
+        return {
+            kind,
+            endpoint: canonicalEndpoint((part as any).endpoint),
+            accessPath: Array.isArray((part as any).accessPath) ? (part as any).accessPath.map(String) : [],
+        };
+    }
+    if (kind === "fromEndpoint") {
+        return {
+            kind,
+            endpoint: canonicalEndpoint((part as any).endpoint),
+        };
+    }
+    return Object.fromEntries(Object.entries(part).sort(([left], [right]) => left.localeCompare(right)));
+}
+
+function canonicalEndpoint(endpoint: unknown): unknown {
+    if (!isObject(endpoint)) return endpoint;
+    return {
+        base: isObject((endpoint as any).base)
+            ? Object.fromEntries(Object.entries((endpoint as any).base).sort(([left], [right]) => left.localeCompare(right)))
+            : (endpoint as any).base,
+        accessPath: Array.isArray((endpoint as any).accessPath) ? (endpoint as any).accessPath.map(String) : undefined,
+    };
+}
+
+function validateTemplatePlaneCompatibility(
+    plane: unknown,
+    template: SemanticEffectTemplate,
+    path: string,
+    errors: string[],
+): void {
+    if (plane !== "rule" && plane !== "module" && plane !== "arkmain") return;
+    if (!isObject(template) || typeof (template as any).kind !== "string") return;
+    const kind = (template as any).kind as string;
+    const compatible =
+        (plane === "rule" && kind.startsWith("rule.")) ||
+        (plane === "module" && (kind.startsWith("handoff.") || kind === "module.eventEmitter" || kind === "core.capability")) ||
+        (plane === "arkmain" && (kind.startsWith("entry.") || kind === "core.capability"));
+    if (!compatible) {
+        errors.push(`${path}.kind ${kind} is not compatible with asset plane ${plane}`);
+    }
 }
 
 function normalizeValidationOptions(options: AssetDocumentValidationOptions): NormalizedValidationOptions {
@@ -254,10 +396,37 @@ function validateTemplate(
         case "entry.frameworkInvoke":
             validateEndpoint((template as any).target, `${path}.target`, errors);
             return;
+        case "module.eventEmitter":
+            validateModuleEventEmitterTemplate(template as any, path, errors);
+            return;
         case "core.capability":
             requireString((template as any).capability, `${path}.capability`, errors);
             if (!isObject((template as any).payload)) errors.push(`${path}.payload must be an object`);
             return;
+    }
+}
+
+function validateModuleEventEmitterTemplate(template: Record<string, unknown>, path: string, errors: string[]): void {
+    if (template.onMethods !== undefined) {
+        validateStringArray(template.onMethods, `${path}.onMethods`, errors, { allowEmpty: false });
+    }
+    if (template.emitMethods !== undefined) {
+        validateStringArray(template.emitMethods, `${path}.emitMethods`, errors, { allowEmpty: false });
+    }
+    if (template.channelArgIndexes !== undefined) {
+        validateIntegerArray(template.channelArgIndexes, `${path}.channelArgIndexes`, errors, { min: 0, allowEmpty: false });
+    }
+    if (template.payloadArgIndex !== undefined) {
+        validateInteger(template.payloadArgIndex, `${path}.payloadArgIndex`, errors, { min: -1 });
+    }
+    if (template.callbackArgIndex !== undefined) {
+        validateInteger(template.callbackArgIndex, `${path}.callbackArgIndex`, errors, { min: 0 });
+    }
+    if (template.callbackParamIndex !== undefined) {
+        validateInteger(template.callbackParamIndex, `${path}.callbackParamIndex`, errors, { min: 0 });
+    }
+    if (template.maxCandidates !== undefined) {
+        validateInteger(template.maxCandidates, `${path}.maxCandidates`, errors, { min: 1 });
     }
 }
 
@@ -282,6 +451,9 @@ function validateRuleValueRef(value: unknown, path: string, errors: string[]): v
         validateEndpoint((value as any).endpoint, `${path}.endpoint`, errors);
         if ((value as any).pathFrom !== undefined) validateEndpoint((value as any).pathFrom, `${path}.pathFrom`, errors);
         if ((value as any).slotKind !== undefined) requireString((value as any).slotKind, `${path}.slotKind`, errors);
+        if ((value as any).taintScope !== undefined) {
+            requireOneOf((value as any).taintScope, ["self", "contained-values"], `${path}.taintScope`, errors);
+        }
         return;
     }
     validateEndpoint(value, path, errors);
@@ -348,9 +520,7 @@ function validateHandoffHandleTemplate(
     validateHandlePartArray((handle as any).scope, `${path}.scope`, errors, { required: false });
     validateHandlePartArray((handle as any).owner, `${path}.owner`, errors, { required: false });
     if ((handle as any).index !== undefined) requireNonNegativeInteger((handle as any).index, `${path}.index`, errors);
-    if ((handle as any).precision !== undefined) {
-        requireOneOf((handle as any).precision, ["infer", "exact", "partial", "unknown"], `${path}.precision`, errors);
-    }
+    requireOneOf((handle as any).precision, ["infer", "exact", "partial", "unknown"], `${path}.precision`, errors);
 }
 
 function validateHandlePartArray(value: unknown, path: string, errors: string[], options: { required: boolean }): void {
@@ -405,6 +575,7 @@ function validateRelation(relation: AssetRelation, path: string, surfaceIds: Set
 function validateBinding(
     binding: AssetBinding,
     path: string,
+    assetPlane: unknown,
     surfaceIds: Set<string>,
     templateIds: Set<string>,
     relationIds: Set<string>,
@@ -421,6 +592,13 @@ function validateBinding(
     }
     requireString((binding as any).assetId, `${path}.assetId`, errors);
     requireOneOf((binding as any).plane, ["rule", "module", "arkmain"], `${path}.plane`, errors);
+    if (
+        (assetPlane === "rule" || assetPlane === "module" || assetPlane === "arkmain") &&
+        typeof (binding as any).plane === "string" &&
+        (binding as any).plane !== assetPlane
+    ) {
+        errors.push(`${path}.plane must match asset plane ${assetPlane}`);
+    }
     requireOneOf((binding as any).role, ["source", "sink", "sanitizer", "transfer", "handoff", "entry", "callback-registration"], `${path}.role`, errors);
     requireOneOf((binding as any).completeness, ["complete", "partial", "unknown"], `${path}.completeness`, errors);
     requireOneOf((binding as any).confidence, ["certain", "likely", "unknown"], `${path}.confidence`, errors);
@@ -442,6 +620,37 @@ function validateBinding(
         for (const ref of (binding as any).relationRefs) {
             if (!relationIds.has(ref)) errors.push(`${path}.relationRefs references missing relation ${ref}`);
         }
+    }
+}
+
+function validateConstructSurfaceEndpointCompatibility(
+    surfacesById: Map<string, AssetSurface>,
+    bindings: AssetBinding[],
+    templatesById: Map<string, SemanticEffectTemplate>,
+    errors: string[],
+): void {
+    bindings.forEach((binding, bindingIndex) => {
+        if (!isObject(binding)) return;
+        const surface = surfacesById.get((binding as any).surfaceId);
+        if (!surface || (surface as any).kind !== "construct") return;
+        rejectReceiverEndpointOnConstruct((binding as any).endpoint, `$.bindings[${bindingIndex}].endpoint`, errors);
+        if (!Array.isArray((binding as any).effectTemplateRefs)) return;
+        for (const ref of (binding as any).effectTemplateRefs) {
+            const template = templatesById.get(ref);
+            if (!template || !isObject(template)) continue;
+            const templatePath = `effectTemplate ${ref}`;
+            rejectReceiverEndpointOnConstruct((template as any).value, `${templatePath}.value`, errors);
+            rejectReceiverEndpointOnConstruct((template as any).from, `${templatePath}.from`, errors);
+            rejectReceiverEndpointOnConstruct((template as any).to, `${templatePath}.to`, errors);
+            rejectReceiverEndpointOnConstruct((template as any).target, `${templatePath}.target`, errors);
+        }
+    });
+}
+
+function rejectReceiverEndpointOnConstruct(endpoint: unknown, path: string, errors: string[]): void {
+    if (!isObject(endpoint) || !isObject((endpoint as any).base)) return;
+    if ((endpoint as any).base.kind === "receiver") {
+        errors.push(`${path} must not use receiver on a construct surface; use arg for constructor inputs or constructorResult for constructed-object fields`);
     }
 }
 
@@ -514,6 +723,16 @@ function validateRuntimeSelectorScope(scope: RuntimeSelectorScope, path: string,
             validateSelectorStringConstraint(raw, `${path}.${fieldName}`, errors);
         }
     }
+    const methodDecorators = (scope as any).methodDecorators;
+    if (methodDecorators !== undefined) {
+        if (!Array.isArray(methodDecorators) || methodDecorators.length === 0) {
+            errors.push(`${path}.methodDecorators must be a non-empty array`);
+        } else {
+            methodDecorators.forEach((raw, index) => {
+                validateSelectorStringConstraint(raw, `${path}.methodDecorators[${index}]`, errors);
+            });
+        }
+    }
 }
 
 function validateSelectorStringConstraint(raw: SelectorStringConstraint, path: string, errors: string[]): void {
@@ -572,6 +791,25 @@ function requireNonNegativeInteger(value: unknown, path: string, errors: string[
     if (!Number.isInteger(value) || Number(value) < 0) {
         errors.push(`${path} must be a non-negative integer`);
     }
+}
+
+function validateInteger(value: unknown, path: string, errors: string[], options: { min: number }): void {
+    if (!Number.isInteger(value) || Number(value) < options.min) {
+        errors.push(`${path} must be an integer >= ${options.min}`);
+    }
+}
+
+function validateIntegerArray(
+    value: unknown,
+    path: string,
+    errors: string[],
+    options: { min: number; allowEmpty: boolean },
+): void {
+    if (!Array.isArray(value) || (!options.allowEmpty && value.length === 0)) {
+        errors.push(`${path} must be a ${options.allowEmpty ? "" : "non-empty "}integer[]`);
+        return;
+    }
+    value.forEach((item, index) => validateInteger(item, `${path}[${index}]`, errors, { min: options.min }));
 }
 
 function validateStringArray(

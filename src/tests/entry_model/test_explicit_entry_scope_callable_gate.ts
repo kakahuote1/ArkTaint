@@ -53,6 +53,11 @@ async function main(): Promise<void> {
             caseName: "callback_promise_then_003_T",
             expectedSinkCallbackReachable: true,
         },
+        {
+            fileName: "callback_receiver_method_004_F.ets",
+            caseName: "callback_receiver_method_004_F",
+            expectedSinkCallbackReachable: false,
+        },
     ];
 
     for (const probe of probes) {

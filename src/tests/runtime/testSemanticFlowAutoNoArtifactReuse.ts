@@ -169,6 +169,8 @@ async function main(): Promise<void> {
         const analysis = JSON.parse(fs.readFileSync(path.join(root, "analysis.json"), "utf8"));
         assert(path.resolve(analysis.summaryJsonPath) === path.resolve(finalSummaryPath), `expected analysis summary to point at final summary, got ${analysis.summaryJsonPath}`);
         assert(path.resolve(analysis.diagnosticsJsonPath) === path.resolve(finalDiagnosticsPath), `expected analysis diagnostics to point at final diagnostics, got ${analysis.diagnosticsJsonPath}`);
+        assert(analysis.semanticflowEvaluationOverlay?.applied === false, "no-artifact run must not enable semanticflow evaluation overlay");
+        assert(analysis.semanticflowEvaluationOverlay?.assetCount === 0, `expected overlay asset count 0, got ${analysis.semanticflowEvaluationOverlay?.assetCount}`);
 
         console.log("PASS testSemanticFlowAutoNoArtifactReuse");
     } finally {

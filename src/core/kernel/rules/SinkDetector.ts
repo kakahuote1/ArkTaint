@@ -28,11 +28,13 @@ import { resolveReceiverGetterReturnFieldPath } from "../propagation/WorklistFie
 import { resolveSdkImportScopeCandidates } from "../../substrate/queries/SdkProvenance";
 
 export interface SinkDetectOptions {
+    sinkRuleId?: string;
     targetEndpoint?: RuleEndpoint;
     targetPath?: string[];
     invokeKind?: RuleInvokeKind;
     argCount?: number;
     typeHint?: string;
+    callerScope?: RuleScopeConstraint;
     calleeScope?: RuleScopeConstraint;
     signatureMatchMode?: "contains" | "equals";
     fieldToVarIndex?: Map<string, Set<number>>;
@@ -43,6 +45,25 @@ export interface SinkDetectOptions {
     sanitizerRules?: SanitizerRule[];
     transferRules?: TransferRule[];
     onProfile?: (profile: SinkDetectProfile) => void;
+    onAudit?: (entry: SinkDetectAuditEntry) => void;
+}
+
+export interface SinkDetectAuditEntry {
+    kind: "callsite" | "candidate" | "hit" | "sanitized" | "rejected";
+    ruleId?: string;
+    signatureQuery: string;
+    calleeSignature?: string;
+    ownerMethodSignature?: string;
+    ownerMethodName?: string;
+    sinkText?: string;
+    endpoint?: string;
+    candidateKind?: string;
+    candidateNodeIds?: number[];
+    source?: string;
+    sourceRuleId?: string;
+    sinkNodeId?: number;
+    sinkFieldPath?: string[];
+    reason: string;
 }
 
 interface SinkCandidate {
@@ -177,6 +198,13 @@ export function detectSinks(
 
     log(`\n=== Detecting sinks for: "${sinkSignature}" ===`);
     let sinksChecked = 0;
+    const emitAudit = (entry: Omit<SinkDetectAuditEntry, "ruleId" | "signatureQuery">): void => {
+        options.onAudit?.({
+            ...entry,
+            ruleId: options.sinkRuleId,
+            signatureQuery: sinkSignature,
+        });
+    };
 
     const index = getOrBuildSinkCallsiteIndex(scene, options.allowedMethodSignatures);
     profile.methodsVisited += index.methodCount;
@@ -194,7 +222,7 @@ export function detectSinks(
         log(`Checking method "${method.getName()}" for sinks...`);
 
         const constraintT0 = process.hrtime.bigint();
-        if (!matchesInvokeConstraints(invokeExpr, calleeSignature, options, method)) {
+        if (!matchesInvokeConstraints(scene, invokeExpr, calleeSignature, options, method)) {
             profile.signatureMatchMs += elapsedMsSince(constraintT0);
             profile.constraintRejectedInvokeCount++;
             continue;
@@ -204,22 +232,39 @@ export function detectSinks(
         sinksChecked++;
         profile.sinksChecked++;
         log(`  Found sink call: ${calleeSignature}`);
+        emitAudit({
+            kind: "callsite",
+            calleeSignature,
+            ownerMethodSignature: method.getSignature?.()?.toString?.() || "",
+            ownerMethodName: method.getName?.() || "",
+            sinkText: stmt.toString?.() || "",
+            reason: "sink_callsite_matched",
+        });
 
         const resolveT0 = process.hrtime.bigint();
         const candidates = resolveSinkCandidates(stmt, invokeExpr, options.targetEndpoint);
         profile.candidateResolveMs += elapsedMsSince(resolveT0);
         if (candidates.length === 0) {
+            emitAudit({
+                kind: "rejected",
+                calleeSignature,
+                ownerMethodSignature: method.getSignature?.()?.toString?.() || "",
+                ownerMethodName: method.getName?.() || "",
+                sinkText: stmt.toString?.() || "",
+                reason: "sink_endpoint_unresolved",
+            });
             continue;
         }
         profile.candidateCount += candidates.length;
         let sinkDetected = false;
         for (const candidate of candidates) {
+            const candidateFlowStart = flows.length;
             if (options.targetPath && options.targetPath.length > 0 && fieldToVarIndex) {
                 profile.fieldPathCheckCount++;
                 const fieldPathT0 = process.hrtime.bigint();
-                const fieldPathResult = detectFieldPathSource(candidate.value, options.targetPath, stmt, pag, tracker, fieldToVarIndex);
+                const fieldPathResults = detectFieldPathSources(candidate.value, options.targetPath, stmt, pag, tracker, fieldToVarIndex);
                 profile.taintEvalMs += elapsedMsSince(fieldPathT0);
-                if (fieldPathResult) {
+                if (fieldPathResults.length > 0) {
                     profile.sanitizerGuardCheckCount++;
                     const sanitizerT0 = process.hrtime.bigint();
                     const sanitizerResult = isSinkCandidateSanitizedByRules(
@@ -232,18 +277,54 @@ export function detectSinks(
                     profile.sanitizerGuardMs += elapsedMsSince(sanitizerT0);
                     if (sanitizerResult.sanitized) {
                         profile.sanitizerGuardHitCount++;
+                        emitAudit({
+                            kind: "sanitized",
+                            calleeSignature,
+                            ownerMethodSignature: method.getSignature?.()?.toString?.() || "",
+                            ownerMethodName: method.getName?.() || "",
+                            sinkText: stmt.toString?.() || "",
+                            endpoint: candidate.endpoint,
+                            candidateKind: candidate.kind,
+                            reason: "sink_candidate_sanitized",
+                        });
                         continue;
                     }
-                    profile.fieldPathHitCount++;
-                    log(`    *** TAINT FLOW DETECTED! Source: ${fieldPathResult.source} (field path: ${options.targetPath.join(".")}) ***`);
-                    flows.push(new TaintFlow(fieldPathResult.source, stmt, {
-                        sinkEndpoint: candidate.endpoint,
-                        sinkNodeId: fieldPathResult.nodeId,
-                        sinkFieldPath: fieldPathResult.fieldPath,
-                    }));
+                    profile.fieldPathHitCount += fieldPathResults.length;
+                    for (const fieldPathResult of fieldPathResults) {
+                        log(`    *** TAINT FLOW DETECTED! Source: ${fieldPathResult.source} (field path: ${options.targetPath.join(".")}) ***`);
+                        emitAudit({
+                            kind: "hit",
+                            calleeSignature,
+                            ownerMethodSignature: method.getSignature?.()?.toString?.() || "",
+                            ownerMethodName: method.getName?.() || "",
+                            sinkText: stmt.toString?.() || "",
+                            endpoint: candidate.endpoint,
+                            candidateKind: candidate.kind,
+                            source: fieldPathResult.source,
+                            sourceRuleId: parseSourceRuleId(fieldPathResult.source),
+                            sinkNodeId: fieldPathResult.nodeId,
+                            sinkFieldPath: fieldPathResult.fieldPath ? [...fieldPathResult.fieldPath] : undefined,
+                            reason: "sink_field_path_tainted",
+                        });
+                        flows.push(new TaintFlow(fieldPathResult.source, stmt, {
+                            sinkEndpoint: candidate.endpoint,
+                            sinkNodeId: fieldPathResult.nodeId,
+                            sinkFieldPath: fieldPathResult.fieldPath,
+                        }));
+                    }
                     sinkDetected = true;
                     break;
                 }
+                emitAudit({
+                    kind: "candidate",
+                    calleeSignature,
+                    ownerMethodSignature: method.getSignature?.()?.toString?.() || "",
+                    ownerMethodName: method.getName?.() || "",
+                    sinkText: stmt.toString?.() || "",
+                    endpoint: candidate.endpoint,
+                    candidateKind: candidate.kind,
+                    reason: "target_path_candidate_not_tainted",
+                });
                 continue;
             }
 
@@ -273,9 +354,37 @@ export function detectSinks(
                 profile.sanitizerGuardMs += elapsedMsSince(sanitizerT0);
                 if (sanitizerResult.sanitized) {
                     profile.sanitizerGuardHitCount++;
+                    emitAudit({
+                        kind: "sanitized",
+                        calleeSignature,
+                        ownerMethodSignature: method.getSignature?.()?.toString?.() || "",
+                        ownerMethodName: method.getName?.() || "",
+                        sinkText: stmt.toString?.() || "",
+                        endpoint: candidate.endpoint,
+                        candidateKind: candidate.kind,
+                        source: preciseCandidate.result.source,
+                        sourceRuleId: parseSourceRuleId(preciseCandidate.result.source),
+                        sinkNodeId: preciseCandidate.result.nodeId,
+                        sinkFieldPath: preciseCandidate.result.fieldPath ? [...preciseCandidate.result.fieldPath] : undefined,
+                        reason: "sink_candidate_sanitized",
+                    });
                     continue;
                 }
                 log(`    *** TAINT FLOW DETECTED! Source: ${preciseCandidate.result.source} (precise sink semantics) ***`);
+                emitAudit({
+                    kind: "hit",
+                    calleeSignature,
+                    ownerMethodSignature: method.getSignature?.()?.toString?.() || "",
+                    ownerMethodName: method.getName?.() || "",
+                    sinkText: stmt.toString?.() || "",
+                    endpoint: candidate.endpoint,
+                    candidateKind: candidate.kind,
+                    source: preciseCandidate.result.source,
+                    sourceRuleId: parseSourceRuleId(preciseCandidate.result.source),
+                    sinkNodeId: preciseCandidate.result.nodeId,
+                    sinkFieldPath: preciseCandidate.result.fieldPath ? [...preciseCandidate.result.fieldPath] : undefined,
+                    reason: "sink_precise_candidate_tainted",
+                });
                 flows.push(new TaintFlow(preciseCandidate.result.source, stmt, {
                     sinkEndpoint: candidate.endpoint,
                     sinkNodeId: preciseCandidate.result.nodeId,
@@ -293,6 +402,16 @@ export function detectSinks(
             const pagNodes = pag.getNodesByValue(candidate.value);
             profile.taintEvalMs += elapsedMsSince(pagLookupT0);
             if (!pagNodes || pagNodes.size === 0) {
+                emitAudit({
+                    kind: "candidate",
+                    calleeSignature,
+                    ownerMethodSignature: method.getSignature?.()?.toString?.() || "",
+                    ownerMethodName: method.getName?.() || "",
+                    sinkText: stmt.toString?.() || "",
+                    endpoint: candidate.endpoint,
+                    candidateKind: candidate.kind,
+                    reason: "candidate_has_no_pag_nodes",
+                });
                 if (candidate.value instanceof Local) {
                     const declStmt = candidate.value.getDeclaringStmt?.();
                     if (declStmt instanceof ArkAssignStmt && declStmt.getLeftOp() === candidate.value) {
@@ -537,7 +656,10 @@ export function detectSinks(
                     sinkDetected = true;
                     break;
                 }
-                const source = tracker.getSourceAnyContext(nodeId)!;
+                const sources = tracker.getSourcesAnyContext(nodeId);
+                if (sources.length === 0) {
+                    continue;
+                }
 
                 profile.sanitizerGuardCheckCount++;
                 const sanitizerT0 = process.hrtime.bigint();
@@ -553,11 +675,13 @@ export function detectSinks(
                     profile.sanitizerGuardHitCount++;
                     continue;
                 }
-                log(`    *** TAINT FLOW DETECTED! Source: ${source} ***`);
-                flows.push(new TaintFlow(source, stmt, {
-                    sinkEndpoint: candidate.endpoint,
-                    sinkNodeId: nodeId,
-                }));
+                for (const source of sources) {
+                    log(`    *** TAINT FLOW DETECTED! Source: ${source} ***`);
+                    flows.push(new TaintFlow(source, stmt, {
+                        sinkEndpoint: candidate.endpoint,
+                        sinkNodeId: nodeId,
+                    }));
+                }
                 sinkDetected = true;
                 break;
             }
@@ -576,8 +700,8 @@ export function detectSinks(
                         profile.taintEvalMs += elapsedMsSince(taintCheckT0);
                         log(`    Checking ${candidate.endpoint} carrier, node ${carrierNodeId}, tainted: ${isTainted}`);
                         if (isTainted) {
-                            const source = tracker.getSourceAnyContext(carrierNodeId);
-                            if (!source) continue;
+                            const sources = tracker.getSourcesAnyContext(carrierNodeId);
+                            if (sources.length === 0) continue;
 
                             profile.sanitizerGuardCheckCount++;
                             const sanitizerT0 = process.hrtime.bigint();
@@ -593,11 +717,13 @@ export function detectSinks(
                                 profile.sanitizerGuardHitCount++;
                                 continue;
                             }
-                            log(`    *** TAINT FLOW DETECTED! Source: ${source} (local carrier fallback) ***`);
-                            flows.push(new TaintFlow(source, stmt, {
-                                sinkEndpoint: candidate.endpoint,
-                                sinkNodeId: carrierNodeId,
-                            }));
+                            for (const source of sources) {
+                                log(`    *** TAINT FLOW DETECTED! Source: ${source} (local carrier fallback) ***`);
+                                flows.push(new TaintFlow(source, stmt, {
+                                    sinkEndpoint: candidate.endpoint,
+                                    sinkNodeId: carrierNodeId,
+                                }));
+                            }
                             sinkDetected = true;
                             break;
                         }
@@ -705,6 +831,35 @@ export function detectSinks(
                     }));
                     sinkDetected = true;
                 }
+            }
+            if (flows.length > candidateFlowStart) {
+                for (const flow of flows.slice(candidateFlowStart)) {
+                    emitAudit({
+                        kind: "hit",
+                        calleeSignature,
+                        ownerMethodSignature: method.getSignature?.()?.toString?.() || "",
+                        ownerMethodName: method.getName?.() || "",
+                        sinkText: stmt.toString?.() || "",
+                        endpoint: flow.sinkEndpoint || candidate.endpoint,
+                        candidateKind: candidate.kind,
+                        source: flow.source,
+                        sourceRuleId: parseSourceRuleId(flow.source),
+                        sinkNodeId: flow.sinkNodeId,
+                        sinkFieldPath: flow.sinkFieldPath ? [...flow.sinkFieldPath] : undefined,
+                        reason: "sink_candidate_tainted",
+                    });
+                }
+            } else if (!sinkDetected) {
+                emitAudit({
+                    kind: "candidate",
+                    calleeSignature,
+                    ownerMethodSignature: method.getSignature?.()?.toString?.() || "",
+                    ownerMethodName: method.getName?.() || "",
+                    sinkText: stmt.toString?.() || "",
+                    endpoint: candidate.endpoint,
+                    candidateKind: candidate.kind,
+                    reason: "candidate_not_tainted",
+                });
             }
             if (sinkDetected) break;
         }
@@ -859,6 +1014,7 @@ function detectInlineInvokeTransferCandidateSource(
         };
     }
 
+    const viable: Array<{ rule: TransferRule; result: FieldPathDetectResult }> = [];
     for (const rule of transferRules) {
         if (rule.enabled === false) continue;
         const to = normalizeEndpoint(rule.to);
@@ -888,21 +1044,54 @@ function detectInlineInvokeTransferCandidateSource(
         }
 
         if (sourceResult) {
-            return {
-                result: {
-                    ...sourceResult,
-                    transferRuleIds: [rule.id],
-                },
-                blockGenericNodeTaint: false,
-                fallbackFieldToVarIndex,
-            };
+            viable.push({ rule, result: sourceResult });
         }
+    }
+
+    if (viable.length > 0) {
+        const bestByMatch = filterBestTransferMatchSpecificity(viable);
+        const bestRules = new Set(filterBestTierRulesByFamily(bestByMatch.map(item => item.rule)));
+        const selected = bestByMatch.find(item => bestRules.has(item.rule)) || bestByMatch[0];
+        return {
+            result: {
+                ...selected.result,
+                transferRuleIds: [selected.rule.id],
+            },
+            blockGenericNodeTaint: false,
+            fallbackFieldToVarIndex,
+        };
     }
 
     return {
         blockGenericNodeTaint: false,
         fallbackFieldToVarIndex,
     };
+}
+
+function filterBestTransferMatchSpecificity<T extends { rule: TransferRule }>(candidates: T[]): T[] {
+    if (candidates.length <= 1) return candidates;
+    const best = Math.max(...candidates.map(item => transferMatchSpecificity(item.rule)));
+    return candidates.filter(item => transferMatchSpecificity(item.rule) === best);
+}
+
+function transferMatchSpecificity(rule: TransferRule): number {
+    if (isExactTransferMatchKind(rule.match.kind)) return 3;
+    if (hasConstrainedTransferSignals(rule)) return 2;
+    return 1;
+}
+
+function isExactTransferMatchKind(kind: string): boolean {
+    return kind === "signature_equals" || kind === "declaring_class_equals";
+}
+
+function hasConstrainedTransferSignals(rule: TransferRule): boolean {
+    const m = rule.match;
+    if (m.invokeKind && m.invokeKind !== "any") return true;
+    if (m.argCount !== undefined) return true;
+    if (m.typeHint && m.typeHint.trim().length > 0) return true;
+    const scope = rule.scope;
+    if (scope && (scope.file || scope.module || scope.className || scope.methodName)) return true;
+    return false;
 }
 
 function hasTaintedInlineInvokeOperand(
@@ -993,7 +1182,7 @@ function matchesTransferRuleInvoke(
     sourceMethod?: any,
 ): boolean {
     const calleeSignature = invokeExpr.getMethodSignature?.()?.toString?.() || "";
-    if (!matchesTransferRuleShape(rule, invokeExpr, calleeSignature)) return false;
+    if (!matchesTransferRuleShape(rule, invokeExpr, calleeSignature, sourceMethod)) return false;
     if (!matchesTransferRuleMatch(rule, invokeExpr, calleeSignature)) return false;
     return matchesInvokeCalleeScope(rule.scope, invokeExpr, calleeSignature, sourceMethod);
 }
@@ -1002,6 +1191,7 @@ function matchesTransferRuleShape(
     rule: TransferRule,
     invokeExpr: ArkInstanceInvokeExpr,
     calleeSignature: string,
+    sourceMethod?: any,
 ): boolean {
     const m = rule.match;
     if (m.invokeKind && m.invokeKind !== "any") {
@@ -1016,7 +1206,15 @@ function matchesTransferRuleShape(
         const hint = m.typeHint.trim().toLowerCase();
         const declaringClass = invokeExpr.getMethodSignature?.().getDeclaringClassSignature?.()?.toString?.() || "";
         const baseText = invokeExpr.getBase()?.toString?.() || "";
-        const haystack = `${calleeSignature} ${declaringClass} ${baseText}`.toLowerCase();
+        const fallback = resolveSdkImportScopeCandidates(sourceMethod, invokeExpr);
+        const haystack = [
+            calleeSignature,
+            declaringClass,
+            baseText,
+            ...fallback.classTexts,
+            ...fallback.moduleTexts,
+            ...fallback.fileTexts,
+        ].join(" ").toLowerCase();
         if (!haystack.includes(hint)) return false;
     }
     return true;
@@ -2034,11 +2232,16 @@ function resolveSinkCandidates(
 }
 
 function matchesInvokeConstraints(
+    scene: Scene,
     invokeExpr: any,
     calleeSignature: string,
     options: SinkDetectOptions,
     sourceMethod?: any,
 ): boolean {
+    if (options.callerScope && !matchesScope(sourceMethod, options.callerScope)) {
+        return false;
+    }
+
     if (options.invokeKind && options.invokeKind !== "any") {
         const actualKind: RuleInvokeKind = invokeExpr instanceof ArkInstanceInvokeExpr ? "instance" : "static";
         if (actualKind !== options.invokeKind) {
@@ -2058,13 +2261,22 @@ function matchesInvokeConstraints(
         const declaringClass = invokeExpr.getMethodSignature?.().getDeclaringClassSignature?.()?.toString?.() || "";
         const baseText = invokeExpr instanceof ArkInstanceInvokeExpr ? (invokeExpr.getBase()?.toString?.() || "") : "";
         const ptrText = invokeExpr instanceof ArkPtrInvokeExpr ? (invokeExpr.toString?.() || "") : "";
-        const haystack = `${calleeSignature} ${declaringClass} ${baseText} ${ptrText}`.toLowerCase();
+        const fallback = resolveSdkImportScopeCandidates(sourceMethod, invokeExpr, scene);
+        const haystack = [
+            calleeSignature,
+            declaringClass,
+            baseText,
+            ptrText,
+            ...fallback.classTexts,
+            ...fallback.moduleTexts,
+            ...fallback.fileTexts,
+        ].join(" ").toLowerCase();
         if (!haystack.includes(hint)) {
             return false;
         }
     }
 
-    if (options.calleeScope && !matchesInvokeCalleeScope(options.calleeScope, invokeExpr, calleeSignature, sourceMethod)) {
+    if (options.calleeScope && !matchesInvokeCalleeScope(options.calleeScope, invokeExpr, calleeSignature, sourceMethod, scene)) {
         return false;
     }
 
@@ -2076,7 +2288,8 @@ function isSinkCandidateSanitizedByRules(
     sinkStmt: any,
     candidate: SinkCandidate,
     sanitizerRules: SanitizerRule[],
-    log: (msg: string) => void
+    log: (msg: string) => void,
+    scene?: Scene,
 ): { sanitized: boolean; ruleId?: string } {
     if (!sanitizerRules || sanitizerRules.length === 0) {
         return { sanitized: false };
@@ -2101,6 +2314,7 @@ function isSinkCandidateSanitizedByRules(
         const matchedRules = filterBestTierRulesByFamily(sanitizerRules.filter(rule => {
             if (!matchesScope(method, rule.scope)) return false;
             if (!matchesSanitizerRule(rule, stmt, invokeExpr, calleeSignature)) return false;
+            if (!matchesInvokeCalleeScope(rule.calleeScope, invokeExpr, calleeSignature, method, scene)) return false;
             return true;
         }));
         for (const rule of matchedRules) {
@@ -2275,8 +2489,42 @@ function matchesScope(method: any, scope?: RuleScopeConstraint): boolean {
     if (!matchStringConstraint(scope.file, filePath)) return false;
     if (!matchStringConstraint(scope.module, moduleText)) return false;
     if (!matchStringConstraint(scope.className, classText)) return false;
-    if (!matchStringConstraint(scope.methodName, method.getName())) return false;
+    if (!matchesMethodNameOrDecoratorScope(method, scope)) return false;
     return true;
+}
+
+function matchesMethodNameOrDecoratorScope(method: any, scope: RuleScopeConstraint): boolean {
+    const hasMethodNameScope = !!scope.methodName;
+    const hasDecoratorScope = Array.isArray(scope.methodDecorators) && scope.methodDecorators.length > 0;
+    const methodNameMatches = hasMethodNameScope
+        ? matchStringConstraint(scope.methodName, method.getName?.() || "")
+        : true;
+    if (methodNameMatches && !hasDecoratorScope) return true;
+    if (methodNameMatches && hasMethodNameScope) return true;
+    if (!hasDecoratorScope) return methodNameMatches;
+    return methodHasAnyMatchingDecorator(method, scope.methodDecorators || []);
+}
+
+function methodHasAnyMatchingDecorator(method: any, constraints: RuleStringConstraint[]): boolean {
+    const decoratorKinds = (method.getDecorators?.() || [])
+        .map((decorator: any) => normalizeDecoratorKind(decorator?.getKind?.()))
+        .filter((kind: string | undefined): kind is string => !!kind);
+    if (decoratorKinds.length === 0) return false;
+    for (const constraint of constraints) {
+        if (decoratorKinds.some(kind => matchStringConstraint(constraint, kind))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function normalizeDecoratorKind(raw: string | undefined): string | undefined {
+    if (!raw) return undefined;
+    const normalized = raw.replace(/^@/, "").trim();
+    if (!normalized) return undefined;
+    return normalized.endsWith("()")
+        ? normalized.slice(0, normalized.length - 2)
+        : normalized;
 }
 
 function matchesInvokeCalleeScope(
@@ -2284,6 +2532,7 @@ function matchesInvokeCalleeScope(
     invokeExpr: any,
     calleeSignature: string,
     sourceMethod?: any,
+    scene?: Scene,
 ): boolean {
     if (!scope) return true;
     const methodSig = invokeExpr.getMethodSignature?.();
@@ -2296,9 +2545,10 @@ function matchesInvokeCalleeScope(
     const calleeName = methodSig?.getMethodSubSignature?.()?.getMethodName?.()
         || extractMethodNameFromSignature(calleeSignature);
 
+    if (scope.methodDecorators && scope.methodDecorators.length > 0) return false;
     if (!matchStringConstraint(scope.methodName, calleeName)) return false;
 
-    const fallback = resolveSdkImportScopeCandidates(sourceMethod, invokeExpr);
+    const fallback = resolveSdkImportScopeCandidates(sourceMethod, invokeExpr, scene);
     if (!matchConstraintAgainstCandidates(scope.file, [fileText, ...fallback.fileTexts])) return false;
     if (!matchConstraintAgainstCandidates(scope.module, [moduleText, ...fallback.moduleTexts])) return false;
     if (!matchConstraintAgainstCandidates(scope.className, [classText, className, ...fallback.classTexts])) return false;
@@ -2449,6 +2699,16 @@ function detectFieldPathSource(
                 fieldPath: [fieldPath[0]],
             };
         }
+        const descendantSource = detectLiveDescendantFieldPathSource(
+            [...rootCarrierIds][0],
+            fieldPath,
+            anchorStmt,
+            pag,
+            tracker,
+        );
+        if (descendantSource) {
+            return descendantSource;
+        }
     }
 
     let frontierObjIds = rootObjIds;
@@ -2468,6 +2728,17 @@ function detectFieldPathSource(
                     };
                 }
 
+                const descendantSource = detectLiveDescendantFieldPathSource(
+                    objId,
+                    fieldPath,
+                    anchorStmt,
+                    pag,
+                    tracker,
+                );
+                if (descendantSource) {
+                    return descendantSource;
+                }
+
                 const source = tracker.getSourceAnyContext(objId, [fieldName]);
                 if (source) {
                     return {
@@ -2477,15 +2748,38 @@ function detectFieldPathSource(
                     };
                 }
 
+                const storedValueSource = detectStoredFieldObjectSource(
+                    objId,
+                    fieldName,
+                    anchorStmt,
+                    pag,
+                    tracker,
+                );
+                if (storedValueSource) {
+                    return storedValueSource;
+                }
+
                 const loadTargets = fieldToVarIndex.get(`${objId}-${fieldName}`);
                 if (!loadTargets) continue;
                 for (const loadNodeId of loadTargets.values()) {
+                    if (!fieldLoadTargetMayBelongToObjectAtRead(pag, loadNodeId, objId, fieldName, anchorStmt)) {
+                        continue;
+                    }
                     const loadSource = tracker.getSourceAnyContext(loadNodeId);
                     if (loadSource) {
                         return {
                             source: loadSource,
                             nodeId: loadNodeId,
                         };
+                    }
+                    const loadedObjectSource = detectAnyLiveFieldSourceOnLoadedValue(
+                        loadNodeId,
+                        anchorStmt,
+                        pag,
+                        tracker,
+                    );
+                    if (loadedObjectSource) {
+                        return loadedObjectSource;
                     }
                 }
             }
@@ -2498,6 +2792,9 @@ function detectFieldPathSource(
             const loadTargets = fieldToVarIndex.get(`${objId}-${fieldName}`);
             if (!loadTargets) continue;
             for (const loadNodeId of loadTargets.values()) {
+                if (!fieldLoadTargetMayBelongToObjectAtRead(pag, loadNodeId, objId, fieldName, anchorStmt)) {
+                    continue;
+                }
                 const loadNode = pag.getNode(loadNodeId) as PagNode;
                 for (const nextObjId of loadNode.getPointTo()) {
                     nextFrontier.add(nextObjId);
@@ -2512,6 +2809,419 @@ function detectFieldPathSource(
     }
 
     return undefined;
+}
+
+function detectFieldPathSources(
+    rootValue: any,
+    fieldPath: string[],
+    anchorStmt: any,
+    pag: Pag,
+    tracker: TaintTracker,
+    fieldToVarIndex: Map<string, Set<number>>,
+): FieldPathDetectResult[] {
+    const results: FieldPathDetectResult[] = [];
+    const add = (result: FieldPathDetectResult | undefined): void => {
+        if (!result?.source) return;
+        const key = `${result.source}|${result.nodeId ?? -1}|${(result.fieldPath || []).join(".")}`;
+        if (results.some(item => `${item.source}|${item.nodeId ?? -1}|${(item.fieldPath || []).join(".")}` === key)) {
+            return;
+        }
+        results.push(result);
+    };
+
+    add(detectFieldPathSource(rootValue, fieldPath, anchorStmt, pag, tracker, fieldToVarIndex));
+
+    if (fieldPath.length === 1) {
+        for (const objId of collectRootObjectIdsForFieldPathValue(rootValue, anchorStmt, pag)) {
+            for (const result of detectStoredFieldObjectSources(objId, fieldPath[0], anchorStmt, pag, tracker)) {
+                add(result);
+            }
+            const loadTargets = fieldToVarIndex.get(`${objId}-${fieldPath[0]}`);
+            if (!loadTargets) continue;
+            for (const loadNodeId of loadTargets.values()) {
+                if (!fieldLoadTargetMayBelongToObjectAtRead(pag, loadNodeId, objId, fieldPath[0], anchorStmt)) {
+                    continue;
+                }
+                for (const result of detectAllLiveFieldSourcesOnLoadedValue(loadNodeId, anchorStmt, pag, tracker)) {
+                    add(result);
+                }
+            }
+        }
+    }
+
+    return results;
+}
+
+function collectRootObjectIdsForFieldPathValue(rootValue: any, anchorStmt: any, pag: Pag): Set<number> {
+    const out = new Set<number>();
+    const addNodeAndPointsTo = (nodeId: number): void => {
+        const node = pag.getNode(nodeId) as PagNode | undefined;
+        if (!node) return;
+        let hasPointTo = false;
+        if (node.getPointTo) {
+            for (const objId of node.getPointTo()) {
+                hasPointTo = true;
+                out.add(objId);
+            }
+        }
+        if (!hasPointTo) out.add(nodeId);
+    };
+
+    if (rootValue instanceof Local) {
+        for (const carrierId of collectCarrierNodeIdsForValueAtStmt(pag, rootValue, anchorStmt)) {
+            addNodeAndPointsTo(carrierId);
+        }
+    }
+
+    if (out.size === 0) {
+        const rootNodes = pag.getNodesByValue(rootValue);
+        if (rootNodes) {
+            for (const rootNodeId of rootNodes.values()) {
+                addNodeAndPointsTo(rootNodeId);
+            }
+        }
+    }
+
+    return out;
+}
+
+function detectStoredFieldObjectSource(
+    ownerObjId: number,
+    fieldName: string,
+    anchorStmt: any,
+    pag: Pag,
+    tracker: TaintTracker,
+): FieldPathDetectResult | undefined {
+    for (const rawNode of pag.getNodesIter()) {
+        if (!(rawNode instanceof PagInstanceFieldNode)) continue;
+        const fieldRef = rawNode.getValue() as ArkInstanceFieldRef;
+        const candidateFieldName = fieldRef.getFieldSignature?.().getFieldName?.() || fieldRef.getFieldName?.();
+        if (candidateFieldName !== fieldName) continue;
+        if (!fieldNodeHasMatchingOwnerWriteBefore(pag, fieldRef, ownerObjId, anchorStmt)) continue;
+
+        const incomingWrites = rawNode.getIncomingWriteEdges?.();
+        if (!incomingWrites) continue;
+        for (const edge of incomingWrites) {
+            const srcNodeId = edge.getSrcID?.();
+            if (!Number.isFinite(srcNodeId)) continue;
+            const directSource = tracker.getSourceAnyContext(srcNodeId);
+            if (directSource) {
+                return {
+                    source: directSource,
+                    nodeId: srcNodeId,
+                };
+            }
+            const sourceFromStoredValue = detectAnyLiveFieldSourceOnLoadedValue(
+                srcNodeId,
+                anchorStmt,
+                pag,
+                tracker,
+            );
+            if (sourceFromStoredValue) {
+                return sourceFromStoredValue;
+            }
+        }
+    }
+    return undefined;
+}
+
+function detectStoredFieldObjectSources(
+    ownerObjId: number,
+    fieldName: string,
+    anchorStmt: any,
+    pag: Pag,
+    tracker: TaintTracker,
+): FieldPathDetectResult[] {
+    const out: FieldPathDetectResult[] = [];
+    for (const rawNode of pag.getNodesIter()) {
+        if (!(rawNode instanceof PagInstanceFieldNode)) continue;
+        const fieldRef = rawNode.getValue() as ArkInstanceFieldRef;
+        const candidateFieldName = fieldRef.getFieldSignature?.().getFieldName?.() || fieldRef.getFieldName?.();
+        if (candidateFieldName !== fieldName) continue;
+        if (!fieldNodeHasMatchingOwnerWriteBefore(pag, fieldRef, ownerObjId, anchorStmt)) continue;
+
+        const incomingWrites = rawNode.getIncomingWriteEdges?.();
+        if (!incomingWrites) continue;
+        for (const edge of incomingWrites) {
+            const srcNodeId = edge.getSrcID?.();
+            if (!Number.isFinite(srcNodeId)) continue;
+            const directSources = tracker.getSourcesAnyContext(srcNodeId);
+            for (const source of directSources) {
+                out.push({ source, nodeId: srcNodeId });
+            }
+            out.push(...detectAllLiveFieldSourcesOnLoadedValue(srcNodeId, anchorStmt, pag, tracker));
+        }
+    }
+    return out;
+}
+
+function fieldNodeMayBelongToObject(pag: Pag, fieldRef: ArkInstanceFieldRef, ownerObjId: number): boolean {
+    const baseNodes = pag.getNodesByValue(fieldRef.getBase());
+    if (!baseNodes || baseNodes.size === 0) return false;
+    for (const baseNodeId of baseNodes.values()) {
+        if (baseNodeId === ownerObjId) return true;
+        const baseNode = pag.getNode(baseNodeId) as PagNode | undefined;
+        if (!baseNode?.getPointTo) continue;
+        for (const objId of baseNode.getPointTo()) {
+            if (objId === ownerObjId) return true;
+        }
+    }
+    return false;
+}
+
+function fieldNodeMayBelongToObjectAtWrite(
+    pag: Pag,
+    fieldRef: ArkInstanceFieldRef,
+    ownerObjId: number,
+    anchorStmt: any,
+): boolean {
+    const base = fieldRef.getBase?.();
+    const fieldName = fieldRef.getFieldSignature?.().getFieldName?.() || fieldRef.getFieldName?.();
+    if (!(base instanceof Local) || !fieldName) {
+        return fieldNodeMayBelongToObject(pag, fieldRef, ownerObjId);
+    }
+
+    const cfg = anchorStmt?.getCfg?.() || base.getDeclaringStmt?.()?.getCfg?.();
+    const stmts = cfg?.getStmts?.();
+    const order = new Map<any, number>();
+    let anchorIndex = Number.POSITIVE_INFINITY;
+    if (stmts) {
+        let index = 0;
+        for (const stmt of stmts) {
+            order.set(stmt, index);
+            if (stmt === anchorStmt) anchorIndex = index;
+            index++;
+        }
+    }
+
+    let sawMatchingFieldWrite = false;
+    const usedStmts = base.getUsedStmts?.() || [];
+    for (const stmt of usedStmts) {
+        if (!(stmt instanceof ArkAssignStmt)) continue;
+        const stmtIndex = order.get(stmt);
+        if (stmtIndex !== undefined && stmtIndex >= anchorIndex) continue;
+        const left = stmt.getLeftOp?.();
+        if (!(left instanceof ArkInstanceFieldRef)) continue;
+        if (left.getBase?.() !== base) continue;
+        const leftFieldName = left.getFieldSignature?.().getFieldName?.() || left.getFieldName?.();
+        if (leftFieldName !== fieldName) continue;
+        sawMatchingFieldWrite = true;
+        const carrierIds = collectCarrierNodeIdsForValueAtStmt(pag, base, stmt);
+        if (carrierIds.includes(ownerObjId)) {
+            return true;
+        }
+    }
+
+    return sawMatchingFieldWrite
+        ? false
+        : fieldNodeMayBelongToObject(pag, fieldRef, ownerObjId);
+}
+
+function fieldNodeHasMatchingOwnerWriteBefore(
+    pag: Pag,
+    fieldRef: ArkInstanceFieldRef,
+    ownerObjId: number,
+    anchorStmt: any,
+): boolean {
+    const base = fieldRef.getBase?.();
+    const fieldName = fieldRef.getFieldSignature?.().getFieldName?.() || fieldRef.getFieldName?.();
+    if (!(base instanceof Local) || !fieldName) return false;
+
+    const cfg = anchorStmt?.getCfg?.() || base.getDeclaringStmt?.()?.getCfg?.();
+    const stmts = cfg?.getStmts?.();
+    const order = new Map<any, number>();
+    let anchorIndex = Number.POSITIVE_INFINITY;
+    if (stmts) {
+        let index = 0;
+        for (const stmt of stmts) {
+            order.set(stmt, index);
+            if (stmt === anchorStmt) anchorIndex = index;
+            index++;
+        }
+    }
+
+    const usedStmts = base.getUsedStmts?.() || [];
+    for (const stmt of usedStmts) {
+        if (!(stmt instanceof ArkAssignStmt)) continue;
+        const stmtIndex = order.get(stmt);
+        if (stmtIndex !== undefined && stmtIndex >= anchorIndex) continue;
+        const left = stmt.getLeftOp?.();
+        if (!(left instanceof ArkInstanceFieldRef)) continue;
+        if (left.getBase?.() !== base) continue;
+        const leftFieldName = left.getFieldSignature?.().getFieldName?.() || left.getFieldName?.();
+        if (leftFieldName !== fieldName) continue;
+        const carrierIds = collectCarrierNodeIdsForValueAtStmt(pag, base, stmt);
+        if (carrierIds.includes(ownerObjId)) return true;
+    }
+
+    return false;
+}
+
+function fieldLoadTargetMayBelongToObjectAtRead(
+    pag: Pag,
+    loadNodeId: number,
+    ownerObjId: number,
+    fieldName: string,
+    anchorStmt: any,
+): boolean {
+    const loadRefInfo = resolveFieldLoadRefForNode(pag, loadNodeId);
+    if (!loadRefInfo) return false;
+    const { fieldRef, stmt } = loadRefInfo;
+    const loadedFieldName = fieldRef.getFieldSignature?.().getFieldName?.() || fieldRef.getFieldName?.();
+    if (loadedFieldName !== fieldName) return false;
+
+    const anchorCfg = anchorStmt?.getCfg?.();
+    const loadCfg = stmt?.getCfg?.();
+    if (anchorCfg && loadCfg && anchorCfg !== loadCfg) {
+        return false;
+    }
+    if (anchorCfg && loadCfg && anchorCfg === loadCfg) {
+        const stmts = anchorCfg.getStmts?.() || [];
+        let anchorIndex = -1;
+        let loadIndex = -1;
+        for (let i = 0; i < stmts.length; i++) {
+            if (stmts[i] === anchorStmt) anchorIndex = i;
+            if (stmts[i] === stmt) loadIndex = i;
+        }
+        if (anchorIndex >= 0 && loadIndex >= 0 && loadIndex > anchorIndex) {
+            return false;
+        }
+    }
+
+    const base = fieldRef.getBase?.();
+    if (!(base instanceof Local)) {
+        return fieldNodeMayBelongToObject(pag, fieldRef, ownerObjId);
+    }
+    const carrierIds = collectCarrierNodeIdsForValueAtStmt(pag, base, stmt);
+    return carrierIds.includes(ownerObjId);
+}
+
+function resolveFieldLoadRefForNode(
+    pag: Pag,
+    loadNodeId: number,
+): { fieldRef: ArkInstanceFieldRef; stmt: any } | undefined {
+    const node = pag.getNode(loadNodeId) as PagNode | undefined;
+    if (!node) return undefined;
+    const value = node.getValue?.();
+    if (value instanceof ArkInstanceFieldRef) {
+        return {
+            fieldRef: value,
+            stmt: node.getStmt?.(),
+        };
+    }
+    if (value instanceof Local) {
+        const declStmt = value.getDeclaringStmt?.();
+        if (declStmt instanceof ArkAssignStmt && declStmt.getLeftOp?.() === value) {
+            const right = declStmt.getRightOp?.();
+            if (right instanceof ArkInstanceFieldRef) {
+                return {
+                    fieldRef: right,
+                    stmt: declStmt,
+                };
+            }
+        }
+    }
+    const stmt = node.getStmt?.();
+    if (stmt instanceof ArkAssignStmt) {
+        const right = stmt.getRightOp?.();
+        if (right instanceof ArkInstanceFieldRef) {
+            return {
+                fieldRef: right,
+                stmt,
+            };
+        }
+    }
+    return undefined;
+}
+
+function detectAllLiveFieldSourcesOnLoadedValue(
+    loadNodeId: number,
+    anchorStmt: any,
+    pag: Pag,
+    tracker: TaintTracker,
+): FieldPathDetectResult[] {
+    const results: FieldPathDetectResult[] = [];
+    const nodeCandidates = [loadNodeId];
+    const loadNode = pag.getNode(loadNodeId) as PagNode | undefined;
+    if (loadNode?.getPointTo) {
+        for (const objId of loadNode.getPointTo()) {
+            nodeCandidates.push(objId);
+        }
+    }
+
+    for (const candidateNodeId of nodeCandidates) {
+        const fieldSources = tracker.getFieldSourcesAnyContext(candidateNodeId)
+            .sort((a, b) => a.fieldPath.length - b.fieldPath.length || a.fieldPath.join(".").localeCompare(b.fieldPath.join(".")));
+        for (const item of fieldSources) {
+            if (!isCarrierFieldPathLiveAtStmt(pag, tracker, candidateNodeId, item.fieldPath, anchorStmt)) continue;
+            results.push({
+                source: item.source,
+                nodeId: candidateNodeId,
+                fieldPath: [...item.fieldPath],
+            });
+        }
+    }
+
+    return results;
+}
+
+function detectAnyLiveFieldSourceOnLoadedValue(
+    loadNodeId: number,
+    anchorStmt: any,
+    pag: Pag,
+    tracker: TaintTracker,
+): FieldPathDetectResult | undefined {
+    const nodeCandidates = [loadNodeId];
+    const loadNode = pag.getNode(loadNodeId) as PagNode | undefined;
+    if (loadNode?.getPointTo) {
+        for (const objId of loadNode.getPointTo()) {
+            nodeCandidates.push(objId);
+        }
+    }
+
+    for (const candidateNodeId of nodeCandidates) {
+        const fieldSources = tracker.getFieldSourcesAnyContext(candidateNodeId)
+            .sort((a, b) => a.fieldPath.length - b.fieldPath.length || a.fieldPath.join(".").localeCompare(b.fieldPath.join(".")));
+        for (const item of fieldSources) {
+            if (!isCarrierFieldPathLiveAtStmt(pag, tracker, candidateNodeId, item.fieldPath, anchorStmt)) continue;
+            return {
+                source: item.source,
+                nodeId: candidateNodeId,
+                fieldPath: [...item.fieldPath],
+            };
+        }
+    }
+
+    return undefined;
+}
+
+function detectLiveDescendantFieldPathSource(
+    nodeId: number,
+    fieldPath: string[],
+    anchorStmt: any,
+    pag: Pag,
+    tracker: TaintTracker,
+): FieldPathDetectResult | undefined {
+    const descendantSources = tracker.getFieldSourcesAnyContext(nodeId)
+        .filter(item => isStrictFieldPathPrefix(fieldPath, item.fieldPath))
+        .sort((a, b) => a.fieldPath.length - b.fieldPath.length || a.fieldPath.join(".").localeCompare(b.fieldPath.join(".")));
+    for (const item of descendantSources) {
+        if (!isCarrierFieldPathLiveAtStmt(pag, tracker, nodeId, item.fieldPath, anchorStmt)) continue;
+        return {
+            source: item.source,
+            nodeId,
+            fieldPath: [...item.fieldPath],
+        };
+    }
+    return undefined;
+}
+
+function isStrictFieldPathPrefix(prefix: string[], fullPath: string[]): boolean {
+    if (prefix.length === 0 || fullPath.length <= prefix.length) return false;
+    for (let i = 0; i < prefix.length; i++) {
+        if (prefix[i] !== fullPath[i]) return false;
+    }
+    return true;
 }
 
 function detectArrayContainerCarrierSource(
@@ -2670,5 +3380,11 @@ function hasStringIntersection(a: Set<string>, b: Set<string>): boolean {
         if (b.has(key)) return true;
     }
     return false;
+}
+
+function parseSourceRuleId(source: string | undefined): string | undefined {
+    if (!source || !source.startsWith("source_rule:")) return undefined;
+    const raw = source.slice("source_rule:".length).trim();
+    return raw.split("#occ=")[0]?.trim() || undefined;
 }
 

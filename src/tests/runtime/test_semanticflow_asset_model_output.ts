@@ -59,6 +59,7 @@ function validAssetOutput(): any {
                         cellKind: "keyed-semantic-slot",
                         family: "project.token_cache",
                         key: [{ kind: "fromLiteralArg", index: 0 }],
+                        precision: "infer",
                     },
                     value: { base: { kind: "arg", index: 1 } },
                     updateStrength: "infer",
@@ -78,6 +79,61 @@ function main(): void {
     const parsed = parseSemanticFlowAssetModelOutput(JSON.stringify(validAssetOutput()));
     assert(parsed.status === "done", "expected done asset output");
     assert(parsed.asset.effectTemplates?.[0]?.kind === "handoff.put", "expected handoff put template");
+
+    const eventEmitterOutput = validAssetOutput();
+    eventEmitterOutput.asset.id = "asset.project.eventhub";
+    eventEmitterOutput.asset.surfaces = [
+        {
+            surfaceId: "surface.ProjectEventHub.on",
+            kind: "invoke",
+            modulePath: "project/EventHub",
+            ownerName: "ProjectEventHub",
+            methodName: "on",
+            invokeKind: "static",
+            argCount: 2,
+            confidence: "likely",
+            provenance: { source: "llm-proposal", location: { file: "EventHub.ets", line: 3 } },
+        },
+        {
+            surfaceId: "surface.ProjectEventHub.sendEvent",
+            kind: "invoke",
+            modulePath: "project/EventHub",
+            ownerName: "ProjectEventHub",
+            methodName: "sendEvent",
+            invokeKind: "static",
+            argCount: 1,
+            confidence: "likely",
+            provenance: { source: "llm-proposal", location: { file: "EventHub.ets", line: 8 } },
+        },
+    ];
+    eventEmitterOutput.asset.bindings = [
+        {
+            bindingId: "binding.ProjectEventHub.eventEmitter",
+            surfaceId: "surface.ProjectEventHub.on",
+            assetId: "asset.project.eventhub",
+            plane: "module",
+            role: "handoff",
+            effectTemplateRefs: ["template.ProjectEventHub.eventEmitter"],
+            completeness: "partial",
+            confidence: "likely",
+        },
+    ];
+    eventEmitterOutput.asset.effectTemplates = [
+        {
+            id: "template.ProjectEventHub.eventEmitter",
+            kind: "module.eventEmitter",
+            onMethods: ["on"],
+            emitMethods: ["sendEvent"],
+            channelArgIndexes: [0],
+            payloadArgIndex: -1,
+            callbackArgIndex: 1,
+            callbackParamIndex: 0,
+            confidence: "likely",
+        },
+    ];
+    const parsedEventEmitter = parseSemanticFlowAssetModelOutput(JSON.stringify(eventEmitterOutput));
+    assert(parsedEventEmitter.status === "done", "expected module.eventEmitter LLM asset output to parse");
+    assert(parsedEventEmitter.asset.effectTemplates?.[0]?.kind === "module.eventEmitter", "expected registered module.eventEmitter template");
 
     const needMore = parseSemanticFlowAssetModelOutput(JSON.stringify({
         status: "need-more-evidence",

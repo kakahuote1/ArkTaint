@@ -1,0 +1,1080 @@
+{
+  "id": "asset.rule.kernel.sinks.ui_display",
+  "plane": "rule",
+  "status": "official",
+  "surfaces": [
+    {
+      "surfaceId": "surface.sink.harmony.arkui.AbilityComponent.arg0",
+      "kind": "invoke",
+      "modulePath": "@internal/component/ets",
+      "invokeKind": "free-function",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 1,
+      "functionName": "AbilityComponent"
+    },
+    {
+      "surfaceId": "surface.sink.harmony.arkui.Hyperlink.arg0",
+      "kind": "invoke",
+      "modulePath": "@internal/component/ets",
+      "invokeKind": "free-function",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 1,
+      "functionName": "Hyperlink"
+    },
+    {
+      "surfaceId": "surface.sink.harmony.arkui.Image.arg0",
+      "kind": "invoke",
+      "modulePath": "@internal/component/ets",
+      "invokeKind": "free-function",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 1,
+      "functionName": "Image"
+    },
+    {
+      "surfaceId": "surface.sink.harmony.arkui.ImageSpan.arg0",
+      "kind": "invoke",
+      "modulePath": "@internal/component/ets",
+      "invokeKind": "free-function",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 1,
+      "functionName": "ImageSpan"
+    },
+    {
+      "surfaceId": "surface.sink.harmony.arkui.RichText.arg0",
+      "kind": "invoke",
+      "modulePath": "@internal/component/ets",
+      "invokeKind": "free-function",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 1,
+      "functionName": "RichText"
+    },
+    {
+      "surfaceId": "surface.sink.harmony.arkui.Span.arg0",
+      "kind": "invoke",
+      "modulePath": "@internal/component/ets",
+      "invokeKind": "free-function",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 1,
+      "functionName": "Span"
+    },
+    {
+      "surfaceId": "surface.sink.harmony.arkui.Text.arg0",
+      "kind": "invoke",
+      "modulePath": "@internal/component/ets",
+      "invokeKind": "free-function",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 1,
+      "functionName": "Text"
+    },
+    {
+      "surfaceId": "surface.sink.harmony.arkui.TextArea.arg0",
+      "kind": "invoke",
+      "modulePath": "@internal/component/ets",
+      "invokeKind": "free-function",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 1,
+      "functionName": "TextArea"
+    },
+    {
+      "surfaceId": "surface.sink.harmony.arkui.TextInput.arg0",
+      "kind": "invoke",
+      "modulePath": "@internal/component/ets",
+      "invokeKind": "free-function",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 1,
+      "functionName": "TextInput"
+    },
+    {
+      "surfaceId": "surface.sink.harmony.arkui.TextPicker.arg0",
+      "kind": "invoke",
+      "modulePath": "@internal/component/ets",
+      "invokeKind": "free-function",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 1,
+      "functionName": "TextPicker"
+    },
+    {
+      "surfaceId": "surface.sink.harmony.arkui.Video.arg0",
+      "kind": "invoke",
+      "modulePath": "@internal/component/ets",
+      "invokeKind": "free-function",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 1,
+      "functionName": "Video"
+    },
+    {
+      "surfaceId": "surface.sink.harmony.arkui.CanvasRenderer.drawImage.arg0",
+      "kind": "invoke",
+      "modulePath": "@internal/component/ets/canvas",
+      "invokeKind": "instance",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 1,
+      "ownerName": "CanvasRenderer",
+      "methodName": "drawImage"
+    },
+    {
+      "surfaceId": "surface.sink.harmony.arkui.CanvasRenderer.fillText.arg0",
+      "kind": "invoke",
+      "modulePath": "@internal/component/ets/canvas",
+      "invokeKind": "instance",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 1,
+      "ownerName": "CanvasRenderer",
+      "methodName": "fillText"
+    },
+    {
+      "surfaceId": "surface.sink.harmony.arkui.CanvasRenderer.strokeText.arg0",
+      "kind": "invoke",
+      "modulePath": "@internal/component/ets/canvas",
+      "invokeKind": "instance",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 1,
+      "ownerName": "CanvasRenderer",
+      "methodName": "strokeText"
+    },
+    {
+      "surfaceId": "surface.sink.harmony.arkui.ImageBitmap.constructor.arg0",
+      "kind": "invoke",
+      "modulePath": "@internal/component/ets/canvas",
+      "invokeKind": "instance",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 1,
+      "ownerName": "ImageBitmap",
+      "methodName": "constructor"
+    },
+    {
+      "surfaceId": "surface.sink.harmony.arkui.ImageData.constructor.arg0",
+      "kind": "invoke",
+      "modulePath": "@internal/component/ets/canvas",
+      "invokeKind": "instance",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 1,
+      "ownerName": "ImageData",
+      "methodName": "constructor"
+    },
+    {
+      "surfaceId": "surface.sink.harmony.promptAction.showToast.arg0",
+      "kind": "invoke",
+      "modulePath": "@ohos.promptAction",
+      "invokeKind": "namespace",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 1,
+      "ownerName": "promptAction",
+      "methodName": "showToast"
+    },
+    {
+      "surfaceId": "surface.sink.harmony.promptAction.showDialog.arg0",
+      "kind": "invoke",
+      "modulePath": "@ohos.promptAction",
+      "invokeKind": "namespace",
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 1,
+      "ownerName": "promptAction",
+      "methodName": "showDialog"
+    }
+  ],
+  "bindings": [
+    {
+      "bindingId": "binding.sink.harmony.arkui.AbilityComponent.arg0",
+      "surfaceId": "surface.sink.harmony.arkui.AbilityComponent.arg0",
+      "assetId": "asset.rule.kernel.sinks.ui_display",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "AbilityComponent",
+        "invokeKind": "any",
+        "argCount": 1
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.arkui.AbilityComponent.arg0"
+      ],
+      "semanticsFamily": "ui_display_sink",
+      "metadata": {
+        "enabled": true,
+        "category": "ui_display_sink",
+        "severity": "low",
+        "description": "AbilityComponent(value) displays text/content/resource values in ArkUI."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.sink.harmony.arkui.Hyperlink.arg0",
+      "surfaceId": "surface.sink.harmony.arkui.Hyperlink.arg0",
+      "assetId": "asset.rule.kernel.sinks.ui_display",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Hyperlink",
+        "invokeKind": "any",
+        "argCount": 1
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.arkui.Hyperlink.arg0"
+      ],
+      "semanticsFamily": "ui_display_sink",
+      "metadata": {
+        "enabled": true,
+        "category": "ui_display_sink",
+        "severity": "low",
+        "description": "Hyperlink(value) displays text/content/resource values in ArkUI."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.sink.harmony.arkui.Image.arg0",
+      "surfaceId": "surface.sink.harmony.arkui.Image.arg0",
+      "assetId": "asset.rule.kernel.sinks.ui_display",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Image",
+        "invokeKind": "any",
+        "argCount": 1
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.arkui.Image.arg0"
+      ],
+      "semanticsFamily": "ui_display_sink",
+      "metadata": {
+        "enabled": true,
+        "category": "ui_display_sink",
+        "severity": "low",
+        "description": "Image(value) displays text/content/resource values in ArkUI."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.sink.harmony.arkui.ImageSpan.arg0",
+      "surfaceId": "surface.sink.harmony.arkui.ImageSpan.arg0",
+      "assetId": "asset.rule.kernel.sinks.ui_display",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "ImageSpan",
+        "invokeKind": "any",
+        "argCount": 1
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.arkui.ImageSpan.arg0"
+      ],
+      "semanticsFamily": "ui_display_sink",
+      "metadata": {
+        "enabled": true,
+        "category": "ui_display_sink",
+        "severity": "low",
+        "description": "ImageSpan(value) displays text/content/resource values in ArkUI."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.sink.harmony.arkui.RichText.arg0",
+      "surfaceId": "surface.sink.harmony.arkui.RichText.arg0",
+      "assetId": "asset.rule.kernel.sinks.ui_display",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "RichText",
+        "invokeKind": "any",
+        "argCount": 1
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.arkui.RichText.arg0"
+      ],
+      "semanticsFamily": "ui_display_sink",
+      "metadata": {
+        "enabled": true,
+        "category": "ui_display_sink",
+        "severity": "low",
+        "description": "RichText(value) displays text/content/resource values in ArkUI."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.sink.harmony.arkui.Span.arg0",
+      "surfaceId": "surface.sink.harmony.arkui.Span.arg0",
+      "assetId": "asset.rule.kernel.sinks.ui_display",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Span",
+        "invokeKind": "any",
+        "argCount": 1
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.arkui.Span.arg0"
+      ],
+      "semanticsFamily": "ui_display_sink",
+      "metadata": {
+        "enabled": true,
+        "category": "ui_display_sink",
+        "severity": "low",
+        "description": "Span(value) displays text/content/resource values in ArkUI."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.sink.harmony.arkui.Text.arg0",
+      "surfaceId": "surface.sink.harmony.arkui.Text.arg0",
+      "assetId": "asset.rule.kernel.sinks.ui_display",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Text",
+        "invokeKind": "any",
+        "argCount": 1
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.arkui.Text.arg0"
+      ],
+      "semanticsFamily": "ui_display_sink",
+      "metadata": {
+        "enabled": true,
+        "category": "ui_display_sink",
+        "severity": "low",
+        "description": "Text(value) displays text/content/resource values in ArkUI."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.sink.harmony.arkui.TextArea.arg0",
+      "surfaceId": "surface.sink.harmony.arkui.TextArea.arg0",
+      "assetId": "asset.rule.kernel.sinks.ui_display",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "TextArea",
+        "invokeKind": "any",
+        "argCount": 1
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.arkui.TextArea.arg0"
+      ],
+      "semanticsFamily": "ui_display_sink",
+      "metadata": {
+        "enabled": true,
+        "category": "ui_display_sink",
+        "severity": "low",
+        "description": "TextArea(value) displays text/content/resource values in ArkUI."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.sink.harmony.arkui.TextInput.arg0",
+      "surfaceId": "surface.sink.harmony.arkui.TextInput.arg0",
+      "assetId": "asset.rule.kernel.sinks.ui_display",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "TextInput",
+        "invokeKind": "any",
+        "argCount": 1
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.arkui.TextInput.arg0"
+      ],
+      "semanticsFamily": "ui_display_sink",
+      "metadata": {
+        "enabled": true,
+        "category": "ui_display_sink",
+        "severity": "low",
+        "description": "TextInput(value) displays text/content/resource values in ArkUI."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.sink.harmony.arkui.TextPicker.arg0",
+      "surfaceId": "surface.sink.harmony.arkui.TextPicker.arg0",
+      "assetId": "asset.rule.kernel.sinks.ui_display",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "TextPicker",
+        "invokeKind": "any",
+        "argCount": 1
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.arkui.TextPicker.arg0"
+      ],
+      "semanticsFamily": "ui_display_sink",
+      "metadata": {
+        "enabled": true,
+        "category": "ui_display_sink",
+        "severity": "low",
+        "description": "TextPicker(value) displays text/content/resource values in ArkUI."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.sink.harmony.arkui.Video.arg0",
+      "surfaceId": "surface.sink.harmony.arkui.Video.arg0",
+      "assetId": "asset.rule.kernel.sinks.ui_display",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "Video",
+        "invokeKind": "any",
+        "argCount": 1
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.arkui.Video.arg0"
+      ],
+      "semanticsFamily": "ui_display_sink",
+      "metadata": {
+        "enabled": true,
+        "category": "ui_display_sink",
+        "severity": "low",
+        "description": "Video(value) displays text/content/resource values in ArkUI."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.sink.harmony.arkui.CanvasRenderer.drawImage.arg0",
+      "surfaceId": "surface.sink.harmony.arkui.CanvasRenderer.drawImage.arg0",
+      "assetId": "asset.rule.kernel.sinks.ui_display",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "drawImage",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "CanvasRenderer",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "CanvasRenderer"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.arkui.CanvasRenderer.drawImage.arg0"
+      ],
+      "semanticsFamily": "ui_display_sink",
+      "metadata": {
+        "enabled": true,
+        "category": "ui_display_sink",
+        "severity": "low",
+        "description": "CanvasRenderer.drawImage(value) consumes display text/content/resource values."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.sink.harmony.arkui.CanvasRenderer.fillText.arg0",
+      "surfaceId": "surface.sink.harmony.arkui.CanvasRenderer.fillText.arg0",
+      "assetId": "asset.rule.kernel.sinks.ui_display",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "fillText",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "CanvasRenderer",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "CanvasRenderer"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.arkui.CanvasRenderer.fillText.arg0"
+      ],
+      "semanticsFamily": "ui_display_sink",
+      "metadata": {
+        "enabled": true,
+        "category": "ui_display_sink",
+        "severity": "low",
+        "description": "CanvasRenderer.fillText(value) consumes display text/content/resource values."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.sink.harmony.arkui.CanvasRenderer.strokeText.arg0",
+      "surfaceId": "surface.sink.harmony.arkui.CanvasRenderer.strokeText.arg0",
+      "assetId": "asset.rule.kernel.sinks.ui_display",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "strokeText",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "CanvasRenderer",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "CanvasRenderer"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.arkui.CanvasRenderer.strokeText.arg0"
+      ],
+      "semanticsFamily": "ui_display_sink",
+      "metadata": {
+        "enabled": true,
+        "category": "ui_display_sink",
+        "severity": "low",
+        "description": "CanvasRenderer.strokeText(value) consumes display text/content/resource values."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.sink.harmony.arkui.ImageBitmap.constructor.arg0",
+      "surfaceId": "surface.sink.harmony.arkui.ImageBitmap.constructor.arg0",
+      "assetId": "asset.rule.kernel.sinks.ui_display",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "constructor",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "ImageBitmap",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "ImageBitmap"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.arkui.ImageBitmap.constructor.arg0"
+      ],
+      "semanticsFamily": "ui_display_sink",
+      "metadata": {
+        "enabled": true,
+        "category": "ui_display_sink",
+        "severity": "low",
+        "description": "ImageBitmap.constructor(value) consumes display text/content/resource values."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.sink.harmony.arkui.ImageData.constructor.arg0",
+      "surfaceId": "surface.sink.harmony.arkui.ImageData.constructor.arg0",
+      "assetId": "asset.rule.kernel.sinks.ui_display",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "constructor",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "ImageData",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "ImageData"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.arkui.ImageData.constructor.arg0"
+      ],
+      "semanticsFamily": "ui_display_sink",
+      "metadata": {
+        "enabled": true,
+        "category": "ui_display_sink",
+        "severity": "low",
+        "description": "ImageData.constructor(value) consumes display text/content/resource values."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.sink.harmony.promptAction.showToast.arg0",
+      "surfaceId": "surface.sink.harmony.promptAction.showToast.arg0",
+      "assetId": "asset.rule.kernel.sinks.ui_display",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "showToast",
+        "invokeKind": "any",
+        "argCount": 1,
+        "typeHint": "promptAction",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "promptAction"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.promptAction.showToast.arg0"
+      ],
+      "semanticsFamily": "ui_display_sink",
+      "metadata": {
+        "enabled": true,
+        "category": "ui_display_sink",
+        "severity": "low",
+        "description": "promptAction.showToast(options) displays message/text options."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.sink.harmony.promptAction.showDialog.arg0",
+      "surfaceId": "surface.sink.harmony.promptAction.showDialog.arg0",
+      "assetId": "asset.rule.kernel.sinks.ui_display",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "showDialog",
+        "invokeKind": "any",
+        "argCount": 1,
+        "typeHint": "promptAction",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "promptAction"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.promptAction.showDialog.arg0"
+      ],
+      "semanticsFamily": "ui_display_sink",
+      "metadata": {
+        "enabled": true,
+        "category": "ui_display_sink",
+        "severity": "low",
+        "description": "promptAction.showDialog(options) displays message/text options."
+      },
+      "completeness": "partial",
+      "confidence": "certain"
+    }
+  ],
+  "effectTemplates": [
+    {
+      "id": "template.sink.harmony.arkui.AbilityComponent.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "ui_display_sink"
+    },
+    {
+      "id": "template.sink.harmony.arkui.Hyperlink.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "ui_display_sink"
+    },
+    {
+      "id": "template.sink.harmony.arkui.Image.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "ui_display_sink"
+    },
+    {
+      "id": "template.sink.harmony.arkui.ImageSpan.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "ui_display_sink"
+    },
+    {
+      "id": "template.sink.harmony.arkui.RichText.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "ui_display_sink"
+    },
+    {
+      "id": "template.sink.harmony.arkui.Span.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "ui_display_sink"
+    },
+    {
+      "id": "template.sink.harmony.arkui.Text.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "ui_display_sink"
+    },
+    {
+      "id": "template.sink.harmony.arkui.TextArea.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "ui_display_sink"
+    },
+    {
+      "id": "template.sink.harmony.arkui.TextInput.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "ui_display_sink"
+    },
+    {
+      "id": "template.sink.harmony.arkui.TextPicker.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "ui_display_sink"
+    },
+    {
+      "id": "template.sink.harmony.arkui.Video.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "ui_display_sink"
+    },
+    {
+      "id": "template.sink.harmony.arkui.CanvasRenderer.drawImage.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "ui_display_sink"
+    },
+    {
+      "id": "template.sink.harmony.arkui.CanvasRenderer.fillText.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "ui_display_sink"
+    },
+    {
+      "id": "template.sink.harmony.arkui.CanvasRenderer.strokeText.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "ui_display_sink"
+    },
+    {
+      "id": "template.sink.harmony.arkui.ImageBitmap.constructor.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "ui_display_sink"
+    },
+    {
+      "id": "template.sink.harmony.arkui.ImageData.constructor.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "ui_display_sink"
+    },
+    {
+      "id": "template.sink.harmony.promptAction.showToast.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "ui_display_sink"
+    },
+    {
+      "id": "template.sink.harmony.promptAction.showDialog.arg0",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "ui_display_sink"
+    }
+  ],
+  "provenance": {
+    "source": "builtin",
+    "evidenceLocations": [
+      {
+        "file": "api/@internal/component/ets/text.d.ts"
+      },
+      {
+        "file": "api/@internal/component/ets/image.d.ts"
+      },
+      {
+        "file": "api/@internal/component/ets/video.d.ts"
+      },
+      {
+        "file": "api/@internal/component/ets/canvas.d.ts"
+      },
+      {
+        "file": "api/@ohos.promptAction.d.ts"
+      },
+      {
+        "file": "internal_docs/security_asset_iteration/official_api_semantic_inventory.md"
+      }
+    ]
+  }
+}

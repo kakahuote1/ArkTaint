@@ -24,16 +24,30 @@ export interface ModuleMethodsApi {
 }
 
 export interface ModuleInvokeScanFilter {
+    surfaceKind?: "invoke";
     modulePath?: string;
     methodName?: string;
     declaringClassName?: string;
     declaringClassIncludes?: string;
+    baseLocalName?: string;
+    baseLocalNames?: string[];
     signature?: string;
     signatureIncludes?: string;
     argCount?: number;
     minArgs?: number;
     instanceOnly?: boolean;
     staticOnly?: boolean;
+}
+
+export interface ModuleConstructScanFilter {
+    surfaceKind?: "construct";
+    modulePath?: string;
+    className?: string;
+    classNameIncludes?: string;
+    signature?: string;
+    signatureIncludes?: string;
+    argCount?: number;
+    minArgs?: number;
 }
 
 export interface ModuleScannedInvoke {
@@ -52,6 +66,7 @@ export interface ModuleScannedInvoke {
     baseNodeIds(): number[];
     baseObjectNodeIds(): number[];
     baseCarrierNodeIds(): number[];
+    calleeReceiverEndpointNodeIds?(accessPath: string[]): number[];
     resultNodeIds(): number[];
     resultCarrierNodeIds(): number[];
     callbackParamNodeIds(
@@ -204,6 +219,7 @@ export interface ModuleScannedDecoratedField {
 
 export interface ModuleScanApi {
     invokes(filter?: ModuleInvokeScanFilter): ModuleScannedInvoke[];
+    constructs(filter?: ModuleConstructScanFilter): ModuleScannedInvoke[];
     parameterBindings(filter?: ModuleParameterBindingScanFilter): ModuleScannedParameterBinding[];
     assigns(filter?: ModuleAssignScanFilter): ModuleScannedAssign[];
     fieldLoads(filter?: ModuleFieldLoadScanFilter): ModuleScannedFieldLoad[];
@@ -227,6 +243,7 @@ export interface RawModuleSetupContext {
     allowedMethodSignatures?: Set<string>;
     fieldToVarIndex: Map<string, Set<number>>;
     log: (msg: string) => void;
+    moduleSetupDeadlineMs?: number;
 }
 
 export interface ModuleSetupDebugApi {
@@ -589,6 +606,23 @@ export interface ModuleFailureEvent {
     userMessage: string;
 }
 
+export interface ModuleEmissionAuditEntry {
+    moduleId: string;
+    hook: "onFact" | "onInvoke";
+    reason: string;
+    sourceFactId: string;
+    sourceNodeId: number;
+    sourceContextId: number;
+    source: string;
+    sourceFieldPath?: string[];
+    targetFactId: string;
+    targetNodeId: number;
+    targetContextId: number;
+    targetFieldPath?: string[];
+    callSignature?: string;
+    ownerMethodSignature?: string;
+}
+
 export interface ModuleAuditEntry {
     moduleId: string;
     sourcePath?: string;
@@ -606,6 +640,8 @@ export interface ModuleAuditEntry {
     debugSkipCount: number;
     debugLogCount: number;
     recentDebugMessages: string[];
+    emissionSamples: ModuleEmissionAuditEntry[];
+    emissionSampleOverflowCount: number;
 }
 
 export interface ModuleAuditSnapshot {

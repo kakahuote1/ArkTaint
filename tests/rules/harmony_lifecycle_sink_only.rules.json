@@ -15,6 +15,19 @@
       "provenance": {
         "source": "manual"
       }
+    },
+    {
+      "surfaceId": "surface.sink.test.hilog.info.arg3",
+      "kind": "invoke",
+      "modulePath": "ohos/hilog",
+      "ownerName": "hilog",
+      "methodName": "info",
+      "invokeKind": "instance",
+      "argCount": 4,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
     }
   ],
   "bindings": [
@@ -40,6 +53,38 @@
       "semanticsFamily": "sink",
       "completeness": "partial",
       "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.test.hilog.info.arg3",
+      "surfaceId": "surface.sink.test.hilog.info.arg3",
+      "assetId": "asset.rule.test.harmony_lifecycle_sink_only",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "info",
+        "invokeKind": "instance",
+        "argCount": 4,
+        "typeHint": "hilog",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "hilog"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 3
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.test.hilog.info.arg3"
+      ],
+      "semanticsFamily": "sink",
+      "completeness": "complete",
+      "confidence": "certain"
     }
   ],
   "effectTemplates": [
@@ -51,6 +96,18 @@
         "base": {
           "kind": "arg",
           "index": 0
+        }
+      },
+      "sinkKind": "sink"
+    },
+    {
+      "id": "template.sink.test.hilog.info.arg3",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 3
         }
       },
       "sinkKind": "sink"

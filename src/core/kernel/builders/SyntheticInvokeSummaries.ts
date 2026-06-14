@@ -13,6 +13,11 @@ import type {
     SyntheticStaticInitStoreInfo,
 } from "./SyntheticInvokeEdgeBuilder";
 
+interface ConstructorCapturedStore {
+    targetFieldName: string;
+    sourceFieldPath?: string[];
+}
+
 export function buildSyntheticConstructorStoreMap(
     scene: Scene,
     _cg: CallGraph,
@@ -22,7 +27,7 @@ export function buildSyntheticConstructorStoreMap(
     const map = new Map<number, SyntheticConstructorStoreInfo[]>();
     const summaryCache = new Map<string, Map<number, Set<string>>>();
     const visiting = new Set<string>();
-    const capturedSummaryCache = new Map<string, Map<string, Set<string>>>();
+    const capturedSummaryCache = new Map<string, Map<string, ConstructorCapturedStore[]>>();
     const capturedVisiting = new Set<string>();
     let count = 0;
 
@@ -42,7 +47,7 @@ export function buildSyntheticConstructorStoreMap(
             if (!callee || !callee.getCfg()) continue;
 
             const summary = summarizeConstructorParamToFields(scene, callee, summaryCache, visiting);
-            const capturedSummary = summarizeConstructorCapturedLocalToFields(
+            const capturedSummary = summarizeConstructorCapturedLocalStores(
                 scene,
                 callee,
                 capturedSummaryCache,
@@ -62,12 +67,15 @@ export function buildSyntheticConstructorStoreMap(
                 if (!srcNodes || srcNodes.size === 0) continue;
 
                 for (const srcNodeId of srcNodes.values()) {
+                    const sourceCarrierIds = collectSourceCarrierIds(pag.getNode(srcNodeId) as PagNode | undefined, srcNodeId);
                     for (const baseNodeId of baseNodes.values()) {
                         const baseNode = pag.getNode(baseNodeId) as PagNode;
                         for (const objId of collectCarrierObjectIds(baseNode)) {
                             for (const fieldName of fieldNames) {
-                                pushCtorStore(map, srcNodeId, { srcNodeId, objId, fieldName });
-                                count++;
+                                for (const sourceCarrierId of sourceCarrierIds) {
+                                    pushCtorStore(map, sourceCarrierId, { srcNodeId: sourceCarrierId, objId, fieldName });
+                                    count++;
+                                }
                             }
                         }
                     }
@@ -77,19 +85,27 @@ export function buildSyntheticConstructorStoreMap(
             if (capturedSummary.size > 0) {
                 const callerLocals = caller.getBody?.()?.getLocals?.();
                 if (callerLocals) {
-                    for (const [capturedLocalName, fieldNames] of capturedSummary.entries()) {
+                    for (const [capturedLocalName, stores] of capturedSummary.entries()) {
                         const callerLocal = callerLocals.get(capturedLocalName);
                         if (!(callerLocal instanceof Local)) continue;
                         const srcNodes = pag.getNodesByValue(callerLocal);
                         if (!srcNodes || srcNodes.size === 0) continue;
 
                         for (const srcNodeId of srcNodes.values()) {
+                            const sourceCarrierIds = collectSourceCarrierIds(pag.getNode(srcNodeId) as PagNode | undefined, srcNodeId);
                             for (const baseNodeId of baseNodes.values()) {
                                 const baseNode = pag.getNode(baseNodeId) as PagNode;
                                 for (const objId of collectCarrierObjectIds(baseNode)) {
-                                    for (const fieldName of fieldNames) {
-                                        pushCtorStore(map, srcNodeId, { srcNodeId, objId, fieldName });
-                                        count++;
+                                    for (const store of stores) {
+                                        for (const sourceCarrierId of sourceCarrierIds) {
+                                            pushCtorStore(map, sourceCarrierId, {
+                                                srcNodeId: sourceCarrierId,
+                                                objId,
+                                                fieldName: store.targetFieldName,
+                                                sourceFieldPath: store.sourceFieldPath ? [...store.sourceFieldPath] : undefined,
+                                            });
+                                            count++;
+                                        }
                                     }
                                 }
                             }
@@ -112,19 +128,39 @@ export function summarizeConstructorCapturedLocalToFields(
 ): Map<string, Set<string>> {
     const sig = method.getSignature().toString();
     if (cache.has(sig)) return cache.get(sig)!;
+    const storeCache = new Map<string, Map<string, ConstructorCapturedStore[]>>();
+    const storeSummary = summarizeConstructorCapturedLocalStores(scene, method, storeCache, visiting);
+    const result = new Map<string, Set<string>>();
+    for (const [localName, stores] of storeSummary.entries()) {
+        if (!result.has(localName)) result.set(localName, new Set<string>());
+        for (const store of stores) result.get(localName)!.add(store.targetFieldName);
+    }
+    cache.set(sig, result);
+    return result;
+}
+
+function summarizeConstructorCapturedLocalStores(
+    scene: Scene,
+    method: any,
+    cache: Map<string, Map<string, ConstructorCapturedStore[]>>,
+    visiting: Set<string>
+): Map<string, ConstructorCapturedStore[]> {
+    const sig = method.getSignature().toString();
+    if (cache.has(sig)) return cache.get(sig)!;
     if (visiting.has(sig)) return new Map();
     visiting.add(sig);
 
-    const result = new Map<string, Set<string>>();
+    const result = new Map<string, Map<string, ConstructorCapturedStore>>();
     const cfg = method.getCfg();
     if (!cfg) {
         visiting.delete(sig);
-        cache.set(sig, result);
-        return result;
+        const empty = new Map<string, ConstructorCapturedStore[]>();
+        cache.set(sig, empty);
+        return empty;
     }
 
     const paramLocalNames = new Set<string>();
-    const localCapturedAliases = new Map<string, string>();
+    const localCapturedAliases = new Map<string, { localName: string; sourceFieldPath?: string[] }>();
     for (const stmt of cfg.getStmts()) {
         if (!(stmt instanceof ArkAssignStmt)) continue;
         const left = stmt.getLeftOp();
@@ -134,13 +170,13 @@ export function summarizeConstructorCapturedLocalToFields(
         }
     }
 
-    const resolveCapturedLocalName = (value: any): string | undefined => {
+    const resolveCapturedLocalSource = (value: any): { localName: string; sourceFieldPath?: string[] } | undefined => {
         if (value instanceof Local) {
             const localName = value.getName();
             if (!localName || localName === "this" || paramLocalNames.has(localName)) {
                 return undefined;
             }
-            return localCapturedAliases.get(localName) || (localName.startsWith("%") ? undefined : localName);
+            return localCapturedAliases.get(localName) || (localName.startsWith("%") ? undefined : { localName });
         }
         if (value instanceof ArkInstanceFieldRef) {
             const base = value.getBase();
@@ -149,7 +185,18 @@ export function summarizeConstructorCapturedLocalToFields(
             if (!baseName || baseName === "this" || paramLocalNames.has(baseName)) {
                 return undefined;
             }
-            return localCapturedAliases.get(baseName) || (baseName.startsWith("%") ? undefined : baseName);
+            const fieldName = value.getFieldSignature?.().getFieldName?.() || value.getFieldName?.();
+            if (!fieldName) return undefined;
+            const baseAlias = localCapturedAliases.get(baseName);
+            if (baseAlias) {
+                return {
+                    localName: baseAlias.localName,
+                    sourceFieldPath: [...(baseAlias.sourceFieldPath || []), fieldName],
+                };
+            }
+            return baseName.startsWith("%")
+                ? undefined
+                : { localName: baseName, sourceFieldPath: [fieldName] };
         }
         return undefined;
     };
@@ -160,7 +207,7 @@ export function summarizeConstructorCapturedLocalToFields(
         const right = stmt.getRightOp();
 
         if (left instanceof Local) {
-            const captured = resolveCapturedLocalName(right);
+            const captured = resolveCapturedLocalSource(right);
             if (captured) {
                 localCapturedAliases.set(left.getName(), captured);
             }
@@ -170,12 +217,17 @@ export function summarizeConstructorCapturedLocalToFields(
         const leftBase = left.getBase();
         if (!(leftBase instanceof Local) || leftBase.getName() !== "this") continue;
 
-        const localName = resolveCapturedLocalName(right);
-        if (!localName) continue;
+        const source = resolveCapturedLocalSource(right);
+        if (!source) continue;
 
         const fieldName = left.getFieldSignature().getFieldName();
-        if (!result.has(localName)) result.set(localName, new Set<string>());
-        result.get(localName)!.add(fieldName);
+        const byTargetField = result.get(source.localName) || new Map<string, ConstructorCapturedStore>();
+        const key = `${fieldName}\u0001${(source.sourceFieldPath || []).join(".")}`;
+        byTargetField.set(key, {
+            targetFieldName: fieldName,
+            sourceFieldPath: source.sourceFieldPath ? [...source.sourceFieldPath] : undefined,
+        });
+        result.set(source.localName, byTargetField);
     }
 
     for (const stmt of cfg.getStmts()) {
@@ -187,16 +239,24 @@ export function summarizeConstructorCapturedLocalToFields(
         if (!calleeSig.includes(".constructor(") && !calleeSig.includes("%instInit")) continue;
         const callee = getMethodBySignature(scene, calleeSig);
         if (!callee || !callee.getCfg()) continue;
-        const nested = summarizeConstructorCapturedLocalToFields(scene, callee, cache, visiting);
-        for (const [localName, fields] of nested.entries()) {
-            if (!result.has(localName)) result.set(localName, new Set<string>());
-            for (const f of fields) result.get(localName)!.add(f);
+        const nested = summarizeConstructorCapturedLocalStores(scene, callee, cache, visiting);
+        for (const [localName, stores] of nested.entries()) {
+            const byTargetField = result.get(localName) || new Map<string, ConstructorCapturedStore>();
+            for (const store of stores) {
+                const key = `${store.targetFieldName}\u0001${(store.sourceFieldPath || []).join(".")}`;
+                byTargetField.set(key, {
+                    targetFieldName: store.targetFieldName,
+                    sourceFieldPath: store.sourceFieldPath ? [...store.sourceFieldPath] : undefined,
+                });
+            }
+            result.set(localName, byTargetField);
         }
     }
 
     visiting.delete(sig);
-    cache.set(sig, result);
-    return result;
+    const normalized = new Map([...result.entries()].map(([localName, stores]) => [localName, [...stores.values()]]));
+    cache.set(sig, normalized);
+    return normalized;
 }
 
 export function buildSyntheticFieldBridgeMap(
@@ -229,18 +289,53 @@ export function buildSyntheticFieldBridgeMap(
         const callerThisLocal = [...body.getLocals().values()].find(l => l.getName() === "this");
         if (!callerThisLocal) continue;
 
-        const callerThisNodes = pag.getNodesByValue(callerThisLocal);
+        const callerThisNodes = pag.getNodesByValue(callerThisLocal)
+            || safeGetOrCreatePagNodes(pag, callerThisLocal, callerThisLocal.getDeclaringStmt?.());
         if (!callerThisNodes || callerThisNodes.size === 0) continue;
         const callerObjectIds = new Set<number>();
         for (const thisNodeId of callerThisNodes.values()) {
             const thisNode = pag.getNode(thisNodeId) as PagNode;
-            for (const objId of thisNode.getPointTo()) {
+            for (const objId of collectCarrierObjectIds(thisNode)) {
                 callerObjectIds.add(objId);
             }
         }
         if (callerObjectIds.size === 0) continue;
 
         for (const stmt of cfg.getStmts()) {
+            if (stmt instanceof ArkAssignStmt) {
+                const left = stmt.getLeftOp();
+                const right = stmt.getRightOp();
+                if (left instanceof ArkInstanceFieldRef && right instanceof Local) {
+                    const leftBase = left.getBase();
+                    if (leftBase instanceof Local && leftBase.getName() === "this") {
+                        const targetFieldName = left.getFieldSignature().getFieldName();
+                        const sourceFieldNames = summarizeConstructedLocalFieldNames(scene, right, summaryCache, visiting);
+                        if (sourceFieldNames.size > 0) {
+                            const rightNodes = pag.getNodesByValue(right) || safeGetOrCreatePagNodes(pag, right, stmt);
+                            if (rightNodes && rightNodes.size > 0) {
+                                for (const rightNodeId of rightNodes.values()) {
+                                    const rightNode = pag.getNode(rightNodeId) as PagNode;
+                                    const sourceObjectNodeIds = collectCarrierObjectIds(rightNode);
+                                    for (const sourceObjectNodeId of sourceObjectNodeIds) {
+                                        for (const targetObjectNodeId of callerObjectIds) {
+                                            for (const sourceFieldName of sourceFieldNames) {
+                                                pushBridge({
+                                                    sourceObjectNodeId,
+                                                    sourceFieldName,
+                                                    targetObjectNodeId,
+                                                    targetFieldName,
+                                                    methodSignature: caller.getSignature().toString(),
+                                                });
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             if (!stmt.containsInvokeExpr || !stmt.containsInvokeExpr()) continue;
             const invokeExpr = stmt.getInvokeExpr();
             if (!(invokeExpr instanceof ArkInstanceInvokeExpr)) continue;
@@ -255,16 +350,22 @@ export function buildSyntheticFieldBridgeMap(
             const callee = getMethodBySignature(scene, calleeSig);
             if (!callee || !callee.getCfg()) continue;
 
-            const fieldCopySummary = summarizeThisFieldCopyMap(scene, callee, summaryCache, visiting);
+            let fieldCopySummary = summarizeThisFieldCopyMap(scene, callee, summaryCache, visiting);
+            if (fieldCopySummary.size === 0) {
+                const instInitMethod = resolveCompanionInstInitMethod(scene, callee);
+                if (instInitMethod) {
+                    fieldCopySummary = summarizeThisFieldCopyMap(scene, instInitMethod, summaryCache, visiting);
+                }
+            }
             if (fieldCopySummary.size === 0) continue;
 
             const base = invokeExpr.getBase();
-            const baseNodes = pag.getNodesByValue(base);
+            const baseNodes = pag.getNodesByValue(base) || safeGetOrCreatePagNodes(pag, base, stmt);
             if (!baseNodes || baseNodes.size === 0) continue;
             const targetObjectIds = new Set<number>();
             for (const baseNodeId of baseNodes.values()) {
                 const baseNode = pag.getNode(baseNodeId) as PagNode;
-                for (const objId of baseNode.getPointTo()) {
+                for (const objId of collectCarrierObjectIds(baseNode)) {
                     targetObjectIds.add(objId);
                 }
             }
@@ -290,6 +391,72 @@ export function buildSyntheticFieldBridgeMap(
 
     log(`Synthetic Field Bridge Map Built: ${bridgeCount} bridge transfers.`);
     return map;
+}
+
+function summarizeConstructedLocalFieldNames(
+    scene: Scene,
+    local: Local,
+    cache: Map<string, Map<string, Set<string>>>,
+    visiting: Set<string>,
+): Set<string> {
+    const typeText = String(local.getType?.()?.toString?.() || "").trim();
+    if (!typeText || typeText.includes("%unk")) {
+        return new Set();
+    }
+    const initMethod = getMethodBySignature(scene, `${typeText}.%instInit()`);
+    if (!initMethod || !initMethod.getCfg?.()) {
+        return new Set();
+    }
+    return summarizeThisAssignedFieldNames(scene, initMethod, cache, visiting);
+}
+
+function summarizeThisAssignedFieldNames(
+    scene: Scene,
+    method: any,
+    cache: Map<string, Map<string, Set<string>>>,
+    visiting: Set<string>,
+): Set<string> {
+    const sig = method.getSignature().toString();
+    const cacheKey = `__fields__:${sig}`;
+    const cached = cache.get(cacheKey);
+    if (cached) return new Set(cached.get("__fields__") || []);
+    if (visiting.has(cacheKey)) return new Set();
+    visiting.add(cacheKey);
+
+    const fields = new Set<string>();
+    const cfg = method.getCfg?.();
+    if (cfg) {
+        for (const stmt of cfg.getStmts()) {
+            if (stmt instanceof ArkAssignStmt) {
+                const left = stmt.getLeftOp();
+                if (left instanceof ArkInstanceFieldRef) {
+                    const base = left.getBase();
+                    if (base instanceof Local && base.getName() === "this") {
+                        const fieldName = left.getFieldSignature().getFieldName();
+                        if (fieldName) fields.add(fieldName);
+                    }
+                }
+            }
+
+            if (!stmt.containsInvokeExpr || !stmt.containsInvokeExpr()) continue;
+            const invokeExpr = stmt.getInvokeExpr();
+            if (!(invokeExpr instanceof ArkInstanceInvokeExpr)) continue;
+            const calleeSig = invokeExpr.getMethodSignature().toString();
+            if (!calleeSig || calleeSig.includes("%unk")) continue;
+            if (!calleeSig.includes(".constructor(") && !calleeSig.includes("%instInit")) continue;
+            const callee = getMethodBySignature(scene, calleeSig);
+            if (!callee || !callee.getCfg?.()) continue;
+            for (const fieldName of summarizeThisAssignedFieldNames(scene, callee, cache, visiting)) {
+                fields.add(fieldName);
+            }
+        }
+    }
+
+    visiting.delete(cacheKey);
+    const stored = new Map<string, Set<string>>();
+    stored.set("__fields__", fields);
+    cache.set(cacheKey, stored);
+    return new Set(fields);
 }
 
 export function buildSyntheticStaticInitStoreMap(
@@ -512,6 +679,25 @@ function summarizeThisFieldCopyMap(
     return result;
 }
 
+function resolveCompanionInstInitMethod(scene: Scene, constructorMethod: any): any | undefined {
+    const classSignature = constructorMethod
+        ?.getDeclaringArkClass?.()
+        ?.getSignature?.()
+        ?.toString?.();
+    if (classSignature) {
+        const byClassSignature = getMethodBySignature(scene, `${classSignature}.%instInit()`);
+        if (byClassSignature?.getCfg?.()) return byClassSignature;
+    }
+
+    const constructorSig = constructorMethod?.getSignature?.()?.toString?.() || "";
+    const bySignatureText = constructorSig.replace(/\.constructor\([^)]*\)$/, ".%instInit()");
+    if (bySignatureText !== constructorSig) {
+        const method = getMethodBySignature(scene, bySignatureText);
+        if (method?.getCfg?.()) return method;
+    }
+    return undefined;
+}
+
 function summarizeStaticInitCapturedLocalToStaticFields(method: any): Map<string, Set<string>> {
     const result = new Map<string, Set<string>>();
     const cfg = method?.getCfg?.();
@@ -577,6 +763,17 @@ function extractFilePathFromMethodSignature(methodSig: string): string {
 function pushCtorStore(map: Map<number, SyntheticConstructorStoreInfo[]>, key: number, info: SyntheticConstructorStoreInfo): void {
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(info);
+}
+
+function collectSourceCarrierIds(sourceNode: PagNode | undefined, fallbackNodeId: number): number[] {
+    const ids = new Set<number>();
+    ids.add(fallbackNodeId);
+    if (sourceNode?.getPointTo) {
+        for (const objId of sourceNode.getPointTo()) {
+            ids.add(objId);
+        }
+    }
+    return [...ids.values()];
 }
 
 function pushStaticInitStore(map: Map<number, SyntheticStaticInitStoreInfo[]>, key: number, info: SyntheticStaticInitStoreInfo): void {

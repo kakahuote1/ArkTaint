@@ -4,129 +4,49 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.sink.harmony.web.create.arg0",
+      "surfaceId": "surface.sink.harmony.webcontroller.loadUrl.arg0.exact.loadUrl.className.WebviewController",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "create",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.webcontroller.loadUrl.arg0",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "WebController.WebviewController.AtomicServiceWebController",
+      "modulePath": "webview",
+      "ownerName": "WebviewController",
       "methodName": "loadUrl",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 1
     },
     {
-      "surfaceId": "surface.sink.harmony.webcontroller.runJavaScript.arg0",
+      "surfaceId": "surface.sink.harmony.webcontroller.runJavaScript.arg0.exact.runJavaScript.className.WebviewController",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "WebController.WebviewController.AtomicServiceWebController",
+      "modulePath": "webview",
+      "ownerName": "WebviewController",
       "methodName": "runJavaScript",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 1
     },
     {
-      "surfaceId": "surface.sink.harmony.js.eval.arg0",
+      "surfaceId": "surface.sink.harmony.webview.registerJavaScriptProxy.exact.registerJavaScriptProxy.className.WebviewController",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "eval",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.js.function_ctor.arg0",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "constructor",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.webview.loadData",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "Webview",
-      "methodName": "loadData",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.webview.registerJavaScriptProxy",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "webview",
+      "ownerName": "WebviewController",
       "methodName": "registerJavaScriptProxy",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 1
     }
   ],
   "bindings": [
     {
-      "bindingId": "binding.sink.harmony.web.create.arg0.0",
-      "surfaceId": "surface.sink.harmony.web.create.arg0",
-      "assetId": "asset.rule.kernel.sinks.web",
-      "plane": "rule",
-      "role": "sink",
-      "selector": {
-        "kind": "signature-contains",
-        "value": "Web.create"
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.sink.harmony.web.create.arg0"
-      ],
-      "semanticsFamily": "webview_injection",
-      "metadata": {
-        "enabled": true,
-        "category": "webview_injection",
-        "severity": "high"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.sink.harmony.webcontroller.loadUrl.arg0.0",
-      "surfaceId": "surface.sink.harmony.webcontroller.loadUrl.arg0",
+      "bindingId": "binding.sink.harmony.webcontroller.loadUrl.arg0.0.exact.loadUrl.className.WebviewController",
+      "surfaceId": "surface.sink.harmony.webcontroller.loadUrl.arg0.exact.loadUrl.className.WebviewController",
       "assetId": "asset.rule.kernel.sinks.web",
       "plane": "rule",
       "role": "sink",
@@ -134,10 +54,11 @@
         "kind": "method-name-equals",
         "value": "loadUrl",
         "invokeKind": "instance",
-        "scope": {
+        "typeHint": "WebviewController",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "^(WebController|WebviewController|AtomicServiceWebController)$"
+            "mode": "equals",
+            "value": "WebviewController"
           }
         }
       },
@@ -148,7 +69,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.webcontroller.loadUrl.arg0"
+        "template.sink.harmony.webcontroller.loadUrl.arg0.for.sink.harmony.webcontroller.loadUrl.arg0.0.exact.loadUrl.class.WebviewController"
       ],
       "semanticsFamily": "webview_injection",
       "metadata": {
@@ -160,8 +81,8 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.webcontroller.runJavaScript.arg0.0",
-      "surfaceId": "surface.sink.harmony.webcontroller.runJavaScript.arg0",
+      "bindingId": "binding.sink.harmony.webcontroller.runJavaScript.arg0.0.exact.runJavaScript.className.WebviewController",
+      "surfaceId": "surface.sink.harmony.webcontroller.runJavaScript.arg0.exact.runJavaScript.className.WebviewController",
       "assetId": "asset.rule.kernel.sinks.web",
       "plane": "rule",
       "role": "sink",
@@ -169,10 +90,11 @@
         "kind": "method-name-equals",
         "value": "runJavaScript",
         "invokeKind": "instance",
-        "scope": {
+        "typeHint": "WebviewController",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "^(WebController|WebviewController|AtomicServiceWebController)$"
+            "mode": "equals",
+            "value": "WebviewController"
           }
         }
       },
@@ -183,7 +105,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.webcontroller.runJavaScript.arg0"
+        "template.sink.harmony.webcontroller.runJavaScript.arg0.for.sink.harmony.webcontroller.runJavaScript.arg0.0.exact.runJavaScript.class.WebviewController"
       ],
       "semanticsFamily": "webview_injection",
       "metadata": {
@@ -195,110 +117,21 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.js.eval.arg0.0",
-      "surfaceId": "surface.sink.harmony.js.eval.arg0",
+      "bindingId": "binding.sink.harmony.webview.registerJavaScriptProxy.0.exact.registerJavaScriptProxy.className.WebviewController",
+      "surfaceId": "surface.sink.harmony.webview.registerJavaScriptProxy.exact.registerJavaScriptProxy.className.WebviewController",
       "assetId": "asset.rule.kernel.sinks.web",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
-        "value": "eval"
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.sink.harmony.js.eval.arg0"
-      ],
-      "semanticsFamily": "code_injection",
-      "metadata": {
-        "enabled": true,
-        "category": "code_injection",
-        "severity": "high"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.sink.harmony.js.function_ctor.arg0.0",
-      "surfaceId": "surface.sink.harmony.js.function_ctor.arg0",
-      "assetId": "asset.rule.kernel.sinks.web",
-      "plane": "rule",
-      "role": "sink",
-      "selector": {
-        "kind": "signature-contains",
-        "value": "Function.constructor"
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.sink.harmony.js.function_ctor.arg0"
-      ],
-      "semanticsFamily": "code_injection",
-      "metadata": {
-        "enabled": true,
-        "category": "code_injection",
-        "severity": "high"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.sink.harmony.webview.loadData.0",
-      "surfaceId": "surface.sink.harmony.webview.loadData",
-      "assetId": "asset.rule.kernel.sinks.web",
-      "plane": "rule",
-      "role": "sink",
-      "selector": {
-        "kind": "signature-contains",
-        "value": "loadData",
-        "scope": {
+        "value": "registerJavaScriptProxy",
+        "invokeKind": "instance",
+        "calleeScope": {
           "className": {
-            "mode": "contains",
-            "value": "Webview"
+            "mode": "equals",
+            "value": "WebviewController"
           }
         }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.sink.harmony.webview.loadData"
-      ],
-      "semanticsFamily": "webview_injection",
-      "metadata": {
-        "description": "Load HTML data into WebView (XSS)",
-        "tags": [
-          "harmony",
-          "phase7118",
-          "webview",
-          "P0"
-        ],
-        "category": "webview_injection",
-        "severity": "critical"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.sink.harmony.webview.registerJavaScriptProxy.0",
-      "surfaceId": "surface.sink.harmony.webview.registerJavaScriptProxy",
-      "assetId": "asset.rule.kernel.sinks.web",
-      "plane": "rule",
-      "role": "sink",
-      "selector": {
-        "kind": "signature-contains",
-        "value": "registerJavaScriptProxy"
       },
       "endpoint": {
         "base": {
@@ -327,79 +160,31 @@
   ],
   "effectTemplates": [
     {
-      "id": "template.sink.harmony.web.create.arg0",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "webview_injection"
-    },
-    {
-      "id": "template.sink.harmony.webcontroller.loadUrl.arg0",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "webview_injection"
-    },
-    {
-      "id": "template.sink.harmony.webcontroller.runJavaScript.arg0",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "webview_injection"
-    },
-    {
-      "id": "template.sink.harmony.js.eval.arg0",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "code_injection"
-    },
-    {
-      "id": "template.sink.harmony.js.function_ctor.arg0",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "code_injection"
-    },
-    {
-      "id": "template.sink.harmony.webview.loadData",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "webview_injection"
-    },
-    {
       "id": "template.sink.harmony.webview.registerJavaScriptProxy",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "webview_injection"
+    },
+    {
+      "id": "template.sink.harmony.webcontroller.loadUrl.arg0.for.sink.harmony.webcontroller.loadUrl.arg0.0.exact.loadUrl.class.WebviewController",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "webview_injection"
+    },
+    {
+      "id": "template.sink.harmony.webcontroller.runJavaScript.arg0.for.sink.harmony.webcontroller.runJavaScript.arg0.0.exact.runJavaScript.class.WebviewController",
       "confidence": "certain",
       "kind": "rule.sink",
       "value": {

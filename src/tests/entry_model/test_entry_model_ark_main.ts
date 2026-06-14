@@ -97,6 +97,18 @@ function hasReachableMethodOnClass(reachable: Set<string>, className: string, me
     return false;
 }
 
+function assertReachableMethodOnClass(reachable: Set<string>, className: string, methodName: string): void {
+    if (!hasReachableMethodOnClass(reachable, className, methodName)) {
+        throw new Error(`ArkMain reachable set missing ${className}.${methodName}.`);
+    }
+}
+
+function assertNotReachableMethodOnClass(reachable: Set<string>, className: string, methodName: string): void {
+    if (hasReachableMethodOnClass(reachable, className, methodName)) {
+        throw new Error(`ArkMain reachable set unexpectedly contains ${className}.${methodName}.`);
+    }
+}
+
 async function main(): Promise<void> {
     const projectDir = path.resolve("tests/demo/arkmain_entry_phases");
     const scene = buildScene(projectDir);
@@ -178,6 +190,15 @@ async function main(): Promise<void> {
     if (!hasReachableMethodOnClass(extensionReachable, "ProbeWorkScheduler004", "onWorkStop")) {
         throw new Error("ArkMain reachable set missing ProbeWorkScheduler004.onWorkStop.");
     }
+
+    const componentExpansionScene = buildScene(path.resolve("tests/demo/arkmain_component_entrypoint_expansion"));
+    const componentExpansionEngine = new TaintPropagationEngine(componentExpansionScene, 1);
+    componentExpansionEngine.verbose = false;
+    await componentExpansionEngine.buildPAG({ entryModel: "arkMain" });
+    const componentExpansionReachable = componentExpansionEngine.computeReachableMethodSignatures();
+    assertReachableMethodOnClass(componentExpansionReachable, "ChildLifecycleCard", "build");
+    assertReachableMethodOnClass(componentExpansionReachable, "ChildLifecycleCard", "aboutToAppear");
+    assertNotReachableMethodOnClass(componentExpansionReachable, "PlainLifecycleNames", "aboutToAppear");
 
     console.log("PASS test_entry_model_ark_main");
 }

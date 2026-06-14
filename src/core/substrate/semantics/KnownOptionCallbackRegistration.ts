@@ -64,6 +64,14 @@ const OPTION_OBJECT_CALLBACK_SPECS: OptionObjectCallbackSpec[] = [
         requiredFieldNames: new Set(["duration"]),
         reasonLabel: "Framework module callback registration",
     },
+    {
+        kind: "owner_qualified",
+        ownerClassNames: new Set(["MethodChannel"]),
+        methodNames: new Set(["setMethodCallHandler"]),
+        optionsArgIndex: 0,
+        callbackFieldNames: new Set(["onMethodCall"]),
+        reasonLabel: "Flutter MethodChannel callback registration",
+    },
 ];
 
 export function resolveKnownOptionCallbackRegistrationsFromStmt(
@@ -409,6 +417,7 @@ function resolveDirectProjectComponentOptionCallbacksFromStmt(
                 registrationOwnerName: componentName,
                 registrationSignature,
                 callbackArgIndex: 0,
+                callbackFieldName: fieldName,
                 reason: `Project component option callback ${componentName}.${fieldName} from ${sourceMethod.getName?.() || ""}`.trim(),
                 callbackFlavor: "ui_event",
                 registrationShape: "options_object_slot",
@@ -532,6 +541,7 @@ function resolveComponentPropertyCallbackInvocationsFromStmt(
             registrationOwnerName: componentName,
             registrationSignature,
             callbackArgIndex: 0,
+            callbackFieldName: fieldName,
             reason: `ArkUI component property callback ${componentName}.${fieldName}`,
             callbackFlavor: "channel",
             registrationShape: "options_object_slot",

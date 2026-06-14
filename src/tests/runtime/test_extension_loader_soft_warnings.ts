@@ -17,7 +17,7 @@ function writeFile(filePath: string, content: string): void {
 function main(): void {
     const root = path.resolve("tmp/test_runs/diagnostics/extension_loader_soft_warnings/latest");
     const moduleDir = path.join(root, "models");
-    const modulePackDir = path.join(moduleDir, "kernel", "fixture", "modules");
+    const modulePackDir = path.join(moduleDir, "kernel", "modules");
     const pluginDir = path.join(root, "plugins");
     fs.rmSync(root, { recursive: true, force: true });
     fs.mkdirSync(modulePackDir, { recursive: true });

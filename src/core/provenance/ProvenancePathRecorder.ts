@@ -20,7 +20,7 @@ export function materializeTaintFlowPaths(
     options?: PathMaterializationOptions,
 ): MaterializedTaintFlow | undefined {
     if (!flow.sinkFactId) return undefined;
-    const dag = buildProvenanceDag(flow.sinkFactId, context);
+    const dag = buildProvenanceDag(flow.sinkFactId, context, options);
     if (dag.factIds.size === 0) return undefined;
     const enumeration = enumerateProvenancePaths(dag, options);
     const paths = deduplicateProvenancePaths(enumeration.paths).map((path, index) => ({
@@ -31,6 +31,7 @@ export function materializeTaintFlowPaths(
     }));
     if (paths.length === 0) return undefined;
     const incompleteReasons = mergeIncompleteReasons([
+        ...(dag.incompleteReasons || []),
         ...enumeration.incompleteReasons,
         ...paths.flatMap(path => path.incompleteReasons || []),
     ]);
@@ -52,14 +53,37 @@ export function materializeTaintFlowPaths(
     };
 }
 
-export function buildProvenanceDag(sinkFactId: string, context: ProvenancePathContext): ProvenanceDag {
+export function buildProvenanceDag(
+    sinkFactId: string,
+    context: ProvenancePathContext,
+    options?: PathMaterializationOptions,
+): ProvenanceDag {
     const factIds = new Set<string>();
     const edges: ProvenanceDagEdge[] = [];
     const sourceFactIds = new Set<string>();
     const visited = new Set<string>();
     const stack = [sinkFactId];
+    const incompleteReasons = new Set<ProvenancePathIncompleteReason>();
+    const startedAt = Date.now();
+
+    const budgetExceeded = (): boolean => {
+        if (options?.maxDagFacts && factIds.size >= options.maxDagFacts) {
+            incompleteReasons.add("truncated_materialization");
+            return true;
+        }
+        if (options?.maxDagEdges && edges.length >= options.maxDagEdges) {
+            incompleteReasons.add("truncated_materialization");
+            return true;
+        }
+        if (options?.maxElapsedMs && Date.now() - startedAt >= options.maxElapsedMs) {
+            incompleteReasons.add("truncated_materialization");
+            return true;
+        }
+        return false;
+    };
 
     while (stack.length > 0) {
+        if (budgetExceeded()) break;
         const currentFactId = stack.pop()!;
         if (visited.has(currentFactId)) continue;
         visited.add(currentFactId);
@@ -72,6 +96,7 @@ export function buildProvenanceDag(sinkFactId: string, context: ProvenancePathCo
         }
 
         for (const record of predecessors) {
+            if (budgetExceeded()) break;
             edges.push({
                 fromFactId: record.fromFactId,
                 toFactId: record.toFactId,
@@ -88,6 +113,7 @@ export function buildProvenanceDag(sinkFactId: string, context: ProvenancePathCo
         factIds,
         edges,
         sourceFactIds,
+        incompleteReasons: mergeIncompleteReasons([...incompleteReasons]),
     };
 }
 

@@ -1,4 +1,4 @@
-import type { ModuleEmission, ModuleFactEvent } from "../contracts/ModuleContract";
+import type { ModuleEmitCollector, ModuleEmission, ModuleFactEvent } from "../contracts/ModuleContract";
 import { OclfsSolver } from "../oclfs/OclfsSolver";
 import type { CurrentnessCertificate, StateCell, StateEffect } from "../oclfs/OclfsTypes";
 import {
@@ -22,8 +22,11 @@ interface HandoffPropagationIndexes {
     putsByNodeId: Map<number, Array<IndexedHandoffEffect<HandoffPutEffect>>>;
     putsByFieldEndpoint: Map<string, Array<IndexedHandoffEffect<HandoffPutEffect>>>;
     gets: Array<IndexedHandoffEffect<HandoffGetEffect>>;
+    getsByHandleKey: Map<string, Array<IndexedHandoffEffect<HandoffGetEffect>>>;
     kills: Array<IndexedHandoffEffect<HandoffKillEffect>>;
     links: Array<IndexedHandoffEffect<HandoffScopedLinkEffect>>;
+    linksByHandleKey: Map<string, Array<IndexedHandoffEffect<HandoffScopedLinkEffect>>>;
+    hasNonExactGetOrLinkHandles: boolean;
 }
 
 export interface HandoffPropagationOptions {
@@ -33,6 +36,8 @@ export interface HandoffPropagationOptions {
 export class HandoffPropagationSession {
     private readonly indexes: HandoffPropagationIndexes;
     private readonly emittedStateKeys = new Set<string>();
+    private readonly emittedEmissionKeys = new Set<string>();
+    private readonly currentnessCache = new Map<string, CurrentnessCertificate | undefined>();
     private readonly mayCompatibilityPolicy: HandoffMayCompatibilityPolicy;
 
     constructor(effects: readonly HandoffEffect[], options: HandoffPropagationOptions = {}) {
@@ -61,17 +66,17 @@ export class HandoffPropagationSession {
                     ? { allowUnreachableTarget: true }
                     : undefined;
                 if (targetFieldPath && targetFieldPath.length > 0) {
-                    emissions.push(withCurrentness(
+                    this.pushUniqueEmissions(emissions, withCurrentness(
                         event.emit.toField(get.effect.target.nodeId, targetFieldPath, get.effect.reason, options),
                         certificate,
                     ));
                 } else if (get.effect.target.preserveSourceField === false) {
-                    emissions.push(withCurrentness(
+                    this.pushUniqueEmissions(emissions, withCurrentness(
                         event.emit.toNode(get.effect.target.nodeId, get.effect.reason, options),
                         certificate,
                     ));
                 } else {
-                    emissions.push(withCurrentness(
+                    this.pushUniqueEmissions(emissions, withCurrentness(
                         event.emit.preserveToNode(get.effect.target.nodeId, get.effect.reason, options),
                         certificate,
                     ));
@@ -97,6 +102,10 @@ export class HandoffPropagationSession {
     private resolveGetEffects(
         put: IndexedHandoffEffect<HandoffPutEffect>,
     ): Array<IndexedHandoffEffect<HandoffGetEffect>> {
+        if (canUseExactHandleIndex(put.effect.handle, this.indexes, this.mayCompatibilityPolicy)) {
+            return this.resolveExactIndexedGetEffects(put);
+        }
+
         const out: Array<IndexedHandoffEffect<HandoffGetEffect>> = [];
         const seen = new Set<string>();
         for (const get of this.indexes.gets) {
@@ -108,6 +117,35 @@ export class HandoffPropagationSession {
             if (seen.has(key)) continue;
             seen.add(key);
             out.push(get);
+        }
+        return out;
+    }
+
+    private resolveExactIndexedGetEffects(
+        put: IndexedHandoffEffect<HandoffPutEffect>,
+    ): Array<IndexedHandoffEffect<HandoffGetEffect>> {
+        const out: Array<IndexedHandoffEffect<HandoffGetEffect>> = [];
+        const seen = new Set<string>();
+        const collectHandle = (handle: HandoffHandle): void => {
+            const handleKey = handoffHandleKey(handle);
+            for (const get of this.indexes.getsByHandleKey.get(handleKey) || []) {
+                if (isDefiniteReverseSameScope(put, get)) continue;
+                const key = `${get.order}|${getEffectKey(get.effect)}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                out.push(get);
+            }
+        };
+
+        collectHandle(put.effect.handle);
+        const putKey = handoffHandleKey(put.effect.handle);
+        for (const link of this.indexes.linksByHandleKey.get(putKey) || []) {
+            if (compatibleHandoffHandles(put.effect.handle, link.effect.left) === "exact") {
+                collectHandle(link.effect.right);
+            }
+            if (compatibleHandoffHandles(put.effect.handle, link.effect.right) === "exact") {
+                collectHandle(link.effect.left);
+            }
         }
         return out;
     }
@@ -136,6 +174,10 @@ export class HandoffPropagationSession {
         put: IndexedHandoffEffect<HandoffPutEffect>,
         get: IndexedHandoffEffect<HandoffGetEffect>,
     ) {
+        const cacheKey = currentnessCacheKey(event, put, get);
+        if (this.currentnessCache.has(cacheKey)) {
+            return this.currentnessCache.get(cacheKey);
+        }
         const value = valueCellForEvent(event, put);
         const target = valueCellForGet(event, get);
         const producerCell = cellForHandle(put.effect.handle);
@@ -191,7 +233,9 @@ export class HandoffPropagationSession {
             },
         ];
         const result = new OclfsSolver({ conservativeMay: true }).solve(effects);
-        return result.certificates.find(cert => cert.candidateFlow.consumerEffectId.startsWith("handoff-load"));
+        const certificate = result.certificates.find(cert => cert.candidateFlow.consumerEffectId.startsWith("handoff-load"));
+        this.currentnessCache.set(cacheKey, certificate);
+        return certificate;
     }
 
     private currentnessKillsBetween(
@@ -229,6 +273,17 @@ export class HandoffPropagationSession {
             String(indexed.order),
         ].join("|");
     }
+
+    private pushUniqueEmissions(collector: ModuleEmitCollector, emissions: ModuleEmission[]): void {
+        const out: ModuleEmission[] = [];
+        for (const emission of emissions) {
+            const key = moduleEmissionEquivalenceKey(emission);
+            if (this.emittedEmissionKeys.has(key)) continue;
+            this.emittedEmissionKeys.add(key);
+            out.push(emission);
+        }
+        collector.push(out);
+    }
 }
 
 export function createHandoffPropagationSession(
@@ -242,8 +297,11 @@ function buildIndexes(effects: readonly HandoffEffect[]): HandoffPropagationInde
     const putsByNodeId = new Map<number, Array<IndexedHandoffEffect<HandoffPutEffect>>>();
     const putsByFieldEndpoint = new Map<string, Array<IndexedHandoffEffect<HandoffPutEffect>>>();
     const gets: Array<IndexedHandoffEffect<HandoffGetEffect>> = [];
+    const getsByHandleKey = new Map<string, Array<IndexedHandoffEffect<HandoffGetEffect>>>();
     const kills: Array<IndexedHandoffEffect<HandoffKillEffect>> = [];
     const links: Array<IndexedHandoffEffect<HandoffScopedLinkEffect>> = [];
+    const linksByHandleKey = new Map<string, Array<IndexedHandoffEffect<HandoffScopedLinkEffect>>>();
+    let hasNonExactGetOrLinkHandles = false;
 
     for (let index = 0; index < effects.length; index++) {
         const effect = effects[index];
@@ -257,11 +315,22 @@ function buildIndexes(effects: readonly HandoffEffect[]): HandoffPropagationInde
                 addToMap(putsByNodeId, effect.source.nodeId, indexed);
             }
         } else if (effect.kind === "get") {
-            gets.push({ effect, order });
+            const indexed = { effect, order };
+            gets.push(indexed);
+            addToMap(getsByHandleKey, handoffHandleKey(effect.handle), indexed);
+            if (effect.handle.precision !== "exact") {
+                hasNonExactGetOrLinkHandles = true;
+            }
         } else if (effect.kind === "kill") {
             kills.push({ effect, order });
         } else if (effect.kind === "scoped-link") {
-            links.push({ effect, order });
+            const indexed = { effect, order };
+            links.push(indexed);
+            addToMap(linksByHandleKey, handoffHandleKey(effect.left), indexed);
+            addToMap(linksByHandleKey, handoffHandleKey(effect.right), indexed);
+            if (effect.left.precision !== "exact" || effect.right.precision !== "exact") {
+                hasNonExactGetOrLinkHandles = true;
+            }
         }
     }
 
@@ -269,9 +338,22 @@ function buildIndexes(effects: readonly HandoffEffect[]): HandoffPropagationInde
         putsByNodeId,
         putsByFieldEndpoint,
         gets,
+        getsByHandleKey,
         kills,
         links,
+        linksByHandleKey,
+        hasNonExactGetOrLinkHandles,
     };
+}
+
+function canUseExactHandleIndex(
+    handle: HandoffHandle,
+    indexes: HandoffPropagationIndexes,
+    mayCompatibilityPolicy: HandoffMayCompatibilityPolicy,
+): boolean {
+    if (handle.precision !== "exact") return false;
+    if (mayCompatibilityPolicy !== "block" && indexes.hasNonExactGetOrLinkHandles) return false;
+    return true;
 }
 
 function certificateAllowsEmission(
@@ -298,8 +380,61 @@ function withCurrentness(
     }));
 }
 
+function moduleEmissionEquivalenceKey(emission: ModuleEmission): string {
+    const chain = emission.chain
+        ? [
+            emission.chain.sourceRuleId || "",
+            ...(emission.chain.transferRuleIds || []),
+        ].join(",")
+        : "";
+    return [
+        emission.reason,
+        emission.fact.id,
+        emission.allowUnreachableTarget === true ? "unreachable" : "reachable",
+        chain,
+    ].join("|");
+}
+
+function currentnessCacheKey(
+    event: ModuleFactEvent,
+    put: IndexedHandoffEffect<HandoffPutEffect>,
+    get: IndexedHandoffEffect<HandoffGetEffect>,
+): string {
+    return [
+        event.current.nodeId,
+        event.current.contextId,
+        event.current.source || "",
+        put.order,
+        get.order,
+        handoffHandleKey(put.effect.handle),
+        handoffHandleKey(get.effect.handle),
+    ].join("|");
+}
+
 function cellForHandle(handle: HandoffHandle): StateCell {
     const kind = handle.cellKind;
+    const owner = handle.owner || handle.family;
+    if (kind === "object-field" || kind === "static-field") {
+        const fieldPath = fieldPathFromHandleKey(handle.key);
+        return {
+            id: [
+                kind,
+                handle.scope || "",
+                owner,
+                fieldPath.join("."),
+                handle.index === undefined ? "" : String(handle.index),
+                handle.allocSite || "",
+                handle.precision,
+            ].join("|"),
+            kind,
+            scope: handle.scope || "",
+            owner,
+            fieldPath,
+            index: handle.index,
+            allocSite: handle.allocSite,
+            precision: handle.precision,
+        };
+    }
     return {
         id: [
             kind,
@@ -313,17 +448,29 @@ function cellForHandle(handle: HandoffHandle): StateCell {
         ].join("|"),
         kind,
         scope: handle.scope || "",
-        owner: [
-            handle.family,
-            handle.owner || "",
-            handle.index === undefined ? "" : String(handle.index),
-            handle.allocSite || "",
-        ].join(":"),
+        owner,
         key: handle.key,
         allocSite: handle.allocSite,
         index: handle.index,
         precision: handle.precision,
     };
+}
+
+function fieldPathFromHandleKey(key: string): string[] {
+    const trimmed = String(key || "").trim();
+    if (!trimmed) return ["__UNKNOWN__"];
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+        try {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) {
+                const parts = parsed.map(part => String(part || "").trim()).filter(Boolean);
+                if (parts.length > 0) return parts;
+            }
+        } catch {
+            // Fall through to dotted-path handling.
+        }
+    }
+    return trimmed.split(".").map(part => part.trim()).filter(Boolean);
 }
 
 function cellForConsumerHandle(
@@ -435,6 +582,7 @@ function getEffectKey(effect: HandoffGetEffect): string {
             effect.target.currentField.unwrapPrefixes?.join(".") || "",
             effect.target.currentField.stripPrefixes?.map(prefix => prefix.join(".")).join(",") || "",
             effect.target.currentField.requireField ? "require" : "",
+            effect.target.currentField.scalarAlias ? "scalar" : "",
             effect.target.preserveSourceField === false ? "drop" : "",
         ].join("/")
         : "";
@@ -463,6 +611,14 @@ function resolveTargetFieldPath(
         return false;
     }
     current = stripFieldPathPrefixes(current, mapping.stripPrefixes);
+
+    if (mapping.scalarAlias) {
+        if (mapping.mode === "prefix" || mapping.mode === "tail-prefix") {
+            const prefix = mapping.prefix || [];
+            return prefix.length > 0 ? prefix : undefined;
+        }
+        return undefined;
+    }
 
     let fieldPath: string[] | undefined;
     if (mapping.mode === "preserve") {

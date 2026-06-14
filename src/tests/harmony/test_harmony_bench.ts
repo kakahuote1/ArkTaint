@@ -6,7 +6,11 @@ import { TaintFlow } from "../../core/kernel/model/TaintFlow";
 import * as fs from "fs";
 import * as path from "path";
 import { registerMockSdkFiles } from "../helpers/TestSceneBuilder";
-import { resolveExpectedSinkRuleIds, summarizeSinkInventoryFlows } from "../helpers/SinkInventoryScoring";
+import {
+    resolveExpectedSinkRuleIds,
+    resolveExpectedSourceRuleIds,
+    summarizeSinkInventoryFlows,
+} from "../helpers/SinkInventoryScoring";
 import {
     createFormalTestSuite,
     TestFailureSummary,
@@ -69,6 +73,7 @@ interface CaseRunResult {
     expectedFlowCountMin?: number;
     expectedFlowCountMax?: number;
     expectedSinkRuleIds: string[];
+    expectedSourceRuleIds: string[];
     seedCount: number;
     flowCount: number;
     targetFlowCount: number;
@@ -79,6 +84,7 @@ interface CaseRunResult {
     classification: CaseClassification;
     sinkSamples: string[];
     sinkRuleHits: Record<string, number>;
+    sourceRuleHits: Record<string, number>;
     sinkFamilyHits: Record<string, number>;
     sinkEndpointHits: Record<string, number>;
     elapsedMs: number;
@@ -340,6 +346,23 @@ function buildScene(sourceDirAbs: string): Scene {
     return scene;
 }
 
+function resolveCaseEntryMethodSignatures(scene: Scene, caseInfo: HarmonyBenchCase): Set<string> {
+    const entryName = String(caseInfo.entry || "").trim();
+    const signatures = new Set<string>();
+    if (!entryName) {
+        return signatures;
+    }
+
+    for (const method of scene.getMethods()) {
+        const methodName = method.getName?.() || "";
+        const signature = method.getSignature?.().toString?.() || "";
+        if (methodName === entryName || signature.includes(`.${entryName}(`) || signature.includes(` ${entryName}(`)) {
+            signatures.add(signature);
+        }
+    }
+    return signatures;
+}
+
 function inExpectedFlowRange(caseInfo: HarmonyBenchCase, targetFlowCount: number): boolean {
     if (caseInfo.expected_flow_count_min !== undefined && targetFlowCount < caseInfo.expected_flow_count_min) {
         return false;
@@ -350,9 +373,9 @@ function inExpectedFlowRange(caseInfo: HarmonyBenchCase, targetFlowCount: number
     return true;
 }
 
-function classifyCase(expectedFlow: boolean, detectedTarget: boolean, detectedAny: boolean): CaseClassification {
+function classifyCase(expectedFlow: boolean, detectedTarget: boolean): CaseClassification {
     if (expectedFlow) return detectedTarget ? "TP" : "FN";
-    return detectedAny ? "FP" : "TN";
+    return detectedTarget ? "FP" : "TN";
 }
 
 function calcRecall(tp: number, fn: number): number | null {
@@ -438,7 +461,8 @@ async function runCase(
     caseInfo: HarmonyBenchCase,
     k: number,
     loadedRules: LoadedRuleSet,
-    expectedSinkRuleIds: string[]
+    expectedSinkRuleIds: string[],
+    expectedSourceRuleIds: string[],
 ): Promise<CaseRunResult> {
     const start = Date.now();
     try {
@@ -447,24 +471,28 @@ async function runCase(
         });
         engine.verbose = false;
         await engine.buildPAG();
-        try {
-            const reachable = engine.computeReachableMethodSignatures();
-            engine.setActiveReachableMethodSignatures(reachable);
-        } catch {
-            engine.setActiveReachableMethodSignatures(undefined);
+        const entryMethods = resolveCaseEntryMethodSignatures(scene, caseInfo);
+        if (entryMethods.size === 0) {
+            throw new Error(`Benchmark entry method not found: ${caseInfo.entry}`);
         }
+        engine.setActiveReachableMethodSignatures(entryMethods);
 
         const seedInfo = engine.propagateWithSourceRules(loadedRules.ruleSet.sources || []);
         const flows = engine.detectSinksByRules(loadedRules.ruleSet.sinks || [], {
             sanitizerRules: loadedRules.ruleSet.sanitizers || [],
         });
-        const sinkSummary = summarizeSinkInventoryFlows(flows, loadedRules.ruleSet.sinks || [], expectedSinkRuleIds);
+        const sinkSummary = summarizeSinkInventoryFlows(
+            flows,
+            loadedRules.ruleSet.sinks || [],
+            expectedSinkRuleIds,
+            expectedSourceRuleIds,
+        );
         const detectedAny = sinkSummary.detectedInventory;
         const rangeOk = inExpectedFlowRange(caseInfo, sinkSummary.targetFlowCount);
-        const classification = classifyCase(caseInfo.expected_flow, sinkSummary.detectedTarget, detectedAny);
+        const classification = classifyCase(caseInfo.expected_flow, sinkSummary.detectedTarget);
         const pass = caseInfo.expected_flow
             ? sinkSummary.detectedTarget && rangeOk
-            : !detectedAny;
+            : !sinkSummary.detectedTarget;
 
         return {
             categoryId: category.id,
@@ -480,6 +508,7 @@ async function runCase(
             expectedFlowCountMin: caseInfo.expected_flow_count_min,
             expectedFlowCountMax: caseInfo.expected_flow_count_max,
             expectedSinkRuleIds: [...expectedSinkRuleIds],
+            expectedSourceRuleIds: [...expectedSourceRuleIds],
             seedCount: seedInfo.seedCount,
             flowCount: flows.length,
             targetFlowCount: sinkSummary.targetFlowCount,
@@ -490,6 +519,7 @@ async function runCase(
             classification,
             sinkSamples: flows.slice(0, 3).map((f: TaintFlow) => f.sink.toString()),
             sinkRuleHits: sinkSummary.sinkRuleHits,
+            sourceRuleHits: sinkSummary.sourceRuleHits,
             sinkFamilyHits: sinkSummary.sinkFamilyHits,
             sinkEndpointHits: sinkSummary.sinkEndpointHits,
             elapsedMs: Date.now() - start,
@@ -509,6 +539,7 @@ async function runCase(
             expectedFlowCountMin: caseInfo.expected_flow_count_min,
             expectedFlowCountMax: caseInfo.expected_flow_count_max,
             expectedSinkRuleIds: [...expectedSinkRuleIds],
+            expectedSourceRuleIds: [...expectedSourceRuleIds],
             seedCount: 0,
             flowCount: 0,
             targetFlowCount: 0,
@@ -519,6 +550,7 @@ async function runCase(
             classification: caseInfo.expected_flow ? "FN" : "FP",
             sinkSamples: [],
             sinkRuleHits: {},
+            sourceRuleHits: {},
             sinkFamilyHits: {},
             sinkEndpointHits: {},
             elapsedMs: Date.now() - start,
@@ -579,12 +611,21 @@ async function main(): Promise<void> {
             allowMissingCandidate: true,
         });
         const expectedSinkRuleIds = resolveExpectedSinkRuleIds(projectRulePath, loadedRules.ruleSet.sinks || []);
+        const expectedSourceRuleIds = resolveExpectedSourceRuleIds(projectRulePath);
 
         const catStart = Date.now();
         const categoryResults: CaseRunResult[] = [];
         for (const caseInfo of category.cases) {
             progressReporter.update(completedCases, `${category.id}/${caseInfo.case_id}`, `category=${category.id}`);
-            const result = await runCase(scene, category, caseInfo, options.k, loadedRules, expectedSinkRuleIds);
+            const result = await runCase(
+                scene,
+                category,
+                caseInfo,
+                options.k,
+                loadedRules,
+                expectedSinkRuleIds,
+                expectedSourceRuleIds,
+            );
             categoryResults.push(result);
             caseResults.push(result);
             completedCases++;

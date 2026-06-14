@@ -30,10 +30,23 @@
       }
     },
     {
-      "surfaceId": "surface.source.harmony.callback.onSubmit.arg0",
+      "surfaceId": "surface.source.harmony.callback.input.onSubmit.arg1.text",
       "kind": "invoke",
       "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "ownerName": "Input",
+      "methodName": "onSubmit",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.harmony.callback.search.onSubmit.arg0",
+      "kind": "invoke",
+      "modulePath": "@arktaint/runtime-selector",
+      "ownerName": "Search",
       "methodName": "onSubmit",
       "invokeKind": "instance",
       "argCount": 0,
@@ -79,11 +92,18 @@
       "selector": {
         "kind": "method-name-equals",
         "value": "onChange",
+        "typeHint": "Input",
         "scope": {
           "methodName": {
-            "mode": "equals",
-            "value": "build"
-          }
+            "mode": "regex",
+            "value": "^(build|.*\\$build)$"
+          },
+          "methodDecorators": [
+            {
+              "mode": "equals",
+              "value": "Builder"
+            }
+          ]
         }
       },
       "endpoint": {
@@ -108,11 +128,18 @@
       "selector": {
         "kind": "method-name-equals",
         "value": "onInput",
+        "typeHint": "Input",
         "scope": {
           "methodName": {
-            "mode": "equals",
-            "value": "build"
-          }
+            "mode": "regex",
+            "value": "^(build|.*\\$build)$"
+          },
+          "methodDecorators": [
+            {
+              "mode": "equals",
+              "value": "Builder"
+            }
+          ]
         }
       },
       "endpoint": {
@@ -129,19 +156,65 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.source.harmony.callback.onSubmit.arg0.0",
-      "surfaceId": "surface.source.harmony.callback.onSubmit.arg0",
+      "bindingId": "binding.source.harmony.callback.input.onSubmit.arg1.text.0",
+      "surfaceId": "surface.source.harmony.callback.input.onSubmit.arg1.text",
       "assetId": "asset.rule.test.harmony_event_activation",
       "plane": "rule",
       "role": "source",
       "selector": {
         "kind": "method-name-equals",
         "value": "onSubmit",
+        "typeHint": "Input",
         "scope": {
           "methodName": {
-            "mode": "equals",
-            "value": "build"
-          }
+            "mode": "regex",
+            "value": "^(build|.*\\$build)$"
+          },
+          "methodDecorators": [
+            {
+              "mode": "equals",
+              "value": "Builder"
+            }
+          ]
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        },
+        "accessPath": [
+          "text"
+        ]
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.callback.input.onSubmit.arg1.text"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.callback.search.onSubmit.arg0.0",
+      "surfaceId": "surface.source.harmony.callback.search.onSubmit.arg0",
+      "assetId": "asset.rule.test.harmony_event_activation",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "onSubmit",
+        "typeHint": "Search",
+        "scope": {
+          "methodName": {
+            "mode": "regex",
+            "value": "^(build|.*\\$build)$"
+          },
+          "methodDecorators": [
+            {
+              "mode": "equals",
+              "value": "Builder"
+            }
+          ]
         }
       },
       "endpoint": {
@@ -151,7 +224,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.harmony.callback.onSubmit.arg0"
+        "template.source.harmony.callback.search.onSubmit.arg0"
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
@@ -166,11 +239,18 @@
       "selector": {
         "kind": "method-name-equals",
         "value": "onChange2",
+        "typeHint": "Input",
         "scope": {
           "methodName": {
-            "mode": "equals",
-            "value": "build"
-          }
+            "mode": "regex",
+            "value": "^(build|.*\\$build)$"
+          },
+          "methodDecorators": [
+            {
+              "mode": "equals",
+              "value": "Builder"
+            }
+          ]
         }
       },
       "endpoint": {
@@ -236,7 +316,22 @@
       "sourceKind": "callback_param"
     },
     {
-      "id": "template.source.harmony.callback.onSubmit.arg0",
+      "id": "template.source.harmony.callback.input.onSubmit.arg1.text",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        },
+        "accessPath": [
+          "text"
+        ]
+      },
+      "sourceKind": "callback_param"
+    },
+    {
+      "id": "template.source.harmony.callback.search.onSubmit.arg0",
       "confidence": "certain",
       "kind": "rule.source",
       "value": {

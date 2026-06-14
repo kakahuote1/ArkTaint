@@ -26,6 +26,7 @@ export interface AppStorageNodeOperation {
 export interface AppStorageSemanticModel {
     writeNodeIdsByKey: Map<string, Set<number>>;
     writeOperationsByKey: Map<string, AppStorageNodeOperation[]>;
+    cleanOverwriteOperationsByKey: Map<string, AppStorageNodeOperation[]>;
     writeFieldNodeIdsByKey: Map<string, Set<number>>;
     writeFieldEndpointsByKey: Map<string, AppStorageFieldEndpoint[]>;
     readNodeIdsByKey: Map<string, Set<number>>;

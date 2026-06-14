@@ -15,6 +15,7 @@ const VALID_SEMANTIC_KINDS = new Set([
     "bridge",
     "state",
     "declarative_binding",
+    "handoff_effect",
     "container",
     "ability_handoff",
     "keyed_storage",
@@ -67,6 +68,12 @@ const VALID_BOUNDARY_KINDS = new Set([
     "serialized_copy",
     "clone_copy",
     "stringify_result",
+]);
+
+const VALID_HANDOFF_EFFECT_KINDS = new Set([
+    "put",
+    "get",
+    "kill",
 ]);
 
 const VALID_CONTAINER_FAMILIES = new Set([
@@ -176,6 +183,18 @@ function validateInteger(value: unknown, path: string, collector: ValidationColl
     }
     if ((value as number) < 0 || (options?.allowZero === false && (value as number) === 0)) {
         collector.add(path, "must be a non-negative integer", value);
+        return false;
+    }
+    return true;
+}
+
+function validateEventEmitterPayloadArgIndex(value: unknown, path: string, collector: ValidationCollector): value is number {
+    if (!Number.isInteger(value)) {
+        collector.add(path, "must be an integer", value);
+        return false;
+    }
+    if ((value as number) < -1) {
+        collector.add(path, "must be -1 for no-payload dispatch or a non-negative integer", value);
         return false;
     }
     return true;
@@ -380,6 +399,56 @@ function validateEndpoint(value: unknown, path: string, collector: ValidationCol
     }
 }
 
+function validateAssetEndpointLike(value: unknown, path: string, collector: ValidationCollector): void {
+    if (!isRecord(value)) {
+        collector.add(path, "must be an object", value);
+        return;
+    }
+    if (!isRecord(value.base)) {
+        collector.add(`${path}.base`, "must be an object", value.base);
+        return;
+    }
+    validateString(value.base.kind, `${path}.base.kind`, collector);
+    if (value.accessPath !== undefined) {
+        validateStringArray(value.accessPath, `${path}.accessPath`, collector);
+    }
+}
+
+function validateHandoffHandleLike(value: unknown, path: string, collector: ValidationCollector): void {
+    if (!isRecord(value)) {
+        collector.add(path, "must be an object", value);
+        return;
+    }
+    validateString(value.cellKind, `${path}.cellKind`, collector);
+    validateString(value.family, `${path}.family`, collector);
+    if (!Array.isArray(value.key)) {
+        collector.add(`${path}.key`, "must be an array", value.key);
+    }
+    if (value.scope !== undefined && !Array.isArray(value.scope)) {
+        collector.add(`${path}.scope`, "must be an array", value.scope);
+    }
+    if (value.owner !== undefined && !Array.isArray(value.owner)) {
+        collector.add(`${path}.owner`, "must be an array", value.owner);
+    }
+}
+
+function validateHandoffEffectSpec(value: unknown, path: string, collector: ValidationCollector): void {
+    if (!isRecord(value)) {
+        collector.add(path, "must be an object", value);
+        return;
+    }
+    validateString(value.id, `${path}.id`, collector);
+    validateStringEnum(value.effectKind, VALID_HANDOFF_EFFECT_KINDS, `${path}.effectKind`, collector);
+    if (!isRecord(value.surface)) {
+        collector.add(`${path}.surface`, "must be an object", value.surface);
+    } else {
+        validateInvokeSelector(value.surface, `${path}.surface`, collector);
+    }
+    validateHandoffHandleLike(value.handle, `${path}.handle`, collector);
+    if (value.value !== undefined) validateAssetEndpointLike(value.value, `${path}.value`, collector);
+    if (value.target !== undefined) validateAssetEndpointLike(value.target, `${path}.target`, collector);
+}
+
 function validateAddress(value: unknown, path: string, collector: ValidationCollector): value is ModuleAddress {
     if (!isRecord(value)) {
         collector.add(path, "must be an object", value);
@@ -553,6 +622,13 @@ function validateSemantic(value: unknown, path: string, collector: ValidationCol
             validateString(value.triggerLabel, `${path}.triggerLabel`, collector);
             if (value.dispatch !== undefined) validateDispatch(value.dispatch, `${path}.dispatch`, collector);
             return true;
+        case "handoff_effect":
+            if (!Array.isArray(value.effects)) {
+                collector.add(`${path}.effects`, "must be an array", value.effects);
+            } else {
+                value.effects.forEach((effect, index) => validateHandoffEffectSpec(effect, `${path}.effects[${index}]`, collector));
+            }
+            return true;
         case "container":
             if (value.families !== undefined) {
                 if (!Array.isArray(value.families)) {
@@ -602,7 +678,7 @@ function validateSemantic(value: unknown, path: string, collector: ValidationCol
                     value.channelArgIndexes.forEach((index, idx) => validateInteger(index, `${path}.channelArgIndexes[${idx}]`, collector));
                 }
             }
-            if (value.payloadArgIndex !== undefined) validateInteger(value.payloadArgIndex, `${path}.payloadArgIndex`, collector);
+            if (value.payloadArgIndex !== undefined) validateEventEmitterPayloadArgIndex(value.payloadArgIndex, `${path}.payloadArgIndex`, collector);
             if (value.callbackArgIndex !== undefined) validateInteger(value.callbackArgIndex, `${path}.callbackArgIndex`, collector);
             if (value.callbackParamIndex !== undefined) validateInteger(value.callbackParamIndex, `${path}.callbackParamIndex`, collector);
             if (value.maxCandidates !== undefined) validateInteger(value.maxCandidates, `${path}.maxCandidates`, collector);
@@ -621,6 +697,7 @@ function validateSemantic(value: unknown, path: string, collector: ValidationCol
                 });
             }
             validateStringArray(value.getMethods, `${path}.getMethods`, collector);
+            if (value.routerClassNames !== undefined) validateStringArray(value.routerClassNames, `${path}.routerClassNames`, collector);
             if (value.navDestinationClassNames !== undefined) validateStringArray(value.navDestinationClassNames, `${path}.navDestinationClassNames`, collector);
             if (value.navDestinationRegisterMethods !== undefined) validateStringArray(value.navDestinationRegisterMethods, `${path}.navDestinationRegisterMethods`, collector);
             if (value.frameworkSignatureHints !== undefined) validateStringArray(value.frameworkSignatureHints, `${path}.frameworkSignatureHints`, collector);

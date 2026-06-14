@@ -41,6 +41,15 @@ function exactClassRegexScope(...classNames: string[]): RuleScopeConstraint {
     };
 }
 
+function moduleRegexScope(value: string): RuleScopeConstraint {
+    return {
+        module: {
+            mode: "regex",
+            value,
+        },
+    };
+}
+
 function classContainsScope(className: string): RuleScopeConstraint {
     return {
         className: {
@@ -81,6 +90,10 @@ function instanceMethodEquals(value: string): RuleMatch {
 
 function signatureContains(value: string): RuleMatch {
     return { kind: "signature_contains", value };
+}
+
+function signatureRegex(value: string): RuleMatch {
+    return { kind: "signature_regex", value };
 }
 
 function apiCallReturn(
@@ -192,6 +205,36 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
                 methodEquals("query"),
                 exactClassRegexScope("RdbStore", "RelationalStore"),
             ),
+            apiFieldRead(
+                "source.harmony.rdb.changeInfo.table",
+                "ChangeInfo.table field read as database-change metadata source.",
+                { kind: "local_name_regex", value: "^table$" },
+                exactClassRegexScope("ChangeInfo"),
+            ),
+            apiFieldRead(
+                "source.harmony.rdb.changeInfo.type",
+                "ChangeInfo.type field read as database-change metadata source.",
+                { kind: "local_name_regex", value: "^type$" },
+                exactClassRegexScope("ChangeInfo"),
+            ),
+            apiFieldRead(
+                "source.harmony.rdb.changeInfo.inserted",
+                "ChangeInfo.inserted field read as database-change metadata source.",
+                { kind: "local_name_regex", value: "^inserted$" },
+                exactClassRegexScope("ChangeInfo"),
+            ),
+            apiFieldRead(
+                "source.harmony.rdb.changeInfo.updated",
+                "ChangeInfo.updated field read as database-change metadata source.",
+                { kind: "local_name_regex", value: "^updated$" },
+                exactClassRegexScope("ChangeInfo"),
+            ),
+            apiFieldRead(
+                "source.harmony.rdb.changeInfo.deleted",
+                "ChangeInfo.deleted field read as database-change metadata source.",
+                { kind: "local_name_regex", value: "^deleted$" },
+                exactClassRegexScope("ChangeInfo"),
+            ),
         ],
     },
     {
@@ -204,6 +247,46 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
                 "source.harmony.globalcontext.getObject.result",
                 "GlobalContext.getObject() return value as framework object source.",
                 signatureContains("GlobalContext.getObject"),
+            ),
+        ],
+    },
+    {
+        family: "source.harmony.webview.auth_cache",
+        tier: "B",
+        description: "WebView HTTP-auth credential cache reads surface stored usernames and passwords.",
+        tags: [...API_SOURCE_TAGS, "webview", "credential_store"],
+        schemas: [
+            apiCallReturn(
+                "source.harmony.webview.webdatabase.getHttpAuthCredentials.result",
+                "WebDataBase.getHttpAuthCredentials() return value as WebView credential-cache source.",
+                { kind: "method_name_equals", value: "getHttpAuthCredentials", invokeKind: "instance", argCount: 2 },
+                exactClassRegexScope("WebDataBase", "WebDatabase", "WebviewDataBase"),
+            ),
+        ],
+    },
+    {
+        family: "source.harmony.webview.request",
+        tier: "B",
+        description: "WebView resource request APIs surface URL, header, and method data from embedded web runtime.",
+        tags: [...API_SOURCE_TAGS, "webview", "web_resource_request"],
+        schemas: [
+            apiCallReturn(
+                "source.harmony.webview.webResourceRequest.getRequestUrl.result",
+                "WebResourceRequest.getRequestUrl() return value as WebView request URL source.",
+                { kind: "method_name_equals", value: "getRequestUrl", invokeKind: "instance" },
+                exactClassRegexScope("WebResourceRequest"),
+            ),
+            apiCallReturn(
+                "source.harmony.webview.webResourceRequest.getRequestHeader.result",
+                "WebResourceRequest.getRequestHeader() return value as WebView request header source.",
+                { kind: "method_name_equals", value: "getRequestHeader", invokeKind: "instance" },
+                exactClassRegexScope("WebResourceRequest"),
+            ),
+            apiCallReturn(
+                "source.harmony.webview.webResourceRequest.getMethod.result",
+                "WebResourceRequest.getMethod() return value as WebView request method source.",
+                { kind: "method_name_equals", value: "getMethod", invokeKind: "instance" },
+                exactClassRegexScope("WebResourceRequest"),
             ),
         ],
     },
@@ -237,6 +320,12 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
                 methodEquals("readTextSync"),
                 classContainsScope("fs"),
             ),
+            apiCallReturn(
+                "source.harmony.file.picker.select.result",
+                "File/photo/audio picker select() return value as user-selected URI source.",
+                instanceMethodEquals("select"),
+                exactClassRegexScope("PhotoViewPicker", "DocumentViewPicker", "AudioViewPicker"),
+            ),
         ],
     },
     {
@@ -257,6 +346,23 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
                 methodEquals("upload"),
                 exactClassRegexScope("request", "Request", "Upload", "UploadTask", "RequestAgent"),
             ),
+            apiCallReturn(
+                "source.harmony.request.downloadFile.result",
+                "downloadFile() return value as request task source.",
+                { kind: "method_name_equals", value: "downloadFile", invokeKind: "static", argCount: 2 },
+                exactClassRegexScope("request", "Request"),
+            ),
+            apiCallReturn(
+                "source.harmony.request.uploadFile.result",
+                "uploadFile() return value as request task source.",
+                { kind: "method_name_equals", value: "uploadFile", invokeKind: "static", argCount: 2 },
+                exactClassRegexScope("request", "Request"),
+            ),
+            apiCallReturn(
+                "source.harmony.request.cacheDownload.result",
+                "cacheDownload.download() return value as request task source.",
+                signatureRegex("cacheDownload.*\\.download"),
+            ),
         ],
     },
     {
@@ -269,7 +375,47 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
                 "source.harmony.distributedkv.get.result",
                 "DistributedKVStore.get() return value as distributed storage source.",
                 instanceMethodEquals("get"),
-                exactClassRegexScope("DistributedKVStore", "distributedKVStore", "KVStore", "SingleKVStore"),
+                exactClassRegexScope("DistributedKVStore", "distributedKVStore", "KVStore", "SingleKVStore", "DeviceKVStore"),
+            ),
+            apiCallReturn(
+                "source.harmony.distributedkv.getEntries.result",
+                "Distributed KV getEntries() return value as distributed storage source.",
+                instanceMethodEquals("getEntries"),
+                exactClassRegexScope("DistributedKVStore", "distributedKVStore", "KVStore", "SingleKVStore", "DeviceKVStore"),
+            ),
+        ],
+    },
+    {
+        family: "source.harmony.rpc",
+        tier: "B",
+        description: "RPC request APIs surface reply parcels and message responses.",
+        tags: [...API_SOURCE_TAGS, "rpc", "ipc"],
+        schemas: [
+            apiCallReturn(
+                "source.harmony.rpc.sendRequest.reply",
+                "sendRequest() return value as RPC reply source.",
+                { kind: "method_name_equals", value: "sendRequest", invokeKind: "instance" },
+                exactClassRegexScope("IRemoteObject", "RemoteObject", "RemoteProxy", "rpc", "RPC"),
+            ),
+            apiCallReturn(
+                "source.harmony.rpc.sendMessageRequest.reply",
+                "sendMessageRequest() return value as RPC reply source.",
+                { kind: "method_name_equals", value: "sendMessageRequest", invokeKind: "instance" },
+                exactClassRegexScope("IRemoteObject", "RemoteObject", "RemoteProxy", "rpc", "RPC"),
+            ),
+        ],
+    },
+    {
+        family: "source.harmony.ipc.messageparcel",
+        tier: "B",
+        description: "MessageParcel and MessageSequence read APIs surface IPC payload values.",
+        tags: [...API_SOURCE_TAGS, "ipc", "message_parcel"],
+        schemas: [
+            apiCallReturn(
+                "source.harmony.ipc.messageparcel.read.result",
+                "MessageParcel/MessageSequence read*() return value as IPC payload source, excluding readException.",
+                { kind: "method_name_regex", value: "^read(?!Exception$).+", invokeKind: "instance" },
+                exactClassRegexScope("MessageParcel", "MessageSequence"),
             ),
         ],
     },
@@ -544,6 +690,26 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
                 "source.harmony.account.getOsAccountName",
                 "getOsAccountName() return value as account source.",
                 signatureContains("getOsAccountName"),
+            ),
+        ],
+    },
+    {
+        family: "source.harmony.security_asset",
+        tier: "B",
+        description: "Security asset query APIs surface stored security material metadata and values.",
+        tags: [...API_SOURCE_TAGS, "security_asset", "credential_store"],
+        schemas: [
+            apiCallReturn(
+                "source.harmony.securityAsset.query.result",
+                "security.asset.query() return value as security asset source.",
+                { kind: "method_name_equals", value: "query", invokeKind: "static" },
+                exactClassRegexScope("asset", "SecurityAsset", "securityAsset"),
+            ),
+            apiCallReturn(
+                "source.harmony.securityAsset.querySync.result",
+                "security.asset.querySync() return value as security asset source.",
+                { kind: "method_name_equals", value: "querySync", invokeKind: "static" },
+                exactClassRegexScope("asset", "SecurityAsset", "securityAsset"),
             ),
         ],
     },

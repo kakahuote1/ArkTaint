@@ -39,6 +39,20 @@ async function runCase(
     return scopedFlows.length > 0;
 }
 
+async function collectSourceHits(
+    scene: Scene,
+    caseName: string,
+    sourceRules: SourceRule[]
+): Promise<Record<string, number>> {
+    const caseMethod = scene.getMethods().find(m => m.getName() === caseName);
+    assert(caseMethod, `case method not found: ${caseName}`);
+    const engine = new TaintPropagationEngine(scene, 1);
+    engine.verbose = false;
+    await engine.buildPAG({ entryModel: "explicit", syntheticEntryMethods: [caseMethod] });
+    const seedInfo = engine.propagateWithSourceRules(sourceRules);
+    return seedInfo.sourceRuleHits;
+}
+
 function findMethodSignature(scene: Scene, methodName: string, signatureHint: string): string {
     const method = scene.getMethods().find(m =>
         m.getName() === methodName
@@ -110,6 +124,36 @@ async function main(): Promise<void> {
             + `withRules=${detectedWithRules} withoutRules=${detectedWithoutRules}`
         );
     }
+
+    const multiLabelRules: SourceRule[] = [
+        {
+            id: "source.multi_label.a",
+            sourceKind: "call_arg",
+            target: "arg1",
+            match: { kind: "signature_equals", value: sourceArgSig, argCount: 2 },
+        },
+        {
+            id: "source.multi_label.b",
+            sourceKind: "call_arg",
+            target: "arg1",
+            match: { kind: "signature_equals", value: sourceArgSig, argCount: 2 },
+        },
+    ];
+    const multiLabelHits = await collectSourceHits(scene, "source_call_arg_003_T", multiLabelRules);
+    assert(
+        multiLabelHits["source.multi_label.a"] === 1 && multiLabelHits["source.multi_label.b"] === 1,
+        `same seed location should preserve distinct source labels, hits=${JSON.stringify(multiLabelHits)}`
+    );
+
+    const duplicateSameSourceHits = await collectSourceHits(
+        scene,
+        "source_call_arg_003_T",
+        [multiLabelRules[0], multiLabelRules[0]]
+    );
+    assert(
+        duplicateSameSourceHits["source.multi_label.a"] === 1,
+        `same source label should still be deduplicated, hits=${JSON.stringify(duplicateSameSourceHits)}`
+    );
 
     console.log("====== Source Exact Match Test ======");
     console.log(`total_cases=${cases.length}`);

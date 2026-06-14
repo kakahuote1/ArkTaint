@@ -209,6 +209,22 @@ function buildAppStorageHandoffEffects(model: AppStorageModel): HandoffEffect[] 
         }
     }
 
+    for (const [key, operations] of model.cleanOverwriteOperationsByKey.entries()) {
+        for (const op of operations) {
+            effects.push({
+                kind: "kill",
+                handle: createExactHandoffHandle(APPSTORAGE_CELL_KIND, APPSTORAGE_HANDOFF_FAMILY, key),
+                reason: "AppStorage-CleanOverwrite",
+                originModel: "harmony.appstorage",
+                programPoint: appStorageProgramPoint(op),
+                flowScope: op.methodSignature,
+                sequence: op.stmtIndex * 10,
+                updateStrength: "strong",
+                confidence: "certain",
+            });
+        }
+    }
+
     for (const [key, nodeIds] of model.writeNodeIdsByKey.entries()) {
         for (const nodeId of nodeIds) {
             if (sequencedWriteNodes.has(`${key}#${nodeId}`)) continue;
@@ -338,6 +354,7 @@ export function buildAppStorageModel(
 ): AppStorageModel {
     const writeNodeIdsByKey = new Map<string, Set<number>>();
     const writeOperationsByKey = new Map<string, AppStorageNodeOperation[]>();
+    const cleanOverwriteOperationsByKey = new Map<string, AppStorageNodeOperation[]>();
     const writeFieldNodeIdsByKey = new Map<string, Set<number>>();
     const writeFieldEndpointsByKey = new Map<string, AppStorageFieldEndpoint[]>();
     const readNodeIdsByKey = new Map<string, Set<number>>();
@@ -362,6 +379,10 @@ export function buildAppStorageModel(
     const addWriteOperation = (key: string, operation: AppStorageNodeOperation): void => {
         if (!writeOperationsByKey.has(key)) writeOperationsByKey.set(key, []);
         writeOperationsByKey.get(key)!.push(operation);
+    };
+    const addCleanOverwriteOperation = (key: string, operation: AppStorageNodeOperation): void => {
+        if (!cleanOverwriteOperationsByKey.has(key)) cleanOverwriteOperationsByKey.set(key, []);
+        cleanOverwriteOperationsByKey.get(key)!.push(operation);
     };
     const addReadNodeId = (key: string, nodeId: number): void => {
         if (!readNodeIdsByKey.has(key)) readNodeIdsByKey.set(key, new Set<number>());
@@ -472,11 +493,23 @@ export function buildAppStorageModel(
                 if (invokeArgs.length > writeValueIndex) {
                     const valueArg = invokeArgs[writeValueIndex];
                     const writeNodeIds = collectPagNodeIdsByValue(args.pag, valueArg);
-                    for (const key of scopedKeys) {
-                        for (const nodeId of writeNodeIds) {
-                            addWriteNodeId(key, nodeId);
-                            addWriteOperation(key, {
-                                nodeId,
+                    if (writeNodeIds.length > 0) {
+                        for (const key of scopedKeys) {
+                            for (const nodeId of writeNodeIds) {
+                                addWriteNodeId(key, nodeId);
+                                addWriteOperation(key, {
+                                    nodeId,
+                                    methodSignature,
+                                    stmtIndex,
+                                    callSignature,
+                                    apiName,
+                                });
+                            }
+                        }
+                    } else if (isCleanStorageOverwriteValue(valueArg)) {
+                        for (const key of scopedKeys) {
+                            addCleanOverwriteOperation(key, {
+                                nodeId: -1,
                                 methodSignature,
                                 stmtIndex,
                                 callSignature,
@@ -539,6 +572,7 @@ export function buildAppStorageModel(
     return {
         writeNodeIdsByKey,
         writeOperationsByKey,
+        cleanOverwriteOperationsByKey,
         writeFieldNodeIdsByKey,
         writeFieldEndpointsByKey,
         readNodeIdsByKey,
@@ -618,6 +652,17 @@ function collectPagNodeIdsByValue(pag: Pag, value: any): number[] {
         result.push(nodeId);
     }
     return result;
+}
+
+function isCleanStorageOverwriteValue(value: any): boolean {
+    if (!value) return false;
+    if (value instanceof Constant) return true;
+    const rawText = String(value?.toString?.() || "").trim();
+    if (!rawText) return false;
+    if (/^["'`][\s\S]*["'`]$/.test(rawText)) return true;
+    if (/^(true|false|null|undefined)$/i.test(rawText)) return true;
+    if (/^-?\d+(?:\.\d+)?$/.test(rawText)) return true;
+    return false;
 }
 
 function resolveStorageKeyLiteral(value: any): string | undefined {

@@ -1,6 +1,6 @@
 import {
-    buildSemanticFlowAnalysisAugment,
     buildSemanticFlowEngineAugment,
+    stabilizeSemanticFlowItemsForAugment,
 } from "./SemanticFlowArtifacts";
 import {
     createSemanticFlowDraftId,
@@ -62,9 +62,20 @@ export async function runSemanticFlowPipeline(
 ): Promise<SemanticFlowRunResult> {
     const maxRounds = options.maxRounds ?? 2;
     const concurrency = Math.max(1, options.concurrency ?? 1);
+    let providerCircuitError: string | undefined;
     options.onProgress?.({ type: "session-start", totalItems: items.length, concurrency, maxRounds });
-    const results = await mapWithConcurrency(items, concurrency, (item, index) =>
-        runSemanticFlowItem(
+    const results = await mapWithConcurrency(items, concurrency, async (item, index) => {
+        if (providerCircuitError) {
+            return createProviderUnavailableItemResult(
+                item.anchor,
+                item.initialSlice,
+                index,
+                items.length,
+                providerCircuitError,
+                options.onProgress,
+            );
+        }
+        const result = await runSemanticFlowItem(
             item.anchor,
             item.initialSlice,
             decider,
@@ -75,8 +86,12 @@ export async function runSemanticFlowPipeline(
             index,
             items.length,
             options.onProgress,
-        ),
-    );
+        );
+        if (isSemanticFlowCircuitOpenError(result.error)) {
+            providerCircuitError = result.error;
+        }
+        return result;
+    });
     options.onProgress?.({ type: "session-complete", totalItems: items.length });
 
     return { items: results };
@@ -89,9 +104,14 @@ export async function runSemanticFlowSession(
     options: SemanticFlowPipelineOptions = {},
 ): Promise<SemanticFlowSessionResult> {
     const run = await runSemanticFlowPipeline(items, decider, expander, options);
-    const augment = buildSemanticFlowAnalysisAugment(run.items);
+    const stabilized = stabilizeSemanticFlowItemsForAugment(run.items);
+    const stabilizedRun = { items: stabilized.items };
+    for (const conflict of stabilized.conflicts) {
+        console.log(`semanticflow_augment=conflict anchor=${conflict.anchorId} asset=${conflict.assetId} error=${conflict.error.replace(/\s+/g, " ").slice(0, 360)}`);
+    }
+    const augment = stabilized.augment;
     const engineAugment = buildSemanticFlowEngineAugment(augment);
-    return { run, augment, engineAugment };
+    return { run: stabilizedRun, augment, engineAugment };
 }
 
 async function runSemanticFlowItem(
@@ -319,6 +339,47 @@ function isTransientSemanticFlowLlmError(message: string): boolean {
         || /This operation was aborted/i.test(text)
         || /semanticflow LLM circuit open/i.test(text)
         || /UND_ERR_|ECONNRESET|ETIMEDOUT|ENOTFOUND|fetch failed|socket|ConnectTimeout|headers timeout|body timeout/i.test(text);
+}
+
+function isSemanticFlowCircuitOpenError(message: string | undefined): boolean {
+    return /semanticflow LLM circuit open/i.test(String(message || ""));
+}
+
+function createProviderUnavailableItemResult(
+    anchor: SemanticFlowAnchor,
+    initialSlice: SemanticFlowSlicePackage,
+    index: number,
+    totalItems: number,
+    previousError: string,
+    onProgress?: SemanticFlowPipelineOptions["onProgress"],
+): SemanticFlowItemResult {
+    const draftId = createSemanticFlowDraftId(anchor);
+    const error = [
+        "semanticflow provider unavailable after circuit open",
+        "skipped candidate before LLM request",
+        `previous_error=${previousError.replace(/\s+/g, " ").slice(0, 360)}`,
+    ].join("; ");
+    onProgress?.({ type: "item-start", index: index + 1, totalItems, anchorId: anchor.id, surface: anchor.surface });
+    onProgress?.({
+        type: "item-done",
+        index: index + 1,
+        totalItems,
+        anchorId: anchor.id,
+        resolution: "need-human-check",
+    });
+    return {
+        anchor,
+        draftId,
+        resolution: "need-human-check",
+        finalSlice: initialSlice,
+        history: [{
+            round: 0,
+            draftId,
+            slice: initialSlice,
+            error,
+        }],
+        error,
+    };
 }
 
 function restoreCachedItemResult(

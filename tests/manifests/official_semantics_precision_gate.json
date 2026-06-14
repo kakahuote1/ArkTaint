@@ -1,0 +1,180 @@
+{
+  "name": "official-semantics-precision-gate",
+  "version": "1.0.0",
+  "description": "Executable precision contract for ArkTaint built-in official API semantics. Coverage classification proves which official declarations need assets; this gate proves that official source/sink/transfer/module semantics have exact positive and negative behavior checks.",
+  "declarationCoverage": {
+    "script": "test:official-api-coverage-gate",
+    "ledger": "internal_docs/security_asset_iteration/official_api_declaration_coverage_ledger.json",
+    "requiredStrictComplete": true
+  },
+  "staticAssetGates": [
+    {
+      "id": "official-asset-governance",
+      "script": "test:kernel-official-asset-governance",
+      "proves": ["official-only", "no-project-assets", "no-broad-kernel-matchers"]
+    },
+    {
+      "id": "source-sink-exactness",
+      "script": "test:source-exact",
+      "proves": ["source-exact-identity"]
+    },
+    {
+      "id": "sink-exactness",
+      "script": "test:sink-exact",
+      "proves": ["sink-exact-identity"]
+    },
+    {
+      "id": "transfer-exactness",
+      "script": "test:transfer-exact",
+      "proves": ["transfer-exact-identity"]
+    },
+    {
+      "id": "official-structured-transfer-assets",
+      "script": "test:official-structured-transfer-assets",
+      "proves": ["official-structured-transfer-endpoints"]
+    },
+    {
+      "id": "official-form-ui-assets",
+      "script": "test:official-form-ui-asset-coverage",
+      "proves": ["arkui-input-source", "arkui-display-sink"]
+    },
+    {
+      "id": "official-kv-picker-assets",
+      "script": "test:official-kv-picker-asset-coverage",
+      "proves": ["preferences-state", "file-uri-source-sink"]
+    },
+    {
+      "id": "official-module-slots",
+      "script": "test:official-module-semantic-slots",
+      "proves": ["module-schema", "module-lowering", "handoff-effect-consumer"]
+    },
+    {
+      "id": "module-handoff-lowering",
+      "script": "test:module-handoff-effect-asset-lowering",
+      "proves": ["handoff-put-get-kill-lowering"]
+    }
+  ],
+  "behavioralGates": [
+    {
+      "id": "harmony-modeling",
+      "script": "test:harmony-modeling",
+      "report": "tmp/test_runs/modeling/harmony_modeling_benchmark/latest/harmony_modeling_benchmark_report.json",
+      "kind": "harmony-modeling-report",
+      "requiredSuites": [
+        "harmony_state_mgmt",
+        "harmony_link",
+        "harmony_provide_consume",
+        "harmony_reactive_composition",
+        "harmony_reactive_deep_tree",
+        "harmony_router_bridge",
+        "harmony_router_crossfile",
+        "harmony_router_dynamic",
+        "harmony_route_stack_variants",
+        "harmony_framework_navpathstack",
+        "harmony_emitter",
+        "harmony_appstorage",
+        "harmony_localstorage",
+        "harmony_persistentstorage",
+        "harmony_preferences",
+        "harmony_worker",
+        "harmony_handoff_multihop",
+        "harmony_multi_ability_chain",
+        "harmony_framework_startability"
+      ],
+      "minimumPositiveCases": 1,
+      "minimumNegativeCases": 1,
+      "requiredModelingFailures": 0
+    },
+    {
+      "id": "harmony-c12-c14-hard-gate",
+      "script": "test:harmony-bench:gate:c12-c14",
+      "report": "tmp/test_runs/benchmark/harmony_bench_gate_c12_c14/latest/report.json",
+      "kind": "harmony-bench-report",
+      "requiredCategories": [
+        "C12_Preferences",
+        "C13_RelationalStore",
+        "C14_HTTP"
+      ],
+      "requiredSupportedFailures": 0,
+      "requiredSupportedFalsePositives": 0,
+      "requiredSupportedFalseNegatives": 0
+    }
+  ],
+  "legacyHarmonyBenchDisposition": [
+    {
+      "legacyCategory": "C1_Lifecycle",
+      "status": "covered",
+      "coveredBy": ["test:harmony-lifecycle", "harmony-modeling:harmony_framework_startability"]
+    },
+    {
+      "legacyCategory": "C2_AppStorage",
+      "status": "covered",
+      "coveredBy": ["test:harmony-appstorage", "harmony-modeling:harmony_appstorage"]
+    },
+    {
+      "legacyCategory": "C3_EventActivation",
+      "status": "covered",
+      "coveredBy": ["test:harmony-event-activation"]
+    },
+    {
+      "legacyCategory": "C4_StateProp",
+      "status": "covered",
+      "coveredBy": ["test:harmony-state", "harmony-modeling:harmony_state_mgmt"]
+    },
+    {
+      "legacyCategory": "C5_E2E",
+      "status": "covered",
+      "coveredBy": ["test:harmony-e2e"]
+    },
+    {
+      "legacyCategory": "C6_LinkTwoWay",
+      "status": "covered",
+      "coveredBy": ["harmony-modeling:harmony_link"]
+    },
+    {
+      "legacyCategory": "C7_ProvideConsume",
+      "status": "covered",
+      "coveredBy": ["harmony-modeling:harmony_provide_consume"]
+    },
+    {
+      "legacyCategory": "C8_RouterDynamic",
+      "status": "covered",
+      "coveredBy": ["harmony-modeling:harmony_router_dynamic"]
+    },
+    {
+      "legacyCategory": "C9_Watch",
+      "status": "covered",
+      "coveredBy": ["harmony-modeling:harmony_reactive_composition", "harmony-modeling:harmony_reactive_deep_tree"]
+    },
+    {
+      "legacyCategory": "C10_WorkerTaskPool",
+      "status": "covered",
+      "coveredBy": ["harmony-modeling:harmony_worker"]
+    },
+    {
+      "legacyCategory": "C11_EmitterBus",
+      "status": "covered",
+      "coveredBy": ["test:harmony-emitter", "harmony-modeling:harmony_emitter"]
+    },
+    {
+      "legacyCategory": "C12_Preferences",
+      "status": "covered",
+      "coveredBy": ["harmony-modeling:harmony_preferences", "harmony-c12-c14-hard-gate:C12_Preferences"]
+    },
+    {
+      "legacyCategory": "C13_RelationalStore",
+      "status": "covered",
+      "coveredBy": ["harmony-c12-c14-hard-gate:C13_RelationalStore"]
+    },
+    {
+      "legacyCategory": "C14_HTTP",
+      "status": "covered",
+      "coveredBy": ["harmony-c12-c14-hard-gate:C14_HTTP"]
+    },
+    {
+      "legacyCategory": "C15_ImplicitFlow",
+      "status": "out-of-scope",
+      "reason": "ArkTaint official asset precision covers explicit taint propagation. Implicit-flow policy is outside the current source/sink/transfer/module asset contract."
+    }
+  ]
+}

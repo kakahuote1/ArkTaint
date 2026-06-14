@@ -4,10 +4,10 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.transfer.harmony.json.stringify.arg0_to_result.exact",
+      "surfaceId": "surface.transfer.harmony.json.stringify.arg0_to_result.exact.stringify.className.JSON",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "JSON",
       "methodName": "stringify",
       "invokeKind": "instance",
       "argCount": 1,
@@ -17,10 +17,10 @@
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.json.parse.arg0_to_result.exact",
+      "surfaceId": "surface.transfer.harmony.json.parse.arg0_to_result.exact.parse.className.JSON",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "JSON",
       "methodName": "parse",
       "invokeKind": "instance",
       "argCount": 1,
@@ -30,62 +30,10 @@
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.json.stringify.arg0_to_result",
+      "surfaceId": "surface.transfer.harmony.uri.encodeURI.arg0_to_result.exact.encodeURI.module.global",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "json",
-      "methodName": "stringify",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.transfer.harmony.json.parse.arg0_to_result",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "json",
-      "methodName": "parse",
-      "invokeKind": "instance",
-      "argCount": 1,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.transfer.harmony.json.stringify.arg0_to_result.sig",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "stringify",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.transfer.harmony.json.parse.arg0_to_result.sig",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "parse",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.transfer.harmony.uri.encodeURI.arg0_to_result",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "global",
+      "ownerName": "global",
       "methodName": "encodeURI",
       "invokeKind": "static",
       "argCount": 1,
@@ -95,10 +43,10 @@
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.uri.decodeURI.arg0_to_result",
+      "surfaceId": "surface.transfer.harmony.uri.decodeURI.arg0_to_result.exact.decodeURI.module.global",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "global",
+      "ownerName": "global",
       "methodName": "decodeURI",
       "invokeKind": "static",
       "argCount": 1,
@@ -108,10 +56,10 @@
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.uri.encodeURIComponent.arg0_to_result",
+      "surfaceId": "surface.transfer.harmony.uri.encodeURIComponent.arg0_to_result.exact.encodeURIComponent.module.global",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "global",
+      "ownerName": "global",
       "methodName": "encodeURIComponent",
       "invokeKind": "static",
       "argCount": 1,
@@ -121,10 +69,10 @@
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.uri.decodeURIComponent.arg0_to_result",
+      "surfaceId": "surface.transfer.harmony.uri.decodeURIComponent.arg0_to_result.exact.decodeURIComponent.module.global",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "global",
+      "ownerName": "global",
       "methodName": "decodeURIComponent",
       "invokeKind": "static",
       "argCount": 1,
@@ -134,10 +82,10 @@
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.uri.escape.arg0_to_result",
+      "surfaceId": "surface.transfer.harmony.uri.escape.arg0_to_result.exact.escape.module.global",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "global",
+      "ownerName": "global",
       "methodName": "escape",
       "invokeKind": "static",
       "argCount": 1,
@@ -147,10 +95,10 @@
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.uri.unescape.arg0_to_result",
+      "surfaceId": "surface.transfer.harmony.uri.unescape.arg0_to_result.exact.unescape.module.global",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "global",
+      "ownerName": "global",
       "methodName": "unescape",
       "invokeKind": "static",
       "argCount": 1,
@@ -160,10 +108,10 @@
       }
     },
     {
-      "surfaceId": "surface.transfer.builtin.atob.arg0_to_result",
+      "surfaceId": "surface.transfer.builtin.atob.arg0_to_result.exact.atob.module.global",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "global",
+      "ownerName": "global",
       "methodName": "atob",
       "invokeKind": "static",
       "argCount": 0,
@@ -173,10 +121,10 @@
       }
     },
     {
-      "surfaceId": "surface.transfer.builtin.btoa.arg0_to_result",
+      "surfaceId": "surface.transfer.builtin.btoa.arg0_to_result.exact.btoa.module.global",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "global",
+      "ownerName": "global",
       "methodName": "btoa",
       "invokeKind": "static",
       "argCount": 0,
@@ -188,52 +136,8 @@
   ],
   "bindings": [
     {
-      "bindingId": "binding.transfer.harmony.json.stringify.arg0_to_result.exact.0",
-      "surfaceId": "surface.transfer.harmony.json.stringify.arg0_to_result.exact",
-      "assetId": "asset.rule.kernel.transfers.json_uri",
-      "plane": "rule",
-      "role": "transfer",
-      "selector": {
-        "kind": "signature-equals",
-        "value": "@sdk_signature_probe/taint_mock.ts: JsonCodec.stringify(any)",
-        "invokeKind": "instance",
-        "argCount": 1
-      },
-      "effectTemplateRefs": [
-        "template.transfer.harmony.json.stringify.arg0_to_result.exact"
-      ],
-      "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Exact probe signature for stringify (Tier A)."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.transfer.harmony.json.parse.arg0_to_result.exact.0",
-      "surfaceId": "surface.transfer.harmony.json.parse.arg0_to_result.exact",
-      "assetId": "asset.rule.kernel.transfers.json_uri",
-      "plane": "rule",
-      "role": "transfer",
-      "selector": {
-        "kind": "signature-equals",
-        "value": "@sdk_signature_probe/taint_mock.ts: JsonCodec.parse(string)",
-        "invokeKind": "instance",
-        "argCount": 1
-      },
-      "effectTemplateRefs": [
-        "template.transfer.harmony.json.parse.arg0_to_result.exact"
-      ],
-      "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Exact probe signature for parse (Tier A)."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.transfer.harmony.json.stringify.arg0_to_result.0",
-      "surfaceId": "surface.transfer.harmony.json.stringify.arg0_to_result",
+      "bindingId": "binding.transfer.harmony.json.stringify.arg0_to_result.exact.stringify.className.JSON",
+      "surfaceId": "surface.transfer.harmony.json.stringify.arg0_to_result.exact.stringify.className.JSON",
       "assetId": "asset.rule.kernel.transfers.json_uri",
       "plane": "rule",
       "role": "transfer",
@@ -242,10 +146,15 @@
         "value": "stringify",
         "invokeKind": "instance",
         "argCount": 1,
-        "typeHint": "json"
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "JSON"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.json.stringify.arg0_to_result"
+        "template.transfer.harmony.json.stringify.arg0_to_result.exact.stringify.className.JSON"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -255,8 +164,8 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.transfer.harmony.json.parse.arg0_to_result.0",
-      "surfaceId": "surface.transfer.harmony.json.parse.arg0_to_result",
+      "bindingId": "binding.transfer.harmony.json.parse.arg0_to_result.exact.parse.className.JSON",
+      "surfaceId": "surface.transfer.harmony.json.parse.arg0_to_result.exact.parse.className.JSON",
       "assetId": "asset.rule.kernel.transfers.json_uri",
       "plane": "rule",
       "role": "transfer",
@@ -265,10 +174,15 @@
         "value": "parse",
         "invokeKind": "instance",
         "argCount": 1,
-        "typeHint": "json"
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "JSON"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.json.parse.arg0_to_result"
+        "template.transfer.harmony.json.parse.arg0_to_result.exact.parse.className.JSON"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -278,48 +192,8 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.transfer.harmony.json.stringify.arg0_to_result.sig.0",
-      "surfaceId": "surface.transfer.harmony.json.stringify.arg0_to_result.sig",
-      "assetId": "asset.rule.kernel.transfers.json_uri",
-      "plane": "rule",
-      "role": "transfer",
-      "selector": {
-        "kind": "signature-contains",
-        "value": "JsonCodec.stringify"
-      },
-      "effectTemplateRefs": [
-        "template.transfer.harmony.json.stringify.arg0_to_result.sig"
-      ],
-      "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Fallback: JSON.stringify(x) via signature match."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.transfer.harmony.json.parse.arg0_to_result.sig.0",
-      "surfaceId": "surface.transfer.harmony.json.parse.arg0_to_result.sig",
-      "assetId": "asset.rule.kernel.transfers.json_uri",
-      "plane": "rule",
-      "role": "transfer",
-      "selector": {
-        "kind": "signature-contains",
-        "value": "JsonCodec.parse"
-      },
-      "effectTemplateRefs": [
-        "template.transfer.harmony.json.parse.arg0_to_result.sig"
-      ],
-      "semanticsFamily": "transfer",
-      "metadata": {
-        "description": "Fallback: JSON.parse(str) via signature match."
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.transfer.harmony.uri.encodeURI.arg0_to_result.0",
-      "surfaceId": "surface.transfer.harmony.uri.encodeURI.arg0_to_result",
+      "bindingId": "binding.transfer.harmony.uri.encodeURI.arg0_to_result.exact.encodeURI.module.global",
+      "surfaceId": "surface.transfer.harmony.uri.encodeURI.arg0_to_result.exact.encodeURI.module.global",
       "assetId": "asset.rule.kernel.transfers.json_uri",
       "plane": "rule",
       "role": "transfer",
@@ -327,10 +201,16 @@
         "kind": "method-name-equals",
         "value": "encodeURI",
         "invokeKind": "static",
-        "argCount": 1
+        "argCount": 1,
+        "calleeScope": {
+          "module": {
+            "mode": "equals",
+            "value": "global"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.uri.encodeURI.arg0_to_result"
+        "template.transfer.harmony.uri.encodeURI.arg0_to_result.exact.encodeURI.module.global"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -340,8 +220,8 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.transfer.harmony.uri.decodeURI.arg0_to_result.0",
-      "surfaceId": "surface.transfer.harmony.uri.decodeURI.arg0_to_result",
+      "bindingId": "binding.transfer.harmony.uri.decodeURI.arg0_to_result.exact.decodeURI.module.global",
+      "surfaceId": "surface.transfer.harmony.uri.decodeURI.arg0_to_result.exact.decodeURI.module.global",
       "assetId": "asset.rule.kernel.transfers.json_uri",
       "plane": "rule",
       "role": "transfer",
@@ -349,10 +229,16 @@
         "kind": "method-name-equals",
         "value": "decodeURI",
         "invokeKind": "static",
-        "argCount": 1
+        "argCount": 1,
+        "calleeScope": {
+          "module": {
+            "mode": "equals",
+            "value": "global"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.uri.decodeURI.arg0_to_result"
+        "template.transfer.harmony.uri.decodeURI.arg0_to_result.exact.decodeURI.module.global"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -362,8 +248,8 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.transfer.harmony.uri.encodeURIComponent.arg0_to_result.0",
-      "surfaceId": "surface.transfer.harmony.uri.encodeURIComponent.arg0_to_result",
+      "bindingId": "binding.transfer.harmony.uri.encodeURIComponent.arg0_to_result.exact.encodeURIComponent.module.global",
+      "surfaceId": "surface.transfer.harmony.uri.encodeURIComponent.arg0_to_result.exact.encodeURIComponent.module.global",
       "assetId": "asset.rule.kernel.transfers.json_uri",
       "plane": "rule",
       "role": "transfer",
@@ -371,10 +257,16 @@
         "kind": "method-name-equals",
         "value": "encodeURIComponent",
         "invokeKind": "static",
-        "argCount": 1
+        "argCount": 1,
+        "calleeScope": {
+          "module": {
+            "mode": "equals",
+            "value": "global"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.uri.encodeURIComponent.arg0_to_result"
+        "template.transfer.harmony.uri.encodeURIComponent.arg0_to_result.exact.encodeURIComponent.module.global"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -384,8 +276,8 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.transfer.harmony.uri.decodeURIComponent.arg0_to_result.0",
-      "surfaceId": "surface.transfer.harmony.uri.decodeURIComponent.arg0_to_result",
+      "bindingId": "binding.transfer.harmony.uri.decodeURIComponent.arg0_to_result.exact.decodeURIComponent.module.global",
+      "surfaceId": "surface.transfer.harmony.uri.decodeURIComponent.arg0_to_result.exact.decodeURIComponent.module.global",
       "assetId": "asset.rule.kernel.transfers.json_uri",
       "plane": "rule",
       "role": "transfer",
@@ -393,10 +285,16 @@
         "kind": "method-name-equals",
         "value": "decodeURIComponent",
         "invokeKind": "static",
-        "argCount": 1
+        "argCount": 1,
+        "calleeScope": {
+          "module": {
+            "mode": "equals",
+            "value": "global"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.uri.decodeURIComponent.arg0_to_result"
+        "template.transfer.harmony.uri.decodeURIComponent.arg0_to_result.exact.decodeURIComponent.module.global"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -406,8 +304,8 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.transfer.harmony.uri.escape.arg0_to_result.0",
-      "surfaceId": "surface.transfer.harmony.uri.escape.arg0_to_result",
+      "bindingId": "binding.transfer.harmony.uri.escape.arg0_to_result.exact.escape.module.global",
+      "surfaceId": "surface.transfer.harmony.uri.escape.arg0_to_result.exact.escape.module.global",
       "assetId": "asset.rule.kernel.transfers.json_uri",
       "plane": "rule",
       "role": "transfer",
@@ -415,10 +313,16 @@
         "kind": "method-name-equals",
         "value": "escape",
         "invokeKind": "static",
-        "argCount": 1
+        "argCount": 1,
+        "calleeScope": {
+          "module": {
+            "mode": "equals",
+            "value": "global"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.uri.escape.arg0_to_result"
+        "template.transfer.harmony.uri.escape.arg0_to_result.exact.escape.module.global"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -428,8 +332,8 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.transfer.harmony.uri.unescape.arg0_to_result.0",
-      "surfaceId": "surface.transfer.harmony.uri.unescape.arg0_to_result",
+      "bindingId": "binding.transfer.harmony.uri.unescape.arg0_to_result.exact.unescape.module.global",
+      "surfaceId": "surface.transfer.harmony.uri.unescape.arg0_to_result.exact.unescape.module.global",
       "assetId": "asset.rule.kernel.transfers.json_uri",
       "plane": "rule",
       "role": "transfer",
@@ -437,10 +341,16 @@
         "kind": "method-name-equals",
         "value": "unescape",
         "invokeKind": "static",
-        "argCount": 1
+        "argCount": 1,
+        "calleeScope": {
+          "module": {
+            "mode": "equals",
+            "value": "global"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.uri.unescape.arg0_to_result"
+        "template.transfer.harmony.uri.unescape.arg0_to_result.exact.unescape.module.global"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -450,18 +360,24 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.transfer.builtin.atob.arg0_to_result.0",
-      "surfaceId": "surface.transfer.builtin.atob.arg0_to_result",
+      "bindingId": "binding.transfer.builtin.atob.arg0_to_result.exact.atob.module.global",
+      "surfaceId": "surface.transfer.builtin.atob.arg0_to_result.exact.atob.module.global",
       "assetId": "asset.rule.kernel.transfers.json_uri",
       "plane": "rule",
       "role": "transfer",
       "selector": {
         "kind": "method-name-equals",
         "value": "atob",
-        "invokeKind": "static"
+        "invokeKind": "static",
+        "calleeScope": {
+          "module": {
+            "mode": "equals",
+            "value": "global"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.builtin.atob.arg0_to_result"
+        "template.transfer.builtin.atob.arg0_to_result.exact.atob.module.global"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -471,18 +387,24 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.transfer.builtin.btoa.arg0_to_result.0",
-      "surfaceId": "surface.transfer.builtin.btoa.arg0_to_result",
+      "bindingId": "binding.transfer.builtin.btoa.arg0_to_result.exact.btoa.module.global",
+      "surfaceId": "surface.transfer.builtin.btoa.arg0_to_result.exact.btoa.module.global",
       "assetId": "asset.rule.kernel.transfers.json_uri",
       "plane": "rule",
       "role": "transfer",
       "selector": {
         "kind": "method-name-equals",
         "value": "btoa",
-        "invokeKind": "static"
+        "invokeKind": "static",
+        "calleeScope": {
+          "module": {
+            "mode": "equals",
+            "value": "global"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.builtin.btoa.arg0_to_result"
+        "template.transfer.builtin.btoa.arg0_to_result.exact.btoa.module.global"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -494,7 +416,7 @@
   ],
   "effectTemplates": [
     {
-      "id": "template.transfer.harmony.json.stringify.arg0_to_result.exact",
+      "id": "template.transfer.harmony.json.stringify.arg0_to_result.exact.stringify.className.JSON",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -511,7 +433,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.json.parse.arg0_to_result.exact",
+      "id": "template.transfer.harmony.json.parse.arg0_to_result.exact.parse.className.JSON",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -528,7 +450,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.json.stringify.arg0_to_result",
+      "id": "template.transfer.harmony.uri.encodeURI.arg0_to_result.exact.encodeURI.module.global",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -545,7 +467,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.json.parse.arg0_to_result",
+      "id": "template.transfer.harmony.uri.decodeURI.arg0_to_result.exact.decodeURI.module.global",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -562,7 +484,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.json.stringify.arg0_to_result.sig",
+      "id": "template.transfer.harmony.uri.encodeURIComponent.arg0_to_result.exact.encodeURIComponent.module.global",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -579,7 +501,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.json.parse.arg0_to_result.sig",
+      "id": "template.transfer.harmony.uri.decodeURIComponent.arg0_to_result.exact.decodeURIComponent.module.global",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -596,7 +518,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.uri.encodeURI.arg0_to_result",
+      "id": "template.transfer.harmony.uri.escape.arg0_to_result.exact.escape.module.global",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -613,7 +535,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.uri.decodeURI.arg0_to_result",
+      "id": "template.transfer.harmony.uri.unescape.arg0_to_result.exact.unescape.module.global",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -630,7 +552,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.uri.encodeURIComponent.arg0_to_result",
+      "id": "template.transfer.builtin.atob.arg0_to_result.exact.atob.module.global",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -647,75 +569,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.uri.decodeURIComponent.arg0_to_result",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.uri.escape.arg0_to_result",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.harmony.uri.unescape.arg0_to_result",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.builtin.atob.arg0_to_result",
-      "confidence": "certain",
-      "kind": "rule.transfer",
-      "from": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "to": {
-        "base": {
-          "kind": "return"
-        }
-      },
-      "transferKind": "transfer"
-    },
-    {
-      "id": "template.transfer.builtin.btoa.arg0_to_result",
+      "id": "template.transfer.builtin.btoa.arg0_to_result.exact.btoa.module.global",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {

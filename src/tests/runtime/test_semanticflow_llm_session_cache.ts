@@ -43,6 +43,16 @@ function main(): void {
     assert(restored?.asset?.id === item.asset?.id, "cache should preserve v2 asset");
     assert(restored?.plane === "rule", "cache should preserve plane");
     assert(!("classification" in restored!), "cache item must not contain old classification");
+
+    const statsBlockedRoot = path.resolve("tmp/test_runs/runtime/semanticflow_v2_session_cache_stats_blocked");
+    fs.rmSync(statsBlockedRoot, { recursive: true, force: true });
+    fs.mkdirSync(path.join(statsBlockedRoot, "stats.json"), { recursive: true });
+    const statsBlockedCache = new SemanticFlowSessionCache({ rootDir: statsBlockedRoot, mode: "rw" });
+    statsBlockedCache.storeItem(key, item);
+    const restoredFromStatsBlockedCache = statsBlockedCache.lookupItem(key);
+    assert(restoredFromStatsBlockedCache?.asset?.id === item.asset?.id,
+        "diagnostic stats persistence failures must not abort item cache writes");
+
     console.log("PASS test_semanticflow_llm_session_cache");
 }
 

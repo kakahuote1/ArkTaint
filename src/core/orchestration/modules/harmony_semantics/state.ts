@@ -196,9 +196,11 @@ function buildStateHandoffEffects(model: StateManagementModel): HandoffEffect[] 
                 target: {
                     nodeId: edge.targetNodeId,
                     currentField: {
-                        mode: "tail-prefix",
+                        mode: "prefix",
                         prefix: [edge.targetFieldName],
+                        stripPrefixes: [[edge.sourceFieldName]],
                         requireField: true,
+                        scalarAlias: edge.scalarAlias,
                     },
                 },
                 reason: "Harmony-StateProp",
@@ -208,6 +210,7 @@ function buildStateHandoffEffects(model: StateManagementModel): HandoffEffect[] 
 
         const targetLoadNodeIds = model.targetFieldLoadNodeIdsBySourceField.get(sourceKey);
         if (targetLoadNodeIds && targetLoadNodeIds.size > 0) {
+            const scalarSource = model.scalarBridgeSourceFields.has(sourceKey);
             const loadHandle = createExactHandoffHandle(
                 STATE_SLOT_CELL_KIND,
                 STATE_SLOT_HANDOFF_FAMILY,
@@ -229,7 +232,9 @@ function buildStateHandoffEffects(model: StateManagementModel): HandoffEffect[] 
                         nodeId: targetNodeId,
                         currentField: {
                             mode: "preserve",
+                            stripPrefixes: scalarSource ? [[sourceFieldName]] : undefined,
                             requireField: true,
+                            scalarAlias: scalarSource,
                         },
                         allowUnreachableTarget: true,
                     },
@@ -267,6 +272,8 @@ function addScopedLinkEffect(
 interface DecoratedFieldSets {
     bridgeSourceFieldSignatures: Set<string>;
     bridgeFieldSignatureByClassAndName: Map<string, Map<string, string>>;
+    scalarFieldSignatures: Set<string>;
+    scalarFieldsByClassAndName: Map<string, Set<string>>;
     stateFieldsByClassName: Map<string, Set<string>>;
     propLikeFieldsByClassName: Map<string, Set<string>>;
     linkFieldsByClassName: Map<string, Set<string>>;
@@ -333,6 +340,7 @@ export function buildStateManagementModel(
 
     const edgesBySourceField = new Map<string, StatePropBridgeEdge[]>();
     const targetFieldLoadNodeIdsBySourceField = new Map<string, Set<number>>();
+    const scalarBridgeSourceFields = new Set<string>();
     const dedup = new Set<string>();
     let constructorCallCount = 0;
     let bridgeEdgeCount = 0;
@@ -340,7 +348,17 @@ export function buildStateManagementModel(
     const addBridgeEdge = (edge: StatePropBridgeEdge): void => {
         const sourceKey = `${edge.sourceNodeId}#${edge.sourceFieldName}`;
         const dedupKey = `${sourceKey}->${edge.targetNodeId}#${edge.targetFieldName}`;
-        if (dedup.has(dedupKey)) return;
+        if (edge.scalarAlias) {
+            scalarBridgeSourceFields.add(sourceKey);
+        }
+        if (dedup.has(dedupKey)) {
+            if (edge.scalarAlias) {
+                const existing = edgesBySourceField.get(sourceKey)
+                    ?.find(item => item.targetNodeId === edge.targetNodeId && item.targetFieldName === edge.targetFieldName);
+                if (existing) existing.scalarAlias = true;
+            }
+            return;
+        }
         dedup.add(dedupKey);
         if (!edgesBySourceField.has(sourceKey)) edgesBySourceField.set(sourceKey, []);
         edgesBySourceField.get(sourceKey)!.push(edge);
@@ -412,6 +430,13 @@ export function buildStateManagementModel(
                         if (sourceBridgeNodeIds.size === 0) {
                             sourceBridgeNodeIds.add(sourceNodeId);
                         }
+                        const sourceIsScalar = decorated.scalarFieldSignatures.has(capture.stateFieldSignature);
+                        const targetIsScalar = hasFieldName(
+                            decorated.scalarFieldsByClassAndName,
+                            targetClassName,
+                            capture.captureFieldName,
+                        );
+                        const scalarAlias = sourceIsScalar || targetIsScalar;
                         for (const targetNodeId of targetNodeIds) {
                             for (const sourceBridgeNodeId of sourceBridgeNodeIds) {
                                 if (isPropLike) {
@@ -421,6 +446,7 @@ export function buildStateManagementModel(
                                         targetNodeId,
                                         targetFieldName: capture.captureFieldName,
                                         methodSignature,
+                                        scalarAlias,
                                     });
                                     addLoadBridge(
                                         sourceBridgeNodeId,
@@ -436,6 +462,7 @@ export function buildStateManagementModel(
                                         targetNodeId: sourceBridgeNodeId,
                                         targetFieldName: capture.stateFieldName,
                                         methodSignature,
+                                        scalarAlias,
                                     });
                                     const sourceClassName = extractClassNameFromFieldSignature(capture.stateFieldSignature);
                                     if (sourceClassName) {
@@ -494,6 +521,8 @@ export function buildStateManagementModel(
                             targetNodeId: consumerNodeId,
                             targetFieldName: consumeField.fieldName,
                             methodSignature: `provide-consume:${key}`,
+                            scalarAlias: decorated.scalarFieldSignatures.has(provideField.fieldSignature)
+                                || decorated.scalarFieldSignatures.has(consumeField.fieldSignature),
                         });
                     }
                 }
@@ -530,6 +559,8 @@ export function buildStateManagementModel(
                             targetNodeId,
                             targetFieldName: fieldName,
                             methodSignature: `state-fallback:${sourceClassName}->${targetClassName}.${fieldName}`,
+                            scalarAlias: hasFieldName(decorated.scalarFieldsByClassAndName, sourceClassName, fieldName)
+                                || hasFieldName(decorated.scalarFieldsByClassAndName, targetClassName, fieldName),
                         });
                         if (linkFieldNames.has(fieldName)) {
                             addBridgeEdge({
@@ -538,6 +569,8 @@ export function buildStateManagementModel(
                                 targetNodeId: sourceNodeId,
                                 targetFieldName: fieldName,
                                 methodSignature: `state-link-fallback:${targetClassName}->${sourceClassName}.${fieldName}`,
+                                scalarAlias: hasFieldName(decorated.scalarFieldsByClassAndName, sourceClassName, fieldName)
+                                    || hasFieldName(decorated.scalarFieldsByClassAndName, targetClassName, fieldName),
                             });
                             addLoadBridge(
                                 targetNodeId,
@@ -575,9 +608,10 @@ export function buildStateManagementModel(
         eventInvokeBridgeCount += targets.size;
     }
 
-    return {
+        return {
         edgesBySourceField,
         targetFieldLoadNodeIdsBySourceField,
+        scalarBridgeSourceFields,
         bridgeEdgeCount,
         constructorCallCount,
         stateCaptureAssignCount,
@@ -594,6 +628,8 @@ function collectDecoratedFieldSets(
 ): DecoratedFieldSets {
     const bridgeSourceFieldSignatures = new Set<string>();
     const bridgeFieldSignatureByClassAndName = new Map<string, Map<string, string>>();
+    const scalarFieldSignatures = new Set<string>();
+    const scalarFieldsByClassAndName = new Map<string, Set<string>>();
     const stateFieldsByClassName = new Map<string, Set<string>>();
     const propLikeFieldsByClassName = new Map<string, Set<string>>();
     const linkFieldsByClassName = new Map<string, Set<string>>();
@@ -606,6 +642,7 @@ function collectDecoratedFieldSets(
         for (const field of cls.getFields()) {
             const decorators = field.getDecorators() || [];
             if (decorators.length === 0) continue;
+            const fieldIsScalar = isScalarLikeField(field);
             for (const decorator of decorators) {
                 const kind = normalizeDecoratorKind(decorator);
                 if (!kind) continue;
@@ -613,6 +650,7 @@ function collectDecoratedFieldSets(
                     const sig = field.getSignature()?.toString?.() || "";
                     if (sig) bridgeSourceFieldSignatures.add(sig);
                     if (sig) addBridgeFieldSignature(bridgeFieldSignatureByClassAndName, className, field.getName(), sig);
+                    if (fieldIsScalar) addScalarDecoratedField(scalarFieldSignatures, scalarFieldsByClassAndName, className, field.getName(), sig);
                     if (!stateFieldsByClassName.has(className)) {
                         stateFieldsByClassName.set(className, new Set<string>());
                     }
@@ -621,6 +659,7 @@ function collectDecoratedFieldSets(
                     const sig = field.getSignature()?.toString?.() || "";
                     if (sig) bridgeSourceFieldSignatures.add(sig);
                     if (sig) addBridgeFieldSignature(bridgeFieldSignatureByClassAndName, className, field.getName(), sig);
+                    if (fieldIsScalar) addScalarDecoratedField(scalarFieldSignatures, scalarFieldsByClassAndName, className, field.getName(), sig);
                     if (!propLikeFieldsByClassName.has(className)) {
                         propLikeFieldsByClassName.set(className, new Set<string>());
                     }
@@ -640,6 +679,7 @@ function collectDecoratedFieldSets(
                 } else if (options.provideDecoratorKinds.has(kind) || options.consumeDecoratorKinds.has(kind)) {
                     const sig = field.getSignature()?.toString?.() || "";
                     if (!sig) continue;
+                    if (fieldIsScalar) addScalarDecoratedField(scalarFieldSignatures, scalarFieldsByClassAndName, className, field.getName(), sig);
                     const key = extractDecoratorKey(decorator) || field.getName();
                     const targetMap = options.provideDecoratorKinds.has(kind)
                         ? provideFieldsByKey
@@ -655,9 +695,11 @@ function collectDecoratedFieldSets(
         }
     }
 
-    return {
+        return {
         bridgeSourceFieldSignatures,
         bridgeFieldSignatureByClassAndName,
+        scalarFieldSignatures,
+        scalarFieldsByClassAndName,
         stateFieldsByClassName,
         propLikeFieldsByClassName,
         linkFieldsByClassName,
@@ -676,6 +718,64 @@ function addBridgeFieldSignature(
     if (!className || !fieldName || !signature) return;
     if (!map.has(className)) map.set(className, new Map<string, string>());
     map.get(className)!.set(fieldName, signature);
+}
+
+function addScalarDecoratedField(
+    signatures: Set<string>,
+    fieldsByClassAndName: Map<string, Set<string>>,
+    className: string,
+    fieldName: string,
+    signature: string,
+): void {
+    if (signature) signatures.add(signature);
+    addFieldName(fieldsByClassAndName, className, fieldName);
+}
+
+function addFieldName(
+    map: Map<string, Set<string>>,
+    className: string,
+    fieldName: string,
+): void {
+    if (!className || !fieldName) return;
+    if (!map.has(className)) map.set(className, new Set<string>());
+    map.get(className)!.add(fieldName);
+}
+
+function hasFieldName(
+    map: Map<string, Set<string>>,
+    className: string,
+    fieldName: string,
+): boolean {
+    return map.get(className)?.has(fieldName) || false;
+}
+
+function isScalarLikeField(field: any): boolean {
+    return isScalarLikeTypeText(field.getType?.()?.toString?.())
+        || isScalarLikeTypeText(field.getSignature?.()?.getType?.()?.toString?.());
+}
+
+function isScalarLikeTypeText(raw: string | undefined): boolean {
+    const text = String(raw || "").trim().toLowerCase();
+    if (!text) return false;
+    if (text.includes("[]") || text.includes("array<") || text.includes("map<") || text.includes("set<")) {
+        return false;
+    }
+    return text === "string"
+        || text === "boolean"
+        || text === "number"
+        || text === "bigint"
+        || text === "symbol"
+        || text === "null"
+        || text === "undefined"
+        || text === "void"
+        || text === "byte"
+        || text === "short"
+        || text === "int"
+        || text === "long"
+        || text === "float"
+        || text === "double"
+        || text.endsWith(".string")
+        || text.includes("std.core.string");
 }
 
 function extractClassNameFromFieldSignature(signature: string): string | undefined {

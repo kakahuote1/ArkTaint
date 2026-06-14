@@ -4,234 +4,78 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.sink.harmony.router.pushUrl.arg0.exact",
+      "surfaceId": "surface.sink.harmony.router.pushUrl.arg0.exact.pushUrl.module.router",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "router",
+      "ownerName": "router",
       "methodName": "pushUrl",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 1
     },
     {
-      "surfaceId": "surface.sink.harmony.router.pushUrl.arg0",
+      "surfaceId": "surface.sink.harmony.ability.startServiceExtension.exact.startServiceExtensionAbility.module.UIAbilityContext",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "pushUrl",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.router.pushUrl.arg0.sig",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "pushUrl",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.ability.startAbility.arg0",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "startAbility",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.ability.startAbilityForResult.arg0",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "startAbilityForResult",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.commonevent.publish.arg1",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "commonEventManager.CommonEventManager",
-      "methodName": "publish",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.notification.publish",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "notification",
-      "methodName": "publish",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.navPathStack.pushPath",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "NavPathStack",
-      "methodName": "pushPath",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.navPathStack.pushPathByName",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "pushPathByName",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.navPathStack.replacePath",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "NavPathStack",
-      "methodName": "replacePath",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.ability.startServiceExtension",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "UIAbilityContext",
+      "ownerName": "UIAbilityContext",
       "methodName": "startServiceExtensionAbility",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 1
     },
     {
-      "surfaceId": "surface.sink.harmony.wantAgent.trigger",
+      "surfaceId": "surface.sink.harmony.router.replaceUrl.exact.replaceUrl.module.router",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "wantAgent",
-      "methodName": "trigger",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.router.replaceUrl",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "router",
+      "ownerName": "router",
       "methodName": "replaceUrl",
       "invokeKind": "instance",
-      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 1
+    },
+    {
+      "surfaceId": "surface.sink.harmony.ipc.messageparcel.write.exact.write.className.MessageParcel",
+      "kind": "invoke",
+      "modulePath": "rpc",
+      "ownerName": "MessageParcel",
+      "methodName": "write",
+      "invokeKind": "instance",
+      "argCount": 1,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
       }
     },
     {
-      "surfaceId": "surface.sink.harmony.contact.addContact",
+      "surfaceId": "surface.sink.harmony.ipc.messageparcel.write.exact.write.className.MessageSequence",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "addContact",
+      "modulePath": "rpc",
+      "ownerName": "MessageSequence",
+      "methodName": "write",
       "invokeKind": "instance",
-      "argCount": 0,
+      "argCount": 1,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
       }
     },
     {
-      "surfaceId": "surface.sink.harmony.contact.updateContact",
+      "surfaceId": "surface.sink.harmony.crypto.verify.arg0.exact.verify.className.Verify",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "updateContact",
+      "modulePath": "cryptoFramework",
+      "ownerName": "Verify",
+      "methodName": "verify",
       "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.calendar.addEvent",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "Calendar",
-      "methodName": "addEvent",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.calendar.addEvents",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "Calendar",
-      "methodName": "addEvents",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.print.print",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "print",
-      "methodName": "print",
-      "invokeKind": "instance",
-      "argCount": 0,
+      "argCount": 1,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
@@ -240,14 +84,21 @@
   ],
   "bindings": [
     {
-      "bindingId": "binding.sink.harmony.router.pushUrl.arg0.exact.0",
-      "surfaceId": "surface.sink.harmony.router.pushUrl.arg0.exact",
+      "bindingId": "binding.sink.harmony.router.pushUrl.arg0.exact.pushUrl.module.router",
+      "surfaceId": "surface.sink.harmony.router.pushUrl.arg0.exact.pushUrl.module.router",
       "assetId": "asset.rule.kernel.sinks.system",
       "plane": "rule",
       "role": "sink",
       "selector": {
-        "kind": "signature-equals",
-        "value": "@sdk_signature_probe/taint_mock.ts: Router.pushUrl(@sdk_signature_probe/taint_mock.ts: %AC0)"
+        "kind": "method-name-equals",
+        "value": "pushUrl",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "module": {
+            "mode": "equals",
+            "value": "router"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -268,14 +119,20 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.router.pushUrl.arg0.0",
-      "surfaceId": "surface.sink.harmony.router.pushUrl.arg0",
+      "bindingId": "binding.sink.harmony.router.pushUrl.arg0.0.exact.pushUrl.module.router",
+      "surfaceId": "surface.sink.harmony.router.pushUrl.arg0.exact.pushUrl.module.router",
       "assetId": "asset.rule.kernel.sinks.system",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
-        "value": "pushUrl"
+        "value": "pushUrl",
+        "calleeScope": {
+          "module": {
+            "mode": "equals",
+            "value": "router"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -296,287 +153,21 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.router.pushUrl.arg0.sig.0",
-      "surfaceId": "surface.sink.harmony.router.pushUrl.arg0.sig",
-      "assetId": "asset.rule.kernel.sinks.system",
-      "plane": "rule",
-      "role": "sink",
-      "selector": {
-        "kind": "signature-contains",
-        "value": "pushUrl"
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.sink.harmony.router.pushUrl.arg0.sig"
-      ],
-      "semanticsFamily": "router_dispatch",
-      "metadata": {
-        "enabled": true,
-        "category": "router_dispatch",
-        "severity": "high"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.sink.harmony.ability.startAbility.arg0.0",
-      "surfaceId": "surface.sink.harmony.ability.startAbility.arg0",
+      "bindingId": "binding.sink.harmony.ability.startServiceExtension.0.exact.startServiceExtensionAbility.module.UIAbilityContext",
+      "surfaceId": "surface.sink.harmony.ability.startServiceExtension.exact.startServiceExtensionAbility.module.UIAbilityContext",
       "assetId": "asset.rule.kernel.sinks.system",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
-        "value": "startAbility"
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.sink.harmony.ability.startAbility.arg0"
-      ],
-      "semanticsFamily": "intent_injection",
-      "metadata": {
-        "enabled": true,
-        "category": "intent_injection",
-        "severity": "high"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.sink.harmony.ability.startAbilityForResult.arg0.0",
-      "surfaceId": "surface.sink.harmony.ability.startAbilityForResult.arg0",
-      "assetId": "asset.rule.kernel.sinks.system",
-      "plane": "rule",
-      "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "startAbilityForResult"
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.sink.harmony.ability.startAbilityForResult.arg0"
-      ],
-      "semanticsFamily": "intent_injection",
-      "metadata": {
-        "enabled": true,
-        "category": "intent_injection",
-        "severity": "high"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.sink.harmony.commonevent.publish.arg1.0",
-      "surfaceId": "surface.sink.harmony.commonevent.publish.arg1",
-      "assetId": "asset.rule.kernel.sinks.system",
-      "plane": "rule",
-      "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "publish",
-        "scope": {
-          "className": {
-            "mode": "regex",
-            "value": "(commonEventManager|CommonEventManager)"
+        "value": "startServiceExtensionAbility",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "module": {
+            "mode": "equals",
+            "value": "UIAbilityContext"
           }
         }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 1
-        }
-      },
-      "effectTemplateRefs": [
-        "template.sink.harmony.commonevent.publish.arg1"
-      ],
-      "semanticsFamily": "cross_process_observation",
-      "metadata": {
-        "enabled": false,
-        "description": "Observation-only: commonEvent publish payload sink (cross-process boundary, disabled by default).",
-        "category": "cross_process_observation",
-        "severity": "low"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.sink.harmony.notification.publish.0",
-      "surfaceId": "surface.sink.harmony.notification.publish",
-      "assetId": "asset.rule.kernel.sinks.system",
-      "plane": "rule",
-      "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "publish",
-        "scope": {
-          "className": {
-            "mode": "contains",
-            "value": "notification"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.sink.harmony.notification.publish"
-      ],
-      "semanticsFamily": "information_leak",
-      "metadata": {
-        "description": "Publish notification with data",
-        "tags": [
-          "harmony",
-          "phase7118",
-          "notification",
-          "P1"
-        ],
-        "category": "information_leak",
-        "severity": "medium"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.sink.harmony.navPathStack.pushPath.0",
-      "surfaceId": "surface.sink.harmony.navPathStack.pushPath",
-      "assetId": "asset.rule.kernel.sinks.system",
-      "plane": "rule",
-      "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "pushPath",
-        "scope": {
-          "className": {
-            "mode": "contains",
-            "value": "NavPathStack"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.sink.harmony.navPathStack.pushPath"
-      ],
-      "semanticsFamily": "router_dispatch",
-      "metadata": {
-        "description": "Navigation pushPath parameter injection",
-        "tags": [
-          "harmony",
-          "phase7118",
-          "navigation",
-          "P1"
-        ],
-        "category": "router_dispatch",
-        "severity": "medium"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.sink.harmony.navPathStack.pushPathByName.0",
-      "surfaceId": "surface.sink.harmony.navPathStack.pushPathByName",
-      "assetId": "asset.rule.kernel.sinks.system",
-      "plane": "rule",
-      "role": "sink",
-      "selector": {
-        "kind": "signature-contains",
-        "value": "pushPathByName"
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.sink.harmony.navPathStack.pushPathByName"
-      ],
-      "semanticsFamily": "router_dispatch",
-      "metadata": {
-        "description": "Navigation pushPathByName injection",
-        "tags": [
-          "harmony",
-          "phase7118",
-          "navigation",
-          "P1"
-        ],
-        "category": "router_dispatch",
-        "severity": "medium"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.sink.harmony.navPathStack.replacePath.0",
-      "surfaceId": "surface.sink.harmony.navPathStack.replacePath",
-      "assetId": "asset.rule.kernel.sinks.system",
-      "plane": "rule",
-      "role": "sink",
-      "selector": {
-        "kind": "signature-contains",
-        "value": "replacePath",
-        "scope": {
-          "className": {
-            "mode": "contains",
-            "value": "NavPathStack"
-          }
-        }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.sink.harmony.navPathStack.replacePath"
-      ],
-      "semanticsFamily": "router_dispatch",
-      "metadata": {
-        "description": "Navigation replacePath injection",
-        "tags": [
-          "harmony",
-          "phase7118",
-          "navigation",
-          "P1"
-        ],
-        "category": "router_dispatch",
-        "severity": "medium"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.sink.harmony.ability.startServiceExtension.0",
-      "surfaceId": "surface.sink.harmony.ability.startServiceExtension",
-      "assetId": "asset.rule.kernel.sinks.system",
-      "plane": "rule",
-      "role": "sink",
-      "selector": {
-        "kind": "signature-contains",
-        "value": "startServiceExtensionAbility"
       },
       "endpoint": {
         "base": {
@@ -603,54 +194,21 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.wantAgent.trigger.0",
-      "surfaceId": "surface.sink.harmony.wantAgent.trigger",
+      "bindingId": "binding.sink.harmony.router.replaceUrl.0.exact.replaceUrl.module.router",
+      "surfaceId": "surface.sink.harmony.router.replaceUrl.exact.replaceUrl.module.router",
       "assetId": "asset.rule.kernel.sinks.system",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
-        "value": "trigger",
-        "scope": {
-          "className": {
-            "mode": "contains",
-            "value": "wantAgent"
+        "value": "replaceUrl",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "module": {
+            "mode": "equals",
+            "value": "router"
           }
         }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 1
-        }
-      },
-      "effectTemplateRefs": [
-        "template.sink.harmony.wantAgent.trigger"
-      ],
-      "semanticsFamily": "intent_injection",
-      "metadata": {
-        "description": "Trigger WantAgent with data",
-        "tags": [
-          "harmony",
-          "phase7118",
-          "ability",
-          "P1"
-        ],
-        "category": "intent_injection",
-        "severity": "high"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.sink.harmony.router.replaceUrl.0",
-      "surfaceId": "surface.sink.harmony.router.replaceUrl",
-      "assetId": "asset.rule.kernel.sinks.system",
-      "plane": "rule",
-      "role": "sink",
-      "selector": {
-        "kind": "signature-contains",
-        "value": "replaceUrl"
       },
       "endpoint": {
         "base": {
@@ -677,86 +235,21 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.contact.addContact.0",
-      "surfaceId": "surface.sink.harmony.contact.addContact",
+      "bindingId": "binding.sink.harmony.ipc.messageparcel.write.0.exact.write.className.MessageParcel",
+      "surfaceId": "surface.sink.harmony.ipc.messageparcel.write.exact.write.className.MessageParcel",
       "assetId": "asset.rule.kernel.sinks.system",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
-        "value": "addContact"
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.sink.harmony.contact.addContact"
-      ],
-      "semanticsFamily": "sensitive_persistence",
-      "metadata": {
-        "description": "Write contact (sensitive persistence)",
-        "tags": [
-          "harmony",
-          "phase7118",
-          "contact",
-          "P2"
-        ],
-        "category": "sensitive_persistence",
-        "severity": "medium"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.sink.harmony.contact.updateContact.0",
-      "surfaceId": "surface.sink.harmony.contact.updateContact",
-      "assetId": "asset.rule.kernel.sinks.system",
-      "plane": "rule",
-      "role": "sink",
-      "selector": {
-        "kind": "signature-contains",
-        "value": "updateContact"
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.sink.harmony.contact.updateContact"
-      ],
-      "semanticsFamily": "sensitive_persistence",
-      "metadata": {
-        "description": "Update contact (sensitive persistence)",
-        "tags": [
-          "harmony",
-          "phase7118",
-          "contact",
-          "P2"
-        ],
-        "category": "sensitive_persistence",
-        "severity": "medium"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.sink.harmony.calendar.addEvent.0",
-      "surfaceId": "surface.sink.harmony.calendar.addEvent",
-      "assetId": "asset.rule.kernel.sinks.system",
-      "plane": "rule",
-      "role": "sink",
-      "selector": {
-        "kind": "method-name-equals",
-        "value": "addEvent",
-        "scope": {
+        "value": "write",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "MessageParcel",
+        "calleeScope": {
           "className": {
-            "mode": "contains",
-            "value": "Calendar"
+            "mode": "equals",
+            "value": "MessageParcel"
           }
         }
       },
@@ -767,36 +260,40 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.calendar.addEvent"
+        "template.sink.harmony.ipc.messageparcel.write.for.sink.harmony.ipc.messageparcel.write.0.exact.write.class.MessageParcel"
       ],
-      "semanticsFamily": "sensitive_persistence",
+      "semanticsFamily": "ipc_data_leak",
       "metadata": {
-        "description": "Write calendar event (privacy persistence)",
+        "enabled": true,
+        "description": "MessageParcel/MessageSequence write* payload crosses the IPC boundary.",
         "tags": [
           "harmony",
-          "phase7118",
-          "calendar",
-          "P2"
+          "ipc",
+          "message_parcel",
+          "P0"
         ],
-        "category": "sensitive_persistence",
-        "severity": "low"
+        "category": "ipc_data_leak",
+        "severity": "high"
       },
       "completeness": "partial",
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.calendar.addEvents.0",
-      "surfaceId": "surface.sink.harmony.calendar.addEvents",
+      "bindingId": "binding.sink.harmony.ipc.messageparcel.write.0.exact.write.className.MessageSequence",
+      "surfaceId": "surface.sink.harmony.ipc.messageparcel.write.exact.write.className.MessageSequence",
       "assetId": "asset.rule.kernel.sinks.system",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
-        "value": "addEvents",
-        "scope": {
+        "value": "write",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "MessageSequence",
+        "calleeScope": {
           "className": {
-            "mode": "contains",
-            "value": "Calendar"
+            "mode": "equals",
+            "value": "MessageSequence"
           }
         }
       },
@@ -807,36 +304,40 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.calendar.addEvents"
+        "template.sink.harmony.ipc.messageparcel.write.for.sink.harmony.ipc.messageparcel.write.0.exact.write.class.MessageSequence"
       ],
-      "semanticsFamily": "sensitive_persistence",
+      "semanticsFamily": "ipc_data_leak",
       "metadata": {
-        "description": "Write calendar events batch",
+        "enabled": true,
+        "description": "MessageParcel/MessageSequence write* payload crosses the IPC boundary.",
         "tags": [
           "harmony",
-          "phase7118",
-          "calendar",
-          "P2"
+          "ipc",
+          "message_parcel",
+          "P0"
         ],
-        "category": "sensitive_persistence",
-        "severity": "low"
+        "category": "ipc_data_leak",
+        "severity": "high"
       },
       "completeness": "partial",
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.print.print.0",
-      "surfaceId": "surface.sink.harmony.print.print",
+      "bindingId": "binding.sink.harmony.crypto.verify.arg0.0.exact.verify.className.Verify",
+      "surfaceId": "surface.sink.harmony.crypto.verify.arg0.exact.verify.className.Verify",
       "assetId": "asset.rule.kernel.sinks.system",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
-        "value": "print",
-        "scope": {
+        "value": "verify",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "Verify",
+        "calleeScope": {
           "className": {
-            "mode": "contains",
-            "value": "print"
+            "mode": "equals",
+            "value": "Verify"
           }
         }
       },
@@ -847,19 +348,20 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.print.print"
+        "template.sink.harmony.crypto.verify.arg0.for.sink.harmony.crypto.verify.arg0.0.exact.verify.class.Verify"
       ],
-      "semanticsFamily": "information_leak",
+      "semanticsFamily": "crypto_verify",
       "metadata": {
-        "description": "Print file path leak",
+        "enabled": true,
+        "description": "Verify.verify consumes data or signature material in a security-sensitive operation.",
         "tags": [
           "harmony",
-          "phase7118",
-          "print",
-          "P2"
+          "crypto",
+          "verify",
+          "P1"
         ],
-        "category": "information_leak",
-        "severity": "low"
+        "category": "crypto_verify",
+        "severity": "high"
       },
       "completeness": "partial",
       "confidence": "likely"
@@ -891,102 +393,6 @@
       "sinkKind": "router_dispatch"
     },
     {
-      "id": "template.sink.harmony.router.pushUrl.arg0.sig",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "router_dispatch"
-    },
-    {
-      "id": "template.sink.harmony.ability.startAbility.arg0",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "intent_injection"
-    },
-    {
-      "id": "template.sink.harmony.ability.startAbilityForResult.arg0",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "intent_injection"
-    },
-    {
-      "id": "template.sink.harmony.commonevent.publish.arg1",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 1
-        }
-      },
-      "sinkKind": "cross_process_observation"
-    },
-    {
-      "id": "template.sink.harmony.notification.publish",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "information_leak"
-    },
-    {
-      "id": "template.sink.harmony.navPathStack.pushPath",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "router_dispatch"
-    },
-    {
-      "id": "template.sink.harmony.navPathStack.pushPathByName",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "router_dispatch"
-    },
-    {
-      "id": "template.sink.harmony.navPathStack.replacePath",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "router_dispatch"
-    },
-    {
       "id": "template.sink.harmony.ability.startServiceExtension",
       "confidence": "certain",
       "kind": "rule.sink",
@@ -994,18 +400,6 @@
         "base": {
           "kind": "arg",
           "index": 0
-        }
-      },
-      "sinkKind": "intent_injection"
-    },
-    {
-      "id": "template.sink.harmony.wantAgent.trigger",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 1
         }
       },
       "sinkKind": "intent_injection"
@@ -1023,7 +417,7 @@
       "sinkKind": "router_dispatch"
     },
     {
-      "id": "template.sink.harmony.contact.addContact",
+      "id": "template.sink.harmony.ipc.messageparcel.write.for.sink.harmony.ipc.messageparcel.write.0.exact.write.class.MessageParcel",
       "confidence": "certain",
       "kind": "rule.sink",
       "value": {
@@ -1032,10 +426,10 @@
           "index": 0
         }
       },
-      "sinkKind": "sensitive_persistence"
+      "sinkKind": "ipc_data_leak"
     },
     {
-      "id": "template.sink.harmony.contact.updateContact",
+      "id": "template.sink.harmony.ipc.messageparcel.write.for.sink.harmony.ipc.messageparcel.write.0.exact.write.class.MessageSequence",
       "confidence": "certain",
       "kind": "rule.sink",
       "value": {
@@ -1044,10 +438,10 @@
           "index": 0
         }
       },
-      "sinkKind": "sensitive_persistence"
+      "sinkKind": "ipc_data_leak"
     },
     {
-      "id": "template.sink.harmony.calendar.addEvent",
+      "id": "template.sink.harmony.crypto.verify.arg0.for.sink.harmony.crypto.verify.arg0.0.exact.verify.class.Verify",
       "confidence": "certain",
       "kind": "rule.sink",
       "value": {
@@ -1056,31 +450,7 @@
           "index": 0
         }
       },
-      "sinkKind": "sensitive_persistence"
-    },
-    {
-      "id": "template.sink.harmony.calendar.addEvents",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "sensitive_persistence"
-    },
-    {
-      "id": "template.sink.harmony.print.print",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "information_leak"
+      "sinkKind": "crypto_verify"
     }
   ],
   "provenance": {

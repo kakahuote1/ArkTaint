@@ -6,6 +6,10 @@ import {
     discoverApiCallbackModelingCandidates,
     discoverApiSurfaceModelingCandidates,
 } from "../../core/semanticflow/ApiModelingCandidateScanner";
+import {
+    selectSemanticFlowRuleCandidatesForModeling,
+    semanticFlowCandidateBelongsToSourceDir,
+} from "../../cli/semanticflow";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -46,6 +50,80 @@ function main(): void {
         "    IBestField({ value: '', onChange: (value: string) => this.vm.updateAccount(value) });",
         "    PhoneInputField({ onPhoneChange: (value: string) => this.vm.updatePhone(value) });",
         "    IBestButton({ text: 'login', onBtnClick: (): void => this.vm.login() });",
+        "  }",
+        "}",
+    ]);
+    writeFile(path.join(root, sourceDir, "pages/MqttPage.ets"), [
+        "import { MqttAsyncClient, MqttPublishOptions } from '@thirdparty/mqtt';",
+        "export struct MqttPage {",
+        "  private client: MqttAsyncClient = new MqttAsyncClient();",
+        "  @State keyboardStr: string = '';",
+        "  onSubmit() {",
+        "    this.publish('chat', this.keyboardStr);",
+        "  }",
+        "  publish(topic: string, payload: string) {",
+        "    const publishOption: MqttPublishOptions = {",
+        "      topic,",
+        "      payload,",
+        "      qos: 1,",
+        "    };",
+        "    this.client.publish(publishOption);",
+        "  }",
+        "}",
+    ]);
+    writeFile(path.join(root, sourceDir, "pages/LocalOnlyPage.ets"), [
+        "class LocalPublisher {",
+        "  publish(payload: string) {",
+        "    this.lastPayload = payload;",
+        "  }",
+        "}",
+        "export struct LocalOnlyPage {",
+        "  private local: LocalPublisher = new LocalPublisher();",
+        "  @State text: string = '';",
+        "  onSubmit() {",
+        "    this.local.publish(this.text);",
+        "  }",
+        "  formatLocal(",
+        "    value: string",
+        "  ): string {",
+        "    return value.trim();",
+        "  }",
+        "}",
+    ]);
+    writeFile(path.join(root, sourceDir, "pages/StaticStoragePage.ets"), [
+        "import { StoreUtil } from 'third-party-store';",
+        "import { OpaqueRelay } from 'opaque-vendor-kit';",
+        "import { ProjectKvStore } from '../utils/ProjectKvStore';",
+        "import { LocalHelper } from '../utils/LocalHelper';",
+        "import { DeviceInfo } from '@kit.BasicServicesKit';",
+        "export struct StaticStoragePage {",
+        "  private relay: OpaqueRelay = new OpaqueRelay();",
+        "  async loadSecret() {",
+        "    this.password = await StoreUtil.getData('account_password');",
+        "    await StoreUtil.putData('account_password', this.password);",
+        "    this.token = await ProjectKvStore.getData('session_token');",
+        "    await ProjectKvStore.putData('session_token', this.token);",
+        "    this.relay.perform(this.password);",
+        "    const display = LocalHelper.getData('display_name');",
+        "    const status = StoreUtil.getStatus('theme');",
+        "    const version = DeviceInfo.getData('device_version');",
+        "  }",
+        "}",
+    ]);
+    writeFile(path.join(root, sourceDir, "utils/ProjectKvStore.ets"), [
+        "export class ProjectKvStore {",
+        "  static async getData(key: string): Promise<string> {",
+        "    return await preferences.getSync(key, '');",
+        "  }",
+        "  static async putData(key: string, value: string): Promise<void> {",
+        "    await preferences.putSync(key, value);",
+        "  }",
+        "}",
+    ]);
+    writeFile(path.join(root, sourceDir, "utils/LocalHelper.ets"), [
+        "export class LocalHelper {",
+        "  static getData(key: string): string {",
+        "    return key.trim();",
         "  }",
         "}",
     ]);
@@ -98,6 +176,34 @@ function main(): void {
         "  async requestJson<T>(config: AxiosRequestConfig): Promise<T> {",
         "    const response = await instance.request(config) as ApiResponse<T>;",
         "    return response.data;",
+        "  }",
+        "}",
+    ]);
+    writeFile(path.join(root, sourceDir, "network/MultiLinePrivateClient.ets"), [
+        "import { rcp } from '@kit.RemoteCommunicationKit';",
+        "export class MultiLinePrivateClient {",
+        "  private authHeaders: rcp.RequestHeaders = {};",
+        "  async propfind(path: string, headers?: rcp.RequestHeaders): Promise<void> {",
+        "    const finalHeaders: rcp.RequestHeaders = {};",
+        "    if (headers) {",
+        "      Object.assign(finalHeaders, headers);",
+        "    }",
+        "    await this._request(",
+        "      'PROPFIND',",
+        "      path,",
+        "      finalHeaders",
+        "    );",
+        "  }",
+        "  async _request(",
+        "    method: string,",
+        "    path: string,",
+        "    headers?: rcp.RequestHeaders",
+        "  ): Promise<void> {",
+        "    const mergedHeaders: rcp.RequestHeaders = {};",
+        "    Object.assign(mergedHeaders, this.authHeaders);",
+        "    Object.assign(mergedHeaders, headers);",
+        "    console.debug('request headers', JSON.stringify(mergedHeaders));",
+        "    await new rcp.Session().fetch(new rcp.Request(path, method, mergedHeaders));",
         "  }",
         "}",
     ]);
@@ -179,11 +285,71 @@ function main(): void {
         "  }",
         "}",
     ]);
+    writeFile(path.join(root, sourceDir, "HybridContainer/DMPWebViewProxy.ets"), [
+        "import { DMPChannelProxyNext } from '../Service/DMPChannelProxyNext';",
+        "import { DMPMap } from '../Utils/DMPMap';",
+        "interface Message {",
+        "  type: string;",
+        "  body: object;",
+        "  target: string;",
+        "}",
+        "export class DMPWebViewProxy {",
+        "  webViewId: number = 0;",
+        "  invoke(msg: Message) {",
+        "    return DMPChannelProxyNext.messageHandlerNext(msg.type, DMPMap.createFromObject(msg.body), msg.target);",
+        "  }",
+        "  getWebViewId() {",
+        "    return this.webViewId;",
+        "  }",
+        "}",
+    ]);
     writeFile(path.join(root, sourceDir, "services/RemoteController.ets"), [
         "import Axios from '@ohos/axios';",
         "export class RemoteController {",
         "  async onRemoteRequest(payload: string) {",
         "    return Axios.post('https://api.example/remote', { payload });",
+        "  }",
+        "}",
+    ]);
+    writeFile(path.join(root, sourceDir, "viewmodels/MessageViewModel.ets"), [
+        "import { ChatClient, ChatMessage, ChatType } from '@thirdparty/chat-sdk';",
+        "export interface MessageContent { value?: string }",
+        "export class BaseMessageViewModel {",
+        "  sendTextMessage(content?: MessageContent) {}",
+        "  sendMessage(message: ChatMessage | undefined) {}",
+        "}",
+        "export class UnrelatedBase {",
+        "  sendTextMessage(content?: MessageContent) {}",
+        "}",
+        "export class MessageViewModel extends BaseMessageViewModel {",
+        "  conversationId: string = '';",
+        "  override sendTextMessage(content?: MessageContent) {",
+        "    if (!content || !content.value) { return; }",
+        "    const message = ChatMessage.createTextSendMessage(this.conversationId, content.value);",
+        "    this.sendMessage(message);",
+        "  }",
+        "  override sendMessage(message: ChatMessage | undefined) {",
+        "    ChatClient.getInstance().chatManager()?.sendMessage(message);",
+        "  }",
+        "  scrollToLatest() {",
+        "    this.listScroller.scrollToIndex(0);",
+        "  }",
+        "}",
+    ]);
+    writeFile(path.join(root, sourceDir, "components/chat/ChatView.ets"), [
+        "import { ChatInputMenuView } from './ChatComponents';",
+        "import { BaseMessageViewModel, MessageViewModel, MessageContent, UnrelatedBase } from '../../viewmodels/MessageViewModel';",
+        "export struct ChatView {",
+        "  @Param messageViewModel: BaseMessageViewModel = new MessageViewModel();",
+        "  @State unrelatedVm: UnrelatedBase = new MessageViewModel();",
+        "  build() {",
+        "    ChatInputMenuView({",
+        "      onClickSend: (content: MessageContent) => {",
+        "        this.messageViewModel.sendTextMessage(content);",
+        "        this.unrelatedVm.sendTextMessage(content);",
+        "      },",
+        "      onClickText: () => {}",
+        "    });",
         "  }",
         "}",
     ]);
@@ -304,9 +470,93 @@ function main(): void {
     writeFile(path.join(root, sourceDir, "api/arkts-sdk.d.ets"), [
         "export function request(path: string): Promise<string>;",
     ]);
+    writeFile(path.join(root, sourceDir, "common/EventHub.ets"), [
+        "import { emitter } from '@kit.BasicServicesKit';",
+        "export enum EventKey {",
+        "  LoginWebDav = 10019,",
+        "  Other = 10020,",
+        "}",
+        "export class EventHub {",
+        "  static sendEvent(key: EventKey, data: any = null) {",
+        "    emitter.emit({ eventId: key }, { data: data });",
+        "  }",
+        "  static on(key: EventKey, callback: (data: any) => void, once: boolean = true) {",
+        "    if (once) {",
+        "      emitter.off(key);",
+        "    }",
+        "    emitter.on({ eventId: key }, (data) => {",
+        "      callback(data.data);",
+        "    });",
+        "  }",
+        "  static off(key: EventKey) {",
+        "    emitter.off(key);",
+        "  }",
+        "}",
+    ]);
+    writeFile(path.join(root, sourceDir, "pages/EventHubWebDavPage.ets"), [
+        "import { EventHub, EventKey } from '../common/EventHub';",
+        "class WebDavClient {",
+        "  constructor(config: any) {}",
+        "}",
+        "export struct EventHubWebDavPage {",
+        "  @StorageLink('Password') password: string = '';",
+        "  aboutToAppear() {",
+        "    EventHub.on(EventKey.LoginWebDav, async (showToast: boolean = false) => {",
+        "      const config = { password: this.password };",
+        "      new WebDavClient(config);",
+        "    });",
+        "  }",
+        "  login() {",
+        "    EventHub.sendEvent(EventKey.LoginWebDav, true);",
+        "  }",
+        "  other() {",
+        "    EventHub.sendEvent(EventKey.Other, true);",
+        "  }",
+        "}",
+    ]);
+    writeFile(path.join(root, "features/home/oh-package.json5"), [
+        "{",
+        "  \"name\": \"home\",",
+        "  \"dependencies\": {",
+        "    \"@itcast/basic\": \"file:../../commons/basic\"",
+        "  }",
+        "}",
+    ]);
+    writeFile(path.join(root, "commons/basic/oh-package.json5"), [
+        "{",
+        "  \"name\": \"@itcast/basic\",",
+        "  \"main\": \"Index.ets\"",
+        "}",
+    ]);
+    writeFile(path.join(root, "commons/basic/Index.ets"), [
+        "export { HdWeb } from './src/main/ets/components/HdWeb';",
+    ]);
+    writeFile(path.join(root, "commons/basic/src/main/ets/components/HdWeb.ets"), [
+        "export struct HdWeb {",
+        "  onLoad: () => void = () => {};",
+        "  build() {",
+        "    Web({ src: $rawfile('detail.html') })",
+        "      .onPageEnd(() => {",
+        "        this.onLoad();",
+        "      });",
+        "  }",
+        "}",
+    ]);
+    writeFile(path.join(root, "features/home/src/main/ets/views/QuestionDetailComp.ets"), [
+        "import { HdWeb } from '@itcast/basic';",
+        "export struct QuestionDetailComp {",
+        "  build() {",
+        "    HdWeb({",
+        "      onLoad: () => {",
+        "        this.webController.runJavaScript(`writeContent(${this.item.answer})`);",
+        "      }",
+        "    });",
+        "  }",
+        "}",
+    ]);
 
-    const candidates = discoverApiCallbackModelingCandidates(root, [sourceDir], {
-        maxCandidates: 20,
+    const candidates = discoverApiCallbackModelingCandidates(root, [sourceDir, "features/home/src/main/ets"], {
+        maxCandidates: 40,
     });
     const methods = new Set(candidates.map(item => item.method));
     assert(methods.has("IBestField"), "third-party field callback should become a recalled modeling candidate");
@@ -318,6 +568,34 @@ function main(): void {
     assert(phoneCandidate, "missing PhoneInputField candidate");
     assert(String(phoneCandidate.sourceFile).endsWith("component/PhoneInputField.ets"), `project component candidate should resolve callee source file, got ${phoneCandidate.sourceFile}`);
     assert(Array.isArray((phoneCandidate as any).contextSlices) && (phoneCandidate as any).contextSlices.length > 0, "recalled candidates should include source callsite slices");
+    const hdWebCandidate = candidates.find(item => item.method === "HdWeb");
+    assert(hdWebCandidate, "local package re-exported component callback should become a recalled modeling candidate");
+    assert(
+        String(hdWebCandidate.sourceFile).endsWith("commons/basic/src/main/ets/components/HdWeb.ets"),
+        `package callback candidate should resolve re-exported component owner file, got ${hdWebCandidate.sourceFile}`,
+    );
+    assert(
+        String(hdWebCandidate.callee_signature).includes("commons/basic/src/main/ets/components/HdWeb.ets"),
+        `package callback candidate should carry stable owner signature, got ${hdWebCandidate.callee_signature}`,
+    );
+    assert(
+        ((hdWebCandidate as any).topEntries || []).some((entry: string) => entry.includes("callbackOwnerResolved=true")),
+        "resolved package callback candidate should expose callback owner evidence",
+    );
+    assert(
+        String((hdWebCandidate as any).methodSnippet || "").includes("this.onLoad"),
+        "resolved package callback candidate should include owner callback invocation evidence",
+    );
+    const hdWebSelection = selectSemanticFlowRuleCandidatesForModeling([hdWebCandidate] as any, 1);
+    assert(hdWebSelection.length === 1 && hdWebSelection[0] === hdWebCandidate, "resolved lifecycle callback owner should be selected for SemanticFlow modeling");
+    assert(
+        semanticFlowCandidateBelongsToSourceDir(
+            "features/home/src/main/ets",
+            path.join(root, "features/home/src/main/ets"),
+            hdWebCandidate,
+        ),
+        "source-dir scoping should keep package-owned callback candidates when their callsite belongs to the active sourceDir",
+    );
 
     const enriched = enrichNoCandidateItemsWithCallsiteSlices({
         repoRoot: root,
@@ -347,18 +625,216 @@ function main(): void {
     assert(methodCallbackItem.initialSlice.observations.some(line => line.includes("callbackArgIndexes=0,1")), "prompt observations should expose method callback argument indexes");
     assert(methodCallbackItem.initialSlice.observations.some(line => line.includes("typeHint=interceptors.response")), "prompt observations should expose method callback type hint");
 
+    const eventHubCallbackCandidate = candidates.find(item =>
+        item.method === "on"
+        && String(item.sourceFile).endsWith("common/EventHub.ets")
+        && ((item as any).topEntries || []).some((entry: string) => entry === "receiver=EventHub")
+        && (item as any).candidateOrigin === "recall_method_callback_surface");
+    assert(eventHubCallbackCandidate, "project event-bus callback registration should resolve to the imported receiver implementation file");
+    assert((eventHubCallbackCandidate as any).callbackArgIndexes?.includes(1), "EventHub.on candidate should expose callback argument index 1");
+    assert((eventHubCallbackCandidate as any).methodSnippetSource === "recall_method_callback_receiver_import", "EventHub.on candidate should carry imported receiver method evidence");
+    assert(String((eventHubCallbackCandidate as any).methodSnippet || "").includes("emitter.on"), "EventHub.on candidate should include registration implementation evidence");
+
     const apiCandidates = discoverApiSurfaceModelingCandidates(root, [sourceDir], {
-        maxCandidates: 80,
+        maxCandidates: 120,
     });
     const apiMethods = new Set(apiCandidates.map(item => item.method));
     assert(apiMethods.has("getUserCredential"), "service wrapper that exchanges auth code through Axios should become a recalled API modeling candidate");
     assert(apiMethods.has("getUserProfile"), "service wrapper that sends access token through Axios should become a recalled API modeling candidate");
+    const directMqttPublishCandidate = apiCandidates.find(item =>
+        item.method === "publish"
+        && String(item.sourceFile).endsWith("pages/MqttPage.ets")
+        && (item as any).candidateOrigin === "recall_direct_boundary_surface");
+    const pageMqttPublishWrapperCandidate = apiCandidates.find(item =>
+        item.method === "publish"
+        && String(item.sourceFile).endsWith("pages/MqttPage.ets")
+        && (item as any).candidateOrigin === "recall_api_surface");
+    assert(pageMqttPublishWrapperCandidate, "page-local methods with visible SDK-boundary payload forwarding should become project API wrapper candidates");
+    assert(
+        ((pageMqttPublishWrapperCandidate as any).topEntries || []).some((entry: string) => entry.includes("candidateBoundary=page_local_project_or_third_party_wrapper_evidence")),
+        "page-local project wrapper candidates should expose page-local boundary evidence to the LLM",
+    );
+    assert(directMqttPublishCandidate, "page-local direct SDK boundary calls with typed receiver evidence should become API modeling candidates");
+    assert(
+        String(directMqttPublishCandidate.callee_signature).includes("MqttAsyncClient.publish"),
+        `direct SDK boundary candidate should use typed receiver owner, got ${directMqttPublishCandidate.callee_signature}`,
+    );
+    assert(
+        ((directMqttPublishCandidate as any).topEntries || []).some((entry: string) => entry.includes("candidateBoundary=direct_project_or_third_party_callsite_evidence")),
+        "direct SDK boundary candidate should expose callsite boundary evidence",
+    );
+    assert(
+        !apiCandidates.some(item =>
+            item.method === "publish"
+            && String(item.sourceFile).endsWith("pages/LocalOnlyPage.ets")
+            && (item as any).candidateOrigin === "recall_direct_boundary_surface"),
+        "same-name local helper calls without external/imported boundary evidence must not become direct SDK boundary candidates",
+    );
+    const staticStoreReadCandidate = apiCandidates.find(item =>
+        item.method === "getData"
+        && String(item.sourceFile).endsWith("pages/StaticStoragePage.ets")
+        && String(item.callee_signature).includes("StoreUtil.getData")
+        && (item as any).candidateOrigin === "recall_direct_boundary_surface");
+    assert(staticStoreReadCandidate, "external named-import utility calls with payload/key evidence should become direct boundary candidates");
+    assert(staticStoreReadCandidate.invokeKind === "any", `source-text imported-owner direct boundary candidate should use unresolved any invokeKind, got ${staticStoreReadCandidate.invokeKind}`);
+    assert(
+        String(staticStoreReadCandidate.callee_signature).includes("StoreUtil.getData"),
+        `direct boundary candidate should preserve imported owner syntax as candidate evidence, got ${staticStoreReadCandidate.callee_signature}`,
+    );
+    assert(
+        ((staticStoreReadCandidate as any).topEntries || []).some((entry: string) => entry.includes("directBoundaryNamespaceOwnerCallsite=true")),
+        "source-text imported-owner boundary candidate should expose namespace owner callsite evidence",
+    );
+    const officialDeviceCandidate = apiCandidates.find(item =>
+        item.method === "getData"
+        && String(item.sourceFile).endsWith("pages/StaticStoragePage.ets")
+        && String((item as any).importSource || "").includes("@kit"));
+    assert(officialDeviceCandidate, "official imported calls should be recalled structurally; dynamic asset coverage is responsible for known-official filtering");
+    const staticStoreStatusCandidate = apiCandidates.find(item =>
+        item.method === "getStatus"
+        && String(item.sourceFile).endsWith("pages/StaticStoragePage.ets")
+        && (item as any).candidateOrigin === "recall_direct_boundary_surface");
+    assert(staticStoreStatusCandidate, "external static utility calls should be recalled without a method-name whitelist");
+    const opaqueRelayCandidate = apiCandidates.find(item =>
+        item.method === "perform"
+        && String(item.sourceFile).endsWith("pages/StaticStoragePage.ets")
+        && String(item.callee_signature).includes("OpaqueRelay.perform")
+        && (item as any).candidateOrigin === "recall_direct_boundary_surface");
+    assert(opaqueRelayCandidate, "unknown third-party calls without network/SDK keywords should still become API modeling candidates when imported and invoked with a value");
+    const relativeProjectStoreReadCandidate = apiCandidates.find(item =>
+        item.method === "getData"
+        && String(item.sourceFile).endsWith("pages/StaticStoragePage.ets")
+        && String(item.callee_signature).includes("ProjectKvStore.getData")
+        && (item as any).candidateOrigin === "recall_direct_boundary_surface");
+    assert(relativeProjectStoreReadCandidate, "relative project storage utility calls with resolved import and key evidence should become direct boundary candidates");
+    assert(
+        ((relativeProjectStoreReadCandidate as any).topEntries || []).some((entry: string) => entry.includes("directBoundaryResolvedImport=true")),
+        "relative project direct boundary candidates should expose resolved import evidence",
+    );
+    assert(
+        ((relativeProjectStoreReadCandidate as any).topEntries || []).some((entry: string) => entry.includes("resolvedImportFile=")),
+        "relative project storage direct boundary candidates should expose resolved import file evidence",
+    );
+    const relativeProjectStoreWriteCandidate = apiCandidates.find(item =>
+        item.method === "putData"
+        && String(item.sourceFile).endsWith("pages/StaticStoragePage.ets")
+        && String(item.callee_signature).includes("ProjectKvStore.putData")
+        && (item as any).candidateOrigin === "recall_direct_boundary_surface");
+    assert(relativeProjectStoreWriteCandidate, "relative project storage utility writes with key/value evidence should become direct boundary candidates");
+    assert(
+        !apiCandidates.some(item =>
+            item.method === "getData"
+            && String(item.sourceFile).endsWith("pages/StaticStoragePage.ets")
+            && String(item.callee_signature).includes("LocalHelper.getData")
+            && (item as any).candidateOrigin === "recall_direct_boundary_surface"),
+        "visible transparent local helpers must be treated as IR-explained and stay out of API modeling recall",
+    );
+    const eventHubDispatchCandidate = apiCandidates.find(item =>
+        item.method === "sendEvent"
+        && String(item.sourceFile).endsWith("common/EventHub.ets"));
+    assert(eventHubDispatchCandidate, "project event-bus dispatch method should become companion API evidence for callback activation modeling");
+    const eventHubCallbackItem = buildSemanticFlowApiModelingCandidateItem(eventHubCallbackCandidate, {
+        companionCandidates: apiCandidates,
+    });
+    assert(eventHubCallbackItem.initialSlice.observations.some(line => line.includes("receiver=EventHub")),
+        "EventHub callback item should expose receiver evidence");
+    assert(eventHubCallbackItem.initialSlice.observations.some(line => line.includes("resolvedReceiverFile=entry/src/main/ets/common/EventHub.ets")),
+        "EventHub callback item should expose analyzer-backed receiver file evidence");
+    const eventHubEvidence = eventHubCallbackItem.initialSlice.snippets.map(snippet => `${snippet.label}\n${snippet.code || ""}`).join("\n");
+    assert(eventHubEvidence.includes("EventHub.sendEvent") || eventHubEvidence.includes("method: sendEvent"),
+        "EventHub callback evidence should include dispatch companion evidence for module.eventEmitter modeling");
+    assert(eventHubEvidence.includes("EventKey.LoginWebDav"),
+        "EventHub callback evidence should retain enum-key registration/dispatch usage");
+    assert(apiMethods.has("sendTextMessage"), "viewmodel wrapper that sends payload through a third-party SDK should become a recalled API modeling candidate");
+    assert(apiMethods.has("sendMessage"), "viewmodel wrapper that reaches a third-party SDK send API should become a recalled API modeling candidate");
     assert(!apiMethods.has("checkPhone"), "page validation helper should not become a recalled API wrapper candidate");
+    assert(!apiMethods.has("scrollToLatest"), "pure UI viewmodel helper should not become a recalled API wrapper candidate");
     const credentialCandidate = apiCandidates.find(item =>
         item.method === "getUserCredential" && (item as any).candidateOrigin === "recall_api_surface");
     assert(credentialCandidate, "missing getUserCredential recalled API candidate");
     assert((credentialCandidate as any).candidateOrigin === "recall_api_surface", "API surface candidate should expose neutral recall origin");
     assert(typeof (credentialCandidate as any).methodSnippet === "string" && (credentialCandidate as any).methodSnippet.includes("Axios.post"), "API wrapper candidate should carry method body evidence");
+    const sendTextCandidate = apiCandidates.find(item =>
+        item.method === "sendTextMessage" && String(item.sourceFile).endsWith("viewmodels/MessageViewModel.ets"));
+    assert(sendTextCandidate, "missing viewmodel sendTextMessage recalled API candidate");
+    const baseSendTextCandidate = apiCandidates.find(item =>
+        item.method === "sendTextMessage"
+        && String(item.sourceFile).endsWith("viewmodels/MessageViewModel.ets")
+        && String(item.callee_signature).includes("BaseMessageViewModel.sendTextMessage"));
+    assert(baseSendTextCandidate, "scanner should add analyzer-compatible declared owner candidate for BaseMessageViewModel.sendTextMessage");
+    assert(
+        ((baseSendTextCandidate as any).topEntries || []).some((entry: string) => entry.includes("declaredOwnerFromCallsite=BaseMessageViewModel")),
+        "declared owner candidate should expose callsite owner evidence",
+    );
+    assert(
+        !apiCandidates.some(item =>
+            item.method === "sendTextMessage"
+            && String(item.sourceFile).endsWith("viewmodels/MessageViewModel.ets")
+            && String(item.callee_signature).includes("UnrelatedBase.sendTextMessage")),
+        "scanner must not add declared-owner candidates when implementation owner is not inheritance-compatible",
+    );
+    const declaredOwnerSelection = selectSemanticFlowRuleCandidatesForModeling([
+        sendTextCandidate,
+        baseSendTextCandidate,
+    ] as any, 1);
+    assert(
+        declaredOwnerSelection.length === 2
+        && declaredOwnerSelection.some(item => String(item.callee_signature).includes("BaseMessageViewModel.sendTextMessage"))
+        && declaredOwnerSelection.some(item => String(item.callee_signature).includes("MessageViewModel.sendTextMessage")),
+        "SemanticFlow candidate queue should retain both implementation-owner and analyzer-backed declared-owner surfaces; identity compatibility is resolved after modeling, not by queue exclusion",
+    );
+    const sendMessageCandidate = apiCandidates.find(item =>
+        item.method === "sendMessage" && String(item.sourceFile).endsWith("viewmodels/MessageViewModel.ets"));
+    assert(sendMessageCandidate, "missing viewmodel sendMessage recalled API candidate");
+    assert(
+        ((sendTextCandidate as any).topEntries || []).some((entry: string) => entry.includes("candidateBoundary=project_or_third_party_wrapper_evidence")),
+        "viewmodel SDK wrapper candidate should carry project wrapper boundary evidence",
+    );
+    const chainedSelection = selectSemanticFlowRuleCandidatesForModeling([
+        {
+            callee_signature: "@%unk/%unk: .ChatInputMenuView()",
+            method: "ChatInputMenuView",
+            invokeKind: "static",
+            argCount: 1,
+            sourceFile: "components/chat/ChatComponents.ets",
+            count: 1,
+            topEntries: [],
+            candidateOrigin: "recall_callback_surface",
+            callbackProperties: ["onClickSend"],
+            contextSlices: [{
+                callerFile: "components/chat/ChatView.ets",
+                invokeLine: 10,
+                invokeStmtText: "ChatInputMenuView({ onClickSend: (content: MessageContent) => { this.messageViewModel.sendTextMessage(content); } })",
+                windowLines: "onClickSend: (content: MessageContent) => { this.messageViewModel.sendTextMessage(content); }",
+                cfgNeighborStmts: [],
+            }],
+        },
+        sendTextCandidate,
+        sendMessageCandidate,
+        {
+            callee_signature: "@demo/services/ProfileService.ets: ProfileService.getUserProfile(Unknown)",
+            method: "getUserProfile",
+            invokeKind: "instance",
+            argCount: 1,
+            sourceFile: "services/ProfileService.ets",
+            count: 30,
+            topEntries: ["origin=recall_api_surface", "candidateBoundary=project_or_third_party_wrapper_evidence"],
+            candidateOrigin: "recall_api_surface",
+            methodSnippet: "getUserProfile(token: string) { return this.client.request(token); }",
+        },
+    ] as any, 4);
+    assert(
+        chainedSelection.some(item => item.method === "ChatInputMenuView"),
+        "small SemanticFlow budget should keep the callback source candidate",
+    );
+    assert(
+        chainedSelection.some(item => item.method === "sendTextMessage"),
+        "small SemanticFlow budget should keep the project API directly called from callback source context",
+    );
+    assert(
+        chainedSelection.some(item => item.method === "sendMessage"),
+        "small SemanticFlow budget should keep the next project API directly called from the selected wrapper context",
+    );
     const credentialSourceCandidate = apiCandidates.find(item =>
         item.method === "getUserCredential" && (item as any).semanticFocus === "returned_value_surface");
     assert(credentialSourceCandidate, "network wrapper that returns response data should also expose a focused return-source candidate");
@@ -376,6 +852,33 @@ function main(): void {
             && (item as any).semanticFocus === "returned_value_surface");
         assert(genericFocusedCandidate, `${methodName} should expose a returned-value modeling question`);
     }
+    const multilineRequestCandidate = apiCandidates.find(item =>
+        item.method === "_request" && String(item.sourceFile).endsWith("network/MultiLinePrivateClient.ets"));
+    assert(multilineRequestCandidate, "multiline private boundary method should be recalled as a project API candidate");
+    assert(
+        typeof (multilineRequestCandidate as any).methodSnippet === "string"
+        && (multilineRequestCandidate as any).methodSnippet.includes("mergedHeaders")
+        && (multilineRequestCandidate as any).methodSnippet.includes("Session().fetch"),
+        "multiline private boundary candidate should carry its full method body evidence",
+    );
+    const multilinePropfindCandidate = apiCandidates.find(item =>
+        item.method === "propfind" && String(item.sourceFile).endsWith("network/MultiLinePrivateClient.ets"));
+    assert(multilinePropfindCandidate, "public wrapper that calls a multiline private boundary should be recalled");
+    const multilinePropfindItem = buildSemanticFlowApiModelingCandidateItem(multilinePropfindCandidate, {
+        companionCandidates: apiCandidates,
+    });
+    const multilineCompanionEvidence = multilinePropfindItem.initialSlice.snippets.map(snippet => snippet.code || "").join("\n");
+    assert(
+        multilineCompanionEvidence.includes("method: _request")
+        && multilineCompanionEvidence.includes("mergedHeaders")
+        && multilineCompanionEvidence.includes("console.debug"),
+        "SemanticFlow companion evidence should inline multiline private boundary methods called by project wrappers",
+    );
+    assert(
+        !apiCandidates.some(item =>
+            item.method === "formatLocal" && String(item.sourceFile).endsWith("pages/LocalOnlyPage.ets")),
+        "multiline local-only helpers without boundary effects must not become project API candidates",
+    );
     for (const methodName of ["getParsedProfile", "loginWithQRSession"]) {
         const focusedCandidate = apiCandidates.find(item =>
             item.method === methodName && (item as any).semanticFocus === "returned_value_surface");
@@ -411,7 +914,7 @@ function main(): void {
         item.method === "getLogger" && String(item.sourceFile).endsWith("log/LoggerFacade.ets"));
     assert(loggerPayloadIndex >= 0, "public logging payload facade should become a recalled API candidate");
     assert(loggerFactoryIndex < 0 || loggerPayloadIndex < loggerFactoryIndex,
-        "logging payload methods should not be outranked by logger factory/cache helpers");
+        "logging payload methods should remain ahead of logger factory/cache helpers in the structural queue");
     const longLogCandidate = apiCandidates.find(item =>
         item.method === "logByCustomConfig" && String(item.sourceFile).endsWith("log/LoggerFacade.ets"));
     assert(longLogCandidate, "long logging wrapper should be recalled");
@@ -444,6 +947,14 @@ function main(): void {
         assert((bridgeCandidate.topEntries || []).includes("candidateBoundary=project_or_third_party_bridge_evidence"),
             `${methodName} should carry bridge evidence instead of a preselected artifact plane`);
     }
+    const hybridProxyCandidate = apiCandidates.find(item =>
+        item.method === "invoke" && String(item.sourceFile).endsWith("HybridContainer/DMPWebViewProxy.ets"));
+    assert(hybridProxyCandidate, "WebView/JS proxy receiver methods in HybridContainer should become recalled API modeling candidates");
+    assert((hybridProxyCandidate.topEntries || []).includes("candidateBoundary=project_or_third_party_bridge_evidence"),
+        "HybridContainer WebView proxy candidate should carry bridge evidence");
+    const hybridHelperCandidate = apiCandidates.find(item =>
+        item.method === "getWebViewId" && String(item.sourceFile).endsWith("HybridContainer/DMPWebViewProxy.ets"));
+    assert(!hybridHelperCandidate, "ordinary HybridContainer helper methods must not become bridge candidates");
     const bridgeCallCandidate = apiCandidates.find(item =>
         item.method === "call" && String(item.sourceFile).endsWith("bridge/BaseBridge.ts"));
     assert(bridgeCallCandidate, "missing bridge call candidate");

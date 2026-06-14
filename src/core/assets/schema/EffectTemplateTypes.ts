@@ -19,6 +19,7 @@ export type SemanticEffectTemplate =
     | EntryCallbackRegisterTemplate
     | EntryScheduleUnitTemplate
     | EntryFrameworkInvokeTemplate
+    | ModuleEventEmitterTemplate
     | CoreCapabilityTemplate;
 
 export type SemanticEffectKind = SemanticEffectTemplate["kind"];
@@ -152,6 +153,20 @@ export interface EntryFrameworkInvokeTemplate {
     confidence?: Confidence;
 }
 
+export interface ModuleEventEmitterTemplate {
+    id: string;
+    kind: "module.eventEmitter";
+    onMethods?: string[];
+    emitMethods?: string[];
+    channelArgIndexes?: number[];
+    /** Use -1 for dispatch methods that activate callbacks without carrying a payload argument. */
+    payloadArgIndex?: number;
+    callbackArgIndex?: number;
+    callbackParamIndex?: number;
+    maxCandidates?: number;
+    confidence?: Confidence;
+}
+
 export interface CoreCapabilityTemplate {
     id: string;
     kind: "core.capability";
@@ -173,5 +188,6 @@ export const SEMANTIC_EFFECT_KINDS: readonly SemanticEffectKind[] = [
     "entry.callbackRegister",
     "entry.scheduleUnit",
     "entry.frameworkInvoke",
+    "module.eventEmitter",
     "core.capability",
 ] as const;

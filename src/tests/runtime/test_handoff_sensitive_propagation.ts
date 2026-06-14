@@ -183,6 +183,111 @@ async function main(): Promise<void> {
     assert(linked?.length === 1, `expected scoped-link emission, got ${linked?.length || 0}`);
     assert(linked![0].fact.id === "2@0.value", `expected tail field on linked target, got ${linked![0].fact.id}`);
 
+    const unrelatedExactEffects: any[] = [];
+    for (let i = 0; i < 250; i++) {
+        const unrelated = createExactHandoffHandle("reactive-state-slot", "test.state", `unrelated.${i}`);
+        unrelatedExactEffects.push({
+            kind: "get",
+            handle: unrelated,
+            target: { nodeId: 4 },
+            reason: `get-unrelated-${i}`,
+        });
+    }
+    const indexedLinkedSession = createHandoffPropagationSession([
+        {
+            kind: "put",
+            handle: parent,
+            source: { nodeId: 1, fieldHead: "uid" },
+            reason: "put-parent-uid-indexed",
+        },
+        ...unrelatedExactEffects,
+        {
+            kind: "scoped-link",
+            left: parent,
+            right: child,
+            reason: "link-parent-child-indexed",
+        },
+        {
+            kind: "get",
+            handle: child,
+            target: { nodeId: 2, currentField: { mode: "tail", requireField: true } },
+            reason: "get-child-uid-load-indexed",
+        },
+    ]).emitForFact(makeEvent(1, ["uid", "value"]));
+    assert(indexedLinkedSession?.length === 1, `expected one indexed linked emission, got ${indexedLinkedSession?.length || 0}`);
+    assert(
+        indexedLinkedSession![0].reason === "get-child-uid-load-indexed",
+        `unrelated exact handles must not emit, got ${indexedLinkedSession![0].reason}`,
+    );
+
+    const duplicateDropFieldSession = createHandoffPropagationSession([
+        {
+            kind: "put",
+            handle: token,
+            source: { nodeId: 1 },
+            reason: "put-drop-field",
+        },
+        {
+            kind: "get",
+            handle: token,
+            target: { nodeId: 2, preserveSourceField: false },
+            reason: "get-drop-field",
+        },
+    ]);
+    const firstDroppedField = duplicateDropFieldSession.emitForFact(makeEvent(1, ["first"]));
+    assert(firstDroppedField?.length === 1, `expected first dropped-field emission, got ${firstDroppedField?.length || 0}`);
+    assert(firstDroppedField![0].fact.id === "2@0", `expected dropped-field target fact 2@0, got ${firstDroppedField![0].fact.id}`);
+    const duplicateDroppedField = duplicateDropFieldSession.emitForFact(makeEvent(1, ["second"]));
+    assert(!duplicateDroppedField || duplicateDroppedField.length === 0, "expected equivalent target emission to be suppressed before worklist dedup");
+
+    const distinctReasonSession = createHandoffPropagationSession([
+        {
+            kind: "put",
+            handle: token,
+            source: { nodeId: 1 },
+            reason: "put-distinct-reason",
+        },
+        {
+            kind: "get",
+            handle: token,
+            target: { nodeId: 2, preserveSourceField: false },
+            reason: "get-distinct-reason-a",
+        },
+        {
+            kind: "get",
+            handle: token,
+            target: { nodeId: 2, preserveSourceField: false },
+            reason: "get-distinct-reason-b",
+        },
+    ]);
+    const distinctReasons = distinctReasonSession.emitForFact(makeEvent(1, ["value"]));
+    assert(distinctReasons?.length === 2, `expected distinct reasons to be preserved, got ${distinctReasons?.length || 0}`);
+    assert(
+        new Set(distinctReasons!.map(item => item.reason)).size === 2,
+        "expected both distinct handoff reasons to remain visible as separate evidence",
+    );
+
+    const distinctPreservedFieldSession = createHandoffPropagationSession([
+        {
+            kind: "put",
+            handle: token,
+            source: { nodeId: 1 },
+            reason: "put-preserve-field",
+        },
+        {
+            kind: "get",
+            handle: token,
+            target: { nodeId: 2 },
+            reason: "get-preserve-field",
+        },
+    ]);
+    const firstPreservedField = distinctPreservedFieldSession.emitForFact(makeEvent(1, ["first"]));
+    const secondPreservedField = distinctPreservedFieldSession.emitForFact(makeEvent(1, ["second"]));
+    assert(firstPreservedField?.length === 1, `expected first preserved-field emission, got ${firstPreservedField?.length || 0}`);
+    assert(secondPreservedField?.length === 1, `expected distinct preserved-field emission, got ${secondPreservedField?.length || 0}`);
+    assert(firstPreservedField![0].fact.id === "2@0.first", `expected first preserved field target, got ${firstPreservedField![0].fact.id}`);
+    assert(secondPreservedField![0].fact.id === "2@0.second", `expected second preserved field target, got ${secondPreservedField![0].fact.id}`);
+
     const noFieldLinked = createHandoffPropagationSession([
         {
             kind: "put",

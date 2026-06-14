@@ -13,6 +13,26 @@ export interface SmokeProjectConfig {
     sinkSignatures?: string[];
     // Optional per-project upper bound; effective entries = min(cli.maxEntries, maxEntriesCap).
     maxEntriesCap?: number;
+    // Optional bounded SemanticFlow modeling for project/third-party API evaluation.
+    autoModel?: boolean;
+    llmProfile?: string;
+    llmModel?: string;
+    llmSessionCacheDir?: string;
+    llmSessionCacheMode?: string;
+    llmTimeoutMs?: number;
+    llmConnectTimeoutMs?: number;
+    llmMaxAttempts?: number;
+    llmMaxFailures?: number;
+    llmRepairAttempts?: number;
+    maxLlmItems?: number;
+    worklistBudgetMs?: number;
+    worklistMaxDequeues?: number;
+    worklistMaxVisited?: number;
+    moduleSetupBudgetMs?: number;
+    executionHandoffBudgetMs?: number;
+    pagIndexBudgetMs?: number;
+    lazyMaterializerBudgetMs?: number;
+    reachableBudgetMs?: number;
     enabled?: boolean;
 }
 
@@ -26,6 +46,26 @@ export interface CliOptions {
     maxEntries: number;
     outputDir: string;
     projectFilter?: string;
+    autoModel?: boolean;
+    autoModelProjects?: string[];
+    llmProfile?: string;
+    llmModel?: string;
+    llmSessionCacheDir?: string;
+    llmSessionCacheMode?: string;
+    llmTimeoutMs?: number;
+    llmConnectTimeoutMs?: number;
+    llmMaxAttempts?: number;
+    llmMaxFailures?: number;
+    llmRepairAttempts?: number;
+    maxLlmItems?: number;
+    worklistBudgetMs?: number;
+    worklistMaxDequeues?: number;
+    worklistMaxVisited?: number;
+    moduleSetupBudgetMs?: number;
+    executionHandoffBudgetMs?: number;
+    pagIndexBudgetMs?: number;
+    lazyMaterializerBudgetMs?: number;
+    reachableBudgetMs?: number;
 }
 
 export interface ResolvedEntry {
@@ -89,10 +129,21 @@ export interface ProjectSmokeResult {
     commit?: string;
     tags: string[];
     sourceDirs: string[];
+    autoModel?: boolean;
     sourceSummaries: SourceDirSummary[];
     entries: EntrySmokeResult[];
     sinkSignatures: string[];
     effectiveMaxEntries?: number;
+    effectiveLlmTimeoutMs?: number;
+    effectiveLlmConnectTimeoutMs?: number;
+    effectiveWorklistBudgetMs?: number;
+    effectiveWorklistMaxDequeues?: number;
+    effectiveWorklistMaxVisited?: number;
+    effectiveModuleSetupBudgetMs?: number;
+    effectiveExecutionHandoffBudgetMs?: number;
+    effectivePagIndexBudgetMs?: number;
+    effectiveLazyMaterializerBudgetMs?: number;
+    effectiveReachableBudgetMs?: number;
     analyzed: number;
     withSeeds: number;
     withFlows: number;

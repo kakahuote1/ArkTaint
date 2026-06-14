@@ -136,6 +136,26 @@ async function main(): Promise<void> {
     const fileioDetected = await detectCase(scene, "fileio_write_sync_sdk_import_004_T", fileioRules);
     const appAccountDetected = await detectCase(scene, "appaccount_manager_sdk_scope_005_T", appAccountRules);
     const projectAccountDetected = await detectCase(scene, "project_account_manager_scope_006_F", appAccountRules);
+    const callerAndCalleeRules: SinkRule[] = [
+        {
+            id: "sink.test.http_request_with_caller_and_callee_scope.arg0",
+            match: {
+                kind: "method_name_equals",
+                value: "request",
+                invokeKind: "instance",
+                argCount: 1,
+            },
+            scope: {
+                methodName: { mode: "equals", value: "caller_callee_scope_allowed_007_T" },
+            },
+            calleeScope: {
+                className: { mode: "contains", value: "HttpRequestHost" },
+            },
+            target: { endpoint: "arg0" },
+        },
+    ];
+    const callerAndCalleeAllowed = await detectCase(scene, "caller_callee_scope_allowed_007_T", callerAndCalleeRules);
+    const callerAndCalleeRejected = await detectCase(scene, "caller_callee_scope_rejected_008_F", callerAndCalleeRules);
 
     console.log("====== Sink Callee Scope Test ======");
     console.log(`http_request_detected=${httpDetected}`);
@@ -144,6 +164,8 @@ async function main(): Promise<void> {
     console.log(`fileio_write_sync_detected=${fileioDetected}`);
     console.log(`appaccount_detected=${appAccountDetected}`);
     console.log(`project_account_detected=${projectAccountDetected}`);
+    console.log(`caller_and_callee_allowed_detected=${callerAndCalleeAllowed}`);
+    console.log(`caller_and_callee_rejected_detected=${callerAndCalleeRejected}`);
 
     assert(httpDetected, "expected scoped HTTP request sink to be detected");
     assert(!lockDetected, "expected non-HTTP request method to be rejected by callee scope");
@@ -151,6 +173,8 @@ async function main(): Promise<void> {
     assert(fileioDetected, "expected SDK import-rooted fileio.writeSync sink to be detected");
     assert(appAccountDetected, "expected SDK appAccount manager credential sink to be detected");
     assert(!projectAccountDetected, "expected project account manager methods to be rejected by appAccount scope");
+    assert(callerAndCalleeAllowed, "expected sink with matching caller scope and calleeScope to be detected");
+    assert(!callerAndCalleeRejected, "expected sink with non-matching caller scope to be rejected");
 }
 
 main().catch(err => {

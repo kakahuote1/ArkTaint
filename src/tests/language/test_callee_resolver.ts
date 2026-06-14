@@ -77,6 +77,72 @@ function testOwnerInferenceFromBaseType(): void {
     assert(selectedSig.includes("B.foo"), `owner inference selected unexpected method: ${selectedSig}`);
 }
 
+function makeMockMethod(signature: string, name: string, paramIndices: number[] = []): any {
+    const stmts = paramIndices.map((idx) =>
+        new ArkAssignStmt(new Local(`p${idx}`), new ArkParameterRef(idx, UnknownType.getInstance()))
+    );
+    return {
+        getName: () => name,
+        getCfg: () => ({ getStmts: () => stmts }),
+        getSignature: () => ({ toString: () => signature }),
+    };
+}
+
+function makeUnknownInstanceInvoke(methodName: string, base: any, args: any[] = []): any {
+    return {
+        getMethodSignature: () => ({
+            toString: () => `<@%unk/%unk: .${methodName}()>`,
+            getMethodSubSignature: () => ({
+                getMethodName: () => methodName,
+            }),
+        }),
+        getArgs: () => args,
+        getBase: () => base,
+    };
+}
+
+function testSymbolicSingletonReceiverOwnerInference(): void {
+    const ownerMethod = makeMockMethod(
+        "<@X/viewmodel/HomeViewModel.ets: HomeViewModel.getHomeList(@X/base/BaseViewModel.ets: %dflt.[static]%dflt()#ResultCallback)>",
+        "getHomeList",
+        [0, 1],
+    );
+    const freeMethod = makeMockMethod("<@X/http/apiService.ets: %dflt.getHomeList(string)>", "getHomeList", [0]);
+    const scene: any = {
+        getMethods: () => [freeMethod, ownerMethod],
+    };
+
+    const invokeExpr = makeUnknownInstanceInvoke("getHomeList", {
+        getName: () => "HomeViewModel",
+        toString: () => "HomeViewModel",
+    }, [new Local("%AM_callback")]);
+
+    const candidates = resolveCalleeCandidates(scene, invokeExpr);
+    assert(candidates.length === 1, `symbolic receiver expected 1 candidate, got ${candidates.length}`);
+    const selectedSig = candidates[0].method.getSignature().toString();
+    assert(selectedSig.includes("HomeViewModel.getHomeList"), `symbolic receiver selected unexpected method: ${selectedSig}`);
+}
+
+function testSymbolicReceiverDoesNotUseLocalAliases(): void {
+    const ownerMethod = makeMockMethod(
+        "<@X/viewmodel/HomeViewModel.ets: HomeViewModel.getHomeList(@X/base/BaseViewModel.ets: %dflt.[static]%dflt()#ResultCallback)>",
+        "getHomeList",
+        [0, 1],
+    );
+    const freeMethod = makeMockMethod("<@X/http/apiService.ets: %dflt.getHomeList(string)>", "getHomeList", [0]);
+    const scene: any = {
+        getMethods: () => [freeMethod, ownerMethod],
+    };
+
+    const baseLocal = new Local("HomeViewModel");
+    const declStmt = new ArkAssignStmt(baseLocal, new Local("arbitrary"));
+    baseLocal.setDeclaringStmt(declStmt);
+    const invokeExpr = makeUnknownInstanceInvoke("getHomeList", baseLocal, [new Local("%AM_callback")]);
+
+    const candidates = resolveCalleeCandidates(scene, invokeExpr);
+    assert(candidates.length !== 1, "declared local alias must not be narrowed as an imported singleton receiver");
+}
+
 function testDirectCallableTypeFallback(): void {
     const targetMethod = {
         getName: () => "target",
@@ -156,6 +222,8 @@ function testInvokedParamsTracksFieldRelay(): void {
 function main(): void {
     testImplicitThisArgMapping();
     testOwnerInferenceFromBaseType();
+    testSymbolicSingletonReceiverOwnerInference();
+    testSymbolicReceiverDoesNotUseLocalAliases();
     testDirectCallableTypeFallback();
     testInvokedParamsTracksFieldRelay();
     console.log("callee_resolver_tests=PASS");

@@ -4,6 +4,7 @@ import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagatio
 import { loadRuleSet } from "../../core/rules/RuleLoader";
 import { SinkRule, SourceRule } from "../../core/rules/RuleSchema";
 import { resolveSuiteCaseExpectation } from "../helpers/SuiteExpectationResolver";
+import { createIsolatedCaseView, ensureDir } from "../helpers/ExecutionHandoffContractSupport";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -83,6 +84,24 @@ function listCases(sourceDir: string): string[] {
         .sort();
 }
 
+function buildScene(sourceDir: string): Scene {
+    const sceneConfig = new SceneConfig();
+    sceneConfig.buildFromProjectDir(sourceDir);
+    const scene = new Scene();
+    scene.buildSceneFromProjectDir(sceneConfig);
+    scene.inferTypes();
+    return scene;
+}
+
+function findCaseEntryMethod(scene: Scene, caseName: string): any {
+    const exact = scene.getMethods().find(method =>
+        method.getName?.() === caseName
+        && method.getSignature?.().toString?.().includes(`${caseName}.ets`),
+    );
+    if (exact) return exact;
+    return scene.getMethods().find(method => method.getName?.() === caseName);
+}
+
 async function main(): Promise<void> {
     const options = parseArgs(process.argv.slice(2));
     if (!fs.existsSync(options.sourceDir)) {
@@ -106,28 +125,27 @@ async function main(): Promise<void> {
     console.log(`source_rules_loaded=${sourceRules.length}`);
     console.log(`sink_rules_loaded=${sinkRules.length}`);
 
-    const sceneConfig = new SceneConfig();
-    sceneConfig.buildFromProjectDir(options.sourceDir);
-    const scene = new Scene();
-    scene.buildSceneFromProjectDir(sceneConfig);
-    scene.inferTypes();
-
     const cases = listCases(options.sourceDir)
         .filter(name => name !== "taint_mock");
+    const caseViewRoot = path.resolve("tmp/test_runs/security/harmony_event_activation/latest/case_views");
+    ensureDir(caseViewRoot);
     const results: CaseResult[] = [];
     let passCount = 0;
 
     for (const caseName of cases) {
         const expected = resolveSuiteCaseExpectation("harmony_event_activation", caseName);
+        const caseDir = createIsolatedCaseView(options.sourceDir, caseName, caseViewRoot);
+        const scene = buildScene(caseDir);
+        const entryMethod = findCaseEntryMethod(scene, caseName);
+        if (!entryMethod) {
+            throw new Error(`entry method not found for ${caseName}`);
+        }
         const engine = new TaintPropagationEngine(scene, options.k);
         engine.verbose = false;
-        await engine.buildPAG();
-        try {
-            const reachable = engine.computeReachableMethodSignatures();
-            engine.setActiveReachableMethodSignatures(reachable);
-        } catch {
-            engine.setActiveReachableMethodSignatures(undefined);
-        }
+        await engine.buildPAG({
+            entryModel: "explicit",
+            syntheticEntryMethods: [entryMethod],
+        });
 
         const seedInfo = engine.propagateWithSourceRules(sourceRules);
         const flows = engine.detectSinksByRules(sinkRules);

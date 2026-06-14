@@ -19,11 +19,14 @@ interface ImportBinding {
 
 interface CandidateAccumulator {
     item: NormalizedCallsiteItem;
-    score: number;
+    tier: ApiModelingCandidateTier;
+    reasons: string[];
+    originalIndex: number;
 }
 
 interface MethodCandidate {
     owner?: string;
+    baseOwner?: string;
     method: string;
     isStatic: boolean;
     argCount: number;
@@ -31,7 +34,60 @@ interface MethodCandidate {
     returnType?: string;
     startLine: number;
     code: string;
-    score: number;
+}
+
+interface SourceFileText {
+    absFile: string;
+    relFile: string;
+    text: string;
+}
+
+interface DeclaredOwnerCallsiteHint {
+    method: string;
+    declaredOwner: string;
+    receiver: string;
+    callerFile: string;
+    invokeLine: number;
+    invokeStmtText: string;
+    windowLines: string;
+}
+
+interface DirectBoundaryCallsite {
+    receiver: string;
+    declaredOwner: string;
+    method: string;
+    invokeKind: NormalizedCallsiteItem["invokeKind"];
+    start: number;
+    statementText: string;
+    argCount: number;
+    importSource: string;
+    resolvedFile?: string;
+}
+
+type ApiModelingCandidateTier =
+    | "direct-boundary"
+    | "project-wrapper"
+    | "declared-owner-wrapper"
+    | "returned-value-wrapper"
+    | "callback-payload";
+
+interface ProjectApiWrapperClassification {
+    eligible: boolean;
+    tier: ApiModelingCandidateTier;
+    reasons: string[];
+}
+
+const API_MODELING_TIER_ORDER: ApiModelingCandidateTier[] = [
+    "direct-boundary",
+    "declared-owner-wrapper",
+    "project-wrapper",
+    "returned-value-wrapper",
+    "callback-payload",
+];
+
+function apiModelingTierIndex(tier: ApiModelingCandidateTier): number {
+    const index = API_MODELING_TIER_ORDER.indexOf(tier);
+    return index >= 0 ? index : API_MODELING_TIER_ORDER.length;
 }
 
 const OFFICIAL_ARKUI_COMPONENTS = new Set([
@@ -70,6 +126,9 @@ const SKIP_DIRS = new Set([
     "tmp",
 ]);
 
+const DATA_ENDPOINT_TOKEN_RE = /\b(payload|body|data|message|msg|content|text|value|values?|params?|query|header|authorization|token|password|passwd|credential|secret|cookie|file|buffer|record|url|uri|server|address|host|endpoint|user|username|key|path)\b/i;
+const STRUCTURAL_EFFECT_METHOD_RE = /\.\s*[A-Za-z_$][\w$]*\s*\(/;
+
 function normalizeSlashes(value: string): string {
     return String(value || "").replace(/\\/g, "/");
 }
@@ -97,7 +156,6 @@ export function discoverApiCallbackModelingCandidates(
             const binding = imports.get(call.callee);
             const sourceFile = binding?.resolvedFile || relFile;
             const key = `${call.callee}|${sourceFile}|${callbackProperties.join(",")}`;
-            const score = scoreCallbackCandidate(call.callee, callbackProperties, binding);
             const existing = byKey.get(key);
             const contextSlice = {
                 callerFile: relFile,
@@ -108,7 +166,6 @@ export function discoverApiCallbackModelingCandidates(
             };
             if (existing) {
                 existing.item.count = (existing.item.count || 1) + 1;
-                existing.score = Math.max(existing.score, score);
                 const slices = Array.isArray((existing.item as any).contextSlices)
                     ? (existing.item as any).contextSlices as unknown[]
                     : [];
@@ -117,28 +174,44 @@ export function discoverApiCallbackModelingCandidates(
                 }
                 continue;
             }
+            const ownerSnippet = binding?.resolvedFile
+                ? readExportedSymbolSnippet(repoRoot, binding.resolvedFile, call.callee)
+                : undefined;
             byKey.set(key, {
-                score,
+                tier: "callback-payload",
+                reasons: buildCallbackCandidateReasons(call.callee, callbackProperties, binding),
+                originalIndex: byKey.size,
                 item: {
-                    callee_signature: `@%unk/%unk: .${call.callee}()`,
+                    callee_signature: binding?.resolvedFile
+                        ? buildResolvedCallbackSurfaceSignature(binding.resolvedFile, call.callee)
+                        : `@%unk/%unk: .${call.callee}()`,
                     method: call.callee,
                     invokeKind: "static",
                     argCount: 1,
                     sourceFile,
                     count: 1,
-                    topEntries: [],
+                    topEntries: [
+                        ...(binding?.resolvedFile ? [
+                            `resolvedCallbackOwnerFile=${binding.resolvedFile}`,
+                            "callbackOwnerResolved=true",
+                        ] : []),
+                    ],
                     candidateOrigin: "recall_callback_surface",
                     callbackProperties,
                     importSource: binding?.source,
+                    methodSnippet: ownerSnippet,
+                    methodSnippetSource: ownerSnippet ? "recall_callback_owner_import" : undefined,
                     callerFiles: [relFile],
                     contextSlices: [contextSlice],
                 } as NormalizedCallsiteItem,
             });
         }
         for (const call of collectMethodCallbackCalls(text)) {
-            const sourceFile = relFile;
+            const receiverRoot = receiverRootIdentifier(call.receiver);
+            const receiverBinding = receiverRoot ? imports.get(receiverRoot) : undefined;
+            const receiverMethodEvidence = resolveImportedReceiverMethodEvidence(repoRoot, receiverBinding?.resolvedFile, receiverRoot, call.method);
+            const sourceFile = receiverBinding?.resolvedFile || relFile;
             const key = `${call.method}|${sourceFile}|${call.receiver}|${call.callbackArgIndexes.join(",")}`;
-            const score = scoreMethodCallbackCandidate(call);
             const existing = byKey.get(key);
             const contextSlice = {
                 callerFile: relFile,
@@ -149,7 +222,6 @@ export function discoverApiCallbackModelingCandidates(
             };
             if (existing) {
                 existing.item.count = (existing.item.count || 1) + 1;
-                existing.score = Math.max(existing.score, score);
                 const slices = Array.isArray((existing.item as any).contextSlices)
                     ? (existing.item as any).contextSlices as unknown[]
                     : [];
@@ -159,11 +231,15 @@ export function discoverApiCallbackModelingCandidates(
                 continue;
             }
             byKey.set(key, {
-                score,
+                tier: "callback-payload",
+                reasons: buildMethodCallbackCandidateReasons(call),
+                originalIndex: byKey.size,
                 item: {
-                    callee_signature: `@%unk/%unk: .${call.method}(${Array.from({ length: call.argCount }, () => "Unknown").join(", ")})`,
+                    callee_signature: receiverMethodEvidence
+                        ? buildProjectApiWrapperSignature(sourceFile, receiverMethodEvidence, receiverMethodEvidence.owner || receiverRoot)
+                        : `@%unk/%unk: .${call.method}(${Array.from({ length: call.argCount }, () => "Unknown").join(", ")})`,
                     method: call.method,
-                    invokeKind: "instance",
+                    invokeKind: receiverMethodEvidence?.isStatic ? "static" : "instance",
                     argCount: call.argCount,
                     sourceFile,
                     count: 1,
@@ -172,10 +248,17 @@ export function discoverApiCallbackModelingCandidates(
                         `receiver=${call.receiver}`,
                         `callbackArgIndexes=${call.callbackArgIndexes.join(",")}`,
                         ...(call.typeHint ? [`typeHint=${call.typeHint}`] : []),
+                        ...(receiverRoot ? [`receiverRoot=${receiverRoot}`] : []),
+                        ...(receiverBinding?.source ? [`importSource=${receiverBinding.source}`] : []),
+                        ...(receiverBinding?.resolvedFile ? [`resolvedReceiverFile=${receiverBinding.resolvedFile}`] : []),
+                        ...(receiverMethodEvidence?.owner ? [`resolvedReceiverOwner=${receiverMethodEvidence.owner}`] : []),
                     ],
                     candidateOrigin: "recall_method_callback_surface",
                     callbackArgIndexes: call.callbackArgIndexes,
                     typeHint: call.typeHint,
+                    importSource: receiverBinding?.source,
+                    methodSnippet: receiverMethodEvidence?.code,
+                    methodSnippetSource: receiverMethodEvidence ? "recall_method_callback_receiver_import" : undefined,
                     callerFiles: [relFile],
                     contextSlices: [contextSlice],
                 } as NormalizedCallsiteItem,
@@ -183,21 +266,67 @@ export function discoverApiCallbackModelingCandidates(
         }
     }
     return [...byKey.values()]
-        .sort((a, b) => b.score - a.score || (b.item.count || 0) - (a.item.count || 0)
-            || String(a.item.method).localeCompare(String(b.item.method)))
+        .sort(compareApiModelingCandidateAccumulators)
         .slice(0, maxCandidates)
         .map(entry => entry.item);
 }
 
-function scoreMethodCallbackCandidate(call: MethodCallbackCall): number {
-    let score = 40 + call.callbackArgIndexes.length * 8;
+function buildMethodCallbackCandidateReasons(call: MethodCallbackCall): string[] {
     const lowered = `${call.receiver}.${call.method}`.toLowerCase();
-    if (lowered.includes("interceptors")) score += 45;
-    if (lowered.includes("axios")) score += 18;
-    if (/\b(response|request|error)\b/.test(lowered)) score += 10;
-    if (/\b(event|socket|emitter|bus|channel)\b/.test(lowered)) score += 20;
-    if (call.method === "use") score += 8;
-    return score;
+    const reasons = ["method-callback-argument"];
+    if (lowered.includes("interceptors")) reasons.push("interceptor-callback");
+    if (/\b(response|request|error)\b/.test(lowered)) reasons.push("request-response-callback");
+    if (hasAnyReceiverToken(call.receiver, ["event", "emitter", "bus", "channel", "manager", "hub"])) {
+        reasons.push("receiver-callback-channel");
+    }
+    if (call.method === "use") reasons.push("middleware-callback");
+    return reasons;
+}
+
+function receiverRootIdentifier(receiver: string): string | undefined {
+    const text = String(receiver || "").trim();
+    const m = text.match(/^([A-Za-z_$][\w$]*)/);
+    return m ? m[1] : undefined;
+}
+
+function resolveImportedReceiverMethodEvidence(
+    repoRoot: string,
+    resolvedFile: string | undefined,
+    receiverRoot: string | undefined,
+    methodName: string,
+): MethodCandidate | undefined {
+    if (!resolvedFile || !receiverRoot || !methodName) {
+        return undefined;
+    }
+    const absFile = path.resolve(repoRoot, resolvedFile);
+    const text = readText(absFile);
+    if (!text) {
+        return undefined;
+    }
+    const methods = collectProjectApiWrapperMethods(text);
+    return methods.find(method =>
+        method.method === methodName
+        && (!method.owner || method.owner === receiverRoot));
+}
+
+function buildCallbackCandidateReasons(
+    callee: string,
+    callbackProperties: string[],
+    binding?: ImportBinding,
+): string[] {
+    const reasons = ["option-callback-property"];
+    if (/(field|input|search|textarea|form)/i.test(callee)) reasons.push("ui-input-callback");
+    if (/(change|input|submit|search|phone|password|code|value|text)/i.test(callbackProperties.join(" "))) {
+        reasons.push("payload-named-callback");
+    }
+    if (/(click|tap|press|btn)/i.test(callbackProperties.join(" "))) reasons.push("activation-callback");
+    if (binding?.source && !binding.source.startsWith(".")) reasons.push("external-component-import");
+    if (binding?.resolvedFile) reasons.push("resolved-callback-owner-file");
+    return reasons;
+}
+
+function buildResolvedCallbackSurfaceSignature(sourceFile: string, callee: string): string {
+    return `@${normalizeSlashes(sourceFile)}: ${callee}(Unknown)`;
 }
 
 export function discoverApiSurfaceModelingCandidates(
@@ -210,16 +339,56 @@ export function discoverApiSurfaceModelingCandidates(
         return [];
     }
     const sourceFiles = collectSourceFiles(repoRoot, sourceDirs);
+    const sourceTexts = readSourceFileTexts(repoRoot, sourceFiles);
+    const declaredOwnerHintsByMethod = collectDeclaredOwnerCallsiteHints(sourceTexts);
     const out: CandidateAccumulator[] = [];
-    for (const absFile of sourceFiles) {
-        const relFile = normalizeSlashes(path.relative(repoRoot, absFile));
-        const text = readText(absFile);
+    for (const { relFile, text } of sourceTexts) {
+        for (const call of collectDirectBoundaryCallsites(repoRoot, relFile, text)) {
+            const invokeLine = lineNumberAt(text, call.start);
+            out.push({
+                tier: "direct-boundary",
+                reasons: buildDirectBoundaryCallsiteReasons(relFile, call),
+                originalIndex: out.length,
+                item: {
+                    callee_signature: buildDirectBoundaryCallsiteSignature(relFile, call),
+                    method: call.method,
+                    invokeKind: call.invokeKind,
+                    argCount: call.argCount,
+                    sourceFile: relFile,
+                    count: 1,
+                    topEntries: [
+                        "origin=recall_direct_boundary_surface",
+                        "candidateTier=direct-boundary",
+                        "candidateBoundary=direct_project_or_third_party_callsite_evidence",
+                        `receiver=${call.receiver}`,
+                        `declaredOwner=${call.declaredOwner}`,
+                        `importSource=${call.importSource}`,
+                        ...(call.resolvedFile ? [`resolvedImportFile=${call.resolvedFile}`] : []),
+                        ...(call.resolvedFile ? ["directBoundaryResolvedImport=true"] : []),
+                        ...(call.invokeKind === "any" ? ["directBoundaryNamespaceOwnerCallsite=true"] : []),
+                        `directBoundaryCallsite=${relFile}:${invokeLine}`,
+                    ],
+                    candidateOrigin: "recall_direct_boundary_surface",
+                    methodSnippet: formatLineWindow(text, invokeLine, 6),
+                    methodSnippetSource: "recall_direct_boundary_callsite",
+                    importSource: call.importSource,
+                    contextSlices: [{
+                        callerFile: relFile,
+                        callerMethod: "-",
+                        invokeLine,
+                        invokeStmtText: compactWhitespace(call.statementText).slice(0, 500),
+                        windowLines: formatLineWindow(text, invokeLine, 6),
+                        cfgNeighborStmts: [],
+                    }],
+                } as NormalizedCallsiteItem,
+            });
+        }
         if (!text || !isLikelyProjectApiWrapperFile(relFile, text)) {
             continue;
         }
         for (const method of collectProjectApiWrapperMethods(text)) {
-            const score = scoreProjectApiWrapperMethod(relFile, method);
-            if (score < 40) {
+            const classification = classifyProjectApiWrapperMethod(relFile, method);
+            if (!classification.eligible) {
                 continue;
             }
             const sourceFile = relFile;
@@ -232,7 +401,8 @@ export function discoverApiSurfaceModelingCandidates(
                 count: 1,
                 topEntries: [
                     `origin=recall_api_surface`,
-                    `score=${score}`,
+                    `candidateTier=${classification.tier}`,
+                    ...classification.reasons.map(reason => `candidateReason=${reason}`),
                     ...candidateBoundaryHints(relFile, method),
                 ],
                 candidateOrigin: "recall_api_surface",
@@ -249,12 +419,24 @@ export function discoverApiSurfaceModelingCandidates(
                 }],
             } as NormalizedCallsiteItem;
             out.push({
-                score,
+                tier: classification.tier,
+                reasons: classification.reasons,
+                originalIndex: out.length,
                 item: baseItem,
             });
+            for (const declaredOwnerCandidate of buildDeclaredOwnerSurfaceCandidates(baseItem, method, declaredOwnerHintsByMethod.get(method.method) || [])) {
+                out.push({
+                    tier: "declared-owner-wrapper",
+                    reasons: [...classification.reasons, "analyzer-backed-declared-owner"],
+                    originalIndex: out.length,
+                    item: declaredOwnerCandidate,
+                });
+            }
             if (shouldCreateReturnedValueSurfaceCandidate(method)) {
                 out.push({
-                    score: score + 16,
+                    tier: "returned-value-wrapper",
+                    reasons: [...classification.reasons, "returned-value-surface"],
+                    originalIndex: out.length,
                     item: {
                         ...baseItem,
                         topEntries: [
@@ -272,12 +454,370 @@ export function discoverApiSurfaceModelingCandidates(
         .map(entry => entry.item);
 }
 
+function readSourceFileTexts(repoRoot: string, sourceFiles: string[]): SourceFileText[] {
+    const out: SourceFileText[] = [];
+    for (const absFile of sourceFiles) {
+        const text = readText(absFile);
+        if (!text) {
+            continue;
+        }
+        out.push({
+            absFile,
+            relFile: normalizeSlashes(path.relative(repoRoot, absFile)),
+            text,
+        });
+    }
+    return out;
+}
+
+function collectDeclaredOwnerCallsiteHints(sourceTexts: SourceFileText[]): Map<string, DeclaredOwnerCallsiteHint[]> {
+    const byMethod = new Map<string, DeclaredOwnerCallsiteHint[]>();
+    for (const source of sourceTexts) {
+        const typedReceivers = collectTypedReceivers(source.text);
+        if (typedReceivers.size === 0) {
+            continue;
+        }
+        for (const [receiver, declaredOwner] of typedReceivers.entries()) {
+            const receiverPattern = new RegExp(`\\b(?:this\\.)?${escapeRegExp(receiver)}\\s*\\.\\s*([A-Za-z_$][\\w$]*)\\s*\\(`, "g");
+            for (const match of source.text.matchAll(receiverPattern)) {
+                const method = match[1];
+                if (!method || shouldIgnoreDeclaredOwnerMethod(method)) {
+                    continue;
+                }
+                const invokeLine = lineNumberAt(source.text, match.index || 0);
+                const hint: DeclaredOwnerCallsiteHint = {
+                    method,
+                    declaredOwner,
+                    receiver,
+                    callerFile: source.relFile,
+                    invokeLine,
+                    invokeStmtText: lineTextAt(source.text, invokeLine),
+                    windowLines: formatLineWindow(source.text, invokeLine, 3),
+                };
+                const group = byMethod.get(method) || [];
+                if (!group.some(existing => declaredOwnerHintKey(existing) === declaredOwnerHintKey(hint))) {
+                    group.push(hint);
+                }
+                byMethod.set(method, group);
+            }
+        }
+    }
+    return byMethod;
+}
+
+function collectDirectBoundaryCallsites(repoRoot: string, relFile: string, text: string): DirectBoundaryCallsite[] {
+    if (!text || !isProjectPageOrComponentFile(relFile)) {
+        return [];
+    }
+    const imports = collectImportBindings(repoRoot, path.resolve(repoRoot, relFile), text);
+    const boundaryOwners = collectBoundaryImportedOwnerSources(imports);
+    if (boundaryOwners.size === 0) {
+        return [];
+    }
+    const typedReceivers = collectTypedReceivers(text);
+    const out: DirectBoundaryCallsite[] = [];
+    for (const [receiver, declaredOwner] of typedReceivers.entries()) {
+        const binding = boundaryOwners.get(declaredOwner);
+        const importSource = binding?.source;
+        if (!binding || !importSource) {
+            continue;
+        }
+        const receiverPattern = new RegExp(`\\b(?:this\\.)?${escapeRegExp(receiver)}\\s*\\.\\s*([A-Za-z_$][\\w$]*)\\s*\\(`, "g");
+        for (const match of text.matchAll(receiverPattern)) {
+            const method = match[1];
+            if (!method || shouldIgnoreDirectBoundaryMethod(method)) {
+                continue;
+            }
+            const openParen = text.indexOf("(", (match.index || 0) + match[0].lastIndexOf(method));
+            if (openParen < 0) {
+                continue;
+            }
+            const closeParen = findMatchingParen(text, openParen);
+            if (closeParen < 0) {
+                continue;
+            }
+            const argsText = text.slice(openParen + 1, closeParen);
+            const args = splitTopLevelArguments(argsText);
+            if (!hasModelableDirectCallShape(method, argsText, args.length)) {
+                continue;
+            }
+            if (binding.resolvedFile
+                && !hasResolvedImportMethodModelingEvidence(repoRoot, binding.resolvedFile, declaredOwner, method)) {
+                continue;
+            }
+            const statementEnd = findStatementEnd(text, closeParen);
+            out.push({
+                receiver,
+                declaredOwner,
+                method,
+                invokeKind: "instance",
+                start: match.index || 0,
+                statementText: text.slice(match.index || 0, statementEnd),
+                argCount: args.length,
+                importSource,
+                resolvedFile: binding.resolvedFile,
+            });
+        }
+    }
+    for (const [declaredOwner, binding] of boundaryOwners.entries()) {
+        const importSource = binding.source;
+        const ownerPattern = new RegExp(`\\b${escapeRegExp(declaredOwner)}\\s*\\.\\s*([A-Za-z_$][\\w$]*)\\s*\\(`, "g");
+        for (const match of text.matchAll(ownerPattern)) {
+            const method = match[1];
+            if (!method || shouldIgnoreDirectBoundaryMethod(method)) {
+                continue;
+            }
+            const openParen = text.indexOf("(", (match.index || 0) + match[0].lastIndexOf(method));
+            if (openParen < 0) {
+                continue;
+            }
+            const closeParen = findMatchingParen(text, openParen);
+            if (closeParen < 0) {
+                continue;
+            }
+            const argsText = text.slice(openParen + 1, closeParen);
+            const args = splitTopLevelArguments(argsText);
+            if (!hasModelableDirectCallShape(method, argsText, args.length)) {
+                continue;
+            }
+            if (binding.resolvedFile
+                && !hasResolvedImportMethodModelingEvidence(repoRoot, binding.resolvedFile, declaredOwner, method)) {
+                continue;
+            }
+            const statementEnd = findStatementEnd(text, closeParen);
+            out.push({
+                receiver: declaredOwner,
+                declaredOwner,
+                method,
+                invokeKind: "any",
+                start: match.index || 0,
+                statementText: text.slice(match.index || 0, statementEnd),
+                argCount: args.length,
+                importSource,
+                resolvedFile: binding.resolvedFile,
+            });
+        }
+    }
+    return out;
+}
+
+function collectBoundaryImportedOwnerSources(imports: Map<string, ImportBinding>): Map<string, ImportBinding> {
+    const out = new Map<string, ImportBinding>();
+    for (const [name, binding] of imports.entries()) {
+        const source = String(binding.source || "").trim();
+        if (!source) {
+            continue;
+        }
+        if (!source.startsWith(".")) {
+            out.set(name, binding);
+            continue;
+        }
+        if (binding.resolvedFile) {
+            out.set(name, binding);
+        }
+    }
+    return out;
+}
+
+function isProjectPageOrComponentFile(relFile: string): boolean {
+    return /\/(pages?|components?|views?)\//.test(normalizeSlashes(relFile).toLowerCase());
+}
+
+function shouldIgnoreDirectBoundaryMethod(method: string): boolean {
+    return /^(constructor|build|render|tostring|valueof|foreach|map|filter|reduce|indexof|includes|trim|touppercase|tolowercase)$/i.test(method);
+}
+
+function hasModelableDirectCallShape(
+    method: string,
+    argsText: string,
+    argCount: number,
+): boolean {
+    if (argCount > 0) {
+        return true;
+    }
+    return /^(on|once|subscribe|register|listen|connect|disconnect|open|close|start|stop)$/i.test(method)
+        || DATA_ENDPOINT_TOKEN_RE.test(argsText);
+}
+
+function hasResolvedImportMethodModelingEvidence(
+    repoRoot: string,
+    resolvedFile: string,
+    owner: string,
+    method: string,
+): boolean {
+    const evidence = resolveImportedReceiverMethodEvidence(repoRoot, resolvedFile, owner, method);
+    if (!evidence) {
+        return false;
+    }
+    if (!hasExecutableMethodBody(evidence)) {
+        return false;
+    }
+    if (isTransparentParameterOnlyMethod(evidence)) {
+        return false;
+    }
+    return hasWrapperMethodStructuralEffect(evidence)
+        || shouldCreateReturnedValueSurfaceCandidate(evidence)
+        || hasBridgeModelingSignal(evidence.code)
+        || hasProjectEventBusWrapperSignal(
+            normalizeSlashes(resolvedFile).toLowerCase(),
+            method.toLowerCase(),
+            evidence.code.toLowerCase(),
+            evidence,
+        );
+}
+
+function isTransparentParameterOnlyMethod(candidate: MethodCandidate): boolean {
+    if (candidate.paramNames.length === 0) {
+        return false;
+    }
+    const code = candidate.code
+        .replace(/^\s*\d+\s*\|\s*/gm, "")
+        .replace(/\/\/.*$/gm, "")
+        .trim();
+    const returnExprs = [...code.matchAll(/\breturn\s+([^;\n]+)/gi)]
+        .map(match => match[1].replace(/\s+/g, " ").trim())
+        .filter(Boolean);
+    if (returnExprs.length === 0) {
+        return false;
+    }
+    return returnExprs.every(expr => {
+        const normalized = expr.replace(/\s+/g, "");
+        return candidate.paramNames.some(param => {
+            const escaped = escapeRegExp(param);
+            return new RegExp(`^${escaped}$`).test(normalized)
+                || new RegExp(`^${escaped}\\.(?:trim|tostring|tolowercase|touppercase)\\(\\)$`, "i").test(normalized)
+                || new RegExp(`^String\\(${escaped}\\)$`).test(normalized);
+        });
+    });
+}
+
+function hasExecutableMethodBody(candidate: MethodCandidate): boolean {
+    const code = candidate.code
+        .replace(/^\s*\d+\s*\|\s*/gm, "")
+        .replace(/\/\/.*$/gm, "")
+        .trim();
+    const body = code.match(/\{([\s\S]*)\}/)?.[1] || "";
+    return body.replace(/\s+/g, "").replace(/;+/g, "").length > 0;
+}
+
+function buildDirectBoundaryCallsiteReasons(relFile: string, call: DirectBoundaryCallsite): string[] {
+    const combined = `${relFile}\n${call.method}\n${call.statementText}\n${call.importSource}\n${call.declaredOwner}`.toLowerCase();
+    const normalized = combined.replace(/[_-]+/g, " ");
+    const reasons = ["direct-project-or-third-party-callsite"];
+    if (DATA_ENDPOINT_TOKEN_RE.test(normalized)) {
+        reasons.push("payload-argument-evidence");
+    }
+    if (/\/(pages?|components?|views?)\//.test(normalizeSlashes(relFile).toLowerCase())) {
+        reasons.push("ui-callsite-boundary");
+    }
+    if (call.argCount > 0) {
+        reasons.push("has-arguments");
+    }
+    return reasons;
+}
+
+function buildDirectBoundaryCallsiteSignature(relFile: string, call: DirectBoundaryCallsite): string {
+    const params = Array.from({ length: Math.max(0, call.argCount) }, () => "Unknown").join(", ");
+    const modulePath = call.resolvedFile
+        ? normalizeSlashes(call.resolvedFile)
+        : normalizeSlashes(call.importSource || relFile);
+    return `@${modulePath}: ${call.declaredOwner}.${call.method}(${params})`;
+}
+
+function collectTypedReceivers(text: string): Map<string, string> {
+    const receivers = new Map<string, string>();
+    const lines = String(text || "").split(/\r?\n/);
+    for (const rawLine of lines) {
+        const line = rawLine.split("//")[0] || "";
+        collectTypedReceiverFromLine(line, receivers);
+    }
+    return receivers;
+}
+
+function collectTypedReceiverFromLine(line: string, receivers: Map<string, string>): void {
+    const declarationLine = line.replace(/^\s*(?:@[A-Za-z_$][\w$]*(?:\([^)]*\))?\s*)+/, "");
+    const propertyMatch = declarationLine.match(/^\s*(?:(?:private|public|protected|readonly|static)\s+)*([A-Za-z_$][\w$]*)\??\s*:\s*([A-Za-z_$][\w$]*)\s*(?:=|;)/);
+    if (propertyMatch) {
+        receivers.set(propertyMatch[1], propertyMatch[2]);
+    }
+    const localMatch = declarationLine.match(/^\s*(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*:\s*([A-Za-z_$][\w$]*)\s*(?:=|;)/);
+    if (localMatch) {
+        receivers.set(localMatch[1], localMatch[2]);
+    }
+}
+
+function shouldIgnoreDeclaredOwnerMethod(method: string): boolean {
+    return /^(build|constructor|toString|valueOf)$/.test(method);
+}
+
+function declaredOwnerHintKey(hint: DeclaredOwnerCallsiteHint): string {
+    return [
+        hint.method,
+        hint.declaredOwner,
+        hint.receiver,
+        hint.callerFile,
+        hint.invokeLine,
+    ].join("\u0000");
+}
+
+function buildDeclaredOwnerSurfaceCandidates(
+    baseItem: NormalizedCallsiteItem,
+    method: MethodCandidate,
+    hints: DeclaredOwnerCallsiteHint[],
+): NormalizedCallsiteItem[] {
+    if (!method.owner || !method.baseOwner || method.isStatic) {
+        return [];
+    }
+    const compatibleHints = hints
+        .filter(hint => hint.declaredOwner !== method.owner)
+        .filter(hint => isDeclaredOwnerCompatible(method, hint.declaredOwner));
+    const byOwner = new Map<string, DeclaredOwnerCallsiteHint[]>();
+    for (const hint of compatibleHints) {
+        const group = byOwner.get(hint.declaredOwner) || [];
+        if (group.length < 3) {
+            group.push(hint);
+        }
+        byOwner.set(hint.declaredOwner, group);
+    }
+    const out: NormalizedCallsiteItem[] = [];
+    for (const [declaredOwner, ownerHints] of byOwner.entries()) {
+        out.push({
+            ...baseItem,
+            callee_signature: buildProjectApiWrapperSignature(String(baseItem.sourceFile || ""), method, declaredOwner),
+            count: Math.max(Number(baseItem.count || 1), ownerHints.length),
+            topEntries: [
+                ...((baseItem.topEntries || []) as string[]),
+                "origin=recall_api_surface_declared_owner",
+                `declaredOwnerFromCallsite=${declaredOwner}`,
+                `implementationOwner=${method.owner}`,
+                `implementationBaseOwner=${method.baseOwner}`,
+                ...ownerHints.map(hint => `declaredOwnerCallsite=${hint.callerFile}:${hint.invokeLine}:${hint.receiver}`),
+            ],
+            candidateOrigin: "recall_api_surface_declared_owner",
+            methodSnippetSource: `recall_api_surface implementationOwner=${method.owner} declaredOwner=${declaredOwner}`,
+            contextSlices: ownerHints.map(hint => ({
+                callerFile: hint.callerFile,
+                callerMethod: "-",
+                invokeLine: hint.invokeLine,
+                invokeStmtText: hint.invokeStmtText,
+                windowLines: hint.windowLines,
+                cfgNeighborStmts: [],
+            })),
+        } as NormalizedCallsiteItem);
+    }
+    return out;
+}
+
+function isDeclaredOwnerCompatible(method: MethodCandidate, declaredOwner: string): boolean {
+    return !!method.baseOwner && method.baseOwner === declaredOwner;
+}
+
 function selectApiSurfaceCandidateAccumulators(
     candidates: CandidateAccumulator[],
     maxCandidates: number,
 ): CandidateAccumulator[] {
     const sorted = [...candidates]
-        .sort((a, b) => b.score - a.score || String(a.item.callee_signature).localeCompare(String(b.item.callee_signature)));
+        .sort(compareApiModelingCandidateAccumulators);
     const byKey = new Map<string, CandidateAccumulator[]>();
     for (const candidate of sorted) {
         const key = apiSurfacePairKey(candidate.item);
@@ -312,6 +852,23 @@ function selectApiSurfaceCandidateAccumulators(
         }
     }
     return selected;
+}
+
+function compareApiModelingCandidateAccumulators(left: CandidateAccumulator, right: CandidateAccumulator): number {
+    return apiModelingTierIndex(left.tier) - apiModelingTierIndex(right.tier)
+        || apiModelingDeclaredOwnerOrder(left.item) - apiModelingDeclaredOwnerOrder(right.item)
+        || apiModelingReturnedValueOrder(left.item) - apiModelingReturnedValueOrder(right.item)
+        || String(left.item.callee_signature).localeCompare(String(right.item.callee_signature))
+        || left.originalIndex - right.originalIndex;
+}
+
+function apiModelingDeclaredOwnerOrder(item: NormalizedCallsiteItem): number {
+    const topEntries = Array.isArray((item as any).topEntries) ? (item as any).topEntries : [];
+    return topEntries.some((entry: unknown) => String(entry || "").includes("declaredOwnerFromCallsite=")) ? 0 : 1;
+}
+
+function apiModelingReturnedValueOrder(item: NormalizedCallsiteItem): number {
+    return isReturnedValueCandidate(item) ? 0 : 1;
 }
 
 function findApiSurfaceFocusSibling(
@@ -359,22 +916,53 @@ function collectSourceFiles(repoRoot: string, sourceDirs: string[]): string[] {
 function isLikelyProjectApiWrapperFile(relFile: string, text: string): boolean {
     const normalized = normalizeSlashes(relFile).toLowerCase();
     if (/\/(pages?|components?|views?)\//.test(normalized)) {
-        return false;
+        return hasPageLocalProjectApiWrapperSignal(text);
     }
-    if (/(^|\/)(api|apis|service|services|network|net|request|requests|client|clients|repository|repositories|configure|database|db|cache|cacher|logger|log|tracks)(\/|$)/.test(normalized)) {
+    if (/(^|\/)(api|apis|service|services|network|net|request|requests|client|clients|repository|repositories|viewmodel|viewmodels|configure|database|db|cache|cacher|logger|log|tracks)(\/|$)/.test(normalized)) {
         return true;
     }
     if (hasBridgeModelingSignal(text)
-        && /(^|\/)(bridge|bridges|jsbridge|webview|core)(\/|$)/.test(normalized)) {
+        && hasBridgePathSignal(normalized)) {
+        return true;
+    }
+    if (hasProjectEventBusWrapperFileSignal(normalized, text)) {
         return true;
     }
     if (/(^|\/)(model|models|entity|entities|dto|dtos)(\/|$)/.test(normalized)
         && /\b(?:static\s+)?(?:from|patch|change|copy|clone)\s*\([^)]*\)\s*\{[\s\S]{0,1600}\b(?:return|=)\b/.test(text)) {
         return true;
     }
-    const lowered = text.toLowerCase();
-    return /\b(axios|http|request|fetch|post|get|put|delete|hilog|console|logger|fileio|writesync|relationalstore|rdb|preferences|appstorage)\b/.test(lowered)
-        && /\b(export\s+(class|const|function)|class\s+[A-Z]|function\s+[A-Za-z_$])/.test(text);
+    return hasExportedSurfaceDeclaration(text)
+        && hasStructuralWrapperEvidence(text);
+}
+
+function hasProjectEventBusWrapperFileSignal(pathLower: string, text: string): boolean {
+    const lowered = String(text || "").toLowerCase();
+    const eventPath = /(^|\/)(event|events|eventbus|emitter|bus|channel|message|messages|common|utils?)(\/|$)/.test(pathLower);
+    const exportedApi = /\b(export\s+(class|const|function)|class\s+[A-Z]|function\s+[A-Za-z_$])/.test(text);
+    const eventOperation = /\.\s*(?:emit|on|once|off|subscribe|unsubscribe|publish|trigger|dispatch|fire)\s*\(/.test(lowered);
+    const eventKey = /\b(eventid|eventname|channel|topic|callback|payload|data)\b/.test(lowered);
+    return exportedApi && eventOperation && (eventPath || eventKey);
+}
+
+function hasPageLocalProjectApiWrapperSignal(text: string): boolean {
+    if (!/\bimport\b[\s\S]{0,240}\bfrom\s*["'][^"']+["']/.test(String(text || ""))) {
+        return false;
+    }
+    return hasStructuralWrapperEvidence(text);
+}
+
+function hasExportedSurfaceDeclaration(text: string): boolean {
+    return /\b(export\s+(class|struct|const|function)|class\s+[A-Z]|struct\s+[A-Z]|function\s+[A-Za-z_$])/.test(text);
+}
+
+function hasStructuralWrapperEvidence(text: string): boolean {
+    const body = String(text || "");
+    return STRUCTURAL_EFFECT_METHOD_RE.test(body)
+        || /\bObject\s*\.\s*(?:assign|keys|values|entries)\s*\(/.test(body)
+        || /\b(?:new\s+Map|new\s+Set|\.set\s*\(|\.get\s*\(|\.push\s*\(|\.pop\s*\(|\.splice\s*\()/.test(body)
+        || /\bthis\s*\.\s*[A-Za-z_$][\w$]*/.test(body)
+        || DATA_ENDPOINT_TOKEN_RE.test(body);
 }
 
 function collectProjectApiWrapperMethods(text: string): MethodCandidate[] {
@@ -386,24 +974,27 @@ function collectProjectApiWrapperMethods(text: string): MethodCandidate[] {
 }
 
 function collectClassMethodCandidates(lines: string[], out: MethodCandidate[]): void {
-    const classPattern = /\b(?:export\s+)?(?:class|struct)\s+([A-Za-z_$][\w$]*)\b/;
+    const classPattern = /\b(?:export\s+)?(?:default\s+)?(?:abstract\s+)?(?:class|struct)\s+([A-Za-z_$][\w$]*)(?:\s+extends\s+([A-Za-z_$][\w$]*))?\b/;
     for (let i = 0; i < lines.length; i++) {
         const m = lines[i].match(classPattern);
         if (!m) continue;
         const owner = m[1];
+        const baseOwner = m[2];
         const end = findBlockEnd(lines, i);
         if (end < i) continue;
         let depth = 0;
         for (let j = i; j <= end; j++) {
             const line = lines[j];
             if (j > i && depth === 1) {
-                const method = parseClassMethodHeader(line);
+                const headerText = collectClassMethodHeader(lines, j, end);
+                const method = parseClassMethodHeader(headerText);
                 if (method) {
                     const methodEnd = findBlockEnd(lines, j);
                     const snippet = collectSnippet(lines, j, methodEnd >= j ? methodEnd : end);
                     const paramNames = parseTopLevelParameterNames(method.params);
                     out.push({
                         owner,
+                        baseOwner,
                         method: method.name,
                         isStatic: method.isStatic,
                         argCount: paramNames.length,
@@ -411,7 +1002,6 @@ function collectClassMethodCandidates(lines: string[], out: MethodCandidate[]): 
                         returnType: method.returnType,
                         startLine: j + 1,
                         code: snippet,
-                        score: 0,
                     });
                 }
             }
@@ -419,6 +1009,25 @@ function collectClassMethodCandidates(lines: string[], out: MethodCandidate[]): 
         }
         i = end;
     }
+}
+
+function collectClassMethodHeader(lines: string[], startIndex: number, classEndIndex: number): string {
+    const firstLine = lines[startIndex] || "";
+    if (firstLine.includes(")")) {
+        return firstLine;
+    }
+    const collected = [firstLine];
+    let parenDepth = countCharOutsideStrings(firstLine, "(") - countCharOutsideStrings(firstLine, ")");
+    const limit = Math.min(classEndIndex, startIndex + 12);
+    for (let i = startIndex + 1; i <= limit && parenDepth > 0; i++) {
+        const line = lines[i] || "";
+        collected.push(line);
+        parenDepth += countCharOutsideStrings(line, "(") - countCharOutsideStrings(line, ")");
+        if (parenDepth <= 0) {
+            break;
+        }
+    }
+    return collected.join("\n");
 }
 
 function collectTopLevelFunctionCandidates(lines: string[], out: MethodCandidate[]): void {
@@ -438,7 +1047,6 @@ function collectTopLevelFunctionCandidates(lines: string[], out: MethodCandidate
             returnType: extractReturnTypeFromHeader(line),
             startLine: i + 1,
             code: snippet,
-            score: 0,
         });
     }
 }
@@ -538,7 +1146,7 @@ function collectSnippet(lines: string[], startIndex: number, maxEndIndex: number
     return out.join("\n");
 }
 
-function countCharOutsideStrings(line: string, target: "{" | "}"): number {
+function countCharOutsideStrings(line: string, target: "{" | "}" | "(" | ")"): number {
     let count = 0;
     let quote: string | undefined;
     for (let i = 0; i < line.length; i++) {
@@ -560,48 +1168,74 @@ function countCharOutsideStrings(line: string, target: "{" | "}"): number {
     return count;
 }
 
-function scoreProjectApiWrapperMethod(relFile: string, candidate: MethodCandidate): number {
+function classifyProjectApiWrapperMethod(relFile: string, candidate: MethodCandidate): ProjectApiWrapperClassification {
     const pathLower = normalizeSlashes(relFile).toLowerCase();
     const methodLower = candidate.method.toLowerCase();
     const bodyLower = candidate.code.toLowerCase();
-    let score = 0;
-    const hasBridgeSignal = hasBridgeModelingSignal(candidate.code) || hasBridgePathSignal(pathLower);
+    if (!hasExecutableMethodBody(candidate)) {
+        return { eligible: false, tier: "project-wrapper", reasons: ["empty-or-declaration-only-method"] };
+    }
+    const hasBridgeSignal = hasBridgeModelingSignal(candidate.code)
+        || (hasBridgePathSignal(pathLower) && hasBridgeReceiverMethodSignal(methodLower, bodyLower));
     const loggingPayload = isLoggingPayloadSurface(pathLower, methodLower, candidate);
     const loggingConfig = isLoggingConfigSurface(methodLower, bodyLower);
     const delegatedReturnedValue = hasDelegatedReturnedValueProducer(candidate);
+    const eventBusWrapper = hasProjectEventBusWrapperSignal(pathLower, methodLower, bodyLower, candidate);
+    const reasons: string[] = [];
     if (isOfficialArkMainEntryCandidate(pathLower, candidate.method, candidate.owner)) {
-        score += 8;
+        reasons.push("official-entry-shape");
     }
     if (isFrameworkContextHelperCandidate(pathLower, methodLower, bodyLower, candidate.owner)) {
-        score -= 35;
+        return { eligible: false, tier: "project-wrapper", reasons: ["framework-context-helper"] };
     }
     const isModelMapper = isProjectModelMapperMethod(pathLower, methodLower, bodyLower, candidate);
-    if (/(^|\/)(api|apis|service|services|network|net|request|requests|client|clients|repository|repositories|configure)(\/|$)/.test(pathLower)) score += 35;
-    if (/(^|\/)(database|db|cache|cacher|logger|log|tracks)(\/|$)/.test(pathLower)) score += 24;
-    if (isModelMapper) score += 48;
-    if (/(request|post|get|put|delete|send|upload|download|login|credential|profile|token|cookie|session|cache|save|write|insert|update|execute|query|error|info|debug)/.test(methodLower)) score += 24;
-    const hasExternalEffectSignal = /\b(axios|http|request|fetch|post|get|put|delete|websocket|socket|hilog|console|logger|fileio|writesync|relationalstore|rdb|rdbstore|executesql|transaction|database|sqlite|preferences|appstorage|persistent|localstorage)\b/.test(bodyLower)
+    if (/(^|\/)(api|apis|service|services|network|net|request|requests|client|clients|repository|repositories|configure)(\/|$)/.test(pathLower)) reasons.push("wrapper-container-path");
+    if (/(^|\/)(viewmodel|viewmodels)(\/|$)/.test(pathLower)) reasons.push("viewmodel-wrapper-path");
+    if (/(^|\/)(database|db|cache|cacher|logger|log|tracks)(\/|$)/.test(pathLower)) reasons.push("state-or-logging-container-path");
+    if (isModelMapper) reasons.push("model-serialization-wrapper");
+    if (DATA_ENDPOINT_TOKEN_RE.test(methodLower) || DATA_ENDPOINT_TOKEN_RE.test(bodyLower)) reasons.push("data-endpoint-name");
+    const hasStructuralEffectSignal = hasWrapperMethodStructuralEffect(candidate)
         || hasBridgeSignal
         || loggingPayload
-        || /\.\s*execute\s*\(/.test(bodyLower);
-    if (hasBridgeSignal) score += 36;
-    if (hasBridgeSignal && /^(call|calljs|callhandler|callbacktojs|returnvalue|registerjavascriptproxy|javascriptproxy|hasjavascriptmethod)/.test(methodLower)) score += 12;
-    if (/\b(axios|http|request|fetch|post|get|put|delete|websocket|socket)\b/.test(bodyLower)) score += 36;
-    if (delegatedReturnedValue) score += 24;
-    if (/\b(hilog|console|logger)\b/.test(bodyLower)) score += 28;
-    if (loggingPayload) score += 34;
-    if (loggingPayload && candidate.owner && /^logger$/i.test(candidate.owner) && candidate.isStatic) score += 22;
-    if (loggingConfig) score -= 42;
-    if (/\b(fileio|writesync|write|copyfile|movefile)\b/.test(bodyLower)) score += 28;
-    if (/\b(relationalstore|rdb|rdbstore|executesql|transaction|database|sqlite)\b/.test(bodyLower)
-        || /\.\s*execute\s*\(/.test(bodyLower)) score += 28;
-    if (/\b(preferences|appstorage|persistent|localstorage)\b/.test(bodyLower)) score += 18;
-    if (/\b(access_token|refresh_token|authorizationcode|credential|password|phone|email|openid|unionid|token|cookie|apikey|session)\b/.test(bodyLower)) score += 18;
-    if (/^(check|is|has|validate|format|parseurl|back|scroll|build|render)/.test(methodLower)) score -= 35;
-    if (!hasExternalEffectSignal && !isModelMapper && !delegatedReturnedValue) score -= 30;
-    if (/(\/context\.ets|\/stage\.ets|\/device\.ets)/.test(pathLower) || /(context|stage|window|avoidarea|safearea|windowsize)/.test(methodLower)) score -= 40;
-    if (candidate.argCount === 0 && !/\b(return|await|axios|http|request|fetch|logger|hilog|console|read|getcredential)\b/.test(bodyLower)) score -= 20;
-    return score;
+        || hasReceiverFieldCarrierSignal(candidate.code);
+    if (hasBridgeSignal) reasons.push("webview-or-js-bridge-wrapper");
+    if (hasCallForwardingSignal(candidate)) reasons.push("call-forwarding-effect");
+    if (delegatedReturnedValue) reasons.push("delegated-returned-value");
+    if (loggingPayload) reasons.push("logging-payload-wrapper");
+    if (loggingPayload && candidate.owner && /^logger$/i.test(candidate.owner) && candidate.isStatic) reasons.push("static-logger-payload-wrapper");
+    if (loggingConfig) reasons.push("logging-configuration-helper");
+    if (hasReceiverFieldCarrierSignal(candidate.code)) reasons.push("receiver-field-carrier");
+    if (DATA_ENDPOINT_TOKEN_RE.test(bodyLower) && STRUCTURAL_EFFECT_METHOD_RE.test(candidate.code)) reasons.push("payload-forwarding-boundary");
+    if (/\b(access_token|refresh_token|authorizationcode|credential|password|phone|email|openid|unionid|token|cookie|apikey|session)\b/.test(bodyLower)) reasons.push("sensitive-payload-name");
+    if (eventBusWrapper) reasons.push("project-event-bus-effect");
+    if (/^(check|is|has|validate|format|parseurl|back|scroll|build|render)/.test(methodLower)) reasons.push("guard-or-ui-helper-name");
+    if (/(\/context\.ets|\/stage\.ets|\/device\.ets)/.test(pathLower) || /(context|stage|window|avoidarea|safearea|windowsize)/.test(methodLower)) {
+        return { eligible: false, tier: "project-wrapper", reasons: ["context-or-window-setup-helper"] };
+    }
+    if (loggingConfig && !loggingPayload) {
+        return { eligible: false, tier: "project-wrapper", reasons };
+    }
+    if (reasons.includes("guard-or-ui-helper-name")
+        && !DATA_ENDPOINT_TOKEN_RE.test(bodyLower)
+        && !hasCallForwardingSignal(candidate)
+        && !delegatedReturnedValue
+        && !hasBridgeSignal) {
+        return { eligible: false, tier: "project-wrapper", reasons };
+    }
+    const eligible = hasStructuralEffectSignal
+        || eventBusWrapper
+        || isModelMapper
+        || !!delegatedReturnedValue
+        || reasons.includes("wrapper-container-path")
+        || reasons.includes("state-or-logging-container-path")
+        || reasons.includes("sensitive-payload-name");
+    if (!eligible) {
+        return { eligible: false, tier: "project-wrapper", reasons: [...reasons, "insufficient-structural-evidence"] };
+    }
+    const tier: ApiModelingCandidateTier = delegatedReturnedValue && !hasBridgeSignal && candidate.returnType && candidate.returnType !== "void"
+        ? "returned-value-wrapper"
+        : "project-wrapper";
+    return { eligible: true, tier, reasons };
 }
 
 function isLoggingPayloadSurface(pathLower: string, methodLower: string, candidate: MethodCandidate): boolean {
@@ -622,6 +1256,42 @@ function isLoggingConfigSurface(methodLower: string, bodyLower: string): boolean
         && !/\b(hilog|console)\s*\./.test(bodyLower);
 }
 
+function hasWrapperMethodStructuralEffect(candidate: MethodCandidate): boolean {
+    return hasCallForwardingSignal(candidate)
+        || hasReceiverFieldCarrierSignal(candidate.code)
+        || hasReturnedCallExpression(candidate.code)
+        || /\.\s*(?:then|catch|finally)\s*\(/.test(candidate.code)
+        || /\bObject\s*\.\s*(?:assign|keys|values|entries)\s*\(/.test(candidate.code)
+        || /\b(?:new\s+Map|new\s+Set|\.set\s*\(|\.get\s*\(|\.push\s*\(|\.splice\s*\()/.test(candidate.code);
+}
+
+function hasCallForwardingSignal(candidate: MethodCandidate): boolean {
+    if (candidate.paramNames.length === 0) {
+        return STRUCTURAL_EFFECT_METHOD_RE.test(candidate.code)
+            && DATA_ENDPOINT_TOKEN_RE.test(candidate.code);
+    }
+    return candidate.paramNames.some(param => {
+        const escaped = escapeRegExp(param);
+        return new RegExp(`\\.\\s*[A-Za-z_$][\\w$]*\\s*\\([^)]*\\b${escaped}\\b`, "s").test(candidate.code)
+            || new RegExp(`\\b[A-Za-z_$][\\w$]*\\s*\\([^)]*\\b${escaped}\\b`, "s").test(candidate.code)
+            || new RegExp(`\\b${escaped}\\b\\s*[:=]`).test(candidate.code)
+            || new RegExp(`\\b${escaped}\\b\\s*[,)]`).test(candidate.code);
+    });
+}
+
+function hasReceiverFieldCarrierSignal(code: string): boolean {
+    const text = String(code || "");
+    return /\bthis\s*\.\s*[A-Za-z_$][\w$]*/.test(text)
+        && (STRUCTURAL_EFFECT_METHOD_RE.test(text)
+            || /\bObject\s*\.\s*assign\s*\(/.test(text)
+            || /\.\s*(?:set|get|push|splice)\s*\(/.test(text));
+}
+
+function hasReturnedCallExpression(code: string): boolean {
+    return /\breturn\s+(?:await\s+)?(?:this\s*\.\s*)?[A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*\s*\(/.test(String(code || ""))
+        || /\breturn\s+(?:await\s+)?[A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)+\s*\(/.test(String(code || ""));
+}
+
 function candidateBoundaryHints(relFile: string, candidate: MethodCandidate): string[] {
     const pathLower = normalizeSlashes(relFile).toLowerCase();
     const methodLower = candidate.method.toLowerCase();
@@ -633,21 +1303,78 @@ function candidateBoundaryHints(relFile: string, candidate: MethodCandidate): st
     if (isFrameworkContextHelperCandidate(pathLower, methodLower, bodyLower, candidate.owner)) {
         hints.push("candidateBoundary=framework_context_helper_evidence");
     }
-    if (/(^|\/)(api|apis|service|services|network|net|request|requests|client|clients|repository|repositories|database|db|cache|cacher|logger|log)(\/|$)/.test(pathLower)) {
+    if (hasOutboundProjectWrapperBoundaryHint(pathLower, methodLower, bodyLower)) {
         hints.push("candidateBoundary=project_or_third_party_wrapper_evidence");
+    }
+    if (/(^|\/)(database|db|cache|cacher)(\/|$)/.test(pathLower)) {
+        hints.push("candidateBoundary=project_state_or_database_wrapper_evidence");
+    }
+    if (/(^|\/)(logger|log)(\/|$)/.test(pathLower)) {
+        hints.push("candidateBoundary=project_logging_wrapper_evidence");
+    }
+    if (/\/(pages?|components?|views?)\//.test(pathLower) && hasWrapperMethodStructuralEffect(candidate)) {
+        hints.push("candidateBoundary=page_local_project_or_third_party_wrapper_evidence");
     }
     if (hasBridgeModelingSignal(candidate.code) || hasBridgePathSignal(pathLower)) {
         hints.push("candidateBoundary=project_or_third_party_bridge_evidence");
     }
+    if (hasProjectEventBusWrapperSignal(pathLower, methodLower, bodyLower, candidate)) {
+        hints.push("candidateBoundary=project_event_bus_wrapper_evidence");
+    }
     return hints;
 }
 
+function hasProjectEventBusWrapperSignal(
+    pathLower: string,
+    methodLower: string,
+    bodyLower: string,
+    candidate: MethodCandidate,
+): boolean {
+    const owner = String(candidate.owner || "").toLowerCase();
+    const eventContainer =
+        /(^|\/)(event|events|eventbus|emitter|bus|channel|message|messages|common|utils?)(\/|$)/.test(pathLower)
+        || hasAnyReceiverToken(owner, ["event", "emitter", "hub", "bus", "channel", "message"]);
+    if (!eventContainer) {
+        return false;
+    }
+    const methodShape = /^(send|sendevent|emit|publish|trigger|dispatch|post|fire|notify|on|once|subscribe|off|unsubscribe|remove)$/.test(methodLower)
+        || hasAnyReceiverToken(methodLower, ["event", "emit", "publish", "dispatch", "notify"]);
+    if (!methodShape) {
+        return false;
+    }
+    return /\b(?:eventid|eventname|channel|topic|payload|data|callback)\b/.test(bodyLower)
+        || /\.\s*(?:emit|on|once|off|subscribe|unsubscribe|publish|trigger|dispatch|fire)\s*\(/.test(bodyLower);
+}
+
+function hasOutboundProjectWrapperBoundaryHint(
+    pathLower: string,
+    methodLower: string,
+    bodyLower: string,
+): boolean {
+    if (!/(^|\/)(api|apis|service|services|network|net|request|requests|client|clients|repository|repositories|viewmodel|viewmodels)(\/|$)/.test(pathLower)) {
+        return false;
+    }
+    if (STRUCTURAL_EFFECT_METHOD_RE.test(bodyLower) && (DATA_ENDPOINT_TOKEN_RE.test(bodyLower) || /\breturn\b/.test(bodyLower))) {
+        return true;
+    }
+    return DATA_ENDPOINT_TOKEN_RE.test(methodLower);
+}
+
 function hasBridgePathSignal(pathLower: string): boolean {
-    return /(^|\/)(bridge|bridges|jsbridge|webview)(\/|$)/.test(pathLower);
+    return /(^|\/)(bridge|bridges|jsbridge|webview|hybridcontainer)(\/|$)/.test(pathLower);
 }
 
 function hasBridgeModelingSignal(text: string): boolean {
-    return /\b(runJavaScript|registerJavaScriptProxy|javaScriptProxy|JavaScriptInterface|callHandler|callJs|Reflect\.get|WebviewController|webview)\b/.test(String(text || ""));
+    return /\b(runJavaScript|registerJavaScriptProxy|javaScriptProxy|JavaScriptInterface|callHandler|callJs|Reflect\.get|WebViewController|WebviewController|webview|ChannelProxy|messageHandler|RenderToService|callbackToJs)\b/i.test(String(text || ""))
+        || /\bDMPMap\s*\.\s*createFromObject\s*\([^)]*\b(?:msg|body|payload|params)\b/i.test(String(text || ""));
+}
+
+function hasBridgeReceiverMethodSignal(methodLower: string, bodyLower: string): boolean {
+    if (/^(invoke|publish|call|callhandler|registerjavascriptproxy|runjavascript|callbacktojs|returnvalue|messagehandler|rendertoservice)$/.test(methodLower)) {
+        return true;
+    }
+    return /\b(channelproxy|messagehandler|rendertoservice|callbacktojs|runjavascript|registerjavascriptproxy)\b/i.test(bodyLower)
+        || /\bDMPMap\s*\.\s*createFromObject\s*\([^)]*\b(?:msg|body|payload|params)\b/i.test(bodyLower);
 }
 
 function isOfficialArkMainEntryCandidate(pathLower: string, methodName: string, owner?: string): boolean {
@@ -739,6 +1466,9 @@ function shouldCreateReturnedValueSurfaceCandidate(candidate: MethodCandidate): 
     if (/^(create|build|make|init|new)[a-z0-9_$]*/.test(methodLower)) {
         return false;
     }
+    if (isReflectOrMapDispatchReturn(candidate.code) || hasBridgeModelingSignal(candidate.code)) {
+        return false;
+    }
     if (!/\breturn\b/.test(codeLower)) {
         return false;
     }
@@ -762,7 +1492,7 @@ function shouldCreateReturnedValueSurfaceCandidate(candidate: MethodCandidate): 
     if (/\.then\s*\([^)]*=>[\s\S]{0,1200}\breturn\s+[A-Za-z_$][\w$]*/.test(candidate.code)) {
         return true;
     }
-    if (/\breturn\s+(?:await\s+)?(?:axios|http|request|fetch|\$request|[A-Za-z_$][\w$]*\.(?:request|post|get|put|delete|fetch))\s*\(/.test(codeLower)) {
+    if (hasReturnedCallExpression(candidate.code)) {
         return true;
     }
     if (/\bjson\s*\.\s*parse\s*\(/.test(codeLower) && returnsNonParameterValue(candidate)) {
@@ -777,17 +1507,17 @@ function shouldCreateReturnedValueSurfaceCandidate(candidate: MethodCandidate): 
 
 function hasExternalOrFrameworkResponseProducer(code: string): boolean {
     const text = String(code || "");
-    const lowered = text.toLowerCase();
-    if (/\b(?:axios|http)\s*\(/.test(lowered)
-        || /\b(?:axios|http)\s*\.\s*(?:request|post|get|put|delete|fetch)\s*\(/.test(lowered)
-        || /\b(?:request|fetch|\$request)\s*\(/.test(lowered)
-        || /\bwebsocket\b|\bsocket\b/.test(lowered)) {
+    if (/\b(?:await|return)\s+(?:this\s*\.\s*)?[A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*\s*\(/.test(text)) {
         return true;
     }
-    if (/\b(?:axios|http|fetch|request|client|api|apis|server|service|instance|\$request|this\.(?:http|client|api|apis|request|server|service)|this\._?(?:request|post|get|put|delete|fetch))\s*\.\s*(?:request|post|get|put|delete|fetch|postWithAuth|requestJson|fetchJson|sendRequest)\s*\(/i.test(text)) {
-        return true;
-    }
-    return /\b(?:await|return)\s+(?:this\.)?(?:_?request|_?post|_?get|_?put|_?delete|postWithAuth|requestJson|fetchJson|sendRequest)\s*\(/i.test(text);
+    return /\b(?:await|return)\s+new\s+[A-Za-z_$][\w$]*\s*\(/.test(text);
+}
+
+function isReflectOrMapDispatchReturn(code: string): boolean {
+    const text = String(code || "");
+    return /\bReflect\s*\.\s*get\s*\(/.test(text)
+        || /\breturn\s+JSON\s*\.\s*stringify\s*\([^)]*\.call\s*\(/.test(text)
+        || /\breturn\s+[A-Za-z_$][\w$]*\s*\.\s*get\s*\(/.test(text);
 }
 
 function hasVoidLikeReturnType(returnType?: string): boolean {
@@ -805,10 +1535,8 @@ function hasDelegatedReturnedValueProducer(candidate: MethodCandidate): boolean 
     if (!/\breturn\b/.test(code)) {
         return false;
     }
-    const lowered = code.toLowerCase();
-    return /\breturn\s+(?:await\s+)?(?:this\.)?[A-Za-z_$]*(?:dataSource|repository|repo|store|client|service|api|dao|orm|request|http|network)[A-Za-z_$]*\s*\.\s*[A-Za-z_$][\w$]*\s*\(/.test(code)
-        || (/\b(?:prefs|preferences|orm|rdb|store|database|networkdatasource|datasource|repository)\b/.test(lowered)
-            && returnsNonParameterValue(candidate));
+    return hasReturnedCallExpression(code)
+        || (hasReceiverFieldCarrierSignal(code) && returnsNonParameterValue(candidate));
 }
 
 function returnsNonParameterValue(candidate: MethodCandidate): boolean {
@@ -840,12 +1568,17 @@ function escapeRegExp(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function buildProjectApiWrapperSignature(relFile: string, candidate: MethodCandidate): string {
+function buildProjectApiWrapperSignature(relFile: string, candidate: MethodCandidate, ownerOverride?: string): string {
     const args = Array.from({ length: Math.max(0, candidate.argCount) }, () => "Unknown").join(", ");
-    const owner = candidate.owner
-        ? `${candidate.owner}${candidate.isStatic ? ".[static]" : "."}${candidate.method}`
+    const resolvedOwner = ownerOverride || candidate.owner;
+    const owner = resolvedOwner
+        ? `${resolvedOwner}${candidate.isStatic ? ".[static]" : "."}${candidate.method}`
         : candidate.method;
     return `@${normalizeSlashes(relFile)}: ${owner}(${args})`;
+}
+
+function lineTextAt(text: string, lineNumber: number): string {
+    return (String(text || "").split(/\r?\n/)[Math.max(0, lineNumber - 1)] || "").trim();
 }
 
 function firstMeaningfulLine(code: string): string {
@@ -894,6 +1627,20 @@ function readText(absFile: string): string | undefined {
 
 function collectImportBindings(repoRoot: string, absFile: string, text: string): Map<string, ImportBinding> {
     const bindings = new Map<string, ImportBinding>();
+    const defaultImport = /import\s+([A-Za-z_$][\w$]*)\s+from\s*["']([^"']+)["']/g;
+    let defaultMatch: RegExpExecArray | null;
+    while ((defaultMatch = defaultImport.exec(text)) !== null) {
+        const name = defaultMatch[1].trim();
+        const source = defaultMatch[2].trim();
+        if (!name || !source) {
+            continue;
+        }
+        const resolvedFile = resolveImportSource(repoRoot, absFile, source);
+        bindings.set(name, {
+            source,
+            resolvedFile: resolvedFile ? resolveExportedSymbolFile(repoRoot, resolvedFile, name) || resolvedFile : undefined,
+        });
+    }
     const namedImport = /import\s*\{([^}]+)\}\s*from\s*["']([^"']+)["']/g;
     let m: RegExpExecArray | null;
     while ((m = namedImport.exec(text)) !== null) {
@@ -902,12 +1649,21 @@ function collectImportBindings(repoRoot: string, absFile: string, text: string):
             .map(part => part.trim())
             .filter(Boolean);
         const source = m[2].trim();
-        const resolvedFile = resolveRelativeImport(repoRoot, absFile, source);
+        const resolvedFile = resolveImportSource(repoRoot, absFile, source);
         for (const name of names) {
-            bindings.set(name, { source, resolvedFile });
+            bindings.set(name, {
+                source,
+                resolvedFile: resolvedFile ? resolveExportedSymbolFile(repoRoot, resolvedFile, name) || resolvedFile : undefined,
+            });
         }
     }
     return bindings;
+}
+
+function resolveImportSource(repoRoot: string, absFile: string, source: string): string | undefined {
+    return source.startsWith(".")
+        ? resolveRelativeImport(repoRoot, absFile, source)
+        : resolvePackageImport(repoRoot, absFile, source);
 }
 
 function resolveRelativeImport(repoRoot: string, absFile: string, source: string): string | undefined {
@@ -928,6 +1684,176 @@ function resolveRelativeImport(repoRoot: string, absFile: string, source: string
         }
     }
     return undefined;
+}
+
+function resolvePackageImport(repoRoot: string, absFile: string, source: string): string | undefined {
+    const parsed = parsePackageImportSource(source);
+    if (!parsed) {
+        return undefined;
+    }
+    const packageDir = resolveLocalFilePackageDir(repoRoot, absFile, parsed.packageName);
+    if (!packageDir) {
+        return undefined;
+    }
+    if (parsed.subpath) {
+        return resolveImportPathFromBase(repoRoot, path.resolve(packageDir, parsed.subpath));
+    }
+    const manifest = readText(path.join(packageDir, "oh-package.json5"));
+    const mainFile = extractJson5StringProperty(manifest || "", "main") || "Index.ets";
+    return resolveImportPathFromBase(repoRoot, path.resolve(packageDir, mainFile));
+}
+
+function parsePackageImportSource(source: string): { packageName: string; subpath: string } | undefined {
+    const text = String(source || "").trim();
+    if (!text || text.startsWith(".")) {
+        return undefined;
+    }
+    const parts = text.split("/").filter(Boolean);
+    if (parts.length === 0) {
+        return undefined;
+    }
+    if (parts[0].startsWith("@")) {
+        if (parts.length < 2) {
+            return undefined;
+        }
+        return {
+            packageName: `${parts[0]}/${parts[1]}`,
+            subpath: parts.slice(2).join("/"),
+        };
+    }
+    return {
+        packageName: parts[0],
+        subpath: parts.slice(1).join("/"),
+    };
+}
+
+function resolveLocalFilePackageDir(repoRoot: string, absFile: string, packageName: string): string | undefined {
+    let current = path.dirname(absFile);
+    const root = path.resolve(repoRoot);
+    while (current.startsWith(root)) {
+        const manifestPath = path.join(current, "oh-package.json5");
+        const manifest = readText(manifestPath);
+        const dependency = manifest ? extractFileDependency(manifest, packageName) : undefined;
+        if (dependency) {
+            const absPackageDir = path.resolve(current, dependency);
+            if (fs.existsSync(absPackageDir) && fs.statSync(absPackageDir).isDirectory()) {
+                return absPackageDir;
+            }
+        }
+        if (current === root) {
+            break;
+        }
+        const next = path.dirname(current);
+        if (next === current) {
+            break;
+        }
+        current = next;
+    }
+    return undefined;
+}
+
+function extractFileDependency(manifest: string, packageName: string): string | undefined {
+    const escaped = escapeRegExp(packageName);
+    const m = manifest.match(new RegExp(`["']${escaped}["']\\s*:\\s*["']file:([^"']+)["']`));
+    return m ? m[1].trim() : undefined;
+}
+
+function extractJson5StringProperty(manifest: string, property: string): string | undefined {
+    const escaped = escapeRegExp(property);
+    const m = manifest.match(new RegExp(`["']${escaped}["']\\s*:\\s*["']([^"']+)["']`));
+    return m ? m[1].trim() : undefined;
+}
+
+function resolveImportPathFromBase(repoRoot: string, base: string): string | undefined {
+    const candidates = [
+        base,
+        `${base}.ets`,
+        `${base}.ts`,
+        path.join(base, "index.ets"),
+        path.join(base, "index.ts"),
+    ];
+    for (const candidate of candidates) {
+        if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+            return normalizeSlashes(path.relative(repoRoot, candidate));
+        }
+    }
+    return undefined;
+}
+
+function resolveExportedSymbolFile(
+    repoRoot: string,
+    relFile: string,
+    symbol: string,
+    seen: Set<string> = new Set(),
+): string | undefined {
+    const normalized = normalizeSlashes(relFile);
+    if (seen.has(normalized)) {
+        return undefined;
+    }
+    seen.add(normalized);
+    const absFile = path.resolve(repoRoot, normalized);
+    const text = readText(absFile);
+    if (!text) {
+        return undefined;
+    }
+    if (fileDefinesExportedSymbol(text, symbol)) {
+        return normalized;
+    }
+    const namedExport = /export\s*\{([^}]+)\}\s*from\s*["']([^"']+)["']/g;
+    let m: RegExpExecArray | null;
+    while ((m = namedExport.exec(text)) !== null) {
+        const names = parseExportedNames(m[1]);
+        if (!names.has(symbol)) {
+            continue;
+        }
+        const target = resolveImportSource(repoRoot, absFile, m[2].trim());
+        const resolved = target ? resolveExportedSymbolFile(repoRoot, target, symbol, seen) || target : undefined;
+        if (resolved) {
+            return resolved;
+        }
+    }
+    const starExport = /export\s*\*\s*from\s*["']([^"']+)["']/g;
+    while ((m = starExport.exec(text)) !== null) {
+        const target = resolveImportSource(repoRoot, absFile, m[1].trim());
+        const resolved = target ? resolveExportedSymbolFile(repoRoot, target, symbol, seen) : undefined;
+        if (resolved) {
+            return resolved;
+        }
+    }
+    return undefined;
+}
+
+function fileDefinesExportedSymbol(text: string, symbol: string): boolean {
+    const escaped = escapeRegExp(symbol);
+    return new RegExp(`\\bexport\\s+(?:default\\s+)?(?:struct|class|function|interface|enum|const|let|var)\\s+${escaped}\\b`).test(text);
+}
+
+function parseExportedNames(exportList: string): Set<string> {
+    const out = new Set<string>();
+    for (const raw of exportList.split(",")) {
+        const part = raw.trim();
+        if (!part) {
+            continue;
+        }
+        const alias = part.split(/\s+as\s+/i).map(value => value.trim()).filter(Boolean);
+        out.add(alias[alias.length - 1] || part);
+    }
+    return out;
+}
+
+function readExportedSymbolSnippet(repoRoot: string, relFile: string, symbol: string): string | undefined {
+    const absFile = path.resolve(repoRoot, relFile);
+    const text = readText(absFile);
+    if (!text) {
+        return undefined;
+    }
+    const pattern = new RegExp(`\\bexport\\s+(?:default\\s+)?(?:struct|class|function)\\s+${escapeRegExp(symbol)}\\b`);
+    const m = pattern.exec(text);
+    if (!m) {
+        return text.split(/\r?\n/).slice(0, 80).join("\n");
+    }
+    const startLine = lineNumberAt(text, m.index);
+    return formatLineWindow(text, startLine, 20);
 }
 
 interface OptionCallbackCall {
@@ -974,7 +1900,7 @@ function collectOptionCallbackCalls(text: string): OptionCallbackCall[] {
 
 function collectMethodCallbackCalls(text: string): MethodCallbackCall[] {
     const out: MethodCallbackCall[] = [];
-    const callRe = /\b([A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*){1,5})\s*\.\s*([A-Za-z_$][\w$]*)\s*\(/g;
+    const callRe = /\b([A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*){0,5})\s*\.\s*([A-Za-z_$][\w$]*)\s*\(/g;
     let m: RegExpExecArray | null;
     while ((m = callRe.exec(text)) !== null) {
         const receiver = m[1].replace(/\s+/g, "");
@@ -1014,10 +1940,7 @@ function isModelingRelevantMethodCallback(receiver: string, method: string): boo
     if (loweredMethod === "use" && loweredReceiver.includes("interceptors")) {
         return loweredReceiver.includes(".response");
     }
-    if (/^(on|once|subscribe|addlistener|addeventlistener|register|listen)$/.test(loweredMethod)) {
-        return /\b(event|emitter|bus|socket|websocket|channel|client|hub|manager|listener)\b/i.test(receiver);
-    }
-    return false;
+    return /^(on|once|subscribe|addlistener|addeventlistener|register|listen)$/.test(loweredMethod);
 }
 
 function inferMethodCallbackTypeHint(receiver: string, method: string): string | undefined {
@@ -1025,10 +1948,21 @@ function inferMethodCallbackTypeHint(receiver: string, method: string): string |
     if (lowered.includes("interceptors.response")) return "interceptors.response";
     if (lowered.includes("interceptors.request")) return "interceptors.request";
     if (lowered.includes("interceptors")) return "interceptors";
-    if (lowered.includes("axios")) return "axios";
-    if (lowered.includes("event")) return "event";
-    if (lowered.includes("socket")) return "socket";
+    if (hasAnyReceiverToken(receiver, ["event", "emitter", "hub", "bus", "channel"])) return "event";
     return undefined;
+}
+
+function hasAnyReceiverToken(receiver: string, expected: string[]): boolean {
+    const tokens = receiverSemanticTokens(receiver);
+    return expected.some(token => tokens.has(token));
+}
+
+function receiverSemanticTokens(receiver: string): Set<string> {
+    const text = String(receiver || "")
+        .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+        .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+        .toLowerCase();
+    return new Set(text.split(/[^a-z0-9]+/).map(token => token.trim()).filter(Boolean));
 }
 
 function isInlineCallbackArgument(arg: string): boolean {
@@ -1230,15 +2164,6 @@ function isModelingRelevantCallback(name: string): boolean {
     return /^on[A-Z]/.test(name);
 }
 
-function scoreCallbackCandidate(callee: string, callbackProperties: string[], binding?: ImportBinding): number {
-    let score = callbackProperties.length * 8;
-    if (/(field|input|search|textarea|form)/i.test(callee)) score += 30;
-    if (/(change|input|submit|search|phone|password|code|value|text)/i.test(callbackProperties.join(" "))) score += 35;
-    if (/(click|tap|press|btn)/i.test(callbackProperties.join(" "))) score += 12;
-    if (binding?.source && !binding.source.startsWith(".")) score += 8;
-    if (binding?.resolvedFile) score += 6;
-    return score;
-}
 
 function lineNumberAt(text: string, index: number): number {
     let line = 1;

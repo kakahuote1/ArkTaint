@@ -4,10 +4,10 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.transfer.harmony.string.concat.arg0_to_result",
+      "surfaceId": "surface.transfer.harmony.string.concat.arg0_to_result.exact.concat.className.String",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
       "methodName": "concat",
       "invokeKind": "instance",
       "argCount": 0,
@@ -17,10 +17,10 @@
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.concat.base_to_result",
+      "surfaceId": "surface.transfer.harmony.string.concat.base_to_result.exact.concat.className.String",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
       "methodName": "concat",
       "invokeKind": "instance",
       "argCount": 0,
@@ -30,11 +30,11 @@
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result",
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.toString.className.String",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "h210c8933",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
+      "methodName": "toString",
       "invokeKind": "instance",
       "argCount": 0,
       "confidence": "likely",
@@ -43,10 +43,231 @@
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.at.base_to_result",
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleString.className.String",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "string",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
+      "methodName": "toLocaleString",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.valueOf.className.String",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
+      "methodName": "valueOf",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.slice.className.String",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
+      "methodName": "slice",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.substring.className.String",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
+      "methodName": "substring",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.substr.className.String",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
+      "methodName": "substr",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.trim.className.String",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
+      "methodName": "trim",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.trimStart.className.String",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
+      "methodName": "trimStart",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.trimEnd.className.String",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
+      "methodName": "trimEnd",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.trimLeft.className.String",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
+      "methodName": "trimLeft",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.trimRight.className.String",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
+      "methodName": "trimRight",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.toUpperCase.className.String",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
+      "methodName": "toUpperCase",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.toLowerCase.className.String",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
+      "methodName": "toLowerCase",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.repeat.className.String",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
+      "methodName": "repeat",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.charAt.className.String",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
+      "methodName": "charAt",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.normalize.className.String",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
+      "methodName": "normalize",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleLowerCase.className.String",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
+      "methodName": "toLocaleLowerCase",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleUpperCase.className.String",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
+      "methodName": "toLocaleUpperCase",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.at.base_to_result.exact.at.className.String",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
       "methodName": "at",
       "invokeKind": "instance",
       "argCount": 1,
@@ -56,10 +277,10 @@
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.replace.base_to_result",
+      "surfaceId": "surface.transfer.harmony.string.replace.base_to_result.exact.replace.className.String",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
       "methodName": "replace",
       "invokeKind": "instance",
       "argCount": 0,
@@ -69,10 +290,10 @@
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.replace.arg1_to_result",
+      "surfaceId": "surface.transfer.harmony.string.replace.arg1_to_result.exact.replace.className.String",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
       "methodName": "replace",
       "invokeKind": "instance",
       "argCount": 0,
@@ -82,10 +303,10 @@
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.replaceAll.base_to_result",
+      "surfaceId": "surface.transfer.harmony.string.replaceAll.base_to_result.exact.replaceAll.className.String",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
       "methodName": "replaceAll",
       "invokeKind": "instance",
       "argCount": 0,
@@ -95,10 +316,10 @@
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.replaceAll.arg1_to_result",
+      "surfaceId": "surface.transfer.harmony.string.replaceAll.arg1_to_result.exact.replaceAll.className.String",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
       "methodName": "replaceAll",
       "invokeKind": "instance",
       "argCount": 0,
@@ -108,10 +329,10 @@
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.match.base_to_result",
+      "surfaceId": "surface.transfer.harmony.string.match.base_to_result.exact.match.className.String",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
       "methodName": "match",
       "invokeKind": "instance",
       "argCount": 1,
@@ -121,10 +342,10 @@
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.matchAll.base_to_result",
+      "surfaceId": "surface.transfer.harmony.string.matchAll.base_to_result.exact.matchAll.className.String",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
       "methodName": "matchAll",
       "invokeKind": "instance",
       "argCount": 1,
@@ -134,10 +355,10 @@
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.raw.arg0_to_result",
+      "surfaceId": "surface.transfer.harmony.string.raw.arg0_to_result.exact.raw.className.String",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
       "methodName": "raw",
       "invokeKind": "static",
       "argCount": 0,
@@ -147,10 +368,10 @@
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.raw.arg1_to_result",
+      "surfaceId": "surface.transfer.harmony.string.raw.arg1_to_result.exact.raw.className.String",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
       "methodName": "raw",
       "invokeKind": "static",
       "argCount": 0,
@@ -160,11 +381,11 @@
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.padding.base_to_result",
+      "surfaceId": "surface.transfer.harmony.string.padding.base_to_result.exact.padStart.className.String",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "h210c8933",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
+      "methodName": "padStart",
       "invokeKind": "instance",
       "argCount": 0,
       "confidence": "likely",
@@ -173,11 +394,11 @@
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.padding.arg1_to_result",
+      "surfaceId": "surface.transfer.harmony.string.padding.base_to_result.exact.padEnd.className.String",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "h210c8933",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
+      "methodName": "padEnd",
       "invokeKind": "instance",
       "argCount": 0,
       "confidence": "likely",
@@ -186,10 +407,36 @@
       }
     },
     {
-      "surfaceId": "surface.transfer.harmony.string.split.base_to_result",
+      "surfaceId": "surface.transfer.harmony.string.padding.arg1_to_result.exact.padStart.className.String",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
+      "methodName": "padStart",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.padding.arg1_to_result.exact.padEnd.className.String",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
+      "methodName": "padEnd",
+      "invokeKind": "instance",
+      "argCount": 0,
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.transfer.harmony.string.split.base_to_result.exact.split.className.String",
+      "kind": "invoke",
+      "modulePath": "tsjs.builtin",
+      "ownerName": "String",
       "methodName": "split",
       "invokeKind": "instance",
       "argCount": 0,
@@ -201,18 +448,24 @@
   ],
   "bindings": [
     {
-      "bindingId": "binding.transfer.harmony.string.concat.arg0_to_result.0",
-      "surfaceId": "surface.transfer.harmony.string.concat.arg0_to_result",
+      "bindingId": "binding.transfer.harmony.string.concat.arg0_to_result.exact.concat.className.String",
+      "surfaceId": "surface.transfer.harmony.string.concat.arg0_to_result.exact.concat.className.String",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
       "selector": {
         "kind": "method-name-equals",
         "value": "concat",
-        "invokeKind": "instance"
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.concat.arg0_to_result"
+        "template.transfer.harmony.string.concat.arg0_to_result.exact.concat.className.String"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -222,18 +475,24 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.concat.base_to_result.0",
-      "surfaceId": "surface.transfer.harmony.string.concat.base_to_result",
+      "bindingId": "binding.transfer.harmony.string.concat.base_to_result.exact.concat.className.String",
+      "surfaceId": "surface.transfer.harmony.string.concat.base_to_result.exact.concat.className.String",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
       "selector": {
         "kind": "method-name-equals",
         "value": "concat",
-        "invokeKind": "instance"
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.concat.base_to_result"
+        "template.transfer.harmony.string.concat.base_to_result.exact.concat.className.String"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -243,18 +502,24 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.0",
-      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result",
+      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.toString.className.String",
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.toString.className.String",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
       "selector": {
-        "kind": "method-name-regex",
-        "value": "^(toString|toLocaleString|valueOf|slice|substring|substr|trim|trimStart|trimEnd|trimLeft|trimRight|toUpperCase|toLowerCase|repeat|charAt|normalize|toLocaleLowerCase|toLocaleUpperCase)$",
-        "invokeKind": "instance"
+        "kind": "method-name-equals",
+        "value": "toString",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.pure_transform.base_to_result"
+        "template.transfer.harmony.string.pure_transform.base_to_result.exact.toString.className.String"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -264,8 +529,467 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.at.base_to_result.0",
-      "surfaceId": "surface.transfer.harmony.string.at.base_to_result",
+      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleString.className.String",
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleString.className.String",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "toLocaleString",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleString.className.String"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Pure String transforms conservatively taint their result from the receiver string."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.valueOf.className.String",
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.valueOf.className.String",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "valueOf",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.pure_transform.base_to_result.exact.valueOf.className.String"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Pure String transforms conservatively taint their result from the receiver string."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.slice.className.String",
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.slice.className.String",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "slice",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.pure_transform.base_to_result.exact.slice.className.String"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Pure String transforms conservatively taint their result from the receiver string."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.substring.className.String",
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.substring.className.String",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "substring",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.pure_transform.base_to_result.exact.substring.className.String"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Pure String transforms conservatively taint their result from the receiver string."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.substr.className.String",
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.substr.className.String",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "substr",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.pure_transform.base_to_result.exact.substr.className.String"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Pure String transforms conservatively taint their result from the receiver string."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.trim.className.String",
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.trim.className.String",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "trim",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.pure_transform.base_to_result.exact.trim.className.String"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Pure String transforms conservatively taint their result from the receiver string."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.trimStart.className.String",
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.trimStart.className.String",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "trimStart",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.pure_transform.base_to_result.exact.trimStart.className.String"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Pure String transforms conservatively taint their result from the receiver string."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.trimEnd.className.String",
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.trimEnd.className.String",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "trimEnd",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.pure_transform.base_to_result.exact.trimEnd.className.String"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Pure String transforms conservatively taint their result from the receiver string."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.trimLeft.className.String",
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.trimLeft.className.String",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "trimLeft",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.pure_transform.base_to_result.exact.trimLeft.className.String"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Pure String transforms conservatively taint their result from the receiver string."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.trimRight.className.String",
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.trimRight.className.String",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "trimRight",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.pure_transform.base_to_result.exact.trimRight.className.String"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Pure String transforms conservatively taint their result from the receiver string."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.toUpperCase.className.String",
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.toUpperCase.className.String",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "toUpperCase",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.pure_transform.base_to_result.exact.toUpperCase.className.String"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Pure String transforms conservatively taint their result from the receiver string."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.toLowerCase.className.String",
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.toLowerCase.className.String",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "toLowerCase",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.pure_transform.base_to_result.exact.toLowerCase.className.String"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Pure String transforms conservatively taint their result from the receiver string."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.repeat.className.String",
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.repeat.className.String",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "repeat",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.pure_transform.base_to_result.exact.repeat.className.String"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Pure String transforms conservatively taint their result from the receiver string."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.charAt.className.String",
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.charAt.className.String",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "charAt",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.pure_transform.base_to_result.exact.charAt.className.String"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Pure String transforms conservatively taint their result from the receiver string."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.normalize.className.String",
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.normalize.className.String",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "normalize",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.pure_transform.base_to_result.exact.normalize.className.String"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Pure String transforms conservatively taint their result from the receiver string."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleLowerCase.className.String",
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleLowerCase.className.String",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "toLocaleLowerCase",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleLowerCase.className.String"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Pure String transforms conservatively taint their result from the receiver string."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleUpperCase.className.String",
+      "surfaceId": "surface.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleUpperCase.className.String",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "toLocaleUpperCase",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleUpperCase.className.String"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "Pure String transforms conservatively taint their result from the receiver string."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.harmony.string.at.base_to_result.exact.at.className.String",
+      "surfaceId": "surface.transfer.harmony.string.at.base_to_result.exact.at.className.String",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
@@ -274,10 +998,15 @@
         "value": "at",
         "invokeKind": "instance",
         "argCount": 1,
-        "typeHint": "string"
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.at.base_to_result"
+        "template.transfer.harmony.string.at.base_to_result.exact.at.className.String"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -287,18 +1016,24 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.replace.base_to_result.0",
-      "surfaceId": "surface.transfer.harmony.string.replace.base_to_result",
+      "bindingId": "binding.transfer.harmony.string.replace.base_to_result.exact.replace.className.String",
+      "surfaceId": "surface.transfer.harmony.string.replace.base_to_result.exact.replace.className.String",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
       "selector": {
         "kind": "method-name-equals",
         "value": "replace",
-        "invokeKind": "instance"
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.replace.base_to_result"
+        "template.transfer.harmony.string.replace.base_to_result.exact.replace.className.String"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -308,18 +1043,24 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.replace.arg1_to_result.0",
-      "surfaceId": "surface.transfer.harmony.string.replace.arg1_to_result",
+      "bindingId": "binding.transfer.harmony.string.replace.arg1_to_result.exact.replace.className.String",
+      "surfaceId": "surface.transfer.harmony.string.replace.arg1_to_result.exact.replace.className.String",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
       "selector": {
         "kind": "method-name-equals",
         "value": "replace",
-        "invokeKind": "instance"
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.replace.arg1_to_result"
+        "template.transfer.harmony.string.replace.arg1_to_result.exact.replace.className.String"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -329,18 +1070,24 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.replaceAll.base_to_result.0",
-      "surfaceId": "surface.transfer.harmony.string.replaceAll.base_to_result",
+      "bindingId": "binding.transfer.harmony.string.replaceAll.base_to_result.exact.replaceAll.className.String",
+      "surfaceId": "surface.transfer.harmony.string.replaceAll.base_to_result.exact.replaceAll.className.String",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
       "selector": {
         "kind": "method-name-equals",
         "value": "replaceAll",
-        "invokeKind": "instance"
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.replaceAll.base_to_result"
+        "template.transfer.harmony.string.replaceAll.base_to_result.exact.replaceAll.className.String"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -350,18 +1097,24 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.replaceAll.arg1_to_result.0",
-      "surfaceId": "surface.transfer.harmony.string.replaceAll.arg1_to_result",
+      "bindingId": "binding.transfer.harmony.string.replaceAll.arg1_to_result.exact.replaceAll.className.String",
+      "surfaceId": "surface.transfer.harmony.string.replaceAll.arg1_to_result.exact.replaceAll.className.String",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
       "selector": {
         "kind": "method-name-equals",
         "value": "replaceAll",
-        "invokeKind": "instance"
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.replaceAll.arg1_to_result"
+        "template.transfer.harmony.string.replaceAll.arg1_to_result.exact.replaceAll.className.String"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -371,8 +1124,8 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.match.base_to_result.0",
-      "surfaceId": "surface.transfer.harmony.string.match.base_to_result",
+      "bindingId": "binding.transfer.harmony.string.match.base_to_result.exact.match.className.String",
+      "surfaceId": "surface.transfer.harmony.string.match.base_to_result.exact.match.className.String",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
@@ -380,10 +1133,16 @@
         "kind": "method-name-equals",
         "value": "match",
         "invokeKind": "instance",
-        "argCount": 1
+        "argCount": 1,
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.match.base_to_result"
+        "template.transfer.harmony.string.match.base_to_result.exact.match.className.String"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -393,8 +1152,8 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.matchAll.base_to_result.0",
-      "surfaceId": "surface.transfer.harmony.string.matchAll.base_to_result",
+      "bindingId": "binding.transfer.harmony.string.matchAll.base_to_result.exact.matchAll.className.String",
+      "surfaceId": "surface.transfer.harmony.string.matchAll.base_to_result.exact.matchAll.className.String",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
@@ -402,10 +1161,16 @@
         "kind": "method-name-equals",
         "value": "matchAll",
         "invokeKind": "instance",
-        "argCount": 1
+        "argCount": 1,
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.matchAll.base_to_result"
+        "template.transfer.harmony.string.matchAll.base_to_result.exact.matchAll.className.String"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -415,18 +1180,24 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.raw.arg0_to_result.0",
-      "surfaceId": "surface.transfer.harmony.string.raw.arg0_to_result",
+      "bindingId": "binding.transfer.harmony.string.raw.arg0_to_result.exact.raw.className.String",
+      "surfaceId": "surface.transfer.harmony.string.raw.arg0_to_result.exact.raw.className.String",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
       "selector": {
-        "kind": "signature-contains",
-        "value": "String.raw",
-        "invokeKind": "static"
+        "kind": "method-name-equals",
+        "value": "raw",
+        "invokeKind": "static",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.raw.arg0_to_result"
+        "template.transfer.harmony.string.raw.arg0_to_result.exact.raw.className.String"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -436,18 +1207,24 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.raw.arg1_to_result.0",
-      "surfaceId": "surface.transfer.harmony.string.raw.arg1_to_result",
+      "bindingId": "binding.transfer.harmony.string.raw.arg1_to_result.exact.raw.className.String",
+      "surfaceId": "surface.transfer.harmony.string.raw.arg1_to_result.exact.raw.className.String",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
       "selector": {
-        "kind": "signature-contains",
-        "value": "String.raw",
-        "invokeKind": "static"
+        "kind": "method-name-equals",
+        "value": "raw",
+        "invokeKind": "static",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.raw.arg1_to_result"
+        "template.transfer.harmony.string.raw.arg1_to_result.exact.raw.className.String"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -457,18 +1234,24 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.padding.base_to_result.0",
-      "surfaceId": "surface.transfer.harmony.string.padding.base_to_result",
+      "bindingId": "binding.transfer.harmony.string.padding.base_to_result.exact.padStart.className.String",
+      "surfaceId": "surface.transfer.harmony.string.padding.base_to_result.exact.padStart.className.String",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
       "selector": {
-        "kind": "method-name-regex",
-        "value": "^(padStart|padEnd)$",
-        "invokeKind": "instance"
+        "kind": "method-name-equals",
+        "value": "padStart",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.padding.base_to_result"
+        "template.transfer.harmony.string.padding.base_to_result.exact.padStart.className.String"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -478,18 +1261,51 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.padding.arg1_to_result.0",
-      "surfaceId": "surface.transfer.harmony.string.padding.arg1_to_result",
+      "bindingId": "binding.transfer.harmony.string.padding.base_to_result.exact.padEnd.className.String",
+      "surfaceId": "surface.transfer.harmony.string.padding.base_to_result.exact.padEnd.className.String",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
       "selector": {
-        "kind": "method-name-regex",
-        "value": "^(padStart|padEnd)$",
-        "invokeKind": "instance"
+        "kind": "method-name-equals",
+        "value": "padEnd",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.padding.arg1_to_result"
+        "template.transfer.harmony.string.padding.base_to_result.exact.padEnd.className.String"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "String pad transforms conservatively taint their result from the receiver string."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.harmony.string.padding.arg1_to_result.exact.padStart.className.String",
+      "surfaceId": "surface.transfer.harmony.string.padding.arg1_to_result.exact.padStart.className.String",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "padStart",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.padding.arg1_to_result.exact.padStart.className.String"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -499,18 +1315,51 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.transfer.harmony.string.split.base_to_result.0",
-      "surfaceId": "surface.transfer.harmony.string.split.base_to_result",
+      "bindingId": "binding.transfer.harmony.string.padding.arg1_to_result.exact.padEnd.className.String",
+      "surfaceId": "surface.transfer.harmony.string.padding.arg1_to_result.exact.padEnd.className.String",
+      "assetId": "asset.rule.kernel.transfers.string",
+      "plane": "rule",
+      "role": "transfer",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "padEnd",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
+      },
+      "effectTemplateRefs": [
+        "template.transfer.harmony.string.padding.arg1_to_result.exact.padEnd.className.String"
+      ],
+      "semanticsFamily": "transfer",
+      "metadata": {
+        "description": "String pad transforms propagate taint from the pad string to the result."
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.transfer.harmony.string.split.base_to_result.exact.split.className.String",
+      "surfaceId": "surface.transfer.harmony.string.split.base_to_result.exact.split.className.String",
       "assetId": "asset.rule.kernel.transfers.string",
       "plane": "rule",
       "role": "transfer",
       "selector": {
         "kind": "method-name-equals",
         "value": "split",
-        "invokeKind": "instance"
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "String"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.harmony.string.split.base_to_result"
+        "template.transfer.harmony.string.split.base_to_result.exact.split.className.String"
       ],
       "semanticsFamily": "transfer",
       "metadata": {
@@ -522,7 +1371,7 @@
   ],
   "effectTemplates": [
     {
-      "id": "template.transfer.harmony.string.concat.arg0_to_result",
+      "id": "template.transfer.harmony.string.concat.arg0_to_result.exact.concat.className.String",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -539,7 +1388,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.string.concat.base_to_result",
+      "id": "template.transfer.harmony.string.concat.base_to_result.exact.concat.className.String",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -555,7 +1404,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.string.pure_transform.base_to_result",
+      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.toString.className.String",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -571,7 +1420,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.string.at.base_to_result",
+      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleString.className.String",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -587,7 +1436,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.string.replace.base_to_result",
+      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.valueOf.className.String",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -603,7 +1452,279 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.string.replace.arg1_to_result",
+      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.slice.className.String",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.substring.className.String",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.substr.className.String",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.trim.className.String",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.trimStart.className.String",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.trimEnd.className.String",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.trimLeft.className.String",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.trimRight.className.String",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.toUpperCase.className.String",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.toLowerCase.className.String",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.repeat.className.String",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.charAt.className.String",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.normalize.className.String",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleLowerCase.className.String",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.pure_transform.base_to_result.exact.toLocaleUpperCase.className.String",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.at.base_to_result.exact.at.className.String",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.replace.base_to_result.exact.replace.className.String",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.replace.arg1_to_result.exact.replace.className.String",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -620,7 +1741,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.string.replaceAll.base_to_result",
+      "id": "template.transfer.harmony.string.replaceAll.base_to_result.exact.replaceAll.className.String",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -636,7 +1757,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.string.replaceAll.arg1_to_result",
+      "id": "template.transfer.harmony.string.replaceAll.arg1_to_result.exact.replaceAll.className.String",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -653,7 +1774,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.string.match.base_to_result",
+      "id": "template.transfer.harmony.string.match.base_to_result.exact.match.className.String",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -669,7 +1790,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.string.matchAll.base_to_result",
+      "id": "template.transfer.harmony.string.matchAll.base_to_result.exact.matchAll.className.String",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -685,7 +1806,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.string.raw.arg0_to_result",
+      "id": "template.transfer.harmony.string.raw.arg0_to_result.exact.raw.className.String",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -702,7 +1823,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.string.raw.arg1_to_result",
+      "id": "template.transfer.harmony.string.raw.arg1_to_result.exact.raw.className.String",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -719,7 +1840,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.string.padding.base_to_result",
+      "id": "template.transfer.harmony.string.padding.base_to_result.exact.padStart.className.String",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -735,7 +1856,23 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.string.padding.arg1_to_result",
+      "id": "template.transfer.harmony.string.padding.base_to_result.exact.padEnd.className.String",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "receiver"
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.padding.arg1_to_result.exact.padStart.className.String",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -752,7 +1889,24 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.harmony.string.split.base_to_result",
+      "id": "template.transfer.harmony.string.padding.arg1_to_result.exact.padEnd.className.String",
+      "confidence": "certain",
+      "kind": "rule.transfer",
+      "from": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "to": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "transferKind": "transfer"
+    },
+    {
+      "id": "template.transfer.harmony.string.split.base_to_result.exact.split.className.String",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {

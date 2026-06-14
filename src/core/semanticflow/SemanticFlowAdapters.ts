@@ -261,6 +261,7 @@ function buildRuleObservations(item: NormalizedCallsiteItem): string[] {
     }
     if (typeof (item as any).methodSnippet === "string" && (item as any).methodSnippet.trim()) {
         observations.push("methodSnippet=available");
+        observations.push(...buildFormalParameterObservations(String((item as any).methodSnippet)));
     }
     const methodSnippetSource = typeof (item as any).methodSnippetSource === "string"
         ? String((item as any).methodSnippetSource).trim()
@@ -501,11 +502,11 @@ function selectRuleCompanionCandidates(item: NormalizedCallsiteItem, companionCa
             String(candidate.method || ""),
             String(candidate.callee_signature || ""),
         ].join("\u0000");
-        const selfKey = [
-            normalizeSlashes(String(item.sourceFile || "")),
-            String(item.owner || ""),
-            String(item.method || ""),
-            String(item.callee_signature || ""),
+    const selfKey = [
+        normalizeSlashes(String(item.sourceFile || "")),
+        String(item.owner || ""),
+        String(item.method || ""),
+        String(item.callee_signature || ""),
         ].join("\u0000");
         if (key === selfKey || seen.has(key)) {
             return;
@@ -514,6 +515,9 @@ function selectRuleCompanionCandidates(item: NormalizedCallsiteItem, companionCa
         selected.push(candidate);
     };
 
+    for (const candidate of selectEventBusDispatchCompanionCandidates(item, companionCandidates)) {
+        add(candidate);
+    }
     for (const candidate of companionCandidates) {
         if (shouldInlineCompanionMethodEvidence(item, candidate)) {
             add(candidate);
@@ -533,6 +537,53 @@ function selectRuleCompanionCandidates(item: NormalizedCallsiteItem, companionCa
         add(candidate);
     }
     return selected.slice(0, 4);
+}
+
+function selectEventBusDispatchCompanionCandidates(
+    item: NormalizedCallsiteItem,
+    companionCandidates: NormalizedCallsiteItem[],
+): NormalizedCallsiteItem[] {
+    if (!isEventCallbackModelingItem(item)) {
+        return [];
+    }
+    const itemFile = normalizeSlashes(String(item.sourceFile || ""));
+    return companionCandidates
+        .filter(candidate => normalizeSlashes(String(candidate.sourceFile || "")) === itemFile)
+        .filter(isProjectEventBusDispatchCompanion)
+        .sort((left, right) => eventBusDispatchPriority(left) - eventBusDispatchPriority(right))
+        .slice(0, 2);
+}
+
+function isEventCallbackModelingItem(item: NormalizedCallsiteItem): boolean {
+    const topEntries = Array.isArray(item.topEntries)
+        ? item.topEntries.map(entry => String(entry || "").trim())
+        : [];
+    const callbackArgIndexes = Array.isArray((item as any).callbackArgIndexes)
+        ? (item as any).callbackArgIndexes
+        : [];
+    return String((item as any).candidateOrigin || "") === "recall_method_callback_surface"
+        && callbackArgIndexes.length > 0
+        && (topEntries.some(entry => entry === "typeHint=event") || String((item as any).typeHint || "") === "event");
+}
+
+function isProjectEventBusDispatchCompanion(candidate: NormalizedCallsiteItem): boolean {
+    const topEntries = Array.isArray(candidate.topEntries)
+        ? candidate.topEntries.map(entry => String(entry || "").trim())
+        : [];
+    if (!topEntries.some(entry => entry === "candidateBoundary=project_event_bus_wrapper_evidence")) {
+        return false;
+    }
+    const method = String(candidate.method || "").trim().toLowerCase();
+    return /^(sendevent|send|emit|publish|trigger|dispatch|post|fire|notify)$/.test(method)
+        || /(?:event|emit|publish|dispatch|notify)/.test(method);
+}
+
+function eventBusDispatchPriority(candidate: NormalizedCallsiteItem): number {
+    const method = String(candidate.method || "").trim().toLowerCase();
+    if (method === "sendevent") return 0;
+    if (/event/.test(method)) return 1;
+    if (/^(emit|publish|dispatch|trigger|fire|notify)$/.test(method)) return 2;
+    return 3;
 }
 
 function shouldInlineTransitiveCompanionMethodEvidence(
@@ -581,24 +632,103 @@ function buildCompanionFinalSinkUsageLines(companion: NormalizedCallsiteItem): s
     ];
 }
 
-function extractFormalParameters(methodSnippet: string): Array<{ name: string; slot: string }> {
-    const firstLine = String(methodSnippet || "").split(/\r?\n/).find(line => line.includes("(") && line.includes(")")) || "";
-    const open = firstLine.indexOf("(");
-    const close = firstLine.lastIndexOf(")");
-    if (open < 0 || close <= open) {
+function buildFormalParameterObservations(methodSnippet: string): string[] {
+    const params = extractFormalParameters(methodSnippet);
+    if (params.length === 0) {
         return [];
     }
-    const rawParams = splitTopLevelComma(firstLine.slice(open + 1, close));
-    const params: Array<{ name: string; slot: string }> = [];
+    const observations: string[] = [];
+    const payloadSlots: string[] = [];
+    const metadataSlots: string[] = [];
+    for (const param of params.slice(0, 12)) {
+        const semanticRole = classifyFormalParameterSemanticRole(param.name, param.type);
+        observations.push([
+            `formalParam=${param.slot}`,
+            `name=${param.name}`,
+            `type=${param.type || "Unknown"}`,
+            `semanticRole=${semanticRole}`,
+        ].join(";"));
+        if (semanticRole === "payload" || semanticRole === "header-or-credential-payload") {
+            payloadSlots.push(`${param.slot}(${param.name})`);
+        }
+        if (semanticRole === "control-metadata" || semanticRole === "destination-metadata") {
+            metadataSlots.push(`${param.slot}(${param.name})`);
+        }
+    }
+    if (payloadSlots.length || metadataSlots.length) {
+        observations.push(`requestWrapperEndpointHint=payload:${payloadSlots.join(",") || "-"} metadata:${metadataSlots.join(",") || "-"}`);
+    }
+    return observations;
+}
+
+function extractFormalParameters(methodSnippet: string): Array<{ name: string; slot: string; type?: string }> {
+    const signatureParams = extractSignatureParameterText(methodSnippet);
+    if (!signatureParams) {
+        return [];
+    }
+    const rawParams = splitTopLevelComma(signatureParams);
+    const params: Array<{ name: string; slot: string; type?: string }> = [];
     for (const [index, raw] of rawParams.entries()) {
-        const cleaned = raw.trim().replace(/^(public|private|protected|readonly)\s+/, "");
-        const nameMatch = cleaned.match(/^\s*(?:\.\.\.)?([A-Za-z_$][\w$]*)\b/);
+        const cleaned = raw
+            .trim()
+            .replace(/^(public|private|protected|readonly)\s+/, "")
+            .replace(/\s*=\s*[\s\S]*$/, "")
+            .trim();
+        const nameMatch = cleaned.match(/^\s*(?:\.\.\.)?([A-Za-z_$][\w$]*)\??\b/);
         if (!nameMatch) {
             continue;
         }
-        params.push({ name: nameMatch[1], slot: `arg${index}` });
+        const colon = cleaned.indexOf(":");
+        const type = colon >= 0 ? cleaned.slice(colon + 1).trim() : "";
+        params.push({ name: nameMatch[1], slot: `arg${index}`, ...(type ? { type } : {}) });
     }
     return params;
+}
+
+function extractSignatureParameterText(methodSnippet: string): string {
+    const normalized = String(methodSnippet || "")
+        .split(/\r?\n/)
+        .map(line => line.replace(/^\s*\d+\s*\|\s?/, ""))
+        .join("\n");
+    const open = normalized.indexOf("(");
+    if (open < 0) {
+        return "";
+    }
+    let depth = 0;
+    for (let i = open; i < normalized.length; i++) {
+        const char = normalized[i];
+        if (char === "(") {
+            depth++;
+            continue;
+        }
+        if (char === ")") {
+            depth--;
+            if (depth === 0) {
+                return normalized.slice(open + 1, i).trim();
+            }
+        }
+    }
+    return "";
+}
+
+function classifyFormalParameterSemanticRole(name: string, type?: string): string {
+    const text = `${name} ${type || ""}`.toLowerCase();
+    if (/\b(method|verb|operation|action|expect|binary|flag|mode|retry|timeout|options?)\b/.test(text)) {
+        return "control-metadata";
+    }
+    if (/\b(path|uri|url|endpoint|host|baseurl|route|target)\b/.test(text)) {
+        return "destination-metadata";
+    }
+    if (/\b(header|headers|auth|token|credential|password|secret|cookie|session)\b/.test(text)) {
+        return "header-or-credential-payload";
+    }
+    if (/\b(body|payload|data|content|file|files|buffer|bytes|blob|form|params|query|requestbody)\b/.test(text)) {
+        return "payload";
+    }
+    if (/\b(callback|handler|listener|success|fail|error)\b/.test(text)) {
+        return "callback";
+    }
+    return "unknown";
 }
 
 function splitTopLevelComma(value: string): string[] {
@@ -759,7 +889,7 @@ function buildRuleNotes(item: NormalizedCallsiteItem): string[] | undefined {
         notes.push("Focus this modeling item on the visible returned value. Treat this as a returned-value modeling question, not as a preselected source rule. Ignore request/input sink semantics in this focused item and decide whether the return is external/framework response data, a direct transfer, module-only handoff, no-transfer, or needs more evidence.");
     }
     if (isBridgeCandidate(item)) {
-        notes.push("Bridge evidence is not a preselected module or rule. Use the provided bridgeEvidence observations to decide whether the visible surface is a one-surface rule, a cross-surface module, no-transfer, or needs more evidence. Do not enumerate possible reflected targets or explain every branch. If the matching registration, dispatch target, or callback-return companion is not shown clearly enough for a valid artifact, immediately return status=need-more-evidence with one bounded q_comp/q_cb request instead of inventing a broad bridge.");
+        notes.push("Bridge evidence is not a preselected module or rule. Use the provided bridgeEvidence observations to decide whether the visible surface is a one-surface rule, a cross-surface module, no-transfer, or needs more evidence. Do not enumerate possible reflected targets or explain every branch. If the matching registration, dispatch target, callback-return companion, or payload relation is not shown clearly enough for a valid artifact, immediately return status=need-more-evidence with one bounded request using kind=\"q_relation\", kind=\"q_endpoint\", or kind=\"q_evidence\" instead of inventing a broad bridge.");
     }
     return notes.length > 0 ? notes : undefined;
 }
@@ -906,14 +1036,14 @@ function selectBridgeCompanionCandidates(
         .map((companion, index) => ({
             companion,
             index,
-            score: scoreBridgeCompanion(companion),
+            tier: bridgeCompanionTier(companion),
         }))
-        .sort((a, b) => b.score - a.score || a.index - b.index)
+        .sort((a, b) => a.tier - b.tier || a.index - b.index)
         .slice(0, 3)
         .map(entry => entry.companion);
 }
 
-function scoreBridgeCompanion(companion: NormalizedCallsiteItem): number {
+function bridgeCompanionTier(companion: NormalizedCallsiteItem): number {
     const method = String(companion.method || "").toLowerCase();
     const text = [
         companion.callee_signature,
@@ -921,14 +1051,13 @@ function scoreBridgeCompanion(companion: NormalizedCallsiteItem): number {
         method,
         typeof (companion as any).methodSnippet === "string" ? (companion as any).methodSnippet : "",
     ].join("\n");
-    let score = 0;
-    if (/\b(registerjavascriptproxy|javascriptproxy|injectjavascript|setwebviewcontrollerproxy)\b/.test(method)) score += 80;
-    if (/\b(callbacktojs|returnvalue|handlerMap)\b/i.test(text)) score += 70;
-    if (/\b(calljs|callhandler|callhandlernoparam|calljsnoparam)\b/.test(method)) score += 50;
-    if (/\brunJavaScript\s*\(/.test(text)) score += 24;
-    if (/\bReflect\.get\b/.test(text)) score += 18;
-    if (/\bJSON\s*\.\s*(?:parse|stringify)\s*\(/.test(text)) score += 10;
-    return score;
+    if (/\b(registerjavascriptproxy|javascriptproxy|injectjavascript|setwebviewcontrollerproxy)\b/.test(method)) return 0;
+    if (/\b(callbacktojs|returnvalue|handlerMap)\b/i.test(text)) return 1;
+    if (/\b(calljs|callhandler|callhandlernoparam|calljsnoparam)\b/.test(method)) return 2;
+    if (/\brunJavaScript\s*\(/.test(text)) return 3;
+    if (/\bReflect\.get\b/.test(text)) return 4;
+    if (/\bJSON\s*\.\s*(?:parse|stringify)\s*\(/.test(text)) return 5;
+    return 6;
 }
 
 function buildBridgeEvidenceObservations(item: NormalizedCallsiteItem): string[] {

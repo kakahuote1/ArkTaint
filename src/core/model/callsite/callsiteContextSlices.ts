@@ -38,6 +38,36 @@ interface OwnerMethodSnippet {
     code: string;
 }
 
+type OwnerMethodEvidenceTier =
+    | "registration-companion"
+    | "direct-method-reference"
+    | "shared-delegate-receiver"
+    | "returned-wrapper"
+    | "async-companion"
+    | "wrapper-name"
+    | "no-evidence";
+
+interface OwnerMethodEvidence {
+    item: OwnerMethodSnippet;
+    tier: OwnerMethodEvidenceTier;
+    reasons: string[];
+    originalIndex: number;
+}
+
+const ownerMethodEvidenceTierOrder: OwnerMethodEvidenceTier[] = [
+    "registration-companion",
+    "direct-method-reference",
+    "shared-delegate-receiver",
+    "returned-wrapper",
+    "async-companion",
+    "wrapper-name",
+    "no-evidence",
+];
+
+const ownerMethodEvidenceTierIndex = new Map(
+    ownerMethodEvidenceTierOrder.map((tier, index) => [tier, index]),
+);
+
 function escapeRegExp(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -531,19 +561,15 @@ function selectRelevantImportLines(lines: string[], evidenceTexts: string[]): st
         return [];
     }
     const tokens = collectEvidenceTokens(evidenceTexts);
-    const scored = imports.map(entry => {
-        const text = entry.line;
-        let score = 0;
-        for (const token of tokens) {
-            if (text.includes(token)) {
-                score += 1;
-            }
-        }
-        return { ...entry, score };
+    const matched = imports.map(entry => {
+        const matchedTokens = tokens.filter(token => entry.line.includes(token));
+        return { ...entry, matchedTokens };
     });
-    const picked = scored.some(entry => entry.score > 0)
-        ? scored.filter(entry => entry.score > 0).sort((left, right) => right.score - left.score || left.index - right.index)
-        : scored;
+    const picked = matched.some(entry => entry.matchedTokens.length > 0)
+        ? matched
+            .filter(entry => entry.matchedTokens.length > 0)
+            .sort((left, right) => right.matchedTokens.length - left.matchedTokens.length || left.index - right.index)
+        : matched;
     return picked.slice(0, 4).map(entry => `${String(entry.index + 1).padStart(5, " ")} | ${entry.line}`);
 }
 
@@ -592,40 +618,45 @@ function extractDelegateReceivers(code: string): string[] {
     return [...out];
 }
 
-function scoreOwnerMethodSnippet(
+function classifyOwnerMethodSnippetEvidence(
     currentMethod: string,
     currentCode: string,
     candidate: OwnerMethodSnippet,
-): number {
+): { tier: OwnerMethodEvidenceTier; reasons: string[] } {
     if (candidate.method === currentMethod) {
-        return -1;
+        return { tier: "no-evidence", reasons: ["same-method"] };
     }
-    let score = 0;
+    const reasons: string[] = [];
     const currentReceivers = extractDelegateReceivers(currentCode);
     const candidateReceivers = extractDelegateReceivers(candidate.code);
-    for (const receiver of candidateReceivers) {
-        if (currentReceivers.includes(receiver)) {
-            score += 5;
-        }
-    }
     const currentMethodText = String(currentMethod || "").trim();
+
+    if (isDispatchLikeMethod(currentMethod) && isRegistrationLikeMethod(candidate.method)) {
+        reasons.push("registration-method-for-dispatch");
+        return { tier: "registration-companion", reasons };
+    }
     if (currentMethodText && candidate.code.includes(currentMethodText)) {
-        score += 6;
+        reasons.push("candidate-references-current-method");
+        return { tier: "direct-method-reference", reasons };
+    }
+    if (candidateReceivers.some(receiver => currentReceivers.includes(receiver))) {
+        reasons.push("shared-delegate-receiver");
+        return { tier: "shared-delegate-receiver", reasons };
+    }
+    if (/return\s+[A-Za-z_$][\w$]*\.[A-Za-z_$][\w$]*\s*\(/.test(candidate.code)) {
+        reasons.push("returned-delegated-call");
+        return { tier: "returned-wrapper", reasons };
+    }
+    if (candidate.code.includes(".then(") || candidate.code.includes(".catch(") || candidate.code.includes(".finally(")) {
+        reasons.push("promise-continuation");
+        return { tier: "async-companion", reasons };
     }
     const wrapperTokens = ["push", "replace", "back", "get", "set", "post", "emit", "bind", "subscribe", "publish"];
     if (wrapperTokens.some(token => candidate.method.toLowerCase().includes(token))) {
-        score += 1;
+        reasons.push("wrapper-shaped-method-name");
+        return { tier: "wrapper-name", reasons };
     }
-    if (isDispatchLikeMethod(currentMethod) && isRegistrationLikeMethod(candidate.method)) {
-        score += 8;
-    }
-    if (/return\s+[A-Za-z_$][\w$]*\.[A-Za-z_$][\w$]*\s*\(/.test(candidate.code)) {
-        score += 2;
-    }
-    if (candidate.code.includes(".then(") || candidate.code.includes(".catch(") || candidate.code.includes(".finally(")) {
-        score += 1;
-    }
-    return score;
+    return { tier: "no-evidence", reasons: ["no-linked-owner-evidence"] };
 }
 
 function isDispatchLikeMethod(methodName: string): boolean {
@@ -642,16 +673,30 @@ function selectOwnerFamilySnippets(
     currentCode: string,
     limit: number,
 ): OwnerMethodSnippet[] {
-    return [...ownerMethods]
-        .filter(item => item.method !== currentMethod)
-        .map(item => ({
-            item,
-            score: scoreOwnerMethodSnippet(currentMethod, currentCode, item),
-        }))
-        .filter(entry => entry.score > 0)
-        .sort((left, right) => right.score - left.score || left.item.method.localeCompare(right.item.method))
+    return ownerMethods
+        .map((item, originalIndex): OwnerMethodEvidence => {
+            const evidence = classifyOwnerMethodSnippetEvidence(currentMethod, currentCode, item);
+            return {
+                item,
+                tier: evidence.tier,
+                reasons: evidence.reasons,
+                originalIndex,
+            };
+        })
+        .filter(entry => entry.tier !== "no-evidence")
+        .sort(compareOwnerMethodEvidence)
         .slice(0, limit)
         .map(entry => entry.item);
+}
+
+function compareOwnerMethodEvidence(left: OwnerMethodEvidence, right: OwnerMethodEvidence): number {
+    return ownerMethodEvidenceTier(left.tier) - ownerMethodEvidenceTier(right.tier)
+        || left.item.method.localeCompare(right.item.method)
+        || left.originalIndex - right.originalIndex;
+}
+
+function ownerMethodEvidenceTier(tier: OwnerMethodEvidenceTier): number {
+    return ownerMethodEvidenceTierIndex.get(tier) ?? ownerMethodEvidenceTierOrder.length;
 }
 
 function compactOwnerMethodSnippet(
@@ -796,7 +841,7 @@ export interface EnrichCallsiteSlicesOptions {
     repoRoot: string;
     sourceDirs: string[];
     items: any[];
-    /** Max feedback items, preserving the priority order chosen by the caller */
+    /** Max feedback items, preserving the queue order chosen by the caller */
     maxItems: number;
     /** Example callsites per item */
     maxExamplesPerItem: number;
@@ -872,7 +917,11 @@ export function enrichNoCandidateItemsWithCallsiteSlices(options: EnrichCallsite
             )
             : undefined;
         const carrierContext = sourceAbsPath
-            ? extractSharedCarrierContextFromFile(sourceAbsPath, item.method)
+            ? extractSharedCarrierContextFromFile(
+                sourceAbsPath,
+                preferredMethodSnippet?.methodName || item.method,
+                ownerClassName,
+            )
             : undefined;
         if (scenes.length === 0) {
             return {

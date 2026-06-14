@@ -1,4 +1,5 @@
 import { TaintFlow } from "../../core/kernel/model/TaintFlow";
+import { TaintTracker } from "../../core/kernel/model/TaintTracker";
 import { SinkRule } from "../../core/rules/RuleSchema";
 import { summarizeSinkInventoryFlows } from "../helpers/SinkInventoryScoring";
 import { aggregateReport, createSourceSummary } from "../helpers/SmokeReportUtils";
@@ -36,8 +37,37 @@ async function main(): Promise<void> {
     assert(sinkSummary.spilloverFlowCount === 1, `expected 1 spillover flow, got ${sinkSummary.spilloverFlowCount}`);
     assert(sinkSummary.detectedTarget, "expected detectedTarget=true");
     assert(sinkSummary.sinkRuleHits["sink.target"] === 1, "expected sink.target hit");
+    assert(sinkSummary.sourceRuleHits["a"] === 2, "expected source a hit");
     assert(sinkSummary.sinkFamilyHits["sink.demo.target"] === 1, "expected sink.demo.target family hit");
     assert(sinkSummary.sinkEndpointHits["arg0"] === 1, "expected arg0 endpoint hit");
+
+    const sourceScoped = summarizeSinkInventoryFlows(
+        [
+            makeFlow("source_rule:a", "sink.target", "arg0"),
+            makeFlow("source_rule:kernel.framework", "sink.target", "arg0"),
+        ],
+        sinkRules,
+        ["sink.target"],
+        ["a"],
+    );
+    assert(sourceScoped.inventoryFlowCount === 2, `expected source-scoped inventory=2, got ${sourceScoped.inventoryFlowCount}`);
+    assert(sourceScoped.targetFlowCount === 1, `expected source-scoped target=1, got ${sourceScoped.targetFlowCount}`);
+    assert(sourceScoped.spilloverFlowCount === 1, `expected source-scoped spillover=1, got ${sourceScoped.spilloverFlowCount}`);
+    assert(sourceScoped.hitSourceRuleIds.includes("kernel.framework"), "expected kernel framework source to remain visible as spillover evidence");
+
+    const tracker = new TaintTracker();
+    tracker.markTainted(42, 0, "source_rule:a", undefined, "42@0#src=source_rule%3Aa");
+    tracker.markTainted(42, 0, "source_rule:kernel.framework", undefined, "42@0#src=source_rule%3Akernel.framework");
+    tracker.markTainted(42, 0, "source_rule:a", ["payload"], "42@0.payload#src=source_rule%3Aa");
+    tracker.markTainted(42, 0, "source_rule:kernel.framework", ["payload"], "42@0.payload#src=source_rule%3Akernel.framework");
+    const nodeSources = tracker.getSourcesAnyContext(42);
+    const fieldSources = tracker.getSourcesAnyContext(42, ["payload"]);
+    assert(nodeSources.includes("source_rule:a"), "expected tracker to preserve project source on shared node");
+    assert(nodeSources.includes("source_rule:kernel.framework"), "expected tracker to preserve framework source on shared node");
+    assert(fieldSources.includes("source_rule:a"), "expected tracker to preserve project source on shared field");
+    assert(fieldSources.includes("source_rule:kernel.framework"), "expected tracker to preserve framework source on shared field");
+    assert(tracker.getTaintFactIdsAnyContext(42).length === 2, "expected source-distinct node fact ids");
+    assert(tracker.getTaintFactIdsAnyContext(42, ["payload"]).length === 2, "expected source-distinct field fact ids");
 
     const entry: EntrySmokeResult = {
         sourceDir: "entry/src/main/ets",
@@ -123,6 +153,7 @@ async function main(): Promise<void> {
     console.log(`inventory_flows=${sinkSummary.inventoryFlowCount}`);
     console.log(`target_flows=${sinkSummary.targetFlowCount}`);
     console.log(`spillover_flows=${sinkSummary.spilloverFlowCount}`);
+    console.log(`source_scoped_target_flows=${sourceScoped.targetFlowCount}`);
     console.log(`report_sink_rules=${Object.keys(report.sinkRuleHits).length}`);
     console.log("PASS test_sink_inventory_scoring_contract");
 }

@@ -108,10 +108,12 @@ async function main(): Promise<void> {
 
     const kernelOnly = loadRuleSet({ ruleCatalogPath: root });
     assert(kernelOnly.appliedLayerOrder.join(" -> ") === "kernel", "packs should not auto-load by default");
-    assert(kernelOnly.discoveredRulePacks.join(",") === "sdk_alpha,sdk_beta", "project packs should be discovered");
+    assert(kernelOnly.discoveredRulePacks.includes("sdk_alpha"), "sdk_alpha project pack should be discovered");
+    assert(kernelOnly.discoveredRulePacks.includes("sdk_beta"), "sdk_beta project pack should be discovered");
     assert(kernelOnly.enabledRulePacks.length === 0, "no project pack should be enabled by default");
     assert(!kernelOnly.ruleSet.sources.some(rule => rule.id === "source.project.alpha"), "alpha pack should stay disabled by default");
     assert(!kernelOnly.ruleSet.sinks.some(rule => rule.id === "sink.project.beta"), "beta pack should stay disabled by default");
+    assert(!kernelOnly.ruleSet.sinks.some(rule => rule.id.includes("project.clearchat")), "built-in project packs should stay disabled by default");
 
     const alphaEnabled = loadRuleSet({
         ruleCatalogPath: root,

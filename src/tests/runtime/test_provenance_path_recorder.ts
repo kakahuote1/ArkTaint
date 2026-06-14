@@ -114,6 +114,32 @@ async function main(): Promise<void> {
     );
     assert(limitedByPaths!.paths.length === 1, `expected one materialized path under maxPaths=1, got ${limitedByPaths!.paths.length}`);
 
+    const limitedByDagFacts = materializeTaintFlowPaths(flow, context, { maxPaths: 8, maxDepth: 8, maxDagFacts: 2 });
+    assert(!!limitedByDagFacts, "expected dag-fact-limited materialization");
+    assert(
+        limitedByDagFacts!.status === "truncated",
+        `expected dag-fact-limited materialization to be truncated, got ${limitedByDagFacts!.status}`,
+    );
+    assert(
+        limitedByDagFacts!.incompleteReasons.includes("truncated_materialization"),
+        `expected dag fact budget to record truncated_materialization, got ${JSON.stringify(limitedByDagFacts!.incompleteReasons)}`,
+    );
+    assert(
+        (limitedByDagFacts!.gaps || []).some(gap => gap.kind === "truncated-materialization"),
+        "expected dag fact budget to produce a truncated-materialization path gap",
+    );
+
+    const limitedByDagEdges = materializeTaintFlowPaths(flow, context, { maxPaths: 8, maxDepth: 8, maxDagEdges: 1 });
+    assert(!!limitedByDagEdges, "expected dag-edge-limited materialization");
+    assert(
+        limitedByDagEdges!.status === "truncated",
+        `expected dag-edge-limited materialization to be truncated, got ${limitedByDagEdges!.status}`,
+    );
+    assert(
+        limitedByDagEdges!.incompleteReasons.includes("truncated_materialization"),
+        `expected dag edge budget to record truncated_materialization, got ${JSON.stringify(limitedByDagEdges!.incompleteReasons)}`,
+    );
+
     const guardedJudgement = aggregateFlowJudgement([
         {
             evidence: [],

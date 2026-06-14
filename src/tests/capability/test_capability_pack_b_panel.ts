@@ -28,6 +28,7 @@ function runSuite(suite: SuiteSpec): SuiteResult {
     const scriptPath = path.resolve(__dirname, suite.script);
     const result = spawnSync(process.execPath, [scriptPath], {
         encoding: "utf8",
+        maxBuffer: 64 * 1024 * 1024,
     });
 
     if (result.stdout) {

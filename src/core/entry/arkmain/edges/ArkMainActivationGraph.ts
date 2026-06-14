@@ -22,6 +22,9 @@ export type {
 export function buildArkMainActivationGraph(
     facts: ArkMainEntryFact[],
     seedMethods: ArkMethod[] = [],
+    options: {
+        baselineScopeSeedMethods?: ArkMethod[];
+    } = {},
 ): ArkMainActivationGraph {
     const edges: ArkMainActivationEdge[] = [];
     const rootMethods = new Map<string, ArkMethod>();
@@ -40,7 +43,9 @@ export function buildArkMainActivationGraph(
         }
     };
 
-    for (const edge of buildBaselineRootEdges(facts, seedMethods)) addEdge(edge);
+    for (const edge of buildBaselineRootEdges(facts, seedMethods, {
+        scopeSeedMethods: options.baselineScopeSeedMethods,
+    })) addEdge(edge);
     for (const edge of buildLifecycleProgressionEdges(facts)) addEdge(edge);
     for (const edge of buildCallbackRegistrationEdges(facts)) addEdge(edge);
     for (const edge of buildSchedulerActivationEdges(facts)) addEdge(edge);

@@ -132,6 +132,47 @@ async function main(): Promise<void> {
     });
     assert(pathFromValidation.valid, `pathFrom transfer rule should be valid: ${pathFromValidation.errors.join("; ")}`);
 
+    const containedPayloadValidation = validateRuleSet({
+        sources: [],
+        sinks: [],
+        transfers: [{
+            id: "transfer.contained_payload.ok",
+            match: { kind: "signature_contains", value: "RdbStore.insert", invokeKind: "instance", argCount: 2 },
+            from: {
+                endpoint: "arg1",
+                taintScope: "contained-values",
+            },
+            to: {
+                endpoint: "base",
+                pathFrom: "arg0",
+                slotKind: "sql-table",
+            },
+        }],
+    });
+    assert(
+        containedPayloadValidation.valid,
+        `contained payload transfer rule should be valid: ${containedPayloadValidation.errors.join("; ")}`
+    );
+
+    const invalidContainedPayloadValidation = validateRuleSet({
+        sources: [],
+        sinks: [],
+        transfers: [{
+            id: "transfer.contained_payload.invalid",
+            match: { kind: "signature_contains", value: "RdbStore.insert", invokeKind: "instance", argCount: 2 },
+            from: {
+                endpoint: "arg1",
+                taintScope: "deep-object",
+            } as any,
+            to: "base",
+        }],
+    });
+    assert(!invalidContainedPayloadValidation.valid, "invalid taintScope should be rejected");
+    assert(
+        invalidContainedPayloadValidation.errors.some(err => err.includes("taintScope must be self/contained-values")),
+        `invalid taintScope rejection missing, errors=${invalidContainedPayloadValidation.errors.join("; ")}`
+    );
+
     const sourcePathValidation = validateRuleSet({
         sources: [{
             id: "source.static.path.ok",

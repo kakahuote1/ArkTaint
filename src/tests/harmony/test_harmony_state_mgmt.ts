@@ -11,6 +11,8 @@ interface CaseResult {
     name: string;
     expected: boolean;
     detected: boolean;
+    flowCount: number;
+    sinkFieldPaths: string[][];
     seedCount: number;
     pass: boolean;
 }
@@ -105,6 +107,8 @@ async function runCase(
             name: caseName,
             expected,
             detected: false,
+            flowCount: 0,
+            sinkFieldPaths: [],
             seedCount: 0,
             pass: !expected,
         };
@@ -125,12 +129,24 @@ async function runCase(
     const seedInfo = engine.propagateWithSourceRules(sourceRules);
     const flows = engine.detectSinksByRules(sinkRules);
     const detected = flows.length > 0;
-    const pass = detected === expected;
+    const sinkFieldPaths = flows
+        .map(flow => flow.sinkFieldPath || [])
+        .filter(fieldPath => fieldPath.length > 0);
+    let precisionPass = true;
+    if (caseName === "state_link_scalar_alias_words_028_T") {
+        precisionPass = sinkFieldPaths.every(fieldPath =>
+            fieldPath.length <= 1
+            && !fieldPath.join(".").includes("words.searchWords")
+            && !fieldPath.join(".").includes("searchWords.words"));
+    }
+    const pass = detected === expected && precisionPass;
 
     return {
         name: caseName,
         expected,
         detected,
+        flowCount: flows.length,
+        sinkFieldPaths,
         seedCount: seedInfo.seedCount,
         pass,
     };
@@ -185,7 +201,8 @@ async function main(): Promise<void> {
     for (const r of results) {
         console.log(
             `${r.pass ? "PASS" : "FAIL"} ${r.name} expected=${r.expected ? "T" : "F"} `
-            + `detected=${r.detected} seeds=${r.seedCount}`
+            + `detected=${r.detected} flows=${r.flowCount} seeds=${r.seedCount}`
+            + (r.sinkFieldPaths.length > 0 ? ` sink_fields=${r.sinkFieldPaths.map(p => p.join(".")).join(",")}` : "")
         );
     }
 

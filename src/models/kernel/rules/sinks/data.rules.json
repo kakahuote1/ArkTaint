@@ -4,140 +4,114 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.sink.harmony.rdb.executeSql.arg0",
+      "surfaceId": "surface.sink.harmony.rdb.executeSql.arg0.exact.executeSql.className.RdbStore",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "A-Za-z0-9_.RdbStore.RelationalStore.A-Za-z0-9_",
+      "modulePath": "relationalStore",
+      "ownerName": "RdbStore",
       "methodName": "executeSql",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 1
     },
     {
-      "surfaceId": "surface.sink.harmony.rdb.querySql.arg0",
+      "surfaceId": "surface.sink.harmony.rdb.querySql.arg0.exact.querySql.className.RdbStore",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "A-Za-z0-9_.RdbStore.RelationalStore.A-Za-z0-9_",
+      "modulePath": "relationalStore",
+      "ownerName": "RdbStore",
       "methodName": "querySql",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 1
     },
     {
-      "surfaceId": "surface.sink.harmony.rdb.update.arg1",
+      "surfaceId": "surface.sink.harmony.rdb.update.arg1.exact.update.className.RdbStore",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "A-Za-z0-9_.RdbStore.RelationalStore.A-Za-z0-9_",
+      "modulePath": "relationalStore",
+      "ownerName": "RdbStore",
       "methodName": "update",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 2
     },
     {
-      "surfaceId": "surface.sink.harmony.rdb.update.arg2",
+      "surfaceId": "surface.sink.harmony.rdb.update.arg2.exact.update.className.RdbStore",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "A-Za-z0-9_.RdbStore.RelationalStore.A-Za-z0-9_",
+      "modulePath": "relationalStore",
+      "ownerName": "RdbStore",
       "methodName": "update",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 3
     },
     {
-      "surfaceId": "surface.sink.harmony.rdb.update.values.arg0",
+      "surfaceId": "surface.sink.harmony.rdb.update.values.arg0.exact.update.className.RdbStore",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "A-Za-z0-9_.RdbStore.RelationalStore.A-Za-z0-9_",
+      "modulePath": "relationalStore",
+      "ownerName": "RdbStore",
       "methodName": "update",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 1
     },
     {
-      "surfaceId": "surface.sink.harmony.rdb.execDML.arg0",
+      "surfaceId": "surface.sink.harmony.rdb.insertSync.arg1.exact.insertSync.className.RdbStore",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "execDML",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.rdb.execDQL.arg0",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "execDQL",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.rdb.insertSync.arg1",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "relationalStore",
+      "ownerName": "RdbStore",
       "methodName": "insertSync",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 2
     },
     {
-      "surfaceId": "surface.sink.harmony.preferences.putSync.arg1",
+      "surfaceId": "surface.sink.harmony.preferences.putSync.arg1.exact.putSync.className.Preferences",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "Preferences.DataPreferences",
+      "modulePath": "ohos/preferences",
+      "ownerName": "Preferences",
       "methodName": "putSync",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 2
     },
     {
-      "surfaceId": "surface.sink.harmony.preferences.put.arg1",
+      "surfaceId": "surface.sink.harmony.preferences.put.arg1.exact.put.className.Preferences",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "Preferences.DataPreferences",
+      "modulePath": "ohos/preferences",
+      "ownerName": "Preferences",
       "methodName": "put",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 2
     },
     {
-      "surfaceId": "surface.sink.harmony.appAccount.createAccount.name.arg0",
+      "surfaceId": "surface.sink.harmony.appAccount.createAccount.name.arg0.exact.createAccount.className.AppAccountManager",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "A-Za-z0-9_.AppAccountManager.appAccount.AppAccount.A-Za-z0-9_",
+      "modulePath": "appAccount",
+      "ownerName": "AppAccountManager",
       "methodName": "createAccount",
       "invokeKind": "instance",
       "argCount": 1,
@@ -147,10 +121,10 @@
       }
     },
     {
-      "surfaceId": "surface.sink.harmony.appAccount.setCredential.name.arg0",
+      "surfaceId": "surface.sink.harmony.appAccount.setCredential.name.arg0.exact.setCredential.className.AppAccountManager",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "A-Za-z0-9_.AppAccountManager.appAccount.AppAccount.A-Za-z0-9_",
+      "modulePath": "appAccount",
+      "ownerName": "AppAccountManager",
       "methodName": "setCredential",
       "invokeKind": "instance",
       "argCount": 3,
@@ -160,10 +134,10 @@
       }
     },
     {
-      "surfaceId": "surface.sink.harmony.appAccount.setCredential.credential.arg2",
+      "surfaceId": "surface.sink.harmony.appAccount.setCredential.credential.arg2.exact.setCredential.className.AppAccountManager",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "A-Za-z0-9_.AppAccountManager.appAccount.AppAccount.A-Za-z0-9_",
+      "modulePath": "appAccount",
+      "ownerName": "AppAccountManager",
       "methodName": "setCredential",
       "invokeKind": "instance",
       "argCount": 3,
@@ -173,183 +147,222 @@
       }
     },
     {
-      "surfaceId": "surface.sink.harmony.globalcontext.setObject.arg1",
+      "surfaceId": "surface.sink.harmony.distributedkv.put.arg1.exact.put.className.KVStore",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
-      "methodName": "setObject",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.distributedkv.put.arg1",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "DistributedKVStore.distributedKVStore.KVStore.SingleKVStore",
+      "modulePath": "distributedData",
+      "ownerName": "KVStore",
       "methodName": "put",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 2
     },
     {
-      "surfaceId": "surface.sink.harmony.dataShare.insert",
+      "surfaceId": "surface.sink.harmony.distributedkv.put.arg1.exact.put.className.SingleKVStore",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
+      "modulePath": "distributedKVStore",
+      "ownerName": "SingleKVStore",
+      "methodName": "put",
+      "invokeKind": "instance",
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 2
+    },
+    {
+      "surfaceId": "surface.sink.harmony.dataShare.insert.exact.insert.className.DataShareHelper",
+      "kind": "invoke",
+      "modulePath": "dataShare",
       "ownerName": "DataShareHelper",
       "methodName": "insert",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 2
     },
     {
-      "surfaceId": "surface.sink.harmony.dataShare.update",
+      "surfaceId": "surface.sink.harmony.dataShare.update.exact.update.className.DataShareHelper",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
+      "modulePath": "dataShare",
       "ownerName": "DataShareHelper",
       "methodName": "update",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 3
     },
     {
-      "surfaceId": "surface.sink.harmony.dataShare.batchInsert",
+      "surfaceId": "surface.sink.harmony.dataShare.batchInsert.exact.batchInsert.className.DataShareHelper",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
+      "modulePath": "dataShare",
       "ownerName": "DataShareHelper",
       "methodName": "batchInsert",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 2
     },
     {
-      "surfaceId": "surface.sink.harmony.rdb.execute",
+      "surfaceId": "surface.sink.harmony.rdb.execute.exact.execute.className.RdbStore",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "A-Za-z0-9_.RdbStore.A-Za-z0-9_",
+      "modulePath": "relationalStore",
+      "ownerName": "RdbStore",
       "methodName": "execute",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 1
     },
     {
-      "surfaceId": "surface.sink.harmony.rdb.insert",
+      "surfaceId": "surface.sink.harmony.rdb.insert.exact.insert.className.RdbStore",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "A-Za-z0-9_.RdbStore.A-Za-z0-9_",
+      "modulePath": "relationalStore",
+      "ownerName": "RdbStore",
       "methodName": "insert",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 2
     },
     {
-      "surfaceId": "surface.sink.harmony.rdb.batchInsert",
+      "surfaceId": "surface.sink.harmony.rdb.batchInsert.exact.batchInsert.className.RdbStore",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "A-Za-z0-9_.RdbStore.A-Za-z0-9_",
+      "modulePath": "relationalStore",
+      "ownerName": "RdbStore",
       "methodName": "batchInsert",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 2
     },
     {
-      "surfaceId": "surface.sink.harmony.pasteboard.setData",
+      "surfaceId": "surface.sink.harmony.pasteboard.setPasteData.exact.setPasteData.className.SystemPasteboard",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "Pasteboard",
-      "methodName": "setData",
-      "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
-      "provenance": {
-        "source": "manual"
-      }
-    },
-    {
-      "surfaceId": "surface.sink.harmony.pasteboard.setPasteData",
-      "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "modulePath": "pasteboard",
+      "ownerName": "SystemPasteboard",
       "methodName": "setPasteData",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 1
     },
     {
-      "surfaceId": "surface.sink.harmony.dataShare.publish",
+      "surfaceId": "surface.sink.harmony.dataShare.publish.exact.publish.className.DataShareHelper",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
+      "modulePath": "dataShare",
       "ownerName": "DataShareHelper",
       "methodName": "publish",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 1
     },
     {
-      "surfaceId": "surface.sink.harmony.rdb.transaction.insert",
+      "surfaceId": "surface.sink.harmony.rdb.transaction.insert.exact.insert.className.Transaction",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
+      "modulePath": "relationalStore",
       "ownerName": "Transaction",
       "methodName": "insert",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
-      }
+      },
+      "argCount": 2
     },
     {
-      "surfaceId": "surface.sink.harmony.rdb.transaction.update",
+      "surfaceId": "surface.sink.harmony.rdb.transaction.update.exact.update.className.Transaction",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
+      "modulePath": "relationalStore",
       "ownerName": "Transaction",
       "methodName": "update",
       "invokeKind": "instance",
-      "argCount": 0,
       "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 2
+    },
+    {
+      "surfaceId": "surface.sink.harmony.rdb.transaction.execute.exact.execute.className.Transaction",
+      "kind": "invoke",
+      "modulePath": "relationalStore",
+      "ownerName": "Transaction",
+      "methodName": "execute",
+      "invokeKind": "instance",
+      "confidence": "likely",
+      "provenance": {
+        "source": "manual"
+      },
+      "argCount": 1
+    },
+    {
+      "surfaceId": "surface.sink.harmony.distributedkv.putBatch.arg0.for.sink.harmony.distributedkv.putBatch.arg0.0.exact.putBatch.class.KVStore.argCount1.arg0.argCount1.exact.putBatch.className.KVStore",
+      "kind": "invoke",
+      "modulePath": "distributedData",
+      "ownerName": "KVStore",
+      "methodName": "putBatch",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "certain",
       "provenance": {
         "source": "manual"
       }
     },
     {
-      "surfaceId": "surface.sink.harmony.rdb.transaction.execute",
+      "surfaceId": "surface.sink.harmony.distributedkv.putBatch.arg0.for.sink.harmony.distributedkv.putBatch.arg0.0.exact.putBatch.class.KVStore.argCount2.arg0.argCount2.exact.putBatch.className.KVStore",
       "kind": "invoke",
-      "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "Transaction",
-      "methodName": "execute",
+      "modulePath": "distributedData",
+      "ownerName": "KVStore",
+      "methodName": "putBatch",
       "invokeKind": "instance",
-      "argCount": 0,
-      "confidence": "likely",
+      "argCount": 2,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.harmony.distributedkv.putBatch.arg0.for.sink.harmony.distributedkv.putBatch.arg0.0.exact.putBatch.class.SingleKVStore.argCount1.arg0.argCount1.exact.putBatch.className.SingleKVStore",
+      "kind": "invoke",
+      "modulePath": "distributedKVStore",
+      "ownerName": "SingleKVStore",
+      "methodName": "putBatch",
+      "invokeKind": "instance",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.sink.harmony.distributedkv.putBatch.arg0.for.sink.harmony.distributedkv.putBatch.arg0.0.exact.putBatch.class.SingleKVStore.argCount2.arg0.argCount2.exact.putBatch.className.SingleKVStore",
+      "kind": "invoke",
+      "modulePath": "distributedKVStore",
+      "ownerName": "SingleKVStore",
+      "methodName": "putBatch",
+      "invokeKind": "instance",
+      "argCount": 2,
+      "confidence": "certain",
       "provenance": {
         "source": "manual"
       }
@@ -357,18 +370,20 @@
   ],
   "bindings": [
     {
-      "bindingId": "binding.sink.harmony.rdb.executeSql.arg0.0",
-      "surfaceId": "surface.sink.harmony.rdb.executeSql.arg0",
+      "bindingId": "binding.sink.harmony.rdb.executeSql.arg0.0.exact.executeSql.className.RdbStore",
+      "surfaceId": "surface.sink.harmony.rdb.executeSql.arg0.exact.executeSql.className.RdbStore",
       "assetId": "asset.rule.kernel.sinks.data",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
         "value": "executeSql",
-        "scope": {
+        "invokeKind": "instance",
+        "typeHint": "RdbStore",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(^|[^A-Za-z0-9_$])(RdbStore|RelationalStore)([^A-Za-z0-9_$]|$)"
+            "mode": "equals",
+            "value": "RdbStore"
           }
         }
       },
@@ -379,7 +394,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.rdb.executeSql.arg0"
+        "template.sink.harmony.rdb.executeSql.arg0.for.sink.harmony.rdb.executeSql.arg0.0.exact.executeSql.class.RdbStore"
       ],
       "semanticsFamily": "sql_injection",
       "metadata": {
@@ -391,18 +406,20 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.rdb.querySql.arg0.0",
-      "surfaceId": "surface.sink.harmony.rdb.querySql.arg0",
+      "bindingId": "binding.sink.harmony.rdb.querySql.arg0.0.exact.querySql.className.RdbStore",
+      "surfaceId": "surface.sink.harmony.rdb.querySql.arg0.exact.querySql.className.RdbStore",
       "assetId": "asset.rule.kernel.sinks.data",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
         "value": "querySql",
-        "scope": {
+        "invokeKind": "instance",
+        "typeHint": "RdbStore",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(^|[^A-Za-z0-9_$])(RdbStore|RelationalStore)([^A-Za-z0-9_$]|$)"
+            "mode": "equals",
+            "value": "RdbStore"
           }
         }
       },
@@ -413,7 +430,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.rdb.querySql.arg0"
+        "template.sink.harmony.rdb.querySql.arg0.for.sink.harmony.rdb.querySql.arg0.0.exact.querySql.class.RdbStore"
       ],
       "semanticsFamily": "sql_injection",
       "metadata": {
@@ -425,8 +442,8 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.rdb.update.arg1.0",
-      "surfaceId": "surface.sink.harmony.rdb.update.arg1",
+      "bindingId": "binding.sink.harmony.rdb.update.arg1.0.exact.update.className.RdbStore",
+      "surfaceId": "surface.sink.harmony.rdb.update.arg1.exact.update.className.RdbStore",
       "assetId": "asset.rule.kernel.sinks.data",
       "plane": "rule",
       "role": "sink",
@@ -434,10 +451,11 @@
         "kind": "method-name-equals",
         "value": "update",
         "invokeKind": "instance",
-        "scope": {
+        "typeHint": "RdbStore",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(^|[^A-Za-z0-9_$])(RdbStore|RelationalStore)([^A-Za-z0-9_$]|$)"
+            "mode": "equals",
+            "value": "RdbStore"
           }
         }
       },
@@ -448,7 +466,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.rdb.update.arg1"
+        "template.sink.harmony.rdb.update.arg1.for.sink.harmony.rdb.update.arg1.0.exact.update.class.RdbStore"
       ],
       "semanticsFamily": "sql_injection",
       "metadata": {
@@ -460,8 +478,8 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.rdb.update.arg2.0",
-      "surfaceId": "surface.sink.harmony.rdb.update.arg2",
+      "bindingId": "binding.sink.harmony.rdb.update.arg2.0.exact.update.className.RdbStore",
+      "surfaceId": "surface.sink.harmony.rdb.update.arg2.exact.update.className.RdbStore",
       "assetId": "asset.rule.kernel.sinks.data",
       "plane": "rule",
       "role": "sink",
@@ -469,10 +487,11 @@
         "kind": "method-name-equals",
         "value": "update",
         "invokeKind": "instance",
-        "scope": {
+        "typeHint": "RdbStore",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(^|[^A-Za-z0-9_$])(RdbStore|RelationalStore)([^A-Za-z0-9_$]|$)"
+            "mode": "equals",
+            "value": "RdbStore"
           }
         }
       },
@@ -483,7 +502,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.rdb.update.arg2"
+        "template.sink.harmony.rdb.update.arg2.for.sink.harmony.rdb.update.arg2.0.exact.update.class.RdbStore"
       ],
       "semanticsFamily": "sql_injection",
       "metadata": {
@@ -495,8 +514,8 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.rdb.update.values.arg0.0",
-      "surfaceId": "surface.sink.harmony.rdb.update.values.arg0",
+      "bindingId": "binding.sink.harmony.rdb.update.values.arg0.0.exact.update.className.RdbStore",
+      "surfaceId": "surface.sink.harmony.rdb.update.values.arg0.exact.update.className.RdbStore",
       "assetId": "asset.rule.kernel.sinks.data",
       "plane": "rule",
       "role": "sink",
@@ -504,10 +523,11 @@
         "kind": "method-name-equals",
         "value": "update",
         "invokeKind": "instance",
-        "scope": {
+        "typeHint": "RdbStore",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(^|[^A-Za-z0-9_$])(RdbStore|RelationalStore)([^A-Za-z0-9_$]|$)"
+            "mode": "equals",
+            "value": "RdbStore"
           }
         }
       },
@@ -518,7 +538,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.rdb.update.values.arg0"
+        "template.sink.harmony.rdb.update.values.arg0.for.sink.harmony.rdb.update.values.arg0.0.exact.update.class.RdbStore"
       ],
       "semanticsFamily": "persistent_sink",
       "metadata": {
@@ -537,70 +557,21 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.rdb.execDML.arg0.0",
-      "surfaceId": "surface.sink.harmony.rdb.execDML.arg0",
+      "bindingId": "binding.sink.harmony.rdb.insertSync.arg1.0.exact.insertSync.className.RdbStore",
+      "surfaceId": "surface.sink.harmony.rdb.insertSync.arg1.exact.insertSync.className.RdbStore",
       "assetId": "asset.rule.kernel.sinks.data",
       "plane": "rule",
       "role": "sink",
       "selector": {
-        "kind": "signature-contains",
-        "value": "execDML"
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
+        "kind": "method-name-equals",
+        "value": "insertSync",
+        "invokeKind": "instance",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "RdbStore"
+          }
         }
-      },
-      "effectTemplateRefs": [
-        "template.sink.harmony.rdb.execDML.arg0"
-      ],
-      "semanticsFamily": "sql_injection",
-      "metadata": {
-        "enabled": true,
-        "category": "sql_injection",
-        "severity": "high"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.sink.harmony.rdb.execDQL.arg0.0",
-      "surfaceId": "surface.sink.harmony.rdb.execDQL.arg0",
-      "assetId": "asset.rule.kernel.sinks.data",
-      "plane": "rule",
-      "role": "sink",
-      "selector": {
-        "kind": "signature-contains",
-        "value": "execDQL"
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.sink.harmony.rdb.execDQL.arg0"
-      ],
-      "semanticsFamily": "sql_injection",
-      "metadata": {
-        "enabled": true,
-        "category": "sql_injection",
-        "severity": "high"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.sink.harmony.rdb.insertSync.arg1.0",
-      "surfaceId": "surface.sink.harmony.rdb.insertSync.arg1",
-      "assetId": "asset.rule.kernel.sinks.data",
-      "plane": "rule",
-      "role": "sink",
-      "selector": {
-        "kind": "signature-contains",
-        "value": "insertSync"
       },
       "endpoint": {
         "base": {
@@ -621,18 +592,20 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.preferences.putSync.arg1.0",
-      "surfaceId": "surface.sink.harmony.preferences.putSync.arg1",
+      "bindingId": "binding.sink.harmony.preferences.putSync.arg1.0.exact.putSync.className.Preferences",
+      "surfaceId": "surface.sink.harmony.preferences.putSync.arg1.exact.putSync.className.Preferences",
       "assetId": "asset.rule.kernel.sinks.data",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
         "value": "putSync",
-        "scope": {
+        "invokeKind": "instance",
+        "typeHint": "Preferences",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(Preferences|DataPreferences)"
+            "mode": "equals",
+            "value": "Preferences"
           }
         }
       },
@@ -643,7 +616,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.preferences.putSync.arg1"
+        "template.sink.harmony.preferences.putSync.arg1.for.sink.harmony.preferences.putSync.arg1.0.exact.putSync.class.Preferences"
       ],
       "semanticsFamily": "sensitive_persistence",
       "metadata": {
@@ -655,18 +628,20 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.preferences.put.arg1.0",
-      "surfaceId": "surface.sink.harmony.preferences.put.arg1",
+      "bindingId": "binding.sink.harmony.preferences.put.arg1.0.exact.put.className.Preferences",
+      "surfaceId": "surface.sink.harmony.preferences.put.arg1.exact.put.className.Preferences",
       "assetId": "asset.rule.kernel.sinks.data",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
         "value": "put",
-        "scope": {
+        "invokeKind": "instance",
+        "typeHint": "Preferences",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(Preferences|DataPreferences)"
+            "mode": "equals",
+            "value": "Preferences"
           }
         }
       },
@@ -677,7 +652,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.preferences.put.arg1"
+        "template.sink.harmony.preferences.put.arg1.for.sink.harmony.preferences.put.arg1.0.exact.put.class.Preferences"
       ],
       "semanticsFamily": "sensitive_persistence",
       "metadata": {
@@ -689,8 +664,8 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.appAccount.createAccount.name.arg0.0",
-      "surfaceId": "surface.sink.harmony.appAccount.createAccount.name.arg0",
+      "bindingId": "binding.sink.harmony.appAccount.createAccount.name.arg0.0.exact.createAccount.className.AppAccountManager",
+      "surfaceId": "surface.sink.harmony.appAccount.createAccount.name.arg0.exact.createAccount.className.AppAccountManager",
       "assetId": "asset.rule.kernel.sinks.data",
       "plane": "rule",
       "role": "sink",
@@ -699,10 +674,11 @@
         "value": "createAccount",
         "invokeKind": "instance",
         "argCount": 1,
-        "scope": {
+        "typeHint": "AppAccountManager",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(^|[^A-Za-z0-9_$])(AppAccountManager|appAccount|AppAccount)([^A-Za-z0-9_$]|$)"
+            "mode": "equals",
+            "value": "AppAccountManager"
           }
         }
       },
@@ -713,7 +689,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.appAccount.createAccount.name.arg0"
+        "template.sink.harmony.appAccount.createAccount.name.arg0.for.sink.harmony.appAccount.createAccount.name.arg0.0.exact.createAccount.class.AppAccountManager"
       ],
       "semanticsFamily": "credential_or_account_storage",
       "metadata": {
@@ -732,8 +708,8 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.appAccount.setCredential.name.arg0.0",
-      "surfaceId": "surface.sink.harmony.appAccount.setCredential.name.arg0",
+      "bindingId": "binding.sink.harmony.appAccount.setCredential.name.arg0.0.exact.setCredential.className.AppAccountManager",
+      "surfaceId": "surface.sink.harmony.appAccount.setCredential.name.arg0.exact.setCredential.className.AppAccountManager",
       "assetId": "asset.rule.kernel.sinks.data",
       "plane": "rule",
       "role": "sink",
@@ -742,10 +718,11 @@
         "value": "setCredential",
         "invokeKind": "instance",
         "argCount": 3,
-        "scope": {
+        "typeHint": "AppAccountManager",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(^|[^A-Za-z0-9_$])(AppAccountManager|appAccount|AppAccount)([^A-Za-z0-9_$]|$)"
+            "mode": "equals",
+            "value": "AppAccountManager"
           }
         }
       },
@@ -756,7 +733,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.appAccount.setCredential.name.arg0"
+        "template.sink.harmony.appAccount.setCredential.name.arg0.for.sink.harmony.appAccount.setCredential.name.arg0.0.exact.setCredential.class.AppAccountManager"
       ],
       "semanticsFamily": "credential_or_account_storage",
       "metadata": {
@@ -775,8 +752,8 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.appAccount.setCredential.credential.arg2.0",
-      "surfaceId": "surface.sink.harmony.appAccount.setCredential.credential.arg2",
+      "bindingId": "binding.sink.harmony.appAccount.setCredential.credential.arg2.0.exact.setCredential.className.AppAccountManager",
+      "surfaceId": "surface.sink.harmony.appAccount.setCredential.credential.arg2.exact.setCredential.className.AppAccountManager",
       "assetId": "asset.rule.kernel.sinks.data",
       "plane": "rule",
       "role": "sink",
@@ -785,10 +762,11 @@
         "value": "setCredential",
         "invokeKind": "instance",
         "argCount": 3,
-        "scope": {
+        "typeHint": "AppAccountManager",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(^|[^A-Za-z0-9_$])(AppAccountManager|appAccount|AppAccount)([^A-Za-z0-9_$]|$)"
+            "mode": "equals",
+            "value": "AppAccountManager"
           }
         }
       },
@@ -799,7 +777,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.appAccount.setCredential.credential.arg2"
+        "template.sink.harmony.appAccount.setCredential.credential.arg2.for.sink.harmony.appAccount.setCredential.credential.arg2.0.exact.setCredential.class.AppAccountManager"
       ],
       "semanticsFamily": "credential_or_account_storage",
       "metadata": {
@@ -818,46 +796,20 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.globalcontext.setObject.arg1.0",
-      "surfaceId": "surface.sink.harmony.globalcontext.setObject.arg1",
-      "assetId": "asset.rule.kernel.sinks.data",
-      "plane": "rule",
-      "role": "sink",
-      "selector": {
-        "kind": "signature-contains",
-        "value": "GlobalContext.setObject"
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 1
-        }
-      },
-      "effectTemplateRefs": [
-        "template.sink.harmony.globalcontext.setObject.arg1"
-      ],
-      "semanticsFamily": "sensitive_persistence",
-      "metadata": {
-        "enabled": true,
-        "category": "sensitive_persistence",
-        "severity": "medium"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.sink.harmony.distributedkv.put.arg1.0",
-      "surfaceId": "surface.sink.harmony.distributedkv.put.arg1",
+      "bindingId": "binding.sink.harmony.distributedkv.put.arg1.0.exact.put.className.KVStore",
+      "surfaceId": "surface.sink.harmony.distributedkv.put.arg1.exact.put.className.KVStore",
       "assetId": "asset.rule.kernel.sinks.data",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
         "value": "put",
-        "scope": {
+        "invokeKind": "instance",
+        "typeHint": "KVStore",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(DistributedKVStore|distributedKVStore|KVStore|SingleKVStore)"
+            "mode": "equals",
+            "value": "KVStore"
           }
         }
       },
@@ -868,7 +820,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.distributedkv.put.arg1"
+        "template.sink.harmony.distributedkv.put.arg1.for.sink.harmony.distributedkv.put.arg1.0.exact.put.class.KVStore"
       ],
       "semanticsFamily": "sensitive_persistence",
       "metadata": {
@@ -880,17 +832,55 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.dataShare.insert.0",
-      "surfaceId": "surface.sink.harmony.dataShare.insert",
+      "bindingId": "binding.sink.harmony.distributedkv.put.arg1.0.exact.put.className.SingleKVStore",
+      "surfaceId": "surface.sink.harmony.distributedkv.put.arg1.exact.put.className.SingleKVStore",
+      "assetId": "asset.rule.kernel.sinks.data",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "put",
+        "invokeKind": "instance",
+        "typeHint": "SingleKVStore",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "SingleKVStore"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.distributedkv.put.arg1.for.sink.harmony.distributedkv.put.arg1.0.exact.put.class.SingleKVStore"
+      ],
+      "semanticsFamily": "sensitive_persistence",
+      "metadata": {
+        "enabled": true,
+        "category": "sensitive_persistence",
+        "severity": "medium"
+      },
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.dataShare.insert.0.exact.insert.className.DataShareHelper",
+      "surfaceId": "surface.sink.harmony.dataShare.insert.exact.insert.className.DataShareHelper",
       "assetId": "asset.rule.kernel.sinks.data",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
         "value": "insert",
-        "scope": {
+        "invokeKind": "instance",
+        "typeHint": "DataShareHelper",
+        "calleeScope": {
           "className": {
-            "mode": "contains",
+            "mode": "equals",
             "value": "DataShareHelper"
           }
         }
@@ -920,8 +910,8 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.dataShare.update.0",
-      "surfaceId": "surface.sink.harmony.dataShare.update",
+      "bindingId": "binding.sink.harmony.dataShare.update.0.exact.update.className.DataShareHelper",
+      "surfaceId": "surface.sink.harmony.dataShare.update.exact.update.className.DataShareHelper",
       "assetId": "asset.rule.kernel.sinks.data",
       "plane": "rule",
       "role": "sink",
@@ -929,9 +919,10 @@
         "kind": "method-name-equals",
         "value": "update",
         "invokeKind": "instance",
-        "scope": {
+        "typeHint": "DataShareHelper",
+        "calleeScope": {
           "className": {
-            "mode": "contains",
+            "mode": "equals",
             "value": "DataShareHelper"
           }
         }
@@ -961,17 +952,19 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.dataShare.batchInsert.0",
-      "surfaceId": "surface.sink.harmony.dataShare.batchInsert",
+      "bindingId": "binding.sink.harmony.dataShare.batchInsert.0.exact.batchInsert.className.DataShareHelper",
+      "surfaceId": "surface.sink.harmony.dataShare.batchInsert.exact.batchInsert.className.DataShareHelper",
       "assetId": "asset.rule.kernel.sinks.data",
       "plane": "rule",
       "role": "sink",
       "selector": {
-        "kind": "signature-contains",
+        "kind": "method-name-equals",
         "value": "batchInsert",
-        "scope": {
+        "invokeKind": "instance",
+        "typeHint": "DataShareHelper",
+        "calleeScope": {
           "className": {
-            "mode": "contains",
+            "mode": "equals",
             "value": "DataShareHelper"
           }
         }
@@ -1001,18 +994,20 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.rdb.execute.0",
-      "surfaceId": "surface.sink.harmony.rdb.execute",
+      "bindingId": "binding.sink.harmony.rdb.execute.0.exact.execute.className.RdbStore",
+      "surfaceId": "surface.sink.harmony.rdb.execute.exact.execute.className.RdbStore",
       "assetId": "asset.rule.kernel.sinks.data",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
         "value": "execute",
-        "scope": {
+        "invokeKind": "instance",
+        "typeHint": "RdbStore",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(^|[^A-Za-z0-9_$])RdbStore([^A-Za-z0-9_$]|$)"
+            "mode": "equals",
+            "value": "RdbStore"
           }
         }
       },
@@ -1023,7 +1018,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.rdb.execute"
+        "template.sink.harmony.rdb.execute.for.sink.harmony.rdb.execute.0.exact.execute.class.RdbStore"
       ],
       "semanticsFamily": "sql_injection",
       "metadata": {
@@ -1041,18 +1036,20 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.rdb.insert.0",
-      "surfaceId": "surface.sink.harmony.rdb.insert",
+      "bindingId": "binding.sink.harmony.rdb.insert.0.exact.insert.className.RdbStore",
+      "surfaceId": "surface.sink.harmony.rdb.insert.exact.insert.className.RdbStore",
       "assetId": "asset.rule.kernel.sinks.data",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
         "value": "insert",
-        "scope": {
+        "invokeKind": "instance",
+        "typeHint": "RdbStore",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(^|[^A-Za-z0-9_$])RdbStore([^A-Za-z0-9_$]|$)"
+            "mode": "equals",
+            "value": "RdbStore"
           }
         }
       },
@@ -1063,7 +1060,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.rdb.insert"
+        "template.sink.harmony.rdb.insert.for.sink.harmony.rdb.insert.0.exact.insert.class.RdbStore"
       ],
       "semanticsFamily": "persistent_sink",
       "metadata": {
@@ -1081,18 +1078,20 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.rdb.batchInsert.0",
-      "surfaceId": "surface.sink.harmony.rdb.batchInsert",
+      "bindingId": "binding.sink.harmony.rdb.batchInsert.0.exact.batchInsert.className.RdbStore",
+      "surfaceId": "surface.sink.harmony.rdb.batchInsert.exact.batchInsert.className.RdbStore",
       "assetId": "asset.rule.kernel.sinks.data",
       "plane": "rule",
       "role": "sink",
       "selector": {
-        "kind": "signature-contains",
+        "kind": "method-name-equals",
         "value": "batchInsert",
-        "scope": {
+        "invokeKind": "instance",
+        "typeHint": "RdbStore",
+        "calleeScope": {
           "className": {
-            "mode": "regex",
-            "value": "(^|[^A-Za-z0-9_$])RdbStore([^A-Za-z0-9_$]|$)"
+            "mode": "equals",
+            "value": "RdbStore"
           }
         }
       },
@@ -1103,7 +1102,7 @@
         }
       },
       "effectTemplateRefs": [
-        "template.sink.harmony.rdb.batchInsert"
+        "template.sink.harmony.rdb.batchInsert.for.sink.harmony.rdb.batchInsert.0.exact.batchInsert.class.RdbStore"
       ],
       "semanticsFamily": "persistent_sink",
       "metadata": {
@@ -1121,54 +1120,21 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.pasteboard.setData.0",
-      "surfaceId": "surface.sink.harmony.pasteboard.setData",
+      "bindingId": "binding.sink.harmony.pasteboard.setPasteData.0.exact.setPasteData.className.SystemPasteboard",
+      "surfaceId": "surface.sink.harmony.pasteboard.setPasteData.exact.setPasteData.className.SystemPasteboard",
       "assetId": "asset.rule.kernel.sinks.data",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
-        "value": "setData",
-        "scope": {
+        "value": "setPasteData",
+        "invokeKind": "instance",
+        "calleeScope": {
           "className": {
-            "mode": "contains",
-            "value": "Pasteboard"
+            "mode": "equals",
+            "value": "SystemPasteboard"
           }
         }
-      },
-      "endpoint": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "effectTemplateRefs": [
-        "template.sink.harmony.pasteboard.setData"
-      ],
-      "semanticsFamily": "sensitive_persistence",
-      "metadata": {
-        "description": "Write to clipboard",
-        "tags": [
-          "harmony",
-          "phase7118",
-          "pasteboard",
-          "P1"
-        ],
-        "category": "sensitive_persistence",
-        "severity": "high"
-      },
-      "completeness": "partial",
-      "confidence": "likely"
-    },
-    {
-      "bindingId": "binding.sink.harmony.pasteboard.setPasteData.0",
-      "surfaceId": "surface.sink.harmony.pasteboard.setPasteData",
-      "assetId": "asset.rule.kernel.sinks.data",
-      "plane": "rule",
-      "role": "sink",
-      "selector": {
-        "kind": "signature-contains",
-        "value": "setPasteData"
       },
       "endpoint": {
         "base": {
@@ -1195,17 +1161,19 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.dataShare.publish.0",
-      "surfaceId": "surface.sink.harmony.dataShare.publish",
+      "bindingId": "binding.sink.harmony.dataShare.publish.0.exact.publish.className.DataShareHelper",
+      "surfaceId": "surface.sink.harmony.dataShare.publish.exact.publish.className.DataShareHelper",
       "assetId": "asset.rule.kernel.sinks.data",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
         "value": "publish",
-        "scope": {
+        "invokeKind": "instance",
+        "typeHint": "DataShareHelper",
+        "calleeScope": {
           "className": {
-            "mode": "contains",
+            "mode": "equals",
             "value": "DataShareHelper"
           }
         }
@@ -1235,17 +1203,19 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.rdb.transaction.insert.0",
-      "surfaceId": "surface.sink.harmony.rdb.transaction.insert",
+      "bindingId": "binding.sink.harmony.rdb.transaction.insert.0.exact.insert.className.Transaction",
+      "surfaceId": "surface.sink.harmony.rdb.transaction.insert.exact.insert.className.Transaction",
       "assetId": "asset.rule.kernel.sinks.data",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
         "value": "insert",
-        "scope": {
+        "invokeKind": "instance",
+        "typeHint": "Transaction",
+        "calleeScope": {
           "className": {
-            "mode": "contains",
+            "mode": "equals",
             "value": "Transaction"
           }
         }
@@ -1275,8 +1245,8 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.rdb.transaction.update.0",
-      "surfaceId": "surface.sink.harmony.rdb.transaction.update",
+      "bindingId": "binding.sink.harmony.rdb.transaction.update.0.exact.update.className.Transaction",
+      "surfaceId": "surface.sink.harmony.rdb.transaction.update.exact.update.className.Transaction",
       "assetId": "asset.rule.kernel.sinks.data",
       "plane": "rule",
       "role": "sink",
@@ -1284,9 +1254,10 @@
         "kind": "method-name-equals",
         "value": "update",
         "invokeKind": "instance",
-        "scope": {
+        "typeHint": "Transaction",
+        "calleeScope": {
           "className": {
-            "mode": "contains",
+            "mode": "equals",
             "value": "Transaction"
           }
         }
@@ -1316,17 +1287,19 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.sink.harmony.rdb.transaction.execute.0",
-      "surfaceId": "surface.sink.harmony.rdb.transaction.execute",
+      "bindingId": "binding.sink.harmony.rdb.transaction.execute.0.exact.execute.className.Transaction",
+      "surfaceId": "surface.sink.harmony.rdb.transaction.execute.exact.execute.className.Transaction",
       "assetId": "asset.rule.kernel.sinks.data",
       "plane": "rule",
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
         "value": "execute",
-        "scope": {
+        "invokeKind": "instance",
+        "typeHint": "Transaction",
+        "calleeScope": {
           "className": {
-            "mode": "contains",
+            "mode": "equals",
             "value": "Transaction"
           }
         }
@@ -1354,93 +1327,181 @@
       },
       "completeness": "partial",
       "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.sink.harmony.distributedkv.putBatch.arg0.for.sink.harmony.distributedkv.putBatch.arg0.0.exact.putBatch.class.KVStore.argCount1",
+      "surfaceId": "surface.sink.harmony.distributedkv.putBatch.arg0.for.sink.harmony.distributedkv.putBatch.arg0.0.exact.putBatch.class.KVStore.argCount1.arg0.argCount1.exact.putBatch.className.KVStore",
+      "assetId": "asset.rule.kernel.sinks.data",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "putBatch",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "KVStore",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "KVStore"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.distributedkv.putBatch.arg0.for.sink.harmony.distributedkv.putBatch.arg0.0.exact.putBatch.class.KVStore.argCount1"
+      ],
+      "semanticsFamily": "sensitive_persistence",
+      "metadata": {
+        "enabled": true,
+        "description": "KVStore.putBatch(entries) persists distributed key-value entries.",
+        "tags": [
+          "harmony",
+          "sensitive_persistence",
+          "official"
+        ],
+        "category": "sensitive_persistence",
+        "severity": "medium"
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.sink.harmony.distributedkv.putBatch.arg0.for.sink.harmony.distributedkv.putBatch.arg0.0.exact.putBatch.class.KVStore.argCount2",
+      "surfaceId": "surface.sink.harmony.distributedkv.putBatch.arg0.for.sink.harmony.distributedkv.putBatch.arg0.0.exact.putBatch.class.KVStore.argCount2.arg0.argCount2.exact.putBatch.className.KVStore",
+      "assetId": "asset.rule.kernel.sinks.data",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "putBatch",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "KVStore",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "KVStore"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.distributedkv.putBatch.arg0.for.sink.harmony.distributedkv.putBatch.arg0.0.exact.putBatch.class.KVStore.argCount2"
+      ],
+      "semanticsFamily": "sensitive_persistence",
+      "metadata": {
+        "enabled": true,
+        "description": "KVStore.putBatch(entries) persists distributed key-value entries.",
+        "tags": [
+          "harmony",
+          "sensitive_persistence",
+          "official"
+        ],
+        "category": "sensitive_persistence",
+        "severity": "medium"
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.sink.harmony.distributedkv.putBatch.arg0.for.sink.harmony.distributedkv.putBatch.arg0.0.exact.putBatch.class.SingleKVStore.argCount1",
+      "surfaceId": "surface.sink.harmony.distributedkv.putBatch.arg0.for.sink.harmony.distributedkv.putBatch.arg0.0.exact.putBatch.class.SingleKVStore.argCount1.arg0.argCount1.exact.putBatch.className.SingleKVStore",
+      "assetId": "asset.rule.kernel.sinks.data",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "putBatch",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "typeHint": "SingleKVStore",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "SingleKVStore"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.distributedkv.putBatch.arg0.for.sink.harmony.distributedkv.putBatch.arg0.0.exact.putBatch.class.SingleKVStore.argCount1"
+      ],
+      "semanticsFamily": "sensitive_persistence",
+      "metadata": {
+        "enabled": true,
+        "description": "SingleKVStore.putBatch(entries) persists distributed key-value entries.",
+        "tags": [
+          "harmony",
+          "sensitive_persistence",
+          "official"
+        ],
+        "category": "sensitive_persistence",
+        "severity": "medium"
+      },
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.sink.harmony.distributedkv.putBatch.arg0.for.sink.harmony.distributedkv.putBatch.arg0.0.exact.putBatch.class.SingleKVStore.argCount2",
+      "surfaceId": "surface.sink.harmony.distributedkv.putBatch.arg0.for.sink.harmony.distributedkv.putBatch.arg0.0.exact.putBatch.class.SingleKVStore.argCount2.arg0.argCount2.exact.putBatch.className.SingleKVStore",
+      "assetId": "asset.rule.kernel.sinks.data",
+      "plane": "rule",
+      "role": "sink",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "putBatch",
+        "invokeKind": "instance",
+        "argCount": 2,
+        "typeHint": "SingleKVStore",
+        "calleeScope": {
+          "className": {
+            "mode": "equals",
+            "value": "SingleKVStore"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.sink.harmony.distributedkv.putBatch.arg0.for.sink.harmony.distributedkv.putBatch.arg0.0.exact.putBatch.class.SingleKVStore.argCount2"
+      ],
+      "semanticsFamily": "sensitive_persistence",
+      "metadata": {
+        "enabled": true,
+        "description": "SingleKVStore.putBatch(entries) persists distributed key-value entries.",
+        "tags": [
+          "harmony",
+          "sensitive_persistence",
+          "official"
+        ],
+        "category": "sensitive_persistence",
+        "severity": "medium"
+      },
+      "completeness": "complete",
+      "confidence": "certain"
     }
   ],
   "effectTemplates": [
-    {
-      "id": "template.sink.harmony.rdb.executeSql.arg0",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "sql_injection"
-    },
-    {
-      "id": "template.sink.harmony.rdb.querySql.arg0",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "sql_injection"
-    },
-    {
-      "id": "template.sink.harmony.rdb.update.arg1",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 1
-        }
-      },
-      "sinkKind": "sql_injection"
-    },
-    {
-      "id": "template.sink.harmony.rdb.update.arg2",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 2
-        }
-      },
-      "sinkKind": "sql_injection"
-    },
-    {
-      "id": "template.sink.harmony.rdb.update.values.arg0",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "persistent_sink"
-    },
-    {
-      "id": "template.sink.harmony.rdb.execDML.arg0",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "sql_injection"
-    },
-    {
-      "id": "template.sink.harmony.rdb.execDQL.arg0",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "sql_injection"
-    },
     {
       "id": "template.sink.harmony.rdb.insertSync.arg1",
       "confidence": "certain",
@@ -1452,90 +1513,6 @@
         }
       },
       "sinkKind": "persistent_sink"
-    },
-    {
-      "id": "template.sink.harmony.preferences.putSync.arg1",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 1
-        }
-      },
-      "sinkKind": "sensitive_persistence"
-    },
-    {
-      "id": "template.sink.harmony.preferences.put.arg1",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 1
-        }
-      },
-      "sinkKind": "sensitive_persistence"
-    },
-    {
-      "id": "template.sink.harmony.appAccount.createAccount.name.arg0",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "credential_or_account_storage"
-    },
-    {
-      "id": "template.sink.harmony.appAccount.setCredential.name.arg0",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "credential_or_account_storage"
-    },
-    {
-      "id": "template.sink.harmony.appAccount.setCredential.credential.arg2",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 2
-        }
-      },
-      "sinkKind": "credential_or_account_storage"
-    },
-    {
-      "id": "template.sink.harmony.globalcontext.setObject.arg1",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 1
-        }
-      },
-      "sinkKind": "sensitive_persistence"
-    },
-    {
-      "id": "template.sink.harmony.distributedkv.put.arg1",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 1
-        }
-      },
-      "sinkKind": "sensitive_persistence"
     },
     {
       "id": "template.sink.harmony.dataShare.insert",
@@ -1572,54 +1549,6 @@
         }
       },
       "sinkKind": "cross_app_data"
-    },
-    {
-      "id": "template.sink.harmony.rdb.execute",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "sql_injection"
-    },
-    {
-      "id": "template.sink.harmony.rdb.insert",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 1
-        }
-      },
-      "sinkKind": "persistent_sink"
-    },
-    {
-      "id": "template.sink.harmony.rdb.batchInsert",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 1
-        }
-      },
-      "sinkKind": "persistent_sink"
-    },
-    {
-      "id": "template.sink.harmony.pasteboard.setData",
-      "confidence": "certain",
-      "kind": "rule.sink",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sinkKind": "sensitive_persistence"
     },
     {
       "id": "template.sink.harmony.pasteboard.setPasteData",
@@ -1680,6 +1609,234 @@
         }
       },
       "sinkKind": "sql_injection"
+    },
+    {
+      "id": "template.sink.harmony.rdb.executeSql.arg0.for.sink.harmony.rdb.executeSql.arg0.0.exact.executeSql.class.RdbStore",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sql_injection"
+    },
+    {
+      "id": "template.sink.harmony.rdb.querySql.arg0.for.sink.harmony.rdb.querySql.arg0.0.exact.querySql.class.RdbStore",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sql_injection"
+    },
+    {
+      "id": "template.sink.harmony.rdb.update.arg1.for.sink.harmony.rdb.update.arg1.0.exact.update.class.RdbStore",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "sql_injection"
+    },
+    {
+      "id": "template.sink.harmony.rdb.update.arg2.for.sink.harmony.rdb.update.arg2.0.exact.update.class.RdbStore",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 2
+        }
+      },
+      "sinkKind": "sql_injection"
+    },
+    {
+      "id": "template.sink.harmony.rdb.update.values.arg0.for.sink.harmony.rdb.update.values.arg0.0.exact.update.class.RdbStore",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "persistent_sink"
+    },
+    {
+      "id": "template.sink.harmony.preferences.putSync.arg1.for.sink.harmony.preferences.putSync.arg1.0.exact.putSync.class.Preferences",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "sensitive_persistence"
+    },
+    {
+      "id": "template.sink.harmony.preferences.put.arg1.for.sink.harmony.preferences.put.arg1.0.exact.put.class.Preferences",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "sensitive_persistence"
+    },
+    {
+      "id": "template.sink.harmony.appAccount.createAccount.name.arg0.for.sink.harmony.appAccount.createAccount.name.arg0.0.exact.createAccount.class.AppAccountManager",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "credential_or_account_storage"
+    },
+    {
+      "id": "template.sink.harmony.appAccount.setCredential.name.arg0.for.sink.harmony.appAccount.setCredential.name.arg0.0.exact.setCredential.class.AppAccountManager",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "credential_or_account_storage"
+    },
+    {
+      "id": "template.sink.harmony.appAccount.setCredential.credential.arg2.for.sink.harmony.appAccount.setCredential.credential.arg2.0.exact.setCredential.class.AppAccountManager",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 2
+        }
+      },
+      "sinkKind": "credential_or_account_storage"
+    },
+    {
+      "id": "template.sink.harmony.distributedkv.put.arg1.for.sink.harmony.distributedkv.put.arg1.0.exact.put.class.KVStore",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "sensitive_persistence"
+    },
+    {
+      "id": "template.sink.harmony.distributedkv.put.arg1.for.sink.harmony.distributedkv.put.arg1.0.exact.put.class.SingleKVStore",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "sensitive_persistence"
+    },
+    {
+      "id": "template.sink.harmony.rdb.execute.for.sink.harmony.rdb.execute.0.exact.execute.class.RdbStore",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sql_injection"
+    },
+    {
+      "id": "template.sink.harmony.rdb.insert.for.sink.harmony.rdb.insert.0.exact.insert.class.RdbStore",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "persistent_sink"
+    },
+    {
+      "id": "template.sink.harmony.rdb.batchInsert.for.sink.harmony.rdb.batchInsert.0.exact.batchInsert.class.RdbStore",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 1
+        }
+      },
+      "sinkKind": "persistent_sink"
+    },
+    {
+      "id": "template.sink.harmony.distributedkv.putBatch.arg0.for.sink.harmony.distributedkv.putBatch.arg0.0.exact.putBatch.class.KVStore.argCount1",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sensitive_persistence"
+    },
+    {
+      "id": "template.sink.harmony.distributedkv.putBatch.arg0.for.sink.harmony.distributedkv.putBatch.arg0.0.exact.putBatch.class.KVStore.argCount2",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sensitive_persistence"
+    },
+    {
+      "id": "template.sink.harmony.distributedkv.putBatch.arg0.for.sink.harmony.distributedkv.putBatch.arg0.0.exact.putBatch.class.SingleKVStore.argCount1",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sensitive_persistence"
+    },
+    {
+      "id": "template.sink.harmony.distributedkv.putBatch.arg0.for.sink.harmony.distributedkv.putBatch.arg0.0.exact.putBatch.class.SingleKVStore.argCount2",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sensitive_persistence"
     }
   ],
   "provenance": {

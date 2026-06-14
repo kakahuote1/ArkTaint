@@ -53,6 +53,41 @@ const FAMILY_FLOW_SPECS: FamilyFlowSpec[] = [
         entryMethodName: "event_onchange_dsl_build_010_T",
     },
     {
+        family: "source.harmony.callback.input",
+        sourceDir: "tests/demo/harmony_event_activation",
+        caseName: "event_onsubmit_build_003_T",
+        relativePath: "event_onsubmit_build_003_T.ets",
+        entryMethodName: "event_onsubmit_build_003_T",
+    },
+    {
+        family: "source.harmony.callback.input",
+        sourceDir: "tests/demo/harmony_event_activation",
+        caseName: "event_search_onsubmit_build_013_T",
+        relativePath: "event_search_onsubmit_build_013_T.ets",
+        entryMethodName: "event_search_onsubmit_build_013_T",
+    },
+    {
+        family: "source.harmony.callback.input",
+        sourceDir: "tests/demo/harmony_event_activation",
+        caseName: "event_onchange_field_button_sink_014_T",
+        relativePath: "event_onchange_field_button_sink_014_T.ets",
+        entryMethodName: "event_onchange_field_button_sink_014_T",
+    },
+    {
+        family: "source.harmony.callback.input",
+        sourceDir: "tests/demo/harmony_event_activation",
+        caseName: "event_onchange_bind_method_field_button_sink_016_T",
+        relativePath: "event_onchange_bind_method_field_button_sink_016_T.ets",
+        entryMethodName: "event_onchange_bind_method_field_button_sink_016_T",
+    },
+    {
+        family: "source.harmony.callback.input",
+        sourceDir: "tests/demo/harmony_event_activation",
+        caseName: "event_onchange_decorated_builder_method_field_button_sink_018_T",
+        relativePath: "event_onchange_decorated_builder_method_field_button_sink_018_T.ets",
+        entryMethodName: "event_onchange_decorated_builder_method_field_button_sink_018_T",
+    },
+    {
         family: "source.harmony.callback.network.http_completion",
         sourceDir: "tests/demo/harmony_http",
         caseName: "http_async_callback_003_T",
@@ -60,18 +95,11 @@ const FAMILY_FLOW_SPECS: FamilyFlowSpec[] = [
         entryMethodName: "http_async_callback_003_T",
     },
     {
-        family: "source.harmony.callback.wearengine.p2p",
-        sourceDir: "tests/demo/harmony_wearengine_p2p",
-        caseName: "wearengine_p2p_message_receiver_001_T",
-        relativePath: "wearengine_p2p_message_receiver_001_T.ets",
-        entryMethodName: "wearengine_p2p_message_receiver_001_T",
-    },
-    {
-        family: "source.harmony.callback.wearengine.p2p",
-        sourceDir: "tests/demo/harmony_wearengine_p2p",
-        caseName: "wearengine_p2p_unresolved_receiver_004_T",
-        relativePath: "wearengine_p2p_unresolved_receiver_004_T.ets",
-        entryMethodName: "wearengine_p2p_unresolved_receiver_004_T",
+        family: "source.harmony.callback.network.http_completion",
+        sourceDir: "tests/demo/harmony_http",
+        caseName: "http_request_callback_data_008_T",
+        relativePath: "http_request_callback_data_008_T.ets",
+        entryMethodName: "http_request_callback_data_008_T",
     },
     {
         family: "source.harmony.callback.window.stage",
@@ -95,6 +123,13 @@ const FAMILY_FLOW_SPECS: FamilyFlowSpec[] = [
         entryMethodName: "aboutToAppear",
     },
     {
+        family: "source.harmony.callback.request_task.response",
+        sourceDir: "tests/demo/harmony_request_task",
+        caseName: "request_task_on_response_001_T",
+        relativePath: "request_task_on_response_001_T.ets",
+        entryMethodName: "request_task_on_response_001_T",
+    },
+    {
         family: "source.harmony.callback.device.sensor",
         sourceDir: "tests/demo/pure_entry_realworld",
         caseName: "geolocation_sensor_029_T",
@@ -114,9 +149,51 @@ const FAMILY_NO_FLOW_SPECS: FamilyFlowSpec[] = [
     {
         family: "source.harmony.callback.input",
         sourceDir: "tests/demo/harmony_event_activation",
+        caseName: "event_textinput_onsubmit_enterkey_020_F",
+        relativePath: "event_textinput_onsubmit_enterkey_020_F.ets",
+        entryMethodName: "event_textinput_onsubmit_enterkey_020_F",
+    },
+    {
+        family: "source.harmony.callback.input",
+        sourceDir: "tests/demo/harmony_event_activation",
         caseName: "event_tabs_onchange_build_012_F",
         relativePath: "event_tabs_onchange_build_012_F.ets",
         entryMethodName: "event_tabs_onchange_build_012_F",
+    },
+    {
+        family: "source.harmony.callback.input",
+        sourceDir: "tests/demo/harmony_event_activation",
+        caseName: "event_onchange_sibling_field_button_sink_015_F",
+        relativePath: "event_onchange_sibling_field_button_sink_015_F.ets",
+        entryMethodName: "event_onchange_sibling_field_button_sink_015_F",
+    },
+    {
+        family: "source.harmony.callback.input",
+        sourceDir: "tests/demo/harmony_event_activation",
+        caseName: "event_onchange_bind_method_sibling_field_button_sink_017_F",
+        relativePath: "event_onchange_bind_method_sibling_field_button_sink_017_F.ets",
+        entryMethodName: "event_onchange_bind_method_sibling_field_button_sink_017_F",
+    },
+    {
+        family: "source.harmony.callback.input",
+        sourceDir: "tests/demo/harmony_event_activation",
+        caseName: "event_onchange_non_builder_helper_scope_019_F",
+        relativePath: "event_onchange_non_builder_helper_scope_019_F.ets",
+        entryMethodName: "event_onchange_non_builder_helper_scope_019_F",
+    },
+    {
+        family: "source.harmony.callback.network.http_completion",
+        sourceDir: "tests/demo/harmony_http",
+        caseName: "http_request_callback_safe_009_F",
+        relativePath: "http_request_callback_safe_009_F.ets",
+        entryMethodName: "http_request_callback_safe_009_F",
+    },
+    {
+        family: "source.harmony.callback.request_task.response",
+        sourceDir: "tests/demo/harmony_request_task",
+        caseName: "request_task_on_progress_002_F",
+        relativePath: "request_task_on_progress_002_F.ets",
+        entryMethodName: "request_task_on_progress_002_F",
     },
 ];
 
@@ -237,15 +314,23 @@ async function main(): Promise<void> {
 
     const requiredIds = [
         "source.harmony.network.http.requestAsync.callback.arg1",
+        "source.harmony.network.http.request.callback.arg1",
         "source.harmony.worker.onMessage.callback.arg0",
         "source.harmony.webview.javaScriptProxy.callback.arg0",
         "source.harmony.notification.subscribe.callback.arg1",
+        "source.harmony.request.task.on.response.arg0",
         "source.harmony.geolocation.on",
         "source.harmony.telephony.getSimAccountInfo.callback.arg1",
+        "source.harmony.input.onSubmit.arg1.text",
+        "source.harmony.search.onSubmit.arg0",
     ];
     for (const id of requiredIds) {
         assert(loadedIds.includes(id), `expected generated callback source rule missing: ${id}`);
     }
+    assert(
+        !loadedIds.includes("source.harmony.input.onSubmit.arg0"),
+        "TextInput onSubmit must not treat enterKey arg0 as submitted text source",
+    );
 
     const results: FamilyFlowResult[] = [];
     for (const spec of FAMILY_FLOW_SPECS) {

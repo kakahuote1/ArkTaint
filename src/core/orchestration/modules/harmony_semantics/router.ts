@@ -33,6 +33,7 @@ export interface HarmonyRouteBridgeSemanticsOptions {
     description?: string;
     pushMethods?: HarmonyRoutePushMethodOption[];
     getMethods?: string[];
+    routerClassNames?: string[];
     navDestinationClassNames?: string[];
     navDestinationRegisterMethods?: string[];
     navDestinationTriggerMethods?: string[];
@@ -52,6 +53,7 @@ const DEFAULT_ROUTER_OPTIONS: Required<HarmonyRouteBridgeSemanticsOptions> = {
         { methodName: "replacePath", routeField: "name" },
     ],
     getMethods: ["getParams"],
+    routerClassNames: [],
     navDestinationClassNames: ["NavDestination"],
     navDestinationRegisterMethods: ["register", "setBuilder", "setDestinationBuilder"],
     navDestinationTriggerMethods: ["trigger"],
@@ -64,6 +66,7 @@ const NAV_DESTINATION_FALLBACK_KEY = "__nav_destination_fallback__";
 interface BuildRouterInternalOptions {
     pushMethodNames: Set<string>;
     getMethodNames: Set<string>;
+    routerClassNames: Set<string>;
     navDestinationClassNames: Set<string>;
     navDestinationRegisterMethods: Set<string>;
     navDestinationTriggerMethods: Set<string>;
@@ -84,6 +87,9 @@ export function createHarmonyRouteBridgeSemanticModule(
         getMethods: options.getMethods && options.getMethods.length > 0
             ? [...options.getMethods]
             : [...DEFAULT_ROUTER_OPTIONS.getMethods],
+        routerClassNames: options.routerClassNames && options.routerClassNames.length > 0
+            ? [...options.routerClassNames]
+            : [...DEFAULT_ROUTER_OPTIONS.routerClassNames],
         navDestinationClassNames: options.navDestinationClassNames && options.navDestinationClassNames.length > 0
             ? [...options.navDestinationClassNames]
             : [...DEFAULT_ROUTER_OPTIONS.navDestinationClassNames],
@@ -103,6 +109,7 @@ export function createHarmonyRouteBridgeSemanticModule(
     const internalOptions: BuildRouterInternalOptions = {
         pushMethodNames: new Set(resolved.pushMethods.map(item => item.methodName)),
         getMethodNames: new Set(resolved.getMethods),
+        routerClassNames: new Set(resolved.routerClassNames),
         navDestinationClassNames: new Set(resolved.navDestinationClassNames),
         navDestinationRegisterMethods: new Set(resolved.navDestinationRegisterMethods),
         navDestinationTriggerMethods: new Set(resolved.navDestinationTriggerMethods),
@@ -426,6 +433,7 @@ export function buildRouterModel(
     options: BuildRouterInternalOptions = {
         pushMethodNames: new Set(DEFAULT_ROUTER_OPTIONS.pushMethods.map(item => item.methodName)),
         getMethodNames: new Set(DEFAULT_ROUTER_OPTIONS.getMethods),
+        routerClassNames: new Set(DEFAULT_ROUTER_OPTIONS.routerClassNames),
         navDestinationClassNames: new Set(DEFAULT_ROUTER_OPTIONS.navDestinationClassNames),
         navDestinationRegisterMethods: new Set(DEFAULT_ROUTER_OPTIONS.navDestinationRegisterMethods),
         navDestinationTriggerMethods: new Set(DEFAULT_ROUTER_OPTIONS.navDestinationTriggerMethods),
@@ -663,6 +671,14 @@ function resolveRouterIntent(
     const classKey = resolveClassKeyFromMethodSig(methodSig);
     const profile = classProfiles.get(classKey);
     if (!profile) return undefined;
+    if (!isAllowedRouterClass(profile, options)) {
+        const warnKey = `${classKey}#${methodName}#scope`;
+        if (!suspiciousLogs.has(warnKey)) {
+            suspiciousLogs.add(warnKey);
+            log?.(`[Harmony-Router] skip out-of-scope router-like call: method=${methodName}, class=${profile.className || profile.classSigText}, sig=${methodSig.toString?.() || ""}`);
+        }
+        return undefined;
+    }
 
     // Joint evidence: method semantics + (framework marker OR structural router-class evidence).
     const hasStructuralEvidence = profile.hasPush && profile.hasGet;
@@ -677,6 +693,13 @@ function resolveRouterIntent(
         log?.(`[Harmony-Router] skip suspicious router-like call: method=${methodName}, class=${profile.className || profile.classSigText}, sig=${sigText}`);
     }
     return undefined;
+}
+
+function isAllowedRouterClass(profile: RouterClassProfile, options: BuildRouterInternalOptions): boolean {
+    if (options.routerClassNames.size === 0) return true;
+    return options.routerClassNames.has(profile.className)
+        || options.routerClassNames.has(profile.classKey)
+        || options.routerClassNames.has(profile.classSigText);
 }
 
 function resolveImportedRouterKey(sourceMethod: any, invokeExpr: any): string | undefined {
@@ -732,6 +755,7 @@ function inferPageRouteFromFileSignature(fileText: string): string {
 function buildRouterClassProfiles(scene: Scene, options: BuildRouterInternalOptions = {
     pushMethodNames: new Set(DEFAULT_ROUTER_OPTIONS.pushMethods.map(item => item.methodName)),
     getMethodNames: new Set(DEFAULT_ROUTER_OPTIONS.getMethods),
+    routerClassNames: new Set(DEFAULT_ROUTER_OPTIONS.routerClassNames),
     navDestinationClassNames: new Set(DEFAULT_ROUTER_OPTIONS.navDestinationClassNames),
     navDestinationRegisterMethods: new Set(DEFAULT_ROUTER_OPTIONS.navDestinationRegisterMethods),
     navDestinationTriggerMethods: new Set(DEFAULT_ROUTER_OPTIONS.navDestinationTriggerMethods),

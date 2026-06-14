@@ -1,4 +1,6 @@
 import type { AssetDocumentBase, AssetPlane } from "../../core/assets/schema";
+import type { AssetRole } from "../../core/assets/schema";
+import type { SemanticEffectKind } from "../../core/assets/schema";
 
 export function assert(condition: unknown, message: string): asserts condition {
     if (!condition) throw new Error(message);
@@ -17,8 +19,37 @@ export function expectThrows(fn: () => unknown, contains: string): void {
 
 export function makeRuleAsset(
     id = "asset.project.logger.sink",
-    plane: AssetPlane = "rule",
+    options: AssetPlane | {
+        plane?: AssetPlane;
+        role?: AssetRole;
+        effectKind?: SemanticEffectKind;
+        bindingId?: string;
+        effectId?: string;
+    } = "rule",
 ): AssetDocumentBase {
+    const plane = typeof options === "string" ? options : options.plane || "rule";
+    const role = typeof options === "string" ? "sink" : options.role || "sink";
+    const effectKind = typeof options === "string" ? "rule.sink" : options.effectKind || "rule.sink";
+    const bindingId = typeof options === "string" ? `${id}.binding` : options.bindingId || `${id}.binding`;
+    const effectId = typeof options === "string" ? `${id}.effect` : options.effectId || `${id}.effect`;
+    const endpoint = effectKind === "rule.source"
+        ? { base: { kind: "promiseResult" as const } }
+        : { base: { kind: "arg" as const, index: 0 } };
+    const effectTemplate = effectKind === "rule.source"
+        ? {
+            id: effectId,
+            kind: "rule.source" as const,
+            value: endpoint,
+            sourceKind: "call_return" as const,
+            confidence: "likely" as const,
+        }
+        : {
+            id: effectId,
+            kind: "rule.sink" as const,
+            value: endpoint,
+            sinkKind: "logging",
+            confidence: "likely" as const,
+        };
     return {
         id,
         plane,
@@ -41,27 +72,19 @@ export function makeRuleAsset(
         ],
         bindings: [
             {
-                bindingId: `${id}.binding`,
+                bindingId,
                 surfaceId: `${id}.surface`,
                 assetId: id,
                 plane,
-                role: "sink",
-                endpoint: { base: { kind: "arg", index: 0 } },
-                effectTemplateRefs: [`${id}.effect`],
+                role,
+                endpoint,
+                effectTemplateRefs: [effectId],
                 semanticsFamily: "logging",
                 completeness: "partial",
                 confidence: "likely",
             },
         ],
-        effectTemplates: [
-            {
-                id: `${id}.effect`,
-                kind: "rule.sink",
-                value: { base: { kind: "arg", index: 0 } },
-                sinkKind: "logging",
-                confidence: "likely",
-            },
-        ],
+        effectTemplates: [effectTemplate],
         provenance: {
             source: "llm",
             projectId: "project-a",
@@ -112,6 +135,7 @@ export function makeHandoffAsset(id = "asset.project.token-cache"): AssetDocumen
                     cellKind: "keyed-semantic-slot",
                     family: "project.token_cache",
                     key: [{ kind: "fromLiteralArg", index: 0 }],
+                    precision: "infer",
                 },
                 value: { base: { kind: "arg", index: 1 } },
                 updateStrength: "infer",

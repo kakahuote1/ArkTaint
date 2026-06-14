@@ -15,6 +15,13 @@ struct SdkDecoratorProbePage {
     }
 }
 
+@ComponentV2
+export struct SdkDecoratorProbePageV2 {
+    build() {
+        Text("v2");
+    }
+}
+
 class PlainDecoratorCarrier {
     @State value: number = 0;
 

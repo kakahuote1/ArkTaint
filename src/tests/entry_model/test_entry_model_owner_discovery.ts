@@ -55,6 +55,7 @@ async function main(): Promise<void> {
 
     const abilityOwner = findClass(scene, "SdkOverrideProbeAbility");
     const pageOwner = findClass(scene, "SdkDecoratorProbePage");
+    const pageV2Owner = findClass(scene, "SdkDecoratorProbePageV2");
     const localDerived = findClass(scene, "LocalDerivedLifecycle");
     const plainCarrier = findClass(scene, "PlainDecoratorCarrier");
 
@@ -71,6 +72,8 @@ async function main(): Promise<void> {
         owners.getPrimaryRecognitionLayer(pageOwner) === "qualified_decorator_first_layer",
         `SdkDecoratorProbePage recognition layer mismatch: ${owners.getPrimaryRecognitionLayer(pageOwner)}`,
     );
+    assert(owners.isComponentOwner(pageV2Owner), "SdkDecoratorProbePageV2 should be recognized as ComponentV2 owner.");
+    assert(owners.isFrameworkManagedOwner(pageV2Owner), "SdkDecoratorProbePageV2 should be framework-managed.");
 
     assert(!owners.isFrameworkManagedOwner(localDerived), "LocalDerivedLifecycle should not be recognized as framework-managed.");
     assert(!owners.isFrameworkManagedOwner(plainCarrier), "PlainDecoratorCarrier should not be recognized without official owner declaration.");
@@ -91,6 +94,11 @@ async function main(): Promise<void> {
         && fact.method.getDeclaringArkClass?.().getName?.() === "SdkDecoratorProbePage"
         && fact.method.getName?.() === "build",
     );
+    const hasPageBuildOnV2Owner = plan.facts.some(fact =>
+        fact.kind === "page_build"
+        && fact.method.getDeclaringArkClass?.().getName?.() === "SdkDecoratorProbePageV2"
+        && fact.method.getName?.() === "build",
+    );
     const hasPageBuildOnPlainOwner = plan.facts.some(fact =>
         fact.kind === "page_build"
         && fact.method.getDeclaringArkClass?.().getName?.() === "PlainDecoratorCarrier"
@@ -99,6 +107,7 @@ async function main(): Promise<void> {
     assert(hasAbilityLifecycleOnManagedOwner, "Managed ability owner should produce lifecycle contract fact.");
     assert(!hasAbilityLifecycleOnPlainOwner, "Non-managed plain owner should not produce lifecycle contract fact.");
     assert(hasPageBuildOnManagedOwner, "Managed component owner should produce page build contract fact.");
+    assert(hasPageBuildOnV2Owner, "Managed ComponentV2 owner should produce page build contract fact.");
     assert(!hasPageBuildOnPlainOwner, "Plain component-like class without official declaration should not produce page build contract fact.");
 
     const reportDir = path.resolve("tmp/test_runs/entry_model/owner_discovery_probe/latest");

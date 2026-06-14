@@ -128,6 +128,8 @@ async function main(): Promise<void> {
 
     ConfigBasedTransferExecutor.clearSceneRuleCache();
     ConfigBasedTransferExecutor.resetSceneRuleCacheStats();
+    new ConfigBasedTransferExecutor(transferRules, scene);
+    new ConfigBasedTransferExecutor(transferRules, scene);
 
     for (const caseName of caseNames) {
         const engine = new TaintPropagationEngine(scene, options.k, { transferRules });

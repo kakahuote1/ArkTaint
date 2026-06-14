@@ -19,6 +19,7 @@ import { getMethodBySignature, getMethodBySimpleName } from "../contracts/Method
 import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
 import { buildExecutionHandoffSiteKeyFromStmt } from "../handoff/ExecutionHandoffSiteKey";
 import { collectOrdinaryTaintPreservingSourceLocals } from "../ordinary/OrdinaryLanguagePropagation";
+import { assertBuildStageBudget, BuildStageBudget } from "../../shared/BuildStageBudget";
 
 export interface CaptureEdgeInfo {
     srcNodeId: number;
@@ -35,6 +36,33 @@ export interface ReceiverFieldBridgeInfo {
     callSiteId: number;
     callerMethodName: string;
     calleeMethodName: string;
+}
+export interface PagIndexBuildBudget {
+    startedAtMs: number;
+    maxElapsedMs?: number;
+    label: string;
+}
+
+export class PagIndexBuildBudgetExceededError extends Error {
+    readonly code = "PAG_INDEX_BUILD_BUDGET_EXCEEDED";
+    readonly label: string;
+    readonly elapsedMs: number;
+    readonly maxElapsedMs: number;
+
+    constructor(label: string, elapsedMs: number, maxElapsedMs: number) {
+        super(`${label} exceeded ${maxElapsedMs}ms (elapsed=${elapsedMs}ms)`);
+        this.name = "PagIndexBuildBudgetExceededError";
+        this.label = label;
+        this.elapsedMs = elapsedMs;
+        this.maxElapsedMs = maxElapsedMs;
+    }
+}
+
+function assertPagIndexBudget(budget: PagIndexBuildBudget | undefined): void {
+    if (!budget?.maxElapsedMs || budget.maxElapsedMs <= 0) return;
+    const elapsedMs = Date.now() - budget.startedAtMs;
+    if (elapsedMs <= budget.maxElapsedMs) return;
+    throw new PagIndexBuildBudgetExceededError(budget.label, elapsedMs, budget.maxElapsedMs);
 }
 interface CaptureEdgeDescriptor {
     srcValue: any;
@@ -63,6 +91,30 @@ interface ResolvedCallTarget {
     method: any;
     explicitArgs: any[];
     callSiteSalt: number;
+}
+
+interface CaptureDescriptorCaches {
+    closureCaptureTargetsByMethodSig: Map<string, any[]>;
+    directCapturedInvokeArgLocalsByMethodSig: Map<string, Map<string, FieldLocalAccess[]>>;
+    closureFieldReadLocalsByMethodSig: Map<string, Map<string, FieldLocalAccess[]>>;
+    closureFieldWriteLocalsByMethodSig: Map<string, Map<string, FieldLocalAccess[]>>;
+    invokedParamsByMethodSig: Map<string, Set<number>>;
+    callableClosureMethodsByKey: Map<string, any[]>;
+    closureParamWriteBackDescriptorsByKey: Map<string, CaptureEdgeDescriptor[]>;
+    constructorMethodsByClassSig: Map<string, any[]>;
+}
+
+function createCaptureDescriptorCaches(): CaptureDescriptorCaches {
+    return {
+        closureCaptureTargetsByMethodSig: new Map(),
+        directCapturedInvokeArgLocalsByMethodSig: new Map(),
+        closureFieldReadLocalsByMethodSig: new Map(),
+        closureFieldWriteLocalsByMethodSig: new Map(),
+        invokedParamsByMethodSig: new Map(),
+        callableClosureMethodsByKey: new Map(),
+        closureParamWriteBackDescriptorsByKey: new Map(),
+        constructorMethodsByClassSig: new Map(),
+    };
 }
 
 export function buildCallEdgeMap(
@@ -203,10 +255,14 @@ export function buildReceiverFieldBridgeMap(
     scene: Scene,
     cg: CallGraph,
     pag: Pag,
-    log: (msg: string) => void
+    log: (msg: string) => void,
+    budget?: PagIndexBuildBudget,
 ): Map<number, ReceiverFieldBridgeInfo[]> {
     const bridgeMap = new Map<number, ReceiverFieldBridgeInfo[]>();
     const dedup = new Set<string>();
+    const pagNodesByDeclaringMethod = buildPagNodeIndexByDeclaringMethod(pag, budget);
+    const receiverValuesByMethodSig = new Map<string, any[]>();
+    const carrierIdsByMethodSig = new Map<string, Set<number>>();
     let bridgeCount = 0;
 
     const pushBridge = (info: ReceiverFieldBridgeInfo): void => {
@@ -221,10 +277,12 @@ export function buildReceiverFieldBridgeMap(
     };
 
     for (const method of scene.getMethods()) {
+        assertPagIndexBudget(budget);
         const cfg = method.getCfg?.();
         if (!cfg) continue;
 
         for (const stmt of cfg.getStmts()) {
+            assertPagIndexBudget(budget);
             if (!stmt.containsInvokeExpr?.()) continue;
             const invokeExpr = stmt.getInvokeExpr?.();
             if (!(invokeExpr instanceof ArkInstanceInvokeExpr)) continue;
@@ -236,6 +294,7 @@ export function buildReceiverFieldBridgeMap(
             if (resolvedTargets.length === 0) continue;
 
             for (const target of resolvedTargets) {
+                assertPagIndexBudget(budget);
                 const calleeMethod = target.method;
                 if (!calleeMethod?.getCfg?.()) continue;
 
@@ -243,9 +302,16 @@ export function buildReceiverFieldBridgeMap(
                 const callerCarrierIds = collectCarrierNodeIds(pag, [base]);
                 if (callerCarrierIds.size === 0) continue;
 
-                const receiverValues = collectThisReceiverValues(calleeMethod);
+                const calleeMethodSig = resolveMethodSignature(calleeMethod);
+                const receiverValues = getCachedThisReceiverValues(calleeMethod, calleeMethodSig, receiverValuesByMethodSig);
                 if (receiverValues.length === 0) continue;
-                const calleeCarrierIds = collectMethodCarrierNodeIds(pag, calleeMethod, receiverValues);
+                const calleeCarrierIds = getCachedMethodCarrierNodeIds(
+                    pag,
+                    calleeMethod,
+                    receiverValues,
+                    pagNodesByDeclaringMethod,
+                    carrierIdsByMethodSig,
+                );
                 if (calleeCarrierIds.size === 0) continue;
 
                 for (const sourceCarrierNodeId of calleeCarrierIds) {
@@ -265,6 +331,64 @@ export function buildReceiverFieldBridgeMap(
 
     log(`Receiver Field Bridge Map Built: ${bridgeCount} receiver field write-back transfers.`);
     return bridgeMap;
+}
+
+function buildPagNodeIndexByDeclaringMethod(
+    pag: Pag,
+    budget?: PagIndexBuildBudget,
+): Map<string, PagNode[]> {
+    const byMethod = new Map<string, PagNode[]>();
+    for (const rawNode of pag.getNodesIter()) {
+        assertPagIndexBudget(budget);
+        const node = rawNode as PagNode;
+        const methodSig = resolveNodeDeclaringMethodSignature(node);
+        if (!methodSig) continue;
+        const existing = byMethod.get(methodSig);
+        if (existing) {
+            existing.push(node);
+        } else {
+            byMethod.set(methodSig, [node]);
+        }
+    }
+    return byMethod;
+}
+
+function resolveMethodSignature(method: any): string {
+    return method?.getSignature?.()?.toString?.() || method?.getName?.() || "";
+}
+
+function getCachedThisReceiverValues(
+    method: any,
+    methodSig: string,
+    cache: Map<string, any[]>,
+): any[] {
+    const key = methodSig || `method:${method?.getName?.() || "unknown"}`;
+    const cached = cache.get(key);
+    if (cached) return cached;
+    const values = collectThisReceiverValues(method);
+    cache.set(key, values);
+    return values;
+}
+
+function getCachedMethodCarrierNodeIds(
+    pag: Pag,
+    method: any,
+    values: any[],
+    pagNodesByDeclaringMethod: Map<string, PagNode[]>,
+    cache: Map<string, Set<number>>,
+): Set<number> {
+    const methodSig = resolveMethodSignature(method);
+    const key = methodSig || `method:${method?.getName?.() || "unknown"}`;
+    const cached = cache.get(key);
+    if (cached) return cached;
+    const ids = collectMethodCarrierNodeIds(
+        pag,
+        method,
+        values,
+        methodSig ? (pagNodesByDeclaringMethod.get(methodSig) || []) : undefined,
+    );
+    cache.set(key, ids);
+    return ids;
 }
 function collectResolvedCallTargets(
     scene: Scene,
@@ -342,20 +466,24 @@ export function buildCaptureLazyMaterializer(
     cg: CallGraph,
     pag: Pag,
     excludedDeferredSiteKeys?: ReadonlySet<string>,
+    budget?: BuildStageBudget,
 ): CaptureLazyMaterializer {
     const capturedSummaryCache = new Map<string, Map<string, Set<string>>>();
     const capturedVisiting = new Set<string>();
+    const descriptorCaches = createCaptureDescriptorCaches();
     const siteIdsByTriggerNodeId = new Map<number, number[]>();
     const sites: CaptureLazySite[] = [];
 
     let siteId = 0;
     for (const method of scene.getMethods()) {
+        assertBuildStageBudget(budget, "capture_lazy.methods");
         const cfg = method.getCfg();
         const body = method.getBody();
         if (!cfg || !body) continue;
         const callerLocals = body.getLocals();
 
         for (const stmt of cfg.getStmts()) {
+            assertBuildStageBudget(budget, "capture_lazy.statements");
             if (!stmt.containsInvokeExpr()) continue;
             const invokeExpr = stmt.getInvokeExpr();
             if (!invokeExpr) continue;
@@ -372,8 +500,11 @@ export function buildCaptureLazyMaterializer(
                 invokeExpr,
                 suppressForwardDeferredCapture,
                 capturedSummaryCache,
-                capturedVisiting
+                capturedVisiting,
+                descriptorCaches,
+                budget,
             );
+            assertBuildStageBudget(budget, "capture_lazy.descriptors");
             if (descriptors.length === 0) continue;
 
             const currentSiteId = siteId++;
@@ -478,6 +609,7 @@ function collectMethodCarrierNodeIds(
     pag: Pag,
     method: any,
     values: any[],
+    methodNodes?: PagNode[],
 ): Set<number> {
     const out = collectCarrierNodeIds(pag, values);
     const receiverObjectIds = new Set<number>();
@@ -494,6 +626,20 @@ function collectMethodCarrierNodeIds(
     }
 
     const methodSig = method?.getSignature?.()?.toString?.() || "";
+    if (methodNodes) {
+        for (const node of methodNodes) {
+            for (const objId of node.getPointTo()) {
+                if (!receiverObjectIds.has(objId)) continue;
+                out.add(node.getID());
+                break;
+            }
+        }
+        return out;
+    }
+
+    if (!methodSig) {
+        return out;
+    }
     for (const rawNode of pag.getNodesIter()) {
         const node = rawNode as PagNode;
         const nodeMethodSig = resolveNodeDeclaringMethodSignature(node);
@@ -560,13 +706,17 @@ function collectCaptureDescriptorsForInvokeStmt(
     invokeExpr: any,
     suppressForwardDeferredCapture: boolean,
     capturedSummaryCache: Map<string, Map<string, Set<string>>>,
-    capturedVisiting: Set<string>
+    capturedVisiting: Set<string>,
+    descriptorCaches: CaptureDescriptorCaches,
+    budget?: BuildStageBudget,
 ): CaptureEdgeDescriptor[] {
     const descriptors: CaptureEdgeDescriptor[] = [];
     const calleeMethods: { method: any; callSiteId: number; argCount: number }[] = [];
 
+    assertBuildStageBudget(budget, "capture_lazy.descriptors.callee_sites.start");
     const callSites = cg.getCallSiteByStmt(stmt) || [];
     for (const cs of callSites) {
+        assertBuildStageBudget(budget, "capture_lazy.descriptors.callee_sites.iter");
         const calleeFuncID = cs.getCalleeFuncID();
         if (!calleeFuncID) continue;
         const calleeMethod = cg.getArkMethodByFuncID(calleeFuncID);
@@ -576,17 +726,22 @@ function collectCaptureDescriptorsForInvokeStmt(
         const callSiteId = stmt.getOriginPositionInfo().getLineNo() * 10000 + calleeFuncID;
         calleeMethods.push({ method: calleeMethod, callSiteId, argCount });
     }
+    assertBuildStageBudget(budget, `capture_lazy.descriptors.callee_sites.done(count=${calleeMethods.length})`);
 
     if (calleeMethods.length === 0 || isReflectDispatchInvoke(invokeExpr)) {
         const argCount = invokeExpr.getArgs ? invokeExpr.getArgs().length : 0;
+        assertBuildStageBudget(budget, "capture_lazy.descriptors.resolve_candidates.start");
         for (const resolved of resolveCalleeCandidates(scene, invokeExpr)) {
+            assertBuildStageBudget(budget, "capture_lazy.descriptors.resolve_candidates.iter");
             const targetSig = resolved.method.getSignature().toString();
             const callSiteId = stmt.getOriginPositionInfo().getLineNo() * 10000 + thisSimpleHash(targetSig);
             calleeMethods.push({ method: resolved.method, callSiteId, argCount });
         }
+        assertBuildStageBudget(budget, `capture_lazy.descriptors.resolve_candidates.done(count=${calleeMethods.length})`);
     }
 
     for (const calleeInfo of calleeMethods) {
+        assertBuildStageBudget(budget, `capture_lazy.descriptors.callee.start(${shortMethodLabel(calleeInfo.method)})`);
         const calleeMethod = calleeInfo.method;
         if (!calleeMethod || !calleeMethod.getCfg()) continue;
 
@@ -596,8 +751,10 @@ function collectCaptureDescriptorsForInvokeStmt(
         const explicitArgs = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
         const capturedLocalSourceValues = buildCapturedLocalSourceValues(calleeMethod, invokeExpr, explicitArgs);
         const calleeLocals = calleeMethod.getBody?.()?.getLocals?.() || new Map<string, Local>();
-        const captureTargets = collectClosureCaptureTargets(scene, calleeMethod);
-        if (collectDirectCapturedInvokeArgLocals(calleeMethod).size > 0) {
+        assertBuildStageBudget(budget, `capture_lazy.descriptors.capture_targets.start(${shortMethodLabel(calleeMethod)})`);
+        const captureTargets = collectClosureCaptureTargetsCached(scene, calleeMethod, descriptorCaches);
+        assertBuildStageBudget(budget, `capture_lazy.descriptors.capture_targets.done(count=${captureTargets.length},callee=${shortMethodLabel(calleeMethod)})`);
+        if (collectDirectCapturedInvokeArgLocalsCached(calleeMethod, descriptorCaches).size > 0) {
             const calleeSig = calleeMethod.getSignature?.().toString?.();
             const alreadyIncluded = captureTargets.some(
                 target => target?.getSignature?.()?.toString?.() === calleeSig,
@@ -608,21 +765,38 @@ function collectCaptureDescriptorsForInvokeStmt(
         }
 
         for (const targetMethod of captureTargets) {
+            assertBuildStageBudget(budget, `capture_lazy.descriptors.target.start(${shortMethodLabel(targetMethod)})`);
             const targetCfg = targetMethod.getCfg();
             if (!targetCfg) continue;
 
+            const directCapturedInvokeArgLocals = collectDirectCapturedInvokeArgLocalsCached(targetMethod, descriptorCaches);
+            assertBuildStageBudget(budget, `capture_lazy.descriptors.field_access.start(${shortMethodLabel(targetMethod)})`);
+            const fieldReadLocals = collectClosureFieldReadLocalsCached(targetMethod, descriptorCaches);
+            const fieldWriteLocals = collectClosureFieldWriteLocalsCached(targetMethod, descriptorCaches);
+            assertBuildStageBudget(budget, `capture_lazy.descriptors.field_access.done(read=${fieldReadLocals.size},write=${fieldWriteLocals.size},target=${shortMethodLabel(targetMethod)})`);
+            if (directCapturedInvokeArgLocals.size === 0 && fieldReadLocals.size === 0 && fieldWriteLocals.size === 0) {
+                continue;
+            }
+
+            assertBuildStageBudget(budget, `capture_lazy.descriptors.target_summary.start(${shortMethodLabel(targetMethod)})`);
             const capturedLocalsToFields = summarizeCapturedLocalsForClosureMethod(
                 scene,
                 targetMethod,
                 capturedSummaryCache,
-                capturedVisiting
+                capturedVisiting,
+                descriptorCaches,
             );
-            const closureParamBwds = collectClosuresParamWriteBackDescriptors(
-                pag, targetMethod, callerLocals, stmt, callSiteId, callerName, calleeName
-            );
-            descriptors.push(...closureParamBwds);
-            const directCapturedInvokeArgLocals = collectDirectCapturedInvokeArgLocals(targetMethod);
+            assertBuildStageBudget(budget, `capture_lazy.descriptors.target_summary.done(size=${capturedLocalsToFields.size},target=${shortMethodLabel(targetMethod)})`);
+            if (fieldReadLocals.size > 0) {
+                assertBuildStageBudget(budget, `capture_lazy.descriptors.param_writeback.start(${shortMethodLabel(targetMethod)})`);
+                const closureParamBwds = collectClosuresParamWriteBackDescriptorsCached(
+                    pag, targetMethod, callerLocals, stmt, callSiteId, callerName, calleeName, descriptorCaches
+                );
+                descriptors.push(...closureParamBwds);
+                assertBuildStageBudget(budget, `capture_lazy.descriptors.param_writeback.done(count=${closureParamBwds.length},target=${shortMethodLabel(targetMethod)})`);
+            }
             for (const [callerLocalName, directUses] of directCapturedInvokeArgLocals.entries()) {
+                assertBuildStageBudget(budget, `capture_lazy.descriptors.direct_arg.start(${shortMethodLabel(targetMethod)}:${callerLocalName})`);
                 const sourceValues = resolveCapturedLocalSourceValues(
                     callerLocals,
                     calleeLocals,
@@ -631,7 +805,9 @@ function collectCaptureDescriptorsForInvokeStmt(
                 );
                 if (sourceValues.length === 0) continue;
                 for (const sourceValue of sourceValues) {
+                    assertBuildStageBudget(budget, `capture_lazy.descriptors.direct_arg.source_nodes.start(${shortMethodLabel(targetMethod)}:${callerLocalName})`);
                     const sourceNodes = getOrCreatePagNodes(pag, sourceValue, stmt);
+                    assertBuildStageBudget(budget, `capture_lazy.descriptors.direct_arg.source_nodes.done(${shortMethodLabel(targetMethod)}:${callerLocalName})`);
                     if (!sourceNodes || sourceNodes.size === 0) continue;
                     for (const directUse of directUses) {
                         if (suppressForwardDeferredCapture) continue;
@@ -653,11 +829,10 @@ function collectCaptureDescriptorsForInvokeStmt(
                 continue;
             }
 
-            const fieldReadLocals = collectClosureFieldReadLocals(targetMethod);
-            const fieldWriteLocals = collectClosureFieldWriteLocals(targetMethod);
             if (fieldReadLocals.size === 0 && fieldWriteLocals.size === 0) continue;
 
             for (const [callerLocalName, fieldNames] of capturedLocalsToFields.entries()) {
+                assertBuildStageBudget(budget, `capture_lazy.descriptors.field_descriptors.start(${shortMethodLabel(targetMethod)}:${callerLocalName})`);
                 const sourceValues = resolveCapturedLocalSourceValues(
                     callerLocals,
                     calleeLocals,
@@ -667,7 +842,9 @@ function collectCaptureDescriptorsForInvokeStmt(
                 if (sourceValues.length === 0) continue;
 
                 for (const sourceValue of sourceValues) {
+                    assertBuildStageBudget(budget, `capture_lazy.descriptors.field_descriptors.source_nodes.start(${shortMethodLabel(targetMethod)}:${callerLocalName})`);
                     const sourceNodes = getOrCreatePagNodes(pag, sourceValue, stmt);
+                    assertBuildStageBudget(budget, `capture_lazy.descriptors.field_descriptors.source_nodes.done(${shortMethodLabel(targetMethod)}:${callerLocalName})`);
                     if (!sourceNodes || sourceNodes.size === 0) continue;
 
                     for (const fieldName of fieldNames) {
@@ -699,35 +876,177 @@ function collectCaptureDescriptorsForInvokeStmt(
                         }
                     }
                 }
+                assertBuildStageBudget(budget, `capture_lazy.descriptors.field_descriptors.done(${shortMethodLabel(targetMethod)}:${callerLocalName})`);
             }
         }
+        assertBuildStageBudget(budget, `capture_lazy.descriptors.callee.done(${shortMethodLabel(calleeMethod)})`);
     }
 
     for (const calleeInfo of calleeMethods) {
         const calleeMethod = calleeInfo.method;
         if (!calleeMethod) continue;
-        const invokedParams = analyzeInvokedParams(calleeMethod);
+        assertBuildStageBudget(budget, `capture_lazy.descriptors.invoked_params.start(${shortMethodLabel(calleeMethod)})`);
+        const invokedParams = analyzeInvokedParamsCached(calleeMethod, descriptorCaches);
+        assertBuildStageBudget(budget, `capture_lazy.descriptors.invoked_params.done(count=${invokedParams.size},callee=${shortMethodLabel(calleeMethod)})`);
         if (invokedParams.size === 0) continue;
 
         const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
         for (const paramIdx of invokedParams) {
+            assertBuildStageBudget(budget, `capture_lazy.descriptors.invoked_param.iter(${shortMethodLabel(calleeMethod)}:${paramIdx})`);
             if (paramIdx >= args.length) continue;
             const arg = args[paramIdx];
             if (!(arg instanceof Local)) continue;
 
-            const closureMethods = resolveCallableToClosureMethods(scene, method, arg);
+            const closureMethods = resolveCallableToClosureMethodsCached(scene, method, arg, descriptorCaches);
             for (const closureMethod of closureMethods) {
+                assertBuildStageBudget(budget, `capture_lazy.descriptors.invoked_param.writeback.start(${shortMethodLabel(closureMethod)})`);
                 if (!closureMethod?.getCfg?.()) continue;
 
-                const bwdDescs = collectClosuresParamWriteBackDescriptors(
+                const bwdDescs = collectClosuresParamWriteBackDescriptorsCached(
                     pag, closureMethod, callerLocals, stmt,
-                    calleeInfo.callSiteId, method.getName(), closureMethod.getName()
+                    calleeInfo.callSiteId, method.getName(), closureMethod.getName(), descriptorCaches
                 );
                 descriptors.push(...bwdDescs);
+                assertBuildStageBudget(budget, `capture_lazy.descriptors.invoked_param.writeback.done(count=${bwdDescs.length},closure=${shortMethodLabel(closureMethod)})`);
             }
         }
     }
 
+    return descriptors;
+}
+
+function methodSignatureKey(method: any): string {
+    return method?.getSignature?.()?.toString?.() || method?.getName?.() || String(method || "");
+}
+
+function shortMethodLabel(method: any): string {
+    const sig = methodSignatureKey(method);
+    if (sig.length <= 96) return sig;
+    return `${sig.slice(0, 48)}...${sig.slice(-40)}`;
+}
+
+function stmtLocationKey(stmt: any): string {
+    const pos = stmt?.getOriginPositionInfo?.();
+    const line = pos?.getLineNo?.();
+    const column = pos?.getColNo?.() ?? pos?.getColumnNo?.();
+    return `${line ?? "?"}:${column ?? "?"}`;
+}
+
+function collectClosureCaptureTargetsCached(
+    scene: Scene,
+    calleeMethod: any,
+    caches: CaptureDescriptorCaches,
+): any[] {
+    const key = methodSignatureKey(calleeMethod);
+    if (!key) return collectClosureCaptureTargets(scene, calleeMethod);
+    const cached = caches.closureCaptureTargetsByMethodSig.get(key);
+    if (cached) return [...cached];
+    const targets = collectClosureCaptureTargets(scene, calleeMethod);
+    caches.closureCaptureTargetsByMethodSig.set(key, [...targets]);
+    return targets;
+}
+
+function collectDirectCapturedInvokeArgLocalsCached(
+    method: any,
+    caches: CaptureDescriptorCaches,
+): Map<string, FieldLocalAccess[]> {
+    const key = methodSignatureKey(method);
+    if (!key) return collectDirectCapturedInvokeArgLocals(method);
+    let cached = caches.directCapturedInvokeArgLocalsByMethodSig.get(key);
+    if (!cached) {
+        cached = collectDirectCapturedInvokeArgLocals(method);
+        caches.directCapturedInvokeArgLocalsByMethodSig.set(key, cached);
+    }
+    return cached;
+}
+
+function collectClosureFieldReadLocalsCached(
+    method: any,
+    caches: CaptureDescriptorCaches,
+): Map<string, FieldLocalAccess[]> {
+    const key = methodSignatureKey(method);
+    if (!key) return collectClosureFieldReadLocals(method);
+    let cached = caches.closureFieldReadLocalsByMethodSig.get(key);
+    if (!cached) {
+        cached = collectClosureFieldReadLocals(method);
+        caches.closureFieldReadLocalsByMethodSig.set(key, cached);
+    }
+    return cached;
+}
+
+function collectClosureFieldWriteLocalsCached(
+    method: any,
+    caches: CaptureDescriptorCaches,
+): Map<string, FieldLocalAccess[]> {
+    const key = methodSignatureKey(method);
+    if (!key) return collectClosureFieldWriteLocals(method);
+    let cached = caches.closureFieldWriteLocalsByMethodSig.get(key);
+    if (!cached) {
+        cached = collectClosureFieldWriteLocals(method);
+        caches.closureFieldWriteLocalsByMethodSig.set(key, cached);
+    }
+    return cached;
+}
+
+function analyzeInvokedParamsCached(
+    method: any,
+    caches: CaptureDescriptorCaches,
+): Set<number> {
+    const key = methodSignatureKey(method);
+    if (!key) return analyzeInvokedParams(method);
+    let cached = caches.invokedParamsByMethodSig.get(key);
+    if (!cached) {
+        cached = analyzeInvokedParams(method);
+        caches.invokedParamsByMethodSig.set(key, cached);
+    }
+    return cached;
+}
+
+function resolveCallableToClosureMethodsCached(
+    scene: Scene,
+    callerMethod: any,
+    argValue: any,
+    caches: CaptureDescriptorCaches,
+): any[] {
+    const callerKey = methodSignatureKey(callerMethod);
+    const argKey = argValue?.toString?.() || String(argValue || "");
+    const key = `${callerKey}|${argKey}`;
+    const cached = caches.callableClosureMethodsByKey.get(key);
+    if (cached) return cached;
+    const methods = resolveCallableToClosureMethods(scene, callerMethod, argValue);
+    caches.callableClosureMethodsByKey.set(key, methods);
+    return methods;
+}
+
+function collectClosuresParamWriteBackDescriptorsCached(
+    pag: Pag,
+    closureMethod: any,
+    callerLocals: Map<string, Local>,
+    callerStmt: any,
+    callSiteId: number,
+    callerMethodName: string,
+    calleeMethodName: string,
+    caches: CaptureDescriptorCaches,
+): CaptureEdgeDescriptor[] {
+    const key = [
+        methodSignatureKey(closureMethod),
+        callerMethodName,
+        calleeMethodName,
+        callSiteId,
+        stmtLocationKey(callerStmt),
+    ].join("|");
+    const cached = caches.closureParamWriteBackDescriptorsByKey.get(key);
+    if (cached) return cached;
+    const descriptors = collectClosuresParamWriteBackDescriptors(
+        pag,
+        closureMethod,
+        callerLocals,
+        callerStmt,
+        callSiteId,
+        callerMethodName,
+        calleeMethodName,
+    );
+    caches.closureParamWriteBackDescriptorsByKey.set(key, descriptors);
     return descriptors;
 }
 
@@ -786,24 +1105,39 @@ function summarizeCapturedLocalsForClosureMethod(
     scene: Scene,
     method: any,
     cache: Map<string, Map<string, Set<string>>>,
-    visiting: Set<string>
+    visiting: Set<string>,
+    descriptorCaches: CaptureDescriptorCaches,
 ): Map<string, Set<string>> {
     const result = new Map<string, Set<string>>();
     mergeCapturedLocalFieldSummary(result, summarizeDirectClosureEnvLocalToFields(method));
     const classSig = method?.getDeclaringArkClass?.()?.getSignature?.()?.toString?.() || "";
     if (!classSig) return result;
 
-    for (const candidate of scene.getMethods()) {
-        const candidateClassSig = candidate?.getDeclaringArkClass?.()?.getSignature?.()?.toString?.() || "";
-        if (candidateClassSig !== classSig) continue;
-        const name = candidate.getName?.() || "";
-        if (!(name.includes("constructor(") || name.includes("%instInit"))) continue;
-
+    for (const candidate of collectConstructorMethodsForClassCached(scene, classSig, descriptorCaches)) {
         const summary = summarizeConstructorCapturedLocalToFields(scene, candidate, cache, visiting);
         mergeCapturedLocalFieldSummary(result, summary);
     }
 
     return result;
+}
+
+function collectConstructorMethodsForClassCached(
+    scene: Scene,
+    classSig: string,
+    caches: CaptureDescriptorCaches,
+): any[] {
+    const cached = caches.constructorMethodsByClassSig.get(classSig);
+    if (cached) return cached;
+    const constructors: any[] = [];
+    for (const candidate of scene.getMethods()) {
+        const candidateClassSig = candidate?.getDeclaringArkClass?.()?.getSignature?.()?.toString?.() || "";
+        if (candidateClassSig !== classSig) continue;
+        const name = candidate.getName?.() || "";
+        if (!(name.includes("constructor(") || name.includes("%instInit"))) continue;
+        constructors.push(candidate);
+    }
+    caches.constructorMethodsByClassSig.set(classSig, constructors);
+    return constructors;
 }
 
 function summarizeDirectClosureEnvLocalToFields(method: any): Map<string, Set<string>> {

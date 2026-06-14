@@ -5,7 +5,7 @@ import { createSemanticFlowDelta } from "./SemanticFlowIncremental";
 import { buildRuleCandidateCompanionGroups, semanticFlowRuleCandidateKey } from "./SemanticFlowRuleCompanions";
 import type { SemanticFlowDeficit, SemanticFlowExpander, SemanticFlowRequestKind } from "./SemanticFlowTypes";
 
-type ExpansionFocusKind = "q_ret" | "q_recv" | "q_cb" | "q_comp" | "q_meta" | "q_wrap";
+type ExpansionFocusKind = "return" | "receiver" | "callback" | "companion" | "metadata" | "wrapper";
 
 export function createRuleCandidateExpander(
     candidates: NormalizedCallsiteItem[],
@@ -97,7 +97,7 @@ export function createRuleCandidateExpander(
                     observations: [...input.slice.observations, ...delta.newObservations],
                     template: companionSnippets.length > 0 || ownerFamilySnippets.length > 0
                         ? "multi-surface"
-                        : (requestKind === "q_cb" || requestKind === "q_wrap" ? "callable-transfer" : input.slice.template),
+                        : (requestKind === "callback" || requestKind === "wrapper" ? "callable-transfer" : input.slice.template),
                     companions: companionSnippets.length > 0 || ownerFamilySnippets.length > 0
                         ? dedupeStrings([
                             ...(input.slice.companions || []),
@@ -278,7 +278,7 @@ function buildRuleOwnerSnippet(
     existingSnippets: Array<{ label: string }>,
     requestKind: ExpansionFocusKind,
 ): { label: string; code: string } | undefined {
-    if (requestKind !== "q_comp" && requestKind !== "q_wrap") {
+    if (requestKind !== "companion" && requestKind !== "wrapper") {
         return undefined;
     }
     if (existingSnippets.some(snippet => snippet.label === "owner-context")) {
@@ -302,7 +302,7 @@ function buildOwnerFamilyCompanionSnippets(
     requestKind: ExpansionFocusKind,
     deficit?: SemanticFlowDeficit,
 ): Array<{ label: string; code: string }> {
-    if (requestKind !== "q_comp" && requestKind !== "q_wrap") {
+    if (requestKind !== "companion" && requestKind !== "wrapper") {
         return [];
     }
     const ownerMethods = Array.isArray((raw as any).ownerMethodSnippets)
@@ -310,7 +310,7 @@ function buildOwnerFamilyCompanionSnippets(
         : [];
     const existingLabels = new Set(existingSnippets.map(snippet => snippet.label));
     const out: Array<{ label: string; code: string }> = [];
-    const selected = selectFocusedOwnerMethodsForExpansion(ownerMethods, deficit, requestKind === "q_wrap" ? 1 : 4);
+    const selected = selectFocusedOwnerMethodsForExpansion(ownerMethods, deficit, requestKind === "wrapper" ? 1 : 4);
     for (const method of selected) {
         const methodName = String(method.method || "").trim();
         const code = String(method.code || "").trim();
@@ -366,7 +366,7 @@ function buildRuleCarrierSnippet(
     existingSnippets: Array<{ label: string }>,
     requestKind: ExpansionFocusKind,
 ): { label: string; code: string } | undefined {
-    if (requestKind !== "q_comp" && requestKind !== "q_wrap") {
+    if (requestKind !== "companion" && requestKind !== "wrapper") {
         return undefined;
     }
     if (existingSnippets.some(snippet => snippet.label === "carrier-context")) {
@@ -389,7 +389,7 @@ function buildCarrierCompanionSnippets(
     existingSnippets: Array<{ label: string }>,
     requestKind: ExpansionFocusKind,
 ): Array<{ label: string; code: string }> {
-    if (requestKind !== "q_comp" && requestKind !== "q_wrap") {
+    if (requestKind !== "companion" && requestKind !== "wrapper") {
         return [];
     }
     const carrierMethods = Array.isArray((raw as any).carrierMethodSnippets)
@@ -397,7 +397,7 @@ function buildCarrierCompanionSnippets(
         : [];
     const existingLabels = new Set(existingSnippets.map(snippet => snippet.label));
     const out: Array<{ label: string; code: string }> = [];
-    for (const method of carrierMethods.slice(0, requestKind === "q_wrap" ? 1 : 3)) {
+    for (const method of carrierMethods.slice(0, requestKind === "wrapper" ? 1 : 3)) {
         const methodName = String(method.method || "").trim();
         const code = String(method.code || "").trim();
         const label = `carrier-sibling-${methodName}`;
@@ -415,7 +415,7 @@ function buildFocusedSnippet(
     targetIndex: number,
     existingSnippets: Array<{ label: string }>,
 ): { label: string; code: string } | undefined {
-    if (requestKind === "q_comp") {
+    if (requestKind === "companion") {
         return undefined;
     }
     const contextSlices = Array.isArray((raw as any).contextSlices) ? (raw as any).contextSlices : [];
@@ -426,7 +426,7 @@ function buildFocusedSnippet(
     if (!slice) {
         return undefined;
     }
-    const label = `focus-${requestKind.replace(/^q_/, "")}-${Math.max(0, Math.min(targetIndex, contextSlices.length - 1))}`;
+    const label = `focus-${requestKind}-${Math.max(0, Math.min(targetIndex, contextSlices.length - 1))}`;
     if (existingSnippets.some(snippet => snippet.label === label)) {
         return undefined;
     }
@@ -450,13 +450,13 @@ function selectCompanionsForRequest(
     requestKind: ExpansionFocusKind,
 ): NormalizedCallsiteItem[] {
     const filtered = companions.filter(companion => {
-        if (requestKind === "q_cb") return isCallbackLike(companion);
-        if (requestKind === "q_meta") return isMetaLike(companion);
-        if (requestKind === "q_recv") return isReceiverLike(companion);
+        if (requestKind === "callback") return isCallbackLike(companion);
+        if (requestKind === "metadata") return isMetaLike(companion);
+        if (requestKind === "receiver") return isReceiverLike(companion);
         return true;
     });
-    const selected = filtered.length > 0 ? filtered : (requestKind === "q_comp" || requestKind === "q_wrap" ? companions : []);
-    const limit = requestKind === "q_wrap" ? 1 : 3;
+    const selected = filtered.length > 0 ? filtered : (requestKind === "companion" || requestKind === "wrapper" ? companions : []);
+    const limit = requestKind === "wrapper" ? 1 : 3;
     return selected.slice(0, limit);
 }
 
@@ -465,11 +465,11 @@ function selectFocusLines(
     slice: { invokeStmtText: string; cfgNeighborStmts?: string[]; windowLines: string },
 ): string[] {
     const patterns: Record<string, RegExp> = {
-        q_ret: /\breturn\b|=/i,
-        q_recv: /\bthis\b|field|slot|store|load|save|set|get/i,
-        q_cb: /callback|cb|listener|bind|emit|publish|subscribe|then|catch|promise|=>/i,
-        q_meta: /@|decorator|state|prop|link|provide|consume/i,
-        q_wrap: /return|forward|delegate|helper|wrap|invoke/i,
+        return: /\breturn\b|=/i,
+        receiver: /\bthis\b|field|slot|store|load|save|set|get/i,
+        callback: /callback|cb|listener|bind|emit|publish|subscribe|then|catch|promise|=>/i,
+        metadata: /@|decorator|state|prop|link|provide|consume/i,
+        wrapper: /return|forward|delegate|helper|wrap|invoke/i,
     };
     const cfg = Array.isArray(slice.cfgNeighborStmts) ? slice.cfgNeighborStmts : [];
     const pattern = patterns[requestKind];
@@ -491,19 +491,19 @@ function selectFocusLines(
 function toExpansionFocusKind(kind: SemanticFlowRequestKind): ExpansionFocusKind {
     switch (kind) {
         case "q_surface":
-            return "q_wrap";
+            return "wrapper";
         case "q_role":
-            return "q_recv";
+            return "receiver";
         case "q_endpoint":
-            return "q_cb";
+            return "callback";
         case "q_effect":
-            return "q_ret";
+            return "return";
         case "q_relation":
-            return "q_comp";
+            return "companion";
         case "q_evidence":
-            return "q_meta";
+            return "metadata";
         default:
-            return "q_wrap";
+            return "wrapper";
     }
 }
 

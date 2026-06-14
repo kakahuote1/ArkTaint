@@ -178,6 +178,26 @@ export function collectOrdinaryArrayHigherOrderEffectsFromTaintedLocal(
     const resultDedup = new Set<number>();
     const slotDedup = new Set<string>();
 
+    if (isArrayParameterElementSource(local)) {
+        const effect = collectOrdinaryArrayHigherOrderEffectsForBaseLocal(local, "arr:*", pag, scene);
+        for (const nodeId of effect.callbackParamNodeIds) {
+            if (callbackDedup.has(nodeId)) continue;
+            callbackDedup.add(nodeId);
+            callbackParamNodeIds.push(nodeId);
+        }
+        for (const nodeId of effect.resultNodeIds) {
+            if (resultDedup.has(nodeId)) continue;
+            resultDedup.add(nodeId);
+            resultNodeIds.push(nodeId);
+        }
+        for (const slotInfo of effect.resultSlotStores) {
+            const key = `${slotInfo.objId}|${slotInfo.slot}`;
+            if (slotDedup.has(key)) continue;
+            slotDedup.add(key);
+            resultSlotStores.push(slotInfo);
+        }
+    }
+
     for (const info of collectOrdinaryArrayMutationEffectsFromTaintedLocal(local, pag).slotStores) {
         if (!info.slot.startsWith("arr:")) continue;
         if (seenObjIds.has(info.objId)) continue;
@@ -462,6 +482,93 @@ export function collectOrdinaryHigherOrderCallbackMethodSignaturesFromMethod(
     }
 
     return [...out];
+}
+
+function collectOrdinaryArrayHigherOrderEffectsForBaseLocal(
+    val: Local,
+    slot: string,
+    pag: Pag,
+    scene: Scene,
+): OrdinaryArrayHigherOrderEffects {
+    const callbackParamNodeIds: number[] = [];
+    const resultNodeIds: number[] = [];
+    const resultSlotStores: OrdinaryArraySlotStoreInfo[] = [];
+    const callbackDedup = new Set<number>();
+    const resultDedup = new Set<number>();
+    const slotDedup = new Set<string>();
+
+    for (const stmt of val.getUsedStmts()) {
+        if (stmt instanceof ArkInvokeStmt) {
+            const invokeExpr = stmt.getInvokeExpr();
+            if (!(invokeExpr instanceof ArkInstanceInvokeExpr)) continue;
+            if (invokeExpr.getBase() !== val) continue;
+            const methodName = resolveMethodName(invokeExpr);
+            const callbackParamIndexes = resolveArrayHigherOrderCallbackParamIndexes(methodName);
+            if (!callbackParamIndexes) continue;
+            const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
+            if (args.length === 0) continue;
+
+            for (const nodeId of collectCallbackParamNodeIds(scene, pag, args[0], callbackParamIndexes)) {
+                if (callbackDedup.has(nodeId)) continue;
+                callbackDedup.add(nodeId);
+                callbackParamNodeIds.push(nodeId);
+            }
+            continue;
+        }
+
+        if (!(stmt instanceof ArkAssignStmt)) continue;
+        const right = stmt.getRightOp();
+        if (!(right instanceof ArkInstanceInvokeExpr)) continue;
+        if (right.getBase() !== val) continue;
+        const methodName = resolveMethodName(right);
+        const args = right.getArgs ? right.getArgs() : [];
+        if (args.length === 0) continue;
+
+        const callbackParamIndexes = resolveArrayHigherOrderCallbackParamIndexes(methodName);
+        if (!callbackParamIndexes) continue;
+
+        for (const nodeId of collectCallbackParamNodeIds(scene, pag, args[0], callbackParamIndexes)) {
+            if (callbackDedup.has(nodeId)) continue;
+            callbackDedup.add(nodeId);
+            callbackParamNodeIds.push(nodeId);
+        }
+
+        if (methodName === "map" || methodName === "filter" || methodName === "flatMap") {
+            const dstNodes = getOrCreatePagNodes(pag, stmt.getLeftOp(), stmt);
+            if (dstNodes) {
+                for (const nodeId of dstNodes.values()) {
+                    if (resultDedup.has(nodeId)) continue;
+                    resultDedup.add(nodeId);
+                    resultNodeIds.push(nodeId);
+                }
+            }
+            const resultHolderIds = resolveAssignedContainerHolderIds(stmt.getLeftOp(), pag, stmt);
+            for (const resultHolderId of resultHolderIds) {
+                const key = `${resultHolderId}|${slot}`;
+                if (slotDedup.has(key)) continue;
+                slotDedup.add(key);
+                resultSlotStores.push({ objId: resultHolderId, slot });
+            }
+            continue;
+        }
+
+        if (methodName === "find" || methodName === "reduce" || methodName === "reduceRight") {
+            const dstNodes = getOrCreatePagNodes(pag, stmt.getLeftOp(), stmt);
+            if (dstNodes) {
+                for (const nodeId of dstNodes.values()) {
+                    if (resultDedup.has(nodeId)) continue;
+                    resultDedup.add(nodeId);
+                    resultNodeIds.push(nodeId);
+                }
+            }
+        }
+    }
+
+    return {
+        callbackParamNodeIds,
+        resultNodeIds,
+        resultSlotStores,
+    };
 }
 
 function collectOrdinaryArrayHigherOrderEffectsForObj(
@@ -791,6 +898,23 @@ function isMutationInputAffectingBase(methodName: string, base: Local, args: any
     return args.includes(local);
 }
 
+function isArrayParameterElementSource(local: Local): boolean {
+    const decl = local.getDeclaringStmt?.();
+    if (!(decl instanceof ArkAssignStmt)) return false;
+    if (!(decl.getRightOp() instanceof ArkParameterRef)) return false;
+    return isArrayLikeLocal(local);
+}
+
+function isArrayLikeLocal(local: Local): boolean {
+    const type = local.getType?.();
+    const text = type?.toString?.() || "";
+    const lowered = text.toLowerCase();
+    return type instanceof ArrayType
+        || text.endsWith("[]")
+        || lowered.includes("array<")
+        || lowered.includes("[]");
+}
+
 function resolveContainerKind(base: Local, sig: string): "array" | undefined {
     if (sig.includes("Array.")) return "array";
     const baseType = base.getType?.();
@@ -808,11 +932,14 @@ function collectCallbackParamNodeIds(scene: Scene, pag: Pag, callbackArg: any, p
     for (const method of methods) {
         const cfg = method.getCfg();
         if (!cfg) continue;
+        const closureParameterIndexes = collectClosureEnvironmentParameterIndexes(cfg.getStmts());
         for (const stmt of cfg.getStmts()) {
             if (!(stmt instanceof ArkAssignStmt)) continue;
             const rightOp = stmt.getRightOp();
             if (!(rightOp instanceof ArkParameterRef)) continue;
-            if (indexFilter && !indexFilter.has(rightOp.getIndex())) continue;
+            const logicalIndex = toCallbackLogicalParameterIndex(rightOp.getIndex(), closureParameterIndexes);
+            if (logicalIndex < 0) continue;
+            if (indexFilter && !indexFilter.has(logicalIndex)) continue;
             let dst = getOrCreatePagNodes(pag, stmt.getLeftOp(), stmt);
             if (!dst || dst.size === 0) {
                 dst = pag.getNodesByValue(rightOp);
@@ -827,6 +954,38 @@ function collectCallbackParamNodeIds(scene: Scene, pag: Pag, callbackArg: any, p
     }
 
     return results;
+}
+
+function collectClosureEnvironmentParameterIndexes(stmts: any[]): number[] {
+    const out: number[] = [];
+    for (const stmt of stmts) {
+        if (!(stmt instanceof ArkAssignStmt)) continue;
+        const rightOp = stmt.getRightOp();
+        if (!(rightOp instanceof ArkParameterRef)) continue;
+        const leftOp = stmt.getLeftOp();
+        if (isClosureEnvironmentParameter(leftOp, rightOp)) {
+            out.push(rightOp.getIndex());
+        }
+    }
+    return out.sort((a, b) => a - b);
+}
+
+function toCallbackLogicalParameterIndex(actualIndex: number, closureParameterIndexes: number[]): number {
+    if (closureParameterIndexes.includes(actualIndex)) return -1;
+    let skippedBefore = 0;
+    for (const closureIndex of closureParameterIndexes) {
+        if (closureIndex < actualIndex) skippedBefore++;
+    }
+    return actualIndex - skippedBefore;
+}
+
+function isClosureEnvironmentParameter(leftOp: any, rightOp: ArkParameterRef): boolean {
+    const leftName = leftOp instanceof Local ? leftOp.getName?.() || "" : "";
+    const leftTypeText = leftOp?.getType?.()?.toString?.() || "";
+    const rightTypeText = rightOp.getType?.()?.toString?.() || "";
+    return leftName.startsWith("%closures")
+        || leftTypeText.startsWith("[")
+        || rightTypeText.startsWith("[");
 }
 
 function resolveCallbackMethods(scene: Scene, callbackArg: any): any[] {
