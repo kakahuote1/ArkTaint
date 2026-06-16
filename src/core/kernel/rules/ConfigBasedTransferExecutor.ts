@@ -11,8 +11,10 @@ import {
     collectParameterAssignStmts,
     mapInvokeArgsToParamAssigns,
     resolveCalleeCandidates,
+    resolveConcreteReceiverOwnerName,
     resolveMethodsFromCallable,
 } from "../../substrate/queries/CalleeResolver";
+import { resolveExistingPagNodes } from "../contracts/PagNodeResolution";
 import {
     RuleEndpoint,
     RuleScopeConstraint,
@@ -70,6 +72,7 @@ export class ConfigBasedTransferExecutor {
     private readonly objectInvokeSiteCache = new Map<number, InvokeSite[]>();
     private readonly initializerMethodsForTypeCache = new Map<string, any[]>();
     private readonly initializerLocalNamesForValueCache = new WeakMap<object, string[]>();
+    private directInvokeSitesByLocalName?: Map<string, InvokeSite[]>;
     private objectPayloadInvokeSitesByLocalName?: Map<string, InvokeSite[]>;
     private readonly ruleExecutionDedupCache = new Set<string>();
     private readonly stmtRuntimeKeyId = new WeakMap<object, number>();
@@ -313,13 +316,8 @@ export class ConfigBasedTransferExecutor {
                     this.ruleExecutionDedupCache.add(dedupKey);
                 }
 
-                if (runtimeRule.rule.match.kind === "local_name_regex") {
-                    if (!this.matchesLocalNameRegexRule(runtimeRule, site, taintedFact)) continue;
-                    stats.ruleMatchCount++;
-                } else {
-                    // Non-local match kinds are pre-filtered by callsite candidate index.
-                    stats.ruleMatchCount++;
-                }
+                // Exact match kinds are pre-filtered by callsite candidate index.
+                stats.ruleMatchCount++;
 
                 const fromDescriptor = this.resolveFromDescriptor(runtimeRule.rule);
                 stats.endpointCheckCount++;
@@ -353,24 +351,15 @@ export class ConfigBasedTransferExecutor {
     private compileRules(rules: TransferRule[], index?: MethodEntityIndex): RuntimeRule[] {
         const out: RuntimeRule[] = [];
         for (const rule of rules) {
-            let matchRegex: RegExp | undefined;
+            if (!this.matchesAnchoredTierCMethodSelector(rule)) {
+                continue;
+            }
             let normalizedMatchValue: string | undefined;
             let exactSignatureMatch: string | undefined;
             let exactDeclaringClassMatch: string | undefined;
             const kind = rule.match.kind;
             const rawValue = typeof rule.match.value === "string" ? rule.match.value : "";
             normalizedMatchValue = this.normalizeForExactMatch(rawValue);
-
-            if (
-                (kind === "signature_regex" || kind === "method_name_regex" || kind === "local_name_regex")
-                && typeof rule.match.value === "string"
-            ) {
-                try {
-                    matchRegex = new RegExp(rule.match.value);
-                } catch {
-                    continue;
-                }
-            }
 
             if (kind === "signature_equals") {
                 exactSignatureMatch = this.resolveExactSignatureMatch(rawValue, index);
@@ -380,7 +369,6 @@ export class ConfigBasedTransferExecutor {
 
             out.push({
                 rule,
-                matchRegex,
                 normalizedMatchValue,
                 exactSignatureMatch,
                 exactDeclaringClassMatch,
@@ -457,6 +445,12 @@ export class ConfigBasedTransferExecutor {
             pushInvokeSiteByStmt(stmt);
         }
 
+        for (const site of this.collectDirectInvokeSitesForLocal(local)) {
+            if (seenStmts.has(site.stmt)) continue;
+            seenStmts.add(site.stmt);
+            out.push(site);
+        }
+
         for (const site of this.collectObjectPayloadInvokeSitesForLocal(local)) {
             if (seenStmts.has(site.stmt)) continue;
             seenStmts.add(site.stmt);
@@ -473,6 +467,51 @@ export class ConfigBasedTransferExecutor {
 
         this.localInvokeSiteCache.set(local, out);
         return out;
+    }
+
+    private collectDirectInvokeSitesForLocal(local: Local): InvokeSite[] {
+        const localName = local.getName?.();
+        if (!localName) return [];
+        return this.getDirectInvokeSiteIndex().get(localName) || [];
+    }
+
+    private getDirectInvokeSiteIndex(): Map<string, InvokeSite[]> {
+        if (this.directInvokeSitesByLocalName) {
+            return this.directInvokeSitesByLocalName;
+        }
+        const index = new Map<string, InvokeSite[]>();
+        const seenByLocalName = new Map<string, Set<any>>();
+        const addSite = (localName: string, site: InvokeSite): void => {
+            const normalized = String(localName || "").trim();
+            if (!normalized) return;
+            let seen = seenByLocalName.get(normalized);
+            if (!seen) {
+                seen = new Set<any>();
+                seenByLocalName.set(normalized, seen);
+            }
+            if (seen.has(site.stmt)) return;
+            seen.add(site.stmt);
+            if (!index.has(normalized)) index.set(normalized, []);
+            index.get(normalized)!.push(site);
+        };
+        const sites = this.invokeSiteByStmt.size > 0
+            ? this.invokeSiteByStmt.values()
+            : Array.from(this.stmtOwner.keys())
+                .map(stmt => this.getOrCreateInvokeSite(stmt))
+                .filter((site): site is InvokeSite => !!site);
+        for (const site of sites) {
+            if (!this.shouldEvaluateInvokeSiteForFact(site)) continue;
+            if (site.baseValue instanceof Local) {
+                addSite(site.baseValue.getName?.(), site);
+            }
+            for (const arg of site.args) {
+                if (arg instanceof Local) {
+                    addSite(arg.getName?.(), site);
+                }
+            }
+        }
+        this.directInvokeSitesByLocalName = index;
+        return index;
     }
 
     private collectObjectPayloadInvokeSitesForLocal(local: Local): InvokeSite[] {
@@ -642,6 +681,9 @@ export class ConfigBasedTransferExecutor {
             resolvedCalleeMeta.filePaths
         );
         const importScopeCandidates = resolveSdkImportScopeCandidates(owner, invokeExpr);
+        const receiverOwnerName = this.scene && (invokeExpr instanceof ArkInstanceInvokeExpr || invokeExpr instanceof ArkPtrInvokeExpr)
+            ? resolveConcreteReceiverOwnerName(this.scene, invokeExpr)
+            : undefined;
 
         return {
             stmt,
@@ -658,7 +700,11 @@ export class ConfigBasedTransferExecutor {
             candidateClassTexts: resolvedCalleeMeta.classTexts,
             candidateClassNames: resolvedCalleeMeta.classNames,
             candidateFilePaths: resolvedCalleeMeta.filePaths,
-            scopeClassTexts: importScopeCandidates.classTexts,
+            scopeClassTexts: this.uniqueTexts([
+                ...(importScopeCandidates.classTexts || []),
+                receiverOwnerName,
+                baseValue?.toString?.(),
+            ]),
             scopeModuleTexts: importScopeCandidates.moduleTexts,
             scopeFileTexts: importScopeCandidates.fileTexts,
             baseValue,
@@ -981,7 +1027,7 @@ export class ConfigBasedTransferExecutor {
 
     private matchesRuleStatic(runtimeRule: RuntimeRule, site: InvokeSite): boolean {
         const rule = runtimeRule.rule;
-        if (!this.matchesTierCFallbackGate(rule)) return false;
+        if (!this.matchesAnchoredTierCMethodSelector(rule)) return false;
         if (!this.matchesInvokeShape(rule, site)) return false;
         if (!this.matchesScope(rule.scope, site)) return false;
 
@@ -990,16 +1036,12 @@ export class ConfigBasedTransferExecutor {
         const methodNameTexts = this.resolveMethodNameTexts(site);
         const classTexts = this.resolveDeclaringClassTexts(site);
         switch (rule.match.kind) {
-            case "signature_contains":
-                return signatureTexts.some(text => text.includes(value));
             case "signature_equals":
                 return signatureTexts.some(text => this.exactTextMatch(
                     text,
                     runtimeRule.exactSignatureMatch,
                     runtimeRule.normalizedMatchValue
                 ));
-            case "signature_regex":
-                return runtimeRule.matchRegex ? signatureTexts.some(text => this.regexTest(runtimeRule.matchRegex!, text)) : false;
             case "declaring_class_equals": {
                 if (runtimeRule.exactDeclaringClassMatch) {
                     if (classTexts.some(text => text === runtimeRule.exactDeclaringClassMatch)) return true;
@@ -1009,16 +1051,14 @@ export class ConfigBasedTransferExecutor {
             }
             case "method_name_equals":
                 return methodNameTexts.some(name => name === value);
-            case "method_name_regex":
-                return runtimeRule.matchRegex ? methodNameTexts.some(name => this.regexTest(runtimeRule.matchRegex!, name)) : false;
-            case "local_name_regex":
-                return true;
+            case "field_name_equals":
+                return false;
             default:
                 return false;
         }
     }
 
-    private matchesTierCFallbackGate(rule: TransferRule): boolean {
+    private matchesAnchoredTierCMethodSelector(rule: TransferRule): boolean {
         if (rule.tier !== "C") return true;
         if (rule.match.kind !== "method_name_equals") return true;
         const family = typeof rule.family === "string" ? rule.family.trim() : "";
@@ -1032,22 +1072,6 @@ export class ConfigBasedTransferExecutor {
     private hasScopeAnchor(scope: RuleScopeConstraint | undefined): boolean {
         if (!scope) return false;
         return !!(scope.file || scope.module || scope.className || scope.methodName);
-    }
-
-    private matchesLocalNameRegexRule(runtimeRule: RuntimeRule, site: InvokeSite, fact: TaintFact): boolean {
-        if (!runtimeRule.matchRegex) return false;
-        const factValue = fact.node.getValue();
-        if (factValue instanceof Local && this.regexTest(runtimeRule.matchRegex, factValue.getName())) {
-            return true;
-        }
-        const fromDescriptor = this.resolveFromDescriptor(runtimeRule.rule);
-        const endpointValues = this.resolveEndpointValues(fromDescriptor.endpoint, site);
-        for (const endpointValue of endpointValues) {
-            if (endpointValue instanceof Local && this.regexTest(runtimeRule.matchRegex, endpointValue.getName())) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private matchesInvokeShape(rule: TransferRule, site: InvokeSite): boolean {
@@ -1168,7 +1192,7 @@ export class ConfigBasedTransferExecutor {
         const resolvedPath = this.resolveDescriptorFieldPath(descriptor, site);
         if (descriptor.path && descriptor.path.length > 0) {
             for (const endpointValue of endpointValues) {
-                const carrierIds = this.resolveCarrierNodeIdsFromValue(endpointValue, pag);
+                const carrierIds = this.resolveCarrierNodeIdsFromValue(endpointValue, pag, site.stmt);
                 for (const carrierId of carrierIds) {
                     if (carrierId === fact.node.getID() && this.samePath(fact.field, descriptor.path)) return true;
                     if (tracker?.isTaintedAnyContext(carrierId, descriptor.path)) return true;
@@ -1179,7 +1203,7 @@ export class ConfigBasedTransferExecutor {
         if (descriptor.pathFrom) {
             if (!resolvedPath) return false;
             for (const endpointValue of endpointValues) {
-                const carrierIds = this.resolveCarrierNodeIdsFromValue(endpointValue, pag);
+                const carrierIds = this.resolveCarrierNodeIdsFromValue(endpointValue, pag, site.stmt);
                 for (const carrierId of carrierIds) {
                     if (carrierId === fact.node.getID() && this.samePath(fact.field, resolvedPath)) {
                         return this.isPathDerivedSlotCurrentForFact(descriptor, site, fact, carrierId, resolvedPath, pag, tracker);
@@ -1194,7 +1218,7 @@ export class ConfigBasedTransferExecutor {
         }
         if (descriptor.taintScope === "contained-values") {
             for (const endpointValue of endpointValues) {
-                const carrierIds = this.resolveCarrierNodeIdsFromValue(endpointValue, pag);
+                const carrierIds = this.resolveCarrierNodeIdsFromValue(endpointValue, pag, site.stmt);
                 const factValue = fact.node.getValue();
                 if (factValue instanceof Local && this.objectInitializerContainsLocal(endpointValue, factValue)) {
                     return true;
@@ -1218,7 +1242,7 @@ export class ConfigBasedTransferExecutor {
         }
 
         for (const endpointValue of endpointValues) {
-            const nodes = pag.getNodesByValue(endpointValue);
+            const nodes = this.resolveNodesByValue(endpointValue, pag, site.stmt);
             if (nodes && nodes.size > 0) {
                 for (const nodeId of nodes.values()) {
                     if (nodeId === fact.node.getID()) {
@@ -1256,7 +1280,7 @@ export class ConfigBasedTransferExecutor {
         const resolvedPath = this.resolveDescriptorFieldPath(descriptor, site);
         if (descriptor.path && descriptor.path.length > 0) {
             for (const endpointValue of endpointValues) {
-                const carrierIds = this.resolveCarrierNodeIdsFromValue(endpointValue, pag);
+                const carrierIds = this.resolveCarrierNodeIdsFromValue(endpointValue, pag, site.stmt, contextID);
                 for (const carrierId of carrierIds) {
                     const carrierNode = pag.getNode(carrierId) as PagNode;
                     addFact(new TaintFact(carrierNode, source, contextID, [...descriptor.path]));
@@ -1267,7 +1291,7 @@ export class ConfigBasedTransferExecutor {
         if (descriptor.pathFrom) {
             if (!resolvedPath) return out;
             for (const endpointValue of endpointValues) {
-                const carrierIds = this.resolveCarrierNodeIdsFromValue(endpointValue, pag);
+                const carrierIds = this.resolveCarrierNodeIdsFromValue(endpointValue, pag, site.stmt, contextID);
                 for (const carrierId of carrierIds) {
                     const carrierNode = pag.getNode(carrierId) as PagNode;
                     addFact(new TaintFact(carrierNode, source, contextID, [...resolvedPath]));
@@ -1277,7 +1301,7 @@ export class ConfigBasedTransferExecutor {
         }
 
         for (const endpointValue of endpointValues) {
-            const targetNodes = pag.getNodesByValue(endpointValue);
+            const targetNodes = this.resolveOrCreateNodesByValue(endpointValue, pag, contextID, site.stmt);
             if (!targetNodes) continue;
             for (const nodeId of targetNodes.values()) {
                 const node = pag.getNode(nodeId) as PagNode;
@@ -1296,10 +1320,31 @@ export class ConfigBasedTransferExecutor {
         return value !== undefined ? [value] : [];
     }
 
-    private resolveObjectIdsFromValue(value: any, pag: Pag): number[] {
+    private resolveNodesByValue(value: any, pag: Pag, anchorStmt?: any): Map<number, number> | undefined {
+        return pag.getNodesByValue(value) || resolveExistingPagNodes(pag, value, anchorStmt);
+    }
+
+    private resolveOrCreateNodesByValue(
+        value: any,
+        pag: Pag,
+        contextID: number,
+        anchorStmt?: any
+    ): Map<number, number> | undefined {
+        const existing = this.resolveNodesByValue(value, pag, anchorStmt);
+        if (existing && existing.size > 0) return existing;
+
+        const getOrNewNode = (pag as any).getOrNewNode;
+        if (typeof getOrNewNode !== "function") return undefined;
+        const node = getOrNewNode.call(pag, contextID, value, anchorStmt);
+        const nodeId = node?.getID?.();
+        if (!Number.isInteger(nodeId)) return undefined;
+        return new Map([[nodeId, nodeId]]);
+    }
+
+    private resolveObjectIdsFromValue(value: any, pag: Pag, anchorStmt?: any): number[] {
         const out: number[] = [];
         const seen = new Set<number>();
-        const nodes = pag.getNodesByValue(value);
+        const nodes = this.resolveNodesByValue(value, pag, anchorStmt);
         if (!nodes || nodes.size === 0) return out;
         for (const nodeId of nodes.values()) {
             const node = pag.getNode(nodeId) as PagNode;
@@ -1314,12 +1359,14 @@ export class ConfigBasedTransferExecutor {
         return out;
     }
 
-    private resolveCarrierNodeIdsFromValue(value: any, pag: Pag): number[] {
-        const objectIds = this.resolveObjectIdsFromValue(value, pag);
+    private resolveCarrierNodeIdsFromValue(value: any, pag: Pag, anchorStmt?: any, materializeContextID?: number): number[] {
+        const objectIds = this.resolveObjectIdsFromValue(value, pag, anchorStmt);
         if (objectIds.length > 0) return objectIds;
         const out: number[] = [];
         const seen = new Set<number>();
-        const nodes = pag.getNodesByValue(value);
+        const nodes = materializeContextID === undefined
+            ? this.resolveNodesByValue(value, pag, anchorStmt)
+            : this.resolveOrCreateNodesByValue(value, pag, materializeContextID, anchorStmt);
         if (!nodes || nodes.size === 0) return out;
         for (const nodeId of nodes.values()) {
             if (seen.has(nodeId)) continue;
@@ -1680,11 +1727,11 @@ export class ConfigBasedTransferExecutor {
     private exactTextMatch(
         text: string,
         exactValue: string | undefined,
-        normalizedFallback: string | undefined
+        normalizedExactValue: string | undefined
     ): boolean {
         if (exactValue && text === exactValue) return true;
-        if (!normalizedFallback) return false;
-        return this.normalizeForExactMatch(text) === normalizedFallback;
+        if (!normalizedExactValue) return false;
+        return this.normalizeForExactMatch(text) === normalizedExactValue;
     }
 
     private regexTest(regex: RegExp, text: string): boolean {

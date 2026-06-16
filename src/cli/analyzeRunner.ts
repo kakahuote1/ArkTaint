@@ -207,10 +207,10 @@ function accumulatePagNodeResolutionAudit(
 ): void {
     dst.requestCount += src.requestCount;
     dst.directHitCount += src.directHitCount;
-    dst.fallbackResolveCount += src.fallbackResolveCount;
-    dst.awaitFallbackCount += src.awaitFallbackCount;
-    dst.exprUseFallbackCount += src.exprUseFallbackCount;
-    dst.anchorLeftFallbackCount += src.anchorLeftFallbackCount;
+    dst.substitutedValueCount += src.substitutedValueCount;
+    dst.awaitUnwrapCount += src.awaitUnwrapCount;
+    dst.expressionUseResolveCount += src.expressionUseResolveCount;
+    dst.anchorLeftResolveCount += src.anchorLeftResolveCount;
     dst.addAttemptCount += src.addAttemptCount;
     dst.addFailureCount += src.addFailureCount;
     dst.unresolvedCount += src.unresolvedCount;
@@ -491,17 +491,12 @@ function buildEntryAnalyzeFailureEvent(entry: EntryAnalyzeResult): ReturnType<ty
     });
 }
 
-interface AnalyzeSeedingPolicy {
-    enableSecondarySinkSweep: boolean;
-}
-
 async function analyzeSourceDir(
     scene: Scene,
     sourceDir: string,
     options: CliOptions,
     resolvedSelections: ReturnType<typeof resolveModelSelections>,
     loadedRules: LoadedRuleSet,
-    seedingPolicy: AnalyzeSeedingPolicy,
     pluginDirs: string[],
     pluginFiles: string[],
     arkMainLoadResult?: ArkMainLoadResult,
@@ -680,7 +675,6 @@ async function analyzeSourceDir(
             detailed: options.reportMode === "full",
             stopOnFirstFlow: detectStopPolicy.stopOnFirstFlow,
             maxFlowsPerEntry: detectStopPolicy.maxFlowsPerEntry,
-            enableSecondarySinkSweep: seedingPolicy.enableSecondarySinkSweep,
             applyPreSinkSanitizers: false,
         });
         const detectedFlows = detected.flows;
@@ -937,9 +931,6 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
             console.warn(`engine plugin warning: ${warning}`);
         }
     }
-    const seedingPolicy: AnalyzeSeedingPolicy = {
-        enableSecondarySinkSweep: options.enableSecondarySinkSweep,
-    };
     const ruleFingerprint = buildRuleFingerprint(loadedRules);
     const analysisFingerprint = buildIncrementalFingerprint({
         ruleFingerprint,
@@ -960,7 +951,6 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
         pluginDryRun: options.pluginDryRun === true,
         stopOnFirstFlow: options.stopOnFirstFlow,
         maxFlowsPerEntry: options.maxFlowsPerEntry ?? null,
-        enableSecondarySinkSweep: options.enableSecondarySinkSweep,
         analyzerImplementationFingerprint: buildAnalyzerImplementationFingerprint(),
         analysisCoreVersion: "handoff-sensitive-provenance-postsolve-v3-endpoint-scoped-sink-family",
     });
@@ -1083,7 +1073,6 @@ export async function runAnalyze(options: CliOptions): Promise<AnalyzeRunResult>
                 options,
                 resolvedSelections,
                 loadedRules,
-                seedingPolicy,
                 pluginDirs,
                 pluginFiles,
                 task.arkMainLoad,

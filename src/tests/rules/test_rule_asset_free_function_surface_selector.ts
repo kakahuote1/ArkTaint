@@ -13,7 +13,7 @@ function assert(condition: unknown, message: string): asserts condition {
     }
 }
 
-function freeFunctionSinkAsset(functionName = "sendApi"): AssetDocumentBase {
+function freeFunctionSinkAsset(functionName = "sendApi", signatureId?: string): AssetDocumentBase {
     return {
         id: `asset.project.${functionName}.sink`,
         plane: "rule",
@@ -26,6 +26,7 @@ function freeFunctionSinkAsset(functionName = "sendApi"): AssetDocumentBase {
                 functionName,
                 invokeKind: "free-function",
                 argCount: 1,
+                signatureId,
                 confidence: "certain",
                 provenance: {
                     source: "manual",
@@ -87,23 +88,26 @@ async function runCase(scene: Scene, caseMethodName: string, sourceRules: Source
 }
 
 async function main(): Promise<void> {
-    const lowered = lowerRuleAssetsToRuleSet([freeFunctionSinkAsset()]);
+    const sendApiRuntimeSignature = "@rule_asset_free_function_surface/free_function_surface.ets: %dflt.%AM0(string)";
+    const lowered = lowerRuleAssetsToRuleSet([freeFunctionSinkAsset("sendApi", sendApiRuntimeSignature)]);
     assert(lowered.diagnostics.length === 0, `unexpected diagnostics: ${lowered.diagnostics.join("; ")}`);
     assert(lowered.ruleSet.sinks.length === 1, "free-function sink should lower");
     const loweredSink = lowered.ruleSet.sinks[0];
-    assert(loweredSink.match.kind === "signature_regex", "free-function fallback should use a runtime signature regex");
-    assert(loweredSink.match.value.includes("%AM"), "free-function fallback should account for analyzer backing methods");
-    assert(loweredSink.match.typeHint === "sendApi", "free-function fallback should keep the source symbol as typeHint");
-    assert(loweredSink.calleeScope?.file?.value === "free_function_surface.ets", "free-function fallback should be callee-file anchored");
+    assert(loweredSink.match.kind === "signature_equals", "analyzer-backed free-function surface should use exact runtime signature");
+    assert(loweredSink.match.value === sendApiRuntimeSignature, "free-function surface selector should keep the exact analyzer backing signature");
+    assert(loweredSink.match.typeHint === "sendApi", "free-function surface selector should keep the source symbol as typeHint");
 
     const sourceRules: SourceRule[] = [
-        {
-            id: "source.free_function_surface.entry_param.taint_src",
-            sourceKind: "entry_param",
-            target: "arg0",
-            match: { kind: "local_name_regex", value: "^taint_src$" },
-        },
-    ];
+        "free_function_surface_send_001_T",
+        "free_function_surface_sibling_002_F",
+        "free_function_surface_named_003_T",
+        "free_function_surface_named_sibling_004_F",
+    ].map(name => ({
+        id: `source.free_function_surface.entry_param.${name}`,
+        sourceKind: "entry_param",
+        target: "arg0",
+        match: { kind: "method_name_equals", value: name },
+    }));
     const validation = validateRuleSet({
         sources: sourceRules,
         sinks: lowered.ruleSet.sinks,
@@ -130,13 +134,13 @@ async function main(): Promise<void> {
         lowered.ruleSet.sinks,
     );
 
-    assert(positive, "sendApi exported const arrow sink should be detected through fallback selector");
-    assert(!negative, "sibling exported const arrow function must not match sendApi fallback selector");
+    assert(positive, "sendApi exported const arrow sink should be detected through surface-derived selector");
+    assert(!negative, "sibling exported const arrow function must not match sendApi surface-derived selector");
 
     const namedLowered = lowerRuleAssetsToRuleSet([freeFunctionSinkAsset("sendNamedApi")]);
     assert(namedLowered.diagnostics.length === 0, `unexpected named diagnostics: ${namedLowered.diagnostics.join("; ")}`);
     assert(namedLowered.ruleSet.sinks.length === 1, "named free-function sink should lower");
-    assert(namedLowered.ruleSet.sinks[0].match.kind === "signature_regex", "named free-function should use a runtime signature regex");
+    assert(namedLowered.ruleSet.sinks[0].match.kind === "method_name_equals", "named free-function should use exact method matching");
     const namedValidation = validateRuleSet({
         sources: sourceRules,
         sinks: namedLowered.ruleSet.sinks,
@@ -155,7 +159,7 @@ async function main(): Promise<void> {
         sourceRules,
         namedLowered.ruleSet.sinks,
     );
-    assert(namedPositive, "top-level exported function sink should be detected through fallback selector");
+    assert(namedPositive, "top-level exported function sink should be detected through surface-derived selector");
     assert(!namedNegative, "sibling top-level exported function must not match named free-function selector");
     console.log("PASS test_rule_asset_free_function_surface_selector");
 }

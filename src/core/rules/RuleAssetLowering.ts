@@ -83,7 +83,7 @@ function lowerBindingTemplate(
     diagnostics: string[],
 ): void {
     if (!isRuleTemplate(template)) return;
-    const selector = binding.selector || selectorFromAssetSurface(asset, binding.surfaceId, binding.role);
+    const selector = resolveBindingSelector(asset, binding);
     if (!selector) {
         diagnostics.push(`${asset.id}:${binding.bindingId} has no runtime selector`);
         return;
@@ -228,6 +228,44 @@ function isAnalysisStatus(
     return isAnalysisLoadableAssetStatus(status, loadMode);
 }
 
+function resolveBindingSelector(asset: AssetDocumentBase, binding: AssetBinding): RuntimeSelector | undefined {
+    const surfaceSelector = selectorFromAssetSurface(asset, binding.surfaceId, binding.role);
+    if (!binding.selector) return surfaceSelector;
+    if (!surfaceSelector) return binding.selector;
+    if (!canMergeSelectorIdentity(binding.selector, surfaceSelector)) {
+        return binding.selector;
+    }
+    return mergeSelectorIdentity(binding.selector, surfaceSelector);
+}
+
+function canMergeSelectorIdentity(
+    selector: RuntimeSelector,
+    surfaceSelector: RuntimeSelector,
+): boolean {
+    if (selector.kind === "method-name-equals" && surfaceSelector.kind === "method-name-equals") {
+        return selector.value === surfaceSelector.value;
+    }
+    return false;
+}
+
+function mergeSelectorIdentity(
+    selector: RuntimeSelector,
+    surfaceSelector: RuntimeSelector,
+): RuntimeSelector {
+    const selectorInvokeKind = selector.invokeKind && selector.invokeKind !== "any"
+        ? selector.invokeKind
+        : undefined;
+    return {
+        ...selector,
+        calleeClass: selector.calleeClass || surfaceSelector.calleeClass,
+        invokeKind: selectorInvokeKind || surfaceSelector.invokeKind,
+        argCount: selector.argCount ?? surfaceSelector.argCount,
+        typeHint: selector.typeHint || surfaceSelector.typeHint,
+        scope: selector.scope || surfaceSelector.scope,
+        calleeScope: selector.calleeScope || surfaceSelector.calleeScope,
+    };
+}
+
 function selectorFromAssetSurface(
     asset: AssetDocumentBase,
     surfaceId: string,
@@ -249,8 +287,8 @@ function selectorFromAssetSurface(
     }
     if (surface.kind === "access") {
         return {
-            kind: "local-name-regex",
-            value: `^${escapeRegex(surface.propertyName)}$`,
+            kind: "field-name-equals",
+            value: surface.propertyName,
             invokeKind: "any",
             typeHint: surface.ownerName,
             calleeScope: {
@@ -272,10 +310,18 @@ function selectorFromAssetSurface(
     }
     if (surface.methodName) {
         const calleeScope = calleeScopeFromInvokeSurface(asset, surface);
+        if (isRuntimeSelectorPlaceholderSurface(surface)) {
+            return {
+                kind: "method-name-equals",
+                value: surface.methodName,
+                invokeKind: runtimeInvokeKindFromInvokeSurface(surface, role),
+                argCount: runtimeArgCountFromInvokeSurface(asset, surface, role),
+            };
+        }
         return {
             kind: "method-name-equals",
             value: surface.methodName,
-            invokeKind: toRuntimeInvokeKind(surface.invokeKind),
+            invokeKind: runtimeInvokeKindFromInvokeSurface(surface, role),
             argCount: runtimeArgCountFromInvokeSurface(asset, surface, role),
             typeHint: surface.ownerName,
             calleeScope,
@@ -285,11 +331,39 @@ function selectorFromAssetSurface(
         return {
             kind: "method-name-equals",
             value: surface.functionName,
-            invokeKind: toRuntimeInvokeKind(surface.invokeKind),
+            invokeKind: runtimeInvokeKindFromInvokeSurface(surface, role),
             argCount: runtimeArgCountFromInvokeSurface(asset, surface, role),
+            typeHint: surface.functionName,
+            calleeScope: calleeScopeFromFreeFunctionSurface(surface),
         };
     }
     return undefined;
+}
+
+function isRuntimeSelectorPlaceholderSurface(surface: any): boolean {
+    return surface?.modulePath === "@arktaint/runtime-selector"
+        && surface?.ownerName === "RuntimeSelector";
+}
+
+function calleeScopeFromFreeFunctionSurface(surface: any): RuntimeSelectorScope | undefined {
+    const moduleText = runtimeModuleTextFromSurfaceModulePath(stableSelectorText(surface.modulePath));
+    if (!moduleText) return undefined;
+    return {
+        module: {
+            mode: "contains",
+            value: moduleText.replace(/\\/g, "/"),
+        },
+    };
+}
+
+function runtimeModuleTextFromSurfaceModulePath(modulePath: string | undefined): string | undefined {
+    const raw = stableSelectorText(modulePath);
+    if (!raw) return undefined;
+    const normalized = raw.replace(/\\/g, "/");
+    if (normalized.startsWith("api/@") && normalized.endsWith(".d.ts")) {
+        return normalized.slice("api/".length, -".d.ts".length);
+    }
+    return normalized;
 }
 
 function runtimeArgCountFromInvokeSurface(
@@ -343,13 +417,13 @@ function selectorFromCallerBackedFreeFunctionSurface(
     if (calleeFileAnchor && callerFileAnchor === calleeFileAnchor) {
         return undefined;
     }
-    return {
-        kind: "method-name-equals",
-        value: functionName,
-        invokeKind: toRuntimeInvokeKind(surface.invokeKind),
-        argCount: runtimeArgCountFromInvokeSurface(asset, surface, role),
-        typeHint: functionName,
-        scope: {
+        return {
+            kind: "method-name-equals",
+            value: functionName,
+            invokeKind: runtimeInvokeKindFromInvokeSurface(surface, role),
+            argCount: runtimeArgCountFromInvokeSurface(asset, surface, role),
+            typeHint: functionName,
+            scope: {
             file: {
                 mode: "contains",
                 value: callerFileAnchor,
@@ -370,6 +444,16 @@ function selectorFromSourceBackedFreeFunctionSurface(
     if (!functionName) {
         return undefined;
     }
+    const exactRuntimeSignature = runtimeMethodSignatureFromSurface(surface);
+    if (exactRuntimeSignature) {
+        return {
+            kind: "signature-equals",
+            value: exactRuntimeSignature,
+            invokeKind: runtimeInvokeKindFromInvokeSurface(surface, role),
+            argCount: runtimeArgCountFromInvokeSurface(asset, surface, role),
+            typeHint: functionName,
+        };
+    }
     const fileAnchor = normalizeSourceFileAnchor(
         stableSelectorText(surface.modulePath)
             || stableSelectorText(surface.provenance?.location?.file)
@@ -377,19 +461,34 @@ function selectorFromSourceBackedFreeFunctionSurface(
     if (!fileAnchor || !fileAnchor.endsWith(".ets")) {
         return undefined;
     }
-    return {
-        kind: "signature-regex",
-        value: buildFreeFunctionRuntimeSignatureRegex(fileAnchor, functionName),
-        invokeKind: toRuntimeInvokeKind(surface.invokeKind),
-        argCount: runtimeArgCountFromInvokeSurface(asset, surface, role),
-        typeHint: functionName,
-        calleeScope: {
+        return {
+            kind: "method-name-equals",
+            value: functionName,
+            invokeKind: runtimeInvokeKindFromInvokeSurface(surface, role),
+            argCount: runtimeArgCountFromInvokeSurface(asset, surface, role),
+            typeHint: functionName,
+            calleeScope: {
             file: {
                 mode: "contains",
                 value: fileAnchor,
             },
         },
     };
+}
+
+function runtimeMethodSignatureFromSurface(surface: any): string | undefined {
+    const signature = stableSelectorText(surface.signatureId);
+    if (!signature) {
+        return undefined;
+    }
+    return looksLikeRuntimeMethodSignature(signature) ? signature : undefined;
+}
+
+function looksLikeRuntimeMethodSignature(value: string): boolean {
+    return value.includes(":")
+        && value.includes(".")
+        && value.includes("(")
+        && value.includes(")");
 }
 
 function normalizeSourceFileAnchor(value: string | undefined): string | undefined {
@@ -407,34 +506,17 @@ function normalizeSourceFileAnchor(value: string | undefined): string | undefine
     return normalized;
 }
 
-function buildFreeFunctionRuntimeSignatureRegex(fileAnchor: string, functionName: string): string {
-    const filePattern = fileAnchor
-        .split("/")
-        .filter(Boolean)
-        .map(escapeRegex)
-        .join("[/\\\\]");
-    const methodPattern = `(?:${escapeRegex(functionName)}|%AM\\d+)`;
-    return `^@(?:.*[/\\\\])?${filePattern}:\\s*(?:.*\\.)?${methodPattern}\\(`;
-}
-
 function stableSelectorText(value: unknown): string | undefined {
     const text = String(value || "").trim();
     return text.length > 0 && !text.includes("%unk") && !text.includes("@unk") ? text : undefined;
 }
 
-function escapeRegex(value: string): string {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 function lowerSelector(selector: RuntimeSelector): RuleMatch {
     const kindMap: Record<RuntimeSelector["kind"], RuleMatch["kind"]> = {
-        "signature-contains": "signature_contains",
         "signature-equals": "signature_equals",
-        "signature-regex": "signature_regex",
         "declaring-class-equals": "declaring_class_equals",
         "method-name-equals": "method_name_equals",
-        "method-name-regex": "method_name_regex",
-        "local-name-regex": "local_name_regex",
+        "field-name-equals": "field_name_equals",
     };
     return {
         kind: kindMap[selector.kind],
@@ -569,5 +651,26 @@ function lowerInvokeKind(kind: RuntimeSelector["invokeKind"]): RuleInvokeKind | 
 
 function toRuntimeInvokeKind(kind: string): RuntimeSelector["invokeKind"] {
     if (kind === "instance" || kind === "static") return kind;
+    if (kind === "free-function" || kind === "namespace") return "static";
     return "any";
+}
+
+function runtimeInvokeKindFromInvokeSurface(
+    surface: any,
+    role?: AssetBinding["role"],
+): RuntimeSelector["invokeKind"] {
+    if (
+        role === "source"
+        &&
+        surface?.invokeKind === "free-function"
+        && isOfficialSdkDeclarationModulePath(surface?.modulePath)
+    ) {
+        return "any";
+    }
+    return toRuntimeInvokeKind(surface?.invokeKind);
+}
+
+function isOfficialSdkDeclarationModulePath(modulePath: unknown): boolean {
+    const normalized = stableSelectorText(modulePath)?.replace(/\\/g, "/") || "";
+    return normalized.startsWith("api/@") && normalized.endsWith(".d.ts");
 }

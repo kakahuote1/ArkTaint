@@ -80,10 +80,7 @@ async function main(): Promise<void> {
                 {
                     id: "source.fixture.keyed_route_callback_match",
                     sourceKind: "entry_param",
-                    match: {
-                        kind: "local_name_regex",
-                        value: "^taint_src$",
-                    },
+                    match: { kind: "method_name_equals", value: "onCreate" },
                     target: "arg0",
                 },
             ],

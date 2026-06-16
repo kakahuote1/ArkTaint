@@ -15,6 +15,7 @@ import {
     StoreStateEffect,
     UnlinkStateEffect,
 } from "./OclfsTypes";
+import { fieldPathKey, normalizeFieldPathSegments } from "../field/FieldPath";
 
 export interface StateEffectBuilderOptions {
     origin?: string;
@@ -56,12 +57,13 @@ export class StateEffectBuilder {
     }
 
     objectField(owner: string, fieldPath: string[], scope = "", precision: "exact" | "partial" | "unknown" = "exact"): StateCell {
+        const normalizedFieldPath = normalizeFieldPathSegments(fieldPath) || [];
         return {
-            id: `object-field|${scope}|${owner}|${fieldPath.join(".")}|${precision}`,
+            id: `object-field|${scope}|${owner}|${fieldPathKey(normalizedFieldPath)}|${precision}`,
             kind: "object-field",
             scope,
             owner,
-            fieldPath: [...fieldPath],
+            fieldPath: normalizedFieldPath,
             precision,
         };
     }

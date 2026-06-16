@@ -43,8 +43,8 @@ function validRuleAsset(): AssetDocumentBase {
                 plane: "rule",
                 role: "sink",
                 selector: {
-                    kind: "signature-contains",
-                    value: "console.log",
+                    kind: "method-name-equals",
+                    value: "log",
                     invokeKind: "static",
                     argCount: 1,
                 },
@@ -401,12 +401,12 @@ function main(): void {
         "binding plane mismatch",
     );
 
-    const badSelectorRegex = validRuleAsset();
-    badSelectorRegex.bindings[0].selector = {
-        kind: "signature-regex",
-        value: "(",
-    };
-    expectInvalid(badSelectorRegex, "regex is invalid", "invalid runtime selector regex");
+    const badSelectorKind = validRuleAsset();
+    badSelectorKind.bindings[0].selector = {
+        kind: "wildcard",
+        value: "*",
+    } as any;
+    expectInvalid(badSelectorKind, "selector.kind", "invalid runtime selector kind");
 
     const facadeAsset = validRuleAsset();
     facadeAsset.relations = [

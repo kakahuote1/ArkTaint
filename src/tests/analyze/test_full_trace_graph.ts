@@ -744,7 +744,7 @@ function assertCurrentAssetCandidateCoverageGraph(): void {
     const explanation = explainTraceResult(traceGraph, query, result);
     assert(result.nearbyCoverage.some(record => record.subject.includes("DMPWebViewProxy")), "flow query should find current-assets candidate coverage");
     assert(explanation.primaryLayer === "coverage_ledger" || explanation.primaryLayer === "semanticflow", "candidate gap should explain source-unseeded FN from coverage graph");
-    assert(explanation.missingGateCoverage === false, "candidate coverage graph should prevent missingGateCoverage fallback");
+    assert(explanation.missingGateCoverage === false, "candidate coverage graph should prevent missing gate uncertainty");
 }
 
 function assertSourceCandidateCoverageGraph(): void {
@@ -794,7 +794,7 @@ function assertSourceCandidateCoverageGraph(): void {
     const contentExplanation = explainTraceResult(traceGraph, contentQuery, contentResult);
     assert(contentResult.verdict === "missing", "source-candidate query should still be missing under current assets");
     assert(contentResult.nearbyCoverage.some(record => record.kind === "coverage_query" && record.status === "gap"), "source-candidate query should expose a coverage query gap");
-    assert(contentExplanation.missingGateCoverage === false, "source-candidate coverage should prevent missingGateCoverage fallback");
+    assert(contentExplanation.missingGateCoverage === false, "source-candidate coverage should prevent missing gate uncertainty");
     assert(contentExplanation.primaryLayer === "coverage_ledger", "source-candidate gap should be attributed to coverage ledger");
 
     const controllerQuery: FlowQuery = {
@@ -943,7 +943,7 @@ function main(): void {
     const coverageGapExplanation = explainTraceResult(coverageGapGraph, coverageGapQuery, coverageGapResult);
     assert(coverageGapResult.nearbyCoverage.length > 0, "source-missing FN should be explained by semantic coverage records");
     assert(coverageGapExplanation.causeKind === "coverage.role_endpoint_guard_gap", `coverage gap should map to coverage cause, got ${coverageGapExplanation.causeKind}`);
-    assert(coverageGapExplanation.missingGateCoverage === false, "coverage graph evidence should prevent missingGateCoverage fallback");
+    assert(coverageGapExplanation.missingGateCoverage === false, "coverage graph evidence should prevent missing gate uncertainty");
 
     const zeroHitGraph = graphWithSourceRuleZeroHitGate();
     const zeroHitQuery: FlowQuery = {
@@ -959,7 +959,7 @@ function main(): void {
     assert(zeroHitResult.nearbyCoverage.some(record => record.kind === "source_seed" && record.status === "skipped"), "zero-hit source rule should become source_seed coverage");
     assert(zeroHitExplanation.primaryLayer === "source_seed", "zero-hit source rule should be attributed to source seeding");
     assert(zeroHitExplanation.causeKind === "arkmain.source_seed_allowed_method_not_reached", `zero-hit source rule should expose allowed-method cause, got ${zeroHitExplanation.causeKind}`);
-    assert(zeroHitExplanation.missingGateCoverage === false, "zero-hit source rule gate should prevent missing gate fallback");
+    assert(zeroHitExplanation.missingGateCoverage === false, "zero-hit source rule gate should prevent missing gate uncertainty");
 
     const zeroHitMethodStmtQuery: FlowQuery = {
         id: "getHomeListAxios-zero-hit-method-stmt",

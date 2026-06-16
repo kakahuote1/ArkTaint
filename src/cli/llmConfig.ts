@@ -74,9 +74,9 @@ function normalizeMaybeStringPreserveEmpty(value: unknown): string | undefined {
     return String(value);
 }
 
-function normalizePositiveInt(value: unknown, fallback: number): number {
+function normalizePositiveInt(value: unknown, defaultValue: number): number {
     const numeric = Number(value);
-    return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : fallback;
+    return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : defaultValue;
 }
 
 function normalizeHeaders(headers?: Record<string, string>): Record<string, string> {

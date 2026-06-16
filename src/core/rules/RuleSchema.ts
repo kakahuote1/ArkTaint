@@ -1,13 +1,10 @@
 // ==================== Taint Rule Schema v2.0 ====================
 
 export type RuleMatchKind =
-    | "signature_contains"
     | "signature_equals"
-    | "signature_regex"
     | "declaring_class_equals"
     | "method_name_equals"
-    | "method_name_regex"
-    | "local_name_regex";
+    | "field_name_equals";
 
 export type RuleEndpoint = "base" | "result" | "matched_param" | `arg${number}`;
 export type RuleInvokeKind = "any" | "instance" | "static";

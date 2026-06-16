@@ -86,7 +86,7 @@ function hasCandidateBoundary(item: NormalizedCallsiteItem, boundary: string): b
     return (item.topEntries || []).some(entry => String(entry || "").trim() === expected);
 }
 
-function parseSignatureParameterTypes(signature: string, fallbackArgCount?: number): string[] {
+function parseSignatureParameterTypes(signature: string, defaultArgCount?: number): string[] {
     const text = String(signature || "");
     const start = text.lastIndexOf("(");
     const end = text.lastIndexOf(")");
@@ -97,7 +97,7 @@ function parseSignatureParameterTypes(signature: string, fallbackArgCount?: numb
         }
         return splitTopLevelComma(body).map(part => part.trim() || "Unknown");
     }
-    return Array.from({ length: Math.max(0, fallbackArgCount || 0) }, () => "Unknown");
+    return Array.from({ length: Math.max(0, defaultArgCount || 0) }, () => "Unknown");
 }
 
 function normalizeStringList(values: unknown): string[] | undefined {

@@ -68,7 +68,7 @@ const FRAMEWORK_GOVERNANCE_HINTS: readonly FrameworkGovernanceFamilyHint[] = [
         kind: "sink",
         pattern: /^sink\.harmony\.router\.pushUrl\.arg0(?:\.(exact|sig))?$/,
         family: "sink.harmony.router.pushUrl",
-        defaultTier: "C",
+        defaultTier: "B",
         exactTier: "A",
         signatureTier: "B",
     },
@@ -112,6 +112,18 @@ const FRAMEWORK_GOVERNANCE_HINTS: readonly FrameworkGovernanceFamilyHint[] = [
         kind: "sink",
         pattern: /^sink\.harmony\.request\.(downloadFile|cacheDownload)\.config\.arg1$/,
         family: "sink.harmony.network.request",
+        defaultTier: "B",
+    },
+    {
+        kind: "sink",
+        pattern: /^sink\.harmony\.request\.upload\.arg1\.for\.sink\.harmony\.request\.upload\.arg1\.0\.exact\.upload\.class\.UploadTask$/,
+        family: "sink.harmony.network.request",
+        defaultTier: "B",
+    },
+    {
+        kind: "sink",
+        pattern: /^sink\.harmony\.socket\.send\.arg0\.for\.sink\.harmony\.socket\.send\.arg0\.0\.exact\.send\.class\.(?:TCP|UDP)Socket$/,
+        family: "sink.harmony.network.socket",
         defaultTier: "B",
     },
     {
@@ -297,34 +309,26 @@ function resolveFamilyAnchor(rule: GovernableRule): string {
     if (match.kind === "method_name_equals") {
         return `method.${normalizeFamilySegment(match.value)}`;
     }
-    if (match.kind === "method_name_regex") {
-        return scopeClass
-            ? `method_re.${scopeClass}.${stableHash(match.value).slice(0, 8)}`
-            : `method_re.${stableHash(match.value).slice(0, 8)}`;
-    }
-    if (match.kind === "local_name_regex") {
-        return `local_re.${stableHash(match.value).slice(0, 8)}`;
-    }
     if (match.kind === "declaring_class_equals") {
         const klass = normalizeFamilySegment(match.value);
         return scopeMethod
             ? `class_method.${klass}.${scopeMethod}`
             : `class.${klass}`;
     }
-    if (match.kind === "signature_equals" || match.kind === "signature_contains") {
+    if (match.kind === "signature_equals") {
         const method = resolveMethodTokenFromSignatureLike(match.value);
         if (method) {
             return `method.${normalizeFamilySegment(method)}`;
         }
         return `signature.${stableHash(match.value).slice(0, 8)}`;
     }
-    if (match.kind === "signature_regex") {
-        return `signature_re.${stableHash(match.value).slice(0, 8)}`;
+    if (match.kind === "field_name_equals") {
+        return `field.${normalizeFamilySegment(match.value)}`;
     }
 
-    const fallbackMethod = resolveMethodTokenFromSignatureLike(match.value);
-    if (fallbackMethod) {
-        return `method.${normalizeFamilySegment(fallbackMethod)}`;
+    const methodFromSignature = resolveMethodTokenFromSignatureLike(match.value);
+    if (methodFromSignature) {
+        return `method.${normalizeFamilySegment(methodFromSignature)}`;
     }
     return `match.${normalizeFamilySegment(match.kind)}.${stableHash(match.value).slice(0, 8)}`;
 }
@@ -344,9 +348,6 @@ function inferTierFromMatch(rule: GovernableRule): RuleTier {
     const match = rule.match;
     if (match.kind === "signature_equals") return "A";
     if (match.kind === "declaring_class_equals") return "B";
-    if (match.kind === "signature_contains" || match.kind === "signature_regex" || match.kind === "method_name_regex") {
-        return "B";
-    }
     if (match.kind === "method_name_equals") {
         const anchoredByShape = !!(
             (match.invokeKind && match.invokeKind !== "any")
@@ -355,9 +356,6 @@ function inferTierFromMatch(rule: GovernableRule): RuleTier {
             || hasStrongScopeAnchor(rule)
         );
         return anchoredByShape ? "B" : "C";
-    }
-    if (match.kind === "local_name_regex") {
-        return "B";
     }
     return "B";
 }

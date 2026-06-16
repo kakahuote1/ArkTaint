@@ -5,8 +5,8 @@ import { taint } from "./taint_mock";
  */
 export function function_002_F(taint_src: Function) {
   let _t = taint_src;
-  let _clean = fallback;
+  let _clean = replacement;
   taint.Sink(_clean);
 }
 
-function fallback() {}
+function replacement() {}

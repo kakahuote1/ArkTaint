@@ -90,7 +90,7 @@
       "plane": "rule",
       "role": "source",
       "selector": {
-        "kind": "local-name-regex",
+        "kind": "field-name-equals",
         "value": "llm_src"
       },
       "endpoint": {
@@ -112,7 +112,7 @@
       "plane": "rule",
       "role": "source",
       "selector": {
-        "kind": "local-name-regex",
+        "kind": "field-name-equals",
         "value": "llm_only"
       },
       "endpoint": {
@@ -134,15 +134,22 @@
       "plane": "rule",
       "role": "sink",
       "selector": {
-        "kind": "signature-contains",
-        "value": "llm_sink"
+        "kind": "method-name-equals",
+        "value": "llm_sink",
+        "calleeScope": {
+          "methodName": {
+            "mode": "equals",
+            "value": "llm_sink"
+          }
+        }
       },
       "effectTemplateRefs": [
         "template.sink.layer.same"
       ],
       "semanticsFamily": "sink",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.sink.layer.llm_only.0",
@@ -151,15 +158,22 @@
       "plane": "rule",
       "role": "sink",
       "selector": {
-        "kind": "signature-contains",
-        "value": "llm_sink_only"
+        "kind": "method-name-equals",
+        "value": "llm_sink_only",
+        "calleeScope": {
+          "methodName": {
+            "mode": "equals",
+            "value": "llm_sink_only"
+          }
+        }
       },
       "effectTemplateRefs": [
         "template.sink.layer.llm_only"
       ],
       "semanticsFamily": "sink",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.transfer.layer.same.0",
@@ -169,14 +183,21 @@
       "role": "transfer",
       "selector": {
         "kind": "method-name-equals",
-        "value": "transferSame"
+        "value": "transferSame",
+        "calleeScope": {
+          "methodName": {
+            "mode": "equals",
+            "value": "transferSame"
+          }
+        }
       },
       "effectTemplateRefs": [
         "template.transfer.layer.same"
       ],
       "semanticsFamily": "transfer",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.transfer.layer.llm_only.0",
@@ -186,14 +207,21 @@
       "role": "transfer",
       "selector": {
         "kind": "method-name-equals",
-        "value": "transferLlmOnly"
+        "value": "transferLlmOnly",
+        "calleeScope": {
+          "methodName": {
+            "mode": "equals",
+            "value": "transferLlmOnly"
+          }
+        }
       },
       "effectTemplateRefs": [
         "template.transfer.layer.llm_only"
       ],
       "semanticsFamily": "transfer",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     }
   ],
   "effectTemplates": [

@@ -58,14 +58,20 @@
   ],
   "bindings": [
     {
-      "bindingId": "binding.source.harmony_rdb.entry_param.0",
+      "bindingId": "binding.source.harmony_rdb.entry_param.0.method.rdb_cross_instance_007_T",
       "surfaceId": "surface.source.harmony_rdb.entry_param",
       "assetId": "asset.rule.test.harmony_rdb",
       "plane": "rule",
       "role": "source",
       "selector": {
-        "kind": "local-name-regex",
-        "value": "^taint_src$"
+        "kind": "method-name-equals",
+        "value": "rdb_cross_instance_007_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "rdb_cross_instance_007_T.ets"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -74,7 +80,152 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.harmony_rdb.entry_param"
+        "template.source.harmony_rdb.entry_param.for.source.harmony_rdb.entry_param.0.method.rdb_cross_instance_007_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony_rdb.entry_param.0.method.rdb_insert_query_001_T",
+      "surfaceId": "surface.source.harmony_rdb.entry_param",
+      "assetId": "asset.rule.test.harmony_rdb",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "rdb_insert_query_001_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "rdb_insert_query_001_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_rdb.entry_param.for.source.harmony_rdb.entry_param.0.method.rdb_insert_query_001_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony_rdb.entry_param.0.method.rdb_insert_query_alias_002_T",
+      "surfaceId": "surface.source.harmony_rdb.entry_param",
+      "assetId": "asset.rule.test.harmony_rdb",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "rdb_insert_query_alias_002_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "rdb_insert_query_alias_002_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_rdb.entry_param.for.source.harmony_rdb.entry_param.0.method.rdb_insert_query_alias_002_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony_rdb.entry_param.0.method.rdb_mismatch_table_003_F",
+      "surfaceId": "surface.source.harmony_rdb.entry_param",
+      "assetId": "asset.rule.test.harmony_rdb",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "rdb_mismatch_table_003_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "rdb_mismatch_table_003_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_rdb.entry_param.for.source.harmony_rdb.entry_param.0.method.rdb_mismatch_table_003_F"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony_rdb.entry_param.0.method.rdb_query_constant_006_F",
+      "surfaceId": "surface.source.harmony_rdb.entry_param",
+      "assetId": "asset.rule.test.harmony_rdb",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "rdb_query_constant_006_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "rdb_query_constant_006_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_rdb.entry_param.for.source.harmony_rdb.entry_param.0.method.rdb_query_constant_006_F"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony_rdb.entry_param.0.method.rdb_two_rows_005_T",
+      "surfaceId": "surface.source.harmony_rdb.entry_param",
+      "assetId": "asset.rule.test.harmony_rdb",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "rdb_two_rows_005_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "rdb_two_rows_005_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_rdb.entry_param.for.source.harmony_rdb.entry_param.0.method.rdb_two_rows_005_T"
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
@@ -101,7 +252,8 @@
       ],
       "semanticsFamily": "sink",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.transfer.harmony_rdb.insert_row_to_store.0",
@@ -151,18 +303,6 @@
     }
   ],
   "effectTemplates": [
-    {
-      "id": "template.source.harmony_rdb.entry_param",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
     {
       "id": "template.sink.harmony_rdb.mock_sink",
       "confidence": "certain",
@@ -228,6 +368,78 @@
         }
       },
       "transferKind": "transfer"
+    },
+    {
+      "id": "template.source.harmony_rdb.entry_param.for.source.harmony_rdb.entry_param.0.method.rdb_cross_instance_007_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_rdb.entry_param.for.source.harmony_rdb.entry_param.0.method.rdb_insert_query_001_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_rdb.entry_param.for.source.harmony_rdb.entry_param.0.method.rdb_insert_query_alias_002_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_rdb.entry_param.for.source.harmony_rdb.entry_param.0.method.rdb_mismatch_table_003_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_rdb.entry_param.for.source.harmony_rdb.entry_param.0.method.rdb_query_constant_006_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_rdb.entry_param.for.source.harmony_rdb.entry_param.0.method.rdb_two_rows_005_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
     }
   ],
   "provenance": {

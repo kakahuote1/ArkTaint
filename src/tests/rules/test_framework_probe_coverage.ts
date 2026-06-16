@@ -114,24 +114,12 @@ function matchesRuleMatchOnSignature(rule: FrameworkRuleLike, site: SignatureSit
     switch (rule.match?.kind) {
         case "method_name_equals":
             return site.methodName === value;
-        case "method_name_regex":
-            try {
-                return new RegExp(value).test(site.methodName);
-            } catch {
-                return false;
-            }
-        case "signature_contains":
-            return site.signature.includes(value);
         case "signature_equals":
             return site.signature === value;
-        case "signature_regex":
-            try {
-                return new RegExp(value).test(site.signature);
-            } catch {
-                return false;
-            }
         case "declaring_class_equals":
             return site.classSignature === value || site.className === value;
+        case "field_name_equals":
+            return false;
         default:
             return false;
     }
@@ -142,24 +130,12 @@ function matchesRuleMatchOnMethod(rule: FrameworkRuleLike, method: MethodSite): 
     switch (rule.match?.kind) {
         case "method_name_equals":
             return method.methodName === value;
-        case "method_name_regex":
-            try {
-                return new RegExp(value).test(method.methodName);
-            } catch {
-                return false;
-            }
-        case "signature_contains":
-            return method.signature.includes(value);
         case "signature_equals":
             return method.signature === value;
-        case "signature_regex":
-            try {
-                return new RegExp(value).test(method.signature);
-            } catch {
-                return false;
-            }
         case "declaring_class_equals":
             return method.classSignature === value || method.className === value;
+        case "field_name_equals":
+            return false;
         default:
             return false;
     }

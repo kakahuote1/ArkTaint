@@ -109,14 +109,14 @@ function applyDispatchDefaults(dispatch: ModuleDispatch | undefined): ModuleDisp
 
 function applyEmitDefaults(
     emit: ModuleBridgeEmitSpec | undefined,
-    fallbackReason: string,
+    defaultReason: string,
 ): ModuleBridgeEmitSpec | undefined {
     if (!emit) {
         return undefined;
     }
     return {
         ...emit,
-        reason: emit.reason || fallbackReason,
+        reason: emit.reason || defaultReason,
     };
 }
 

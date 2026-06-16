@@ -19,7 +19,6 @@ function byId<T extends { id: string }>(items: T[]): Map<string, T> {
 function assertExactMethodSelector(rule: SinkRule | TransferRule, id: string): void {
     const match = rule.match as RuleMatch;
     assert(match.kind === "method_name_equals", `${id} must use exact method-name selector`);
-    assert(!["signature_contains", "signature_regex", "method_name_regex"].includes(match.kind), `${id} must not use broad selector`);
 }
 
 function main(): void {

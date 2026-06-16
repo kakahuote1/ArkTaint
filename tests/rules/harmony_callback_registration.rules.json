@@ -58,7 +58,8 @@
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.sink.harmony.callback_registration.sink.0",
@@ -81,7 +82,8 @@
       ],
       "semanticsFamily": "sink",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     }
   ],
   "effectTemplates": [

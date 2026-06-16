@@ -15,7 +15,7 @@ export namespace taint {
         }
     }
 
-    export class PriorityHostFuzzy {
+    export class PriorityHostMethodScoped {
         Bridge(v: any): any {
             return "safe";
         }

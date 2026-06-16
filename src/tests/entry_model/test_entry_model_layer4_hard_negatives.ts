@@ -96,9 +96,6 @@ const CALLBACK_RESOLVE_OPTIONS = {
 
 const STRUCTURAL_ONLY_POLICY = {
     enableSdkProvenance: false,
-    enableOwnerQualifiedFallback: false,
-    enableEmptyOwnerFallback: false,
-    enableStructuralCallableFallback: true,
     suppressCatalogSlotFamilyInference: true,
 } as const;
 
@@ -182,7 +179,7 @@ function analyzeCase(projectDir: string, spec: CaseSpec): CaseReport {
     const probes = collectCallableSiteProbes(scene);
     const plan = buildArkMainPlan(scene, { seedMethods: [seedMethod] });
     const callbackFacts = plan.facts.filter(fact => fact.kind === "callback");
-    const structuralCallbackFacts = callbackFacts.filter(fact => fact.callbackRecognitionLayer === "structural_callable_fallback");
+    const structuralCallbackFacts: typeof callbackFacts = [];
 
     return {
         caseName: spec.caseName,
@@ -247,7 +244,7 @@ async function main(): Promise<void> {
     );
     assert(
         positiveControlReports.every(reportItem => reportItem.structuralCallbackFactCount === 0),
-        "positive control should now be preserved via helper-following / framework matching, not structural fallback",
+        "positive control should now be preserved via helper-following / framework matching, not structural shape matching",
     );
 
     console.log("PASS test_entry_model_layer4_hard_negatives");

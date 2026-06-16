@@ -214,9 +214,9 @@ function findEntryMethod(scene: ReturnType<typeof buildTestScene>, spec: FamilyF
     if (exact) {
         return exact;
     }
-    const fallback = findCaseMethod(scene, resolved);
-    if (fallback?.getName?.() === spec.entryMethodName) {
-        return fallback;
+    const resolvedMethod = findCaseMethod(scene, resolved);
+    if (resolvedMethod?.getName?.() === spec.entryMethodName) {
+        return resolvedMethod;
     }
     const sameName = scene.getMethods().find(method =>
         method.getName() === spec.entryMethodName

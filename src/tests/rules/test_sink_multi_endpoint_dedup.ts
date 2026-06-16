@@ -77,7 +77,6 @@ async function main(): Promise<void> {
         extraRulePaths: [],
         appliedLayerOrder: [],
         layerStatus: [],
-        secondarySinkSweep: { sinkKeywords: [], sinkSignatures: [] },
         warnings: [],
     });
     const summaryEndpoints = new Set(

@@ -88,6 +88,11 @@ async function main(): Promise<void> {
                     match: {
                         kind: "method_name_equals",
                         value: "Base64Source",
+                        invokeKind: "static",
+                        argCount: 0,
+                        scope: {
+                            file: { mode: "contains", value: "EntryAbility.ets" },
+                        },
                     },
                     target: "result",
                 },
@@ -98,6 +103,11 @@ async function main(): Promise<void> {
                     match: {
                         kind: "method_name_equals",
                         value: "SinkAuthorization",
+                        invokeKind: "static",
+                        argCount: 1,
+                        scope: {
+                            file: { mode: "contains", value: "EntryAbility.ets" },
+                        },
                     },
                     target: "arg0",
                 },
@@ -106,6 +116,11 @@ async function main(): Promise<void> {
                     match: {
                         kind: "method_name_equals",
                         value: "SinkRole",
+                        invokeKind: "static",
+                        argCount: 1,
+                        scope: {
+                            file: { mode: "contains", value: "EntryAbility.ets" },
+                        },
                     },
                     target: "arg0",
                 },

@@ -39,7 +39,7 @@ async function main(): Promise<void> {
     const transfers = loaded.ruleSet.transfers || [];
 
     const hiLogExact = findSinkRule(sinks, "sink.harmony.hilog.info.arg3.exact");
-    assert(hiLogExact.family === "sink.harmony.logging.hilog_info", "hilog exact sink should infer hilog info family");
+    assert(hiLogExact.family === "sink.harmony.hilog.info", "hilog exact sink should infer hilog info family");
     assert(hiLogExact.tier === "A", "hilog exact sink should infer tier A");
 
     assert(

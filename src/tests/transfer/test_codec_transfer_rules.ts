@@ -13,7 +13,7 @@ function assert(condition: unknown, message: string): asserts condition {
 const SOURCE_RULES: SourceRule[] = [
     {
         id: "source.codec.userInput",
-        match: { kind: "local_name_regex", value: "^userInput$" },
+        match: { kind: "method_name_equals", value: "wearengine_text_codec_003_T" },
         sourceKind: "entry_param",
         target: "arg0",
     },

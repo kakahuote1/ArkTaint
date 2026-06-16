@@ -501,24 +501,12 @@ function matchRuleMatch(match: RuleMatch, site: InvokeSiteStat): boolean {
     switch (match.kind) {
         case "method_name_equals":
             return site.methodName === value;
-        case "method_name_regex":
-            try {
-                return new RegExp(value).test(site.methodName);
-            } catch {
-                return false;
-            }
-        case "signature_contains":
-            return site.signature.includes(value);
         case "signature_equals":
             return site.signature === value;
-        case "signature_regex":
-            try {
-                return new RegExp(value).test(site.signature);
-            } catch {
-                return false;
-            }
         case "declaring_class_equals":
             return site.calleeClassText === value;
+        case "field_name_equals":
+            return false;
         default:
             return false;
     }
@@ -592,24 +580,12 @@ function matchNoCandidateCallsiteToTransferRule(site: NoCandidateCallsiteStat, r
     switch (rule.match.kind) {
         case "method_name_equals":
             return site.method === value;
-        case "method_name_regex":
-            try {
-                return new RegExp(value).test(site.method);
-            } catch {
-                return false;
-            }
-        case "signature_contains":
-            return site.callee_signature.includes(value);
         case "signature_equals":
             return site.callee_signature === value;
-        case "signature_regex":
-            try {
-                return new RegExp(value).test(site.callee_signature);
-            } catch {
-                return false;
-            }
         case "declaring_class_equals":
             return extractDeclaringClassFromMethodSignature(site.callee_signature) === value;
+        case "field_name_equals":
+            return false;
         default:
             return false;
     }

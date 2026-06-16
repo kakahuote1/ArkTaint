@@ -615,7 +615,6 @@ function createAnalyzeOptions(
         incrementalCachePath: undefined,
         stopOnFirstFlow: false,
         maxFlowsPerEntry: undefined,
-        enableSecondarySinkSweep: false,
         enabledModels: [projectId],
         ruleOptions: {
             autoDiscoverLayers: true,
@@ -646,7 +645,7 @@ function buildSourceDirEntries(
     return out;
 }
 
-function createFallbackAnalyzeReport(repoAbs: string, sourceDirs: string[]): AnalyzeReport {
+function createFailureAnalyzeReport(repoAbs: string, sourceDirs: string[]): AnalyzeReport {
     const entries = sourceDirs.map(sourceDir => ({
         sourceDir,
         entryName: "@arkMain",
@@ -873,7 +872,7 @@ async function runProject(
         stage("run_analyze_done");
     } catch (err: any) {
         result.fatalErrors.push(`analyze_failed: ${String(err?.message || err)}`);
-        analyzeReport = createFallbackAnalyzeReport(repoAbs, validSourceDirs);
+        analyzeReport = createFailureAnalyzeReport(repoAbs, validSourceDirs);
         stage("run_analyze_failed");
     }
 

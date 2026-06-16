@@ -177,7 +177,7 @@ function renderPluginTrace(report: Awaited<ReturnType<typeof runAnalyze>>["repor
     return `${lines.join("\n")}\n`;
 }
 
-function resolveFallbackOutputDir(argv: string[]): string {
+function resolveErrorOutputDir(argv: string[]): string {
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
         if (arg === "--outputDir") {
@@ -344,7 +344,6 @@ export async function runAnalyzeCliCommand(options: CliOptions): Promise<void> {
     console.log(`report_mode=${report.reportMode}`);
     console.log(`stop_on_first_flow=${options.stopOnFirstFlow}`);
     console.log(`max_flows_per_entry=${options.maxFlowsPerEntry ?? ""}`);
-    console.log(`secondary_sink_sweep=${options.enableSecondarySinkSweep}`);
     console.log(`entries=${report.summary.totalEntries}`);
     console.log(`ok_entries=${report.summary.okEntries}`);
     console.log(`with_seeds=${report.summary.withSeeds}`);
@@ -384,7 +383,7 @@ async function runCliMain(): Promise<void> {
     try {
         await main();
     } catch (err) {
-        const outputDir = resolveFallbackOutputDir(process.argv.slice(2));
+        const outputDir = resolveErrorOutputDir(process.argv.slice(2));
         const outputLayout = resolveAnalyzeOutputLayout(outputDir);
         ensureAnalyzeOutputLayout(outputLayout);
         const diagnostics = emptyAnalyzeErrorDiagnostics();

@@ -22,8 +22,8 @@
       "modulePath": "@arktaint/runtime-selector",
       "ownerName": "RuntimeSelector",
       "methodName": "Sink",
-      "invokeKind": "instance",
-      "argCount": 0,
+      "invokeKind": "static",
+      "argCount": 1,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
@@ -32,14 +32,20 @@
   ],
   "bindings": [
     {
-      "bindingId": "binding.source.harmony_emitter.entry_param.0",
+      "bindingId": "binding.source.harmony_emitter.entry_param.0.method.emitter_emit_alias_002_T",
       "surfaceId": "surface.source.harmony_emitter.entry_param",
       "assetId": "asset.rule.test.harmony_emitter",
       "plane": "rule",
       "role": "source",
       "selector": {
-        "kind": "local-name-regex",
-        "value": "^taint_src$"
+        "kind": "method-name-equals",
+        "value": "emitter_emit_alias_002_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "emitter_emit_alias_002_T.ets"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -48,7 +54,268 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.harmony_emitter.entry_param"
+        "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.emitter_emit_alias_002_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony_emitter.entry_param.0.method.emitter_emit_multi_003_T",
+      "surfaceId": "surface.source.harmony_emitter.entry_param",
+      "assetId": "asset.rule.test.harmony_emitter",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "emitter_emit_multi_003_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "emitter_emit_multi_003_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.emitter_emit_multi_003_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony_emitter.entry_param.0.method.emitter_emit_nested_004_T",
+      "surfaceId": "surface.source.harmony_emitter.entry_param",
+      "assetId": "asset.rule.test.harmony_emitter",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "emitter_emit_nested_004_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "emitter_emit_nested_004_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.emitter_emit_nested_004_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony_emitter.entry_param.0.method.emitter_emit_on_001_T",
+      "surfaceId": "surface.source.harmony_emitter.entry_param",
+      "assetId": "asset.rule.test.harmony_emitter",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "emitter_emit_on_001_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "emitter_emit_on_001_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.emitter_emit_on_001_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony_emitter.entry_param.0.method.emitter_unrelated_sink_007_F",
+      "surfaceId": "surface.source.harmony_emitter.entry_param",
+      "assetId": "asset.rule.test.harmony_emitter",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "emitter_unrelated_sink_007_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "emitter_unrelated_sink_007_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.emitter_unrelated_sink_007_F"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony_emitter.entry_param.0.method.emitter_wrong_event_005_F",
+      "surfaceId": "surface.source.harmony_emitter.entry_param",
+      "assetId": "asset.rule.test.harmony_emitter",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "emitter_wrong_event_005_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "emitter_wrong_event_005_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.emitter_wrong_event_005_F"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony_emitter.entry_param.0.method.eventhub_context_008_T",
+      "surfaceId": "surface.source.harmony_emitter.entry_param",
+      "assetId": "asset.rule.test.harmony_emitter",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "eventhub_context_008_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "eventhub_context_008_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.eventhub_context_008_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony_emitter.entry_param.0.method.eventhub_context_009_F",
+      "surfaceId": "surface.source.harmony_emitter.entry_param",
+      "assetId": "asset.rule.test.harmony_emitter",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "eventhub_context_009_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "eventhub_context_009_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.eventhub_context_009_F"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony_emitter.entry_param.0.method.eventhub_external_010_T",
+      "surfaceId": "surface.source.harmony_emitter.entry_param",
+      "assetId": "asset.rule.test.harmony_emitter",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "eventhub_external_010_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "eventhub_external_010_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.eventhub_external_010_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony_emitter.entry_param.0.method.eventhub_external_011_F",
+      "surfaceId": "surface.source.harmony_emitter.entry_param",
+      "assetId": "asset.rule.test.harmony_emitter",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "eventhub_external_011_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "eventhub_external_011_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.eventhub_external_011_F"
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
@@ -75,22 +342,11 @@
       ],
       "semanticsFamily": "sink",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     }
   ],
   "effectTemplates": [
-    {
-      "id": "template.source.harmony_emitter.entry_param",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
     {
       "id": "template.sink.harmony_emitter.mock_sink",
       "confidence": "certain",
@@ -102,6 +358,126 @@
         }
       },
       "sinkKind": "sink"
+    },
+    {
+      "id": "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.emitter_emit_alias_002_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.emitter_emit_multi_003_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.emitter_emit_nested_004_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.emitter_emit_on_001_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.emitter_unrelated_sink_007_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.emitter_wrong_event_005_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.eventhub_context_008_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.eventhub_context_009_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.eventhub_external_010_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_emitter.entry_param.for.source.harmony_emitter.entry_param.0.method.eventhub_external_011_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
     }
   ],
   "provenance": {

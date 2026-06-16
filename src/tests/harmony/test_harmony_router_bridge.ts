@@ -1,6 +1,7 @@
 import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import { loadRuleSet } from "../../core/rules/RuleLoader";
+import { createHarmonyRouteBridgeSemanticModule } from "../../core/orchestration/modules/harmony_semantics/router";
 import { SinkRule, SourceRule } from "../../core/rules/RuleSchema";
 import { buildEngineForCase, findCaseMethod, resolveCaseMethod } from "../helpers/SyntheticCaseHarness";
 import { resolveSuiteCaseExpectation } from "../helpers/SuiteExpectationResolver";
@@ -105,6 +106,22 @@ async function runCase(
     }
     const engine = await buildEngineForCase(scene, options.k, entryMethod, {
         engineOptions: {
+            modules: [
+                createHarmonyRouteBridgeSemanticModule({
+                    id: "test.harmony.router.bridge.local_mock",
+                    description: "Test-only explicit route bridge model for the local harmony_router_bridge fixture.",
+                    routerClassNames: ["Router", "router", "NavPathStack"],
+                    pushMethods: [
+                        { methodName: "pushUrl", routeField: "url" },
+                        { methodName: "replaceUrl", routeField: "url" },
+                        { methodName: "pushNamedRoute", routeField: "name" },
+                        { methodName: "pushPath", routeField: "name" },
+                        { methodName: "pushPathByName", routeField: "name" },
+                    ],
+                    getMethods: ["getParams"],
+                    payloadUnwrapPrefixes: ["params", "param"],
+                }),
+            ],
             disabledAutoSourceRuleIdPrefixes: [
                 "source.arkmain.contract.router.trigger.",
                 "source.auto.framework.navigation_context.",

@@ -204,9 +204,9 @@ function readValue(argv: string[], i: number, prefix: string): string | undefine
     return undefined;
 }
 
-function normalizePositiveInt(raw: string | undefined, flag: string, fallback: number): number {
+function normalizePositiveInt(raw: string | undefined, flag: string, defaultValue: number): number {
     if (raw === undefined) {
-        return fallback;
+        return defaultValue;
     }
     const value = Number(raw);
     if (!Number.isFinite(value) || value <= 0) {
@@ -215,9 +215,9 @@ function normalizePositiveInt(raw: string | undefined, flag: string, fallback: n
     return Math.floor(value);
 }
 
-function normalizeNonNegativeInt(raw: string | undefined, flag: string, fallback: number): number {
+function normalizeNonNegativeInt(raw: string | undefined, flag: string, defaultValue: number): number {
     if (raw === undefined) {
-        return fallback;
+        return defaultValue;
     }
     const value = Number(raw);
     if (!Number.isFinite(value) || value < 0) {
@@ -1783,7 +1783,6 @@ function buildAnalyzeOptions(
         worklistBudgetMs: overrides.worklistBudgetMs ?? options.worklistBudgetMs,
         worklistMaxDequeues: overrides.worklistMaxDequeues ?? options.worklistMaxDequeues,
         worklistMaxVisited: overrides.worklistMaxVisited ?? options.worklistMaxVisited,
-        enableSecondarySinkSweep: overrides.enableSecondarySinkSweep ?? ((overrides.profile || options.profile) === "fast"),
         llmModel: overrides.llmModel,
         arkMainMaxCandidates: overrides.arkMainMaxCandidates,
         listModules: false,
@@ -1831,12 +1830,11 @@ async function runBootstrapAnalyze(options: SemanticFlowCliOptions): Promise<Boo
     })));
     const feedbackDir = path.join(phase1OutputDir, "feedback", "rule_feedback");
     const apiModelingCandidatePath = path.join(feedbackDir, "api_modeling_candidates.json");
-    const fallbackRuleInputPath = path.join(feedbackDir, "no_candidate_callsites.json");
-    const selected = selectBootstrapRuleInput(apiModelingCandidatePath, fallbackRuleInputPath);
+    const selected = selectBootstrapRuleInput(apiModelingCandidatePath);
     console.log(
         `semanticflow_phase=bootstrap_analyze done rule_input=${selected.path} `
         + `selection=${selected.selection} api_modeling_candidates=${selected.apiModelingCandidateCount ?? ""} `
-        + `fallback_candidates=${selected.fallbackCandidateCount ?? ""}`,
+        + `candidate_scanner_gap=${selected.selection === "candidate_scanner_gap" ? "true" : "false"}`,
     );
     return {
         ruleInputPath: selected.path,
@@ -1846,52 +1844,30 @@ async function runBootstrapAnalyze(options: SemanticFlowCliOptions): Promise<Boo
 
 function selectBootstrapRuleInput(
     apiModelingCandidatePath: string,
-    fallbackRuleInputPath: string,
 ): {
     path: string;
-    selection: "api_modeling_candidates" | "fallback_callsites" | "missing";
+    selection: "api_modeling_candidates" | "candidate_scanner_gap" | "missing";
     apiModelingCandidateCount: number | null;
-    fallbackCandidateCount: number | null;
 } {
     const apiModelingCandidateCount = readCandidatePayloadCount(apiModelingCandidatePath);
-    const fallbackCandidateCount = readCandidatePayloadCount(fallbackRuleInputPath);
     if (apiModelingCandidateCount !== null && apiModelingCandidateCount > 0) {
         return {
             path: apiModelingCandidatePath,
             selection: "api_modeling_candidates",
             apiModelingCandidateCount,
-            fallbackCandidateCount,
-        };
-    }
-    if (fallbackCandidateCount !== null && fallbackCandidateCount > 0) {
-        return {
-            path: fallbackRuleInputPath,
-            selection: "fallback_callsites",
-            apiModelingCandidateCount,
-            fallbackCandidateCount,
         };
     }
     if (apiModelingCandidateCount !== null) {
         return {
             path: apiModelingCandidatePath,
-            selection: "api_modeling_candidates",
+            selection: "candidate_scanner_gap",
             apiModelingCandidateCount,
-            fallbackCandidateCount,
-        };
-    }
-    if (fallbackCandidateCount !== null) {
-        return {
-            path: fallbackRuleInputPath,
-            selection: "fallback_callsites",
-            apiModelingCandidateCount,
-            fallbackCandidateCount,
         };
     }
     return {
-        path: fallbackRuleInputPath,
+        path: apiModelingCandidatePath,
         selection: "missing",
         apiModelingCandidateCount,
-        fallbackCandidateCount,
     };
 }
 

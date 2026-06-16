@@ -62,7 +62,7 @@ const CORE = [
     "test:full-trace-graph",
     "test:analyze-budget-truncation",
     "test:analyze-object-container-sibling-field-precision",
-    "test:analyze-unresolved-this-field-fallback-scope",
+    "test:analyze-unresolved-this-field-load-scope",
     "test:analyze-materialized-taint-flows",
     "test:analyze-materialized-taint-flow-branching",
     "test:analyze-type-narrowing-guard",

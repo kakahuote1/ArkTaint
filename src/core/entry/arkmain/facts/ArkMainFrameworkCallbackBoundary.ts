@@ -32,12 +32,6 @@ export function resolveArkMainCallbackEntryFamily(
     if (recognitionLayer === "sdk_provenance") {
         return "unknown_sdk_callback";
     }
-    if (recognitionLayer === "opaque_external_call_fallback") {
-        return "unknown_external_callback";
-    }
-    if (recognitionLayer === "structural_callable_fallback") {
-        return "unknown_structural_callback";
-    }
     return undefined;
 }
 
@@ -59,17 +53,12 @@ export function shouldArkMainPromoteCallbackBinding(
 }
 
 export function shouldArkMainQueueOpaqueExternalCallback(
-    binding: ArkMainCallbackBindingLike,
-    addedNewFact: boolean,
-    callbackSignature: string | undefined,
-    queuedSignatures: ReadonlySet<string>,
+    _binding: ArkMainCallbackBindingLike,
+    _addedNewFact: boolean,
+    _callbackSignature: string | undefined,
+    _queuedSignatures: ReadonlySet<string>,
 ): boolean {
-    return !!(
-        addedNewFact
-        && binding.recognitionLayer === "opaque_external_call_fallback"
-        && callbackSignature
-        && !queuedSignatures.has(callbackSignature)
-    );
+    return false;
 }
 
 export function isArkMainOpenWorldCallbackEntryFamily(entryFamily: string | undefined): boolean {

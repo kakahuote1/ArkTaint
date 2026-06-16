@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { AssetDocumentBase } from "../../core/assets/schema";
 import { lowerRuleAssetsToRuleSet } from "../../core/rules/RuleAssetLowering";
-import { buildSmokeRuleConfig, loadRuleSet } from "../../core/rules/RuleLoader";
+import { loadRuleSet } from "../../core/rules/RuleLoader";
 import { SinkRule } from "../../core/rules/RuleSchema";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -38,37 +38,17 @@ function readKernelSinkRules(): SinkRule[] {
 }
 
 function isSweepRule(rule: SinkRule): boolean {
-    return rule.match.kind === "signature_contains"
-        && !rule.target
+    return !rule.target
         && (
             String(rule.id || "").startsWith("sink.sig.")
             || String(rule.id || "").startsWith("sink.keyword.")
         );
 }
 
-function sortStrings(values: string[]): string[] {
-    return [...values].sort((a, b) => a.localeCompare(b));
-}
-
 async function main(): Promise<void> {
     const rawKernelSinks = readKernelSinkRules();
-    const expectedKeywords = sortStrings(
-        [...new Set(
-            rawKernelSinks
-                .filter(rule => isSweepRule(rule) && String(rule.id || "").startsWith("sink.keyword."))
-                .map(rule => rule.match.value)
-        )]
-    );
-    const expectedSignatures = sortStrings(
-        [...new Set(
-            rawKernelSinks
-                .filter(rule => isSweepRule(rule) && String(rule.id || "").startsWith("sink.sig."))
-                .map(rule => rule.match.value)
-        )]
-    );
-
-    assert(expectedKeywords.length === 0, "kernel official assets must not contain keyword sweep inventory");
-    assert(expectedSignatures.length === 0, "kernel official assets must not contain signature sweep inventory");
+    const rawSweepRules = rawKernelSinks.filter(isSweepRule);
+    assert(rawSweepRules.length === 0, `kernel official assets must not contain sweep inventory: ${rawSweepRules.map(rule => rule.id).join(", ")}`);
 
     const loaded = loadRuleSet({
         kernelRulePath: path.resolve("tests/rules/minimal.rules.json"),
@@ -80,7 +60,7 @@ async function main(): Promise<void> {
 
     const activeSinks = loaded.ruleSet.sinks || [];
     const activeSweepRules = activeSinks.filter(isSweepRule);
-    assert(activeSweepRules.length === 0, `active sink inventory should exclude fallback sweep rules: ${activeSweepRules.map(rule => rule.id).join(", ")}`);
+    assert(activeSweepRules.length === 0, `active sink inventory should exclude legacy sweep rules: ${activeSweepRules.map(rule => rule.id).join(", ")}`);
     assert(
         !activeSinks.some(rule => String(rule.id || "").startsWith("sink.sig.")),
         "active sink inventory should not contain signature sweep sinks",
@@ -90,21 +70,9 @@ async function main(): Promise<void> {
         "active sink inventory should not contain keyword sweep sinks",
     );
 
-    const smokeConfig = buildSmokeRuleConfig(loaded);
-    assert(
-        JSON.stringify(sortStrings(smokeConfig.sinkKeywords)) === JSON.stringify(expectedKeywords),
-        "smoke sink keyword sweep must stay empty without dedicated exact inventory",
-    );
-    assert(
-        JSON.stringify(sortStrings(smokeConfig.sinkSignatures)) === JSON.stringify(expectedSignatures),
-        "smoke sink signature sweep must stay empty without dedicated exact inventory",
-    );
-
     console.log("====== Sink Inventory Boundary ======");
     console.log(`active_sink_rules=${activeSinks.length}`);
     console.log(`active_sweep_rules=${activeSweepRules.length}`);
-    console.log(`smoke_keywords=${smokeConfig.sinkKeywords.length}`);
-    console.log(`smoke_signatures=${smokeConfig.sinkSignatures.length}`);
     console.log("PASS test_sink_inventory_boundary");
 }
 

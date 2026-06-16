@@ -86,16 +86,10 @@ function matchesCandidate(method: any, candidate: any): boolean {
   let basicMatch = false;
   if (matchKind === "method_name_equals") {
     basicMatch = methodName === matchValue;
-  } else if (matchKind === "method_name_regex") {
-    try { basicMatch = new RegExp(matchValue).test(methodName); } catch { basicMatch = false; }
   } else if (matchKind === "declaring_class_equals") {
     basicMatch = classSig === matchValue || className === matchValue;
   } else if (matchKind === "signature_equals" || matchKind === "callee_signature_equals") {
     basicMatch = signature === matchValue;
-  } else if (matchKind === "signature_contains") {
-    basicMatch = signature.includes(matchValue);
-  } else if (matchKind === "signature_regex") {
-    try { basicMatch = new RegExp(matchValue).test(signature); } catch { basicMatch = false; }
   } else {
     basicMatch = false;
   }

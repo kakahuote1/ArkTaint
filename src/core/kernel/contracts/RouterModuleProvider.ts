@@ -18,6 +18,7 @@ export interface RouterSemanticModel {
     pushValueFieldTargetsByNodeId: Map<number, RouterValueFieldTarget[]>;
     getResultNodeIdsByRouterKey: Map<string, Set<number>>;
     getResultObjectNodeIdsByRouterKey: Map<string, Set<number>>;
+    getFieldResultNodeIdsByRouterKey: Map<string, Map<string, Set<number>>>;
     ungroupedPushNodeIds: Set<number>;
     ungroupedPushFieldEndpoints: Set<string>;
     pushCallCountByRouterKey: Map<string, number>;
@@ -49,6 +50,7 @@ export function createEmptyRouterSemanticModel(): RouterSemanticModel {
         pushValueFieldTargetsByNodeId: new Map(),
         getResultNodeIdsByRouterKey: new Map(),
         getResultObjectNodeIdsByRouterKey: new Map(),
+        getFieldResultNodeIdsByRouterKey: new Map(),
         ungroupedPushNodeIds: new Set(),
         ungroupedPushFieldEndpoints: new Set(),
         pushCallCountByRouterKey: new Map(),

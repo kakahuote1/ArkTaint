@@ -4,10 +4,6 @@ import { normalizeEndpoint, RuleLayer, SanitizerRule, SinkRule, SourceRule, Tain
 import { validateRuleSet } from "./RuleValidator";
 import { validateAssetDocument, type AnalysisAssetLoadMode, type AssetDocumentBase } from "../assets/schema";
 import { lowerRuleAssetsToRuleSet } from "./RuleAssetLowering";
-import { buildFrameworkBoundStateSourceRules, buildFrameworkCallbackSourceRules } from "./FrameworkCallbackSourceCatalog";
-import { buildFrameworkApiSourceRules } from "./FrameworkApiSourceCatalog";
-import { buildFrameworkSinkRules, isFrameworkSinkCatalogRule } from "./FrameworkSinkCatalog";
-import { buildFrameworkSanitizerRules, isFrameworkSanitizerCatalogRule } from "./FrameworkSanitizerCatalog";
 import {
     RuleGovernanceOrigin,
     normalizeRuleSetGovernance,
@@ -57,7 +53,6 @@ export interface LoadedRuleSet {
     extraRulePaths: string[];
     appliedLayerOrder: RuleLayerName[];
     layerStatus: RuleLayerStatus[];
-    secondarySinkSweep: SecondarySinkSweepConfig;
     warnings: string[];
 }
 
@@ -89,17 +84,6 @@ export class RuleLoadError extends Error {
     }
 }
 
-export interface SmokeRuleConfig {
-    sourceLocalNamePattern: RegExp;
-    sinkKeywords: string[];
-    sinkSignatures: string[];
-}
-
-interface SecondarySinkSweepConfig {
-    sinkKeywords: string[];
-    sinkSignatures: string[];
-}
-
 type RuleBundleKind = "sources" | "sinks" | "sanitizers" | "transfers";
 
 interface LoadedLayerEntry {
@@ -128,9 +112,6 @@ function summarizeRuleLayer(ruleSet: TaintRuleSet): Pick<
     };
 }
 
-const FALLBACK_SOURCE_LOCAL_PATTERN = /a^/;
-const FALLBACK_SINK_KEYWORDS: string[] = [];
-const FALLBACK_SINK_SIGNATURES: string[] = [];
 const SAFE_RULE_DIR_EXTENSIONS = new Set([".json", ".ts", ".md"]);
 
 function extractValidationFieldPath(message: string): string | undefined {
@@ -617,69 +598,8 @@ function loadAndValidateLayerEntry(
     };
 }
 
-function isSecondarySinkSweepRule(rule: SinkRule): boolean {
-    return rule.match.kind === "signature_contains"
-        && !rule.target
-        && (
-            String(rule.id || "").startsWith("sink.sig.")
-            || String(rule.id || "").startsWith("sink.keyword.")
-        );
-}
-
-function collectSecondarySinkSweepConfig(rules: SinkRule[]): SecondarySinkSweepConfig {
-    const keywordValues = [...new Set(
-        rules
-            .filter(rule => isSecondarySinkSweepRule(rule) && String(rule.id || "").startsWith("sink.keyword."))
-            .map(rule => rule.match.value)
-            .filter(Boolean)
-    )];
-    const signatureValues = [...new Set(
-        rules
-            .filter(rule => isSecondarySinkSweepRule(rule) && String(rule.id || "").startsWith("sink.sig."))
-            .map(rule => rule.match.value)
-            .filter(Boolean)
-    )];
-    return {
-        sinkKeywords: keywordValues.length > 0 ? keywordValues : FALLBACK_SINK_KEYWORDS,
-        sinkSignatures: signatureValues.length > 0 ? signatureValues : FALLBACK_SINK_SIGNATURES,
-    };
-}
-
 function normalizeKernelLayerRules(ruleSet: TaintRuleSet): TaintRuleSet {
-    const retainedSources = (ruleSet.sources || []).filter(
-        rule => rule.sourceKind !== "callback_param"
-            && rule.sourceKind !== "bound_state"
-            && rule.sourceKind !== "call_return"
-            && rule.sourceKind !== "field_read"
-    );
-    const retainedSinks = (ruleSet.sinks || []).filter(
-        rule => !isFrameworkSinkCatalogRule(rule) && !isSecondarySinkSweepRule(rule)
-    );
-    const retainedSanitizers = (ruleSet.sanitizers || []).filter(rule => !isFrameworkSanitizerCatalogRule(rule));
-    return {
-        ...ruleSet,
-        sources: [
-            ...retainedSources,
-            ...buildFrameworkCallbackSourceRules(),
-            ...buildFrameworkBoundStateSourceRules(),
-            ...buildFrameworkApiSourceRules(),
-        ],
-        sinks: [
-            ...retainedSinks,
-            ...buildFrameworkSinkRules(ruleSet.sinks || []),
-        ],
-        sanitizers: [
-            ...retainedSanitizers,
-            ...buildFrameworkSanitizerRules(ruleSet.sanitizers || []),
-        ],
-    };
-}
-
-function normalizeKernelLayerInventory(ruleSet: TaintRuleSet): { ruleSet: TaintRuleSet; secondarySinkSweep: SecondarySinkSweepConfig } {
-    return {
-        ruleSet: normalizeKernelLayerRules(ruleSet),
-        secondarySinkSweep: collectSecondarySinkSweepConfig(ruleSet.sinks || []),
-    };
+    return ruleSet;
 }
 
 function normalizeLoadedLayerRules(ruleSet: TaintRuleSet, origin: RuleGovernanceOrigin): TaintRuleSet {
@@ -789,10 +709,6 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
 
     const knownRuleFiles: string[] = [];
     let merged = buildEmptyRuleSet();
-    let secondarySinkSweep: SecondarySinkSweepConfig = {
-        sinkKeywords: [...FALLBACK_SINK_KEYWORDS],
-        sinkSignatures: [...FALLBACK_SINK_SIGNATURES],
-    };
     const appliedLayerOrder: RuleLayerName[] = [];
     const layerStatus: RuleLayerStatus[] = [];
 
@@ -849,10 +765,8 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
         }
     } else {
         mergeKnownFiles(knownRuleFiles, kernelKnownFiles);
-        const normalizedKernel = normalizeKernelLayerInventory(merged);
-        secondarySinkSweep = normalizedKernel.secondarySinkSweep;
         merged = normalizeRules(normalizeLoadedLayerRules(
-            normalizedKernel.ruleSet,
+            normalizeKernelLayerRules(merged),
             { kind: "builtin_kernel_json", path: ruleCatalogPath },
         ));
         kernelLayerApplied = true;
@@ -1045,7 +959,6 @@ export function loadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet {
         extraRulePaths,
         appliedLayerOrder,
         layerStatus,
-        secondarySinkSweep,
         warnings,
     };
 }
@@ -1097,37 +1010,6 @@ export function tryLoadRuleSet(options: RuleLoaderOptions = {}): LoadedRuleSet |
     } catch {
         return undefined;
     }
-}
-
-function sourceRegexRules(rules: SourceRule[]): SourceRule[] {
-    return rules.filter(r => r.match.kind === "local_name_regex");
-}
-
-function firstRegexPattern(rules: SourceRule[]): RegExp | undefined {
-    const first = rules.find(r => typeof r.match.value === "string" && r.match.value.trim().length > 0);
-    if (!first) return undefined;
-    return new RegExp(first.match.value, "i");
-}
-
-export function buildSmokeRuleConfig(loaded?: LoadedRuleSet): SmokeRuleConfig {
-    const rules = loaded?.ruleSet;
-    if (!rules) {
-        return {
-            sourceLocalNamePattern: FALLBACK_SOURCE_LOCAL_PATTERN,
-            sinkKeywords: FALLBACK_SINK_KEYWORDS,
-            sinkSignatures: FALLBACK_SINK_SIGNATURES,
-        };
-    }
-
-    const sourcePattern = firstRegexPattern(sourceRegexRules(rules.sources || [])) || FALLBACK_SOURCE_LOCAL_PATTERN;
-    const sinkKeywords = loaded?.secondarySinkSweep?.sinkKeywords;
-    const sinkSignatures = loaded?.secondarySinkSweep?.sinkSignatures;
-
-    return {
-        sourceLocalNamePattern: sourcePattern,
-        sinkKeywords: sinkKeywords && sinkKeywords.length > 0 ? sinkKeywords : FALLBACK_SINK_KEYWORDS,
-        sinkSignatures: sinkSignatures && sinkSignatures.length > 0 ? sinkSignatures : FALLBACK_SINK_SIGNATURES,
-    };
 }
 
 export function summarizeRuleSet(rules: TaintRuleSet): { sources: number; sinks: number; sanitizers: number; transfers: number } {

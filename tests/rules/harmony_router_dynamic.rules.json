@@ -32,14 +32,20 @@
   ],
   "bindings": [
     {
-      "bindingId": "binding.source.harmony.router_dynamic.entry_param.0",
+      "bindingId": "binding.source.harmony.router_dynamic.entry_param.0.method.appstorage_dynamic_key_002_T",
       "surfaceId": "surface.source.harmony.router_dynamic.entry_param",
       "assetId": "asset.rule.test.harmony_router_dynamic",
       "plane": "rule",
       "role": "source",
       "selector": {
-        "kind": "local-name-regex",
-        "value": "^taint_src$"
+        "kind": "method-name-equals",
+        "value": "appstorage_dynamic_key_002_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "appstorage_dynamic_key_002_T.ets"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -48,7 +54,94 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.harmony.router_dynamic.entry_param"
+        "template.source.harmony.router_dynamic.entry_param.for.source.harmony.router_dynamic.entry_param.0.method.appstorage_dynamic_key_002_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.router_dynamic.entry_param.0.method.appstorage_dynamic_key_path_005_T",
+      "surfaceId": "surface.source.harmony.router_dynamic.entry_param",
+      "assetId": "asset.rule.test.harmony_router_dynamic",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "appstorage_dynamic_key_path_005_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "appstorage_dynamic_key_path_005_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.router_dynamic.entry_param.for.source.harmony.router_dynamic.entry_param.0.method.appstorage_dynamic_key_path_005_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.router_dynamic.entry_param.0.method.router_getparams_direct_001_T",
+      "surfaceId": "surface.source.harmony.router_dynamic.entry_param",
+      "assetId": "asset.rule.test.harmony_router_dynamic",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "router_getparams_direct_001_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "router_getparams_direct_001_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.router_dynamic.entry_param.for.source.harmony.router_dynamic.entry_param.0.method.router_getparams_direct_001_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.router_dynamic.entry_param.0.method.router_navigation_like_004_T",
+      "surfaceId": "surface.source.harmony.router_dynamic.entry_param",
+      "assetId": "asset.rule.test.harmony_router_dynamic",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "router_navigation_like_004_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "router_navigation_like_004_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.router_dynamic.entry_param.for.source.harmony.router_dynamic.entry_param.0.method.router_navigation_like_004_T"
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
@@ -75,22 +168,11 @@
       ],
       "semanticsFamily": "sink",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     }
   ],
   "effectTemplates": [
-    {
-      "id": "template.source.harmony.router_dynamic.entry_param",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
     {
       "id": "template.sink.harmony.router_dynamic.mock_sink",
       "confidence": "certain",
@@ -102,6 +184,54 @@
         }
       },
       "sinkKind": "sink"
+    },
+    {
+      "id": "template.source.harmony.router_dynamic.entry_param.for.source.harmony.router_dynamic.entry_param.0.method.appstorage_dynamic_key_002_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.router_dynamic.entry_param.for.source.harmony.router_dynamic.entry_param.0.method.appstorage_dynamic_key_path_005_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.router_dynamic.entry_param.for.source.harmony.router_dynamic.entry_param.0.method.router_getparams_direct_001_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.router_dynamic.entry_param.for.source.harmony.router_dynamic.entry_param.0.method.router_navigation_like_004_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
     }
   ],
   "provenance": {

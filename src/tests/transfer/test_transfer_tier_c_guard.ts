@@ -2,6 +2,7 @@
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
 import { SinkRule, SourceRule, TransferRule } from "../../core/rules/RuleSchema";
+import { collectCaseSeedNodes } from "../helpers/SyntheticCaseHarness";
 import * as path from "path";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -25,8 +26,18 @@ async function runCase(
 ): Promise<{ detected: boolean; transferRuleHits: string[] }> {
     const engine = new TaintPropagationEngine(scene, 1, { transferRules });
     engine.verbose = false;
-    await engine.buildPAG();
-    engine.propagateWithSourceRules(sourceRules);
+    const entryMethod = scene.getMethods().find(method => method.getName() === caseName);
+    assert(entryMethod, `entry method not found: ${caseName}`);
+    await engine.buildPAG({
+        entryModel: "explicit",
+        syntheticEntryMethods: [entryMethod],
+    });
+    const seeds = collectCaseSeedNodes(engine, entryMethod, {
+        sourceLocalNames: ["taint_src"],
+        includeParameterLocals: true,
+    });
+    assert(seeds.length > 0, `seed not found: ${caseName}`);
+    engine.propagateWithSeeds(seeds);
     const flows = engine.detectSinksByRules(sinkRules);
     const scopedFlows = flows.filter(flow => flowSinkInCaseMethod(scene, flow.sink, caseName));
     const transferRuleHits = Object.entries(engine.getRuleHitCounters().transfer)
@@ -53,7 +64,7 @@ async function main(): Promise<void> {
             id: "source.tierc.entry_param",
             sourceKind: "entry_param",
             target: "arg0",
-            match: { kind: "local_name_regex", value: "^taint_src$" },
+            match: { kind: "method_name_equals", value: "transfer_priority_002_T" },
         },
     ];
     const sinkRules: SinkRule[] = [
@@ -91,8 +102,15 @@ async function main(): Promise<void> {
     const withBoth = await runCase(scene, caseName, sourceRules, sinkRules, [bareTierC, anchoredTierC]);
 
     assert(!noTransfer.detected, "baseline without transfer should not detect");
-    assert(!withBareTierC.detected, "bare tier C fallback must be blocked by gate");
-    assert(withAnchoredTierC.detected, "anchored tier C fallback should detect");
+    assert(
+        !withBareTierC.transferRuleHits.includes("transfer.tierc.bare"),
+        `bare tier C should not hit, hits=${withBareTierC.transferRuleHits.join(",") || "N/A"}`,
+    );
+    assert(
+        !withBareTierC.detected,
+        `bare tier C method selector must be blocked by gate, hits=${withBareTierC.transferRuleHits.join(",") || "N/A"}`,
+    );
+    assert(withAnchoredTierC.detected, "anchored tier C method selector should detect");
     assert(withBoth.detected, "anchored tier C should still work when bare tier C co-exists");
     assert(!withBoth.transferRuleHits.includes("transfer.tierc.bare"), "bare tier C should not hit");
     assert(withBoth.transferRuleHits.includes("transfer.tierc.anchored"), "anchored tier C should hit");

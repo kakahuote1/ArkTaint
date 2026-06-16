@@ -298,7 +298,9 @@ function surfaceFromLegacyMatch(match: any, surfaceId: string): Record<string, u
 function selectorFromLegacyMatch(match: any): Record<string, unknown> {
     const kindMap: Record<string, string> = {
         method_name_equals: "method-name-equals",
-        local_name_regex: "local-name-regex",
+        signature_equals: "signature-equals",
+        declaring_class_equals: "declaring-class-equals",
+        field_name_equals: "field-name-equals",
     };
     return {
         kind: kindMap[String(match?.kind || "")] || "method-name-equals",
@@ -1180,10 +1182,7 @@ function buildRuntimeFamilies(): RuntimeFamily[] {
                 sources: [
                     {
                         id: "source.fixture.ability_handoff.entry_param",
-                        match: {
-                            kind: "local_name_regex",
-                            value: "^taint_src$",
-                        },
+                        match: { kind: "method_name_equals", value: "build" },
                         sourceKind: "entry_param",
                         target: "arg0",
                     },

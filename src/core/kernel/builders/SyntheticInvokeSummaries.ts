@@ -6,7 +6,8 @@ import { ArkParameterRef, ArkInstanceFieldRef, ArkStaticFieldRef } from "../../.
 import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { ArkInstanceInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
 import { getMethodBySignature } from "../contracts/MethodLookup";
-import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
+import { resolveOrCreateExactPagNodes } from "../contracts/PagNodeResolution";
+import { collectCarrierNodeIdsForValueAtStmt } from "../ordinary/OrdinaryAliasPropagation";
 import type {
     SyntheticConstructorStoreInfo,
     SyntheticFieldBridgeInfo,
@@ -56,26 +57,22 @@ export function buildSyntheticConstructorStoreMap(
             if (summary.size === 0 && capturedSummary.size === 0) continue;
 
             const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
-            const base = invokeExpr.getBase();
-            const baseNodes = pag.getNodesByValue(base);
-            if (!baseNodes || baseNodes.size === 0) continue;
+            const receiverObjectIds = collectConstructorReceiverObjectIds(pag, stmt, invokeExpr);
+            if (receiverObjectIds.length === 0) continue;
 
             for (const [paramIndex, fieldNames] of summary.entries()) {
                 if (paramIndex < 0 || paramIndex >= args.length) continue;
                 const srcArg = args[paramIndex]!;
-                const srcNodes = pag.getNodesByValue(srcArg) || safeGetOrCreatePagNodes(pag, srcArg, stmt);
+                const srcNodes = pag.getNodesByValue(srcArg);
                 if (!srcNodes || srcNodes.size === 0) continue;
 
                 for (const srcNodeId of srcNodes.values()) {
                     const sourceCarrierIds = collectSourceCarrierIds(pag.getNode(srcNodeId) as PagNode | undefined, srcNodeId);
-                    for (const baseNodeId of baseNodes.values()) {
-                        const baseNode = pag.getNode(baseNodeId) as PagNode;
-                        for (const objId of collectCarrierObjectIds(baseNode)) {
-                            for (const fieldName of fieldNames) {
-                                for (const sourceCarrierId of sourceCarrierIds) {
-                                    pushCtorStore(map, sourceCarrierId, { srcNodeId: sourceCarrierId, objId, fieldName });
-                                    count++;
-                                }
+                    for (const objId of receiverObjectIds) {
+                        for (const fieldName of fieldNames) {
+                            for (const sourceCarrierId of sourceCarrierIds) {
+                                pushCtorStore(map, sourceCarrierId, { srcNodeId: sourceCarrierId, objId, fieldName });
+                                count++;
                             }
                         }
                     }
@@ -93,19 +90,16 @@ export function buildSyntheticConstructorStoreMap(
 
                         for (const srcNodeId of srcNodes.values()) {
                             const sourceCarrierIds = collectSourceCarrierIds(pag.getNode(srcNodeId) as PagNode | undefined, srcNodeId);
-                            for (const baseNodeId of baseNodes.values()) {
-                                const baseNode = pag.getNode(baseNodeId) as PagNode;
-                                for (const objId of collectCarrierObjectIds(baseNode)) {
-                                    for (const store of stores) {
-                                        for (const sourceCarrierId of sourceCarrierIds) {
-                                            pushCtorStore(map, sourceCarrierId, {
-                                                srcNodeId: sourceCarrierId,
-                                                objId,
-                                                fieldName: store.targetFieldName,
-                                                sourceFieldPath: store.sourceFieldPath ? [...store.sourceFieldPath] : undefined,
-                                            });
-                                            count++;
-                                        }
+                            for (const objId of receiverObjectIds) {
+                                for (const store of stores) {
+                                    for (const sourceCarrierId of sourceCarrierIds) {
+                                        pushCtorStore(map, sourceCarrierId, {
+                                            srcNodeId: sourceCarrierId,
+                                            objId,
+                                            fieldName: store.targetFieldName,
+                                            sourceFieldPath: store.sourceFieldPath ? [...store.sourceFieldPath] : undefined,
+                                        });
+                                        count++;
                                     }
                                 }
                             }
@@ -118,6 +112,141 @@ export function buildSyntheticConstructorStoreMap(
 
     log(`Synthetic Constructor Store Map Built: ${count} field-store transfers.`);
     return map;
+}
+
+export function collectDynamicSyntheticConstructorStores(
+    scene: Scene,
+    pag: Pag,
+    sourceValue: any,
+    sourceNodeId: number,
+): SyntheticConstructorStoreInfo[] {
+    if (!(sourceValue instanceof Local)) return [];
+    const caller = sourceValue.getDeclaringStmt?.()?.getCfg?.()?.getDeclaringMethod?.();
+    const cfg = caller?.getCfg?.();
+    if (!cfg) return [];
+
+    const summaryCache = new Map<string, Map<number, Set<string>>>();
+    const visiting = new Set<string>();
+    const out: SyntheticConstructorStoreInfo[] = [];
+    const seen = new Set<string>();
+
+    for (const stmt of cfg.getStmts?.() || []) {
+        if (!stmt.containsInvokeExpr?.()) continue;
+        const invokeExpr = stmt.getInvokeExpr?.();
+        if (!(invokeExpr instanceof ArkInstanceInvokeExpr)) continue;
+
+        const calleeSig = invokeExpr.getMethodSignature?.()?.toString?.() || "";
+        if (!calleeSig || calleeSig.includes("%unk") || !calleeSig.includes(".constructor(")) continue;
+
+        const callee = getMethodBySignature(scene, calleeSig);
+        if (!callee?.getCfg?.()) continue;
+
+        const args = invokeExpr.getArgs?.() || [];
+        let matchedParamIndex = -1;
+        for (let index = 0; index < args.length; index++) {
+            if (sameLocalInDeclaringMethod(args[index], sourceValue)) {
+                matchedParamIndex = index;
+                break;
+            }
+        }
+        if (matchedParamIndex < 0) continue;
+
+        const summary = summarizeConstructorParamToFields(scene, callee, summaryCache, visiting);
+        const fieldNames = summary.get(matchedParamIndex);
+        if (!fieldNames || fieldNames.size === 0) continue;
+
+        const receiverObjectIds = collectConstructorReceiverObjectIds(pag, stmt, invokeExpr);
+        if (receiverObjectIds.length === 0) continue;
+
+        const sourceCarrierIds = collectSourceCarrierIds(pag.getNode(sourceNodeId) as PagNode | undefined, sourceNodeId);
+        for (const objId of receiverObjectIds) {
+            for (const fieldName of fieldNames) {
+                for (const sourceCarrierId of sourceCarrierIds) {
+                    const key = `${sourceCarrierId}|${objId}|${fieldName}`;
+                    if (seen.has(key)) continue;
+                    seen.add(key);
+                    out.push({ srcNodeId: sourceCarrierId, objId, fieldName });
+                }
+            }
+        }
+    }
+
+    return out;
+}
+
+function collectConstructorReceiverObjectIds(
+    pag: Pag,
+    stmt: any,
+    invokeExpr: ArkInstanceInvokeExpr,
+): number[] {
+    const out = new Set<number>();
+    const addNodeIds = (nodeIds: Iterable<number> | undefined): void => {
+        if (!nodeIds) return;
+        for (const nodeId of nodeIds) {
+            const node = pag.getNode(Number(nodeId)) as PagNode | undefined;
+            if (!node) continue;
+            for (const objId of collectCarrierObjectIds(node)) {
+                out.add(objId);
+            }
+        }
+    };
+
+    const base = invokeExpr.getBase?.();
+    if (base) {
+        addNodeIds(pag.getNodesByValue(base)?.values?.());
+        addNodeIds(collectCarrierNodeIdsForValueAtStmt(pag, base, stmt));
+    }
+
+    if (base instanceof Local) {
+        for (const aliasLocal of collectLaterSameMethodAliases(base, stmt)) {
+            addNodeIds(pag.getNodesByValue(aliasLocal)?.values?.());
+            addNodeIds(collectCarrierNodeIdsForValueAtStmt(pag, aliasLocal, aliasLocal.getDeclaringStmt?.()));
+        }
+        if (out.size === 0) {
+            const exactNodeId = firstNodeId(resolveOrCreateExactPagNodes(pag, base, stmt));
+            if (exactNodeId !== undefined) {
+                addNodeIds([exactNodeId]);
+            }
+        }
+    }
+
+    return [...out.values()];
+}
+
+function collectLaterSameMethodAliases(source: Local, anchorStmt: any): Local[] {
+    const cfg = anchorStmt?.getCfg?.() || source.getDeclaringStmt?.()?.getCfg?.();
+    const stmts = cfg?.getStmts?.() || [];
+    const aliases: Local[] = [];
+    let afterAnchor = false;
+    for (const stmt of stmts) {
+        if (stmt === anchorStmt) {
+            afterAnchor = true;
+            continue;
+        }
+        if (!afterAnchor) continue;
+        if (!(stmt instanceof ArkAssignStmt)) continue;
+        const left = stmt.getLeftOp?.();
+        const right = stmt.getRightOp?.();
+        if (left instanceof Local && sameLocalInDeclaringMethod(right, source)) {
+            aliases.push(left);
+        }
+    }
+    return aliases;
+}
+
+function firstNodeId(nodes: Map<number, number> | undefined): number | undefined {
+    return nodes?.values?.().next?.().value;
+}
+
+function sameLocalInDeclaringMethod(left: any, right: Local): boolean {
+    if (!(left instanceof Local)) return false;
+    if (left === right) return true;
+    const leftName = left.getName?.() || "";
+    const rightName = right.getName?.() || "";
+    if (!leftName || leftName !== rightName) return false;
+    const leftMethod = left.getDeclaringStmt?.()?.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.() || "";
+    const rightMethod = right.getDeclaringStmt?.()?.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.() || "";
+    return !!leftMethod && leftMethod === rightMethod;
 }
 
 export function summarizeConstructorCapturedLocalToFields(
@@ -289,8 +418,7 @@ export function buildSyntheticFieldBridgeMap(
         const callerThisLocal = [...body.getLocals().values()].find(l => l.getName() === "this");
         if (!callerThisLocal) continue;
 
-        const callerThisNodes = pag.getNodesByValue(callerThisLocal)
-            || safeGetOrCreatePagNodes(pag, callerThisLocal, callerThisLocal.getDeclaringStmt?.());
+        const callerThisNodes = pag.getNodesByValue(callerThisLocal);
         if (!callerThisNodes || callerThisNodes.size === 0) continue;
         const callerObjectIds = new Set<number>();
         for (const thisNodeId of callerThisNodes.values()) {
@@ -311,7 +439,7 @@ export function buildSyntheticFieldBridgeMap(
                         const targetFieldName = left.getFieldSignature().getFieldName();
                         const sourceFieldNames = summarizeConstructedLocalFieldNames(scene, right, summaryCache, visiting);
                         if (sourceFieldNames.size > 0) {
-                            const rightNodes = pag.getNodesByValue(right) || safeGetOrCreatePagNodes(pag, right, stmt);
+                            const rightNodes = pag.getNodesByValue(right);
                             if (rightNodes && rightNodes.size > 0) {
                                 for (const rightNodeId of rightNodes.values()) {
                                     const rightNode = pag.getNode(rightNodeId) as PagNode;
@@ -360,7 +488,7 @@ export function buildSyntheticFieldBridgeMap(
             if (fieldCopySummary.size === 0) continue;
 
             const base = invokeExpr.getBase();
-            const baseNodes = pag.getNodesByValue(base) || safeGetOrCreatePagNodes(pag, base, stmt);
+            const baseNodes = pag.getNodesByValue(base);
             if (!baseNodes || baseNodes.size === 0) continue;
             const targetObjectIds = new Set<number>();
             for (const baseNodeId of baseNodes.values()) {
@@ -765,9 +893,9 @@ function pushCtorStore(map: Map<number, SyntheticConstructorStoreInfo[]>, key: n
     map.get(key)!.push(info);
 }
 
-function collectSourceCarrierIds(sourceNode: PagNode | undefined, fallbackNodeId: number): number[] {
+function collectSourceCarrierIds(sourceNode: PagNode | undefined, sourceNodeId: number): number[] {
     const ids = new Set<number>();
-    ids.add(fallbackNodeId);
+    ids.add(sourceNodeId);
     if (sourceNode?.getPointTo) {
         for (const objId of sourceNode.getPointTo()) {
             ids.add(objId);

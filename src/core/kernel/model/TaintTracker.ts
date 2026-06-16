@@ -1,6 +1,7 @@
 
 import { PagNode } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { ContextID } from "../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/context/Context";
+import { fieldPathKey, fieldPathStartsWith, normalizeFieldPathSegments } from "../field/FieldPath";
 
 export class TaintTracker {
     // Key = "nodeId@contextId", Value = source signatures
@@ -24,11 +25,11 @@ export class TaintTracker {
     }
 
     private makeFieldKey(nodeId: number, contextId: ContextID, fieldPath: string[]): string {
-        return `${this.makeKey(nodeId, contextId)}.${fieldPath.join(".")}`;
+        return `${this.makeKey(nodeId, contextId)}.${fieldPathKey(fieldPath)}`;
     }
 
     private makeFieldPathKey(fieldPath: string[]): string {
-        return fieldPath.join(".");
+        return fieldPathKey(fieldPath);
     }
 
     private addSource(map: Map<string, Set<string>>, key: string, source: string): void {
@@ -61,7 +62,8 @@ export class TaintTracker {
     }
 
     public markTainted(nodeId: number, contextId: ContextID, source: string, fieldPath?: string[], factId?: string): void {
-        const hasFieldPath = !!(fieldPath && fieldPath.length > 0);
+        const normalizedFieldPath = normalizeFieldPathSegments(fieldPath);
+        const hasFieldPath = !!(normalizedFieldPath && normalizedFieldPath.length > 0);
         const baseKey = this.makeKey(nodeId, contextId);
         if (!hasFieldPath) {
             this.addSource(this.taintedNodes, baseKey, source);
@@ -78,15 +80,15 @@ export class TaintTracker {
                 this.taintedNodeFactIdsAnyContext.get(nodeId)!.add(factId);
             }
         }
-        if (hasFieldPath) {
-            const fieldKey = this.makeFieldKey(nodeId, contextId, fieldPath);
-            const fieldPathKey = this.makeFieldPathKey(fieldPath);
+        if (hasFieldPath && normalizedFieldPath) {
+            const fieldKey = this.makeFieldKey(nodeId, contextId, normalizedFieldPath);
+            const normalizedFieldPathKey = this.makeFieldPathKey(normalizedFieldPath);
             this.addSource(this.taintedFieldNodes, fieldKey, source);
             if (!this.taintedFieldPathsAnyContext.has(nodeId)) {
                 this.taintedFieldPathsAnyContext.set(nodeId, new Set<string>());
             }
-            this.taintedFieldPathsAnyContext.get(nodeId)!.add(fieldPathKey);
-            this.addFieldAnyContextSource(nodeId, fieldPathKey, source);
+            this.taintedFieldPathsAnyContext.get(nodeId)!.add(normalizedFieldPathKey);
+            this.addFieldAnyContextSource(nodeId, normalizedFieldPathKey, source);
             if (factId) {
                 if (!this.taintedFieldFactIds.has(fieldKey)) {
                     this.taintedFieldFactIds.set(fieldKey, new Set<string>());
@@ -96,24 +98,26 @@ export class TaintTracker {
                     this.taintedFieldFactIdsAnyContext.set(nodeId, new Map<string, Set<string>>());
                 }
                 const byFieldPath = this.taintedFieldFactIdsAnyContext.get(nodeId)!;
-                if (!byFieldPath.has(fieldPathKey)) {
-                    byFieldPath.set(fieldPathKey, new Set<string>());
+                if (!byFieldPath.has(normalizedFieldPathKey)) {
+                    byFieldPath.set(normalizedFieldPathKey, new Set<string>());
                 }
-                byFieldPath.get(fieldPathKey)!.add(factId);
+                byFieldPath.get(normalizedFieldPathKey)!.add(factId);
             }
         }
     }
 
     public isTainted(nodeId: number, contextId: ContextID, fieldPath?: string[]): boolean {
-        if (fieldPath && fieldPath.length > 0) {
-            return this.taintedFieldNodes.has(this.makeFieldKey(nodeId, contextId, fieldPath));
+        const normalizedFieldPath = normalizeFieldPathSegments(fieldPath);
+        if (normalizedFieldPath && normalizedFieldPath.length > 0) {
+            return this.taintedFieldNodes.has(this.makeFieldKey(nodeId, contextId, normalizedFieldPath));
         }
         return this.taintedNodes.has(this.makeKey(nodeId, contextId));
     }
 
     public hasSource(nodeId: number, contextId: ContextID, source: string, fieldPath?: string[]): boolean {
-        if (fieldPath && fieldPath.length > 0) {
-            return this.taintedFieldNodes.get(this.makeFieldKey(nodeId, contextId, fieldPath))?.has(source) || false;
+        const normalizedFieldPath = normalizeFieldPathSegments(fieldPath);
+        if (normalizedFieldPath && normalizedFieldPath.length > 0) {
+            return this.taintedFieldNodes.get(this.makeFieldKey(nodeId, contextId, normalizedFieldPath))?.has(source) || false;
         }
         return this.taintedNodes.get(this.makeKey(nodeId, contextId))?.has(source) || false;
     }
@@ -122,18 +126,19 @@ export class TaintTracker {
      * 检查节点在任意上下文下是否被污染（用于 Sink 检测）
      */
     public isTaintedAnyContext(nodeId: number, fieldPath?: string[]): boolean {
-        const prefix = `${nodeId}@`;
-        if (fieldPath && fieldPath.length > 0) {
-            const fieldPathKey = this.makeFieldPathKey(fieldPath);
-            return this.taintedFieldPathsAnyContext.get(nodeId)?.has(fieldPathKey) || false;
+        const normalizedFieldPath = normalizeFieldPathSegments(fieldPath);
+        if (normalizedFieldPath && normalizedFieldPath.length > 0) {
+            const normalizedFieldPathKey = this.makeFieldPathKey(normalizedFieldPath);
+            return this.taintedFieldPathsAnyContext.get(nodeId)?.has(normalizedFieldPathKey) || false;
         }
 
         return this.taintedNodesAnyContext.has(nodeId);
     }
 
     public getSource(nodeId: number, contextId: ContextID, fieldPath?: string[]): string | undefined {
-        if (fieldPath && fieldPath.length > 0) {
-            return this.firstSource(this.taintedFieldNodes.get(this.makeFieldKey(nodeId, contextId, fieldPath)));
+        const normalizedFieldPath = normalizeFieldPathSegments(fieldPath);
+        if (normalizedFieldPath && normalizedFieldPath.length > 0) {
+            return this.firstSource(this.taintedFieldNodes.get(this.makeFieldKey(nodeId, contextId, normalizedFieldPath)));
         }
         return this.firstSource(this.taintedNodes.get(this.makeKey(nodeId, contextId)));
     }
@@ -146,9 +151,10 @@ export class TaintTracker {
     }
 
     public getSourcesAnyContext(nodeId: number, fieldPath?: string[]): string[] {
-        if (fieldPath && fieldPath.length > 0) {
-            const fieldPathKey = this.makeFieldPathKey(fieldPath);
-            return [...(this.taintedFieldSourcesAnyContext.get(nodeId)?.get(fieldPathKey) || [])];
+        const normalizedFieldPath = normalizeFieldPathSegments(fieldPath);
+        if (normalizedFieldPath && normalizedFieldPath.length > 0) {
+            const normalizedFieldPathKey = this.makeFieldPathKey(normalizedFieldPath);
+            return [...(this.taintedFieldSourcesAnyContext.get(nodeId)?.get(normalizedFieldPathKey) || [])];
         }
 
         return [...(this.taintedNodeSourcesAnyContext.get(nodeId) || [])];
@@ -187,28 +193,22 @@ export class TaintTracker {
     }
 
     public hasDescendantFieldSourceAnyContext(nodeId: number, source: string, prefix: string[]): boolean {
-        if (prefix.length === 0) return false;
+        const normalizedPrefix = normalizeFieldPathSegments(prefix);
+        if (!normalizedPrefix || normalizedPrefix.length === 0) return false;
         const byFieldPath = this.taintedFieldSourcesAnyContext.get(nodeId);
         if (!byFieldPath) return false;
         for (const [fieldPathKey, sources] of byFieldPath.entries()) {
             if (!sources.has(source)) continue;
             const fieldPath = fieldPathKey.split(".");
-            if (fieldPath.length <= prefix.length) continue;
-            let matches = true;
-            for (let i = 0; i < prefix.length; i++) {
-                if (fieldPath[i] !== prefix[i]) {
-                    matches = false;
-                    break;
-                }
-            }
-            if (matches) return true;
+            if (fieldPathStartsWith(fieldPath, normalizedPrefix)) return true;
         }
         return false;
     }
 
     public getTaintFactIds(nodeId: number, contextId: ContextID, fieldPath?: string[]): string[] {
-        if (fieldPath && fieldPath.length > 0) {
-            const ids = this.taintedFieldFactIds.get(this.makeFieldKey(nodeId, contextId, fieldPath));
+        const normalizedFieldPath = normalizeFieldPathSegments(fieldPath);
+        if (normalizedFieldPath && normalizedFieldPath.length > 0) {
+            const ids = this.taintedFieldFactIds.get(this.makeFieldKey(nodeId, contextId, normalizedFieldPath));
             return ids ? [...ids] : [];
         }
         const ids = this.taintedNodeFactIds.get(this.makeKey(nodeId, contextId));
@@ -218,9 +218,10 @@ export class TaintTracker {
     public getTaintFactIdsAnyContext(nodeId: number, fieldPath?: string[]): string[] {
         const out = new Set<string>();
 
-        if (fieldPath && fieldPath.length > 0) {
-            const fieldPathKey = this.makeFieldPathKey(fieldPath);
-            const ids = this.taintedFieldFactIdsAnyContext.get(nodeId)?.get(fieldPathKey);
+        const normalizedFieldPath = normalizeFieldPathSegments(fieldPath);
+        if (normalizedFieldPath && normalizedFieldPath.length > 0) {
+            const normalizedFieldPathKey = this.makeFieldPathKey(normalizedFieldPath);
+            const ids = this.taintedFieldFactIdsAnyContext.get(nodeId)?.get(normalizedFieldPathKey);
             if (ids) {
                 for (const id of ids) out.add(id);
             }

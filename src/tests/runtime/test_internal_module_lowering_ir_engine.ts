@@ -35,7 +35,7 @@ function writeFixtureRuleAsset(filePath: string, fixtureId: string): void {
                 {
                     surfaceId: `surface.${fixtureId}.Source`,
                     kind: "invoke",
-                    modulePath: "fixture",
+                    modulePath: "repo/src/main/ets",
                     functionName: "Source",
                     invokeKind: "free-function",
                     argCount: 0,
@@ -45,7 +45,7 @@ function writeFixtureRuleAsset(filePath: string, fixtureId: string): void {
                 {
                     surfaceId: `surface.${fixtureId}.Sink`,
                     kind: "invoke",
-                    modulePath: "fixture",
+                    modulePath: "repo/src/main/ets",
                     functionName: "Sink",
                     invokeKind: "free-function",
                     argCount: 1,
@@ -926,6 +926,7 @@ async function main(): Promise<void> {
                     },
                 ],
                 getMethods: ["getRouteParams"],
+                routerClassNames: ["RouterLike"],
                 payloadUnwrapPrefixes: ["params"],
             },
         ],

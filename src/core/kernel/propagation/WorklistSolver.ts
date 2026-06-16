@@ -11,10 +11,12 @@ import { TaintFact } from "../model/TaintFact";
 import { TaintTracker } from "../model/TaintTracker";
 import { FactPredecessorRecord } from "./PropagationTypes";
 import type { CurrentnessCertificate } from "../oclfs";
+import { FieldAccessIndex, FieldPropagationEngine } from "../field";
 import { TaintContextManager, CallEdgeInfo, CallEdgeType } from "../context/TaintContext";
 import { propagateExpressionTaint } from "./ExpressionPropagation";
 import { CaptureEdgeInfo, ReceiverFieldBridgeInfo } from "../builders/CallEdgeMapBuilder";
 import {
+    collectDynamicSyntheticConstructorStores,
     SyntheticInvokeEdgeInfo,
     SyntheticConstructorStoreInfo,
     SyntheticFieldBridgeInfo,
@@ -43,40 +45,29 @@ import type {
     MethodReachedEvent,
     TaintFlowEvent,
 } from "../contracts/EnginePluginEvents";
-import { fromContainerFieldKey, toContainerFieldKey } from "../model/ContainerSlotKeys";
+import { toContainerFieldKey } from "../model/ContainerSlotKeys";
 import { getMethodBySignature } from "../contracts/MethodLookup";
 import {
     collectAliasLocalsForCarrier,
     collectCarrierNodeIdsForValueAtStmt,
 } from "../ordinary/OrdinaryAliasPropagation";
-import { isCarrierFieldPathLiveAtStmt } from "../ordinary/OrdinaryObjectInvalidation";
 import {
     collectOrdinaryArrayConstructorEffectsFromTaintedLocal,
-    collectOrdinaryArrayFromMapperCallbackParamNodeIdsForObj,
     collectOrdinaryArrayFromMapperCallbackParamNodeIdsFromTaintedLocal,
     collectOrdinaryArrayHigherOrderEffectsFromTaintedLocal,
     collectOrdinaryArrayMutationEffectsFromTaintedLocal,
-    collectOrdinaryArraySlotLoadNodeIds,
-    collectOrdinaryArrayStaticViewEffectsBySlot,
-    collectOrdinaryArrayViewEffectsBySlot,
     collectOrdinaryStringSplitEffectsFromTaintedLocal,
     collectPreciseArrayLoadNodeIdsFromTaintedLocal,
 } from "../ordinary/OrdinaryArrayPropagation";
 import {
-    collectArrayStoreFactsFromTaintedLocal,
-    collectOrdinaryCaughtExceptionFieldLoadFactsFromTaintedObj,
+    collectObjectLiteralFieldCaptureFactsFromObjectField,
+    collectObjectLiteralFieldCaptureFactsFromValue,
+    collectOrdinaryClosureLocalReadbackFactsFromParentLocal,
     collectOrdinaryClosureLocalWritebackFactsFromTaintedLocal,
-    collectOrdinaryCopyLikeResultFactsFromTaintedObj,
     collectOrdinaryTaintPreservingDestinationLocals,
     collectOrdinaryErrorMessageFactsFromTaintedLocal,
     collectOrdinaryRegexArrayResultFactsFromTaintedLocal,
     collectOrdinarySerializedStringResultFactsFromTaintedLocal,
-    collectDirectFieldStoreFallbackFactsFromTaintedLocal,
-    collectNestedArrayStoreFactsFromTaintedLocal,
-    collectNestedFieldStoreFactsFromTaintedLocal,
-    collectObjectLiteralFieldCaptureFactsFromTaintedObj,
-    collectObjectLiteralFieldCaptureFactsFromTaintedLocal,
-    collectPreciseArrayLoadNodeIdsFromTaintedObjSlot,
     resolveOrdinaryArraySlotName,
 } from "../ordinary/OrdinaryLanguagePropagation";
 import {
@@ -94,22 +85,11 @@ import {
     resolveDeclaringMethodSignature,
     resolveMethodSignatureByNode,
     resolveObjectClassSignatureByNode,
-    selectThisFieldFallbackLoads,
-    type ThisFieldFallbackLoadNodeIds,
 } from "./WorklistReachabilitySupport";
 import {
     findStoreAnchorStmtForTaintedValue,
     propagateArrayElementLoads,
-    propagateCarrierLoadPrefixesByObj,
     propagateCapturedFieldWrites,
-    propagateDirectFieldArgUsesByObj,
-    propagateDirectFieldLoadsByLocal,
-    propagateDirectFieldLoadsByObj,
-    propagateObjectAssignFieldBridgesByObj,
-    propagateObjectResultContainerStoresByObj,
-    propagateObjectResultLoadsByObj,
-    propagateReflectGetFieldLoadsByObj,
-    propagateReceiverGetterResultLoadsByObj,
     propagateReflectSetFieldStores,
     propagateRestArrayParam,
 } from "./WorklistFieldPropagation";
@@ -180,25 +160,6 @@ function cloneFactAcrossAbilityHandoffBoundary(
         currentCtx,
         boundary.preservesFieldPath && fact.field ? [...fact.field] : undefined,
     );
-}
-
-function resolveIndexedLoadBaseCarrierNodeIds(
-    pag: Pag,
-    dstNode: PagNode,
-    loadAnchorStmt: any,
-    classBySignature?: Map<string, any>,
-): number[] | undefined {
-    if (!(loadAnchorStmt instanceof ArkAssignStmt)) return undefined;
-    const right = loadAnchorStmt.getRightOp?.();
-    if (right instanceof ArkInstanceFieldRef || right instanceof ArkArrayRef) {
-        return collectCarrierNodeIdsForValueAtStmt(
-            pag,
-            right.getBase?.(),
-            loadAnchorStmt,
-            classBySignature,
-        );
-    }
-    return undefined;
 }
 
 function isOrdinaryFieldCarrierRelayCopy(sourceNode: PagNode, targetNode: PagNode): boolean {
@@ -316,6 +277,16 @@ export class WorklistSolver {
         const classBySignature = measureSection("precompute_class_index", () => buildClassSignatureIndex(scene));
         const classRelationCache = new Map<string, boolean>();
         const preciseArrayLoadCache = new Map<string, number[]>();
+        const fieldPropagationEngine = new FieldPropagationEngine({
+            scene,
+            pag,
+            tracker,
+            classBySignature,
+            fieldAccessIndex: FieldAccessIndex.fromFieldToVarIndex(fieldToVarIndex),
+            unresolvedThisFieldLoadNodeIdsByFieldAndFile,
+            classRelationCache,
+            preciseArrayLoadCache,
+        });
         const ordinarySharedStateIndex = measureSection("precompute_shared_state_index", () => buildOrdinarySharedStateIndex(scene, pag));
         const objectNodeIdsByClassSignature = measureSection("precompute_object_node_class_index", () => {
             const out = new Map<string, Set<number>>();
@@ -339,7 +310,7 @@ export class WorklistSolver {
                     }
                 }
             }
-            log(`[Field-LoadFallback] this-field fallback fields=${unresolvedThisFieldLoadNodeIdsByFieldAndFile.size}, loads=${unresolvedLoadCount}`);
+            log(`[Field-Load] unresolved this-field loads fields=${unresolvedThisFieldLoadNodeIdsByFieldAndFile.size}, loads=${unresolvedLoadCount}`);
         }
         const factRuleChains = new Map<string, FactRuleChain>();
         const cloneChain = (chain?: FactRuleChain): FactRuleChain => ({
@@ -529,7 +500,6 @@ export class WorklistSolver {
         let queueHead = 0;
         profiler?.onQueueSize(worklist.length - queueHead);
         const reachedMethodSignatures = new Set<string>();
-        const unresolvedThisFieldFallbackEmissions = new Set<string>();
         const traceWorklist = process.env.ARKTAINT_TRACE_WORKLIST === "1";
         const traceWorklistSections = process.env.ARKTAINT_TRACE_WORKLIST_SECTIONS === "1";
         let lastTraceAt = 0;
@@ -668,6 +638,14 @@ export class WorklistSolver {
                 onAccepted();
             };
 
+            const enqueueFieldEmission = (emission: ReturnType<FieldPropagationEngine["propagate"]>[number]): void => {
+                const newFact = emission.fact;
+                tryEnqueue(emission.stage, newFact, () => {
+                    tracker.markTainted(newFact.node.getID(), newFact.contextID, newFact.source, newFact.field, newFact.taintId);
+                    log(emission.message);
+                });
+            };
+
                 const declaringMethodSignature = resolveDeclaringMethodSignature(node);
             if (declaringMethodSignature && !reachedMethodSignatures.has(declaringMethodSignature)) {
                 reachedMethodSignatures.add(declaringMethodSignature);
@@ -759,6 +737,24 @@ export class WorklistSolver {
                         );
                     });
                 }
+
+                const objectLiteralFieldCaptureFacts = collectObjectLiteralFieldCaptureFactsFromObjectField(
+                    node.getID(),
+                    fact.field,
+                    fact.source,
+                    currentCtx,
+                    pag,
+                    classBySignature,
+                );
+                for (const newFact of objectLiteralFieldCaptureFacts) {
+                    tryEnqueue("ObjectLiteral-CaptureField", newFact, () => {
+                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
+                        log(
+                            `    [ObjectLiteral-CaptureField] Tainted Obj ${newFact.node.getID()}`
+                            + `.${newFact.field?.join(".")} (ctx=${currentCtx})`
+                        );
+                    });
+                }
             }
 
             traceSection("expr", fact);
@@ -819,11 +815,28 @@ export class WorklistSolver {
             }
 
             if (!fact.field || fact.field.length === 0) {
-            const capturedFieldFacts = propagateCapturedFieldWrites(pag, node, fact.source, currentCtx, classBySignature);
+                const capturedFieldFacts = propagateCapturedFieldWrites(pag, node, fact.source, currentCtx, classBySignature);
                 for (const newFact of capturedFieldFacts) {
                     tryEnqueue("Capture-Store", newFact, () => {
                         tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
                         log(`    [Capture-Store] Tainted field '${newFact.field?.[0]}' of Obj ${newFact.node.getID()} (ctx=${currentCtx})`);
+                    });
+                }
+
+                const objectLiteralCaptureFacts = collectObjectLiteralFieldCaptureFactsFromValue(
+                    node,
+                    fact.source,
+                    currentCtx,
+                    pag,
+                    classBySignature,
+                );
+                for (const newFact of objectLiteralCaptureFacts) {
+                    tryEnqueue("ObjectLiteral-CaptureValue", newFact, () => {
+                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
+                        log(
+                            `    [ObjectLiteral-CaptureValue] Tainted Obj ${newFact.node.getID()}`
+                            + `.${newFact.field?.join(".")} (ctx=${currentCtx})`
+                        );
                     });
                 }
 
@@ -840,10 +853,24 @@ export class WorklistSolver {
                         log(`    [Closure-Local-Writeback] Tainted captured local node ${newFact.node.getID()} (ctx=${newFact.contextID})`);
                     });
                 }
+
+                const closureReadbackFacts = collectOrdinaryClosureLocalReadbackFactsFromParentLocal(
+                    node,
+                    fact.source,
+                    currentCtx,
+                    pag,
+                    scene,
+                );
+                for (const newFact of closureReadbackFacts) {
+                    tryEnqueue("Closure-Local-Readback", newFact, () => {
+                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
+                        log(`    [Closure-Local-Readback] Tainted captured read local node ${newFact.node.getID()} (ctx=${newFact.contextID})`);
+                    });
+                }
             }
 
             if (!fact.field || fact.field.length === 0) {
-            const reflectSetFacts = propagateReflectSetFieldStores(pag, node, fact.source, currentCtx);
+                const reflectSetFacts = propagateReflectSetFieldStores(pag, node, fact.source, currentCtx);
                 for (const newFact of reflectSetFacts) {
                     tryEnqueue("Reflect-Store", newFact, () => {
                         tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
@@ -947,9 +974,16 @@ export class WorklistSolver {
                 }
             }
 
-            const ctorStores = syntheticConstructorStoreMap.get(node.getID());
-            if (ctorStores) {
+            const ctorStores = [
+                ...(syntheticConstructorStoreMap.get(node.getID()) || []),
+                ...collectDynamicSyntheticConstructorStores(scene, pag, node.getValue?.(), node.getID()),
+            ];
+            if (ctorStores.length > 0) {
+                const seenCtorStores = new Set<string>();
                 for (const info of ctorStores) {
+                    const ctorStoreKey = `${info.srcNodeId}|${info.objId}|${info.fieldName}|${info.sourceFieldPath?.join(".") || ""}`;
+                    if (seenCtorStores.has(ctorStoreKey)) continue;
+                    seenCtorStores.add(ctorStoreKey);
                     const objNode = pag.getNode(info.objId) as PagNode;
                     const sourceFieldPath = info.sourceFieldPath || [];
                     let targetFieldPath: string[] | undefined;
@@ -1343,34 +1377,13 @@ export class WorklistSolver {
                     }
                 }
 
-                const localStoreFallbackFacts = collectDirectFieldStoreFallbackFactsFromTaintedLocal(
-                    node,
-                    fact.source,
-                    currentCtx,
-                    pag,
-                    classBySignature,
+                traceSection("field_propagation_engine", fact);
+                const fieldEmissions = measureSection(
+                    "field_propagation_engine",
+                    () => fieldPropagationEngine.propagate({ fact, node, currentCtx }),
                 );
-                for (const newFact of localStoreFallbackFacts) {
-                    tryEnqueue("Store-FieldFallback", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
-                        const fieldName = newFact.field?.[0] || "<field>";
-                        log(`    [Store-FieldFallback] Tainted Obj ${newFact.node.getID()}.${fieldName} (ctx=${newFact.contextID})`);
-                    });
-                }
-
-                const arrayStoreFallbackFacts = collectArrayStoreFactsFromTaintedLocal(
-                    node,
-                    fact.source,
-                    currentCtx,
-                    pag,
-                    classBySignature,
-                );
-                for (const newFact of arrayStoreFallbackFacts) {
-                    tryEnqueue("Store-ArrayFallback", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
-                        const fieldName = newFact.field?.[0] || "<slot>";
-                        log(`    [Store-ArrayFallback] Tainted Obj ${newFact.node.getID()}.${fieldName} (ctx=${newFact.contextID})`);
-                    });
+                for (const emission of fieldEmissions) {
+                    enqueueFieldEmission(emission);
                 }
                 const moduleStateFacts = collectOrdinaryModuleStateFactsFromTaintedLocal(
                     node,
@@ -1437,169 +1450,16 @@ export class WorklistSolver {
                     }
                 }
 
-                const localFieldFacts = propagateDirectFieldLoadsByLocal(
-                    pag,
-                    node,
-                    fact.field,
-                    fact.source,
-                    currentCtx,
-                    tracker,
-                    classBySignature,
+            }
+
+            if (fact.field && fact.field.length > 0) {
+                traceSection("field_propagation_engine", fact);
+                const fieldEmissions = measureSection(
+                    "field_propagation_engine",
+                    () => fieldPropagationEngine.propagate({ fact, node, currentCtx }),
                 );
-                for (const newFact of localFieldFacts) {
-                    tryEnqueue("Load-LocalField", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
-                        log(`    [Load-LocalField] Tainted node ${newFact.node.getID()} from local field '${fact.field?.[0]}' (ctx=${currentCtx})`);
-                    });
-                }
-            }
-
-            if (fact.field && fact.field.length > 0) {
-                traceSection("carrier_load_prefix", fact);
-                const carrierPrefixFacts = measureSection("carrier_load_prefix", () => propagateCarrierLoadPrefixesByObj(
-                    pag,
-                    node.getID(),
-                    fact.field,
-                    fact.source,
-                    currentCtx,
-                    tracker,
-                    classBySignature,
-                ));
-                for (const newFact of carrierPrefixFacts) {
-                    tryEnqueue("Carrier-LoadPrefix", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
-                        log(`    [Carrier-LoadPrefix] Tainted Obj ${newFact.node.getID()}.${newFact.field?.join(".")} from loaded carrier alias (ctx=${currentCtx})`);
-                    });
-                }
-            }
-
-            if (fact.field && fact.field.length > 0) {
-                traceSection("reflect_get_load", fact);
-                const reflectFacts = measureSection("reflect_get_load", () => propagateReflectGetFieldLoadsByObj(
-                    pag,
-                    node.getID(),
-                    fact.field,
-                    fact.source,
-                    currentCtx,
-                    tracker,
-                    classBySignature,
-                ));
-                for (const newFact of reflectFacts) {
-                    tryEnqueue("Reflect-Load", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
-                        log(`    [Reflect-Load] Tainted var ${newFact.node.getID()} from Reflect.get field '${fact.field[0]}' (ctx=${currentCtx})`);
-                    });
-                }
-            }
-
-            if (fact.field && fact.field.length > 0) {
-                traceSection("direct_field_load", fact);
-                const directFieldFacts = measureSection("direct_field_load", () => propagateDirectFieldLoadsByObj(
-                    pag,
-                    node.getID(),
-                    fact.field,
-                    fact.source,
-                    currentCtx,
-                    tracker,
-                    classBySignature,
-                ));
-                for (const newFact of directFieldFacts) {
-                    tryEnqueue("Load-DirectField", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
-                        log(`    [Load-DirectField] Tainted var ${newFact.node.getID()} from direct field '${fact.field?.[0]}' (ctx=${currentCtx})`);
-                    });
-                }
-            }
-
-            if (fact.field && fact.field.length > 0) {
-                traceSection("direct_field_arg", fact);
-                const directFieldArgFacts = measureSection("direct_field_arg", () => propagateDirectFieldArgUsesByObj(
-                    pag,
-                    node.getID(),
-                    fact.field,
-                    fact.source,
-                    currentCtx,
-                    tracker,
-                    classBySignature,
-                ));
-                for (const newFact of directFieldArgFacts) {
-                    tryEnqueue("Load-DirectField-Arg", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
-                        log(`    [Load-DirectField-Arg] Tainted node ${newFact.node.getID()} from direct field arg '${fact.field?.[0]}' (ctx=${currentCtx})`);
-                    });
-                }
-            }
-
-            if (fact.field && fact.field.length > 0) {
-                traceSection("receiver_getter_result", fact);
-                const getterResultFacts = measureSection("receiver_getter_result", () => propagateReceiverGetterResultLoadsByObj(
-                    scene,
-                    pag,
-                    node.getID(),
-                    fact.field,
-                    fact.source,
-                    currentCtx,
-                    tracker,
-                    classBySignature,
-                ));
-                for (const newFact of getterResultFacts) {
-                    tryEnqueue("Load-ReceiverGetter", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
-                        log(`    [Load-ReceiverGetter] Tainted node ${newFact.node.getID()} via receiver getter '${fact.field?.join(".")}' (ctx=${currentCtx})`);
-                    });
-                }
-            }
-
-            if (fact.field && fact.field.length > 0) {
-                traceSection("object_literal_capture", fact);
-                const objectLiteralFieldCaptureFacts = measureSection("object_literal_capture", () => collectObjectLiteralFieldCaptureFactsFromTaintedObj(
-                    node.getID(),
-                    fact.field,
-                    fact.source,
-                    currentCtx,
-                    pag,
-                    classBySignature,
-                ));
-                for (const newFact of objectLiteralFieldCaptureFacts) {
-                    tryEnqueue("Store-ObjectLiteralFieldCapture", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
-                        log(`    [Store-ObjectLiteralFieldCapture] Tainted Obj ${newFact.node.getID()}.${newFact.field?.join(".")} via ordinary object literal shorthand (ctx=${newFact.contextID})`);
-                    });
-                }
-            }
-
-            if (!fact.field || fact.field.length === 0) {
-                traceSection("object_literal_local_capture", fact);
-                const objectLiteralLocalCaptureFacts = measureSection("object_literal_local_capture", () => collectObjectLiteralFieldCaptureFactsFromTaintedLocal(
-                    node,
-                    fact.source,
-                    currentCtx,
-                    pag,
-                    classBySignature,
-                ));
-                for (const newFact of objectLiteralLocalCaptureFacts) {
-                    tryEnqueue("Store-ObjectLiteralLocalCapture", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
-                        log(`    [Store-ObjectLiteralLocalCapture] Tainted Obj ${newFact.node.getID()}.${newFact.field?.join(".")} via ordinary object literal local capture (ctx=${newFact.contextID})`);
-                    });
-                }
-            }
-
-            if (fact.field && fact.field.length > 0) {
-                traceSection("nested_field_store", fact);
-                const nestedFieldStoreFacts = measureSection("nested_field_store", () => collectNestedFieldStoreFactsFromTaintedLocal(
-                    node,
-                    fact.field,
-                    fact.source,
-                    currentCtx,
-                    pag,
-                    classBySignature,
-                ));
-                for (const newFact of nestedFieldStoreFacts) {
-                    tryEnqueue("Store-NestedFieldFallback", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
-                        log(`    [Store-NestedFieldFallback] Tainted Obj ${newFact.node.getID()}.${newFact.field?.join(".")} (ctx=${newFact.contextID})`);
-                    });
+                for (const emission of fieldEmissions) {
+                    enqueueFieldEmission(emission);
                 }
             }
 
@@ -1622,21 +1482,6 @@ export class WorklistSolver {
                             log(`    [Store-StaticField] Tainted static field node ${newFact.node.getID()}.${newFact.field?.join(".")} (ctx=${sharedStateCtx})`);
                         });
                     }
-                }
-
-                const nestedArrayStoreFacts = collectNestedArrayStoreFactsFromTaintedLocal(
-                    node,
-                    fact.field,
-                    fact.source,
-                    currentCtx,
-                    pag,
-                    classBySignature,
-                );
-                for (const newFact of nestedArrayStoreFacts) {
-                    tryEnqueue("Store-NestedArrayFallback", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
-                        log(`    [Store-NestedArrayFallback] Tainted Obj ${newFact.node.getID()}.${newFact.field?.join(".")} (ctx=${newFact.contextID})`);
-                    });
                 }
 
                 const moduleStateFacts = collectOrdinaryModuleStateFactsFromTaintedLocal(
@@ -1686,320 +1531,6 @@ export class WorklistSolver {
                 }
             }
 
-            if (fact.field && fact.field.length > 0) {
-                const caughtExceptionFieldFacts = collectOrdinaryCaughtExceptionFieldLoadFactsFromTaintedObj(
-                    node.getID(),
-                    fact.field,
-                    fact.source,
-                    currentCtx,
-                    pag,
-                    classBySignature,
-                );
-                for (const newFact of caughtExceptionFieldFacts) {
-                    tryEnqueue("Exception-Field-Load", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
-                        const fieldText = fact.field?.join(".") || "<field>";
-                        log(`    [Exception-Field-Load] Tainted node ${newFact.node.getID()} from thrown exception field '${fieldText}' (ctx=${currentCtx})`);
-                    });
-                }
-
-                const copyLikeResultFacts = collectOrdinaryCopyLikeResultFactsFromTaintedObj(
-                    node.getID(),
-                    fact.field,
-                    fact.source,
-                    currentCtx,
-                    pag,
-                    classBySignature,
-                );
-                for (const newFact of copyLikeResultFacts) {
-                    tryEnqueue("CopyLike-Result", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
-                        log(`    [CopyLike-Result] Tainted node ${newFact.node.getID()} via ordinary copy/serialization boundary (ctx=${currentCtx})`);
-                    });
-                }
-            }
-
-            if (fact.field && fact.field.length > 0) {
-                traceSection("object_result_loads", fact);
-                const objectResultFacts = measureSection("object_result_loads", () => propagateObjectResultLoadsByObj(pag, node.getID(), fact.source, currentCtx, classBySignature));
-                for (const newFact of objectResultFacts) {
-                    tryEnqueue("Object-Result", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
-                        log(`    [Object-Result] Tainted result node ${newFact.node.getID()} from Object.values/entries on field '${fact.field?.[0]}' (ctx=${currentCtx})`);
-                    });
-                }
-            }
-
-            if (fact.field && fact.field.length > 0) {
-                traceSection("object_result_stores", fact);
-                const objectResultStoreFacts = measureSection("object_result_stores", () => propagateObjectResultContainerStoresByObj(pag, node.getID(), fact.source, currentCtx, classBySignature));
-                for (const newFact of objectResultStoreFacts) {
-                    tryEnqueue("Object-Result-Store", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
-                        log(`    [Object-Result-Store] Tainted slot '${fromContainerFieldKey(newFact.field?.[0] || "") || newFact.field?.[0]}' of Obj ${newFact.node.getID()} via Object.values/entries (ctx=${currentCtx})`);
-                    });
-                }
-            }
-
-            const shouldRunObjectAssignBridge = (fact.field && fact.field.length > 0) || node.getValue?.() instanceof Local;
-            if (shouldRunObjectAssignBridge) {
-                traceSection("object_assign_bridges", fact);
-                const objectAssignFacts = measureSection("object_assign_bridges", () => propagateObjectAssignFieldBridgesByObj(pag, node.getID(), fact.field || [], fact.source, currentCtx, classBySignature));
-                for (const newFact of objectAssignFacts) {
-                    tryEnqueue("Object-Assign", newFact, () => {
-                        tracker.markTainted(newFact.node.getID(), newFact.contextID, fact.source, newFact.field, newFact.taintId);
-                        log(`    [Object-Assign] Tainted field '${newFact.field?.[0]}' of Obj ${newFact.node.getID()} via Object.assign (ctx=${currentCtx})`);
-                    });
-                }
-            }
-
-            if (fact.field && fact.field.length > 0) {
-                traceSection("container_field_loads", fact);
-                const objId = fact.node.getID();
-                const fieldName = fact.field[0];
-
-                const containerSlot = fromContainerFieldKey(fieldName);
-                if (containerSlot !== null && containerSlot.startsWith("arr:")) {
-                    const remainingFieldPath = fact.field.length > 1 ? fact.field.slice(1) : undefined;
-
-                    for (const targetNodeId of collectOrdinaryArraySlotLoadNodeIds(objId, containerSlot, pag, scene)) {
-                        const targetNode = pag.getNode(targetNodeId) as PagNode;
-                        if (!targetNode) continue;
-                        const newFact = new TaintFact(targetNode, fact.source, currentCtx, remainingFieldPath ? [...remainingFieldPath] : undefined);
-                        tryEnqueue("Array-LoadLike", newFact, () => {
-                            tracker.markTainted(targetNodeId, currentCtx, fact.source, newFact.field, newFact.taintId);
-                            log(`    [Array-LoadLike] Tainted node ${targetNodeId} from ordinary array slot '${containerSlot}' (ctx=${currentCtx})`);
-                        });
-                    }
-
-                    const ordinaryArrayViewEffects = collectOrdinaryArrayViewEffectsBySlot(objId, containerSlot, pag);
-                    for (const targetNodeId of ordinaryArrayViewEffects.resultNodeIds) {
-                        const targetNode = pag.getNode(targetNodeId) as PagNode;
-                        if (!targetNode) continue;
-                        const newFact = new TaintFact(targetNode, fact.source, currentCtx, remainingFieldPath ? [...remainingFieldPath] : undefined);
-                        tryEnqueue("Array-View", newFact, () => {
-                            tracker.markTainted(targetNodeId, currentCtx, fact.source, newFact.field, newFact.taintId);
-                            log(`    [Array-View] Tainted result node ${targetNodeId} from ordinary array view on slot '${containerSlot}' (ctx=${currentCtx})`);
-                        });
-                    }
-                    for (const store of ordinaryArrayViewEffects.resultSlotStores) {
-                        const targetNode = pag.getNode(store.objId) as PagNode;
-                        if (!targetNode) continue;
-                        const newFact = new TaintFact(
-                            targetNode,
-                            fact.source,
-                            currentCtx,
-                            [
-                                toContainerFieldKey(store.slot),
-                                ...(remainingFieldPath || []),
-                            ],
-                        );
-                        tryEnqueue("Array-View-Store", newFact, () => {
-                            tracker.markTainted(targetNode.getID(), currentCtx, fact.source, newFact.field, newFact.taintId);
-                            log(`    [Array-View-Store] Tainted Obj ${targetNode.getID()}.${store.slot} from ordinary array view on slot '${containerSlot}' (ctx=${currentCtx})`);
-                        });
-                    }
-
-                    const ordinaryArrayStaticViewEffects = collectOrdinaryArrayStaticViewEffectsBySlot(objId, containerSlot, pag);
-                    for (const targetNodeId of ordinaryArrayStaticViewEffects.resultNodeIds) {
-                        const targetNode = pag.getNode(targetNodeId) as PagNode;
-                        if (!targetNode) continue;
-                        const newFact = new TaintFact(targetNode, fact.source, currentCtx, remainingFieldPath ? [...remainingFieldPath] : undefined);
-                        tryEnqueue("Array-StaticView", newFact, () => {
-                            tracker.markTainted(targetNodeId, currentCtx, fact.source, newFact.field, newFact.taintId);
-                            log(`    [Array-StaticView] Tainted result node ${targetNodeId} from ordinary array static view on slot '${containerSlot}' (ctx=${currentCtx})`);
-                        });
-                    }
-                    for (const store of ordinaryArrayStaticViewEffects.resultSlotStores) {
-                        const targetNode = pag.getNode(store.objId) as PagNode;
-                        if (!targetNode) continue;
-                        const newFact = new TaintFact(
-                            targetNode,
-                            fact.source,
-                            currentCtx,
-                            [
-                                toContainerFieldKey(store.slot),
-                                ...(remainingFieldPath || []),
-                            ],
-                        );
-                        tryEnqueue("Array-StaticView-Store", newFact, () => {
-                            tracker.markTainted(targetNode.getID(), currentCtx, fact.source, newFact.field, newFact.taintId);
-                            log(`    [Array-StaticView-Store] Tainted Obj ${targetNode.getID()}.${store.slot} from ordinary array static view on slot '${containerSlot}' (ctx=${currentCtx})`);
-                        });
-                    }
-
-                    for (const targetNodeId of collectOrdinaryArrayFromMapperCallbackParamNodeIdsForObj(objId, pag, scene)) {
-                        const targetNode = pag.getNode(targetNodeId) as PagNode;
-                        if (!targetNode) continue;
-                        const newFact = new TaintFact(targetNode, fact.source, currentCtx, remainingFieldPath ? [...remainingFieldPath] : undefined);
-                        tryEnqueue("Array-From-Mapper-CB", newFact, () => {
-                            tracker.markTainted(targetNodeId, currentCtx, fact.source, newFact.field, newFact.taintId);
-                            log(`    [Array-From-Mapper-CB] Tainted callback param node ${targetNodeId} from ordinary Array.from mapper on slot '${containerSlot}' (ctx=${currentCtx})`);
-                        });
-                    }
-                }
-
-                const key = `${objId}-${fieldName}`;
-                let destVarIds: Iterable<number> | undefined = fieldToVarIndex.get(key);
-                if (containerSlot !== null) {
-                    const preciseCacheKey = `${objId}|${containerSlot}`;
-                    let preciseDestVarIds = preciseArrayLoadCache.get(preciseCacheKey);
-                    if (!preciseDestVarIds) {
-                        preciseDestVarIds = collectPreciseArrayLoadNodeIdsFromTaintedObjSlot(objId, containerSlot, pag);
-                        preciseArrayLoadCache.set(preciseCacheKey, preciseDestVarIds);
-                    }
-                    if (/^arr:-?\d+$/.test(containerSlot)) {
-                        destVarIds = preciseDestVarIds;
-                    } else if (preciseDestVarIds.length > 0) {
-                        destVarIds = preciseDestVarIds;
-                    }
-                }
-                if (destVarIds) {
-                    for (const destVarId of destVarIds) {
-                        const dstNode = pag.getNode(destVarId) as PagNode;
-                        if (!dstNode) continue;
-                        const loadValue: any = dstNode.getValue?.();
-                        const loadAnchorStmt = dstNode.getStmt?.() || loadValue?.getDeclaringStmt?.();
-                        const indexedLoadBaseCarrierIds = resolveIndexedLoadBaseCarrierNodeIds(
-                            pag,
-                            dstNode,
-                            loadAnchorStmt,
-                            classBySignature,
-                        );
-                        if (
-                            indexedLoadBaseCarrierIds
-                            && indexedLoadBaseCarrierIds.length > 0
-                            && !indexedLoadBaseCarrierIds.includes(objId)
-                        ) {
-                            continue;
-                        }
-                        if (loadAnchorStmt && !isCarrierFieldPathLiveAtStmt(pag, tracker, objId, fact.field, loadAnchorStmt, classBySignature)) {
-                            continue;
-                        }
-                        if (fact.field.length > 1) {
-                            let hasPointTo = false;
-                            for (const nestedObjId of dstNode.getPointTo()) {
-                                hasPointTo = true;
-                                const nestedObjNode = pag.getNode(nestedObjId) as PagNode;
-                                if (!nestedObjNode) continue;
-                                const newFact = new TaintFact(
-                                    nestedObjNode,
-                                    fact.source,
-                                    currentCtx,
-                                    fact.field.slice(1),
-                                );
-                                tryEnqueue("Load", newFact, () => {
-                                    tracker.markTainted(
-                                        nestedObjNode.getID(),
-                                        currentCtx,
-                                        fact.source,
-                                        newFact.field,
-                                        newFact.id,
-                                    );
-                                    log(`    [Load] Tainted Obj ${nestedObjId}.${newFact.field?.join(".")} from Obj ${objId}.${fieldName} (ctx=${currentCtx})`);
-                                });
-                            }
-                            if (!hasPointTo) {
-                                const newFact = new TaintFact(dstNode, fact.source, currentCtx, fact.field.slice(1));
-                                tryEnqueue("Load", newFact, () => {
-                                    tracker.markTainted(destVarId, currentCtx, fact.source, newFact.field, newFact.taintId);
-                                    log(`    [Load] Tainted local ${destVarId}.${newFact.field?.join(".")} from Obj ${objId}.${fieldName} (ctx=${currentCtx})`);
-                                });
-                            }
-                        } else {
-                            if (tracker.hasDescendantFieldSourceAnyContext(node.getID(), fact.source, fact.field)) {
-                                continue;
-                            }
-                            const newFact = new TaintFact(dstNode, fact.source, currentCtx);
-                            tryEnqueue("Load", newFact, () => {
-                                tracker.markTainted(destVarId, currentCtx, fact.source, newFact.field, newFact.taintId);
-                                log(`    [Load] Tainted var ${destVarId} from Obj ${objId}.${fieldName} (ctx=${currentCtx})`);
-                            });
-                        }
-                    }
-                }
-
-                const sourceMethodSig = resolveMethodSignatureByNode(node);
-                const sourceFilePath = extractFilePathFromMethodSignature(sourceMethodSig);
-                const unresolvedByFile = unresolvedThisFieldLoadNodeIdsByFieldAndFile.get(fieldName);
-                const unresolvedByClass = sourceFilePath.length > 0 ? unresolvedByFile?.get(sourceFilePath) : undefined;
-                const sourceClassSig = resolveObjectClassSignatureByNode(node);
-                const unresolvedLoadNodeIds = selectThisFieldFallbackLoads(
-                    unresolvedByClass,
-                    sourceClassSig,
-                    classBySignature,
-                    classRelationCache
-                );
-                if (unresolvedLoadNodeIds) {
-                    const fallbackScopeKeyPrefix = [
-                        sourceFilePath || "%unknown-file",
-                        sourceClassSig || "%unknown-class",
-                        fieldName,
-                        fact.source,
-                    ].join("\u0001");
-                    const shouldEmitUnresolvedThisFieldFallback = (newFact: TaintFact): boolean => {
-                        const fallbackKey = `${fallbackScopeKeyPrefix}\u0001${newFact.id}`;
-                        if (unresolvedThisFieldFallbackEmissions.has(fallbackKey)) {
-                            return false;
-                        }
-                        unresolvedThisFieldFallbackEmissions.add(fallbackKey);
-                        return true;
-                    };
-                    for (const destVarId of unresolvedLoadNodeIds.values()) {
-                        const dstNode = pag.getNode(destVarId) as PagNode;
-                        if (!dstNode) continue;
-                        if (fact.field.length > 1) {
-                            let hasPointTo = false;
-                            for (const nestedObjId of dstNode.getPointTo()) {
-                                hasPointTo = true;
-                                const nestedObjNode = pag.getNode(nestedObjId) as PagNode;
-                                if (!nestedObjNode) continue;
-                                const newFact = new TaintFact(
-                                    nestedObjNode,
-                                    fact.source,
-                                    currentCtx,
-                                    fact.field.slice(1),
-                                );
-                                if (!shouldEmitUnresolvedThisFieldFallback(newFact)) {
-                                    continue;
-                                }
-                                tryEnqueue("Load-UnresolvedThisField", newFact, () => {
-                                    tracker.markTainted(
-                                        nestedObjNode.getID(),
-                                        currentCtx,
-                                        fact.source,
-                                        newFact.field,
-                                        newFact.id,
-                                    );
-                                    log(`    [Load-UnresolvedThisField] Tainted Obj ${nestedObjId}.${newFact.field?.join(".")} from unresolved this.${fieldName} (ctx=${currentCtx})`);
-                                });
-                            }
-                            if (!hasPointTo) {
-                                const newFact = new TaintFact(dstNode, fact.source, currentCtx, fact.field.slice(1));
-                                if (!shouldEmitUnresolvedThisFieldFallback(newFact)) {
-                                    continue;
-                                }
-                                tryEnqueue("Load-UnresolvedThisField", newFact, () => {
-                                    tracker.markTainted(destVarId, currentCtx, fact.source, newFact.field, newFact.taintId);
-                                    log(`    [Load-UnresolvedThisField] Tainted local ${destVarId}.${newFact.field?.join(".")} from unresolved this.${fieldName} (ctx=${currentCtx})`);
-                                });
-                            }
-                        } else {
-                            if (tracker.hasDescendantFieldSourceAnyContext(node.getID(), fact.source, fact.field)) {
-                                continue;
-                            }
-                            const newFact = new TaintFact(dstNode, fact.source, currentCtx);
-                            if (!shouldEmitUnresolvedThisFieldFallback(newFact)) {
-                                continue;
-                            }
-                            tryEnqueue("Load-UnresolvedThisField", newFact, () => {
-                                tracker.markTainted(destVarId, currentCtx, fact.source, newFact.field, newFact.taintId);
-                                log(`    [Load-UnresolvedThisField] Tainted var ${destVarId} from unresolved this.${fieldName} (ctx=${currentCtx})`);
-                            });
-                        }
-                    }
-                }
-            }
         }
         worklist.length = 0;
     }

@@ -1,7 +1,7 @@
 import { TaintFlow } from "../core/kernel/model/TaintFlow";
 import { TaintPropagationEngine } from "../core/orchestration/TaintPropagationEngine";
 import { SanitizerRule, SinkRule, SourceRule } from "../core/rules/RuleSchema";
-import { buildSmokeRuleConfig, LoadedRuleSet } from "../core/rules/RuleLoader";
+import { LoadedRuleSet } from "../core/rules/RuleLoader";
 
 export interface FlowRuleTrace {
     source: string;
@@ -34,7 +34,6 @@ export function detectFlows(
         detailed?: boolean;
         stopOnFirstFlow?: boolean;
         maxFlowsPerEntry?: number;
-        enableSecondarySinkSweep?: boolean;
         applyPreSinkSanitizers?: boolean;
     }
 ): {
@@ -46,7 +45,6 @@ export function detectFlows(
     flowRuleTraces: FlowRuleTrace[];
 } {
     const detailed = options?.detailed !== false;
-    const enableSecondarySinkSweep = options?.enableSecondarySinkSweep === true;
     const maxFlowLimit = options?.stopOnFirstFlow
         ? 1
         : options?.maxFlowsPerEntry;
@@ -57,9 +55,6 @@ export function detectFlows(
     const uniqueFlows: TaintFlow[] = [];
     const flowRuleAuditMap = new Map<string, FlowRuleTrace>();
 
-    const sourcePattern = buildSmokeRuleConfig(loadedRules);
-    const sinkKeywords = sourcePattern.sinkKeywords;
-    const sinkSignatures = sourcePattern.sinkSignatures;
     const sinkRules = loadedRules?.ruleSet.sinks || [];
     const sanitizerRules: SanitizerRule[] = options?.applyPreSinkSanitizers === false
         ? []
@@ -133,27 +128,6 @@ export function detectFlows(
             flows: uniqueFlows,
             flowRuleTraces: detailed ? [...flowRuleAuditMap.values()] : [],
         };
-    }
-
-    if (detailed && enableSecondarySinkSweep) {
-        for (const keyword of sinkKeywords) {
-            if (maxFlowLimit !== undefined && uniqueFlowKeys.size >= maxFlowLimit) break;
-            byKeyword[keyword] = collect("kw", keyword, engine.detectSinks(keyword, { sanitizerRules }));
-        }
-        for (const signature of sinkSignatures) {
-            if (maxFlowLimit !== undefined && uniqueFlowKeys.size >= maxFlowLimit) break;
-            bySignature[signature] = collect("sig", signature, engine.detectSinks(signature, { sanitizerRules }));
-        }
-    }
-
-    // Developer-friendly fallback for taint demo projects.
-    if (enableSecondarySinkSweep && uniqueFlowKeys.size === 0) {
-        const sinkByName = collect("sig", "Sink", engine.detectSinks("Sink", { sanitizerRules }));
-        const sinkBySig = collect("sig", "taint.%dflt.Sink", engine.detectSinks("taint.%dflt.Sink", { sanitizerRules }));
-        if (detailed) {
-            bySignature["Sink"] = sinkByName;
-            bySignature["taint.%dflt.Sink"] = sinkBySig;
-        }
     }
 
     return {

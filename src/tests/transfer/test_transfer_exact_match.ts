@@ -71,14 +71,19 @@ async function main(): Promise<void> {
     const scopeAllowedSig = findMethodSignature(scene, "ScopeHostAllowed", "BridgeScope");
     const scopeAllowedClassSig = findDeclaringClassSignature(scene, "ScopeHostAllowed", "BridgeScope");
 
-    const sourceRules: SourceRule[] = [
-        {
-            id: "source.exact.entry.taint_src",
-            sourceKind: "entry_param",
-            target: "arg0",
-            match: { kind: "local_name_regex", value: "^taint_src$" },
-        },
+    const cases: CaseSpec[] = [
+        { name: "transfer_invoke_kind_003_T", expected: true },
+        { name: "transfer_invoke_kind_004_F", expected: false },
+        { name: "transfer_scope_009_T", expected: true },
+        { name: "transfer_scope_010_F", expected: false },
     ];
+
+    const sourceRules: SourceRule[] = cases.map(c => ({
+        id: `source.exact.entry.${c.name}`,
+        sourceKind: "entry_param",
+        target: "arg0",
+        match: { kind: "method_name_equals", value: c.name },
+    }));
 
     const sinkRules: SinkRule[] = [
         {
@@ -121,7 +126,7 @@ async function main(): Promise<void> {
         sinks: [],
         transfers: [{
             id: "transfer.path_from.ok",
-            match: { kind: "signature_contains", value: "Map.get", invokeKind: "instance", argCount: 1 },
+            match: { kind: "method_name_equals", value: "get", invokeKind: "instance", argCount: 1 },
             from: {
                 endpoint: "base",
                 pathFrom: "arg0",
@@ -137,7 +142,7 @@ async function main(): Promise<void> {
         sinks: [],
         transfers: [{
             id: "transfer.contained_payload.ok",
-            match: { kind: "signature_contains", value: "RdbStore.insert", invokeKind: "instance", argCount: 2 },
+            match: { kind: "method_name_equals", value: "insert", invokeKind: "instance", argCount: 2 },
             from: {
                 endpoint: "arg1",
                 taintScope: "contained-values",
@@ -159,7 +164,7 @@ async function main(): Promise<void> {
         sinks: [],
         transfers: [{
             id: "transfer.contained_payload.invalid",
-            match: { kind: "signature_contains", value: "RdbStore.insert", invokeKind: "instance", argCount: 2 },
+            match: { kind: "method_name_equals", value: "insert", invokeKind: "instance", argCount: 2 },
             from: {
                 endpoint: "arg1",
                 taintScope: "deep-object",
@@ -207,7 +212,7 @@ async function main(): Promise<void> {
         sinks: [],
         transfers: [{
             id: "transfer.static.path.ok",
-            match: { kind: "signature_contains", value: "Map.get" },
+            match: { kind: "method_name_equals", value: "get" },
             from: {
                 endpoint: "base",
                 path: ["payload"],
@@ -225,7 +230,7 @@ async function main(): Promise<void> {
         sinks: [],
         transfers: [{
             id: "transfer.invalid.path.empty",
-            match: { kind: "signature_contains", value: "Map.get" },
+            match: { kind: "method_name_equals", value: "get" },
             from: {
                 endpoint: "base",
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -239,13 +244,6 @@ async function main(): Promise<void> {
         invalidTransferPathValidation.errors.some(err => err.includes("path must be a non-empty string[]")),
         `empty transfer path rejection missing, errors=${invalidTransferPathValidation.errors.join("; ")}`
     );
-
-    const cases: CaseSpec[] = [
-        { name: "transfer_invoke_kind_003_T", expected: true },
-        { name: "transfer_invoke_kind_004_F", expected: false },
-        { name: "transfer_scope_009_T", expected: true },
-        { name: "transfer_scope_010_F", expected: false },
-    ];
 
     let passCount = 0;
     for (const c of cases) {

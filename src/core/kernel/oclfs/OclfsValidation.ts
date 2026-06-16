@@ -14,6 +14,7 @@ import {
     isRegisteredCellKindId,
     isValueCellKind,
 } from "../../cellkind";
+import { fieldPathEquals, fieldPathKey } from "../field/FieldPath";
 
 const VERDICTS: CurrentnessVerdict[] = [
     "live",
@@ -131,9 +132,7 @@ export function compatibleStateCells(left: StateCell, right: StateCell): CellCom
     if ((left.owner || "") !== (right.owner || "")) return "no";
     if ((left.allocSite || "") !== (right.allocSite || "")) return "no";
     if (left.index !== right.index) return "no";
-    const leftField = (left.fieldPath || []).join(".");
-    const rightField = (right.fieldPath || []).join(".");
-    if (leftField !== rightField) return "no";
+    if (!fieldPathEquals(left.fieldPath, right.fieldPath)) return "no";
     if ((left.key || "") !== (right.key || "")) return "no";
     if ((left.valueVersion || "") !== (right.valueVersion || "")) return "no";
     return "exact";
@@ -145,7 +144,7 @@ export function stateCellKey(cell: StateCell): string {
         cell.scope || "",
         cell.owner || "",
         cell.key || "",
-        (cell.fieldPath || []).join("."),
+        fieldPathKey(cell.fieldPath),
         cell.index === undefined ? "" : String(cell.index),
         cell.allocSite || "",
         cell.valueVersion || "",

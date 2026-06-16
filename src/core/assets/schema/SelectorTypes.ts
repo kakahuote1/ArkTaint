@@ -1,13 +1,10 @@
 import type { AssetEndpoint } from "./EndpointTypes";
 
 export type RuntimeSelectorKind =
-    | "signature-contains"
     | "signature-equals"
-    | "signature-regex"
     | "declaring-class-equals"
     | "method-name-equals"
-    | "method-name-regex"
-    | "local-name-regex";
+    | "field-name-equals";
 
 export type RuntimeInvokeKind = "any" | "instance" | "static";
 

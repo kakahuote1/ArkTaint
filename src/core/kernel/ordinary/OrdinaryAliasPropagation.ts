@@ -11,7 +11,7 @@ import {
     ArkNewExpr,
     ArkPhiExpr,
 } from "../../../../arkanalyzer/out/src/core/base/Expr";
-import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
+import { resolveExistingPagNodes } from "../contracts/PagNodeResolution";
 
 const MAX_ALIAS_RESOLUTION_DEPTH = 8;
 const defaultDirectAliasLocalCache: WeakMap<Pag, Map<number, Local[]>> = new WeakMap();
@@ -386,23 +386,23 @@ function resolveCarrierNodeIdsForValueAtStmt(
     visiting: Set<string>,
 ): number[] {
     if (depth > MAX_ALIAS_RESOLUTION_DEPTH) {
-        return fallbackCarrierNodeIds(pag, value, anchorStmt);
+        return collectDirectCarrierNodeIds(pag, value);
     }
 
     if (!(value instanceof Local)) {
-        return fallbackCarrierNodeIds(pag, value, anchorStmt);
+        return collectDirectCarrierNodeIds(pag, value);
     }
 
     const methodSig = resolveDeclaringMethodSignature(value) || resolveDeclaringMethodSignatureFromStmt(anchorStmt) || "";
     const visitKey = `${methodSig}::${value.getName?.() || ""}@${depth}`;
     if (visiting.has(visitKey)) {
-        return fallbackCarrierNodeIds(pag, value, anchorStmt);
+        return collectDirectCarrierNodeIds(pag, value);
     }
     visiting.add(visitKey);
 
     const latestAssign = findLatestAssignStmtForLocalBefore(value, anchorStmt);
     if (!latestAssign) {
-        return fallbackCarrierNodeIds(pag, value, anchorStmt);
+        return collectDirectCarrierNodeIds(pag, value);
     }
 
     const rhs = latestAssign.getRightOp();
@@ -450,13 +450,13 @@ function resolveCarrierNodeIdsForValueAtStmt(
     }
 
     if (rhs instanceof ArkPhiExpr) {
-        return fallbackCarrierNodeIds(pag, value, anchorStmt);
+        return collectDirectCarrierNodeIds(pag, value);
     }
 
     if (rhs instanceof ArkInstanceInvokeExpr && isSelfConstructorInvoke(rhs, value)) {
         const previousAssign = findLatestAssignStmtForLocalStrictlyBefore(value, latestAssign);
         if (!previousAssign) {
-            return fallbackCarrierNodeIds(pag, value, anchorStmt);
+            return collectDirectCarrierNodeIds(pag, value);
         }
         const previousRhs = previousAssign.getRightOp();
         if (previousRhs instanceof ArkNewExpr || previousRhs instanceof ArkNewArrayExpr) {
@@ -509,7 +509,7 @@ function resolveCarrierNodeIdsForValueAtStmt(
         }
     }
 
-    return fallbackCarrierNodeIds(pag, value, anchorStmt);
+    return collectDirectCarrierNodeIds(pag, value);
 }
 
 function resolveCarrierNodeIdsFromFieldLoad(
@@ -616,12 +616,11 @@ function resolveCapturedCarrierNodeIdsFromObjectLiteralField(
     return [...new Set(out)];
 }
 
-function fallbackCarrierNodeIds(
+function collectDirectCarrierNodeIds(
     pag: Pag,
     value: any,
-    anchorStmt: any,
 ): number[] {
-    const nodes = safeGetOrCreatePagNodes(pag, value, anchorStmt);
+    const nodes = pag.getNodesByValue(value);
     if (!nodes || nodes.size === 0) return [];
     const out: number[] = [];
     const seen = new Set<number>();
@@ -648,7 +647,7 @@ function collectExactCarrierNodeIdsFromValue(
     value: any,
     anchorStmt: any,
 ): number[] {
-    const nodes = safeGetOrCreatePagNodes(pag, value, anchorStmt);
+    const nodes = resolveExistingPagNodes(pag, value, anchorStmt);
     if (!nodes || nodes.size === 0) return [];
     const out: number[] = [];
     const seen = new Set<number>();

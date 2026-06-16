@@ -32,14 +32,20 @@
   ],
   "bindings": [
     {
-      "bindingId": "binding.source.harmony.appstorage.mock_source.0",
+      "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_api_clean_overwrite_018_F",
       "surfaceId": "surface.source.harmony.appstorage.mock_source",
       "assetId": "asset.rule.test.harmony_appstorage",
       "plane": "rule",
       "role": "source",
       "selector": {
-        "kind": "local-name-regex",
-        "value": "^taint_src$"
+        "kind": "method-name-equals",
+        "value": "appstorage_api_clean_overwrite_018_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "appstorage_api_clean_overwrite_018_F.ets"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -48,7 +54,500 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.harmony.appstorage.mock_source"
+        "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_clean_overwrite_018_F"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_api_dynamic_key_004_F",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "assetId": "asset.rule.test.harmony_appstorage",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "appstorage_api_dynamic_key_004_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "appstorage_api_dynamic_key_004_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_dynamic_key_004_F"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_api_dynamic_mismatch_locals_017_F",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "assetId": "asset.rule.test.harmony_appstorage",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "appstorage_api_dynamic_mismatch_locals_017_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "appstorage_api_dynamic_mismatch_locals_017_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_dynamic_mismatch_locals_017_F"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_api_dynamic_same_local_016_T",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "assetId": "asset.rule.test.harmony_appstorage",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "appstorage_api_dynamic_same_local_016_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "appstorage_api_dynamic_same_local_016_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_dynamic_same_local_016_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_api_multi_key_mismatch_012_F",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "assetId": "asset.rule.test.harmony_appstorage",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "appstorage_api_multi_key_mismatch_012_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "appstorage_api_multi_key_mismatch_012_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_multi_key_mismatch_012_F"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_api_multi_key_token_011_T",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "assetId": "asset.rule.test.harmony_appstorage",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "appstorage_api_multi_key_token_011_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "appstorage_api_multi_key_token_011_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_multi_key_token_011_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_api_object_set_get_005_T",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "assetId": "asset.rule.test.harmony_appstorage",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "appstorage_api_object_set_get_005_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "appstorage_api_object_set_get_005_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_object_set_get_005_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_api_primitive_set_get_001_T",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "assetId": "asset.rule.test.harmony_appstorage",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "appstorage_api_primitive_set_get_001_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "appstorage_api_primitive_set_get_001_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_primitive_set_get_001_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_api_primitive_wrong_key_002_F",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "assetId": "asset.rule.test.harmony_appstorage",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "appstorage_api_primitive_wrong_key_002_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "appstorage_api_primitive_wrong_key_002_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_primitive_wrong_key_002_F"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_api_setorcreate_primitive_003_T",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "assetId": "asset.rule.test.harmony_appstorage",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "appstorage_api_setorcreate_primitive_003_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "appstorage_api_setorcreate_primitive_003_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_setorcreate_primitive_003_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_api_setorcreate_then_get_013_T",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "assetId": "asset.rule.test.harmony_appstorage",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "appstorage_api_setorcreate_then_get_013_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "appstorage_api_setorcreate_then_get_013_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_setorcreate_then_get_013_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_cross_file_api_009_T",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "assetId": "asset.rule.test.harmony_appstorage",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "appstorage_cross_file_api_009_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "appstorage_cross_file_api_009_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_cross_file_api_009_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_cross_file_api_010_F",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "assetId": "asset.rule.test.harmony_appstorage",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "appstorage_cross_file_api_010_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "appstorage_cross_file_api_010_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_cross_file_api_010_F"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_decorator_storagelink_008_T",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "assetId": "asset.rule.test.harmony_appstorage",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "appstorage_decorator_storagelink_008_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "appstorage_decorator_storagelink_008_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_decorator_storagelink_008_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_decorator_storagelink_writeback_014_T",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "assetId": "asset.rule.test.harmony_appstorage",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "appstorage_decorator_storagelink_writeback_014_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "appstorage_decorator_storagelink_writeback_014_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_decorator_storagelink_writeback_014_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_decorator_storagelink_writeback_015_F",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "assetId": "asset.rule.test.harmony_appstorage",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "appstorage_decorator_storagelink_writeback_015_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "appstorage_decorator_storagelink_writeback_015_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_decorator_storagelink_writeback_015_F"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_decorator_storageprop_006_T",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "assetId": "asset.rule.test.harmony_appstorage",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "appstorage_decorator_storageprop_006_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "appstorage_decorator_storageprop_006_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_decorator_storageprop_006_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.appstorage.mock_source.0.method.appstorage_decorator_storageprop_mismatch_007_F",
+      "surfaceId": "surface.source.harmony.appstorage.mock_source",
+      "assetId": "asset.rule.test.harmony_appstorage",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "appstorage_decorator_storageprop_mismatch_007_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "appstorage_decorator_storageprop_mismatch_007_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_decorator_storageprop_mismatch_007_F"
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
@@ -62,7 +561,15 @@
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
-        "value": "Sink"
+        "value": "Sink",
+        "invokeKind": "static",
+        "argCount": 1,
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "harmony_appstorage"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -75,22 +582,11 @@
       ],
       "semanticsFamily": "sink",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     }
   ],
   "effectTemplates": [
-    {
-      "id": "template.source.harmony.appstorage.mock_source",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
     {
       "id": "template.sink.harmony.appstorage.mock_sink",
       "confidence": "certain",
@@ -102,6 +598,222 @@
         }
       },
       "sinkKind": "sink"
+    },
+    {
+      "id": "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_clean_overwrite_018_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_dynamic_key_004_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_dynamic_mismatch_locals_017_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_dynamic_same_local_016_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_multi_key_mismatch_012_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_multi_key_token_011_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_object_set_get_005_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_primitive_set_get_001_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_primitive_wrong_key_002_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_setorcreate_primitive_003_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_api_setorcreate_then_get_013_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_cross_file_api_009_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_cross_file_api_010_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_decorator_storagelink_008_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_decorator_storagelink_writeback_014_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_decorator_storagelink_writeback_015_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_decorator_storageprop_006_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.appstorage.mock_source.for.source.harmony.appstorage.mock_source.0.method.appstorage_decorator_storageprop_mismatch_007_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
     }
   ],
   "provenance": {

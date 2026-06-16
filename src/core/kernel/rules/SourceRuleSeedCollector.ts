@@ -100,12 +100,16 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
         return resolved;
     };
 
-    const pushFact = (fact: TaintFact, label: string, ruleId: string): boolean => {
+    const pushFact = (fact: TaintFact, label: string, ruleId: string, activationMethod?: ArkMethod): boolean => {
         if (seenFactIds.has(fact.taintId)) return false;
         seenFactIds.add(fact.taintId);
         facts.push(fact);
         seededLocals.add(label);
         sourceRuleHits.set(ruleId, (sourceRuleHits.get(ruleId) || 0) + 1);
+        const activationSignature = activationMethod?.getSignature?.()?.toString?.();
+        if (activationSignature) {
+            activatedMethodSignatures.add(activationSignature);
+        }
         sourceSeedAudit.push({
             ruleId,
             source: fact.source,
@@ -176,7 +180,7 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
                     const sourceTag = sourceTagForOccurrence(rule.id, siteKey, `local:${localName}`);
                     const localFacts = seedFactsFromValue(args.pag, local, sourceTag, args.emptyContextId, target.path);
                     for (const fact of localFacts) {
-                        if (pushFact(fact, `${method.getName()}:${localName}`, rule.id)) {
+                        if (pushFact(fact, `${method.getName()}:${localName}`, rule.id, method)) {
                             applied = true;
                         }
                     }
@@ -215,7 +219,7 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
                         : seedFactsFromValue(args.pag, targetValue, sourceTag, args.emptyContextId, target.path);
                     let applied = false;
                     for (const fact of callFacts) {
-                        if (pushFact(fact, `${method.getName()}:${site.label}`, rule.id)) {
+                        if (pushFact(fact, `${method.getName()}:${site.label}`, rule.id, method)) {
                             applied = true;
                         }
                     }
@@ -229,7 +233,7 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
                             target.path,
                         );
                         for (const fact of aliasFacts) {
-                            if (pushFact(fact, `${method.getName()}:${site.label}:alias`, rule.id)) {
+                            if (pushFact(fact, `${method.getName()}:${site.label}:alias`, rule.id, method)) {
                                 applied = true;
                             }
                         }
@@ -280,7 +284,7 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
                             args.emptyContextId,
                         );
                         for (const fact of facts) {
-                            if (pushFact(fact, `${method.getName()}:${fieldName}@bound_state`, rule.id)) {
+                            if (pushFact(fact, `${method.getName()}:${fieldName}@bound_state`, rule.id, method)) {
                                 applied = true;
                             }
                         }
@@ -368,7 +372,8 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
                             if (pushFact(
                                 fact,
                                 `${registration.callbackMethod.getName()}:arg${targetParamIndex}@${registration.registrationMethodName || "callback"}#cbArg${registration.callbackArgIndex}`,
-                                rule.id
+                                rule.id,
+                                registration.callbackMethod
                             )) {
                                 applied = true;
                             }
@@ -386,7 +391,8 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
                             if (pushFact(
                                 fact,
                                 `${registration.callbackMethod.getName()}:arg${targetParamIndex}->alias#cbArg${registration.callbackArgIndex}`,
-                                rule.id
+                                rule.id,
+                                registration.callbackMethod
                             )) {
                                 applied = true;
                             }
@@ -406,7 +412,8 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
                             if (pushFact(
                                 fact,
                                 `${registration.callbackMethod.getName()}:arg${targetParamIndex}->forward#cbArg${registration.callbackArgIndex}`,
-                                rule.id
+                                rule.id,
+                                registration.callbackMethod
                             )) {
                                 applied = true;
                             }
@@ -446,7 +453,7 @@ export function collectSourceRuleSeeds(args: SourceRuleSeedCollectionArgs): Sour
                     const sourceTag = sourceTagForOccurrence(rule.id, siteKey, `field:${fieldName}:${site.label}`);
                     const readFacts = seedFactsFromValue(args.pag, targetValue, sourceTag, args.emptyContextId, undefined);
                     for (const fact of readFacts) {
-                        if (pushFact(fact, `${method.getName()}:${fieldName}`, rule.id)) {
+                        if (pushFact(fact, `${method.getName()}:${fieldName}`, rule.id, method)) {
                             applied = true;
                         }
                     }
@@ -730,32 +737,14 @@ function matchesSourceLocalRule(
     const className = method.getDeclaringArkClass?.()?.getName?.() || "";
     const value = rule.match.value || "";
     switch (rule.match.kind) {
-        case "local_name_regex":
-            try {
-                return new RegExp(value).test(localName);
-            } catch {
-                return false;
-            }
         case "method_name_equals":
             return methodName === value;
-        case "method_name_regex":
-            try {
-                return new RegExp(value).test(methodName);
-            } catch {
-                return false;
-            }
-        case "signature_contains":
-            return methodSignature.includes(value);
         case "signature_equals":
             return exactTextMatch(methodSignature, value);
-        case "signature_regex":
-            try {
-                return new RegExp(value).test(methodSignature);
-            } catch {
-                return false;
-            }
         case "declaring_class_equals":
             return exactDeclaringClassMatch(classSignature, className, value);
+        case "field_name_equals":
+            return localName === value;
         default:
             return false;
     }
@@ -785,43 +774,16 @@ function matchesSourceCallRule(
                 return exactDeclaringClassMatch(classSignature, className, value);
             }
             return false;
-        case "method_name_regex":
-            try {
-                return new RegExp(value).test(calleeName);
-            } catch {
-                return false;
-            }
-        case "signature_contains":
-            return calleeSignature.includes(value)
-                || normalizedCalleeSignature.includes(normalizedValue);
         case "signature_equals":
             return exactTextMatch(calleeSignature, value)
                 || exactTextMatch(normalizedCalleeSignature, normalizedValue);
-        case "signature_regex":
-            try {
-                const re = new RegExp(value);
-                return re.test(calleeSignature) || re.test(normalizedCalleeSignature);
-            } catch {
-                return false;
-            }
         case "declaring_class_equals": {
             const classSignature = invokeExpr.getMethodSignature?.().getDeclaringClassSignature?.()?.toString?.() || "";
             const className = invokeExpr.getMethodSignature?.().getDeclaringClassSignature?.()?.getClassName?.() || "";
             return exactDeclaringClassMatch(classSignature, className, value);
         }
-        case "local_name_regex": {
-            const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
-            const argTexts = args.map((a: any) => a?.toString?.() || "");
-            if (invokeExpr instanceof ArkInstanceInvokeExpr) {
-                argTexts.push(invokeExpr.getBase()?.toString?.() || "");
-            }
-            try {
-                const re = new RegExp(value);
-                return argTexts.some((text: string) => re.test(text));
-            } catch {
-                return false;
-            }
-        }
+        case "field_name_equals":
+            return false;
         default:
             return false;
     }
@@ -855,10 +817,10 @@ function matchesInvokeCalleeScope(
     if (scope.methodDecorators && scope.methodDecorators.length > 0) return false;
     if (!matchStringConstraint(scope.methodName, calleeName)) return false;
 
-    const fallback = resolveSdkImportScopeCandidates(sourceMethod, invokeExpr);
-    if (!matchConstraintAgainstCandidates(scope.file, [fileText, ...fallback.fileTexts])) return false;
-    if (!matchConstraintAgainstCandidates(scope.module, [moduleText, ...fallback.moduleTexts])) return false;
-    if (!matchConstraintAgainstCandidates(scope.className, [classText, ...fallback.classTexts])) return false;
+    const sdkImportScope = resolveSdkImportScopeCandidates(sourceMethod, invokeExpr);
+    if (!matchConstraintAgainstCandidates(scope.file, [fileText, ...sdkImportScope.fileTexts])) return false;
+    if (!matchConstraintAgainstCandidates(scope.module, [moduleText, ...sdkImportScope.moduleTexts])) return false;
+    if (!matchConstraintAgainstCandidates(scope.className, [classText, ...sdkImportScope.classTexts])) return false;
     return true;
 }
 
@@ -880,32 +842,12 @@ function matchesSourceFieldReadRule(
     switch (rule.match.kind) {
         case "method_name_equals":
             return method.getName() === value;
-        case "method_name_regex":
-            try {
-                return new RegExp(value).test(method.getName());
-            } catch {
-                return false;
-            }
-        case "signature_contains":
-            return fieldSignature.includes(value) || methodSignature.includes(value);
         case "signature_equals":
             return exactTextMatch(fieldSignature, value) || exactTextMatch(methodSignature, value);
-        case "signature_regex":
-            try {
-                const re = new RegExp(value);
-                return re.test(fieldSignature) || re.test(methodSignature);
-            } catch {
-                return false;
-            }
         case "declaring_class_equals":
             return exactDeclaringClassMatch(classSignature, className, value);
-        case "local_name_regex":
-            try {
-                const re = new RegExp(value);
-                return re.test(leftText) || re.test(fieldName);
-            } catch {
-                return false;
-            }
+        case "field_name_equals":
+            return fieldName === value;
         default:
             return false;
     }
@@ -930,10 +872,10 @@ function matchesFieldReadCalleeScope(
         getBase: () => fieldRef.getBase?.(),
         getMethodSignature: () => undefined,
     };
-    const fallback = resolveSdkImportScopeCandidates(sourceMethod, syntheticInvoke);
-    if (!matchConstraintAgainstCandidates(scope.file, [fileText, ...fallback.fileTexts])) return false;
-    if (!matchConstraintAgainstCandidates(scope.module, [moduleText, ...fallback.moduleTexts])) return false;
-    if (!matchConstraintAgainstCandidates(scope.className, [classText, ...fallback.classTexts])) return false;
+    const sdkImportScope = resolveSdkImportScopeCandidates(sourceMethod, syntheticInvoke);
+    if (!matchConstraintAgainstCandidates(scope.file, [fileText, ...sdkImportScope.fileTexts])) return false;
+    if (!matchConstraintAgainstCandidates(scope.module, [moduleText, ...sdkImportScope.moduleTexts])) return false;
+    if (!matchConstraintAgainstCandidates(scope.className, [classText, ...sdkImportScope.classTexts])) return false;
     return true;
 }
 
@@ -1364,6 +1306,43 @@ function seedFactsFromValue(
         }
     }
     if ((!pagNodes || pagNodes.size === 0) && value instanceof ArkInstanceFieldRef) {
+        const nestedField = resolveInstanceFieldRootAndPath(value);
+        if (nestedField && nestedField.fieldPath.length > 1) {
+            let rootNodes = pag.getNodesByValue(nestedField.root);
+            if (!rootNodes || rootNodes.size === 0) {
+                try {
+                    pag.getOrNewNode(contextId, nestedField.root, nestedField.root.getDeclaringStmt?.() || undefined);
+                    rootNodes = pag.getNodesByValue(nestedField.root);
+                } catch {
+                    rootNodes = undefined;
+                }
+            }
+            if (rootNodes && rootNodes.size > 0) {
+                let produced = false;
+                const fieldPath = targetPath && targetPath.length > 0
+                    ? [...nestedField.fieldPath, ...targetPath]
+                    : [...nestedField.fieldPath];
+                for (const rootNodeId of rootNodes.values()) {
+                    const rootNode: any = pag.getNode(rootNodeId);
+                    if (!rootNode) continue;
+                    let hasPointTo = false;
+                    for (const objId of rootNode.getPointTo()) {
+                        hasPointTo = true;
+                        produced = true;
+                        const objNode: any = pag.getNode(objId);
+                        if (!objNode) continue;
+                        add(new TaintFact(objNode, sourceTag, contextId, [...fieldPath]));
+                    }
+                    if (!hasPointTo) {
+                        produced = true;
+                        add(new TaintFact(rootNode as any, sourceTag, contextId, [...fieldPath]));
+                    }
+                }
+                if (produced) {
+                    return out;
+                }
+            }
+        }
         const base = value.getBase?.();
         let baseNodes = base ? pag.getNodesByValue(base) : undefined;
         if ((!baseNodes || baseNodes.size === 0) && base instanceof Local) {
@@ -1559,6 +1538,21 @@ function seedLocalAliasFactsInMethod(
     }
 
     return out;
+}
+
+function resolveInstanceFieldRootAndPath(
+    value: ArkInstanceFieldRef,
+): { root: Local; fieldPath: string[] } | undefined {
+    const fieldPath: string[] = [];
+    let current: any = value;
+    while (current instanceof ArkInstanceFieldRef) {
+        const fieldName = current.getFieldSignature?.().getFieldName?.() || current.getFieldName?.();
+        if (!fieldName) return undefined;
+        fieldPath.unshift(fieldName);
+        current = current.getBase?.();
+    }
+    if (!(current instanceof Local)) return undefined;
+    return { root: current, fieldPath };
 }
 
 function seedFactsFromNodeIds(

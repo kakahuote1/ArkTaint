@@ -4,14 +4,85 @@
   "status": "official",
   "surfaces": [
     {
-      "surfaceId": "surface.source.test.entry_param.taint_src",
-      "kind": "access",
-      "modulePath": "@arktaint/local",
-      "ownerName": "LocalBinding",
-      "propertyName": "source.test.entry_param.taint_src",
-      "accessKind": "read",
-      "receiverKind": "namespace",
-      "confidence": "likely",
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_result_to_arg0_005_T",
+      "kind": "invoke",
+      "modulePath": "@arktaint/test-transfer",
+      "functionName": "transfer_rule_result_to_arg0_005_T",
+      "invokeKind": "free-function",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_paint_007_F",
+      "kind": "invoke",
+      "modulePath": "@arktaint/test-transfer",
+      "functionName": "transfer_rule_paint_007_F",
+      "invokeKind": "free-function",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_box_006_F",
+      "kind": "invoke",
+      "modulePath": "@arktaint/test-transfer",
+      "functionName": "transfer_rule_box_006_F",
+      "invokeKind": "free-function",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_box_001_T",
+      "kind": "invoke",
+      "modulePath": "@arktaint/test-transfer",
+      "functionName": "transfer_rule_box_001_T",
+      "invokeKind": "free-function",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_base_to_arg0_003_T",
+      "kind": "invoke",
+      "modulePath": "@arktaint/test-transfer",
+      "functionName": "transfer_rule_base_to_arg0_003_T",
+      "invokeKind": "free-function",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_arg1_to_result_004_T",
+      "kind": "invoke",
+      "modulePath": "@arktaint/test-transfer",
+      "functionName": "transfer_rule_arg1_to_result_004_T",
+      "invokeKind": "free-function",
+      "argCount": 1,
+      "confidence": "certain",
+      "provenance": {
+        "source": "manual"
+      }
+    },
+    {
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_arg1_002_T",
+      "kind": "invoke",
+      "modulePath": "@arktaint/test-transfer",
+      "functionName": "transfer_rule_arg1_002_T",
+      "invokeKind": "free-function",
+      "argCount": 1,
+      "confidence": "certain",
       "provenance": {
         "source": "manual"
       }
@@ -20,10 +91,9 @@
       "surfaceId": "surface.sink.test.method.Sink",
       "kind": "invoke",
       "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
       "methodName": "Sink",
-      "invokeKind": "instance",
-      "argCount": 0,
+      "invokeKind": "static",
+      "argCount": 1,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
@@ -33,7 +103,6 @@
       "surfaceId": "surface.transfer.test.putData.arg0_to_base",
       "kind": "invoke",
       "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
       "methodName": "putData",
       "invokeKind": "instance",
       "argCount": 1,
@@ -46,7 +115,6 @@
       "surfaceId": "surface.transfer.test.get.base_to_result",
       "kind": "invoke",
       "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
       "methodName": "get",
       "invokeKind": "instance",
       "argCount": 0,
@@ -59,7 +127,6 @@
       "surfaceId": "surface.transfer.test.putPair.arg1_to_base",
       "kind": "invoke",
       "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
       "methodName": "putPair",
       "invokeKind": "instance",
       "argCount": 2,
@@ -72,7 +139,6 @@
       "surfaceId": "surface.transfer.test.bind.arg0_to_base",
       "kind": "invoke",
       "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
       "methodName": "bind",
       "invokeKind": "instance",
       "argCount": 1,
@@ -85,7 +151,6 @@
       "surfaceId": "surface.transfer.test.paint.base_to_arg0",
       "kind": "invoke",
       "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
       "methodName": "paint",
       "invokeKind": "instance",
       "argCount": 1,
@@ -98,7 +163,6 @@
       "surfaceId": "surface.transfer.test.blend.arg1_to_result",
       "kind": "invoke",
       "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
       "methodName": "blend",
       "invokeKind": "static",
       "argCount": 2,
@@ -111,7 +175,6 @@
       "surfaceId": "surface.transfer.test.project.result_to_arg0",
       "kind": "invoke",
       "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
       "methodName": "project",
       "invokeKind": "static",
       "argCount": 1,
@@ -123,14 +186,14 @@
   ],
   "bindings": [
     {
-      "bindingId": "binding.source.test.entry_param.taint_src.0",
-      "surfaceId": "surface.source.test.entry_param.taint_src",
+      "bindingId": "binding.source.test.entry_param.transfer_rule_result_to_arg0_005_T.0",
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_result_to_arg0_005_T",
       "assetId": "asset.rule.test.transfer_only",
       "plane": "rule",
       "role": "source",
       "selector": {
-        "kind": "local-name-regex",
-        "value": "^taint_src$"
+        "kind": "method-name-equals",
+        "value": "transfer_rule_result_to_arg0_005_T"
       },
       "endpoint": {
         "base": {
@@ -139,11 +202,149 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.test.entry_param.taint_src"
+        "template.source.test.entry_param.transfer_rule_result_to_arg0_005_T"
       ],
       "semanticsFamily": "source",
-      "completeness": "partial",
-      "confidence": "likely"
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.test.entry_param.transfer_rule_paint_007_F.0",
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_paint_007_F",
+      "assetId": "asset.rule.test.transfer_only",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "transfer_rule_paint_007_F"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.test.entry_param.transfer_rule_paint_007_F"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.test.entry_param.transfer_rule_box_006_F.0",
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_box_006_F",
+      "assetId": "asset.rule.test.transfer_only",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "transfer_rule_box_006_F"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.test.entry_param.transfer_rule_box_006_F"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.test.entry_param.transfer_rule_box_001_T.0",
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_box_001_T",
+      "assetId": "asset.rule.test.transfer_only",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "transfer_rule_box_001_T"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.test.entry_param.transfer_rule_box_001_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.test.entry_param.transfer_rule_base_to_arg0_003_T.0",
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_base_to_arg0_003_T",
+      "assetId": "asset.rule.test.transfer_only",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "transfer_rule_base_to_arg0_003_T"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.test.entry_param.transfer_rule_base_to_arg0_003_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.test.entry_param.transfer_rule_arg1_to_result_004_T.0",
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_arg1_to_result_004_T",
+      "assetId": "asset.rule.test.transfer_only",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "transfer_rule_arg1_to_result_004_T"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.test.entry_param.transfer_rule_arg1_to_result_004_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain"
+    },
+    {
+      "bindingId": "binding.source.test.entry_param.transfer_rule_arg1_002_T.0",
+      "surfaceId": "surface.source.test.entry_param.transfer_rule_arg1_002_T",
+      "assetId": "asset.rule.test.transfer_only",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "transfer_rule_arg1_002_T"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.test.entry_param.transfer_rule_arg1_002_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "complete",
+      "confidence": "certain"
     },
     {
       "bindingId": "binding.sink.test.method.Sink.0",
@@ -153,7 +354,9 @@
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
-        "value": "Sink"
+        "value": "Sink",
+        "invokeKind": "static",
+        "argCount": 1
       },
       "endpoint": {
         "base": {
@@ -304,16 +507,88 @@
   ],
   "effectTemplates": [
     {
-      "id": "template.source.test.entry_param.taint_src",
-      "confidence": "certain",
+      "id": "template.source.test.entry_param.transfer_rule_result_to_arg0_005_T",
       "kind": "rule.source",
+      "sourceKind": "entry_param",
       "value": {
         "base": {
           "kind": "arg",
           "index": 0
         }
       },
-      "sourceKind": "entry_param"
+      "confidence": "certain"
+    },
+    {
+      "id": "template.source.test.entry_param.transfer_rule_paint_007_F",
+      "kind": "rule.source",
+      "sourceKind": "entry_param",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "confidence": "certain"
+    },
+    {
+      "id": "template.source.test.entry_param.transfer_rule_box_006_F",
+      "kind": "rule.source",
+      "sourceKind": "entry_param",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "confidence": "certain"
+    },
+    {
+      "id": "template.source.test.entry_param.transfer_rule_box_001_T",
+      "kind": "rule.source",
+      "sourceKind": "entry_param",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "confidence": "certain"
+    },
+    {
+      "id": "template.source.test.entry_param.transfer_rule_base_to_arg0_003_T",
+      "kind": "rule.source",
+      "sourceKind": "entry_param",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "confidence": "certain"
+    },
+    {
+      "id": "template.source.test.entry_param.transfer_rule_arg1_to_result_004_T",
+      "kind": "rule.source",
+      "sourceKind": "entry_param",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "confidence": "certain"
+    },
+    {
+      "id": "template.source.test.entry_param.transfer_rule_arg1_002_T",
+      "kind": "rule.source",
+      "sourceKind": "entry_param",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "confidence": "certain"
     },
     {
       "id": "template.sink.test.method.Sink",

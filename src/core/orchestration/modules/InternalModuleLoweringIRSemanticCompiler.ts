@@ -106,6 +106,7 @@ function compileHandoffEffectSemantic(spec: InternalModuleLoweringIR, semantic: 
             let scannedCalls = 0;
             let unresolvedHandles = 0;
             let unresolvedEndpoints = 0;
+            const unresolvedEndpointDetails: unknown[] = [];
 
             for (const declared of semantic.effects || []) {
                 for (const call of scanHandoffSurface(ctx.scan, declared.surface)) {
@@ -119,6 +120,7 @@ function compileHandoffEffectSemantic(spec: InternalModuleLoweringIR, semantic: 
                         const sourceRefs = declared.value ? resolveEndpointSourceRefs(call, declared.value) : [];
                         if (sourceRefs.length === 0) {
                             unresolvedEndpoints++;
+                            unresolvedEndpointDetails.push(describeUnresolvedEndpoint(call, declared.id, declared.effectKind, declared.value));
                             continue;
                         }
                         for (const handle of handles) {
@@ -141,6 +143,7 @@ function compileHandoffEffectSemantic(spec: InternalModuleLoweringIR, semantic: 
                         const targetNodeIds = declared.target ? resolveEndpointTargetNodeIds(call, declared.target) : [];
                         if (targetNodeIds.length === 0) {
                             unresolvedEndpoints++;
+                            unresolvedEndpointDetails.push(describeUnresolvedEndpoint(call, declared.id, declared.effectKind, declared.target));
                             continue;
                         }
                         for (const handle of handles) {
@@ -180,6 +183,9 @@ function compileHandoffEffectSemantic(spec: InternalModuleLoweringIR, semantic: 
                 effects: effects.length,
                 unresolved_handles: unresolvedHandles,
                 unresolved_endpoints: unresolvedEndpoints,
+                unresolved_endpoint_details: unresolvedEndpointDetails.length > 0
+                    ? JSON.stringify(unresolvedEndpointDetails.slice(0, 8))
+                    : undefined,
                 put_sources: summarizeHandoffPutSources(effects),
                 get_targets: summarizeHandoffGetTargets(effects),
             }, { omitEmpty: true });
@@ -384,9 +390,10 @@ function resolveEndpointNodeIds(call: ModuleScannedInvoke, endpoint: AssetEndpoi
         case "arg":
             return call.argNodeIds(endpoint.base.index);
         case "return":
-        case "promiseResult":
         case "constructorResult":
             return call.resultNodeIds();
+        case "promiseResult":
+            return call.promiseResultNodeIds?.() || call.resultNodeIds();
         case "callbackArg":
             if (endpoint.base.callback.kind !== "arg") return [];
             return call.callbackParamNodeIds(endpoint.base.callback.index, endpoint.base.argIndex);
@@ -453,6 +460,40 @@ function resolveEndpointTargetNodeIds(call: ModuleScannedInvoke, endpoint: Asset
             break;
     }
     return [...out.values()];
+}
+
+function describeUnresolvedEndpoint(
+    call: ModuleScannedInvoke,
+    effectId: string,
+    effectKind: string,
+    endpoint: AssetEndpoint | undefined,
+): unknown {
+    if (!endpoint) {
+        return {
+            effectId,
+            effectKind,
+            call: call.call.signature,
+            owner: call.ownerMethodSignature,
+            reason: "missing-endpoint",
+        };
+    }
+    const accessPath = endpoint.accessPath && endpoint.accessPath.length > 0
+        ? [...endpoint.accessPath]
+        : [];
+    return {
+        effectId,
+        effectKind,
+        call: call.call.signature,
+        owner: call.ownerMethodSignature,
+        stmt: String(call.stmt?.toString?.() || ""),
+        endpoint,
+        directNodeIds: resolveEndpointNodeIds(call, endpoint),
+        receiverCalleeNodeIds: endpoint.base.kind === "receiver" && accessPath.length > 0
+            ? call.calleeReceiverEndpointNodeIds?.(accessPath) || []
+            : [],
+        baseCarrierNodeIds: endpoint.base.kind === "receiver" ? call.baseCarrierNodeIds() : [],
+        baseObjectNodeIds: endpoint.base.kind === "receiver" ? call.baseObjectNodeIds() : [],
+    };
 }
 
 function targetEndpoint(nodeId: number, endpoint: AssetEndpoint) {

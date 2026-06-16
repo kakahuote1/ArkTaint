@@ -32,14 +32,20 @@
   ],
   "bindings": [
     {
-      "bindingId": "binding.source.harmony.link.entry_param.0",
+      "bindingId": "binding.source.harmony.link.entry_param.0.method.link_child_update_parent_001_T",
       "surfaceId": "surface.source.harmony.link.entry_param",
       "assetId": "asset.rule.test.harmony_link",
       "plane": "rule",
       "role": "source",
       "selector": {
-        "kind": "local-name-regex",
-        "value": "^taint_src$"
+        "kind": "method-name-equals",
+        "value": "link_child_update_parent_001_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "link_child_update_parent_001_T.ets"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -48,7 +54,140 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.harmony.link.entry_param"
+        "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.link_child_update_parent_001_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.link.entry_param.0.method.build",
+      "surfaceId": "surface.source.harmony.link.entry_param",
+      "assetId": "asset.rule.test.harmony_link",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "build"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.link.entry_param.0.method.link_parent_to_child_002_T",
+      "surfaceId": "surface.source.harmony.link.entry_param",
+      "assetId": "asset.rule.test.harmony_link",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "link_parent_to_child_002_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "link_parent_to_child_002_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.link_parent_to_child_002_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.link.entry_param.0.method.link_prop_mix_005_F",
+      "surfaceId": "surface.source.harmony.link.entry_param",
+      "assetId": "asset.rule.test.harmony_link",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "link_prop_mix_005_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "link_prop_mix_005_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.link_prop_mix_005_F"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.link.entry_param.0.method.link_two_way_loop_004_T",
+      "surfaceId": "surface.source.harmony.link.entry_param",
+      "assetId": "asset.rule.test.harmony_link",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "link_two_way_loop_004_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "link_two_way_loop_004_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.link_two_way_loop_004_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.link.entry_param.0.method.build",
+      "surfaceId": "surface.source.harmony.link.entry_param",
+      "assetId": "asset.rule.test.harmony_link",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "build"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build"
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
@@ -75,22 +214,11 @@
       ],
       "semanticsFamily": "sink",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     }
   ],
   "effectTemplates": [
-    {
-      "id": "template.source.harmony.link.entry_param",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
     {
       "id": "template.sink.harmony.link.mock_sink",
       "confidence": "certain",
@@ -102,6 +230,66 @@
         }
       },
       "sinkKind": "sink"
+    },
+    {
+      "id": "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.link_child_update_parent_001_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.build",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.link_parent_to_child_002_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.link_prop_mix_005_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.link.entry_param.for.source.harmony.link.entry_param.0.method.link_two_way_loop_004_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
     }
   ],
   "provenance": {

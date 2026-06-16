@@ -1,7 +1,7 @@
 import { Scene } from "../../../../../arkanalyzer/out/src/Scene";
 import { Pag, PagNode } from "../../../../../arkanalyzer/out/src/callgraph/pointerAnalysis/Pag";
 import { ArkAssignStmt } from "../../../../../arkanalyzer/out/src/core/base/Stmt";
-import { ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../../arkanalyzer/out/src/core/base/Expr";
+import { ArkCastExpr, ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../../arkanalyzer/out/src/core/base/Expr";
 import { ArkInstanceFieldRef } from "../../../../../arkanalyzer/out/src/core/base/Ref";
 import { Local } from "../../../../../arkanalyzer/out/src/core/base/Local";
 import {
@@ -19,7 +19,6 @@ import {
     resolveClassKeyFromMethodSig,
     resolveHarmonyMethods,
 } from "../../../kernel/contracts/HarmonyModuleUtils";
-import { safeGetOrCreatePagNodes } from "../../../kernel/contracts/PagNodeResolution";
 import { createHandoffPropagationSession } from "../../../kernel/semantic_handoff/SemanticHandoffPropagation";
 import { createExactHandoffHandle, HandoffEffect } from "../../../kernel/semantic_handoff/SemanticHandoffTypes";
 
@@ -60,8 +59,6 @@ const DEFAULT_ROUTER_OPTIONS: Required<HarmonyRouteBridgeSemanticsOptions> = {
     frameworkSignatureHints: ["@ohos", "@ohossdk", "@kit", "kit.arkui", "ohos.router", "ohos/router"],
     payloadUnwrapPrefixes: ["param", "params"],
 };
-
-const NAV_DESTINATION_FALLBACK_KEY = "__nav_destination_fallback__";
 
 interface BuildRouterInternalOptions {
     pushMethodNames: Set<string>;
@@ -284,6 +281,24 @@ function buildRouterHandoffEffects(
                     });
                 }
             }
+            const fieldResultNodeIds = model.getFieldResultNodeIdsByRouterKey
+                .get(target.routerKey)
+                ?.get(target.fieldName);
+            if (fieldResultNodeIds && fieldResultNodeIds.size > 0) {
+                for (const targetNodeId of fieldResultNodeIds) {
+                    effects.push({
+                        kind: "get",
+                        handle,
+                        target: {
+                            nodeId: targetNodeId,
+                            allowUnreachableTarget: true,
+                            preserveSourceField: false,
+                        },
+                        reason: "Harmony-RouterField",
+                        originModel: "harmony.router",
+                    });
+                }
+            }
         }
     }
 
@@ -357,6 +372,44 @@ function addRouterSourceEffects(
                 });
             }
         }
+
+        const fieldResultNodeIdsByField = model.getFieldResultNodeIdsByRouterKey.get(routerKey);
+        if (fieldResultNodeIdsByField && fieldResultNodeIdsByField.size > 0) {
+            for (const [fieldName, fieldResultNodeIds] of fieldResultNodeIdsByField.entries()) {
+                if (!fieldName || fieldResultNodeIds.size === 0) continue;
+                const sourceFieldPrefixes = resolveRouterFieldResultSourcePrefixes(fieldName, options.payloadUnwrapPrefixes);
+                for (const sourceFieldPrefix of sourceFieldPrefixes) {
+                    const fieldResultHandle = createExactHandoffHandle(
+                        ROUTER_CELL_KIND,
+                        ROUTER_FIELD_HANDOFF_FAMILY,
+                        `field-result:${routerKey}:${source.nodeId}:${sourceFieldPrefix.join(".")}`,
+                    );
+                    effects.push({
+                        kind: "put",
+                        handle: fieldResultHandle,
+                        source: {
+                            nodeId: source.nodeId,
+                            fieldPathPrefix: sourceFieldPrefix,
+                        },
+                        reason: "Harmony-RouterFieldResult",
+                        originModel: "harmony.router",
+                    });
+                    for (const targetNodeId of fieldResultNodeIds) {
+                        effects.push({
+                            kind: "get",
+                            handle: fieldResultHandle,
+                            target: {
+                                nodeId: targetNodeId,
+                                allowUnreachableTarget: true,
+                                preserveSourceField: false,
+                            },
+                            reason: "Harmony-RouterFieldResult",
+                            originModel: "harmony.router",
+                        });
+                    }
+                }
+            }
+        }
     }
 
     if (source.fieldHead) {
@@ -389,6 +442,21 @@ function addRouterSourceEffects(
             }
         }
     }
+}
+
+function resolveRouterFieldResultSourcePrefixes(fieldName: string, unwrapPrefixes: string[]): string[][] {
+    const out: string[][] = [[fieldName]];
+    const seen = new Set<string>([fieldName]);
+    for (const prefix of unwrapPrefixes || []) {
+        const normalizedPrefix = String(prefix || "").trim();
+        if (!normalizedPrefix) continue;
+        const path = [normalizedPrefix, fieldName];
+        const key = path.join(".");
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(path);
+    }
+    return out;
 }
 
 function shouldSkipRouterBridgeSource(
@@ -452,6 +520,7 @@ export function buildRouterModel(
     const pushValueFieldTargetsByNodeId = new Map<number, RouterValueFieldTarget[]>();
     const getResultNodeIdsByRouterKey = new Map<string, Set<number>>();
     const getResultObjectNodeIdsByRouterKey = new Map<string, Set<number>>();
+    const getFieldResultNodeIdsByRouterKey = new Map<string, Map<string, Set<number>>>();
     const ungroupedPushNodeIds = new Set<number>();
     const ungroupedPushFieldEndpoints = new Set<string>();
     const pushCallCountByRouterKey = new Map<string, number>();
@@ -477,7 +546,7 @@ export function buildRouterModel(
             const invokeMethodSig = invokeExpr.getMethodSignature?.();
             if (!invokeMethodSig) continue;
             const invokeMethodName = invokeMethodSig.getMethodSubSignature?.()?.getMethodName?.() || "";
-            const importFallbackRouterKey = resolveImportedRouterKey(method, invokeExpr);
+            const importScopedRouterKey = resolveImportedRouterKey(method, invokeExpr);
             const pushRouterKey = resolveRouterPushIntent(
                 invokeMethodSig,
                 invokeMethodName,
@@ -485,7 +554,7 @@ export function buildRouterModel(
                 options,
                 suspiciousLogs,
                 args.log
-            ) || (options.pushMethodNames.has(invokeMethodName) ? importFallbackRouterKey : undefined);
+            ) || (options.pushMethodNames.has(invokeMethodName) ? importScopedRouterKey : undefined);
             if (pushRouterKey) {
                 pushCallCount++;
                 incrementCounter(pushCallCountByRouterKey, pushRouterKey);
@@ -514,8 +583,6 @@ export function buildRouterModel(
                 for (const nodeId of payload.payloadNodeIds) {
                     addMapSetValue(pushArgNodeIdsByRouterKey, pushRouterKey, nodeId);
                     addMapSetValue(pushArgNodeIdToRouterKeys, nodeId, pushRouterKey);
-                    addMapSetValue(pushArgNodeIdsByRouterKey, NAV_DESTINATION_FALLBACK_KEY, nodeId);
-                    addMapSetValue(pushArgNodeIdToRouterKeys, nodeId, NAV_DESTINATION_FALLBACK_KEY);
                     for (const routeKey of routeKeys) {
                         addMapSetValue(pushArgNodeIdsByRouterKey, routeKey, nodeId);
                         addMapSetValue(pushArgNodeIdToRouterKeys, nodeId, routeKey);
@@ -527,7 +594,6 @@ export function buildRouterModel(
                 for (const endpoint of payload.payloadFieldEndpoints) {
                     const endpointKey = `${endpoint.objectNodeId}#${endpoint.fieldName}`;
                     addMapSetValue(pushFieldEndpointToRouterKeys, endpointKey, pushRouterKey);
-                    addMapSetValue(pushFieldEndpointToRouterKeys, endpointKey, NAV_DESTINATION_FALLBACK_KEY);
                     for (const routeKey of routeKeys) {
                         addMapSetValue(pushFieldEndpointToRouterKeys, endpointKey, routeKey);
                     }
@@ -540,13 +606,6 @@ export function buildRouterModel(
                     existing.push({
                         fieldName: target.fieldName,
                         routerKey: pushRouterKey,
-                        ungrouped: routeKeys.length === 0,
-                        passthrough: target.passthrough,
-                        sourceFieldPath: target.sourceFieldPath,
-                    });
-                    existing.push({
-                        fieldName: target.fieldName,
-                        routerKey: NAV_DESTINATION_FALLBACK_KEY,
                         ungrouped: routeKeys.length === 0,
                         passthrough: target.passthrough,
                         sourceFieldPath: target.sourceFieldPath,
@@ -572,12 +631,12 @@ export function buildRouterModel(
                 options,
                 suspiciousLogs,
                 args.log
-            ) || (options.getMethodNames.has(invokeMethodName) ? importFallbackRouterKey : undefined);
+            ) || (options.getMethodNames.has(invokeMethodName) ? importScopedRouterKey : undefined);
             if (getRouterKey) {
                 getCallCount++;
                 if (!(stmt instanceof ArkAssignStmt)) continue;
                 const leftOp = stmt.getLeftOp();
-                const nodes = args.pag.getNodesByValue(leftOp) || safeGetOrCreatePagNodes(args.pag, leftOp, stmt);
+                const nodes = args.pag.getNodesByValue(leftOp);
                 if (!nodes || nodes.size === 0) continue;
                 const scopedGetKeys = inferRouteKeysForGetMethod(method, getRouterKey, options);
                 const targetRouterKeys = scopedGetKeys.length > 0 ? scopedGetKeys : [getRouterKey];
@@ -593,6 +652,7 @@ export function buildRouterModel(
                         }
                     }
                 }
+                collectGetResultFieldReadTargets(args.pag, cfg.getStmts(), leftOp, targetRouterKeys, getFieldResultNodeIdsByRouterKey);
                 continue;
             }
 
@@ -626,6 +686,7 @@ export function buildRouterModel(
         pushValueFieldTargetsByNodeId,
         getResultNodeIdsByRouterKey,
         getResultObjectNodeIdsByRouterKey,
+        getFieldResultNodeIdsByRouterKey,
         ungroupedPushNodeIds,
         ungroupedPushFieldEndpoints,
         pushCallCountByRouterKey,
@@ -696,7 +757,6 @@ function resolveRouterIntent(
 }
 
 function isAllowedRouterClass(profile: RouterClassProfile, options: BuildRouterInternalOptions): boolean {
-    if (options.routerClassNames.size === 0) return true;
     return options.routerClassNames.has(profile.className)
         || options.routerClassNames.has(profile.classKey)
         || options.routerClassNames.has(profile.classSigText);
@@ -914,6 +974,82 @@ function collectLocalFieldOrigins(
     return out;
 }
 
+function collectGetResultFieldReadTargets(
+    pag: Pag,
+    stmts: any[],
+    getResultValue: any,
+    routerKeys: string[],
+    output: Map<string, Map<string, Set<number>>>,
+): void {
+    const aliases = collectLocalAliasesForValue(stmts, getResultValue);
+    if (aliases.size === 0) return;
+    for (const stmt of stmts) {
+        if (!(stmt instanceof ArkAssignStmt)) continue;
+        const right = stmt.getRightOp();
+        if (!(right instanceof ArkInstanceFieldRef)) continue;
+        const base = right.getBase?.();
+        if (!(base instanceof Local)) continue;
+        if (!aliases.has(base)) continue;
+        const fieldName = right.getFieldSignature?.().getFieldName?.() || "";
+        if (!fieldName) continue;
+        const dstNodes = pag.getNodesByValue(stmt.getLeftOp());
+        if (!dstNodes || dstNodes.size === 0) continue;
+        for (const routerKey of routerKeys) {
+            for (const nodeId of dstNodes.values()) {
+                addNestedMapSetValue(output, routerKey, fieldName, nodeId);
+            }
+        }
+    }
+}
+
+function collectLocalAliasesForValue(stmts: any[], seedValue: any): Set<Local> {
+    const aliases = new Set<Local>();
+    const addAlias = (value: any): boolean => {
+        if (!(value instanceof Local)) return false;
+        const before = aliases.size;
+        aliases.add(value);
+        return aliases.size !== before;
+    };
+    addAlias(seedValue);
+    let changed = true;
+    while (changed) {
+        changed = false;
+        for (const stmt of stmts) {
+            if (!(stmt instanceof ArkAssignStmt)) continue;
+            const left = stmt.getLeftOp();
+            if (!(left instanceof Local)) continue;
+            const right = unwrapCastExpression(stmt.getRightOp());
+            if (!(right instanceof Local)) continue;
+            if (!aliases.has(right)) continue;
+            changed = addAlias(left) || changed;
+        }
+    }
+    return aliases;
+}
+
+function unwrapCastExpression(value: any): any {
+    let current = value;
+    for (let i = 0; i < 3; i++) {
+        if (!(current instanceof ArkCastExpr)) return current;
+        current = current.getOp?.();
+    }
+    return current;
+}
+
+function addNestedMapSetValue<K1, K2, V>(
+    map: Map<K1, Map<K2, Set<V>>>,
+    key1: K1,
+    key2: K2,
+    value: V,
+): void {
+    let inner = map.get(key1);
+    if (!inner) {
+        inner = new Map<K2, Set<V>>();
+        map.set(key1, inner);
+    }
+    addMapSetValue(inner, key2, value);
+}
+
 interface PushPayloadResult {
     payloadNodeIds: Set<number>;
     payloadFieldEndpoints: Array<{ objectNodeId: number; fieldName: string }>;
@@ -1047,6 +1183,22 @@ function collectPushPayload(
             if (!(stmt instanceof ArkAssignStmt)) continue;
             const left = stmt.getLeftOp();
             if (!(left instanceof ArkInstanceFieldRef)) continue;
+            const leftBase = left.getBase();
+            if (leftBase instanceof ArkInstanceFieldRef && leftBase.getBase() === local) {
+                const containerFieldName = leftBase.getFieldSignature?.().getFieldName?.() || "";
+                const nestedFieldName = left.getFieldSignature?.().getFieldName?.() || "";
+                if (payloadContainerFieldNames.has(containerFieldName) && nestedFieldName) {
+                    const right = stmt.getRightOp();
+                    addNodesFromValue(right);
+                    addValueFieldTarget(right, nestedFieldName);
+                    if (routeFieldName && nestedFieldName === routeFieldName) {
+                        for (const literal of analysis.stringCandidates(right)) {
+                            addRouteLiteral(literal);
+                        }
+                    }
+                    continue;
+                }
+            }
             if (left.getBase() !== local) continue;
             const right = stmt.getRightOp();
             addNodesFromValue(right);
@@ -1181,16 +1333,6 @@ function collectNavDestinationCallbackMethods(
                 bucket.set(callbackMethod.methodSignature, callbackMethod.method);
             }
         }
-        if (routeKeys.length === 0) {
-            let fallbackBucket = out.get(NAV_DESTINATION_FALLBACK_KEY);
-            if (!fallbackBucket) {
-                fallbackBucket = new Map<string, any>();
-                out.set(NAV_DESTINATION_FALLBACK_KEY, fallbackBucket);
-            }
-            for (const callbackMethod of callbackMethods) {
-                fallbackBucket.set(callbackMethod.methodSignature, callbackMethod.method);
-            }
-        }
     }
     return out;
 }
@@ -1220,15 +1362,6 @@ function collectNavDestinationTriggerSites(
             });
             out.set(routeKey, bucket);
         }
-        if (routeKeys.length === 0) {
-            const fallbackBucket = out.get(NAV_DESTINATION_FALLBACK_KEY) || [];
-            fallbackBucket.push({
-                sourceMethod,
-                anchorStmt: call.stmt,
-                argNodeIds: [...argNodeIds],
-            });
-            out.set(NAV_DESTINATION_FALLBACK_KEY, fallbackBucket);
-        }
     }
     return out;
 }
@@ -1239,6 +1372,9 @@ function collectCallbackParamNodeIds(callbacks: BuildRouterModelArgs["callbacks"
     for (const arg of invokeArgs) {
         for (const binding of callbacks.paramBindings(arg, 0, { maxCandidates: 8 })) {
             for (const nodeId of binding.localNodeIds()) {
+                out.add(nodeId);
+            }
+            for (const nodeId of binding.localUseNodeIds()) {
                 out.add(nodeId);
             }
         }

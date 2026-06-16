@@ -9,8 +9,8 @@
       "modulePath": "@arktaint/runtime-selector",
       "ownerName": "RuntimeSelector",
       "methodName": "SourceReturn",
-      "invokeKind": "instance",
-      "argCount": 0,
+      "invokeKind": "static",
+      "argCount": 1,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
@@ -22,8 +22,8 @@
       "modulePath": "@arktaint/runtime-selector",
       "ownerName": "RuntimeSelector",
       "methodName": "SourceArg",
-      "invokeKind": "instance",
-      "argCount": 0,
+      "invokeKind": "static",
+      "argCount": 2,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
@@ -48,8 +48,8 @@
       "modulePath": "@arktaint/runtime-selector",
       "ownerName": "RuntimeSelector",
       "methodName": "SourceScope",
-      "invokeKind": "instance",
-      "argCount": 0,
+      "invokeKind": "static",
+      "argCount": 1,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
@@ -61,8 +61,8 @@
       "modulePath": "@arktaint/runtime-selector",
       "ownerName": "RuntimeSelector",
       "methodName": "Sink",
-      "invokeKind": "instance",
-      "argCount": 0,
+      "invokeKind": "static",
+      "argCount": 1,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
@@ -90,7 +90,8 @@
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.source.precision.call_arg.source_arg_arg1.0",
@@ -113,17 +114,24 @@
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
-      "bindingId": "binding.source.precision.field_read.secret.0",
+      "bindingId": "binding.source.precision.field_read.secret.0.method.source_field_read_005_T",
       "surfaceId": "surface.source.precision.field_read.secret",
       "assetId": "asset.rule.test.source_precision",
       "plane": "rule",
       "role": "source",
       "selector": {
-        "kind": "method-name-regex",
-        "value": "^source_field_read_00[56]_[TF]$"
+        "kind": "method-name-equals",
+        "value": "source_field_read_005_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "source_field_read_005_T.ets"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -134,11 +142,44 @@
         ]
       },
       "effectTemplateRefs": [
-        "template.source.precision.field_read.secret"
+        "template.source.precision.field_read.secret.for.source.precision.field_read.secret.0.method.source_field_read_005_T"
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
+    },
+    {
+      "bindingId": "binding.source.precision.field_read.secret.0.method.source_field_read_006_F",
+      "surfaceId": "surface.source.precision.field_read.secret",
+      "assetId": "asset.rule.test.source_precision",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "source_field_read_006_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "source_field_read_006_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        },
+        "accessPath": [
+          "secret"
+        ]
+      },
+      "effectTemplateRefs": [
+        "template.source.precision.field_read.secret.for.source.precision.field_read.secret.0.method.source_field_read_006_F"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.source.precision.scope.call_return.0",
@@ -166,7 +207,8 @@
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.sink.precision.method_name.sink.0",
@@ -189,7 +231,8 @@
       ],
       "semanticsFamily": "sink",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     }
   ],
   "effectTemplates": [
@@ -217,20 +260,6 @@
       "sourceKind": "call_arg"
     },
     {
-      "id": "template.source.precision.field_read.secret",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "return"
-        },
-        "accessPath": [
-          "secret"
-        ]
-      },
-      "sourceKind": "field_read"
-    },
-    {
       "id": "template.source.precision.scope.call_return",
       "confidence": "certain",
       "kind": "rule.source",
@@ -252,6 +281,34 @@
         }
       },
       "sinkKind": "sink"
+    },
+    {
+      "id": "template.source.precision.field_read.secret.for.source.precision.field_read.secret.0.method.source_field_read_005_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        },
+        "accessPath": [
+          "secret"
+        ]
+      },
+      "sourceKind": "field_read"
+    },
+    {
+      "id": "template.source.precision.field_read.secret.for.source.precision.field_read.secret.0.method.source_field_read_006_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        },
+        "accessPath": [
+          "secret"
+        ]
+      },
+      "sourceKind": "field_read"
     }
   ],
   "provenance": {

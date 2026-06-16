@@ -622,12 +622,6 @@ function resolveStorageScopeTokens(
                 scopeTokens.add(`obj:${nodeId}`);
             }
         }
-        if (scopeTokens.size === 0) {
-            const fallbackObjectNodeIds = collectObjectNodeIdsFromValueInMethod(args.pag, method, base);
-            for (const nodeId of fallbackObjectNodeIds) {
-                scopeTokens.add(`obj:${nodeId}`);
-            }
-        }
     }
     if (scopeTokens.size === 0) {
         scopeTokens.add(`class:${className}`);

@@ -7,13 +7,10 @@ import type {
 } from "../../core/assets/schema";
 
 type FixtureRuleMatch =
-    | FixtureRuleMatchBase<"signature_contains">
     | FixtureRuleMatchBase<"signature_equals">
-    | FixtureRuleMatchBase<"signature_regex">
     | FixtureRuleMatchBase<"declaring_class_equals">
     | FixtureRuleMatchBase<"method_name_equals">
-    | FixtureRuleMatchBase<"method_name_regex">
-    | FixtureRuleMatchBase<"local_name_regex">;
+    | FixtureRuleMatchBase<"field_name_equals">;
 
 interface FixtureRuleMatchBase<K extends string> {
     kind: K;
@@ -186,13 +183,10 @@ function endpointForRole(
 
 function selector(match: FixtureRuleMatch): RuntimeSelector {
     const kindMap: Record<FixtureRuleMatch["kind"], RuntimeSelector["kind"]> = {
-        signature_contains: "signature-contains",
         signature_equals: "signature-equals",
-        signature_regex: "signature-regex",
         declaring_class_equals: "declaring-class-equals",
         method_name_equals: "method-name-equals",
-        method_name_regex: "method-name-regex",
-        local_name_regex: "local-name-regex",
+        field_name_equals: "field-name-equals",
     };
     return {
         kind: kindMap[match.kind],

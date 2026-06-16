@@ -126,18 +126,14 @@ function matchesRuleMatch(kind: RuleMatchKind, value: string, invokeExpr: Suppor
     const methodName = invokeMethodName(invokeExpr);
     const declaringClass = declaringClassText(invokeExpr);
     switch (kind) {
-        case "signature_contains":
-            return signature.includes(value);
         case "signature_equals":
             return signature === value;
-        case "signature_regex":
-            return new RegExp(value).test(signature);
         case "declaring_class_equals":
             return declaringClass === value || declaringClass.endsWith(value);
         case "method_name_equals":
             return methodName === value;
-        case "method_name_regex":
-            return new RegExp(value).test(methodName);
+        case "field_name_equals":
+            return false;
         default:
             return false;
     }

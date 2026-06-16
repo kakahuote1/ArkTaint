@@ -16,7 +16,6 @@ import {
 } from "../../substrate/queries/CalleeResolver";
 import { summarizeConstructorCapturedLocalToFields } from "./SyntheticInvokeEdgeBuilder";
 import { getMethodBySignature, getMethodBySimpleName } from "../contracts/MethodLookup";
-import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
 import { buildExecutionHandoffSiteKeyFromStmt } from "../handoff/ExecutionHandoffSiteKey";
 import { collectOrdinaryTaintPreservingSourceLocals } from "../ordinary/OrdinaryLanguagePropagation";
 import { assertBuildStageBudget, BuildStageBudget } from "../../shared/BuildStageBudget";
@@ -552,8 +551,8 @@ function materializeCaptureSite(
 ): number {
     let count = 0;
     for (const descriptor of site.descriptors) {
-        const srcNodes = getOrCreatePagNodes(pag, descriptor.srcValue, descriptor.srcAnchorStmt);
-        const dstNodes = getOrCreatePagNodes(pag, descriptor.dstValue, descriptor.dstAnchorStmt);
+        const srcNodes = getExistingPagNodes(pag, descriptor.srcValue);
+        const dstNodes = getExistingPagNodes(pag, descriptor.dstValue);
         if (!srcNodes || srcNodes.size === 0 || !dstNodes || dstNodes.size === 0) continue;
 
         for (const srcNodeId of srcNodes.values()) {
@@ -683,7 +682,7 @@ function collectCaptureTriggerNodeIds(
 ): Set<number> {
     const out = new Set<number>();
     for (const descriptor of descriptors) {
-        const srcNodes = getOrCreatePagNodes(pag, descriptor.srcValue, descriptor.srcAnchorStmt);
+        const srcNodes = getExistingPagNodes(pag, descriptor.srcValue);
         if (!srcNodes) continue;
         for (const nodeId of srcNodes.values()) {
             out.add(nodeId);
@@ -806,7 +805,7 @@ function collectCaptureDescriptorsForInvokeStmt(
                 if (sourceValues.length === 0) continue;
                 for (const sourceValue of sourceValues) {
                     assertBuildStageBudget(budget, `capture_lazy.descriptors.direct_arg.source_nodes.start(${shortMethodLabel(targetMethod)}:${callerLocalName})`);
-                    const sourceNodes = getOrCreatePagNodes(pag, sourceValue, stmt);
+                    const sourceNodes = getExistingPagNodes(pag, sourceValue);
                     assertBuildStageBudget(budget, `capture_lazy.descriptors.direct_arg.source_nodes.done(${shortMethodLabel(targetMethod)}:${callerLocalName})`);
                     if (!sourceNodes || sourceNodes.size === 0) continue;
                     for (const directUse of directUses) {
@@ -843,7 +842,7 @@ function collectCaptureDescriptorsForInvokeStmt(
 
                 for (const sourceValue of sourceValues) {
                     assertBuildStageBudget(budget, `capture_lazy.descriptors.field_descriptors.source_nodes.start(${shortMethodLabel(targetMethod)}:${callerLocalName})`);
-                    const sourceNodes = getOrCreatePagNodes(pag, sourceValue, stmt);
+                    const sourceNodes = getExistingPagNodes(pag, sourceValue);
                     assertBuildStageBudget(budget, `capture_lazy.descriptors.field_descriptors.source_nodes.done(${shortMethodLabel(targetMethod)}:${callerLocalName})`);
                     if (!sourceNodes || sourceNodes.size === 0) continue;
 
@@ -1280,7 +1279,7 @@ function collectClosuresParamWriteBackDescriptors(
 
         const callerLocal = callerLocals.get(overwrittenField);
         if (!(callerLocal instanceof Local)) continue;
-        const callerNodes = getOrCreatePagNodes(pag, callerLocal, callerStmt);
+        const callerNodes = getExistingPagNodes(pag, callerLocal);
         if (!callerNodes || callerNodes.size === 0) continue;
 
         const sourceLocals = collectOrdinaryTaintPreservingSourceLocals(right);
@@ -1301,8 +1300,8 @@ function collectClosuresParamWriteBackDescriptors(
     return result;
 }
 
-function getOrCreatePagNodes(pag: Pag, value: any, anchorStmt: any): Map<number, number> | undefined {
-    return safeGetOrCreatePagNodes(pag, value, anchorStmt);
+function getExistingPagNodes(pag: Pag, value: any): Map<number, number> | undefined {
+    return pag.getNodesByValue(value);
 }
 
 function collectNoArgCalleeClosure(scene: Scene, startMethod: any): any[] {
@@ -1481,8 +1480,8 @@ function resolveCapturedLocalSourceValues(
     return [...(calleeCapturedSources.get(capturedLocalName) || [])];
 }
 
-function resolvePagAnchorStmtForValue(value: any, fallbackStmt: any): any {
-    return value?.getDeclaringStmt?.() || fallbackStmt;
+function resolvePagAnchorStmtForValue(value: any, defaultStmt: any): any {
+    return value?.getDeclaringStmt?.() || defaultStmt;
 }
 
 function resolveCapturedLocalAliasedSources(

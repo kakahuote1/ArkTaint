@@ -101,7 +101,7 @@ function makeUnknownInstanceInvoke(methodName: string, base: any, args: any[] = 
     };
 }
 
-function testSymbolicSingletonReceiverOwnerInference(): void {
+function testBareSymbolicReceiverDoesNotInferOwner(): void {
     const ownerMethod = makeMockMethod(
         "<@X/viewmodel/HomeViewModel.ets: HomeViewModel.getHomeList(@X/base/BaseViewModel.ets: %dflt.[static]%dflt()#ResultCallback)>",
         "getHomeList",
@@ -118,9 +118,7 @@ function testSymbolicSingletonReceiverOwnerInference(): void {
     }, [new Local("%AM_callback")]);
 
     const candidates = resolveCalleeCandidates(scene, invokeExpr);
-    assert(candidates.length === 1, `symbolic receiver expected 1 candidate, got ${candidates.length}`);
-    const selectedSig = candidates[0].method.getSignature().toString();
-    assert(selectedSig.includes("HomeViewModel.getHomeList"), `symbolic receiver selected unexpected method: ${selectedSig}`);
+    assert(candidates.length === 0, `bare symbolic receiver must not infer owner from local name, got ${candidates.length}`);
 }
 
 function testSymbolicReceiverDoesNotUseLocalAliases(): void {
@@ -143,7 +141,7 @@ function testSymbolicReceiverDoesNotUseLocalAliases(): void {
     assert(candidates.length !== 1, "declared local alias must not be narrowed as an imported singleton receiver");
 }
 
-function testDirectCallableTypeFallback(): void {
+function testDirectCallableDispatch(): void {
     const targetMethod = {
         getName: () => "target",
         getCfg: () => ({ getStmts: () => [] }),
@@ -176,8 +174,8 @@ function testDirectCallableTypeFallback(): void {
     };
 
     const candidates = resolveCalleeCandidates(scene, invokeExpr);
-    assert(candidates.length === 1, `type fallback expected 1 candidate, got ${candidates.length}`);
-    assert(candidates[0].reason === "type_fallback", `type fallback reason mismatch: ${candidates[0].reason}`);
+    assert(candidates.length === 1, `callable dispatch expected 1 candidate, got ${candidates.length}`);
+    assert(candidates[0].reason === "callable_dispatch", `callable dispatch reason mismatch: ${candidates[0].reason}`);
 }
 
 function testInvokedParamsTracksFieldRelay(): void {
@@ -222,9 +220,9 @@ function testInvokedParamsTracksFieldRelay(): void {
 function main(): void {
     testImplicitThisArgMapping();
     testOwnerInferenceFromBaseType();
-    testSymbolicSingletonReceiverOwnerInference();
+    testBareSymbolicReceiverDoesNotInferOwner();
     testSymbolicReceiverDoesNotUseLocalAliases();
-    testDirectCallableTypeFallback();
+    testDirectCallableDispatch();
     testInvokedParamsTracksFieldRelay();
     console.log("callee_resolver_tests=PASS");
 }

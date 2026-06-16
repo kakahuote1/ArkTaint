@@ -52,7 +52,7 @@ export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallb
         tier: "B",
         description: "Framework text-input callbacks carry untrusted user input.",
         tags: [...CALLBACK_SOURCE_TAGS, "ui_input"],
-        match: { kind: "method_name_regex", value: "^(onChange|onInput)$", typeHint: "Input" },
+        match: { kind: "method_name_equals", value: "onChange", typeHint: "Input" },
         scope: ARKUI_BUILD_SCOPE,
         callbackArgIndexes: [0],
         schemas: [
@@ -61,6 +61,17 @@ export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallb
                 target: { endpoint: "arg0" },
                 description: "Text input callback parameter for onChange.",
             },
+        ],
+    },
+    {
+        family: "source.harmony.callback.input",
+        tier: "B",
+        description: "Framework text-input callbacks carry untrusted user input.",
+        tags: [...CALLBACK_SOURCE_TAGS, "ui_input"],
+        match: { kind: "method_name_equals", value: "onInput", typeHint: "Input" },
+        scope: ARKUI_BUILD_SCOPE,
+        callbackArgIndexes: [0],
+        schemas: [
             {
                 id: "source.harmony.input.onInput.arg0",
                 target: { endpoint: "arg0" },
@@ -137,7 +148,8 @@ export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallb
         tier: "B",
         description: "HTTP async completion callbacks surface response/error objects.",
         tags: [...CALLBACK_SOURCE_TAGS, "network_http"],
-        match: { kind: "signature_regex", value: "(Http|HttpRequest).*requestAsync" },
+        match: { kind: "method_name_equals", value: "requestAsync" },
+        calleeScope: exactClassRegexScope("Http", "HttpRequest"),
         callbackArgIndexes: [1],
         schemas: [
             {
@@ -157,7 +169,8 @@ export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallb
         tier: "B",
         description: "HTTP request completion callbacks surface response objects.",
         tags: [...CALLBACK_SOURCE_TAGS, "network_http"],
-        match: { kind: "signature_regex", value: "(Http|HttpRequest).*\\.request", invokeKind: "instance", argCount: 3 },
+        match: { kind: "method_name_equals", value: "request", invokeKind: "instance", argCount: 3 },
+        calleeScope: exactClassRegexScope("Http", "HttpRequest"),
         callbackArgIndexes: [2],
         schemas: [
             {
@@ -172,7 +185,8 @@ export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallb
         tier: "B",
         description: "WindowStage loadContent callback surfaces framework err/data pair.",
         tags: [...CALLBACK_SOURCE_TAGS, "window_stage"],
-        match: { kind: "signature_regex", value: "WindowStage.*loadContent" },
+        match: { kind: "method_name_equals", value: "loadContent" },
+        calleeScope: exactClassRegexScope("WindowStage"),
         callbackArgIndexes: [1],
         schemas: [
             {
@@ -192,7 +206,8 @@ export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallb
         tier: "B",
         description: "System message-style callbacks surface external payloads.",
         tags: [...CALLBACK_SOURCE_TAGS, "system_message"],
-        match: { kind: "signature_regex", value: "(WebView|Worker).*onMessage" },
+        match: { kind: "method_name_equals", value: "onMessage" },
+        calleeScope: exactClassRegexScope("WebView", "Worker"),
         callbackArgIndexes: [0],
         schemas: [
             {
@@ -229,9 +244,10 @@ export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallb
         description: "Observer/subscription callbacks surface external event payloads.",
         tags: [...CALLBACK_SOURCE_TAGS, "observer_subscription"],
         match: {
-            kind: "signature_regex",
-            value: "(MediaQueryListener.*\\.on\\(|CommonEventSubscriber.*subscribe|commonEventManager.*subscribeToEvent|NotificationManager.*subscribe)",
+            kind: "method_name_equals",
+            value: "on",
         },
+        calleeScope: exactClassRegexScope("MediaQueryListener", "CommonEventSubscriber", "commonEventManager", "NotificationManager"),
         callbackArgIndexes: [1],
         schemas: [
             {
@@ -330,9 +346,10 @@ export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallb
         description: "Streaming/network message callbacks surface external payloads.",
         tags: [...CALLBACK_SOURCE_TAGS, "network_stream"],
         match: {
-            kind: "signature_regex",
-            value: "(WebSocket.*onMessage|(TCP|UDP|TLS|Local)Socket.*\\.on\\(|HttpRequest.*onDataReceive)",
+            kind: "method_name_equals",
+            value: "onMessage",
         },
+        calleeScope: exactClassRegexScope("WebSocket", "TCPSocket", "UDPSocket", "TLSSocket", "LocalSocket", "HttpRequest"),
         callbackArgIndexes: [0],
         schemas: [
             {
@@ -357,7 +374,8 @@ export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallb
         tier: "B",
         description: "Bluetooth callbacks surface external device payloads.",
         tags: [...CALLBACK_SOURCE_TAGS, "device_bluetooth"],
-        match: { kind: "signature_regex", value: "(BLECharacteristicChange|sppRead)" },
+        match: { kind: "method_name_equals", value: "on" },
+        calleeScope: exactClassRegexScope("bluetooth", "BLE", "SppClientSocket"),
         callbackArgIndexes: [0],
         schemas: [
             {
@@ -377,7 +395,8 @@ export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallb
         tier: "B",
         description: "Sensor/location callbacks surface device environment data.",
         tags: [...CALLBACK_SOURCE_TAGS, "device_sensor"],
-        match: { kind: "signature_regex", value: "(sensor.*\\.on\\(|Geolocation.*\\.on\\()" },
+        match: { kind: "method_name_equals", value: "on" },
+        calleeScope: exactClassRegexScope("sensor", "Geolocation", "geoLocationManager"),
         callbackArgIndexes: [1, 2],
         schemas: [
             {
@@ -397,7 +416,7 @@ export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallb
         tier: "B",
         description: "Telephony async callbacks surface SIM/account payloads.",
         tags: [...CALLBACK_SOURCE_TAGS, "device_telephony"],
-        match: { kind: "signature_regex", value: "getSimAccountInfo" },
+        match: { kind: "method_name_equals", value: "getSimAccountInfo" },
         callbackArgIndexes: [1],
         schemas: [
             {
@@ -417,7 +436,8 @@ export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallb
         tier: "B",
         description: "Distributed object callbacks surface cross-device state payloads.",
         tags: [...CALLBACK_SOURCE_TAGS, "distributed_state"],
-        match: { kind: "signature_regex", value: "DistributedObject.*onChange" },
+        match: { kind: "method_name_equals", value: "onChange" },
+        calleeScope: exactClassRegexScope("DistributedObject"),
         callbackArgIndexes: [0],
         schemas: [
             {
@@ -432,7 +452,7 @@ export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallb
         tier: "B",
         description: "NFC callbacks surface detected tag payloads.",
         tags: [...CALLBACK_SOURCE_TAGS, "device_nfc"],
-        match: { kind: "signature_regex", value: "(tagFound|onTagFound)" },
+        match: { kind: "method_name_equals", value: "onTagFound" },
         callbackArgIndexes: [0],
         schemas: [
             {
@@ -447,7 +467,7 @@ export const FRAMEWORK_CALLBACK_SOURCE_FAMILY_CONTRACTS: readonly FrameworkCallb
         tier: "B",
         description: "Camera callbacks surface captured media payloads.",
         tags: [...CALLBACK_SOURCE_TAGS, "device_camera"],
-        match: { kind: "signature_regex", value: "(photoAvailable|onPhotoAvailable)" },
+        match: { kind: "method_name_equals", value: "onPhotoAvailable" },
         callbackArgIndexes: [0],
         schemas: [
             {
@@ -493,11 +513,12 @@ export function buildFrameworkBoundStateSourceRules(): SourceRule[] {
             family: "source.harmony.callback.input",
             tier: "B",
             match: {
-                kind: "signature_regex",
-                value: "(TextInput\\.create|\\.TextInput\\()",
+                kind: "method_name_equals",
+                value: "create",
                 invokeKind: "static",
                 argCount: 1,
             },
+            calleeScope: exactClassRegexScope("TextInput"),
             sourceKind: "bound_state",
             target: { endpoint: "arg0", path: ["text"] },
         },
@@ -509,11 +530,12 @@ export function buildFrameworkBoundStateSourceRules(): SourceRule[] {
             family: "source.harmony.callback.input",
             tier: "B",
             match: {
-                kind: "signature_regex",
-                value: "(TextArea\\.create|\\.TextArea\\()",
+                kind: "method_name_equals",
+                value: "create",
                 invokeKind: "static",
                 argCount: 1,
             },
+            calleeScope: exactClassRegexScope("TextArea"),
             sourceKind: "bound_state",
             target: { endpoint: "arg0", path: ["text"] },
         },

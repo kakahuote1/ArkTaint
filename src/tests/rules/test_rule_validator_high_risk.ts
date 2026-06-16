@@ -12,7 +12,7 @@ function buildRuleSetWithSink(sinkRule: SinkRule) {
                 id: "source.min.entry_param",
                 sourceKind: "entry_param",
                 target: { endpoint: "arg0" },
-                match: { kind: "local_name_regex", value: "^taint_src$" },
+                match: { kind: "method_name_equals", value: "entry" },
             },
         ],
         sinks: [sinkRule],

@@ -168,17 +168,24 @@
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
-      "bindingId": "binding.source.framework_probe.entry_param.0",
+      "bindingId": "binding.source.framework_probe.entry_param.0.method.startability_for_result_012_T",
       "surfaceId": "surface.source.framework_probe.entry_param",
       "assetId": "asset.rule.test.harmony_framework_entry_probe",
       "plane": "rule",
       "role": "source",
       "selector": {
-        "kind": "local-name-regex",
-        "value": "^taint_src$"
+        "kind": "method-name-equals",
+        "value": "startability_for_result_012_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "startability_for_result_012_T.ets"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -187,7 +194,134 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.framework_probe.entry_param"
+        "template.source.framework_probe.entry_param.for.source.framework_probe.entry_param.0.method.startability_for_result_012_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.framework_probe.entry_param.0.method.build",
+      "surfaceId": "surface.source.framework_probe.entry_param",
+      "assetId": "asset.rule.test.harmony_framework_entry_probe",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "build"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.framework_probe.entry_param.for.source.framework_probe.entry_param.0.method.build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.framework_probe.entry_param.0.method.startability_handoff_004_T",
+      "surfaceId": "surface.source.framework_probe.entry_param",
+      "assetId": "asset.rule.test.harmony_framework_entry_probe",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "startability_handoff_004_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "startability_handoff_004_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.framework_probe.entry_param.for.source.framework_probe.entry_param.0.method.startability_handoff_004_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.framework_probe.entry_param.0.method.build",
+      "surfaceId": "surface.source.framework_probe.entry_param",
+      "assetId": "asset.rule.test.harmony_framework_entry_probe",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "build"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.framework_probe.entry_param.for.source.framework_probe.entry_param.0.method.build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.framework_probe.entry_param.0.method.startability_handoff_005_T",
+      "surfaceId": "surface.source.framework_probe.entry_param",
+      "assetId": "asset.rule.test.harmony_framework_entry_probe",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "startability_handoff_005_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "startability_handoff_005_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.framework_probe.entry_param.for.source.framework_probe.entry_param.0.method.startability_handoff_005_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.framework_probe.entry_param.0.method.build",
+      "surfaceId": "surface.source.framework_probe.entry_param",
+      "assetId": "asset.rule.test.harmony_framework_entry_probe",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "build"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.framework_probe.entry_param.for.source.framework_probe.entry_param.0.method.build"
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
@@ -200,8 +334,14 @@
       "plane": "rule",
       "role": "source",
       "selector": {
-        "kind": "signature-regex",
-        "value": "\\bNavPathStack\\.getParams\\("
+        "kind": "method-name-equals",
+        "value": "getParams",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "navpathstack_fake_013_F.ets"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -213,7 +353,8 @@
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.source.framework_probe.onclick.arg0.0",
@@ -236,7 +377,8 @@
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.source.framework_probe.webview.onMessage.arg0.0",
@@ -259,7 +401,8 @@
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.source.framework_probe.windowstage.loadContent.arg1.0",
@@ -282,7 +425,8 @@
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.sink.framework_probe.mock_sink.0",
@@ -305,7 +449,8 @@
       ],
       "semanticsFamily": "sink",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.transfer.framework_probe.distributedkv.put.arg1_to_base.0",
@@ -407,18 +552,6 @@
         }
       },
       "sourceKind": "call_return"
-    },
-    {
-      "id": "template.source.framework_probe.entry_param",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
     },
     {
       "id": "template.source.framework_probe.navpathstack.getparams",
@@ -544,6 +677,54 @@
         }
       },
       "transferKind": "transfer"
+    },
+    {
+      "id": "template.source.framework_probe.entry_param.for.source.framework_probe.entry_param.0.method.startability_for_result_012_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.framework_probe.entry_param.for.source.framework_probe.entry_param.0.method.build",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.framework_probe.entry_param.for.source.framework_probe.entry_param.0.method.startability_handoff_004_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.framework_probe.entry_param.for.source.framework_probe.entry_param.0.method.startability_handoff_005_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
     }
   ],
   "provenance": {

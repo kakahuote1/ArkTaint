@@ -64,17 +64,24 @@
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
-      "bindingId": "binding.source.harmony.extension_variants.entry_param.0",
+      "bindingId": "binding.source.harmony.extension_variants.entry_param.0.method.onWorkStart",
       "surfaceId": "surface.source.harmony.extension_variants.entry_param",
       "assetId": "asset.rule.test.harmony_extension_variants",
       "plane": "rule",
       "role": "source",
       "selector": {
-        "kind": "local-name-regex",
-        "value": "^workInfo$|^taint_src$"
+        "kind": "method-name-equals",
+        "value": "onWorkStart",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "workscheduler_onworkstart_003_T.ets"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -110,7 +117,8 @@
       ],
       "semanticsFamily": "sink",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     }
   ],
   "effectTemplates": [

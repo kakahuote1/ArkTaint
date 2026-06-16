@@ -13,9 +13,9 @@ function hasFlag(name) {
   return args.includes(name);
 }
 
-function valueOf(name, fallback) {
+function valueOf(name, defaultValue) {
   const index = args.indexOf(name);
-  if (index < 0 || index + 1 >= args.length) return fallback;
+  if (index < 0 || index + 1 >= args.length) return defaultValue;
   return args[index + 1];
 }
 

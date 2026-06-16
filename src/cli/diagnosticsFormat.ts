@@ -122,14 +122,14 @@ function classifyLegacyLoadMessage(prefix: "MODULE" | "PLUGIN", message: string)
     };
 }
 
-function fallbackModuleRuntimeAdvice(phase: string): { code: string; advice: string } {
+function defaultModuleRuntimeAdvice(phase: string): { code: string; advice: string } {
     return {
         code: `MODULE_${normalizeCodeFragment(phase)}_THROW`,
         advice: "This module threw directly from one of its runtime hooks. Check nearby code, null handling, and helper return values.",
     };
 }
 
-function fallbackPluginRuntimeAdvice(phase: string): { code: string; advice: string } {
+function defaultPluginRuntimeAdvice(phase: string): { code: string; advice: string } {
     return {
         code: `PLUGIN_${normalizeCodeFragment(phase)}_THROW`,
         advice: "This plugin threw directly from one of its runtime hooks. Check nearby code, null handling, and helper return values.",
@@ -241,7 +241,7 @@ export function normalizeDiagnosticsItems(diagnostics: AnalyzeErrorDiagnostics):
         const phaseLabel = describeModulePhase(failure.phase);
         const runtime = failure.code && failure.advice
             ? { code: failure.code, advice: failure.advice }
-            : fallbackModuleRuntimeAdvice(failure.phase);
+            : defaultModuleRuntimeAdvice(failure.phase);
         out.push({
             category: "Module",
             code: runtime.code,
@@ -275,7 +275,7 @@ export function normalizeDiagnosticsItems(diagnostics: AnalyzeErrorDiagnostics):
         const phaseLabel = describePluginPhase(failure.phase);
         const runtime = failure.code && failure.advice
             ? { code: failure.code, advice: failure.advice }
-            : fallbackPluginRuntimeAdvice(failure.phase);
+            : defaultPluginRuntimeAdvice(failure.phase);
         out.push({
             category: "Plugin",
             code: runtime.code,

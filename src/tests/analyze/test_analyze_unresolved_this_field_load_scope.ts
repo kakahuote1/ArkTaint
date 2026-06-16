@@ -41,10 +41,10 @@ function hasSink(summary: AnalyzeSummary, sinkRuleId: string): boolean {
 }
 
 async function main(): Promise<void> {
-    const root = resolveTestRunDir("precision", "analyze_unresolved_this_field_fallback_scope");
-    const repoRoot = resolveTestRunPath("precision", "analyze_unresolved_this_field_fallback_scope", "fixtures", "repo");
-    const rulePath = resolveTestRunPath("precision", "analyze_unresolved_this_field_fallback_scope", "fixtures", "rules.json");
-    const outputDir = resolveTestRunPath("precision", "analyze_unresolved_this_field_fallback_scope", "runs", "baseline");
+    const root = resolveTestRunDir("precision", "analyze_unresolved_this_field_load_scope");
+    const repoRoot = resolveTestRunPath("precision", "analyze_unresolved_this_field_load_scope", "fixtures", "repo");
+    const rulePath = resolveTestRunPath("precision", "analyze_unresolved_this_field_load_scope", "fixtures", "rules.json");
+    const outputDir = resolveTestRunPath("precision", "analyze_unresolved_this_field_load_scope", "runs", "baseline");
     fs.rmSync(root, { recursive: true, force: true });
 
     const repoSourceDir = path.join(repoRoot, "src", "main", "ets");
@@ -93,10 +93,10 @@ async function main(): Promise<void> {
     writeText(
         rulePath,
         stringifyRuleAssetFixture({
-            id: "asset.rule.fixture.unresolved_this_fallback_scope",
+            id: "asset.rule.fixture.unresolved_this_field_load_scope",
             sources: [
                 {
-                    id: "source.fixture.unresolved_this_fallback_scope",
+                    id: "source.fixture.unresolved_this_field_load_scope",
                     sourceKind: "call_return",
                     match: {
                         kind: "method_name_equals",
@@ -107,7 +107,7 @@ async function main(): Promise<void> {
             ],
             sinks: [
                 {
-                    id: "sink.fixture.unresolved_this_fallback_scope.token",
+                    id: "sink.fixture.unresolved_this_field_load_scope.token",
                     match: {
                         kind: "method_name_equals",
                         value: "SinkToken",
@@ -115,7 +115,7 @@ async function main(): Promise<void> {
                     target: "arg0",
                 },
                 {
-                    id: "sink.fixture.unresolved_this_fallback_scope.role",
+                    id: "sink.fixture.unresolved_this_field_load_scope.role",
                     match: {
                         kind: "method_name_equals",
                         value: "SinkRole",
@@ -139,21 +139,21 @@ async function main(): Promise<void> {
     ]);
 
     const summary = readAnalyzeSummary<AnalyzeSummary>(outputDir);
-    const tokenSink = "sink.fixture.unresolved_this_fallback_scope.token";
-    const roleSink = "sink.fixture.unresolved_this_fallback_scope.role";
+    const tokenSink = "sink.fixture.unresolved_this_field_load_scope.token";
+    const roleSink = "sink.fixture.unresolved_this_field_load_scope.role";
 
     assert(summary.summary.totalFlows > 0, "expected at least one this.token flow");
     assert(hasSink(summary, tokenSink), "expected this.token source to reach token sink");
     assert(!hasSink(summary, roleSink), "this.token source must not taint sibling this.role load");
 
-    console.log("PASS test_analyze_unresolved_this_field_fallback_scope");
+    console.log("PASS test_analyze_unresolved_this_field_load_scope");
     console.log(`total_flows=${summary.summary.totalFlows}`);
     console.log(`token_detected=${hasSink(summary, tokenSink)}`);
     console.log(`role_detected=${hasSink(summary, roleSink)}`);
 }
 
 main().catch((error) => {
-    console.error("FAIL test_analyze_unresolved_this_field_fallback_scope");
+    console.error("FAIL test_analyze_unresolved_this_field_load_scope");
     console.error(error);
     process.exit(1);
 });

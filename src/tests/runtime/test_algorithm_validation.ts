@@ -30,7 +30,7 @@ const CASE_GROUPS: Record<string, { group: string; feature: string }> = {
     a3_expr_alias_chain: { group: "Algorithm A", feature: "Expression Layer: Alias chain resolve" },
     a4_param_ip_direct: { group: "Algorithm A", feature: "Parameter Layer: IP_direct filtering" },
     a5_ip_field: { group: "Algorithm A", feature: "Opt 1: IP_field store-then-invoke" },
-    a6_fallback_resolve: { group: "Algorithm A", feature: "Expression Layer: Fallback resolve" },
+    a6_reflect_unmodeled: { group: "Algorithm A", feature: "Expression Layer: unmodeled reflect dispatch is blocked" },
     a7_call_return_edge: { group: "Algorithm A", feature: "CALL/RETURN edge propagation" },
     a8_sdk_options_pattern: { group: "Algorithm A", feature: "Opt 6: SDK options-pattern callback expansion" },
     b1_capture_fwd: { group: "Algorithm B", feature: "CAPTURE_FWD: Forward capture" },

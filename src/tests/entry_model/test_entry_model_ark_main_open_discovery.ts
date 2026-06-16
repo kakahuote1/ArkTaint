@@ -91,36 +91,16 @@ async function main(): Promise<void> {
     const externalPlan = buildArkMainPlan(externalScene, { seedMethods: externalSeedMethods });
     const unknownExternalCallbacks = externalPlan.facts.filter(fact =>
         fact.kind === "callback"
-        && fact.callbackRecognitionLayer === "opaque_external_call_fallback"
         && fact.entryFamily === "unknown_external_callback",
     );
     assert(
-        unknownExternalCallbacks.length >= 3,
-        `ArkMain should discover direct + nested external callbacks, got ${unknownExternalCallbacks.length}`,
+        unknownExternalCallbacks.length === 0,
+        `ArkMain must not promote opaque external callbacks without explicit assets, got ${unknownExternalCallbacks.length}`,
     );
-    const externalMethodNames = new Set(unknownExternalCallbacks.map(fact => fact.method.getName?.() || ""));
-    assert(
-        externalMethodNames.has("directLeaf001"),
-        `unknown_external_callback facts should include direct external callback target. actual=${[...externalMethodNames].join(", ")}`,
-    );
-    assert(
-        externalMethodNames.has("nestedLeaf001"),
-        `unknown_external_callback facts should include nested external callback target via worklist scanning. actual=${[...externalMethodNames].join(", ")}`,
-    );
-    for (const fact of unknownExternalCallbacks) {
-        assert(
-            classifyArkMainFactOwnership(fact) === "root_entry",
-            `unknown_external_callback must remain root_entry, got ${classifyArkMainFactOwnership(fact)}`,
-        );
-        assert(
-            isArkMainEntryLayerFact(fact),
-            "unknown_external_callback must remain inside ArkMain entry layer.",
-        );
-    }
     const orderedExternalMethodNames = new Set(externalPlan.orderedMethods.map(method => method.getName?.() || ""));
     assert(
-        orderedExternalMethodNames.has("nestedLeaf001"),
-        `ArkMain orderedMethods should include nested external callback target. actual=${[...orderedExternalMethodNames].join(", ")}`,
+        !orderedExternalMethodNames.has("nestedLeaf001"),
+        `ArkMain orderedMethods must not include opaque external callback target without explicit assets. actual=${[...orderedExternalMethodNames].join(", ")}`,
     );
 
     console.log("PASS test_entry_model_ark_main_open_discovery");

@@ -922,6 +922,9 @@ function resolveMethodPortNodeIdsForMethod(
         for (const nodeId of binding.localNodeIds()) {
             out.add(nodeId);
         }
+        for (const nodeId of binding.localUseNodeIds()) {
+            out.add(nodeId);
+        }
         for (const nodeId of binding.localObjectNodeIds()) {
             out.add(nodeId);
         }
@@ -1071,6 +1074,9 @@ function resolveFieldLoadTargetNodeIds(
             paramIndex: target.paramIndex,
         })) {
             for (const nodeId of binding.localNodeIds()) {
+                out.add(nodeId);
+            }
+            for (const nodeId of binding.localUseNodeIds()) {
                 out.add(nodeId);
             }
             for (const nodeId of binding.localObjectNodeIds()) {
@@ -1934,6 +1940,9 @@ function compileCrossMethodParamBridgeModule(spec: CrossMethodParamBridgeInterna
                 for (const nodeId of binding.localNodeIds()) {
                     targetNodeIds.add(nodeId);
                 }
+                for (const nodeId of binding.localUseNodeIds()) {
+                    targetNodeIds.add(nodeId);
+                }
                 for (const nodeId of binding.localObjectNodeIds()) {
                     targetNodeIds.add(nodeId);
                 }
@@ -1968,8 +1977,8 @@ function compileDirectNodeBridgeModule(spec: DirectNodeBridgeInternalModuleLower
             const relay = ctx.bridge.nodeRelay();
             for (const call of ctx.scan.invokes({ ...spec.surface })) {
                 const sourceNodeIds = resolveBridgeSourceNodeIds(call, spec.source);
-                if (sourceNodeIds.length === 0) continue;
                 const targetNodeIds = resolveInvokeNodeIds(call, spec.target);
+                if (sourceNodeIds.length === 0) continue;
                 if (targetNodeIds.length === 0) continue;
                 relay.connectMany(sourceNodeIds, targetNodeIds);
             }
@@ -1992,8 +2001,8 @@ function compileDirectCallbackBridgeModule(spec: DirectCallbackBridgeInternalMod
             const relay = ctx.bridge.nodeRelay();
             for (const call of ctx.scan.invokes({ ...spec.surface })) {
                 const sourceNodeIds = resolveBridgeSourceNodeIds(call, spec.source);
-                if (sourceNodeIds.length === 0) continue;
                 const targetNodeIds = resolveInvokeNodeIds(call, spec.target);
+                if (sourceNodeIds.length === 0) continue;
                 if (targetNodeIds.length === 0) continue;
                 relay.connectMany(sourceNodeIds, targetNodeIds);
                 if (spec.deferredBinding?.kind === "imperative") {
@@ -2400,19 +2409,19 @@ function buildLoweredModuleId(specId: string, localId: string): string {
     return `${specId}::${localId}`;
 }
 
-function buildTransferReason(spec: InternalModuleLoweringIR, transfer: { id: string; reason?: string }, fallback: string): string {
-    return transfer.reason || `${spec.id}:${fallback}:${transfer.id}`;
+function buildTransferReason(spec: InternalModuleLoweringIR, transfer: { id: string; reason?: string }, defaultReasonKind: string): string {
+    return transfer.reason || `${spec.id}:${defaultReasonKind}:${transfer.id}`;
 }
 
 function buildBridgeEmitSpec(
     spec: InternalModuleLoweringIR,
     transfer: { id: string; reason?: string; mode?: ModuleTransferMode; boundary?: ModuleBoundaryKind; allowUnreachableTarget?: boolean },
-    fallback: string,
+    defaultReasonKind: string,
 ): ModuleBridgeEmitSpec {
     return {
         mode: transfer.mode || "preserve",
         boundary: transfer.boundary || "identity",
-        reason: buildTransferReason(spec, transfer, fallback),
+        reason: buildTransferReason(spec, transfer, defaultReasonKind),
         allowUnreachableTarget: transfer.allowUnreachableTarget === true,
     };
 }
@@ -2420,15 +2429,15 @@ function buildBridgeEmitSpec(
 function buildFieldBridgeEmitSpec(
     spec: InternalModuleLoweringIR,
     transfer: ModuleCellToCellTransfer | ModuleCellToPortTransfer,
-    fallback: string,
+    defaultReasonKind: string,
 ): NormalizedFieldBridgeEmitSpec {
     invariant(
         transfer.boundary !== "stringify_result",
         `module spec ${spec.id} transfer '${transfer.id}' field bridge does not support boundary 'stringify_result'`,
     );
     return normalizeFieldBridgeEmitSpec({
-        fieldReason: buildTransferReason(spec, transfer, fallback),
-        loadReason: buildTransferReason(spec, transfer, fallback),
+        fieldReason: buildTransferReason(spec, transfer, defaultReasonKind),
+        loadReason: buildTransferReason(spec, transfer, defaultReasonKind),
         boundary: transfer.boundary || "identity",
         allowUnreachableTarget: transfer.allowUnreachableTarget === true,
     });
@@ -2437,13 +2446,13 @@ function buildFieldBridgeEmitSpec(
 function buildFieldWriteEmitSpec(
     spec: InternalModuleLoweringIR,
     transfer: ModulePortToCellTransfer,
-    fallback: string,
+    defaultReasonKind: string,
 ): ModuleBridgeEmitSpec {
     invariant(
         transfer.boundary !== "stringify_result",
         `module spec ${spec.id} transfer '${transfer.id}' direct field write does not support boundary 'stringify_result'`,
     );
-    return buildBridgeEmitSpec(spec, transfer, fallback);
+    return buildBridgeEmitSpec(spec, transfer, defaultReasonKind);
 }
 
 function resolveAddressSpec(

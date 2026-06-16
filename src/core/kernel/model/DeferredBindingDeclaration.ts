@@ -38,6 +38,7 @@ export interface ModuleExplicitImperativeDeferredBindingRecord extends ModuleExp
 export interface ModuleExplicitDeclarativeDeferredBindingRecord extends ModuleExplicitDeferredBindingBase {
     bindingKind: "declarative";
     triggerLabel: string;
+    envSourceMethods?: any[];
     activationSource?: DeferredBindingSourceSelector;
     payloadSource?: DeferredBindingSourceSelector;
 }

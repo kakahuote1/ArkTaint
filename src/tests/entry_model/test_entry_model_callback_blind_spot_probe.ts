@@ -70,8 +70,6 @@ const CALLBACK_RESOLVE_OPTIONS = {
 
 const CATALOG_MASK_POLICY = {
     enableSdkProvenance: true,
-    enableOwnerQualifiedFallback: false,
-    enableEmptyOwnerFallback: false,
     suppressCatalogSlotFamilyInference: true,
 } as const;
 

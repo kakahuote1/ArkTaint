@@ -4,7 +4,6 @@ import type {
     CallbackRegistrationRecognitionLayer,
     CallbackRegistrationShape,
     CallbackRegistrationSlotFamily,
-    StructuralCallbackEvidenceFamily,
 } from "../shared/FrameworkCallbackClassifier";
 
 export type ArkMainRuleEndpoint = "base" | "result" | "matched_param" | `arg${number}`;
@@ -131,7 +130,6 @@ export interface ArkMainContract {
     callbackRecognitionLayer?: CallbackRegistrationRecognitionLayer;
     callbackRegistrationSignature?: string;
     callbackArgIndex?: number;
-    callbackStructuralEvidenceFamily?: StructuralCallbackEvidenceFamily;
     sourceSchemas: ArkMainContractSourceSchema[];
 }
 
@@ -180,7 +178,6 @@ export interface ArkMainEntryFact {
     callbackRecognitionLayer?: CallbackRegistrationRecognitionLayer;
     callbackRegistrationSignature?: string;
     callbackArgIndex?: number;
-    callbackStructuralEvidenceFamily?: StructuralCallbackEvidenceFamily;
     entryFamily?: string;
     entryShape?: string;
     recognitionLayer?: string;

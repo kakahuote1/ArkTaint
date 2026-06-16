@@ -42,7 +42,6 @@ export function findClassLocalAnchors(facts: ArkMainEntryFact[], targetMethod: A
 export function findCompositionAnchors(
     compositionFacts: ArkMainEntryFact[],
     targetMethod: ArkMethod,
-    fallback?: ArkMethod,
 ): ArkMethod[] {
     const targetClass = targetMethod.getDeclaringArkClass?.()?.getName?.();
     const anchors = compositionFacts
@@ -54,13 +53,12 @@ export function findCompositionAnchors(
     if (anchors.length > 0) {
         return dedupeMethods(anchors);
     }
-    return fallback ? [fallback] : [targetMethod];
+    return [targetMethod];
 }
 
 export function findParentBuildAnchors(
     compositionFacts: ArkMainEntryFact[],
     targetMethod: ArkMethod,
-    fallback?: ArkMethod,
 ): ArkMethod[] {
     const targetClass = targetMethod.getDeclaringArkClass?.()?.getName?.();
     const parentBuilds = compositionFacts
@@ -70,7 +68,7 @@ export function findParentBuildAnchors(
     if (parentBuilds.length > 0) {
         return dedupeMethods(parentBuilds);
     }
-    return fallback ? [fallback] : [targetMethod];
+    return [targetMethod];
 }
 
 export function findAbilityBootstrapAnchors(

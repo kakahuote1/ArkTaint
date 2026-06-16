@@ -32,14 +32,20 @@
   ],
   "bindings": [
     {
-      "bindingId": "binding.source.harmony_worker.entry_param.0",
+      "bindingId": "binding.source.harmony_worker.entry_param.0.method.worker_callback_payload_003_T",
       "surfaceId": "surface.source.harmony_worker.entry_param",
       "assetId": "asset.rule.test.harmony_worker",
       "plane": "rule",
       "role": "source",
       "selector": {
-        "kind": "local-name-regex",
-        "value": "^taint_src$"
+        "kind": "method-name-equals",
+        "value": "worker_callback_payload_003_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "worker_callback_payload_003_T.ets"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -48,7 +54,152 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.harmony_worker.entry_param"
+        "template.source.harmony_worker.entry_param.for.source.harmony_worker.entry_param.0.method.worker_callback_payload_003_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony_worker.entry_param.0.method.worker_postmessage_001_T",
+      "surfaceId": "surface.source.harmony_worker.entry_param",
+      "assetId": "asset.rule.test.harmony_worker",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "worker_postmessage_001_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "worker_postmessage_001_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_worker.entry_param.for.source.harmony_worker.entry_param.0.method.worker_postmessage_001_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony_worker.entry_param.0.method.worker_second_worker_004_T",
+      "surfaceId": "surface.source.harmony_worker.entry_param",
+      "assetId": "asset.rule.test.harmony_worker",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "worker_second_worker_004_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "worker_second_worker_004_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_worker.entry_param.for.source.harmony_worker.entry_param.0.method.worker_second_worker_004_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony_worker.entry_param.0.method.worker_sink_constant_006_F",
+      "surfaceId": "surface.source.harmony_worker.entry_param",
+      "assetId": "asset.rule.test.harmony_worker",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "worker_sink_constant_006_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "worker_sink_constant_006_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_worker.entry_param.for.source.harmony_worker.entry_param.0.method.worker_sink_constant_006_F"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony_worker.entry_param.0.method.worker_taskpool_002_T",
+      "surfaceId": "surface.source.harmony_worker.entry_param",
+      "assetId": "asset.rule.test.harmony_worker",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "worker_taskpool_002_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "worker_taskpool_002_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_worker.entry_param.for.source.harmony_worker.entry_param.0.method.worker_taskpool_002_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony_worker.entry_param.0.method.worker_unrelated_sink_007_F",
+      "surfaceId": "surface.source.harmony_worker.entry_param",
+      "assetId": "asset.rule.test.harmony_worker",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "worker_unrelated_sink_007_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "worker_unrelated_sink_007_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_worker.entry_param.for.source.harmony_worker.entry_param.0.method.worker_unrelated_sink_007_F"
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
@@ -75,22 +226,11 @@
       ],
       "semanticsFamily": "sink",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     }
   ],
   "effectTemplates": [
-    {
-      "id": "template.source.harmony_worker.entry_param",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
     {
       "id": "template.sink.harmony_worker.mock_sink",
       "confidence": "certain",
@@ -102,6 +242,78 @@
         }
       },
       "sinkKind": "sink"
+    },
+    {
+      "id": "template.source.harmony_worker.entry_param.for.source.harmony_worker.entry_param.0.method.worker_callback_payload_003_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_worker.entry_param.for.source.harmony_worker.entry_param.0.method.worker_postmessage_001_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_worker.entry_param.for.source.harmony_worker.entry_param.0.method.worker_second_worker_004_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_worker.entry_param.for.source.harmony_worker.entry_param.0.method.worker_sink_constant_006_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_worker.entry_param.for.source.harmony_worker.entry_param.0.method.worker_taskpool_002_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_worker.entry_param.for.source.harmony_worker.entry_param.0.method.worker_unrelated_sink_007_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
     }
   ],
   "provenance": {

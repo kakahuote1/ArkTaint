@@ -43,7 +43,7 @@ async function main(): Promise<void> {
     assertUnknown("--entryHint");
     assertUnknown("--include");
     assertUnknown("--exclude");
-    assertUnknown("--crossFunctionFallback");
+    assertUnknown("--legacyCrossFunctionMode");
     assertUnknown("--providers-dir");
     assertUnknown("--disable-builtin-providers");
     assertUnknown("--disable-builtin-packs");

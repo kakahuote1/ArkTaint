@@ -19,6 +19,11 @@ interface EmitterClassProfile {
     hasEmitShape: boolean;
 }
 
+interface EmitterCallbackRegistration {
+    method: any;
+    envSourceMethods: any[];
+}
+
 export interface HarmonyEventEmitterSemanticsOptions {
     id?: string;
     description?: string;
@@ -95,6 +100,13 @@ export function createHarmonyEventEmitterSemanticModule(
             let dynamicEventSkipCount = 0;
             let deferredBindingCount = 0;
             const handoffEffects: HandoffEffect[] = [];
+            const methodsBySignature = new Map<string, any>();
+            for (const method of ctx.methods.all()) {
+                const signature = method?.getSignature?.()?.toString?.();
+                if (signature) {
+                    methodsBySignature.set(signature, method);
+                }
+            }
 
             const declaredProfiles = buildEmitterClassProfiles(ctx.methods.all(), onMethodNames, emitMethodNames);
             const observedProfiles = buildEmitterCallsiteProfiles(
@@ -108,7 +120,7 @@ export function createHarmonyEventEmitterSemanticModule(
                 resolved.maxCandidates,
             );
             const classProfiles = mergeEmitterClassProfiles(declaredProfiles, observedProfiles);
-            const callbackMethodsByEventKey = new Map<string, Map<string, any>>();
+            const callbackMethodsByEventKey = new Map<string, Map<string, EmitterCallbackRegistration>>();
 
             for (const call of ctx.scan.invokes({ minArgs: onMinArgs })) {
                 const isOnCall = resolved.onMethods.some(methodName => call.call.matchesMethod(methodName));
@@ -155,11 +167,14 @@ export function createHarmonyEventEmitterSemanticModule(
                 for (const eventKey of buildEmitterEventKeys(call, classKey, channelKey)) {
                     let bucket = callbackMethodsByEventKey.get(eventKey);
                     if (!bucket) {
-                        bucket = new Map<string, any>();
+                        bucket = new Map<string, EmitterCallbackRegistration>();
                         callbackMethodsByEventKey.set(eventKey, bucket);
                     }
                     for (const callbackMethod of callbackMethods) {
-                        bucket.set(callbackMethod.methodSignature, callbackMethod.method);
+                        bucket.set(callbackMethod.methodSignature, {
+                            method: callbackMethod.method,
+                            envSourceMethods: [methodsBySignature.get(call.ownerMethodSignature)].filter(method => !!method?.getCfg?.()),
+                        });
                     }
                     for (const targetNodeId of callbackParamNodeIds) {
                         handoffEffects.push({
@@ -237,10 +252,11 @@ export function createHarmonyEventEmitterSemanticModule(
                     }
                     const callbackMethods = callbackMethodsByEventKey.get(eventKey);
                     if (!callbackMethods || callbackMethods.size === 0) continue;
-                    for (const handlerMethod of callbackMethods.values()) {
+                    for (const registration of callbackMethods.values()) {
                         ctx.deferred.declarative({
                             sourceMethod,
-                            handlerMethod,
+                            handlerMethod: registration.method,
+                            envSourceMethods: registration.envSourceMethods,
                             anchorStmt: call.stmt,
                             triggerLabel: eventKey,
                             activationSource: { kind: "arg", index: activationArgIndex },

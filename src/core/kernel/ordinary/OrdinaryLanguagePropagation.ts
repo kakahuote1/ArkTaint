@@ -8,6 +8,7 @@ import {
     ArkConditionExpr,
     ArkInstanceInvokeExpr,
     ArkNormalBinopExpr,
+    ArkNewExpr,
     ArkPhiExpr,
     ArkPtrInvokeExpr,
     ArkStaticInvokeExpr,
@@ -24,7 +25,7 @@ import {
     collectAliasLocalsForCarrier,
     collectCarrierNodeIdsForValueAtStmt,
 } from "./OrdinaryAliasPropagation";
-import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
+import { resolveExistingPagNodes } from "../contracts/PagNodeResolution";
 
 const ARRAY_ANY_SLOT = "arr:*";
 const MAX_INDEX_BACKTRACE_DEPTH = 6;
@@ -59,6 +60,7 @@ interface ObjectLiteralCaptureCandidate {
 type ObjectLiteralCaptureIndex = Map<string, ObjectLiteralCaptureCandidate[]>;
 interface ObjectLiteralCapturedField {
     targetFieldName: string;
+    targetFieldPath?: string[];
     sourceFieldPath?: string[];
 }
 
@@ -165,7 +167,7 @@ export function propagateOrdinaryExpressionTaint(
         const leftOp = stmt.getLeftOp();
         if (!(leftOp instanceof Local)) continue;
 
-        const leftPagNodes = safeGetOrCreatePagNodes(pag, leftOp, stmt);
+        const leftPagNodes = resolveOrCreateOrdinaryExpressionResultNodes(pag, leftOp, stmt);
         if (!leftPagNodes || leftPagNodes.size === 0) continue;
         for (const leftNodeId of leftPagNodes.values()) {
             const alreadyHasThisSource = source
@@ -178,6 +180,27 @@ export function propagateOrdinaryExpressionTaint(
     }
 
     return targetNodeIds;
+}
+
+function resolveOrCreateOrdinaryExpressionResultNodes(
+    pag: Pag,
+    leftOp: Local,
+    stmt: ArkAssignStmt,
+): Map<number, number> | undefined {
+    let nodes = resolveExistingPagNodes(pag, leftOp, stmt);
+    if (nodes && nodes.size > 0) {
+        return nodes;
+    }
+    if (shouldMaterializeOrdinaryExpressionResultLocal(leftOp)) {
+        pag.getOrNewNode(0, leftOp, stmt);
+        nodes = resolveExistingPagNodes(pag, leftOp, stmt);
+    }
+    return nodes;
+}
+
+function shouldMaterializeOrdinaryExpressionResultLocal(value: Local): boolean {
+    const name = value.getName?.() || "";
+    return name.length > 0 && name !== "this";
 }
 
 export function appendOrdinaryArrayLoadIndices(
@@ -216,7 +239,7 @@ export function appendOrdinaryArrayLoadIndices(
     return { arrayNodesCount, indexedLoads };
 }
 
-export function collectDirectFieldStoreFallbackFactsFromTaintedLocal(
+export function collectFieldStoreFactsFromValue(
     taintedNode: PagNode,
     source: string,
     currentCtx: number,
@@ -251,7 +274,7 @@ export function collectDirectFieldStoreFallbackFactsFromTaintedLocal(
     return dedupFacts(results);
 }
 
-export function collectArrayStoreFactsFromTaintedLocal(
+export function collectArrayElementStoreFactsFromValue(
     taintedNode: PagNode,
     source: string,
     currentCtx: number,
@@ -285,7 +308,7 @@ export function collectArrayStoreFactsFromTaintedLocal(
     return dedupFacts(results);
 }
 
-export function collectNestedFieldStoreFactsFromTaintedLocal(
+export function collectNestedFieldStoreFactsFromFieldValue(
     taintedNode: PagNode,
     fieldPath: string[],
     source: string,
@@ -326,7 +349,7 @@ export function collectNestedFieldStoreFactsFromTaintedLocal(
     return dedupFacts(results);
 }
 
-export function collectNestedArrayStoreFactsFromTaintedLocal(
+export function collectNestedArrayStoreFactsFromFieldValue(
     taintedNode: PagNode,
     fieldPath: string[],
     source: string,
@@ -392,7 +415,7 @@ function isScalarLikeTypeText(raw: string | undefined): boolean {
         || text.includes("std.core.string");
 }
 
-export function collectObjectLiteralFieldCaptureFactsFromTaintedObj(
+export function collectObjectLiteralFieldCaptureFactsFromObjectField(
     taintedObjId: number,
     fieldPath: string[],
     source: string,
@@ -409,7 +432,16 @@ export function collectObjectLiteralFieldCaptureFactsFromTaintedObj(
         const aliasMethodSig = getDeclaringMethodSignatureFromLocal(aliasValue);
         if (!aliasMethodSig) continue;
         const aliasLine = getDeclaringStmtLine(aliasValue.getDeclaringStmt?.());
-        const captureCandidates = captureIndex.get(objectLiteralCaptureIndexKey(aliasMethodSig, aliasName)) || [];
+        const captureCandidates = [
+            ...(captureIndex.get(objectLiteralCaptureIndexKey(aliasMethodSig, aliasName)) || []),
+            ...collectExactObjectLiteralCaptureCandidatesForAlias(
+                pag,
+                classBySignature,
+                aliasValue,
+                aliasName,
+                aliasLine,
+            ),
+        ];
 
         for (const candidate of captureCandidates) {
             if (aliasLine > 0 && candidate.candidateLine > 0 && candidate.candidateLine < aliasLine) continue;
@@ -441,7 +473,7 @@ export function collectObjectLiteralFieldCaptureFactsFromTaintedObj(
     return dedupFacts(results);
 }
 
-export function collectObjectLiteralFieldCaptureFactsFromTaintedLocal(
+export function collectObjectLiteralFieldCaptureFactsFromValue(
     taintedNode: PagNode,
     source: string,
     currentCtx: number,
@@ -459,7 +491,16 @@ export function collectObjectLiteralFieldCaptureFactsFromTaintedLocal(
     const results: TaintFact[] = [];
     const aliasLine = getDeclaringStmtLine(value.getDeclaringStmt?.());
     const captureIndex = getObjectLiteralCaptureIndex(pag, classBySignature);
-    const captureCandidates = captureIndex.get(objectLiteralCaptureIndexKey(aliasMethodSig, aliasName)) || [];
+    const captureCandidates = [
+        ...(captureIndex.get(objectLiteralCaptureIndexKey(aliasMethodSig, aliasName)) || []),
+        ...collectExactObjectLiteralCaptureCandidatesForAlias(
+            pag,
+            classBySignature,
+            value,
+            aliasName,
+            aliasLine,
+        ),
+    ];
 
     for (const candidate of captureCandidates) {
         if (aliasLine > 0 && candidate.candidateLine > 0 && candidate.candidateLine < aliasLine) continue;
@@ -473,13 +514,13 @@ export function collectObjectLiteralFieldCaptureFactsFromTaintedLocal(
                 if (!objNode) continue;
                 for (const capture of candidate.captures) {
                     if (capture.sourceFieldPath && capture.sourceFieldPath.length > 0) continue;
-                    results.push(new TaintFact(objNode, source, currentCtx, [capture.targetFieldName]));
+                    results.push(new TaintFact(objNode, source, currentCtx, captureTargetFieldPath(capture)));
                 }
             }
             if (!hasPointTo) {
                 for (const capture of candidate.captures) {
                     if (capture.sourceFieldPath && capture.sourceFieldPath.length > 0) continue;
-                    results.push(new TaintFact(carrierNode, source, currentCtx, [capture.targetFieldName]));
+                    results.push(new TaintFact(carrierNode, source, currentCtx, captureTargetFieldPath(capture)));
                 }
             }
         }
@@ -574,7 +615,7 @@ export function collectOrdinaryCopyLikeResultFactsFromTaintedObj(
         const kind = resolveOrdinaryCopyLikeInvokeKind(rightOp, value);
         if (!kind) continue;
 
-        const resultNodes = safeGetOrCreatePagNodes(pag, stmt.getLeftOp(), stmt);
+        const resultNodes = resolveExistingPagNodes(pag, stmt.getLeftOp(), stmt);
         if (!resultNodes || resultNodes.size === 0) continue;
         for (const resultNodeId of resultNodes.values()) {
             const resultNode = pag.getNode(resultNodeId) as PagNode;
@@ -714,7 +755,7 @@ export function collectOrdinarySerializedStringResultFactsFromTaintedLocal(
         const rightOp = stmt.getRightOp();
         if (resolveOrdinaryCopyLikeInvokeKind(rightOp, value) !== "stringify_result") continue;
 
-        const resultNodes = safeGetOrCreatePagNodes(pag, stmt.getLeftOp(), stmt);
+        const resultNodes = resolveExistingPagNodes(pag, stmt.getLeftOp(), stmt);
         if (!resultNodes || resultNodes.size === 0) continue;
         for (const resultNodeId of resultNodes.values()) {
             const resultNode = pag.getNode(resultNodeId) as PagNode;
@@ -742,7 +783,7 @@ export function collectOrdinaryRegexArrayResultFactsFromTaintedLocal(
         const rightOp = stmt.getRightOp();
         if (resolveOrdinaryCopyLikeInvokeKind(rightOp, value) !== "regex_match_array") continue;
 
-        const resultNodes = safeGetOrCreatePagNodes(pag, stmt.getLeftOp(), stmt);
+        const resultNodes = resolveExistingPagNodes(pag, stmt.getLeftOp(), stmt);
         if (!resultNodes || resultNodes.size === 0) continue;
         for (const resultNodeId of resultNodes.values()) {
             const resultNode = pag.getNode(resultNodeId) as PagNode;
@@ -781,7 +822,7 @@ export function collectOrdinaryErrorMessageFactsFromTaintedLocal(
 
         const baseLocal = rightOp.getBase?.();
         const candidateValue = baseLocal instanceof Local ? baseLocal : stmt.getLeftOp();
-        const resultNodes = safeGetOrCreatePagNodes(pag, candidateValue, stmt);
+        const resultNodes = resolveExistingPagNodes(pag, candidateValue, stmt);
         if (!resultNodes || resultNodes.size === 0) continue;
 
         for (const resultNodeId of resultNodes.values()) {
@@ -842,7 +883,7 @@ export function collectOrdinaryCaughtExceptionFieldLoadFactsFromTaintedObj(
                     const rightFieldName = right.getFieldSignature?.()?.getFieldName?.() || right.getFieldName?.();
                     if (rightFieldName !== fieldName) continue;
 
-                    const targetNodes = safeGetOrCreatePagNodes(pag, left, stmt);
+                    const targetNodes = resolveExistingPagNodes(pag, left, stmt);
                     if (!targetNodes || targetNodes.size === 0) continue;
                     for (const targetNodeId of targetNodes.values()) {
                         const targetNode = pag.getNode(targetNodeId) as PagNode;
@@ -1001,7 +1042,17 @@ export function collectOrdinaryClosureLocalWritebackFactsFromTaintedLocal(
         for (const parentLocal of locals.values()) {
             if (!(parentLocal instanceof Local)) continue;
             if ((parentLocal.getName?.() || "") !== capturedFieldName) continue;
-            const parentNodes = safeGetOrCreatePagNodes(pag, parentLocal, parentLocal.getDeclaringStmt?.());
+            let parentNodes = resolveExistingPagNodes(pag, parentLocal, parentLocal.getDeclaringStmt?.());
+            if (!parentNodes || parentNodes.size === 0) {
+                const getOrNewNode = (pag as any).getOrNewNode;
+                if (typeof getOrNewNode === "function") {
+                    const node = getOrNewNode.call(pag, currentCtx, parentLocal, parentLocal.getDeclaringStmt?.());
+                    const nodeId = node?.getID?.();
+                    if (typeof nodeId === "number") {
+                        parentNodes = new Map([[currentCtx, nodeId]]);
+                    }
+                }
+            }
             if (!parentNodes || parentNodes.size === 0) continue;
             for (const parentNodeId of parentNodes.values()) {
                 if (seen.has(parentNodeId)) continue;
@@ -1014,6 +1065,76 @@ export function collectOrdinaryClosureLocalWritebackFactsFromTaintedLocal(
     }
 
     return results;
+}
+
+export function collectOrdinaryClosureLocalReadbackFactsFromParentLocal(
+    taintedNode: PagNode,
+    source: string,
+    currentCtx: number,
+    pag: Pag,
+    scene: Scene,
+): TaintFact[] {
+    const value = taintedNode.getValue?.();
+    if (!(value instanceof Local)) return [];
+    const capturedFieldName = value.getName?.() || "";
+    if (!capturedFieldName) return [];
+    const parentMethod = value.getDeclaringStmt?.()?.getCfg?.()?.getDeclaringMethod?.();
+    const parentMethodName = parentMethod?.getName?.() || "";
+    if (!parentMethodName) return [];
+    const parentFileKey = methodFileKey(parentMethod);
+
+    const results: TaintFact[] = [];
+    const seen = new Set<number>();
+    for (const candidate of scene.getMethods()) {
+        const candidateName = candidate?.getName?.() || "";
+        if (!candidateName.includes("$")) continue;
+        const suffix = candidateName.slice(candidateName.lastIndexOf("$") + 1);
+        if (suffix !== parentMethodName) continue;
+        if (methodFileKey(candidate) !== parentFileKey) continue;
+        const cfg = candidate.getCfg?.();
+        if (!cfg) continue;
+        for (const stmt of cfg.getStmts()) {
+            if (!(stmt instanceof ArkAssignStmt)) continue;
+            const left = stmt.getLeftOp();
+            if (!(left instanceof Local)) continue;
+            if ((left.getName?.() || "") !== capturedFieldName) continue;
+            const right = stmt.getRightOp();
+            if (!isClosureFieldReadOf(right, capturedFieldName)) continue;
+            let nodes = resolveExistingPagNodes(pag, left, stmt);
+            if (!nodes || nodes.size === 0) {
+                const getOrNewNode = (pag as any).getOrNewNode;
+                if (typeof getOrNewNode === "function") {
+                    const node = getOrNewNode.call(pag, currentCtx, left, stmt);
+                    const nodeId = node?.getID?.();
+                    if (typeof nodeId === "number") {
+                        nodes = new Map([[currentCtx, nodeId]]);
+                    }
+                }
+            }
+            if (!nodes || nodes.size === 0) continue;
+            for (const nodeId of nodes.values()) {
+                if (seen.has(nodeId)) continue;
+                seen.add(nodeId);
+                const node = pag.getNode(nodeId) as PagNode;
+                if (!node) continue;
+                results.push(new TaintFact(node, source, currentCtx));
+            }
+        }
+    }
+    return results;
+}
+
+function isClosureFieldReadOf(value: any, fieldName: string): boolean {
+    if (value instanceof ClosureFieldRef) {
+        return value.getFieldName?.() === fieldName;
+    }
+    if (value instanceof ArkInstanceFieldRef) {
+        const base = value.getBase?.();
+        if (!(base instanceof Local) || !base.getName?.().startsWith("%closures")) return false;
+        const actual = value.getFieldSignature?.().getFieldName?.() || value.getFieldName?.();
+        return actual === fieldName;
+    }
+    return false;
 }
 
 function shouldPropagateAssignedValue(rightOp: any, local: Local, preserveFieldCarrierOnly: boolean): boolean {
@@ -1221,7 +1342,7 @@ function buildObjectLiteralCaptureIndex(pag: Pag, classBySignature: Map<string, 
         if (!candidateClassSig || !isAnonymousObjectLiteralClassSignature(candidateClassSig)) continue;
 
         const arkClass = classBySignature.get(candidateClassSig);
-        const capturedFieldMap = resolveObjectLiteralCapturedFieldMap(arkClass);
+        const capturedFieldMap = resolveObjectLiteralCapturedFieldMap(arkClass, classBySignature);
         if (capturedFieldMap.size === 0) continue;
 
         const candidateNodes = pag.getNodesByValue(candidateValue);
@@ -1247,22 +1368,127 @@ function objectLiteralCaptureIndexKey(methodSignature: string, aliasName: string
     return `${methodSignature}${OBJECT_LITERAL_CAPTURE_KEY_SEPARATOR}${aliasName}`;
 }
 
-function resolveObjectLiteralCapturedFieldMap(arkClass: any): Map<string, ObjectLiteralCapturedField[]> {
+function collectExactObjectLiteralCaptureCandidatesForAlias(
+    pag: Pag,
+    classBySignature: Map<string, any>,
+    aliasValue: Local,
+    aliasName: string,
+    aliasLine: number,
+): ObjectLiteralCaptureCandidate[] {
+    const method = aliasValue.getDeclaringStmt?.()?.getCfg?.()?.getDeclaringMethod?.();
+    const stmts = method?.getCfg?.()?.getStmts?.() || [];
+    if (stmts.length === 0) return [];
+
+    const results: ObjectLiteralCaptureCandidate[] = [];
+    const seen = new Set<string>();
+
+    for (const stmt of stmts) {
+        for (const candidateValue of collectLocalValuesFromStmt(stmt)) {
+            const candidateClassSig = resolveLocalClassSignature(candidateValue);
+            if (!candidateClassSig || !isAnonymousObjectLiteralClassSignature(candidateClassSig)) continue;
+
+            const arkClass = classBySignature.get(candidateClassSig);
+            const capturedFieldMap = resolveObjectLiteralCapturedFieldMap(arkClass, classBySignature);
+            const captures = capturedFieldMap.get(aliasName) || [];
+            if (captures.length === 0) continue;
+
+            const candidateLine = getDeclaringStmtLine(candidateValue.getDeclaringStmt?.() || stmt);
+            if (aliasLine > 0 && candidateLine > 0 && candidateLine < aliasLine) continue;
+
+            const nodeIds = resolveOrCreateExactObjectLiteralCandidateNodeIds(pag, candidateValue, stmt);
+            if (nodeIds.length === 0) continue;
+
+            const key = `${candidateValue.getName?.() || ""}${OBJECT_LITERAL_CAPTURE_KEY_SEPARATOR}`
+                + `${candidateValue.getDeclaringStmt?.()?.toString?.() || stmt.toString?.() || ""}${OBJECT_LITERAL_CAPTURE_KEY_SEPARATOR}`
+                + `${captures.map(capture => `${capture.targetFieldPath?.join(".") || capture.targetFieldName}:${capture.sourceFieldPath?.join(".") || ""}`).join("|")}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+
+            results.push({
+                candidateLine,
+                nodeIds,
+                captures,
+            });
+        }
+    }
+
+    return results;
+}
+
+function collectLocalValuesFromStmt(stmt: any): Local[] {
+    const values: Local[] = [];
+    const seen = new Set<string>();
+    const add = (value: any): void => {
+        if (!(value instanceof Local)) return;
+        const key = `${value.getName?.() || ""}${OBJECT_LITERAL_CAPTURE_KEY_SEPARATOR}${value.getDeclaringStmt?.()?.toString?.() || stmt.toString?.() || ""}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        values.push(value);
+    };
+
+    add(stmt.getLeftOp?.());
+    add(stmt.getRightOp?.());
+    const invokeExpr = stmt.containsInvokeExpr?.() ? stmt.getInvokeExpr?.() : undefined;
+    add(invokeExpr?.getBase?.());
+    for (const arg of invokeExpr?.getArgs?.() || []) {
+        add(arg);
+    }
+    return values;
+}
+
+function resolveOrCreateExactObjectLiteralCandidateNodeIds(
+    pag: Pag,
+    candidateValue: Local,
+    anchorStmt: any,
+): number[] {
+    const out = new Set<number>();
+    const existing = resolveExistingPagNodes(pag, candidateValue, anchorStmt) || pag.getNodesByValue(candidateValue);
+    for (const nodeId of existing?.values?.() || []) {
+        out.add(Number(nodeId));
+    }
+    if (out.size > 0) return [...out];
+
+    const classSig = resolveLocalClassSignature(candidateValue);
+    if (!classSig || !isAnonymousObjectLiteralClassSignature(classSig)) return [];
+
+    const getOrNewNode = (pag as any)?.getOrNewNode;
+    if (typeof getOrNewNode !== "function") return [];
+    try {
+        const node = getOrNewNode.call(pag, 0, candidateValue, candidateValue.getDeclaringStmt?.() || anchorStmt) as PagNode | undefined;
+        const nodeId = node?.getID?.();
+        if (typeof nodeId === "number") {
+            out.add(nodeId);
+        }
+    } catch {
+        // Exact object-literal materialization is optional; if PAG cannot hold it,
+        // the candidate remains absent instead of falling back to an imprecise carrier.
+    }
+    return [...out];
+}
+
+function resolveObjectLiteralCapturedFieldMap(
+    arkClass: any,
+    classBySignature?: Map<string, any>,
+): Map<string, ObjectLiteralCapturedField[]> {
     const out = new Map<string, Map<string, ObjectLiteralCapturedField>>();
     const fields = arkClass?.getFields?.() || [];
     const add = (
         aliasName: string | undefined,
         fieldName: string | undefined,
         sourceFieldPath?: string[],
+        targetFieldPath?: string[],
     ): void => {
         const alias = String(aliasName || "").trim();
         const field = String(fieldName || "").trim();
         if (!alias || !field) return;
         const sourcePath = sourceFieldPath?.filter(Boolean);
-        const key = `${field}${OBJECT_LITERAL_CAPTURE_KEY_SEPARATOR}${sourcePath?.join(".") || ""}`;
+        const targetPath = targetFieldPath?.filter(Boolean);
+        const normalizedTargetPath = targetPath && targetPath.length > 0 ? targetPath : [field];
+        const key = `${normalizedTargetPath.join(".")}${OBJECT_LITERAL_CAPTURE_KEY_SEPARATOR}${sourcePath?.join(".") || ""}`;
         const current = out.get(alias) || new Map<string, ObjectLiteralCapturedField>();
         current.set(key, {
-            targetFieldName: field,
+            targetFieldName: normalizedTargetPath[0],
+            targetFieldPath: normalizedTargetPath,
             sourceFieldPath: sourcePath && sourcePath.length > 0 ? sourcePath : undefined,
         });
         out.set(alias, current);
@@ -1270,7 +1496,7 @@ function resolveObjectLiteralCapturedFieldMap(arkClass: any): Map<string, Object
     for (const field of fields) {
         const candidateName = field?.getSignature?.()?.getFieldName?.() || field?.getName?.();
         const initializer = field?.getInitializer?.();
-        const capturedSources = resolveCapturedSourcesFromInitializer(initializer, candidateName);
+        const capturedSources = resolveCapturedSourcesFromInitializer(initializer, candidateName, classBySignature);
         if (capturedSources.length === 0
             && candidateName
             && (!Array.isArray(initializer) || initializer.length === 0)) {
@@ -1278,23 +1504,29 @@ function resolveObjectLiteralCapturedFieldMap(arkClass: any): Map<string, Object
             continue;
         }
         for (const capturedSource of capturedSources) {
-            add(capturedSource.aliasName, candidateName, capturedSource.sourceFieldPath);
+            const targetPath = capturedSource.targetFieldPath && capturedSource.targetFieldPath.length > 0
+                ? [candidateName, ...capturedSource.targetFieldPath]
+                : undefined;
+            add(capturedSource.aliasName, candidateName, capturedSource.sourceFieldPath, targetPath);
         }
     }
     return new Map([...out.entries()].map(([aliasName, captures]) => [aliasName, [...captures.values()]]));
 }
 
+type CapturedSource = { aliasName: string; sourceFieldPath?: string[]; targetFieldPath?: string[] };
+
 function resolveCapturedSourcesFromInitializer(
     initializer: any,
     fieldName?: string,
-): Array<{ aliasName: string; sourceFieldPath?: string[] }> {
+    classBySignature?: Map<string, any>,
+): CapturedSource[] {
     if (!initializer) return [];
     if (Array.isArray(initializer)) {
-        return resolveCapturedSourcesFromInitializerStatements(initializer, fieldName);
+        return resolveCapturedSourcesFromInitializerStatements(initializer, fieldName, classBySignature);
     }
     if (initializer instanceof ArkAssignStmt) {
         const right = initializer.getRightOp?.();
-        const fromValue = resolveCapturedSourcesFromValue(right, [initializer], new Set<string>());
+        const fromValue = resolveCapturedSourcesFromValue(right, [initializer], new Set<string>(), classBySignature);
         if (fromValue.length > 0) return fromValue;
         return asArray(resolveCapturedSourceFromInitializerText(String(initializer.toString?.() || "")));
     }
@@ -1303,7 +1535,7 @@ function resolveCapturedSourcesFromInitializer(
     return asArray(resolveCapturedSourceFromInitializerText(text));
 }
 
-function resolveCapturedSourceFromInitializerText(text: string): { aliasName: string; sourceFieldPath?: string[] } | undefined {
+function resolveCapturedSourceFromInitializerText(text: string): CapturedSource | undefined {
     const fieldRefMatch = text.match(/=\s*([%A-Za-z_$][%A-Za-z0-9_$]*)\.<[^>]*\.([A-Za-z_$][A-Za-z0-9_$]*)>/);
     if (fieldRefMatch) {
         return { aliasName: fieldRefMatch[1], sourceFieldPath: [fieldRefMatch[2]] };
@@ -1316,12 +1548,13 @@ function resolveCapturedSourceFromInitializerText(text: string): { aliasName: st
 function resolveCapturedSourcesFromInitializerStatements(
     stmts: any[],
     fieldName?: string,
-): Array<{ aliasName: string; sourceFieldPath?: string[] }> {
-    const finalSources: Array<{ aliasName: string; sourceFieldPath?: string[] }> = [];
+    classBySignature?: Map<string, any>,
+): CapturedSource[] {
+    const finalSources: CapturedSource[] = [];
     for (const stmt of stmts) {
         if (!(stmt instanceof ArkAssignStmt)) continue;
         if (!assignsCurrentField(stmt.getLeftOp?.(), fieldName)) continue;
-        finalSources.push(...resolveCapturedSourcesFromValue(stmt.getRightOp?.(), stmts, new Set<string>()));
+        finalSources.push(...resolveCapturedSourcesFromValue(stmt.getRightOp?.(), stmts, new Set<string>(), classBySignature));
     }
     return dedupCapturedSources(finalSources);
 }
@@ -1337,7 +1570,8 @@ function resolveCapturedSourcesFromValue(
     value: any,
     stmts: any[],
     visiting: Set<string>,
-): Array<{ aliasName: string; sourceFieldPath?: string[] }> {
+    classBySignature?: Map<string, any>,
+): CapturedSource[] {
     if (!value) return [];
     if (value instanceof Local) {
         const localKey = `${value.getName?.() || ""}#${value.getDeclaringStmt?.()?.toString?.() || ""}`;
@@ -1351,7 +1585,7 @@ function resolveCapturedSourcesFromValue(
             const left = stmt.getLeftOp?.();
             if (!(left instanceof Local) || !isSameLocal(left, value)) continue;
             hasLocalDefinition = true;
-            traced.push(...resolveCapturedSourcesFromValue(stmt.getRightOp?.(), stmts, visiting));
+            traced.push(...resolveCapturedSourcesFromValue(stmt.getRightOp?.(), stmts, visiting, classBySignature));
         }
         visiting.delete(localKey);
         if (traced.length > 0) return dedupCapturedSources(traced);
@@ -1372,12 +1606,32 @@ function resolveCapturedSourcesFromValue(
     }
 
     if (value instanceof ArkAwaitExpr) {
-        return resolveCapturedSourcesFromValue(value.getPromise?.(), stmts, visiting);
+        return resolveCapturedSourcesFromValue(value.getPromise?.(), stmts, visiting, classBySignature);
     }
 
     if (value instanceof ArkCastExpr
         || value instanceof ArkUnopExpr) {
-        return resolveCapturedSourcesFromValue(value.getOp?.(), stmts, visiting);
+        return resolveCapturedSourcesFromValue(value.getOp?.(), stmts, visiting, classBySignature);
+    }
+
+    if (value instanceof ArkNewExpr && classBySignature) {
+        const typeAny = value.getType?.() as any;
+        const classSig = typeAny?.getClassSignature?.()?.toString?.() || "";
+        if (!classSig || !isAnonymousObjectLiteralClassSignature(classSig)) return [];
+        const arkClass = classBySignature.get(classSig);
+        if (!arkClass) return [];
+        const nestedMap = resolveObjectLiteralCapturedFieldMap(arkClass, classBySignature);
+        const out: CapturedSource[] = [];
+        for (const [aliasName, captures] of nestedMap.entries()) {
+            for (const capture of captures) {
+                out.push({
+                    aliasName,
+                    sourceFieldPath: capture.sourceFieldPath ? [...capture.sourceFieldPath] : undefined,
+                    targetFieldPath: captureTargetFieldPath(capture),
+                });
+            }
+        }
+        return dedupCapturedSources(out);
     }
 
     if (value instanceof ArkNormalBinopExpr
@@ -1387,7 +1641,7 @@ function resolveCapturedSourcesFromValue(
         || value instanceof ArkStaticInvokeExpr
         || value instanceof ArkInstanceInvokeExpr
         || value instanceof ArkPtrInvokeExpr) {
-        return resolveCapturedSourcesFromPropagatingUses(value, stmts, visiting);
+        return resolveCapturedSourcesFromPropagatingUses(value, stmts, visiting, classBySignature);
     }
 
     return [];
@@ -1397,12 +1651,13 @@ function resolveCapturedSourcesFromPropagatingUses(
     value: any,
     stmts: any[],
     visiting: Set<string>,
-): Array<{ aliasName: string; sourceFieldPath?: string[] }> {
+    classBySignature?: Map<string, any>,
+): CapturedSource[] {
     const uses = value?.getUses?.() || [];
-    const sources: Array<{ aliasName: string; sourceFieldPath?: string[] }> = [];
+    const sources: CapturedSource[] = [];
     for (const use of uses) {
         if (use instanceof Local && !shouldPropagateAssignedValue(value, use, false)) continue;
-        sources.push(...resolveCapturedSourcesFromValue(use, stmts, visiting));
+        sources.push(...resolveCapturedSourcesFromValue(use, stmts, visiting, classBySignature));
     }
     return dedupCapturedSources(sources);
 }
@@ -1412,20 +1667,22 @@ function asArray<T>(value: T | undefined): T[] {
 }
 
 function dedupCapturedSources(
-    sources: Array<{ aliasName: string; sourceFieldPath?: string[] }>,
-): Array<{ aliasName: string; sourceFieldPath?: string[] }> {
-    const out: Array<{ aliasName: string; sourceFieldPath?: string[] }> = [];
+    sources: CapturedSource[],
+): CapturedSource[] {
+    const out: CapturedSource[] = [];
     const seen = new Set<string>();
     for (const source of sources) {
         const aliasName = String(source.aliasName || "").trim();
         if (!aliasName) continue;
         const path = source.sourceFieldPath?.filter(Boolean);
-        const key = `${aliasName}${OBJECT_LITERAL_CAPTURE_KEY_SEPARATOR}${path?.join(".") || ""}`;
+        const targetPath = source.targetFieldPath?.filter(Boolean);
+        const key = `${aliasName}${OBJECT_LITERAL_CAPTURE_KEY_SEPARATOR}${path?.join(".") || ""}${OBJECT_LITERAL_CAPTURE_KEY_SEPARATOR}${targetPath?.join(".") || ""}`;
         if (seen.has(key)) continue;
         seen.add(key);
         out.push({
             aliasName,
             sourceFieldPath: path && path.length > 0 ? path : undefined,
+            targetFieldPath: targetPath && targetPath.length > 0 ? targetPath : undefined,
         });
     }
     return out;
@@ -1441,15 +1698,21 @@ function projectCapturedObjectLiteralFieldPath(
     sourceFieldPath: string[],
     capture: ObjectLiteralCapturedField,
 ): string[] | undefined {
+    const targetPath = captureTargetFieldPath(capture);
     const requiredSource = capture.sourceFieldPath;
     if (!requiredSource || requiredSource.length === 0) {
-        return [capture.targetFieldName, ...sourceFieldPath];
+        return [...targetPath, ...sourceFieldPath];
     }
     if (sourceFieldPath.length < requiredSource.length) return undefined;
     for (let i = 0; i < requiredSource.length; i++) {
         if (sourceFieldPath[i] !== requiredSource[i]) return undefined;
     }
-    return [capture.targetFieldName, ...sourceFieldPath.slice(requiredSource.length)];
+    return [...targetPath, ...sourceFieldPath.slice(requiredSource.length)];
+}
+
+function captureTargetFieldPath(capture: ObjectLiteralCapturedField): string[] {
+    const targetPath = capture.targetFieldPath?.filter(Boolean);
+    return targetPath && targetPath.length > 0 ? [...targetPath] : [capture.targetFieldName];
 }
 
 function resolveStaticMethodName(expr: ArkStaticInvokeExpr): string {
@@ -1745,17 +2008,16 @@ function extractConcreteArrayIndexKey(slot: string): string | undefined {
 
 function collectArrayElementPathKeysForObj(objId: number, idxKey: string, pag: Pag): Set<string> {
     const preciseKeys = new Set<string>();
-    const fallbackKeys = new Set<string>();
     for (const rawNode of pag.getNodesIter()) {
         const node = rawNode as PagNode;
         const val = node.getValue();
         if (!(val instanceof Local)) continue;
         const pointToIds = [...node.getPointTo()];
         if (!pointToIds.includes(objId)) continue;
-        const target = pointToIds.length === 1 ? preciseKeys : fallbackKeys;
-        mergePathKeys(target, collectArrayElementPathKeys(val, idxKey));
+        if (pointToIds.length !== 1) continue;
+        mergePathKeys(preciseKeys, collectArrayElementPathKeys(val, idxKey));
     }
-    return preciseKeys.size > 0 ? preciseKeys : fallbackKeys;
+    return preciseKeys;
 }
 
 function collectArrayElementPathKeys(base: Local, idxKey: string): Set<string> {

@@ -1,8 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
 import { validateAssetDocument, type AssetDocumentBase } from "../../core/assets/schema";
-import { buildFrameworkApiSourceRules } from "../../core/rules/FrameworkApiSourceCatalog";
-import { buildFrameworkCallbackSourceRules } from "../../core/rules/FrameworkCallbackSourceCatalog";
 import { lowerRuleAssetsToRuleSet } from "../../core/rules/RuleAssetLowering";
 import type { RuleMatch, SinkRule, SourceRule } from "../../core/rules/RuleSchema";
 import appstorage from "../../models/kernel/modules/harmony/appstorage";
@@ -22,7 +20,6 @@ function byId<T extends { id: string }>(items: T[]): Map<string, T> {
 function assertExactMethodSelector(rule: SourceRule | SinkRule, id: string): void {
     const match = rule.match as RuleMatch;
     assert(match.kind === "method_name_equals", `${id} must use exact method-name selector`);
-    assert(!["signature_contains", "signature_regex", "method_name_regex"].includes(match.kind), `${id} must not use broad selector`);
     assert(typeof match.argCount === "number", `${id} must carry exact argCount`);
 }
 
@@ -97,18 +94,6 @@ function main(): void {
             `${id} must target arg0`,
         );
     }
-
-    const apiSources = byId(buildFrameworkApiSourceRules());
-    assert(apiSources.has("source.harmony.file.picker.select.result"), "runtime API source catalog must include picker select return");
-    assert(apiSources.has("source.harmony.distributedkv.getEntries.result"), "runtime API source catalog must include KV getEntries return");
-
-    const callbackSources = byId(buildFrameworkCallbackSourceRules());
-    const pickerCallback = callbackSources.get("source.harmony.filePicker.select.callback.arg1");
-    assert(pickerCallback, "runtime callback source catalog must include picker select callback");
-    assert(JSON.stringify(pickerCallback.callbackArgIndexes) === JSON.stringify([0, 1]), "picker callback source must cover both callback overload positions");
-    const kvCallback = callbackSources.get("source.harmony.distributedkv.getEntries.callback.arg1");
-    assert(kvCallback, "runtime callback source catalog must include KV getEntries callback");
-    assert(JSON.stringify(kvCallback.callbackArgIndexes) === JSON.stringify([1, 2]), "KV callback source must cover both callback overload positions");
 
     const appstorageAsset = Array.isArray(appstorage) ? appstorage[0] : appstorage;
     const capabilityTemplate = (appstorageAsset as any).effectTemplates?.find(

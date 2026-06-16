@@ -165,7 +165,7 @@ function main(): void {
     });
     assert(
         genericRuntimeDiagnosticsText.includes("PLUGIN_ON_START_THROW"),
-        "unclassified runtime diagnostics should still emit a stable fallback error code",
+        "unclassified runtime diagnostics should still emit a stable default error code",
     );
     assert(
         genericRuntimeDiagnosticsText.includes("Check the plugin callback"),

@@ -22,8 +22,8 @@
       "modulePath": "@arktaint/runtime-selector",
       "ownerName": "RuntimeSelector",
       "methodName": "Sink",
-      "invokeKind": "instance",
-      "argCount": 0,
+      "invokeKind": "static",
+      "argCount": 1,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
@@ -49,20 +49,20 @@
       "ownerName": "PriorityHostConstrained",
       "methodName": "Bridge",
       "invokeKind": "instance",
-      "argCount": 0,
+      "argCount": 1,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
       }
     },
     {
-      "surfaceId": "surface.transfer.priority.fuzzy.name_regex.arg0_to_result",
+      "surfaceId": "surface.transfer.priority.method_scoped.host.arg0_to_result",
       "kind": "invoke",
       "modulePath": "@arktaint/runtime-selector",
-      "ownerName": "RuntimeSelector",
+      "ownerName": "PriorityHostMethodScoped",
       "methodName": "Bridge",
       "invokeKind": "instance",
-      "argCount": 0,
+      "argCount": 1,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
@@ -71,14 +71,20 @@
   ],
   "bindings": [
     {
-      "bindingId": "binding.source.transfer_priority.entry_param.taint_src.0",
+      "bindingId": "binding.source.transfer_priority.entry_param.taint_src.0.method.transfer_priority_001_T",
       "surfaceId": "surface.source.transfer_priority.entry_param.taint_src",
       "assetId": "asset.rule.test.transfer_priority",
       "plane": "rule",
       "role": "source",
       "selector": {
-        "kind": "local-name-regex",
-        "value": "^taint_src$"
+        "kind": "method-name-equals",
+        "value": "transfer_priority_001_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "transfer_priority_001_T.ets"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -87,7 +93,65 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.transfer_priority.entry_param.taint_src"
+        "template.source.transfer_priority.entry_param.taint_src.for.source.transfer_priority.entry_param.taint_src.0.method.transfer_priority_001_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.transfer_priority.entry_param.taint_src.0.method.transfer_priority_002_T",
+      "surfaceId": "surface.source.transfer_priority.entry_param.taint_src",
+      "assetId": "asset.rule.test.transfer_priority",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "transfer_priority_002_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "transfer_priority_002_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.transfer_priority.entry_param.taint_src.for.source.transfer_priority.entry_param.taint_src.0.method.transfer_priority_002_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.transfer_priority.entry_param.taint_src.0.method.transfer_priority_003_T",
+      "surfaceId": "surface.source.transfer_priority.entry_param.taint_src",
+      "assetId": "asset.rule.test.transfer_priority",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "transfer_priority_003_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "transfer_priority_003_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.transfer_priority.entry_param.taint_src.for.source.transfer_priority.entry_param.taint_src.0.method.transfer_priority_003_T"
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
@@ -114,7 +178,8 @@
       ],
       "semanticsFamily": "sink",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.transfer.priority.exact.class_exact.arg0_to_result.0",
@@ -123,9 +188,16 @@
       "plane": "rule",
       "role": "transfer",
       "selector": {
-        "kind": "declaring-class-equals",
-        "value": "PriorityHostExact",
-        "invokeKind": "instance"
+        "kind": "method-name-equals",
+        "value": "Bridge",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "scope": {
+          "className": {
+            "mode": "equals",
+            "value": "PriorityHostExact"
+          }
+        }
       },
       "effectTemplateRefs": [
         "template.transfer.priority.exact.class_exact.arg0_to_result"
@@ -159,36 +231,33 @@
       "confidence": "likely"
     },
     {
-      "bindingId": "binding.transfer.priority.fuzzy.name_regex.arg0_to_result.0",
-      "surfaceId": "surface.transfer.priority.fuzzy.name_regex.arg0_to_result",
+      "bindingId": "binding.transfer.priority.method_scoped.host.arg0_to_result.0",
+      "surfaceId": "surface.transfer.priority.method_scoped.host.arg0_to_result",
       "assetId": "asset.rule.test.transfer_priority",
       "plane": "rule",
       "role": "transfer",
       "selector": {
-        "kind": "method-name-regex",
-        "value": "^Bridge$"
+        "kind": "method-name-equals",
+        "value": "Bridge",
+        "invokeKind": "instance",
+        "argCount": 1,
+        "scope": {
+          "className": {
+            "mode": "equals",
+            "value": "PriorityHostMethodScoped"
+          }
+        }
       },
       "effectTemplateRefs": [
-        "template.transfer.priority.fuzzy.name_regex.arg0_to_result"
+        "template.transfer.priority.method_scoped.host.arg0_to_result"
       ],
       "semanticsFamily": "transfer",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     }
   ],
   "effectTemplates": [
-    {
-      "id": "template.source.transfer_priority.entry_param.taint_src",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
     {
       "id": "template.sink.transfer_priority.arg0",
       "confidence": "certain",
@@ -236,7 +305,7 @@
       "transferKind": "transfer"
     },
     {
-      "id": "template.transfer.priority.fuzzy.name_regex.arg0_to_result",
+      "id": "template.transfer.priority.method_scoped.host.arg0_to_result",
       "confidence": "certain",
       "kind": "rule.transfer",
       "from": {
@@ -251,6 +320,42 @@
         }
       },
       "transferKind": "transfer"
+    },
+    {
+      "id": "template.source.transfer_priority.entry_param.taint_src.for.source.transfer_priority.entry_param.taint_src.0.method.transfer_priority_001_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.transfer_priority.entry_param.taint_src.for.source.transfer_priority.entry_param.taint_src.0.method.transfer_priority_002_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.transfer_priority.entry_param.taint_src.for.source.transfer_priority.entry_param.taint_src.0.method.transfer_priority_003_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
     }
   ],
   "provenance": {

@@ -677,21 +677,15 @@ function validateRuntimeSelector(selector: RuntimeSelector, path: string, errors
     requireOneOf(
         (selector as any).kind,
         [
-            "signature-contains",
             "signature-equals",
-            "signature-regex",
             "declaring-class-equals",
             "method-name-equals",
-            "method-name-regex",
-            "local-name-regex",
+            "field-name-equals",
         ],
         `${path}.kind`,
         errors,
     );
     requireString((selector as any).value, `${path}.value`, errors);
-    if (typeof (selector as any).kind === "string" && String((selector as any).kind).endsWith("regex")) {
-        validateRegex((selector as any).value, `${path}.value`, errors);
-    }
     if ((selector as any).invokeKind !== undefined) {
         requireOneOf((selector as any).invokeKind, ["any", "instance", "static"], `${path}.invokeKind`, errors);
     }

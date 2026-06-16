@@ -13,12 +13,12 @@ export function buildExecutionHandoffSyntheticInvokeEdges(
 
     let callEdges = 0;
     let returnEdges = 0;
+    let skippedNoEdgeContracts = 0;
     for (const contract of deferredContracts) {
         const injected = emitExecutionHandoffEdges(edgeMap, contract);
         if (injected.callCount === 0 && injected.returnCount === 0) {
-            throw new Error(
-                `execution handoff contract emitted no edges: ${contract.id} activation=${contract.activation} ports=${JSON.stringify(contract.ports)}`,
-            );
+            skippedNoEdgeContracts += 1;
+            continue;
         }
         callEdges += injected.callCount;
         returnEdges += injected.returnCount;
@@ -32,6 +32,7 @@ export function buildExecutionHandoffSyntheticInvokeEdges(
             siteCount: deferredContracts.length,
             callEdges,
             returnEdges,
+            ...(skippedNoEdgeContracts > 0 ? { skippedNoEdgeContracts } : {}),
         },
     };
 }

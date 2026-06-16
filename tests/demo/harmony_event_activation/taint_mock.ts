@@ -1,9 +1,23 @@
 export class UIInput {
-    onChange(_cb: (value: string) => void): void {}
-    onInput(_cb: (value: string) => void): void {}
-    onSubmit(_cb: (enterKey: string, event: SubmitEventLike) => void): void {}
-    onClick(_cb: (event: string) => void): void {}
-    onChange2(_cb: (first: string, second: string) => void): void {}
+    onChange(cb: (value: string) => void): void {
+        cb("");
+    }
+
+    onInput(cb: (value: string) => void): void {
+        cb("");
+    }
+
+    onSubmit(cb: (enterKey: string, event: SubmitEventLike) => void): void {
+        cb("", { text: "" });
+    }
+
+    onClick(cb: (event: string) => void): void {
+        cb("");
+    }
+
+    onChange2(cb: (first: string, second: string) => void): void {
+        cb("", "");
+    }
 }
 
 export interface SubmitEventLike {
@@ -11,16 +25,25 @@ export interface SubmitEventLike {
 }
 
 export class Tabs {
-    onChange(_cb: (index: number) => void): void {}
+    onChange(cb: (index: number) => void): void {
+        cb(0);
+    }
 }
 
 export class Button {
-    onClick(_cb: () => void): void {}
+    onClick(cb: () => void): void {
+        cb();
+    }
 }
 
 export class Search {
-    onChange(_cb: (value: string) => void): void {}
-    onSubmit(_cb: (value: string) => void): void {}
+    onChange(cb: (value: string) => void): void {
+        cb("");
+    }
+
+    onSubmit(cb: (value: string) => void): void {
+        cb("");
+    }
 }
 
 export namespace taint {

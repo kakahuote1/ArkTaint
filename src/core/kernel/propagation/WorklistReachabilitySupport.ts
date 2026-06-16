@@ -5,11 +5,11 @@ import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import { ArkMethod } from "../../../../arkanalyzer/out/src/core/model/ArkMethod";
 import { TaintContextManager } from "../context/TaintContext";
-import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
+import { resolveExistingPagNodes } from "../contracts/PagNodeResolution";
 
 const ANY_CLASS_SIG = "__ANY_CLASS__";
 
-export type ThisFieldFallbackLoadNodeIds = Map<string, Map<string, Map<string, Set<number>>>>;
+export type ThisFieldLoadNodeIds = Map<string, Map<string, Map<string, Set<number>>>>;
 
 export function resolveDeclaringMethodSignature(node: PagNode): string | undefined {
     const stmt: any = (node as any)?.stmt;
@@ -112,7 +112,7 @@ export function isSameOrSubtypeClassSignature(
     return matched;
 }
 
-export function selectThisFieldFallbackLoads(
+export function selectReachableThisFieldLoads(
     classMap: Map<string, Set<number>> | undefined,
     sourceClassSig: string | undefined,
     classBySignature: Map<string, any>,
@@ -143,8 +143,8 @@ export function buildUnresolvedThisFieldLoadNodeIdsByFieldAndFile(
     scene: Scene,
     pag: Pag,
     allowedMethodSignatures?: Set<string>
-): ThisFieldFallbackLoadNodeIds {
-    const out: ThisFieldFallbackLoadNodeIds = new Map();
+): ThisFieldLoadNodeIds {
+    const out: ThisFieldLoadNodeIds = new Map();
     const methods = scene.getMethods().filter(m => m.getName() !== "%dflt");
     for (const method of methods) {
         const methodSig = method.getSignature().toString();
@@ -162,7 +162,7 @@ export function buildUnresolvedThisFieldLoadNodeIdsByFieldAndFile(
             const base = right.getBase();
             if (!(base instanceof Local) || base.getName() !== "this") continue;
 
-            const leftNodes = safeGetOrCreatePagNodes(pag, left, stmt);
+            const leftNodes = resolveExistingPagNodes(pag, left, stmt);
             if (!leftNodes || leftNodes.size === 0) continue;
 
             const fieldName = right.getFieldSignature().getFieldName();

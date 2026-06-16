@@ -6,7 +6,7 @@ import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { ArkInstanceFieldRef, ArkParameterRef, ArkThisRef, ClosureFieldRef } from "../../../../arkanalyzer/out/src/core/base/Ref";
 import { ArkInstanceInvokeExpr, ArkPtrInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
 import { CallEdgeType } from "../context/TaintContext";
-import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
+import { resolveExistingPagNodes } from "../contracts/PagNodeResolution";
 import {
     collectParameterAssignStmts,
     resolveCalleeCandidates,
@@ -14,7 +14,10 @@ import {
     resolveMethodsFromCallable,
 } from "../../substrate/queries/CalleeResolver";
 import { collectOrdinaryTaintPreservingSourceLocals } from "../ordinary/OrdinaryLanguagePropagation";
-import { resolveQualifiedDeclarativeFieldTriggerToken } from "../model/DeclarativeFieldTriggerSemantics";
+import {
+    normalizeDeclarativeFieldTriggerToken,
+    resolveQualifiedDeclarativeFieldTriggerToken,
+} from "../model/DeclarativeFieldTriggerSemantics";
 import type {
     ExecutionHandoffContractRecord,
     ExecutionHandoffResolvedEdgeBinding,
@@ -93,9 +96,7 @@ function resolvePayloadBindings(
         if ((paramLocal.getName?.() || "").startsWith("%closures")) continue;
         const rightOp = paramStmt.getRightOp?.();
         if (!(rightOp instanceof ArkParameterRef)) continue;
-        const targetNodeIds = collectNodeIds(
-            safeGetOrCreatePagNodes(pag, paramLocal, paramStmt),
-        );
+        const targetNodeIds = collectPayloadTargetNodeIds(pag, paramLocal, paramStmt);
         if (targetNodeIds.length === 0) continue;
         bindings.push({
             edgeType: CallEdgeType.CALL,
@@ -105,6 +106,26 @@ function resolvePayloadBindings(
     }
 
     return bindings;
+}
+
+function collectPayloadTargetNodeIds(
+    pag: Pag,
+    paramLocal: Local,
+    paramStmt: ArkAssignStmt,
+): number[] {
+    const existingNodeIds = collectNodeIds(resolveExistingPagNodes(pag, paramLocal, paramStmt));
+    if (existingNodeIds.length > 0) {
+        return existingNodeIds;
+    }
+    const getOrNewNode = (pag as any).getOrNewNode;
+    if (typeof getOrNewNode !== "function") {
+        return [];
+    }
+    // The handoff contract has already proven this callback unit and payload parameter.
+    // Materialize only that exact parameter endpoint; do not create a generic recovery node.
+    const node = getOrNewNode.call(pag, 0, paramLocal, paramStmt);
+    const nodeId = node?.getID?.();
+    return typeof nodeId === "number" ? [nodeId] : [];
 }
 
 function collectPayloadSourceNodeIds(
@@ -167,13 +188,13 @@ function resolvePromiseSettlementSourceNodeIdsFromLocal(
     visited: Set<string>,
     depth: number = 0,
 ): number[] {
-    const fallback = (): number[] => collectNodeIds(safeGetOrCreatePagNodes(pag, local, anchorStmt));
+    const currentLocalNodeIds = (): number[] => collectNodeIds(pag.getNodesByValue(local));
     if (depth > MAX_PROMISE_SETTLEMENT_TRACE_DEPTH || visited.size > MAX_PROMISE_SETTLEMENT_VISITED) {
-        return fallback();
+        return currentLocalNodeIds();
     }
     const localKey = `local:${resolveDeclaringMethodSignature(local)}#${safeLocalName(local)}#${safeStmtText(safeGetDeclaringStmt(local))}`;
     if (visited.has(localKey)) {
-        return fallback();
+        return currentLocalNodeIds();
     }
     visited.add(localKey);
 
@@ -187,7 +208,7 @@ function resolvePromiseSettlementSourceNodeIdsFromLocal(
             return collectInvokeArgNodeIds(pag, rightOp, declaringStmt);
         }
         if (isDeferredContinuationInvoke(rightOp)) {
-            return collectNodeIds(safeGetOrCreatePagNodes(pag, local, declaringStmt));
+            return collectNodeIds(resolveExistingPagNodes(pag, local, declaringStmt));
         }
         if (isPromiseProducingInvoke(rightOp)) {
             const calleeSourceNodeIds = resolvePromiseSettlementSourceNodeIdsFromInvoke(
@@ -215,7 +236,7 @@ function resolvePromiseSettlementSourceNodeIdsFromLocal(
         }
     }
 
-    return fallback();
+    return currentLocalNodeIds();
 }
 
 function resolvePromiseSettlementSourceNodeIdsFromInvoke(
@@ -314,7 +335,7 @@ function resolvePromiseSettlementSourceNodeIdsFromReturnedLocal(
 ): number[] {
     if (depth > MAX_PROMISE_SETTLEMENT_TRACE_DEPTH || visited.size > MAX_PROMISE_SETTLEMENT_VISITED) {
         return collectNodeIds(
-            safeGetOrCreatePagNodes(pag, local, firstMethodStmt(method)),
+            resolveExistingPagNodes(pag, local, firstMethodStmt(method)),
         );
     }
     const declaringStmt = resolveLatestAssignStmtForLocal(method, local)
@@ -362,7 +383,7 @@ function resolvePromiseSettlementSourceNodeIdsFromReturnedLocal(
     }
 
     return collectNodeIds(
-        safeGetOrCreatePagNodes(pag, local, firstMethodStmt(method) || declaringStmt),
+        resolveExistingPagNodes(pag, local, firstMethodStmt(method) || declaringStmt),
     );
 }
 
@@ -487,7 +508,7 @@ function collectInvokeArgNodeIds(
 ): number[] {
     const sourceNodeIds: number[] = [];
     for (const arg of invokeExpr?.getArgs?.() || []) {
-        sourceNodeIds.push(...collectNodeIds(safeGetOrCreatePagNodes(pag, arg, anchorStmt)));
+        sourceNodeIds.push(...collectNodeIds(resolveExistingPagNodes(pag, arg, anchorStmt)));
     }
     return dedupeNodeIds(sourceNodeIds);
 }
@@ -567,11 +588,14 @@ function resolveEnvBindings(
 
     const bindings: ExecutionHandoffResolvedEdgeBinding[] = [];
     const sourceMethods = contract.sourceMethods.length > 0 ? contract.sourceMethods : [contract.caller];
-    const declarativeTargetField = resolveQualifiedDeclarativeFieldTriggerToken(contract.unit);
+    const envSourceMethods = contract.envSourceMethods && contract.envSourceMethods.length > 0
+        ? contract.envSourceMethods
+        : sourceMethods;
+    const declarativeTargetField = resolveDeclarativeContractFieldToken(contract);
 
     if (declarativeTargetField) {
         const sourceNodeIds = dedupeNodeIds(
-            sourceMethods.flatMap(method => collectMethodThisFieldWriteSourceNodeIds(pag, method, declarativeTargetField)),
+            envSourceMethods.flatMap(method => collectMethodThisFieldWriteSourceNodeIds(pag, method, declarativeTargetField)),
         );
         const targetNodeIds = collectDirectThisFieldReadTargetNodeIds(pag, contract.unit, declarativeTargetField);
         if (sourceNodeIds.length > 0 && targetNodeIds.length > 0) {
@@ -589,11 +613,11 @@ function resolveEnvBindings(
             : [];
         if (sourceNodeIds.length === 0) {
             sourceNodeIds = dedupeNodeIds(
-                sourceMethods.flatMap(method => collectMethodSourceNodeIdsByNameCached(pag, method, mapping.fieldName)),
+                envSourceMethods.flatMap(method => collectMethodSourceNodeIdsByNameCached(pag, method, mapping.fieldName)),
             );
         }
         const targetNodeIds = collectNodeIds(
-            safeGetOrCreatePagNodes(pag, mapping.callbackLocal, mapping.anchorStmt),
+            resolveExistingPagNodes(pag, mapping.callbackLocal, mapping.anchorStmt),
         );
         if (sourceNodeIds.length === 0 || targetNodeIds.length === 0) continue;
         bindings.push({
@@ -605,10 +629,10 @@ function resolveEnvBindings(
 
     for (const mapping of collectFreeLocalReadMappingsCached(contract.unit)) {
         const sourceNodeIds = dedupeNodeIds(
-            sourceMethods.flatMap(method => collectMethodSourceNodeIdsByNameCached(pag, method, mapping.localName)),
+            envSourceMethods.flatMap(method => collectMethodSourceNodeIdsByNameCached(pag, method, mapping.localName)),
         );
         const targetNodeIds = collectNodeIds(
-            safeGetOrCreatePagNodes(pag, mapping.callbackLocal, mapping.anchorStmt),
+            resolveExistingPagNodes(pag, mapping.callbackLocal, mapping.anchorStmt),
         );
         if (sourceNodeIds.length === 0 || targetNodeIds.length === 0) continue;
         bindings.push({
@@ -620,9 +644,9 @@ function resolveEnvBindings(
 
     if (methodReadsDirectThisFieldCached(contract.unit)) {
         const sourceNodeIds = dedupeNodeIds(
-            sourceMethods.flatMap(method => collectThisCarrierNodeIds(pag, method, contract.stmt)),
+            envSourceMethods.flatMap(method => collectThisCarrierNodeIds(pag, method, contract.stmt)),
         );
-        const targetNodeIds = collectThisCarrierNodeIds(pag, contract.unit, firstMethodStmt(contract.unit));
+        const targetNodeIds = collectThisCarrierNodeIds(pag, contract.unit, firstMethodStmt(contract.unit), { materializeExact: true });
         if (!declarativeTargetField && sourceNodeIds.length > 0 && targetNodeIds.length > 0) {
             bindings.push({
                 edgeType: CallEdgeType.CALL,
@@ -633,6 +657,20 @@ function resolveEnvBindings(
     }
 
     return bindings;
+}
+
+function resolveDeclarativeContractFieldToken(contract: ExecutionHandoffContractRecord): string | undefined {
+    const explicit = normalizeDeclarativeTriggerLabel(contract.declarativeTriggerLabel);
+    if (explicit) return explicit;
+    return resolveQualifiedDeclarativeFieldTriggerToken(contract.unit);
+}
+
+function normalizeDeclarativeTriggerLabel(label: string | undefined): string | undefined {
+    if (!label) return undefined;
+    const text = String(label).trim();
+    if (!text) return undefined;
+    const field = text.includes("#") ? text.slice(text.lastIndexOf("#") + 1) : text;
+    return normalizeDeclarativeFieldTriggerToken(field);
 }
 
 function collectClosureFieldReadMappingsCached(
@@ -843,10 +881,30 @@ function collectSourceNodeIdsFromValue(
     const sourceNodeIds: number[] = [];
     for (const sourceLocal of collectOrdinaryTaintPreservingSourceLocals(value)) {
         sourceNodeIds.push(
-            ...collectNodeIds(safeGetOrCreatePagNodes(pag, sourceLocal, anchorStmt)),
+            ...collectNodeIds(resolveExistingPagNodes(pag, sourceLocal, anchorStmt)),
         );
     }
     return dedupeNodeIds(sourceNodeIds);
+}
+
+function collectExactHandoffEndpointNodeIds(
+    pag: Pag,
+    value: any,
+    anchorStmt: any,
+): number[] {
+    const existing = collectNodeIds(resolveExistingPagNodes(pag, value, anchorStmt));
+    if (existing.length > 0 || !value || !anchorStmt) {
+        return existing;
+    }
+    if (!(value instanceof Local) && !(value instanceof ArkInstanceFieldRef) && !(value instanceof ClosureFieldRef)) {
+        return [];
+    }
+    try {
+        pag.getOrNewNode(0, value, anchorStmt);
+    } catch {
+        return [];
+    }
+    return collectNodeIds(resolveExistingPagNodes(pag, value, anchorStmt));
 }
 
 function isClosureCarrierFieldRead(
@@ -887,7 +945,7 @@ function resolveCompletionBindings(
 
     const bindings: ExecutionHandoffResolvedEdgeBinding[] = [];
     const resultNodeIds = collectNodeIds(
-        safeGetOrCreatePagNodes(pag, contract.stmt.getLeftOp(), contract.stmt),
+        resolveExistingPagNodes(pag, contract.stmt.getLeftOp(), contract.stmt),
     );
     if (resultNodeIds.length === 0) {
         return bindings;
@@ -899,7 +957,7 @@ function resolveCompletionBindings(
             const retValue = retStmt.getOp?.();
             if (!(retValue instanceof Local)) continue;
             const sourceNodeIds = collectNodeIds(
-                safeGetOrCreatePagNodes(pag, retValue, retStmt),
+                resolveExistingPagNodes(pag, retValue, retStmt),
             );
             if (sourceNodeIds.length === 0) continue;
             bindings.push({
@@ -918,7 +976,7 @@ function resolveCompletionBindings(
         for (const preserveActivation of preserveActivations) {
             const sourceNodeIds = isPromiseSettlementActivation(preserveActivation)
                 ? collectPromiseSettlementSourceNodeIdsForActivation(scene, pag, contract, preserveActivation)
-                : collectNodeIds(safeGetOrCreatePagNodes(pag, baseValue, contract.stmt));
+                : collectNodeIds(resolveExistingPagNodes(pag, baseValue, contract.stmt));
             if (sourceNodeIds.length === 0) {
                 continue;
             }
@@ -943,7 +1001,7 @@ function collectInvokeBaseNodeIds(
     if (!(baseValue instanceof Local)) {
         return [];
     }
-    return collectNodeIds(safeGetOrCreatePagNodes(pag, baseValue, contract.stmt));
+    return collectNodeIds(resolveExistingPagNodes(pag, baseValue, contract.stmt));
 }
 
 function collectActivationSourceNodeIds(
@@ -962,7 +1020,7 @@ function collectActivationSourceNodeIds(
 
     for (const argIndex of preferredArgIndexes) {
         if (argIndex < 0 || argIndex >= invokeArgs.length) continue;
-        sourceNodeIds.push(...collectNodeIds(safeGetOrCreatePagNodes(pag, invokeArgs[argIndex], contract.stmt)));
+        sourceNodeIds.push(...collectNodeIds(resolveExistingPagNodes(pag, invokeArgs[argIndex], contract.stmt)));
     }
 
     if (sourceNodeIds.length === 0) {
@@ -997,7 +1055,7 @@ function resolveExplicitSourceSelectorNodeIds(
             return [];
         }
         return collectNodeIds(
-            safeGetOrCreatePagNodes(pag, contract.stmt.getLeftOp(), contract.stmt),
+            resolveExistingPagNodes(pag, contract.stmt.getLeftOp(), contract.stmt),
         );
     }
 
@@ -1007,7 +1065,7 @@ function resolveExplicitSourceSelectorNodeIds(
             return [];
         }
         return collectNodeIds(
-            safeGetOrCreatePagNodes(pag, invokeArgs[selector.index], contract.stmt),
+            resolveExistingPagNodes(pag, invokeArgs[selector.index], contract.stmt),
         );
     }
 
@@ -1023,7 +1081,7 @@ function collectActivationTargetNodeIds(
     pag: Pag,
     unit: any,
 ): number[] {
-    const thisNodeIds = collectThisCarrierNodeIds(pag, unit, firstMethodStmt(unit));
+    const thisNodeIds = collectThisCarrierNodeIds(pag, unit, firstMethodStmt(unit), { materializeExact: true });
     if (thisNodeIds.length > 0) {
         return thisNodeIds;
     }
@@ -1032,7 +1090,7 @@ function collectActivationTargetNodeIds(
     for (const paramStmt of paramStmts) {
         const paramLocal = paramStmt.getLeftOp?.();
         if (!(paramLocal instanceof Local)) continue;
-        const targetNodeIds = collectNodeIds(safeGetOrCreatePagNodes(pag, paramLocal, paramStmt));
+        const targetNodeIds = collectNodeIds(resolveExistingPagNodes(pag, paramLocal, paramStmt));
         if (targetNodeIds.length > 0) {
             return targetNodeIds;
         }
@@ -1041,7 +1099,7 @@ function collectActivationTargetNodeIds(
     const firstStmt = firstMethodStmt(unit);
     const leftOp = firstStmt?.getLeftOp?.();
     if (leftOp instanceof Local) {
-        const targetNodeIds = collectNodeIds(safeGetOrCreatePagNodes(pag, leftOp, firstStmt));
+        const targetNodeIds = collectNodeIds(resolveExistingPagNodes(pag, leftOp, firstStmt));
         if (targetNodeIds.length > 0) {
             return targetNodeIds;
         }
@@ -1148,7 +1206,7 @@ function collectMethodSourceNodeIdsByName(
         return [];
     }
     const anchorStmt = safeGetDeclaringStmt(local) || firstMethodStmt(method);
-    const nodeIds = collectNodeIds(safeGetOrCreatePagNodes(pag, local, anchorStmt));
+    const nodeIds = collectNodeIds(resolveExistingPagNodes(pag, local, anchorStmt));
     const extraPointToIds: number[] = [];
     for (const nodeId of nodeIds) {
         const pagNode: any = pag.getNode(nodeId);
@@ -1177,8 +1235,10 @@ function collectMethodThisFieldWriteSourceNodeIds(
         if (!(base instanceof Local) || base.getName?.() !== "this") continue;
         const writtenField = left.getFieldSignature?.().getFieldName?.() || left.getFieldName?.();
         if (writtenField !== fieldName) continue;
-        sourceNodeIds.push(...collectNodeIds(safeGetOrCreatePagNodes(pag, left, stmt)));
-        sourceNodeIds.push(...collectSourceNodeIdsFromValue(pag, stmt.getRightOp?.(), stmt));
+        sourceNodeIds.push(...collectExactHandoffEndpointNodeIds(pag, left, stmt));
+        for (const sourceLocal of collectOrdinaryTaintPreservingSourceLocals(stmt.getRightOp?.())) {
+            sourceNodeIds.push(...collectExactHandoffEndpointNodeIds(pag, sourceLocal, stmt));
+        }
     }
     return dedupeNodeIds(sourceNodeIds);
 }
@@ -1196,10 +1256,10 @@ function collectDirectThisFieldReadTargetNodeIds(
         if (stmt instanceof ArkAssignStmt) {
             const right = stmt.getRightOp?.();
             if (matchesDirectThisFieldRead(right, fieldName)) {
-                targetNodeIds.push(...collectNodeIds(safeGetOrCreatePagNodes(pag, right, stmt)));
+                targetNodeIds.push(...collectExactHandoffEndpointNodeIds(pag, right, stmt));
                 const left = stmt.getLeftOp?.();
                 if (left instanceof Local) {
-                    targetNodeIds.push(...collectNodeIds(safeGetOrCreatePagNodes(pag, left, stmt)));
+                    targetNodeIds.push(...collectExactHandoffEndpointNodeIds(pag, left, stmt));
                 }
             }
         }
@@ -1208,11 +1268,11 @@ function collectDirectThisFieldReadTargetNodeIds(
         if (!invokeExpr) continue;
         const base = invokeExpr.getBase?.();
         if (matchesDirectThisFieldRead(base, fieldName)) {
-            targetNodeIds.push(...collectNodeIds(safeGetOrCreatePagNodes(pag, base, stmt)));
+            targetNodeIds.push(...collectExactHandoffEndpointNodeIds(pag, base, stmt));
         }
         for (const arg of invokeExpr.getArgs?.() || []) {
             if (matchesDirectThisFieldRead(arg, fieldName)) {
-                targetNodeIds.push(...collectNodeIds(safeGetOrCreatePagNodes(pag, arg, stmt)));
+                targetNodeIds.push(...collectExactHandoffEndpointNodeIds(pag, arg, stmt));
             }
         }
     }
@@ -1239,6 +1299,7 @@ function collectThisCarrierNodeIds(
     pag: Pag,
     method: any,
     anchorStmt?: any,
+    options: { materializeExact?: boolean } = {},
 ): number[] {
     const thisLocal = resolveMethodLocalByName(method, "this");
     if (!(thisLocal instanceof Local)) {
@@ -1246,9 +1307,19 @@ function collectThisCarrierNodeIds(
     }
 
     const resolvedAnchor = anchorStmt || safeGetDeclaringStmt(thisLocal) || firstMethodStmt(method);
-    const localNodeIds = collectNodeIds(
-        safeGetOrCreatePagNodes(pag, thisLocal, resolvedAnchor),
+    let localNodeIds = collectNodeIds(
+        resolveExistingPagNodes(pag, thisLocal, resolvedAnchor),
     );
+    if (localNodeIds.length === 0 && options.materializeExact && resolvedAnchor) {
+        const getOrNewNode = (pag as any).getOrNewNode;
+        if (typeof getOrNewNode === "function") {
+            const node = getOrNewNode.call(pag, 0, thisLocal, resolvedAnchor);
+            const nodeId = node?.getID?.();
+            if (typeof nodeId === "number") {
+                localNodeIds = [nodeId];
+            }
+        }
+    }
     const objectNodeIds: number[] = [];
     for (const nodeId of localNodeIds) {
         const pagNode: any = pag.getNode(nodeId);

@@ -11,8 +11,8 @@ function assert(condition: unknown, message: string): asserts condition {
 }
 
 interface ProbeSpec {
-    family: string;
-    ruleId: string;
+    methodName: string;
+    moduleContains: string;
     positiveCase: string;
     negativeCase: string;
 }
@@ -29,23 +29,11 @@ const SINK_RULES: SinkRule[] = [
 
 const PROBES: ProbeSpec[] = [
     {
-        family: "source.harmony.location",
-        ruleId: "source.harmony.geo.getLastLocation",
+        methodName: "getLastLocation",
+        moduleContains: "@ohos.geoLocationManager",
         positiveCase: "unknown_sdk_geo_getLastLocation_001_T",
         negativeCase: "unknown_sdk_geo_getLastLocation_002_F",
-    },
-    {
-        family: "source.harmony.preferences",
-        ruleId: "source.harmony.preferences.getSync.result",
-        positiveCase: "unknown_sdk_preferences_getSync_003_T",
-        negativeCase: "unknown_sdk_preferences_getSync_004_F",
-    },
-    {
-        family: "source.harmony.network.http",
-        ruleId: "source.harmony.network.http.request.result",
-        positiveCase: "unknown_sdk_http_request_005_T",
-        negativeCase: "unknown_sdk_http_request_006_F",
-    },
+    }
 ];
 
 function findMethod(scene: ReturnType<typeof buildTestScene>, methodName: string): any {
@@ -97,24 +85,32 @@ async function main(): Promise<void> {
 
     const results: string[] = [];
     for (const probe of PROBES) {
-        const familyRules = rules.filter(rule => rule.family === probe.family);
-        assert(familyRules.length > 0, `missing family rules for ${probe.family}`);
+        const probeRules = rules.filter(rule =>
+            rule.match.kind === "method_name_equals"
+            && rule.match.value === probe.methodName
+            && rule.calleeScope?.module?.mode === "contains"
+            && rule.calleeScope.module.value === probe.moduleContains
+        );
+        assert(probeRules.length > 0, `missing official source rule for ${probe.moduleContains}.${probe.methodName}`);
+        const probeRuleIds = new Set(probeRules.map(rule => rule.id));
 
-        const positive = await runCase(scene, probe.positiveCase, familyRules);
-        assert(positive.detected, `${probe.positiveCase}: expected flow with ${probe.family}`);
+        const positive = await runCase(scene, probe.positiveCase, probeRules);
+        assert(positive.detected, `${probe.positiveCase}: expected flow with ${probe.moduleContains}.${probe.methodName}`);
         assert(
-            (positive.seedInfo.sourceRuleHits[probe.ruleId] || 0) > 0,
-            `${probe.positiveCase}: expected source hit for ${probe.ruleId}`,
+            Object.entries(positive.seedInfo.sourceRuleHits || {})
+                .some(([ruleId, hits]) => probeRuleIds.has(ruleId) && hits > 0),
+            `${probe.positiveCase}: expected source hit for ${probe.moduleContains}.${probe.methodName}`,
         );
 
-        const negative = await runCase(scene, probe.negativeCase, familyRules);
-        assert(!negative.detected, `${probe.negativeCase}: local helper should not trigger ${probe.family}`);
+        const negative = await runCase(scene, probe.negativeCase, probeRules);
+        assert(!negative.detected, `${probe.negativeCase}: local helper should not trigger ${probe.moduleContains}.${probe.methodName}`);
         assert(
-            (negative.seedInfo.sourceRuleHits[probe.ruleId] || 0) === 0,
-            `${probe.negativeCase}: local helper should not count as source hit for ${probe.ruleId}`,
+            Object.entries(negative.seedInfo.sourceRuleHits || {})
+                .every(([ruleId, hits]) => !probeRuleIds.has(ruleId) || hits === 0),
+            `${probe.negativeCase}: local helper should not count as source hit for ${probe.moduleContains}.${probe.methodName}`,
         );
 
-        results.push(`PASS family=${probe.family} positive=${probe.positiveCase} negative=${probe.negativeCase}`);
+        results.push(`PASS source=${probe.moduleContains}.${probe.methodName} positive=${probe.positiveCase} negative=${probe.negativeCase}`);
     }
 
     console.log("====== Framework API Source Unknown SDK Resolution ======");

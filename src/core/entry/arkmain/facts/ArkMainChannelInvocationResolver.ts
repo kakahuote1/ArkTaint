@@ -15,8 +15,7 @@ import {
 type ArkMainChannelFactKind = Extract<ArkMainEntryFact["kind"], "router_source" | "router_trigger">;
 type ArkMainChannelRecognitionLayer =
     | "sdk_provenance_first_layer"
-    | "sdk_import_provenance_first_layer"
-    | "owner_qualified_fallback";
+    | "sdk_import_provenance_first_layer";
 
 export interface ArkMainChannelInvocationCandidate {
     sourceMethod: ArkMethod;
@@ -79,17 +78,7 @@ export function resolveArkMainChannelInvocationCandidate(
         };
     }
 
-    if (!isKnownFallbackChannelOwner(className, methodName)) {
-        return null;
-    }
-
-    return {
-        sourceMethod,
-        methodName,
-        className,
-        discoveryShape: "direct_channel_call",
-        recognitionLayer: "owner_qualified_fallback",
-    };
+    return null;
 }
 
 export function classifyArkMainChannelInvocationCandidate(
@@ -123,13 +112,6 @@ export function classifyArkMainChannelInvocationCandidate(
     }
 
     return null;
-}
-
-function isKnownFallbackChannelOwner(className: string, methodName: string): boolean {
-    return (
-        (ARK_MAIN_NAVIGATION_SOURCE_OWNER_CLASS_NAMES.has(className) && ARK_MAIN_ROUTER_SOURCE_METHOD_NAMES.has(methodName))
-        || (ARK_MAIN_ROUTER_OWNER_CLASS_NAMES.has(className) && ARK_MAIN_ROUTER_TRIGGER_METHOD_NAMES.has(methodName))
-    );
 }
 
 function resolveSdkImportProvenanceChannelOwner(

@@ -23,13 +23,10 @@ import {
 } from "./RuleSchema";
 
 const MATCH_KINDS: RuleMatchKind[] = [
-    "signature_contains",
     "signature_equals",
-    "signature_regex",
     "declaring_class_equals",
     "method_name_equals",
-    "method_name_regex",
-    "local_name_regex",
+    "field_name_equals",
 ];
 
 const SOURCE_KINDS = new Set<SourceRuleKind>([
@@ -85,15 +82,6 @@ function validateMatch(rulePath: string, match: unknown, out: RuleValidationResu
     }
     if (typeof value !== "string" || value.trim().length === 0) {
         out.errors.push(`${rulePath}.match.value must be a non-empty string`);
-    }
-
-    if ((kind === "signature_regex" || kind === "method_name_regex" || kind === "local_name_regex") && typeof value === "string") {
-        try {
-            // eslint-disable-next-line no-new
-            new RegExp(value);
-        } catch (err: any) {
-            out.errors.push(`${rulePath}.match.value regex is invalid: ${String(err?.message || err)}`);
-        }
     }
 
     if (match.calleeClass !== undefined) {
@@ -358,9 +346,9 @@ function validateRuleCommon(rulePath: string, rule: unknown, out: RuleValidation
             missing.push("scope/calleeScope anchor(file/module/className/methodName/methodDecorators)");
         }
         if (missing.length > 0) {
-            out.warnings.push(
-                `${rulePath} tier C method fallback is under-constrained (${missing.join(", ")}); `
-                + `Tier C is intended for anchored fallback only`
+            out.errors.push(
+                `${rulePath} tier C method selector is under-constrained (${missing.join(", ")}); `
+                + `Tier C selectors must be anchored by explicit owner/file/endpoint evidence`
             );
         }
     }

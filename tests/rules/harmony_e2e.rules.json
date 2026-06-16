@@ -10,7 +10,7 @@
       "ownerName": "RuntimeSelector",
       "methodName": "onCreate",
       "invokeKind": "instance",
-      "argCount": 0,
+      "argCount": 1,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
@@ -23,7 +23,7 @@
       "ownerName": "RuntimeSelector",
       "methodName": "onChange",
       "invokeKind": "instance",
-      "argCount": 0,
+      "argCount": 1,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
@@ -35,8 +35,8 @@
       "modulePath": "@arktaint/runtime-selector",
       "ownerName": "RuntimeSelector",
       "methodName": "Sink",
-      "invokeKind": "instance",
-      "argCount": 0,
+      "invokeKind": "static",
+      "argCount": 1,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
@@ -68,7 +68,8 @@
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.source.harmony.e2e.activate_callback_in_build.0",
@@ -97,7 +98,8 @@
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.sink.harmony.e2e.mock_sink.0",
@@ -120,7 +122,8 @@
       ],
       "semanticsFamily": "sink",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     }
   ],
   "effectTemplates": [

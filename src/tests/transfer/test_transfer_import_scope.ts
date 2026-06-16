@@ -70,7 +70,7 @@ async function main(): Promise<void> {
 
     const sourceRules: SourceRule[] = [{
         id: "source.test.entry_param.taint_src",
-        match: { kind: "local_name_regex", value: "^taint_src$" },
+        match: { kind: "method_name_equals", value: "transfer_import_scope_001_T" },
         sourceKind: "entry_param",
         target: { endpoint: "arg0" },
     }];

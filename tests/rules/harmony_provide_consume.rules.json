@@ -32,14 +32,20 @@
   ],
   "bindings": [
     {
-      "bindingId": "binding.source.harmony.provide_consume.entry_param.0",
+      "bindingId": "binding.source.harmony.provide_consume.entry_param.0.method.provide_consume_alias_003_T",
       "surfaceId": "surface.source.harmony.provide_consume.entry_param",
       "assetId": "asset.rule.test.harmony_provide_consume",
       "plane": "rule",
       "role": "source",
       "selector": {
-        "kind": "local-name-regex",
-        "value": "^taint_src$"
+        "kind": "method-name-equals",
+        "value": "provide_consume_alias_003_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "provide_consume_alias_003_T.ets"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -48,7 +54,152 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.harmony.provide_consume.entry_param"
+        "template.source.harmony.provide_consume.entry_param.for.source.harmony.provide_consume.entry_param.0.method.provide_consume_alias_003_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.provide_consume.entry_param.0.method.provide_consume_deep_chain_004_T",
+      "surfaceId": "surface.source.harmony.provide_consume.entry_param",
+      "assetId": "asset.rule.test.harmony_provide_consume",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "provide_consume_deep_chain_004_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "provide_consume_deep_chain_004_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.provide_consume.entry_param.for.source.harmony.provide_consume.entry_param.0.method.provide_consume_deep_chain_004_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.provide_consume.entry_param.0.method.provide_consume_mismatch_key_002_F",
+      "surfaceId": "surface.source.harmony.provide_consume.entry_param",
+      "assetId": "asset.rule.test.harmony_provide_consume",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "provide_consume_mismatch_key_002_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "provide_consume_mismatch_key_002_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.provide_consume.entry_param.for.source.harmony.provide_consume.entry_param.0.method.provide_consume_mismatch_key_002_F"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.provide_consume.entry_param.0.method.provide_consume_noarg_key_006_T",
+      "surfaceId": "surface.source.harmony.provide_consume.entry_param",
+      "assetId": "asset.rule.test.harmony_provide_consume",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "provide_consume_noarg_key_006_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "provide_consume_noarg_key_006_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.provide_consume.entry_param.for.source.harmony.provide_consume.entry_param.0.method.provide_consume_noarg_key_006_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.provide_consume.entry_param.0.method.provide_consume_same_key_001_T",
+      "surfaceId": "surface.source.harmony.provide_consume.entry_param",
+      "assetId": "asset.rule.test.harmony_provide_consume",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "provide_consume_same_key_001_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "provide_consume_same_key_001_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.provide_consume.entry_param.for.source.harmony.provide_consume.entry_param.0.method.provide_consume_same_key_001_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.provide_consume.entry_param.0.method.provide_consume_scope_isolation_005_F",
+      "surfaceId": "surface.source.harmony.provide_consume.entry_param",
+      "assetId": "asset.rule.test.harmony_provide_consume",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "provide_consume_scope_isolation_005_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "provide_consume_scope_isolation_005_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.provide_consume.entry_param.for.source.harmony.provide_consume.entry_param.0.method.provide_consume_scope_isolation_005_F"
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
@@ -75,22 +226,11 @@
       ],
       "semanticsFamily": "sink",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     }
   ],
   "effectTemplates": [
-    {
-      "id": "template.source.harmony.provide_consume.entry_param",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
     {
       "id": "template.sink.harmony.provide_consume.mock_sink",
       "confidence": "certain",
@@ -102,6 +242,78 @@
         }
       },
       "sinkKind": "sink"
+    },
+    {
+      "id": "template.source.harmony.provide_consume.entry_param.for.source.harmony.provide_consume.entry_param.0.method.provide_consume_alias_003_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.provide_consume.entry_param.for.source.harmony.provide_consume.entry_param.0.method.provide_consume_deep_chain_004_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.provide_consume.entry_param.for.source.harmony.provide_consume.entry_param.0.method.provide_consume_mismatch_key_002_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.provide_consume.entry_param.for.source.harmony.provide_consume.entry_param.0.method.provide_consume_noarg_key_006_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.provide_consume.entry_param.for.source.harmony.provide_consume.entry_param.0.method.provide_consume_same_key_001_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.provide_consume.entry_param.for.source.harmony.provide_consume.entry_param.0.method.provide_consume_scope_isolation_005_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
     }
   ],
   "provenance": {

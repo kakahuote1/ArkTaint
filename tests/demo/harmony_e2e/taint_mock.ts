@@ -3,7 +3,9 @@ export class Want {
 }
 
 export class UIInput {
-    onChange(_cb: (value: string) => void): void {}
+    onChange(cb: (value: string) => void): void {
+        cb("");
+    }
 }
 
 export class AppStorage {

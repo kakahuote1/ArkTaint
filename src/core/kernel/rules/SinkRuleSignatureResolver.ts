@@ -25,8 +25,6 @@ export function resolveSinkRuleSignatures(scene: Scene, rule: SinkRule): string[
     const matchKind: RuleMatchKind =
         (rule.match.kind as string) === "callee_signature_equals" ? "signature_equals" : rule.match.kind;
     switch (matchKind) {
-        case "signature_contains":
-            return [value];
         case "signature_equals": {
             if (!normalizedValue) return [];
             const matched = index.byNormalizedSignature.get(normalizedValue) || [];
@@ -38,54 +36,26 @@ export function resolveSinkRuleSignatures(scene: Scene, rule: SinkRule): string[
             const matched = index.byNormalizedClassText.get(normalizedValue) || [];
             return [...new Set(matched)];
         }
-        case "signature_regex": {
-            let re: RegExp;
-            try {
-                re = new RegExp(value);
-            } catch {
-                return [];
-            }
-            return index.signatures.filter(sig => re.test(sig));
-        }
         case "method_name_equals":
             {
                 const matched = [...(index.byName.get(value) || [])];
-                // Fallback for unresolved/framework calls represented as
-                // "@%unk/%unk: .methodName()" in ArkIR where SDK typing is
-                // missing. Keep it to shape-constrained rules unless there is
-                // no resolved method at all, so broad method names do not
-                // silently expand across every unknown callsite.
-                const unresolvedFallback = `.${value}(`;
-                if (matched.length === 0 || shouldIncludeUnresolvedMethodFallback(rule)) {
-                    matched.push(unresolvedFallback);
+                const unknownCallsiteSignature = buildUnknownCallsiteSignature(value);
+                if (unknownCallsiteSignature) {
+                    matched.push(unknownCallsiteSignature);
                 }
                 return [...new Set(matched)];
             }
-        case "method_name_regex": {
-            let re: RegExp;
-            try {
-                re = new RegExp(value);
-            } catch {
-                return [];
-            }
-            return index.entries
-                .filter(entry => re.test(entry.name))
-                .map(entry => entry.signature);
-        }
-        case "local_name_regex":
+        case "field_name_equals":
             return [];
         default:
             return [];
     }
 }
 
-function shouldIncludeUnresolvedMethodFallback(rule: SinkRule): boolean {
-    const match = rule.match;
-    return !!(
-        (match.invokeKind && match.invokeKind !== "any")
-        || match.argCount !== undefined
-        || (match.typeHint && match.typeHint.trim().length > 0)
-    );
+function buildUnknownCallsiteSignature(methodName: string): string | undefined {
+    const value = methodName.trim();
+    if (!value) return undefined;
+    return `@%unk/%unk: .${value}()`;
 }
 
 function getOrBuildMethodSignatureIndex(scene: Scene): MethodSignatureIndex {

@@ -548,10 +548,10 @@ export class TaintPropagationEngine {
             return {
                 requestCount: 0,
                 directHitCount: 0,
-                fallbackResolveCount: 0,
-                awaitFallbackCount: 0,
-                exprUseFallbackCount: 0,
-                anchorLeftFallbackCount: 0,
+                substitutedValueCount: 0,
+                awaitUnwrapCount: 0,
+                expressionUseResolveCount: 0,
+                anchorLeftResolveCount: 0,
                 addAttemptCount: 0,
                 addFailureCount: 0,
                 unresolvedCount: 0,
@@ -2045,7 +2045,6 @@ export class TaintPropagationEngine {
                 argCount?: number;
                 typeHint?: string;
             },
-            signatureMatchMode: "contains" | "equals",
             effectiveCalleeScope?: RuleScopeConstraint,
             effectiveCallerScope?: RuleScopeConstraint,
         ): string => {
@@ -2058,7 +2057,7 @@ export class TaintPropagationEngine {
             const typeHint = target.typeHint || "";
             const calleeScope = stringifyRuleScope(effectiveCalleeScope);
             const callerScope = stringifyRuleScope(effectiveCallerScope);
-            return `${signature}|${endpoint}|${path}|${invokeKind}|${argCount}|${typeHint}|${calleeScope}|${callerScope}|${signatureMatchMode}`;
+            return `${signature}|${endpoint}|${path}|${invokeKind}|${argCount}|${typeHint}|${calleeScope}|${callerScope}`;
         };
         const buildFlowDedupKey = (flow: TaintFlow): string => {
             const sinkMethodSig = flow.sink?.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.() || "";
@@ -2093,7 +2092,6 @@ export class TaintPropagationEngine {
             if (reachedFlowLimit()) break;
             const signatures = resolveSinkRuleSignaturesByRule(this.scene, rule);
             const target = this.resolveSinkRuleTarget(rule);
-            const signatureMatchMode = this.resolveSinkSignatureMatchMode(rule);
             const sinkEndpoint = target.targetEndpoint || "any_arg";
             const sinkPathSuffix = target.targetPath && target.targetPath.length > 0
                 ? `.${target.targetPath.join(".")}`
@@ -2107,7 +2105,7 @@ export class TaintPropagationEngine {
                 ? { ...rule.scope }
                 : undefined;
             for (const signature of signatures) {
-                const cacheKey = buildDetectCacheKey(signature, target, signatureMatchMode, effectiveCalleeScope, effectiveCallerScope);
+                const cacheKey = buildDetectCacheKey(signature, target, effectiveCalleeScope, effectiveCallerScope);
                 let flows: TaintFlow[];
                 const cached = detectCache.get(cacheKey);
                 if (cached) {
@@ -2117,7 +2115,6 @@ export class TaintPropagationEngine {
                         ...target,
                         callerScope: effectiveCallerScope,
                         calleeScope: effectiveCalleeScope,
-                        signatureMatchMode,
                         sinkRuleId: rule.id,
                         sanitizerRules: options?.sanitizerRules || [],
                     });
@@ -2785,7 +2782,6 @@ export class TaintPropagationEngine {
             typeHint?: string;
             callerScope?: RuleScopeConstraint;
             calleeScope?: RuleScopeConstraint;
-            signatureMatchMode?: "contains" | "equals";
             sanitizerRules?: SanitizerRule[];
             sinkRuleId?: string;
         }
@@ -2846,17 +2842,6 @@ export class TaintPropagationEngine {
         }
         this.interproceduralTaintTargetNodeIdsCache = out;
         return out;
-    }
-
-    private resolveSinkSignatureMatchMode(rule: SinkRule): "contains" | "equals" {
-        switch (rule.match.kind) {
-            case "signature_equals":
-            case "declaring_class_equals":
-            case "signature_regex":
-                return "equals";
-            default:
-                return "contains";
-        }
     }
 
     private resolveSinkFlowCalleeSignature(flow: TaintFlow): string | undefined {

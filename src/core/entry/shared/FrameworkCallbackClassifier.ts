@@ -3,7 +3,6 @@ import { ArkMethod } from "../../../../arkanalyzer/out/src/core/model/ArkMethod"
 import { CALLBACK_METHOD_NAME } from "../../../../arkanalyzer/out/src/utils/entryMethodUtils";
 import { collectFiniteStringCandidatesFromValue } from "../../substrate/queries/FiniteStringCandidateResolver";
 import {
-    isExternalImportRooted,
     isSdkBackedMethodSignature,
 } from "../../substrate/queries/SdkProvenance";
 import {
@@ -22,10 +21,6 @@ import { hasModuleSemanticRegistrationProvenance } from "../../substrate/semanti
 
 export interface FrameworkCallbackResolutionPolicy {
     enableSdkProvenance?: boolean;
-    enableOpaqueExternalCallFallback?: boolean;
-    enableOwnerQualifiedFallback?: boolean;
-    enableEmptyOwnerFallback?: boolean;
-    enableStructuralCallableFallback?: boolean;
     suppressCatalogSlotFamilyInference?: boolean;
 }
 
@@ -54,28 +49,16 @@ export type CallbackRegistrationSlotFamily =
 
 export type CallbackRegistrationRecognitionLayer =
     | "sdk_provenance"
-    | "opaque_external_call_fallback"
-    | "owner_qualified_fallback"
-    | "empty_owner_fallback"
-    | "structural_callable_fallback"
     | "controller_options"
     | "component_options"
     | "web_js_proxy_options"
     | "keyed_dispatch";
-
-export type StructuralCallbackEvidenceFamily =
-    | "on_like_callback"
-    | "builder_create_callback"
-    | "scheduler_like_callback"
-    | "action_completion_callback"
-    | "helper_forwarded_callback";
 
 export interface CallbackRegistrationMatch extends CallbackRegistrationMatchBase {
     callbackFlavor?: CallbackRegistrationFlavor;
     registrationShape?: CallbackRegistrationShape;
     slotFamily?: CallbackRegistrationSlotFamily;
     recognitionLayer?: CallbackRegistrationRecognitionLayer;
-    structuralEvidenceFamily?: StructuralCallbackEvidenceFamily;
 }
 
 export type FrameworkResolvedCallbackRegistration = ResolvedCallbackRegistration<CallbackRegistrationMatch>;
@@ -91,24 +74,6 @@ interface ControllerOptionCallbackSpec {
     optionsArgIndex: number;
     callbackFieldNames: Set<string>;
     reasonLabel: string;
-}
-
-type FrameworkCallbackOwnerFamily =
-    | "ui_component"
-    | "gesture"
-    | "system_direct"
-    | "subscription_event"
-    | "completion_callback"
-    | "p2p_message_receiver";
-
-interface FallbackSlotSpec {
-    slotFamily: CallbackRegistrationSlotFamily;
-    callbackFlavor: CallbackRegistrationFlavor;
-    registrationShape: CallbackRegistrationShape;
-    callbackArgIndexes: number[];
-    methodNames: Set<string>;
-    minArgs: number;
-    requiredStringArgIndexes?: number[];
 }
 
 interface KeyedCallbackDispatchFamilySpec {
@@ -205,79 +170,6 @@ const PREFERENCES_CALLBACK_METHOD_NAMES = new Set([
     "get",
     "put",
 ]);
-const DIRECT_UI_FALLBACK_SLOT_SPEC: FallbackSlotSpec = {
-    slotFamily: "ui_direct_slot",
-    callbackFlavor: "ui_event",
-    registrationShape: "direct_callback_slot",
-    callbackArgIndexes: [0],
-    methodNames: UI_COMPONENT_CALLBACK_METHOD_NAMES,
-    minArgs: 1,
-};
-const GESTURE_FALLBACK_SLOT_SPEC: FallbackSlotSpec = {
-    slotFamily: "gesture_direct_slot",
-    callbackFlavor: "ui_event",
-    registrationShape: "direct_callback_slot",
-    callbackArgIndexes: [0],
-    methodNames: GESTURE_CALLBACK_METHOD_NAMES,
-    minArgs: 1,
-};
-const SYSTEM_DIRECT_FALLBACK_SLOT_SPEC: FallbackSlotSpec = {
-    slotFamily: "system_direct_slot",
-    callbackFlavor: "channel",
-    registrationShape: "direct_callback_slot",
-    callbackArgIndexes: [0],
-    methodNames: new Set([
-        ...DIRECT_SYSTEM_CALLBACK_METHOD_NAMES,
-        ...WEB_LIFECYCLE_CALLBACK_METHOD_NAMES,
-    ]),
-    minArgs: 1,
-};
-const SUBSCRIPTION_EVENT_FALLBACK_SLOT_SPEC: FallbackSlotSpec = {
-    slotFamily: "subscription_event_slot",
-    callbackFlavor: "channel",
-    registrationShape: "string_plus_callback_slot",
-    callbackArgIndexes: [1],
-    methodNames: STRING_PLUS_SUBSCRIPTION_METHOD_NAMES,
-    minArgs: 2,
-    requiredStringArgIndexes: [0],
-};
-const COMPLETION_FALLBACK_SLOT_SPEC: FallbackSlotSpec = {
-    slotFamily: "completion_callback_slot",
-    callbackFlavor: "channel",
-    registrationShape: "trailing_callback_slot",
-    callbackArgIndexes: [1],
-    methodNames: TRAILING_CALLBACK_METHOD_NAMES,
-    minArgs: 2,
-};
-const PREFERENCES_COMPLETION_FALLBACK_SLOT_SPEC: FallbackSlotSpec = {
-    slotFamily: "completion_callback_slot",
-    callbackFlavor: "channel",
-    registrationShape: "trailing_callback_slot",
-    callbackArgIndexes: [2],
-    methodNames: PREFERENCES_CALLBACK_METHOD_NAMES,
-    minArgs: 3,
-};
-const P2P_MESSAGE_RECEIVER_FALLBACK_SLOT_SPEC: FallbackSlotSpec = {
-    slotFamily: "p2p_message_receiver_slot",
-    callbackFlavor: "channel",
-    registrationShape: "trailing_callback_slot",
-    callbackArgIndexes: [2],
-    methodNames: P2P_MESSAGE_RECEIVER_METHOD_NAMES,
-    minArgs: 3,
-};
-const OWNER_FAMILY_FALLBACK_SPECS = new Map<FrameworkCallbackOwnerFamily, FallbackSlotSpec[]>([
-    ["ui_component", [DIRECT_UI_FALLBACK_SLOT_SPEC]],
-    ["gesture", [GESTURE_FALLBACK_SLOT_SPEC]],
-    ["system_direct", [SYSTEM_DIRECT_FALLBACK_SLOT_SPEC]],
-    ["subscription_event", [SUBSCRIPTION_EVENT_FALLBACK_SLOT_SPEC]],
-    ["completion_callback", [COMPLETION_FALLBACK_SLOT_SPEC, PREFERENCES_COMPLETION_FALLBACK_SLOT_SPEC]],
-    ["p2p_message_receiver", [P2P_MESSAGE_RECEIVER_FALLBACK_SLOT_SPEC]],
-]);
-const EMPTY_OWNER_FALLBACK_SPECS: FallbackSlotSpec[] = [
-    DIRECT_UI_FALLBACK_SLOT_SPEC,
-    GESTURE_FALLBACK_SLOT_SPEC,
-    SUBSCRIPTION_EVENT_FALLBACK_SLOT_SPEC,
-];
 const CONTROLLER_OPTION_CALLBACK_SPECS: ControllerOptionCallbackSpec[] = [
     {
         ownerClassNames: new Set(["CustomDialogController"]),
@@ -346,10 +238,6 @@ const KNOWN_KEYED_CALLBACK_DISPATCH_FAMILIES: KeyedCallbackDispatchFamilySpec[] 
 ];
 const DEFAULT_FRAMEWORK_CALLBACK_RESOLUTION_POLICY: Required<FrameworkCallbackResolutionPolicy> = {
     enableSdkProvenance: true,
-    enableOpaqueExternalCallFallback: false,
-    enableOwnerQualifiedFallback: true,
-    enableEmptyOwnerFallback: true,
-    enableStructuralCallableFallback: true,
     suppressCatalogSlotFamilyInference: false,
 };
 const KNOWN_COLLECTION_CLASS_NAMES = new Set([
@@ -383,18 +271,6 @@ export function resolveKnownFrameworkCallbackRegistrationWithPolicy(
 
     return (effectivePolicy.enableSdkProvenance
         ? resolveSdkProvenanceFrameworkCallbackRegistration(args, callbackArgIndexes, effectivePolicy)
-        : null)
-        || (effectivePolicy.enableOpaqueExternalCallFallback
-            ? resolveOpaqueExternalCallFallback(args, callbackArgIndexes)
-            : null)
-        || (effectivePolicy.enableOwnerQualifiedFallback
-            ? resolveOwnerQualifiedFrameworkCallbackFallback(args)
-            : null)
-        || (effectivePolicy.enableEmptyOwnerFallback
-            ? resolveEmptyOwnerFrameworkCallbackFallback(args)
-            : null)
-        || (effectivePolicy.enableStructuralCallableFallback
-            ? resolveStructuralCallableFallback(args, callbackArgIndexes)
             : null);
 }
 
@@ -420,7 +296,7 @@ export function resolveKnownSchedulerCallbackRegistration(
             callbackFlavor: "channel",
             registrationShape: "direct_callback_slot",
             slotFamily: "scheduler_slot",
-            recognitionLayer: "owner_qualified_fallback",
+            recognitionLayer: "sdk_provenance",
         };
     }
     return {
@@ -429,7 +305,7 @@ export function resolveKnownSchedulerCallbackRegistration(
         callbackFlavor: "channel",
         registrationShape: "direct_callback_slot",
         slotFamily: "scheduler_slot",
-        recognitionLayer: "owner_qualified_fallback",
+        recognitionLayer: "sdk_provenance",
     };
 }
 
@@ -453,7 +329,7 @@ export function resolveKnownChannelCallbackRegistration(
             callbackFlavor: "channel",
             registrationShape: "string_plus_callback_slot",
             slotFamily: "subscription_event_slot",
-            recognitionLayer: "owner_qualified_fallback",
+            recognitionLayer: "sdk_provenance",
         };
     }
     if (methodName === "onMessage" && className === "Worker") {
@@ -463,7 +339,7 @@ export function resolveKnownChannelCallbackRegistration(
             callbackFlavor: "channel",
             registrationShape: "direct_callback_slot",
             slotFamily: "system_direct_slot",
-            recognitionLayer: "owner_qualified_fallback",
+            recognitionLayer: "sdk_provenance",
         };
     }
     return null;
@@ -718,315 +594,13 @@ function resolveSdkProvenanceFrameworkCallbackRegistration(
     };
 }
 
-function resolveOpaqueExternalCallFallback(
-    args: CallbackRegistrationMatchArgs,
-    callbackArgIndexes: number[],
-): CallbackRegistrationMatch | null {
-    if (callbackArgIndexes.length === 0) {
-        return null;
-    }
-    if (!isExternalImportRooted(args.sourceMethod, args.invokeExpr)) {
-        return null;
-    }
-    if (isCalleeResolvableWithBody(args)) {
-        return null;
-    }
-
-    const methodSig = args.invokeExpr?.getMethodSignature?.();
-    const methodName = methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "<unknown>";
-    const ownerName = describeRegistrationOwner(methodSig);
-    return {
-        callbackArgIndexes,
-        reason: `Opaque external callback registration ${ownerName}.${methodName} from ${args.sourceMethod.getName()}`,
-        callbackFlavor: "channel",
-        registrationShape: inferRegistrationShape(args.explicitArgs || [], callbackArgIndexes),
-        slotFamily: undefined,
-        recognitionLayer: "opaque_external_call_fallback",
-    };
-}
-
-function isCalleeResolvableWithBody(args: CallbackRegistrationMatchArgs): boolean {
-    const methodSig = args.invokeExpr?.getMethodSignature?.();
-    if (!methodSig) return false;
-    const direct = args.scene.getMethod(methodSig);
-    if (direct?.getCfg?.()) return true;
-    const candidates = resolveCalleeCandidates(args.scene, args.invokeExpr, { maxNameMatchCandidates: 3 });
-    return candidates.some(c => !!c.method?.getCfg?.());
-}
-
 function normalizeFrameworkCallbackResolutionPolicy(
     policy: FrameworkCallbackResolutionPolicy,
 ): Required<FrameworkCallbackResolutionPolicy> {
     return {
         enableSdkProvenance: policy.enableSdkProvenance ?? true,
-        enableOpaqueExternalCallFallback: policy.enableOpaqueExternalCallFallback ?? false,
-        enableOwnerQualifiedFallback: policy.enableOwnerQualifiedFallback ?? true,
-        enableEmptyOwnerFallback: policy.enableEmptyOwnerFallback ?? true,
-        enableStructuralCallableFallback: policy.enableStructuralCallableFallback ?? true,
         suppressCatalogSlotFamilyInference: policy.suppressCatalogSlotFamilyInference ?? false,
     };
-}
-
-function resolveStructuralCallableFallback(
-    args: CallbackRegistrationMatchArgs,
-    callbackArgIndexes: number[],
-): CallbackRegistrationMatch | null {
-    if (callbackArgIndexes.length === 0) {
-        return null;
-    }
-    const structuralEvidenceFamily = resolveStructuralCallableEvidenceFamily(args, callbackArgIndexes);
-    if (!structuralEvidenceFamily) {
-        return null;
-    }
-    if (shouldDeferToProjectHelperFollowing(args.scene, args.sourceMethod, args.invokeExpr, args.explicitArgs || [], callbackArgIndexes)) {
-        return null;
-    }
-
-    const methodSig = args.invokeExpr?.getMethodSignature?.();
-    if (shouldExcludeProjectConstructorStructuralFallback(args.scene, methodSig)) {
-        return null;
-    }
-    if (shouldExcludeProjectConstructorSourceFallback(args.scene, args.sourceMethod)) {
-        return null;
-    }
-    const methodName = methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "<unknown>";
-    const ownerName = describeRegistrationOwner(methodSig);
-
-    return {
-        callbackArgIndexes,
-        reason: `Structural callable fallback: ${ownerName}.${methodName} has callable arg(s) at index [${callbackArgIndexes.join(", ")}]`,
-        callbackFlavor: "channel",
-        registrationShape: inferRegistrationShape(args.explicitArgs || [], callbackArgIndexes),
-        slotFamily: undefined,
-        recognitionLayer: "structural_callable_fallback",
-        structuralEvidenceFamily,
-    };
-}
-
-function resolveStructuralCallableEvidenceFamily(
-    args: CallbackRegistrationMatchArgs,
-    callbackArgIndexes: number[],
-): StructuralCallbackEvidenceFamily | undefined {
-    const methodSig = args.invokeExpr?.getMethodSignature?.();
-    const methodName = methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "";
-    const sourceMethodName = args.sourceMethod?.getName?.() || "";
-    const carrierMethod = args.carrierMethod || args.sourceMethod;
-    if (/^on[A-Z]/.test(methodName)) {
-        return "on_like_callback";
-    }
-    if (methodName === "create" && (sourceMethodName === "build" || isViewCreateSignature(methodSig))) {
-        return "builder_create_callback";
-    }
-    if (KNOWN_SCHEDULER_METHOD_NAMES.has(methodName)) {
-        return "scheduler_like_callback";
-    }
-    if (helperCarrierShowsFrameworkRegistrationEvidence(args.scene, carrierMethod, args.invokeExpr)) {
-        return "helper_forwarded_callback";
-    }
-    if (hasVoidReturningTrailingCallbackEvidence(args.invokeExpr, callbackArgIndexes, args.explicitArgs || [])) {
-        return "action_completion_callback";
-    }
-    return undefined;
-}
-
-function isViewCreateSignature(methodSig: any): boolean {
-    const text = String(methodSig?.toString?.() || "");
-    if (text.includes("View.create(") || text.includes(": View.create()")) {
-        return true;
-    }
-    const className = methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";
-    return className === "View";
-}
-
-function hasVoidReturningTrailingCallbackEvidence(
-    invokeExpr: any,
-    callbackArgIndexes: number[],
-    explicitArgs: any[],
-): boolean {
-    if (callbackArgIndexes.length !== 1 || callbackArgIndexes[0] === 0) {
-        return false;
-    }
-    if (explicitArgs.length === 0 || callbackArgIndexes[0] !== explicitArgs.length - 1) {
-        return false;
-    }
-    const methodSig = invokeExpr?.getMethodSignature?.();
-    const returnTypeText = String(methodSig?.getMethodSubSignature?.()?.getReturnType?.()?.toString?.() || "").toLowerCase();
-    return returnTypeText === "void";
-}
-
-function helperCarrierShowsFrameworkRegistrationEvidence(
-    scene: Scene,
-    carrierMethod: ArkMethod | undefined,
-    currentInvokeExpr: any,
-): boolean {
-    if (!carrierMethod?.getCfg?.()) {
-        return false;
-    }
-    const carrierFileSig = carrierMethod
-        .getSignature?.()
-        ?.getDeclaringClassSignature?.()
-        ?.getDeclaringFileSignature?.();
-    if (carrierFileSig && scene.hasSdkFile(carrierFileSig)) {
-        return false;
-    }
-
-    const cfg = carrierMethod.getCfg?.();
-    if (!cfg) {
-        return false;
-    }
-    for (const stmt of cfg.getStmts()) {
-        const innerInvokeExpr = stmt?.getInvokeExpr?.();
-        if (!innerInvokeExpr || innerInvokeExpr === currentInvokeExpr) {
-            continue;
-        }
-        const explicitArgs = innerInvokeExpr.getArgs ? innerInvokeExpr.getArgs() : [];
-        const structuralArgs = inferCallableArgIndexes(scene, explicitArgs);
-        const matcherArgs: CallbackRegistrationMatchArgs = {
-            invokeExpr: innerInvokeExpr,
-            explicitArgs,
-            scene,
-            sourceMethod: carrierMethod,
-            carrierMethod,
-        };
-        if (resolveKnownSchedulerCallbackRegistration(matcherArgs)) {
-            return true;
-        }
-        if (resolveKnownChannelCallbackRegistration(matcherArgs)) {
-            return true;
-        }
-        if (resolveOwnerQualifiedFrameworkCallbackFallback(matcherArgs)) {
-            return true;
-        }
-        if (resolveEmptyOwnerFrameworkCallbackFallback(matcherArgs)) {
-            return true;
-        }
-        if (resolveKnownKeyedCallbackDispatchRegistration(matcherArgs)) {
-            return true;
-        }
-        if (
-            structuralArgs.length > 0
-            && resolveSdkProvenanceFrameworkCallbackRegistration(
-                matcherArgs,
-                structuralArgs,
-                DEFAULT_FRAMEWORK_CALLBACK_RESOLUTION_POLICY,
-            )
-        ) {
-            return true;
-        }
-    }
-    return false;
-}
-
-function shouldExcludeProjectConstructorStructuralFallback(scene: Scene, methodSig: any): boolean {
-    const methodName = methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "";
-    if (methodName !== "constructor") {
-        return false;
-    }
-    return !isSdkBackedMethodSignature(scene, methodSig);
-}
-
-function shouldExcludeProjectConstructorSourceFallback(scene: Scene, sourceMethod: ArkMethod): boolean {
-    if (sourceMethod?.getName?.() !== "constructor") {
-        return false;
-    }
-    const sourceFileSig = sourceMethod
-        ?.getSignature?.()
-        ?.getDeclaringClassSignature?.()
-        ?.getDeclaringFileSignature?.();
-    return !(sourceFileSig && scene.hasSdkFile(sourceFileSig));
-}
-
-function resolveOwnerQualifiedFrameworkCallbackFallback(
-    args: CallbackRegistrationMatchArgs,
-): CallbackRegistrationMatch | null {
-    const methodSig = args.invokeExpr?.getMethodSignature?.();
-    const methodName = methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "";
-    const className = methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";
-    const explicitArgs = args.explicitArgs || [];
-    const ownerFamily = resolveFallbackOwnerFamily(className);
-    if (!ownerFamily) {
-        return null;
-    }
-    const slotSpec = matchFallbackSlotSpec(
-        methodName,
-        explicitArgs,
-        OWNER_FAMILY_FALLBACK_SPECS.get(ownerFamily) || [],
-    );
-    if (slotSpec) {
-        return {
-            callbackArgIndexes: slotSpec.callbackArgIndexes,
-            reason: `Framework ${ownerFamily} callback registration ${className}.${methodName} from ${args.sourceMethod.getName()}`,
-            callbackFlavor: slotSpec.callbackFlavor,
-            registrationShape: slotSpec.registrationShape,
-            slotFamily: slotSpec.slotFamily,
-            recognitionLayer: "owner_qualified_fallback",
-        };
-    }
-
-    return null;
-}
-
-function resolveEmptyOwnerFrameworkCallbackFallback(
-    args: CallbackRegistrationMatchArgs,
-): CallbackRegistrationMatch | null {
-    const methodSig = args.invokeExpr?.getMethodSignature?.();
-    const methodName = methodSig?.getMethodSubSignature?.()?.getMethodName?.() || "";
-    const className = methodSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";
-    const explicitArgs = args.explicitArgs || [];
-    if (className !== "") {
-        return null;
-    }
-    const slotSpec = matchFallbackSlotSpec(methodName, explicitArgs, EMPTY_OWNER_FALLBACK_SPECS);
-    if (slotSpec) {
-        return {
-            callbackArgIndexes: slotSpec.callbackArgIndexes,
-            reason: `Framework empty-owner callback fallback ${methodName} from ${args.sourceMethod.getName()}`,
-            callbackFlavor: slotSpec.callbackFlavor,
-            registrationShape: slotSpec.registrationShape,
-            slotFamily: slotSpec.slotFamily,
-            recognitionLayer: "empty_owner_fallback",
-        };
-    }
-
-    return null;
-}
-
-function resolveFallbackOwnerFamily(className: string): FrameworkCallbackOwnerFamily | undefined {
-    if (UI_COMPONENT_CALLBACK_OWNER_NAMES.has(className)) {
-        return "ui_component";
-    }
-    if (GESTURE_CALLBACK_OWNER_NAMES.has(className)) {
-        return "gesture";
-    }
-    if (DIRECT_SYSTEM_CALLBACK_OWNER_NAMES.has(className) || className === "Web") {
-        return "system_direct";
-    }
-    if (STRING_PLUS_SUBSCRIPTION_OWNER_NAMES.has(className)) {
-        return "subscription_event";
-    }
-    if (TRAILING_CALLBACK_OWNER_NAMES.has(className) || className === "Preferences") {
-        return "completion_callback";
-    }
-    if (P2P_MESSAGE_RECEIVER_OWNER_NAMES.has(className)) {
-        return "p2p_message_receiver";
-    }
-    return undefined;
-}
-
-function matchFallbackSlotSpec(
-    methodName: string,
-    explicitArgs: any[],
-    slotSpecs: FallbackSlotSpec[],
-): FallbackSlotSpec | undefined {
-    return slotSpecs.find(spec => {
-        if (!spec.methodNames.has(methodName)) {
-            return false;
-        }
-        if (explicitArgs.length < spec.minArgs) {
-            return false;
-        }
-        return (spec.requiredStringArgIndexes || []).every(index => looksLikeStringArg(explicitArgs[index]));
-    });
 }
 
 function resolveClassFromValue(scene: Scene, value: any): any | null {

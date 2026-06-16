@@ -88,7 +88,7 @@ async function main(): Promise<void> {
     );
 
     const weakerMethodRule: SourceRule = {
-        id: "governance.contract.source.method_fallback",
+        id: "governance.contract.source.weak_method_selector",
         sourceKind: "call_return",
         target: "result",
         match: { kind: "method_name_equals", value: "getParams" },
@@ -96,9 +96,9 @@ async function main(): Promise<void> {
     const normalizedWeakerMethodRule = normalizeRuleGovernance(weakerMethodRule, { kind: "llm_candidate_json" }, "source");
     assert(
         normalizedWeakerMethodRule.family === normalizedExactSource.family,
-        "strong exact rule and weak method fallback for the same API should share family",
+        "strong exact rule and weak method selector for the same API should share family",
     );
-    assert(normalizedWeakerMethodRule.tier === "C", "weak method fallback should infer tier C");
+    assert(normalizedWeakerMethodRule.tier === "C", "weak method selector should infer tier C");
 
     const changedMethod: SourceRule = {
         ...exactSource,
@@ -119,9 +119,15 @@ async function main(): Promise<void> {
         sources: [
             {
                 id: "source.extra.project.only",
-                match: { kind: "local_name_regex", value: "^extra_source$" },
-                sourceKind: "seed_local_name",
-                target: "result",
+                match: {
+                    kind: "method_name_equals",
+                    value: "extraEntry",
+                    invokeKind: "static",
+                    argCount: 1,
+                    scope: { file: { mode: "contains", value: "extra_fixture.ets" } },
+                },
+                sourceKind: "entry_param",
+                target: "arg0",
             },
         ],
     }));
@@ -133,9 +139,9 @@ async function main(): Promise<void> {
     const extraSource = loaded.ruleSet.sources.find(rule => rule.id === "source.extra.project.only");
     assert(!!extraSource, "extra source rule should be loaded");
     assert(extraSource!.layer === "project", "extraRulePaths should normalize to project layer");
-    assert(extraSource!.tier === "B", "project regex source should infer tier B");
+    assert(extraSource!.tier === "B", "project entry-param method source should infer tier B");
     assert(
-        typeof extraSource!.family === "string" && extraSource!.family.startsWith("auto.source.seed_local_name.local_re."),
+        typeof extraSource!.family === "string" && extraSource!.family.startsWith("auto.source.entry_param.method."),
         "extra source rule should receive auto family",
     );
 

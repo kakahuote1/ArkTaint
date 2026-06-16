@@ -21,7 +21,7 @@ import {
     collectMethodThisObjectNodeIds,
     resolveHarmonyMethods,
 } from "../../../kernel/contracts/HarmonyModuleUtils";
-import { safeGetOrCreatePagNodes } from "../../../kernel/contracts/PagNodeResolution";
+import { resolveExistingPagNodes } from "../../../kernel/contracts/PagNodeResolution";
 import { createHandoffPropagationSession } from "../../../kernel/semantic_handoff/SemanticHandoffPropagation";
 import { createExactHandoffHandle, HandoffEffect } from "../../../kernel/semantic_handoff/SemanticHandoffTypes";
 
@@ -409,11 +409,10 @@ export function buildStateManagementModel(
                     const captures = stateCaptureByObjectNode.get(sourceNodeId);
                     if (!captures || captures.length === 0) continue;
                     for (const capture of captures) {
-                        // Prefer param-position precision when we can recover parameter origin.
-                        // If parameter origin is unknown, keep conservative fallback to avoid false negatives.
                         if (
                             capture.sourceParamIndex !== undefined
-                            && capture.sourceParamIndex !== argIndex
+                                ? capture.sourceParamIndex !== argIndex
+                                : invokeArgs.length !== 1
                         ) {
                             continue;
                         }
@@ -524,61 +523,6 @@ export function buildStateManagementModel(
                             scalarAlias: decorated.scalarFieldSignatures.has(provideField.fieldSignature)
                                 || decorated.scalarFieldSignatures.has(consumeField.fieldSignature),
                         });
-                    }
-                }
-            }
-        }
-    }
-
-    // Fallback bridge: decorator-only composition still needs to work in case-view projects
-    // where there is no explicit constructor wiring between parent/child classes.
-    for (const [sourceClassName, stateFieldNames] of decorated.stateFieldsByClassName.entries()) {
-        const sourceNodeIds = classObjectNodeIdsByClassName.get(sourceClassName);
-        if (!sourceNodeIds || sourceNodeIds.size === 0) continue;
-        for (const [targetClassName, propLikeFieldNames] of decorated.propLikeFieldsByClassName.entries()) {
-            if (targetClassName === sourceClassName) continue;
-            const targetNodeIds = classObjectNodeIdsByClassName.get(targetClassName) || new Set<number>();
-            const shouldUseClassFallback = targetNodeIds.size === 0;
-            if (!shouldUseClassFallback) {
-                continue;
-            }
-            const linkFieldNames = decorated.linkFieldsByClassName.get(targetClassName) || new Set<string>();
-            for (const fieldName of stateFieldNames) {
-                if (!propLikeFieldNames.has(fieldName)) continue;
-                for (const sourceNodeId of sourceNodeIds) {
-                    addLoadBridge(
-                        sourceNodeId,
-                        fieldName,
-                        targetClassName,
-                        fieldName,
-                    );
-                    for (const targetNodeId of targetNodeIds) {
-                        addBridgeEdge({
-                            sourceNodeId,
-                            sourceFieldName: fieldName,
-                            targetNodeId,
-                            targetFieldName: fieldName,
-                            methodSignature: `state-fallback:${sourceClassName}->${targetClassName}.${fieldName}`,
-                            scalarAlias: hasFieldName(decorated.scalarFieldsByClassAndName, sourceClassName, fieldName)
-                                || hasFieldName(decorated.scalarFieldsByClassAndName, targetClassName, fieldName),
-                        });
-                        if (linkFieldNames.has(fieldName)) {
-                            addBridgeEdge({
-                                sourceNodeId: targetNodeId,
-                                sourceFieldName: fieldName,
-                                targetNodeId: sourceNodeId,
-                                targetFieldName: fieldName,
-                                methodSignature: `state-link-fallback:${targetClassName}->${sourceClassName}.${fieldName}`,
-                                scalarAlias: hasFieldName(decorated.scalarFieldsByClassAndName, sourceClassName, fieldName)
-                                    || hasFieldName(decorated.scalarFieldsByClassAndName, targetClassName, fieldName),
-                            });
-                            addLoadBridge(
-                                targetNodeId,
-                                fieldName,
-                                sourceClassName,
-                                fieldName,
-                            );
-                        }
                     }
                 }
             }
@@ -807,8 +751,29 @@ function resolveStateManagementModelMethods(
             return true;
         }
         const className = method.getDeclaringArkClass?.()?.getName?.() || "";
-        return className.length > 0 && decoratedClassNames.has(className);
+        if (className.length > 0 && decoratedClassNames.has(className)) {
+            return true;
+        }
+        return methodConstructsDecoratedClass(method, decoratedClassNames);
     });
+}
+
+function methodConstructsDecoratedClass(method: any, decoratedClassNames: Set<string>): boolean {
+    const cfg = method.getCfg?.();
+    if (!cfg || decoratedClassNames.size === 0) return false;
+    for (const stmt of cfg.getStmts()) {
+        if (!stmt.containsInvokeExpr || !stmt.containsInvokeExpr()) continue;
+        const invokeExpr = stmt.getInvokeExpr();
+        if (!(invokeExpr instanceof ArkInstanceInvokeExpr)) continue;
+        const calleeSig = invokeExpr.getMethodSignature?.();
+        const calleeSigText = calleeSig?.toString?.() || "";
+        if (!calleeSigText.includes(".constructor(")) continue;
+        const targetClassName = calleeSig?.getDeclaringClassSignature?.()?.getClassName?.() || "";
+        if (targetClassName && decoratedClassNames.has(targetClassName)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function extractDecoratorKey(decorator: Decorator): string | undefined {
@@ -1241,6 +1206,9 @@ function collectEventFieldCallbackParamNodeIds(args: {
             for (const nodeId of binding.localNodeIds()) {
                 addMapSetValue(out, key, nodeId);
             }
+            for (const nodeId of binding.localUseNodeIds()) {
+                addMapSetValue(out, key, nodeId);
+            }
         }
     };
 
@@ -1491,7 +1459,7 @@ function findLocalPagNodeIds(pag: Pag, method: any, localName: string): Set<numb
         const left = stmt.getLeftOp();
         if (!(left instanceof Local)) continue;
         if (left.getName() !== localName) continue;
-        const nodes = safeGetOrCreatePagNodes(pag, left, stmt);
+        const nodes = resolveExistingPagNodes(pag, left, stmt);
         if (nodes && nodes.size > 0) {
             for (const nodeId of nodes.values()) out.add(nodeId);
         }
@@ -1545,7 +1513,7 @@ function collectFieldLoadNodeIdsByClassFieldKey(args: {
             if (!(base instanceof Local) || base.getName() !== "this") continue;
             const fieldName = right.getFieldSignature?.()?.getFieldName?.() || "";
             if (!fieldName) continue;
-            const loadNodeIds = safeGetOrCreatePagNodes(args.pag, left, stmt);
+            const loadNodeIds = resolveExistingPagNodes(args.pag, left, stmt);
             if (!loadNodeIds || loadNodeIds.size === 0) continue;
             for (const nodeId of loadNodeIds.values()) {
                 addMapSetValue(out, `${className}#${fieldName}`, nodeId);

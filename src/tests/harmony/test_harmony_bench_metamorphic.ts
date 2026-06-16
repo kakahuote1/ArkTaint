@@ -90,7 +90,7 @@ interface BChallengeItem {
     targetFlowCount: number;
     spilloverFlowCount: number;
     sinkSamples: string[];
-    fallbackTarget: string;
+    suggestedTrack: string;
     sinkRuleHits: Record<string, number>;
     ruleHits: {
         source: Record<string, number>;
@@ -129,7 +129,7 @@ interface ChallengeReport {
     unrelatedSinkHits: number;
     spilloverRatio: number | null;
     byTransform: Record<string, { total: number; tp: number; fp: number; tn: number; fn: number }>;
-    fallbackBacklog: Record<string, { fn: number; fp: number }>;
+    challengeBacklog: Record<string, { fn: number; fp: number }>;
     items: BChallengeItem[];
 }
 
@@ -318,7 +318,7 @@ function calcPrecision(tp: number, fp: number): number | null {
     return denom === 0 ? null : tp / denom;
 }
 
-function fallbackTargetByTransform(transform: string): string {
+function challengeTrackByTransform(transform: string): string {
     if (transform === "b_napi_boundary") return "7.9";
     if (transform === "b_higher_order_ds" || transform === "b_higher_order_ds_safe_control") return "7.8.6/7.9";
     if (transform === "b_dynamic_dispatch") return "7.9";
@@ -490,16 +490,16 @@ function renderSummaryMarkdown(eq: EqReport, challenge: ChallengeReport, options
     lines.push(`- unrelated_sink_hits: ${challenge.unrelatedSinkHits}`);
     lines.push(`- spillover_ratio: ${fmt(challenge.spilloverRatio)}`);
     lines.push("");
-    lines.push("## B Group Fallback Mapping");
+    lines.push("## B Group Suggested Tracks");
     lines.push("");
-    for (const [target, count] of Object.entries(challenge.fallbackBacklog)) {
+    for (const [target, count] of Object.entries(challenge.challengeBacklog)) {
         lines.push(`- ${target}: FN=${count.fn}, FP=${count.fp}`);
     }
     lines.push("");
     lines.push("## Scoring Policy");
     lines.push("");
     lines.push("- Group A: strict equivalence mutations. Baseline and mutation must match under `expected_flow + target sink inventory`.");
-    lines.push("- Group B: Harmony challenge mutations. Report TP/FP/TN/FN with fallback mapping; 100% consistency is not required.");
+    lines.push("- Group B: Harmony challenge mutations. Report TP/FP/TN/FN with suggested track mapping; 100% consistency is not required.");
     lines.push("");
     if (eq.inconsistentItems.length > 0) {
         lines.push("## Group A Failed Cases (Top 10)");
@@ -519,7 +519,7 @@ function renderSummaryMarkdown(eq: EqReport, challenge: ChallengeReport, options
         lines.push("## Group B Failed Cases (Top 10)");
         lines.push("");
         for (const item of bFails.slice(0, 10)) {
-            lines.push(`- ${item.categoryId}/${item.caseId}/${item.transform}: ${item.classification}, fallback=${item.fallbackTarget}`);
+            lines.push(`- ${item.categoryId}/${item.caseId}/${item.transform}: ${item.classification}, suggestedTrack=${item.suggestedTrack}`);
             lines.push(`  - location: ${item.file}`);
             lines.push(`  - rule_hits: ${formatTopRuleHits(item.ruleHits)}`);
             lines.push(`  - break_reason: ${inferBBreakReason(item)}`);
@@ -629,10 +629,10 @@ function renderChallengeMarkdown(report: ChallengeReport): string {
     if (report.items.length > 0) {
         lines.push("## Case Items");
         lines.push("");
-        lines.push("| Category | Case | Transform | Class | Fallback |");
+        lines.push("| Category | Case | Transform | Class | Suggested Track |");
         lines.push("| --- | --- | --- | --- | --- |");
         for (const item of report.items) {
-            lines.push(`| ${item.categoryId} | ${item.caseId} | ${item.transform} | ${item.classification} | ${item.fallbackTarget} |`);
+            lines.push(`| ${item.categoryId} | ${item.caseId} | ${item.transform} | ${item.classification} | ${item.suggestedTrack} |`);
         }
         lines.push("");
     }
@@ -668,7 +668,7 @@ function renderGapBacklog(eq: EqReport, challenge: ChallengeReport): string {
             file: item.file,
             transform: item.transform,
             classification: item.classification,
-            suggestedTrack: item.fallbackTarget,
+            suggestedTrack: item.suggestedTrack,
             resolutionHint: resolveHint(item.transform, item.classification),
             evidence: `flows=${item.flowCount}, target=${item.targetFlowCount}, spillover=${item.spilloverFlowCount}, sink=${item.sinkSamples[0] || "N/A"}, hits=${formatTopRuleHits(item.ruleHits)}`,
         });
@@ -860,7 +860,7 @@ async function main(): Promise<void> {
                 targetFlowCount: mutated.targetFlowCount,
                 spilloverFlowCount: mutated.spilloverFlowCount,
                 sinkSamples: mutated.sinkSamples,
-                fallbackTarget: fallbackTargetByTransform(mutation.transform),
+                suggestedTrack: challengeTrackByTransform(mutation.transform),
                 sinkRuleHits: mutated.sinkRuleHits,
                 ruleHits: mutated.ruleHits,
             });
@@ -909,18 +909,18 @@ async function main(): Promise<void> {
     };
 
     const challengeByTransform: Record<string, { total: number; tp: number; fp: number; tn: number; fn: number }> = {};
-    const fallbackBacklog: Record<string, { fn: number; fp: number }> = {};
+    const challengeBacklog: Record<string, { fn: number; fp: number }> = {};
     for (const item of bItems) {
         if (!challengeByTransform[item.transform]) {
             challengeByTransform[item.transform] = { total: 0, tp: 0, fp: 0, tn: 0, fn: 0 };
         }
         challengeByTransform[item.transform].total++;
         challengeByTransform[item.transform][item.classification.toLowerCase() as "tp" | "fp" | "tn" | "fn"]++;
-        if (!fallbackBacklog[item.fallbackTarget]) {
-            fallbackBacklog[item.fallbackTarget] = { fn: 0, fp: 0 };
+        if (!challengeBacklog[item.suggestedTrack]) {
+            challengeBacklog[item.suggestedTrack] = { fn: 0, fp: 0 };
         }
-        if (item.classification === "FN") fallbackBacklog[item.fallbackTarget].fn++;
-        if (item.classification === "FP") fallbackBacklog[item.fallbackTarget].fp++;
+        if (item.classification === "FN") challengeBacklog[item.suggestedTrack].fn++;
+        if (item.classification === "FP") challengeBacklog[item.suggestedTrack].fp++;
     }
 
     const tp = bItems.filter(x => x.classification === "TP").length;
@@ -947,7 +947,7 @@ async function main(): Promise<void> {
         unrelatedSinkHits,
         spilloverRatio: totalFlowCount > 0 ? unrelatedSinkHits / totalFlowCount : null,
         byTransform: challengeByTransform,
-        fallbackBacklog,
+        challengeBacklog,
         items: bItems,
     };
 

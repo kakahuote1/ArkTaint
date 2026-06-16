@@ -45,14 +45,20 @@
   ],
   "bindings": [
     {
-      "bindingId": "binding.source.router_bridge.entry_param.0",
+      "bindingId": "binding.source.router_bridge.entry_param.0.method.navigation_destination_callback_010_T",
       "surfaceId": "surface.source.router_bridge.entry_param",
       "assetId": "asset.rule.test.harmony_router_bridge",
       "plane": "rule",
       "role": "source",
       "selector": {
-        "kind": "local-name-regex",
-        "value": "^taint_src$"
+        "kind": "method-name-equals",
+        "value": "navigation_destination_callback_010_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "navigation_destination_callback_010_T.ets"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -61,7 +67,355 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.router_bridge.entry_param"
+        "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.navigation_destination_callback_010_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.router_bridge.entry_param.0.method.navigation_destination_callback_011_T",
+      "surfaceId": "surface.source.router_bridge.entry_param",
+      "assetId": "asset.rule.test.harmony_router_bridge",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "navigation_destination_callback_011_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "navigation_destination_callback_011_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.navigation_destination_callback_011_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.router_bridge.entry_param.0.method.navigation_pushPathByName_008_T",
+      "surfaceId": "surface.source.router_bridge.entry_param",
+      "assetId": "asset.rule.test.harmony_router_bridge",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "navigation_pushPathByName_008_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "navigation_pushPathByName_008_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.navigation_pushPathByName_008_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.router_bridge.entry_param.0.method.navigation_pushPath_007_T",
+      "surfaceId": "surface.source.router_bridge.entry_param",
+      "assetId": "asset.rule.test.harmony_router_bridge",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "navigation_pushPath_007_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "navigation_pushPath_007_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.navigation_pushPath_007_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.router_bridge.entry_param.0.method.navigation_pushPath_009_T",
+      "surfaceId": "surface.source.router_bridge.entry_param",
+      "assetId": "asset.rule.test.harmony_router_bridge",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "navigation_pushPath_009_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "navigation_pushPath_009_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.navigation_pushPath_009_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.router_bridge.entry_param.0.method.router_bridge_001_T",
+      "surfaceId": "surface.source.router_bridge.entry_param",
+      "assetId": "asset.rule.test.harmony_router_bridge",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "router_bridge_001_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "router_bridge_001_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.router_bridge_001_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.router_bridge.entry_param.0.method.router_bridge_002_T",
+      "surfaceId": "surface.source.router_bridge.entry_param",
+      "assetId": "asset.rule.test.harmony_router_bridge",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "router_bridge_002_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "router_bridge_002_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.router_bridge_002_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.router_bridge.entry_param.0.method.router_callback_field_015_F",
+      "surfaceId": "surface.source.router_bridge.entry_param",
+      "assetId": "asset.rule.test.harmony_router_bridge",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "router_callback_field_015_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "router_callback_field_015_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.router_callback_field_015_F"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.router_bridge.entry_param.0.method.router_component_field_014_T",
+      "surfaceId": "surface.source.router_bridge.entry_param",
+      "assetId": "asset.rule.test.harmony_router_bridge",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "router_component_field_014_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "router_component_field_014_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.router_component_field_014_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.router_bridge.entry_param.0.method.router_lowercase_field_013_T",
+      "surfaceId": "surface.source.router_bridge.entry_param",
+      "assetId": "asset.rule.test.harmony_router_bridge",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "router_lowercase_field_013_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "router_lowercase_field_013_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.router_lowercase_field_013_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.router_bridge.entry_param.0.method.router_params_field_012_T",
+      "surfaceId": "surface.source.router_bridge.entry_param",
+      "assetId": "asset.rule.test.harmony_router_bridge",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "router_params_field_012_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "router_params_field_012_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.router_params_field_012_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.router_bridge.entry_param.0.method.router_pushNamedRoute_006_T",
+      "surfaceId": "surface.source.router_bridge.entry_param",
+      "assetId": "asset.rule.test.harmony_router_bridge",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "router_pushNamedRoute_006_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "router_pushNamedRoute_006_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.router_pushNamedRoute_006_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.router_bridge.entry_param.0.method.router_replaceUrl_005_T",
+      "surfaceId": "surface.source.router_bridge.entry_param",
+      "assetId": "asset.rule.test.harmony_router_bridge",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "router_replaceUrl_005_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "router_replaceUrl_005_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.router_replaceUrl_005_T"
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
@@ -75,7 +429,15 @@
       "role": "source",
       "selector": {
         "kind": "method-name-equals",
-        "value": "Source"
+        "value": "Source",
+        "invokeKind": "static",
+        "argCount": 0,
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "harmony_router_bridge"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -87,7 +449,8 @@
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.sink.router_bridge.mock_sink.0",
@@ -97,7 +460,15 @@
       "role": "sink",
       "selector": {
         "kind": "method-name-equals",
-        "value": "Sink"
+        "value": "Sink",
+        "invokeKind": "static",
+        "argCount": 1,
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "harmony_router_bridge"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -110,22 +481,11 @@
       ],
       "semanticsFamily": "sink",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     }
   ],
   "effectTemplates": [
-    {
-      "id": "template.source.router_bridge.entry_param",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
     {
       "id": "template.source.router_bridge.static_init_source",
       "confidence": "certain",
@@ -148,6 +508,162 @@
         }
       },
       "sinkKind": "sink"
+    },
+    {
+      "id": "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.navigation_destination_callback_010_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.navigation_destination_callback_011_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.navigation_pushPathByName_008_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.navigation_pushPath_007_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.navigation_pushPath_009_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.router_bridge_001_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.router_bridge_002_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.router_callback_field_015_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.router_component_field_014_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.router_lowercase_field_013_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.router_params_field_012_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.router_pushNamedRoute_006_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.router_bridge.entry_param.for.source.router_bridge.entry_param.0.method.router_replaceUrl_005_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
     }
   ],
   "provenance": {

@@ -153,6 +153,7 @@ function buildExecutionHandoffActivationPathRecord(
         invokeExpr,
         unit,
         sourceMethods: [...candidate.sourceMethods],
+        envSourceMethods: [...candidate.sourceMethods],
         callerSignature,
         unitSignature,
         lineNo,
@@ -187,6 +188,7 @@ function buildDeclarativeExecutionHandoffActivationPathRecord(
         invokeExpr: undefined,
         unit,
         sourceMethods: [caller],
+        envSourceMethods: [caller],
         callerSignature,
         unitSignature,
         lineNo,
@@ -225,6 +227,9 @@ function buildExplicitExecutionHandoffActivationPathRecord(
         invokeExpr: stmt?.getInvokeExpr?.(),
         unit,
         sourceMethods: [caller],
+        envSourceMethods: binding.bindingKind === "declarative"
+            ? [...(binding.envSourceMethods || [])]
+            : [caller],
         callerSignature,
         unitSignature,
         lineNo,
@@ -235,6 +240,7 @@ function buildExplicitExecutionHandoffActivationPathRecord(
         semantics: recovered.semantics,
         activationSource: binding.bindingKind === "declarative" ? binding.activationSource : undefined,
         payloadSource: binding.bindingKind === "declarative" ? binding.payloadSource : undefined,
+        declarativeTriggerLabel: binding.bindingKind === "declarative" ? binding.triggerLabel : undefined,
         ...features,
     };
 }
@@ -297,6 +303,7 @@ function collectDeclarativeExecutionHandoffFeatures(
         hasAwaitResume: false,
         payloadPorts: countPayloadPorts(binding.unit),
         capturePorts: countCapturePorts(binding.unit),
+        declarativeTriggerLabel: binding.targetField,
     };
 }
 
@@ -323,6 +330,7 @@ function collectExplicitExecutionHandoffFeatures(
         hasAwaitResume: completion === "await_site",
         payloadPorts: countPayloadPorts(binding.unit),
         capturePorts: countCapturePorts(binding.unit),
+        declarativeTriggerLabel: binding.bindingKind === "declarative" ? binding.triggerLabel : undefined,
     };
 }
 

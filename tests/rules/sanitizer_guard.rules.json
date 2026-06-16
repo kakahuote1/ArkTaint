@@ -22,8 +22,8 @@
       "modulePath": "@arktaint/runtime-selector",
       "ownerName": "RuntimeSelector",
       "methodName": "Sink",
-      "invokeKind": "instance",
-      "argCount": 0,
+      "invokeKind": "static",
+      "argCount": 1,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
@@ -35,8 +35,8 @@
       "modulePath": "@arktaint/runtime-selector",
       "ownerName": "RuntimeSelector",
       "methodName": "Escape",
-      "invokeKind": "instance",
-      "argCount": 0,
+      "invokeKind": "static",
+      "argCount": 1,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
@@ -48,8 +48,8 @@
       "modulePath": "@arktaint/runtime-selector",
       "ownerName": "RuntimeSelector",
       "methodName": "CleanInPlace",
-      "invokeKind": "instance",
-      "argCount": 0,
+      "invokeKind": "static",
+      "argCount": 1,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
@@ -58,14 +58,20 @@
   ],
   "bindings": [
     {
-      "bindingId": "binding.source.sanitizer.entry_param.taint_src.0",
+      "bindingId": "binding.source.sanitizer.entry_param.taint_src.0.method.sanitize_inplace_003_F",
       "surfaceId": "surface.source.sanitizer.entry_param.taint_src",
       "assetId": "asset.rule.test.sanitizer_guard",
       "plane": "rule",
       "role": "source",
       "selector": {
-        "kind": "local-name-regex",
-        "value": "^taint_src$"
+        "kind": "method-name-equals",
+        "value": "sanitize_inplace_003_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "sanitize_inplace_003_F.ets"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -74,7 +80,94 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.sanitizer.entry_param.taint_src"
+        "template.source.sanitizer.entry_param.taint_src.for.source.sanitizer.entry_param.taint_src.0.method.sanitize_inplace_003_F"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.sanitizer.entry_param.taint_src.0.method.sanitize_reassign_004_T",
+      "surfaceId": "surface.source.sanitizer.entry_param.taint_src",
+      "assetId": "asset.rule.test.sanitizer_guard",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "sanitize_reassign_004_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "sanitize_reassign_004_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.sanitizer.entry_param.taint_src.for.source.sanitizer.entry_param.taint_src.0.method.sanitize_reassign_004_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.sanitizer.entry_param.taint_src.0.method.sanitize_result_001_F",
+      "surfaceId": "surface.source.sanitizer.entry_param.taint_src",
+      "assetId": "asset.rule.test.sanitizer_guard",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "sanitize_result_001_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "sanitize_result_001_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.sanitizer.entry_param.taint_src.for.source.sanitizer.entry_param.taint_src.0.method.sanitize_result_001_F"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.sanitizer.entry_param.taint_src.0.method.sanitize_result_002_T",
+      "surfaceId": "surface.source.sanitizer.entry_param.taint_src",
+      "assetId": "asset.rule.test.sanitizer_guard",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "sanitize_result_002_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "sanitize_result_002_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.sanitizer.entry_param.taint_src.for.source.sanitizer.entry_param.taint_src.0.method.sanitize_result_002_T"
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
@@ -126,7 +219,8 @@
       ],
       "semanticsFamily": "sanitizer",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.sanitizer.clean.inplace.arg0.0",
@@ -149,22 +243,11 @@
       ],
       "semanticsFamily": "sanitizer",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     }
   ],
   "effectTemplates": [
-    {
-      "id": "template.source.sanitizer.entry_param.taint_src",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
     {
       "id": "template.sink.sanitizer.arg0",
       "confidence": "certain",
@@ -201,6 +284,54 @@
       },
       "sanitizerKind": "sanitizer",
       "strength": "strong"
+    },
+    {
+      "id": "template.source.sanitizer.entry_param.taint_src.for.source.sanitizer.entry_param.taint_src.0.method.sanitize_inplace_003_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.sanitizer.entry_param.taint_src.for.source.sanitizer.entry_param.taint_src.0.method.sanitize_reassign_004_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.sanitizer.entry_param.taint_src.for.source.sanitizer.entry_param.taint_src.0.method.sanitize_result_001_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.sanitizer.entry_param.taint_src.for.source.sanitizer.entry_param.taint_src.0.method.sanitize_result_002_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
     }
   ],
   "provenance": {

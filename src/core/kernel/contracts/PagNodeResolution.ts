@@ -18,10 +18,10 @@ import {
 export interface PagNodeResolutionAuditSnapshot {
     requestCount: number;
     directHitCount: number;
-    fallbackResolveCount: number;
-    awaitFallbackCount: number;
-    exprUseFallbackCount: number;
-    anchorLeftFallbackCount: number;
+    substitutedValueCount: number;
+    awaitUnwrapCount: number;
+    expressionUseResolveCount: number;
+    anchorLeftResolveCount: number;
     addAttemptCount: number;
     addFailureCount: number;
     unresolvedCount: number;
@@ -31,10 +31,10 @@ export interface PagNodeResolutionAuditSnapshot {
 interface MutablePagNodeResolutionAudit {
     requestCount: number;
     directHitCount: number;
-    fallbackResolveCount: number;
-    awaitFallbackCount: number;
-    exprUseFallbackCount: number;
-    anchorLeftFallbackCount: number;
+    substitutedValueCount: number;
+    awaitUnwrapCount: number;
+    expressionUseResolveCount: number;
+    anchorLeftResolveCount: number;
     addAttemptCount: number;
     addFailureCount: number;
     unresolvedCount: number;
@@ -43,7 +43,7 @@ interface MutablePagNodeResolutionAudit {
 
 const pagNodeResolutionAuditByPag = new WeakMap<Pag, MutablePagNodeResolutionAudit>();
 
-export function safeGetOrCreatePagNodes(
+export function resolveExistingPagNodes(
     pag: Pag,
     value: any,
     anchorStmt?: any,
@@ -63,7 +63,7 @@ export function safeGetOrCreatePagNodes(
         return undefined;
     }
     if (pagValue !== value) {
-        audit.fallbackResolveCount++;
+        audit.substitutedValueCount++;
     }
 
     if (pagValue !== value) {
@@ -73,18 +73,42 @@ export function safeGetOrCreatePagNodes(
         }
     }
 
-    if (!anchorStmt) {
-        return nodes;
+    audit.unresolvedCount++;
+    return undefined;
+}
+
+export function resolveOrCreateExactPagNodes(
+    pag: Pag,
+    value: any,
+    anchorStmt?: any,
+): Map<number, number> | undefined {
+    const existing = resolveExistingPagNodes(pag, value, anchorStmt);
+    if (existing && existing.size > 0) {
+        return existing;
+    }
+    if (!isBuildablePagValue(value)) {
+        return undefined;
     }
 
+    const audit = getMutableAudit(pag);
+    audit.addAttemptCount++;
+    const getOrNewNode = (pag as any)?.getOrNewNode;
+    if (typeof getOrNewNode !== "function") {
+        audit.addFailureCount++;
+        return undefined;
+    }
     try {
-        audit.addAttemptCount++;
-        pag.addPagNode(0, pagValue, anchorStmt);
+        const node = getOrNewNode.call(pag, 0, value, anchorStmt);
+        const nodeId = node?.getID?.();
+        if (typeof nodeId !== "number") {
+            audit.addFailureCount++;
+            return undefined;
+        }
+        return new Map<number, number>([[nodeId, nodeId]]);
     } catch {
         audit.addFailureCount++;
         return undefined;
     }
-    return pag.getNodesByValue(pagValue);
 }
 
 export function resolvePagNodeValue(
@@ -103,14 +127,14 @@ export function resolvePagNodeValue(
     }
 
     if (value instanceof ArkAwaitExpr) {
-        audit && audit.awaitFallbackCount++;
+        audit && audit.awaitUnwrapCount++;
         return resolvePagNodeValue(value.getPromise?.(), anchorStmt, visiting, audit);
     }
 
     if (value instanceof AbstractExpr) {
         const uses = value.getUses?.() || [];
         for (const use of uses) {
-            audit && audit.exprUseFallbackCount++;
+            audit && audit.expressionUseResolveCount++;
             const resolved = resolvePagNodeValue(use, anchorStmt, visiting, audit);
             if (resolved) {
                 return resolved;
@@ -120,7 +144,7 @@ export function resolvePagNodeValue(
 
     const left = anchorStmt?.getLeftOp?.();
     if (left && left !== value) {
-        audit && audit.anchorLeftFallbackCount++;
+        audit && audit.anchorLeftResolveCount++;
         return resolvePagNodeValue(left, undefined, visiting, audit);
     }
 
@@ -148,10 +172,10 @@ export function getPagNodeResolutionAuditSnapshot(pag: Pag): PagNodeResolutionAu
     return {
         requestCount: audit.requestCount,
         directHitCount: audit.directHitCount,
-        fallbackResolveCount: audit.fallbackResolveCount,
-        awaitFallbackCount: audit.awaitFallbackCount,
-        exprUseFallbackCount: audit.exprUseFallbackCount,
-        anchorLeftFallbackCount: audit.anchorLeftFallbackCount,
+        substitutedValueCount: audit.substitutedValueCount,
+        awaitUnwrapCount: audit.awaitUnwrapCount,
+        expressionUseResolveCount: audit.expressionUseResolveCount,
+        anchorLeftResolveCount: audit.anchorLeftResolveCount,
         addAttemptCount: audit.addAttemptCount,
         addFailureCount: audit.addFailureCount,
         unresolvedCount: audit.unresolvedCount,
@@ -163,10 +187,10 @@ export function emptyPagNodeResolutionAuditSnapshot(): PagNodeResolutionAuditSna
     return {
         requestCount: 0,
         directHitCount: 0,
-        fallbackResolveCount: 0,
-        awaitFallbackCount: 0,
-        exprUseFallbackCount: 0,
-        anchorLeftFallbackCount: 0,
+        substitutedValueCount: 0,
+        awaitUnwrapCount: 0,
+        expressionUseResolveCount: 0,
+        anchorLeftResolveCount: 0,
         addAttemptCount: 0,
         addFailureCount: 0,
         unresolvedCount: 0,
@@ -187,10 +211,10 @@ function createMutableAudit(): MutablePagNodeResolutionAudit {
     return {
         requestCount: 0,
         directHitCount: 0,
-        fallbackResolveCount: 0,
-        awaitFallbackCount: 0,
-        exprUseFallbackCount: 0,
-        anchorLeftFallbackCount: 0,
+        substitutedValueCount: 0,
+        awaitUnwrapCount: 0,
+        expressionUseResolveCount: 0,
+        anchorLeftResolveCount: 0,
         addAttemptCount: 0,
         addFailureCount: 0,
         unresolvedCount: 0,

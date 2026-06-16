@@ -73,7 +73,7 @@ function promiseResultSourceAsset(): AssetDocumentBase {
 const SINK_RULES: SinkRule[] = [
     {
         id: "sink.promise_result_source.taint_sink",
-        match: { kind: "signature_contains", value: "taint_mock.ts: taint.%dflt.Sink" },
+        match: { kind: "method_name_equals", value: "Sink" },
         target: "arg0",
     },
 ];

@@ -1,7 +1,9 @@
 ﻿import { Scene } from "../../../arkanalyzer/out/src/Scene";
 import { SceneConfig } from "../../../arkanalyzer/out/src/Config";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
-import { SinkRule, SourceRule, TaintRuleSet, TransferRule } from "../../core/rules/RuleSchema";
+import type { AssetDocumentBase } from "../../core/assets/schema";
+import { lowerRuleAssetsToRuleSet } from "../../core/rules/RuleAssetLowering";
+import { SinkRule, SourceRule, TransferRule } from "../../core/rules/RuleSchema";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -88,9 +90,16 @@ async function detectFlowForCase(
     sinkRules: SinkRule[],
     transferRules: TransferRule[]
 ): Promise<boolean> {
+    const entryMethod = scene.getMethods().find(method => method.getName() === caseName);
+    if (!entryMethod) {
+        throw new Error(`entry method not found: ${caseName}`);
+    }
     const engine = new TaintPropagationEngine(scene, k, { transferRules });
     engine.verbose = false;
-    await engine.buildPAG();
+    await engine.buildPAG({
+        entryModel: "explicit",
+        syntheticEntryMethods: [entryMethod],
+    });
     engine.setActiveReachableMethodSignatures(undefined, { mergeExplicitEntryScope: false });
 
     const seedInfo = engine.propagateWithSourceRules(sourceRules);
@@ -108,10 +117,14 @@ async function main(): Promise<void> {
         throw new Error(`Project rule file not found: ${options.projectRulePath}`);
     }
 
-    const loadedRules = JSON.parse(fs.readFileSync(options.projectRulePath, "utf-8")) as TaintRuleSet;
-    const sourceRules = loadedRules.sources || [];
-    const sinkRules = loadedRules.sinks || [];
-    const transferRules = loadedRules.transfers || [];
+    const asset = JSON.parse(fs.readFileSync(options.projectRulePath, "utf-8")) as AssetDocumentBase;
+    const lowered = lowerRuleAssetsToRuleSet([asset]);
+    if (lowered.diagnostics.length > 0) {
+        throw new Error(`Rule asset lowering failed: ${lowered.diagnostics.join("; ")}`);
+    }
+    const sourceRules = lowered.ruleSet.sources || [];
+    const sinkRules = lowered.ruleSet.sinks || [];
+    const transferRules = lowered.ruleSet.transfers || [];
     console.log(`source_rules_loaded=${sourceRules.length}`);
     console.log(`sink_rules_loaded=${sinkRules.length}`);
     console.log(`transfer_rules_loaded=${transferRules.length}`);

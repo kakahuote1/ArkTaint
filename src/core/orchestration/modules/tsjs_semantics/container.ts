@@ -16,7 +16,7 @@ import type {
     ModuleContainerCapability,
     ModuleContainerFamilyKind,
 } from "../../../kernel/contracts/InternalModuleLoweringIR";
-import { safeGetOrCreatePagNodes } from "../../../kernel/contracts/PagNodeResolution";
+import { resolveExistingPagNodes } from "../../../kernel/contracts/PagNodeResolution";
 
 export interface TsjsContainerSemanticModuleOptions {
     id: string;
@@ -632,7 +632,7 @@ export function collectObjectFromEntriesEffectsFromTaintedLocal(local: Local, pa
                     if (resultRight.getBase() !== resultLocal) continue;
                     if (resultRight.getFieldSignature().getFieldName() !== fieldName) continue;
 
-                    const dstNodes = getOrCreatePagNodes(pag, resultUse.getLeftOp(), resultUse);
+                    const dstNodes = resolveExistingPagNodesForValue(pag, resultUse.getLeftOp(), resultUse);
                     if (!dstNodes) continue;
                     for (const nodeId of dstNodes.values()) {
                         if (loadDedup.has(nodeId)) continue;
@@ -665,7 +665,7 @@ export function collectPromiseAggregateEffectsFromTaintedLocal(local: Local, pag
         const args = right.getArgs ? right.getArgs() : [];
         if (!args.includes(local)) continue;
 
-        const dstNodes = getOrCreatePagNodes(pag, stmt.getLeftOp(), stmt);
+        const dstNodes = resolveExistingPagNodesForValue(pag, stmt.getLeftOp(), stmt);
         if (!dstNodes) continue;
         for (const nodeId of dstNodes.values()) {
             if (dedup.has(nodeId)) continue;
@@ -742,7 +742,7 @@ export function collectArrayConstructorEffectsFromTaintedLocal(local: Local, pag
             continue;
         }
 
-        const dstNodes = getOrCreatePagNodes(pag, stmt.getLeftOp(), stmt);
+        const dstNodes = resolveExistingPagNodesForValue(pag, stmt.getLeftOp(), stmt);
         if (!dstNodes) continue;
         for (const nodeId of dstNodes.values()) {
             if (resultDedup.has(nodeId)) continue;
@@ -770,7 +770,7 @@ export function collectStringSplitEffectsFromTaintedLocal(local: Local, pag: Pag
         if (right.getBase() !== local) continue;
         if (resolveMethodName(right) !== "split") continue;
 
-        const dstNodes = getOrCreatePagNodes(pag, stmt.getLeftOp(), stmt);
+        const dstNodes = resolveExistingPagNodesForValue(pag, stmt.getLeftOp(), stmt);
         if (dstNodes) {
             for (const nodeId of dstNodes.values()) {
                 if (resultDedup.has(nodeId)) continue;
@@ -813,7 +813,7 @@ export function collectArrayStaticViewEffectsBySlotFromLocal(local: Local, slot:
         const args = right.getArgs ? right.getArgs() : [];
         if (methodName !== "from" || args.length < 1 || args[0] !== local) continue;
 
-        const dstNodes = getOrCreatePagNodes(pag, stmt.getLeftOp(), stmt);
+        const dstNodes = resolveExistingPagNodesForValue(pag, stmt.getLeftOp(), stmt);
         if (dstNodes) {
             for (const nodeId of dstNodes.values()) {
                 if (resultDedup.has(nodeId)) continue;
@@ -1098,7 +1098,7 @@ export function collectResultSetProducerEffectsFromTaintedLocal(
         if (!isResultSetProducerMethod(methodName)) continue;
         if (!doesResultSetQueryExposeSlot(right, slot)) continue;
 
-        const dstNodes = getOrCreatePagNodes(pag, stmt.getLeftOp(), stmt);
+        const dstNodes = resolveExistingPagNodesForValue(pag, stmt.getLeftOp(), stmt);
         if (dstNodes) {
             for (const nodeId of dstNodes.values()) {
                 if (resultDedup.has(nodeId)) continue;
@@ -1253,6 +1253,11 @@ function collectCallbackParamNodeIds(
                 dedup.add(nodeId);
                 results.push(nodeId);
             }
+            for (const nodeId of binding.localUseNodeIds()) {
+                if (dedup.has(nodeId)) continue;
+                dedup.add(nodeId);
+                results.push(nodeId);
+            }
         }
     }
 
@@ -1352,7 +1357,7 @@ function collectArrayHigherOrderEffectsForObj(
             }
 
             if (methodName === "map" || methodName === "filter" || methodName === "flatMap") {
-                const dstNodes = getOrCreatePagNodes(pag, stmt.getLeftOp(), stmt);
+                const dstNodes = resolveExistingPagNodesForValue(pag, stmt.getLeftOp(), stmt);
                 if (dstNodes) {
                     for (const nodeId of dstNodes.values()) {
                         if (resultDedup.has(nodeId)) continue;
@@ -1371,7 +1376,7 @@ function collectArrayHigherOrderEffectsForObj(
             }
 
             if (methodName === "find") {
-                const dstNodes = getOrCreatePagNodes(pag, stmt.getLeftOp(), stmt);
+                const dstNodes = resolveExistingPagNodesForValue(pag, stmt.getLeftOp(), stmt);
                 if (dstNodes) {
                     for (const nodeId of dstNodes.values()) {
                         if (resultDedup.has(nodeId)) continue;
@@ -1383,7 +1388,7 @@ function collectArrayHigherOrderEffectsForObj(
             }
 
             if (methodName === "reduce" || methodName === "reduceRight") {
-                const dstNodes = getOrCreatePagNodes(pag, stmt.getLeftOp(), stmt);
+                const dstNodes = resolveExistingPagNodesForValue(pag, stmt.getLeftOp(), stmt);
                 if (dstNodes) {
                     for (const nodeId of dstNodes.values()) {
                         if (resultDedup.has(nodeId)) continue;
@@ -1421,7 +1426,7 @@ function collectPromiseAggregateResultNodeIdsForObj(objId: number, pag: Pag): nu
             const args = right.getArgs ? right.getArgs() : [];
             if (!args.includes(val)) continue;
 
-            const dstNodes = getOrCreatePagNodes(pag, stmt.getLeftOp(), stmt);
+            const dstNodes = resolveExistingPagNodesForValue(pag, stmt.getLeftOp(), stmt);
             if (!dstNodes) continue;
             for (const nodeId of dstNodes.values()) {
                 if (dedup.has(nodeId)) continue;
@@ -1456,8 +1461,8 @@ function isPromiseAggregateInvoke(invokeExpr: ArkStaticInvokeExpr | ArkInstanceI
     return sig.length === 0 || sig.includes("Promise.") || sig.includes("@%unk/%unk");
 }
 
-function getOrCreatePagNodes(pag: Pag, value: any, anchorStmt: ArkAssignStmt): Map<number, number> | undefined {
-    return safeGetOrCreatePagNodes(pag, value, anchorStmt);
+function resolveExistingPagNodesForValue(pag: Pag, value: any, anchorStmt: ArkAssignStmt): Map<number, number> | undefined {
+    return resolveExistingPagNodes(pag, value, anchorStmt);
 }
 
 function collectContainerSlotLoadNodeIdsForBaseLocal(
@@ -1478,7 +1483,7 @@ function collectContainerSlotLoadNodeIdsForBaseLocal(
                 if (/^-?\d+$/.test(fieldName) && slot.startsWith("arr:")) {
                     const expectedSlot = `arr:${fieldName}`;
                     if (isContainerSlotMatch(slot, expectedSlot)) {
-                        const dst = getOrCreatePagNodes(pag, left, stmt);
+                        const dst = resolveExistingPagNodesForValue(pag, left, stmt);
                         if (!dst) continue;
                         for (const id of dst.values()) {
                             if (dedup.has(id)) continue;
@@ -1567,7 +1572,7 @@ function collectContainerSlotLoadNodeIdsForBaseLocal(
                 }
 
                 if (matched) {
-                    const dst = getOrCreatePagNodes(pag, left, stmt);
+                    const dst = resolveExistingPagNodesForValue(pag, left, stmt);
                     if (!dst) continue;
                     for (const id of dst.values()) {
                         if (dedup.has(id)) continue;
@@ -1581,7 +1586,7 @@ function collectContainerSlotLoadNodeIdsForBaseLocal(
                 const methodName = resolveMethodName(right);
                 const args = right.getArgs ? right.getArgs() : [];
                 if (methodName === "concat" && slot.startsWith("arr:") && args.includes(val)) {
-                    const dst = getOrCreatePagNodes(pag, left, stmt);
+                    const dst = resolveExistingPagNodesForValue(pag, left, stmt);
                     if (!dst) continue;
                     for (const id of dst.values()) {
                         if (dedup.has(id)) continue;
@@ -1673,7 +1678,7 @@ function collectContainerViewEffectsBySlotForBaseLocal(
 
         if (!matched) continue;
 
-        const dstNodes = getOrCreatePagNodes(pag, stmt.getLeftOp(), stmt);
+        const dstNodes = resolveExistingPagNodesForValue(pag, stmt.getLeftOp(), stmt);
         if (dstNodes) {
             for (const nodeId of dstNodes.values()) {
                 if (resultDedup.has(nodeId)) continue;
@@ -1712,7 +1717,7 @@ function resolveAssignedContainerHolderIds(value: any, pag: Pag, anchorStmt: Ark
     const objIds = resolveAssignedObjIds(value, pag);
     if (objIds.length > 0) return objIds;
 
-    const nodes = getOrCreatePagNodes(pag, value, anchorStmt);
+    const nodes = resolveExistingPagNodesForValue(pag, value, anchorStmt);
     return nodes ? [...nodes.values()] : [];
 }
 

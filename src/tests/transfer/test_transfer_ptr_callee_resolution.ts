@@ -29,9 +29,14 @@ async function runCase(
     sinkRules: SinkRule[],
     transferRules: TransferRule[]
 ): Promise<boolean> {
+    const caseMethod = scene.getMethods().find(m => m.getName() === caseName);
+    assert(caseMethod, `case method not found: ${caseName}`);
     const engine = new TaintPropagationEngine(scene, 1, { transferRules });
     engine.verbose = false;
-    await engine.buildPAG();
+    await engine.buildPAG({
+        entryModel: "explicit",
+        syntheticEntryMethods: [caseMethod],
+    });
     engine.propagateWithSourceRules(sourceRules);
     const flows = engine.detectSinksByRules(sinkRules);
     const scopedFlows = flows.filter(flow => flowSinkInCaseMethod(scene, flow.sink, caseName));
@@ -57,14 +62,17 @@ async function main(): Promise<void> {
     scene.inferTypes();
 
     const bridgePtrSig = findMethodSignature(scene, "BridgePtr", "/taint_mock.ts");
-    const sourceRules: SourceRule[] = [
-        {
-            id: "source.ptr.entry.taint_src",
-            sourceKind: "entry_param",
-            target: "arg0",
-            match: { kind: "local_name_regex", value: "^taint_src$" },
-        },
+    const cases: CaseSpec[] = [
+        { name: "transfer_ptr_signature_001_T", expected: true },
+        { name: "transfer_ptr_signature_002_F", expected: false },
     ];
+
+    const sourceRules: SourceRule[] = cases.map(c => ({
+        id: `source.ptr.entry.${c.name}`,
+        sourceKind: "entry_param",
+        target: "arg0",
+        match: { kind: "method_name_equals", value: c.name },
+    }));
     const sinkRules: SinkRule[] = [
         {
             id: "sink.ptr.arg0",
@@ -87,11 +95,6 @@ async function main(): Promise<void> {
         transfers: transferRules,
     });
     assert(validation.valid, `ptr transfer rules invalid: ${validation.errors.join("; ")}`);
-
-    const cases: CaseSpec[] = [
-        { name: "transfer_ptr_signature_001_T", expected: true },
-        { name: "transfer_ptr_signature_002_F", expected: false },
-    ];
 
     let passCount = 0;
     for (const c of cases) {

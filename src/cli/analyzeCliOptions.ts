@@ -61,7 +61,6 @@ export interface CliOptions {
     pagIndexBudgetMs?: number;
     lazyMaterializerBudgetMs?: number;
     reachableBudgetMs?: number;
-    enableSecondarySinkSweep: boolean;
     showLoadWarnings?: boolean;
     ruleOptions: RuleLoaderOptions;
 }
@@ -125,7 +124,6 @@ export function parseArgs(argv: string[]): CliOptions {
     let pagIndexBudgetMsRaw: number | undefined;
     let lazyMaterializerBudgetMsRaw: number | undefined;
     let reachableBudgetMsRaw: number | undefined;
-    let secondarySinkSweepRaw: boolean | undefined;
     const ruleOptions: RuleLoaderOptions = {};
 
     for (let i = 0; i < argv.length; i++) {
@@ -479,14 +477,6 @@ export function parseArgs(argv: string[]): CliOptions {
             if (arg === "--reachableBudgetMs" || arg === "--reachable-budget-ms") i++;
             continue;
         }
-        if (arg === "--secondarySinkSweep") {
-            secondarySinkSweepRaw = true;
-            continue;
-        }
-        if (arg === "--no-secondarySinkSweep") {
-            secondarySinkSweepRaw = false;
-            continue;
-        }
         if (arg.startsWith("--")) {
             throw new Error(`unknown option: ${arg}`);
         }
@@ -542,9 +532,6 @@ export function parseArgs(argv: string[]): CliOptions {
         throw new Error(`invalid --maxFlowsPerEntry: ${maxFlowsPerEntryRaw}`);
     }
 
-    const enableSecondarySinkSweep = secondarySinkSweepRaw !== undefined
-        ? secondarySinkSweepRaw
-        : profile === "fast";
     const defaultWorklistBudgetMs = profile === "strict"
         ? 0
         : profile === "fast"
@@ -706,7 +693,6 @@ export function parseArgs(argv: string[]): CliOptions {
         pagIndexBudgetMs,
         lazyMaterializerBudgetMs,
         reachableBudgetMs,
-        enableSecondarySinkSweep,
         showLoadWarnings: true,
         ruleOptions,
     };

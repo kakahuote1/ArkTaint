@@ -69,6 +69,7 @@ export interface ModuleScannedInvoke {
     calleeReceiverEndpointNodeIds?(accessPath: string[]): number[];
     resultNodeIds(): number[];
     resultCarrierNodeIds(): number[];
+    promiseResultNodeIds?(): number[];
     callbackParamNodeIds(
         callbackArgIndex: number,
         paramIndex: number,
@@ -98,6 +99,7 @@ export interface ModuleScannedParameterBinding {
     local(): any | undefined;
     localName(): string | undefined;
     localNodeIds(): number[];
+    localUseNodeIds(): number[];
     localObjectNodeIds(): number[];
     localCarrierNodeIds(): number[];
 }
@@ -429,6 +431,8 @@ export interface ModuleDeferredBindingSemanticsOptions {
 export interface ModuleDeclarativeDeferredBindingDeclaration {
     sourceMethod?: any;
     sourceMethodSignature?: string;
+    envSourceMethods?: any[];
+    envSourceMethodSignatures?: string[];
     handlerMethod?: any;
     handlerMethodSignature?: string;
     anchorStmt: any;
@@ -475,8 +479,11 @@ export interface ModuleEmitApi {
 
 export interface ModuleAnalysisApi {
     nodeIdsForValue(value: any, anchorStmt?: any): number[];
+    exactEndpointNodeIdsForValue(value: any, anchorStmt?: any): number[];
+    resultNodeIdsForValue(value: any, anchorStmt?: any): number[];
     objectNodeIdsForValue(value: any): number[];
     carrierNodeIdsForValue(value: any, anchorStmt?: any): number[];
+    resultCarrierNodeIdsForValue(value: any, anchorStmt?: any): number[];
     aliasLocalsForCarrier(carrierNodeId: number): any[];
     stringCandidates(value: any, maxDepth?: number): string[];
 }
@@ -498,6 +505,7 @@ export interface ModuleResolvedCallbackParamBinding extends ModuleResolvedCallba
     local(): any | undefined;
     localName(): string | undefined;
     localNodeIds(): number[];
+    localUseNodeIds(): number[];
     localObjectNodeIds(): number[];
     localCarrierNodeIds(): number[];
 }

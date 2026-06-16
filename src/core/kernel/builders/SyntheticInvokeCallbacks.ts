@@ -25,7 +25,7 @@ import {
 } from "../../substrate/queries/CalleeResolver";
 import { resolveKnownOptionCallbackRegistrationsFromStmt } from "../../substrate/semantics/KnownOptionCallbackRegistration";
 import { isSdkBackedMethodSignature } from "../../substrate/queries/SdkProvenance";
-import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
+import { resolveExistingPagNodes } from "../contracts/PagNodeResolution";
 import { collectCarrierNodeIdsForValueAtStmt } from "../ordinary/OrdinaryAliasPropagation";
 import type { SyntheticInvokeEdgeInfo } from "./SyntheticInvokeEdgeBuilder";
 
@@ -48,7 +48,7 @@ export interface SyntheticInvokeLookupContext {
 export interface AsyncCallbackBinding {
     method: any;
     sourceMethod: any;
-    reason: "direct" | "one_hop" | "name_fallback";
+    reason: "direct" | "one_hop";
 }
 
 export function collectAsyncCallbackBindingsForStmt(
@@ -79,6 +79,26 @@ export function collectResolvedCallbackBindingsForStmt(
 ): AsyncCallbackBinding[] {
     const out: AsyncCallbackBinding[] = [];
     const seen = new Set<string>();
+    const addBinding = (method: any, sourceMethod: any, reason: "direct" | "one_hop"): void => {
+        const callbackSig = method?.getSignature?.().toString?.() || "";
+        const sourceSig = sourceMethod?.getSignature?.().toString?.() || "";
+        const key = `${sourceSig}=>${callbackSig}`;
+        if (!callbackSig || seen.has(key)) return;
+        seen.add(key);
+        out.push({
+            method,
+            sourceMethod: sourceMethod || caller,
+            reason,
+        });
+    };
+
+    for (const reg of resolveKnownOptionCallbackRegistrationsFromStmt(stmt, scene, caller)) {
+        addBinding(reg.callbackMethod, reg.sourceMethod || caller, "direct");
+    }
+    for (const binding of collectStoredReceiverFieldCallbackBindingsForStmt(scene, cg, caller, stmt, invokeExpr)) {
+        addBinding(binding.method, binding.sourceMethod || caller, binding.reason);
+    }
+
     const resolvedCallees = collectResolvedInvokeTargets(scene, cg, stmt, invokeExpr);
     for (const callee of resolvedCallees) {
         const isSdk = isSdkBackedMethodSignature(scene, callee.getSignature?.(), {
@@ -99,14 +119,7 @@ export function collectResolvedCallbackBindingsForStmt(
                 if (!isSdk && (!invokedParams || !invokedParams.has(pair.paramIndex))) continue;
 
                 for (const callbackMethod of callbackMethods) {
-                    const callbackSig = callbackMethod.getSignature?.().toString?.() || "";
-                    if (!callbackSig || seen.has(callbackSig)) continue;
-                    seen.add(callbackSig);
-                    out.push({
-                        method: callbackMethod,
-                        sourceMethod: caller,
-                        reason: "direct",
-                    });
+                    addBinding(callbackMethod, caller, "direct");
                 }
             }
         } else if (isSdk) {
@@ -114,14 +127,7 @@ export function collectResolvedCallbackBindingsForStmt(
                 const callbackMethods = resolveSyntheticCallbackMethodsForArg(scene, arg, true)
                     .filter(method => !!method?.getCfg?.());
                 for (const callbackMethod of callbackMethods) {
-                    const callbackSig = callbackMethod.getSignature?.().toString?.() || "";
-                    if (!callbackSig || seen.has(callbackSig)) continue;
-                    seen.add(callbackSig);
-                    out.push({
-                        method: callbackMethod,
-                        sourceMethod: caller,
-                        reason: "direct",
-                    });
+                    addBinding(callbackMethod, caller, "direct");
                 }
             }
         }
@@ -146,7 +152,7 @@ export function collectCallbackBindingTriggerNodeIds(
         if (!(paramLocal instanceof Local)) continue;
         const callerLocal = sourceLocals.get(paramLocal.getName());
         if (!(callerLocal instanceof Local)) continue;
-        for (const nodeId of safeGetOrCreatePagNodes(pag, callerLocal, stmt)?.values?.() || []) {
+        for (const nodeId of resolveExistingPagNodes(pag, callerLocal, stmt)?.values?.() || []) {
             out.add(nodeId);
         }
     }
@@ -155,7 +161,7 @@ export function collectCallbackBindingTriggerNodeIds(
     for (const mapping of capturedLocalMappings) {
         const callerLocal = sourceLocals.get(mapping.callerLocalName);
         if (!(callerLocal instanceof Local)) continue;
-        for (const nodeId of safeGetOrCreatePagNodes(pag, callerLocal, stmt)?.values?.() || []) {
+        for (const nodeId of resolveExistingPagNodes(pag, callerLocal, stmt)?.values?.() || []) {
             out.add(nodeId);
         }
     }
@@ -195,8 +201,21 @@ export function injectResolvedCallbackParameterEdges(
         }
     };
 
+    const injectStoredReceiverFieldCallbacks = (): void => {
+        const bindings = collectStoredReceiverFieldCallbackBindingsForStmt(scene, cg, caller, stmt, invokeExpr);
+        for (const binding of bindings) {
+            const callbackSig = binding.method?.getSignature?.().toString?.() || "";
+            if (!callbackSig) continue;
+            const bindingKey = `receiver-field#${stmt.getOriginPositionInfo?.()?.getLineNo?.() || 0}#${callbackSig}`;
+            if (seenBindings.has(bindingKey)) continue;
+            seenBindings.add(bindingKey);
+            count += injectCallbackBindingEdges(pag, caller, stmt, edgeMap, binding.method, binding.sourceMethod || caller);
+        }
+    };
+
     if (resolvedCallees.length === 0) {
         injectKnownOptionCallbacks();
+        injectStoredReceiverFieldCallbacks();
         return count;
     }
 
@@ -250,7 +269,69 @@ export function injectResolvedCallbackParameterEdges(
     }
 
     injectKnownOptionCallbacks();
+    injectStoredReceiverFieldCallbacks();
     return count;
+}
+
+export function collectStoredReceiverFieldCallbackBindingsForStmt(
+    scene: Scene,
+    cg: CallGraph,
+    caller: any,
+    stmt: any,
+    invokeExpr: any,
+): AsyncCallbackBinding[] {
+    const dispatchBase = invokeExpr?.getBase?.();
+    if (!(dispatchBase instanceof Local)) return [];
+
+    const resolvedDispatchMethods = collectResolvedInvokeTargets(scene, cg, stmt, invokeExpr);
+    const dispatchedFieldNames = new Set<string>();
+    for (const method of resolvedDispatchMethods) {
+        for (const fieldName of collectInvokedThisFieldCallbackNames(method)) {
+            dispatchedFieldNames.add(fieldName);
+        }
+    }
+    if (dispatchedFieldNames.size === 0) return [];
+
+    const cfg = caller?.getCfg?.();
+    if (!cfg) return [];
+    const stmts = cfg.getStmts?.() || [];
+    const currentIndex = stmts.indexOf(stmt);
+    if (currentIndex < 0) return [];
+
+    const out: AsyncCallbackBinding[] = [];
+    const seen = new Set<string>();
+    for (let i = 0; i < currentIndex; i++) {
+        const candidateStmt = stmts[i];
+        const candidateInvoke = candidateStmt?.getInvokeExpr?.();
+        if (!candidateInvoke) continue;
+        const candidateBase = candidateInvoke.getBase?.();
+        if (!(candidateBase instanceof Local)) continue;
+        if (candidateBase.getName?.() !== dispatchBase.getName?.()) continue;
+
+        const candidateArgs = candidateInvoke.getArgs?.() || [];
+        for (const registrationMethod of collectResolvedInvokeTargets(scene, cg, candidateStmt, candidateInvoke)) {
+            for (const fieldName of dispatchedFieldNames) {
+                const callbackParamIndexes = collectThisFieldCallbackStoreParamIndexes(registrationMethod, fieldName);
+                for (const paramIndex of callbackParamIndexes) {
+                    const callbackValue = candidateArgs[paramIndex];
+                    if (!callbackValue) continue;
+                    for (const callbackMethod of resolveCallbackMethodsFromValueWithReturns(scene, callbackValue, { maxDepth: 6 })) {
+                        const callbackSig = callbackMethod?.getSignature?.().toString?.() || "";
+                        if (!callbackSig || !callbackMethod?.getCfg?.()) continue;
+                        const key = `${fieldName}#${callbackSig}`;
+                        if (seen.has(key)) continue;
+                        seen.add(key);
+                        out.push({
+                            method: callbackMethod,
+                            sourceMethod: caller,
+                            reason: "direct",
+                        });
+                    }
+                }
+            }
+        }
+    }
+    return out;
 }
 
 export function injectAsyncCallbackCaptureEdges(
@@ -280,141 +361,6 @@ export function injectAsyncCallbackCaptureEdges(
     }
 
     return count;
-}
-
-export function resolveReflectDispatchOneHopFallbackCallees(
-    scene: Scene,
-    cg: CallGraph,
-    callerMethod: any,
-    invokeExpr: any,
-    context?: SyntheticInvokeLookupContext
-): Array<{ method: any; reason: "type_fallback" }> {
-    const args = invokeExpr?.getArgs ? invokeExpr.getArgs() : [];
-    const base = invokeExpr?.getBase?.();
-    const candidateValues: any[] = [];
-    if (args.length > 0) candidateValues.push(args[0]);
-    if (base !== undefined && base !== null) candidateValues.push(base);
-
-    const out: Array<{ method: any; reason: "type_fallback" }> = [];
-    const seen = new Set<string>();
-    for (const candidate of candidateValues) {
-        const paramIndex = resolveCallbackParameterIndexInCurrentMethod(callerMethod, candidate);
-        if (paramIndex === undefined || paramIndex < 0) continue;
-
-        const bindings = resolveOneHopCallbackBindingsFromParamIndex(scene, cg, callerMethod, paramIndex, 8, context);
-        for (const binding of bindings) {
-            const method = binding.method;
-            const sig = method?.getSignature?.().toString?.();
-            if (!sig || seen.has(sig)) continue;
-            seen.add(sig);
-            out.push({ method, reason: "type_fallback" });
-        }
-    }
-
-    if (out.length > 8) return [];
-    return out;
-}
-
-export function resolveDynamicPropertyOneHopFallbackCallees(
-    scene: Scene,
-    cg: CallGraph,
-    calleeMethod: any,
-    invokeExpr: any,
-    context?: SyntheticInvokeLookupContext
-): Array<{ method: any; reason: "type_fallback" }> {
-    const invokeSig = invokeExpr?.getMethodSignature?.()?.toString?.() || "";
-    if (!invokeSig.includes("%unk")) return [];
-
-    const base = invokeExpr?.getBase?.();
-    if (!(base instanceof Local)) return [];
-
-    const calleeParamStmts = collectParameterAssignStmts(calleeMethod);
-    if (calleeParamStmts.length === 0) return [];
-
-    const paramLocalNameToIndex = new Map<string, number>();
-    for (let i = 0; i < calleeParamStmts.length; i++) {
-        const left = calleeParamStmts[i]?.getLeftOp?.();
-        if (!(left instanceof Local)) continue;
-        paramLocalNameToIndex.set(left.getName(), i);
-    }
-    const baseParamIndex = paramLocalNameToIndex.get(base.getName());
-    if (baseParamIndex === undefined) return [];
-
-    const forwardedParamIndexes = new Set<number>();
-    const invokeArgs = invokeExpr?.getArgs ? invokeExpr.getArgs() : [];
-    for (const arg of invokeArgs) {
-        if (!(arg instanceof Local)) continue;
-        const idx = paramLocalNameToIndex.get(arg.getName());
-        if (idx !== undefined) forwardedParamIndexes.add(idx);
-    }
-
-    const keyParamIndexes: number[] = [];
-    for (let i = 0; i < calleeParamStmts.length; i++) {
-        if (i === baseParamIndex) continue;
-        if (forwardedParamIndexes.has(i)) continue;
-        keyParamIndexes.push(i);
-    }
-    if (keyParamIndexes.length === 0) return [];
-
-    const incomingCallSitesStable = collectIncomingCallSitesForCallee(scene, cg, calleeMethod, context);
-    if (incomingCallSitesStable.length === 0) return [];
-
-    const out: Array<{ method: any; reason: "type_fallback" }> = [];
-    const seen = new Set<string>();
-    const addMethod = (method: any): void => {
-        if (!method || !method.getCfg || !method.getCfg()) return;
-        const sig = method.getSignature?.().toString?.();
-        if (!sig || seen.has(sig)) return;
-        seen.add(sig);
-        out.push({ method, reason: "type_fallback" });
-    };
-
-    const multipleKeyCandidates = keyParamIndexes.length >= 2;
-    for (const cs of incomingCallSitesStable) {
-        const callStmt = cs.callStmt;
-        const callInvokeExpr = callStmt?.getInvokeExpr?.();
-        if (!callInvokeExpr) continue;
-
-        const explicitArgs = cs.args || (callInvokeExpr.getArgs ? callInvokeExpr.getArgs() : []);
-        const argToParamPairs = mapInvokeArgsToParamAssigns(callInvokeExpr, explicitArgs, calleeParamStmts);
-        if (argToParamPairs.length === 0) continue;
-
-        const argByParamIndex = new Map<number, any>();
-        for (const pair of argToParamPairs) {
-            if (!argByParamIndex.has(pair.paramIndex)) {
-                argByParamIndex.set(pair.paramIndex, pair.arg);
-            }
-        }
-        const objectArg = argByParamIndex.get(baseParamIndex);
-        if (!objectArg) continue;
-
-        const callerMethodSig = cs.callStmt?.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.() || "";
-        const callerFile = extractFilePathFromSignature(callerMethodSig);
-
-        const orderedCandidates = rankKeyParamCandidates(keyParamIndexes, argByParamIndex);
-        for (const keyCandidate of orderedCandidates) {
-            const keyParamIndex = keyCandidate.paramIndex;
-            if (multipleKeyCandidates && keyCandidate.evidenceScore <= 0) {
-                continue;
-            }
-            const keyArg = argByParamIndex.get(keyParamIndex);
-            const keyLiteral = resolveStringLiteralByLocalBacktrace(keyArg);
-            let methods: any[] = [];
-            if (keyLiteral) {
-                methods = resolveMethodsByPropertyName(scene, keyLiteral, callerFile, context);
-                if (methods.length === 0) {
-                    methods = resolveMethodsFromAnonymousObjectCarrierByField(scene, objectArg, keyLiteral);
-                }
-            }
-            if (methods.length === 0 && !multipleKeyCandidates) {
-                methods = resolveMethodsFromAnonymousObjectCarrier(scene, objectArg);
-            }
-            for (const m of methods) addMethod(m);
-        }
-    }
-
-    if (out.length > 8) return [];
-    return out;
 }
 
 export function collectResolvedInvokeTargets(
@@ -521,7 +467,6 @@ export function injectCallbackBindingEdges(
     sourceMethod: any,
     options?: {
         explicitParamSourceValuesByIndex?: Map<number, any>;
-        allowFallback?: boolean;
     },
 ): number {
     const sourceBody = sourceMethod?.getBody?.();
@@ -543,20 +488,20 @@ export function injectCallbackBindingEdges(
                 ? options?.explicitParamSourceValuesByIndex?.get(paramIndex)
                 : undefined;
             let srcNodes = explicitSource !== undefined
-                ? safeGetOrCreatePagNodes(pag, explicitSource, stmt)
+                ? resolveExistingPagNodes(pag, explicitSource, stmt)
                 : undefined;
             let callerLocalForCarrier: Local | undefined;
             if (!srcNodes || srcNodes.size === 0) {
                 const callerLocal = sourceLocals.get(paramLocal.getName());
                 if (!(callerLocal instanceof Local)) continue;
                 callerLocalForCarrier = callerLocal;
-                srcNodes = safeGetOrCreatePagNodes(pag, callerLocal, stmt);
+                srcNodes = resolveExistingPagNodes(pag, callerLocal, stmt);
             } else if (explicitSource instanceof Local) {
                 callerLocalForCarrier = explicitSource;
             }
-            let dstNodes = safeGetOrCreatePagNodes(pag, paramLocal, paramStmt);
+            let dstNodes = resolveExistingPagNodes(pag, paramLocal, paramStmt);
             if ((!dstNodes || dstNodes.size === 0) && paramStmt.getRightOp() instanceof ArkParameterRef) {
-                dstNodes = safeGetOrCreatePagNodes(pag, paramStmt.getRightOp(), paramStmt);
+                dstNodes = resolveExistingPagNodes(pag, paramStmt.getRightOp(), paramStmt);
             }
             if (!srcNodes || !dstNodes) continue;
 
@@ -618,14 +563,20 @@ export function injectCallbackBindingEdges(
         const callerLocal = sourceLocals.get(mapping.callerLocalName);
         if (!(callerLocal instanceof Local)) continue;
 
-        const srcNodes = safeGetOrCreatePagNodes(pag, callerLocal, stmt);
+        const srcNodes = resolveExistingPagNodes(pag, callerLocal, stmt);
         const dstNodes = mapping.anchorStmt
-            ? safeGetOrCreatePagNodes(pag, mapping.callbackValue, mapping.anchorStmt)
+            ? resolveExistingPagNodes(pag, mapping.callbackValue, mapping.anchorStmt)
             : pag.getNodesByValue(mapping.callbackValue);
-        if (!srcNodes || !dstNodes) continue;
+        if ((!dstNodes || dstNodes.size === 0) && mapping.anchorStmt && shouldMaterializeExactCallbackUseEndpoint(mapping.callbackValue, mapping.anchorStmt)) {
+            pag.getOrNewNode(0, mapping.callbackValue, mapping.anchorStmt);
+        }
+        const effectiveDstNodes = mapping.anchorStmt
+            ? resolveExistingPagNodes(pag, mapping.callbackValue, mapping.anchorStmt)
+            : pag.getNodesByValue(mapping.callbackValue);
+        if (!srcNodes || !effectiveDstNodes) continue;
 
         for (const srcNodeId of srcNodes.values()) {
-            for (const dstNodeId of dstNodes.values()) {
+            for (const dstNodeId of effectiveDstNodes.values()) {
                 pushEdge(edgeMap, srcNodeId, {
                     type: CallEdgeType.CALL,
                     srcNodeId,
@@ -641,25 +592,27 @@ export function injectCallbackBindingEdges(
         }
     }
 
-    if (count === 0 && options?.allowFallback !== false) {
-        const srcNodeId = findAnyPagNodeForStmt(pag, stmt);
-        const dstNodeId = findAnyPagNodeForMethod(pag, cbMethod);
-        if (srcNodeId !== undefined && dstNodeId !== undefined) {
-            pushEdge(edgeMap, srcNodeId, {
-                type: CallEdgeType.CALL,
-                srcNodeId,
-                dstNodeId,
-                callSiteId,
-                callerMethodName: sourceMethod.getName?.() || caller.getName(),
-                calleeMethodName: cbMethod.getName(),
-                callerSignature: sourceMethod.getSignature?.().toString?.() || caller.getSignature?.().toString?.(),
-                calleeSignature: calleeSig,
-            });
-            count = 1;
-        }
-    }
-
     return count;
+}
+
+function shouldMaterializeExactCallbackUseEndpoint(value: any, anchorStmt: any): boolean {
+    if (!(value instanceof Local)) return false;
+    const localName = value.getName?.() || "";
+    if (!localName || localName === "this" || localName.startsWith("%")) return false;
+    const declaringStmt = value.getDeclaringStmt?.();
+    if (!declaringStmt) return true;
+    if (declaringStmt !== anchorStmt || !(declaringStmt instanceof ArkAssignStmt)) {
+        return false;
+    }
+    const right = declaringStmt.getRightOp();
+    if (right instanceof ClosureFieldRef) {
+        return true;
+    }
+    if (right instanceof ArkInstanceFieldRef) {
+        const base = right.getBase?.();
+        return base instanceof Local && base.getName?.().startsWith("%closures");
+    }
+    return false;
 }
 
 function pushEdge(map: Map<number, SyntheticInvokeEdgeInfo[]>, key: number, edge: SyntheticInvokeEdgeInfo): void {
@@ -686,47 +639,14 @@ function simpleHash(s: string): number {
     return Math.abs(h);
 }
 
-function findAnyPagNodeForStmt(pag: Pag, stmt: any): number | undefined {
-    for (const value of [stmt.getLeftOp?.(), stmt.getRightOp?.(), stmt.getInvokeExpr?.()?.getBase?.()]) {
-        if (!value) continue;
-        const nodes = pag.getNodesByValue(value);
-        if (nodes && nodes.size > 0) return nodes.values().next().value;
-    }
-    const args = stmt.getInvokeExpr?.()?.getArgs?.() || [];
-    for (const arg of args) {
-        const nodes = pag.getNodesByValue(arg);
-        if (nodes && nodes.size > 0) return nodes.values().next().value;
-    }
-    return undefined;
-}
-
-function findAnyPagNodeForMethod(pag: Pag, method: any): number | undefined {
-    const cfg = method.getCfg?.();
-    if (!cfg) return undefined;
-    for (const s of cfg.getStmts()) {
-        const left = s.getLeftOp?.();
-        if (left) {
-            const nodes = pag.getNodesByValue(left);
-            if (nodes && nodes.size > 0) return nodes.values().next().value;
-        }
-        const right = s.getRightOp?.();
-        if (right) {
-            const nodes = pag.getNodesByValue(right);
-            if (nodes && nodes.size > 0) return nodes.values().next().value;
-        }
-    }
-    return undefined;
-}
-
 function resolveAsyncCallbackBindings(
     scene: Scene,
     cg: CallGraph,
     callerMethod: any,
     callbackArg: any,
-    callsiteLine: number = 0,
+    _callsiteLine: number = 0,
     context?: SyntheticInvokeLookupContext
 ): AsyncCallbackBinding[] {
-    const LINE_NEARBY_WARNING_THRESHOLD = 50;
     const methods = resolveMethodsFromCallable(scene, callbackArg, { maxCandidates: 8 })
         .filter(m => (m.getName?.() || "").startsWith("%AM"));
     if (methods.length > 0) {
@@ -742,67 +662,7 @@ function resolveAsyncCallbackBindings(
         return resolveAsyncCallbackBindingsFromOneHopCallers(scene, cg, callerMethod, callbackParamIndex, context);
     }
 
-    const callerSig = callerMethod?.getSignature?.().toString?.() || "";
-    const callerFile = extractFilePathFromSignature(callerSig);
-    if (!callerFile) return [];
-    const callerName = callerMethod?.getName?.() || "";
-    const callbackCandidateNames = new Set<string>();
-    const callbackArgName = callbackArg?.getName?.();
-    if (callbackArgName) callbackCandidateNames.add(String(callbackArgName));
-    const callbackArgText = callbackArg?.toString?.();
-    if (callbackArgText) callbackCandidateNames.add(String(callbackArgText));
-
-    const candidates = scene.getMethods().filter(m => {
-        const name = m.getName?.() || "";
-        if (!name.startsWith("%AM")) return false;
-        const sig = m.getSignature?.().toString?.() || "";
-        if (!sig) return false;
-        return extractFilePathFromSignature(sig) === callerFile;
-    });
-
-    const strictMatches = candidates.filter(m => {
-        const name = m.getName?.() || "";
-        if (callerName && name.includes(`$${callerName}`)) return true;
-        if (callbackCandidateNames.has(name)) return true;
-        return false;
-    });
-    if (strictMatches.length > 0) {
-        return strictMatches.slice(0, 8).map(method => ({
-            method,
-            sourceMethod: callerMethod,
-            reason: "name_fallback" as const,
-        }));
-    }
-
-    if (callsiteLine > 0) {
-        const sorted = [...candidates].sort((a, b) => {
-            const da = Math.abs(extractLineNoFromSignature(a.getSignature?.().toString?.() || "") - callsiteLine);
-            const db = Math.abs(extractLineNoFromSignature(b.getSignature?.().toString?.() || "") - callsiteLine);
-            return da - db;
-        });
-        const nearest = sorted[0];
-        if (nearest) {
-            const nearestLine = extractLineNoFromSignature(nearest.getSignature?.().toString?.() || "");
-            if (nearestLine !== Number.MAX_SAFE_INTEGER) {
-                const nearestDelta = Math.abs(nearestLine - callsiteLine);
-                if (nearestDelta > LINE_NEARBY_WARNING_THRESHOLD) {
-                    const callerSigText = callerMethod?.getSignature?.().toString?.() || "<unknown-caller>";
-                    console.warn(`[arktaint][async-fallback] line-distance=${nearestDelta} (> ${LINE_NEARBY_WARNING_THRESHOLD}), caller=${callerSigText}, callbackArg=${String(callbackArg?.toString?.() || "")}`);
-                }
-            }
-        }
-        return sorted.slice(0, 8).map(method => ({
-            method,
-            sourceMethod: callerMethod,
-            reason: "name_fallback" as const,
-        }));
-    }
-
-    return candidates.slice(0, 8).map(method => ({
-        method,
-        sourceMethod: callerMethod,
-        reason: "name_fallback" as const,
-    }));
+    return [];
 }
 
 function resolveAsyncCallbackBindingsFromOneHopCallers(
@@ -1124,6 +984,62 @@ function resolveCallbackParameterIndexInCurrentMethod(callerMethod: any, callbac
     return undefined;
 }
 
+function collectInvokedThisFieldCallbackNames(method: any): Set<string> {
+    const out = new Set<string>();
+    const cfg = method?.getCfg?.();
+    if (!cfg) return out;
+
+    for (const stmt of cfg.getStmts()) {
+        if (!stmt.containsInvokeExpr?.()) continue;
+        const invokeText = String(stmt.toString?.() || "");
+        const directMatch = invokeText.match(/\bthis\.([A-Za-z_$][A-Za-z0-9_$]*)</);
+        if (directMatch?.[1]) {
+            out.add(directMatch[1]);
+            continue;
+        }
+        const invokeExpr = stmt.getInvokeExpr?.();
+        const invokeBase = invokeExpr?.getBase?.();
+        if (invokeBase instanceof ArkInstanceFieldRef) {
+            const base = invokeBase.getBase?.();
+            if (base instanceof Local && base.getName?.() === "this") {
+                const fieldName = invokeBase.getFieldSignature?.()?.getFieldName?.();
+                if (fieldName) out.add(fieldName);
+            }
+        }
+    }
+    return out;
+}
+
+function collectThisFieldCallbackStoreParamIndexes(method: any, targetFieldName: string): Set<number> {
+    const out = new Set<number>();
+    const cfg = method?.getCfg?.();
+    if (!cfg || !targetFieldName) return out;
+
+    const paramIndexByLocalName = new Map<string, number>();
+    for (const paramStmt of collectParameterAssignStmts(method)) {
+        const left = paramStmt.getLeftOp();
+        const right = paramStmt.getRightOp();
+        if (!(left instanceof Local) || !(right instanceof ArkParameterRef)) continue;
+        paramIndexByLocalName.set(left.getName(), right.getIndex());
+    }
+
+    for (const stmt of cfg.getStmts()) {
+        if (!(stmt instanceof ArkAssignStmt)) continue;
+        const left = stmt.getLeftOp();
+        const right = stmt.getRightOp();
+        if (!(left instanceof ArkInstanceFieldRef) || !(right instanceof Local)) continue;
+        const base = left.getBase?.();
+        if (!(base instanceof Local) || base.getName?.() !== "this") continue;
+        const fieldName = left.getFieldSignature?.()?.getFieldName?.();
+        if (fieldName !== targetFieldName) continue;
+        const paramIndex = paramIndexByLocalName.get(right.getName());
+        if (paramIndex !== undefined) {
+            out.add(paramIndex);
+        }
+    }
+    return out;
+}
+
 function extractFilePathFromSignature(signature: string): string {
     const m = signature.match(/@([^:>]+):/);
     return m ? m[1].replace(/\\/g, "/") : "";
@@ -1172,10 +1088,10 @@ function collectCallbackCapturedLocalMappings(
             const isLikelyClosureCarrier = base.getName().startsWith("%closures") || (right instanceof ClosureFieldRef);
             if (!carrierLocalNames.has(base.getName()) && !isLikelyClosureCarrier) continue;
 
-            const fallbackName = right instanceof ArkInstanceFieldRef
+            const fieldName = right instanceof ArkInstanceFieldRef
                 ? right.getFieldSignature().getFieldName()
                 : right.getFieldName();
-            const callerLocalName = fallbackName || left.getName();
+            const callerLocalName = fieldName || left.getName();
             const key = `assign|${left.getName()}|${callerLocalName}`;
             if (seen.has(key)) continue;
             seen.add(key);
@@ -1214,10 +1130,10 @@ function collectCallbackCapturedLocalMappings(
             const isLikelyClosureCarrier = base.getName().startsWith("%closures") || (invokeArg instanceof ClosureFieldRef);
             if (!carrierLocalNames.has(base.getName()) && !isLikelyClosureCarrier) continue;
 
-            const fallbackName = invokeArg instanceof ArkInstanceFieldRef
+            const fieldName = invokeArg instanceof ArkInstanceFieldRef
                 ? invokeArg.getFieldSignature().getFieldName()
                 : invokeArg.getFieldName();
-            const callerLocalName = fallbackName || String(invokeArg.toString?.() || "");
+            const callerLocalName = fieldName || String(invokeArg.toString?.() || "");
             const key = `invoke|${String(invokeArg.toString?.() || "")}|${callerLocalName}`;
             if (seen.has(key)) continue;
             seen.add(key);

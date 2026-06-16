@@ -141,7 +141,7 @@ async function main(): Promise<void> {
         },
         {
             caseName: "transfer_priority_003_T",
-            expectedRuleId: "transfer.priority.fuzzy.name_regex.arg0_to_result",
+            expectedRuleId: "transfer.priority.method_scoped.host.arg0_to_result",
         },
     ];
 

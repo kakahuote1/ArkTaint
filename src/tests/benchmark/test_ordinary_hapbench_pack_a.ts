@@ -147,6 +147,9 @@ async function main(): Promise<void> {
         }
 
         const engine: TaintPropagationEngine = await buildEngineForCase(scene, options.k, entryMethod, {
+            engineOptions: {
+                transferRules: loaded.ruleSet.transfers || [],
+            },
             verbose: false,
         });
         try {

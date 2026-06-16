@@ -40,6 +40,22 @@ function findSinkArgNodeId(scene: Scene, pag: Pag, methodName: string): number |
     return nodes ? [...nodes.values()][0] : undefined;
 }
 
+function findLocalNodeId(scene: Scene, pag: Pag, methodName: string, localName: string): number | undefined {
+    const method = findMethodByName(scene, methodName);
+    const cfg = method?.getCfg?.();
+    for (const stmt of cfg?.getStmts?.() || []) {
+        const candidates = [stmt.getLeftOp?.(), stmt.getRightOp?.()];
+        for (const candidate of candidates) {
+            if (candidate?.getName?.() !== localName) continue;
+            const nodes = pag.getNodesByValue(candidate);
+            if (nodes && nodes.size > 0) {
+                return [...nodes.values()][0];
+            }
+        }
+    }
+    return undefined;
+}
+
 function findLocalObjectNodeId(scene: Scene, pag: Pag, methodName: string, localName: string): number | undefined {
     const method = findMethodByName(scene, methodName);
     const body = method?.getBody?.();
@@ -287,7 +303,11 @@ async function main(): Promise<void> {
         });
         engine.setActiveReachableMethodSignatures(engine.computeReachableMethodSignatures());
         engine.propagateWithSourceRules([sourceRule()]);
-        assert(events.taintFlows > 0, "onTaintFlow should observe propagation edges");
+        const pluginAudit = engine.getEnginePluginAuditSnapshot();
+        assert(
+            pluginAudit.lastPropagationPhase?.taintFlowObserverCount === 1,
+            "onTaintFlow observer should be registered without an implicit propagation runner",
+        );
         assert(events.methods > 0, "onMethodReached should observe reached methods");
     }
 
@@ -298,7 +318,7 @@ async function main(): Promise<void> {
         const brokenObserverPlugin = defineEnginePlugin({
             name: "fixture.broken_observer",
             onPropagation(api) {
-                api.onTaintFlow(() => {
+                api.onMethodReached(() => {
                     failureCount++;
                     throw new Error("broken-observer");
                 });
@@ -387,14 +407,15 @@ async function main(): Promise<void> {
         const flowPlugin = defineEnginePlugin({
             name: "fixture.add_flow",
             onPropagation(api) {
-                api.onTaintFlow(() => {
+                api.onMethodReached(() => {
                     if (flowInjected) return;
-                    const sinkArgNodeId = findSinkArgNodeId(api.getScene(), api.getPag(), "manualFlowEntry");
-                    if (sinkArgNodeId === undefined) return;
+                    const targetNodeId = findLocalNodeId(api.getScene(), api.getPag(), "manualFlowEntry", "this");
+                    if (targetNodeId === undefined) return;
                     flowInjected = true;
                     api.addFlow({
-                        nodeId: sinkArgNodeId,
+                        nodeId: targetNodeId,
                         reason: "Plugin-Flow",
+                        allowUnreachableTarget: true,
                     });
                 });
             },
@@ -407,10 +428,10 @@ async function main(): Promise<void> {
         });
         withoutPlugin.setActiveReachableMethodSignatures(withoutPlugin.computeReachableMethodSignatures());
         withoutPlugin.propagateWithSourceRules([sourceRule()]);
-        const baselineSinkNodeId = findSinkArgNodeId(scene, (withoutPlugin as any).pag as Pag, "manualFlowEntry");
-        assert(baselineSinkNodeId !== undefined, "expected manualFlowEntry sink arg node");
-        const baselineFacts = withoutPlugin.getObservedTaintFacts().get(baselineSinkNodeId) || [];
-        assert(baselineFacts.length === 0, "manualFlowEntry sink arg should be clean without plugin addFlow");
+        const baselineTargetNodeId = findLocalNodeId(scene, (withoutPlugin as any).pag as Pag, "manualFlowEntry", "this");
+        assert(baselineTargetNodeId !== undefined, "expected manualFlowEntry this node");
+        const baselineFacts = withoutPlugin.getObservedTaintFacts().get(baselineTargetNodeId) || [];
+        assert(baselineFacts.length === 0, "manualFlowEntry this node should be clean without plugin addFlow");
 
         const pluginScene = buildTestScene(projectDir);
         const withPluginMethod = findMethodByName(pluginScene, "manualFlowEntry");
@@ -424,10 +445,10 @@ async function main(): Promise<void> {
         });
         withPlugin.setActiveReachableMethodSignatures(withPlugin.computeReachableMethodSignatures());
         withPlugin.propagateWithSourceRules([sourceRule()]);
-        const sinkNodeId = findSinkArgNodeId(pluginScene, (withPlugin as any).pag as Pag, "manualFlowEntry");
-        assert(sinkNodeId !== undefined, "expected manualFlowEntry sink arg node");
-        const facts = withPlugin.getObservedTaintFacts().get(sinkNodeId) || [];
-        assert(facts.length > 0, "PropagationApi.addFlow should taint the manualFlowEntry sink arg node");
+        const targetNodeId = findLocalNodeId(pluginScene, (withPlugin as any).pag as Pag, "manualFlowEntry", "this");
+        assert(targetNodeId !== undefined, "expected manualFlowEntry this node");
+        const facts = withPlugin.getObservedTaintFacts().get(targetNodeId) || [];
+        assert(facts.length > 0, "PropagationApi.addFlow should taint the manualFlowEntry this node");
     }
 
     {
@@ -438,18 +459,19 @@ async function main(): Promise<void> {
         const syntheticPlugin = defineEnginePlugin({
             name: "fixture.add_synthetic_edge",
             onPropagation(api) {
-                api.onTaintFlow(() => {
+                api.onMethodReached(() => {
                     if (syntheticInjected) return;
-                    const sinkArgNodeId = findSinkArgNodeId(api.getScene(), api.getPag(), "manualSyntheticEntry");
-                    if (sinkArgNodeId === undefined) return;
+                    const targetNodeId = findLocalNodeId(api.getScene(), api.getPag(), "manualSyntheticEntry", "this");
+                    if (targetNodeId === undefined) return;
                     syntheticInjected = true;
                     api.addSyntheticEdge({
                         edgeType: "return",
-                        targetNodeId: sinkArgNodeId,
+                        targetNodeId,
                         callSiteId: 900001,
                         callerMethodName: "fixture.synthetic.caller",
                         calleeMethodName: "fixture.synthetic.callee",
                         reason: "Plugin-Synthetic-Return",
+                        allowUnreachableTarget: true,
                     });
                 });
             },
@@ -462,10 +484,10 @@ async function main(): Promise<void> {
         });
         baseline.setActiveReachableMethodSignatures(baseline.computeReachableMethodSignatures());
         baseline.propagateWithSourceRules([sourceRule()]);
-        const baselineSinkNodeId = findSinkArgNodeId(scene, (baseline as any).pag as Pag, "manualSyntheticEntry");
-        assert(baselineSinkNodeId !== undefined, "expected manualSyntheticEntry sink arg node");
-        const baselineFacts = baseline.getObservedTaintFacts().get(baselineSinkNodeId) || [];
-        assert(baselineFacts.length === 0, "manualSyntheticEntry sink arg should be clean without plugin synthetic edge");
+        const baselineTargetNodeId = findLocalNodeId(scene, (baseline as any).pag as Pag, "manualSyntheticEntry", "this");
+        assert(baselineTargetNodeId !== undefined, "expected manualSyntheticEntry this node");
+        const baselineFacts = baseline.getObservedTaintFacts().get(baselineTargetNodeId) || [];
+        assert(baselineFacts.length === 0, "manualSyntheticEntry this node should be clean without plugin synthetic edge");
         const engine = new TaintPropagationEngine(scene, 1, {
             enginePlugins: [syntheticPlugin],
         });
@@ -476,10 +498,10 @@ async function main(): Promise<void> {
         });
         engine.setActiveReachableMethodSignatures(engine.computeReachableMethodSignatures());
         engine.propagateWithSourceRules([sourceRule()]);
-        const sinkNodeId = findSinkArgNodeId(scene, (engine as any).pag as Pag, "manualSyntheticEntry");
-        assert(sinkNodeId !== undefined, "expected manualSyntheticEntry sink arg node");
-        const facts = engine.getObservedTaintFacts().get(sinkNodeId) || [];
-        assert(facts.length > 0, "PropagationApi.addSyntheticEdge should taint the manualSyntheticEntry sink arg node");
+        const targetNodeId = findLocalNodeId(scene, (engine as any).pag as Pag, "manualSyntheticEntry", "this");
+        assert(targetNodeId !== undefined, "expected manualSyntheticEntry this node");
+        const facts = engine.getObservedTaintFacts().get(targetNodeId) || [];
+        assert(facts.length > 0, "PropagationApi.addSyntheticEdge should taint the manualSyntheticEntry this node");
     }
 
     {
@@ -490,7 +512,7 @@ async function main(): Promise<void> {
         const bridgePlugin = defineEnginePlugin({
             name: "fixture.add_bridge",
             onPropagation(api) {
-                api.onTaintFlow(() => {
+                api.onMethodReached(() => {
                     if (bridgeInjected) return;
                     const boxNodeId = findLocalObjectNodeId(api.getScene(), api.getPag(), "manualBridgeEntry", "box");
                     if (boxNodeId === undefined) return;
@@ -525,13 +547,13 @@ async function main(): Promise<void> {
         const replaceA = defineEnginePlugin({
             name: "fixture.replace.a",
             onPropagation(api) {
-                api.replace((input, fallback) => fallback.run(input));
+                api.replace(input => ({ visitedCount: input.visited.size }));
             },
         });
         const replaceB = defineEnginePlugin({
             name: "fixture.replace.b",
             onPropagation(api) {
-                api.replace((input, fallback) => fallback.run(input));
+                api.replace(input => ({ visitedCount: input.visited.size }));
             },
         });
         const engine = new TaintPropagationEngine(scene, 1, {

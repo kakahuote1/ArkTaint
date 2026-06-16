@@ -67,7 +67,6 @@ import type {
     ModuleExplicitImperativeDeferredBindingRecord,
 } from "../../kernel/model/DeferredBindingDeclaration";
 import { TaintFact } from "../../kernel/model/TaintFact";
-import { safeGetOrCreatePagNodes } from "../../kernel/contracts/PagNodeResolution";
 import { collectCarrierNodeIdsForValueAtStmt } from "../../kernel/ordinary/OrdinaryAliasPropagation";
 import {
     extractErrorLocation,
@@ -292,11 +291,29 @@ function createAnalysisApi(raw: InternalRawModuleSetupContext): ModuleAnalysisAp
     const nodeIdsForValue = (value: any, anchorStmt?: any): number[] => {
         if (!raw.pag) return [];
         const direct = collectNodeIdsFromValue(raw.pag, value);
-        if (direct.size > 0) {
+        if (direct.size > 0 || !anchorStmt || !shouldMaterializeExactModuleUseEndpoint(value)) {
             return [...direct.values()];
         }
-        const fallback = safeGetOrCreatePagNodes(raw.pag, value, anchorStmt);
-        return fallback ? [...fallback.values()] : [];
+        raw.pag.getOrNewNode(0, value, anchorStmt);
+        return [...collectNodeIdsFromValue(raw.pag, value).values()];
+    };
+    const exactEndpointNodeIdsForValue = (value: any, anchorStmt?: any): number[] => {
+        if (!raw.pag) return [];
+        const direct = collectNodeIdsFromValue(raw.pag, value);
+        if (direct.size > 0 || !anchorStmt || !shouldMaterializeExactModuleEndpointValue(value)) {
+            return [...direct.values()];
+        }
+        raw.pag.getOrNewNode(0, value, anchorStmt);
+        return [...collectNodeIdsFromValue(raw.pag, value).values()];
+    };
+    const resultNodeIdsForValue = (value: any, anchorStmt?: any): number[] => {
+        if (!raw.pag) return [];
+        const direct = collectNodeIdsFromValue(raw.pag, value);
+        if (direct.size > 0 || !anchorStmt || !shouldMaterializeExactModuleResultEndpoint(value)) {
+            return [...direct.values()];
+        }
+        raw.pag.getOrNewNode(0, value, anchorStmt);
+        return [...collectNodeIdsFromValue(raw.pag, value).values()];
     };
     const objectNodeIdsForValue = (value: any): number[] => {
         if (!raw.pag) return [];
@@ -304,6 +321,8 @@ function createAnalysisApi(raw: InternalRawModuleSetupContext): ModuleAnalysisAp
     };
     return {
         nodeIdsForValue,
+        exactEndpointNodeIdsForValue,
+        resultNodeIdsForValue,
         objectNodeIdsForValue,
         carrierNodeIdsForValue(value: any, anchorStmt?: any): number[] {
             const carrierResolved = raw.pag && value && anchorStmt
@@ -311,6 +330,16 @@ function createAnalysisApi(raw: InternalRawModuleSetupContext): ModuleAnalysisAp
                 : [];
             return [...new Set<number>([
                 ...nodeIdsForValue(value, anchorStmt),
+                ...objectNodeIdsForValue(value),
+                ...carrierResolved,
+            ])];
+        },
+        resultCarrierNodeIdsForValue(value: any, anchorStmt?: any): number[] {
+            const carrierResolved = raw.pag && value && anchorStmt
+                ? collectCarrierNodeIdsForValueAtStmt(raw.pag, value, anchorStmt, getClassBySignature())
+                : [];
+            return [...new Set<number>([
+                ...resultNodeIdsForValue(value, anchorStmt),
                 ...objectNodeIdsForValue(value),
                 ...carrierResolved,
             ])];
@@ -325,6 +354,134 @@ function createAnalysisApi(raw: InternalRawModuleSetupContext): ModuleAnalysisAp
             return raw.queries.collectFiniteStringCandidatesFromValue(raw.scene, value, maxDepth);
         },
     };
+}
+
+function collectModuleResultEndpointNodeIds(
+    analysis: ModuleAnalysisApi,
+    resultValue: any,
+    stmt: any,
+): number[] {
+    const out = new Set<number>();
+    if (resultValue !== undefined) {
+        for (const nodeId of analysis.resultNodeIdsForValue(resultValue, stmt)) {
+            out.add(nodeId);
+        }
+    }
+    if (out.size > 0) {
+        return [...out.values()];
+    }
+
+    const left = stmt?.getLeftOp?.();
+    if (left === undefined || left === resultValue) {
+        return [];
+    }
+    for (const nodeId of analysis.resultNodeIdsForValue(left, stmt)) {
+        out.add(nodeId);
+    }
+    return [...out.values()];
+}
+
+function collectModuleResultEndpointCarrierNodeIds(
+    analysis: ModuleAnalysisApi,
+    resultValue: any,
+    stmt: any,
+): number[] {
+    const out = new Set<number>();
+    if (resultValue !== undefined) {
+        for (const nodeId of analysis.resultCarrierNodeIdsForValue(resultValue, stmt)) {
+            out.add(nodeId);
+        }
+    }
+    if (out.size > 0) {
+        return [...out.values()];
+    }
+
+    const left = stmt?.getLeftOp?.();
+    if (left === undefined || left === resultValue) {
+        return [];
+    }
+    for (const nodeId of analysis.resultCarrierNodeIdsForValue(left, stmt)) {
+        out.add(nodeId);
+    }
+    return [...out.values()];
+}
+
+function collectModulePromiseResultEndpointNodeIds(
+    method: any,
+    analysis: ModuleAnalysisApi,
+    resultValue: any,
+    stmt: any,
+): number[] {
+    const resultLocal = resolveResultEndpointLocal(resultValue, stmt);
+    if (!resultLocal) {
+        return collectModuleResultEndpointNodeIds(analysis, resultValue, stmt);
+    }
+
+    const out = new Set<number>();
+    const stmts = method?.getCfg?.()?.getStmts?.() || [];
+    let afterInvokeStmt = false;
+    for (const candidateStmt of stmts) {
+        if (candidateStmt === stmt) {
+            afterInvokeStmt = true;
+            continue;
+        }
+        if (!afterInvokeStmt) continue;
+        if (!isAssignStmtLike(candidateStmt)) continue;
+        const right = candidateStmt.getRightOp?.();
+        if (!isAwaitDerivedFromLocal(right, resultLocal)) continue;
+        const left = candidateStmt.getLeftOp?.();
+        if (!left) continue;
+        for (const nodeId of analysis.resultNodeIdsForValue(left, candidateStmt)) {
+            out.add(nodeId);
+        }
+    }
+
+    if (out.size > 0) {
+        return [...out.values()];
+    }
+    return collectModuleResultEndpointNodeIds(analysis, resultValue, stmt);
+}
+
+function resolveResultEndpointLocal(resultValue: any, stmt: any): any | undefined {
+    const localName = resolveLocalName(resultValue);
+    if (localName) return resultValue;
+    const left = stmt?.getLeftOp?.();
+    return resolveLocalName(left) ? left : undefined;
+}
+
+function isAwaitDerivedFromLocal(value: any, local: any, visiting: Set<any> = new Set()): boolean {
+    if (!value || visiting.has(value)) return false;
+    visiting.add(value);
+
+    if (value.constructor?.name === "ArkAwaitExpr") {
+        return expressionUsesLocal(value.getPromise?.(), local, visiting);
+    }
+
+    if (typeof value.getOp === "function" && isAwaitDerivedFromLocal(value.getOp(), local, visiting)) {
+        return true;
+    }
+
+    for (const use of value.getUses?.() || []) {
+        if (isAwaitDerivedFromLocal(use, local, visiting)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function expressionUsesLocal(value: any, local: any, visiting: Set<any>): boolean {
+    if (!value || visiting.has(value)) return false;
+    if (isSameLocalValue(value, local)) return true;
+    visiting.add(value);
+    if (typeof value.getOp === "function" && expressionUsesLocal(value.getOp(), local, visiting)) {
+        return true;
+    }
+    for (const use of value.getUses?.() || []) {
+        if (expressionUsesLocal(use, local, visiting)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 interface ModuleMethodIndexItem {
@@ -506,6 +663,7 @@ function collectReceiverEndpointReadResultNodeIds(
 ): number[] {
     const cfg = method.getCfg?.();
     if (!cfg) return [];
+    const expressionNodeIds = collectReceiverEndpointExpressionNodeIds(method, analysis, accessPath);
     const stmts = cfg.getStmts?.() || [];
     let baseLocalNames = new Set<string>(["this"]);
     let terminalNodeIds: number[] = [];
@@ -522,17 +680,82 @@ function collectReceiverEndpointReadResultNodeIds(
             if (!baseLocalName || !baseLocalNames.has(baseLocalName)) continue;
             const resultLocalName = resolveLocalName(left);
             if (resultLocalName) nextBaseLocalNames.add(resultLocalName);
-            for (const nodeId of analysis.nodeIdsForValue(left, stmt)) nextNodeIds.add(nodeId);
+            for (const nodeId of analysis.exactEndpointNodeIdsForValue(left, stmt)) nextNodeIds.add(nodeId);
             for (const nodeId of analysis.carrierNodeIdsForValue(left, stmt)) nextNodeIds.add(nodeId);
         }
         terminalNodeIds = [...nextNodeIds.values()];
-        if (terminalNodeIds.length === 0) return [];
+        if (terminalNodeIds.length === 0) return expressionNodeIds;
         baseLocalNames = nextBaseLocalNames;
         if (baseLocalNames.size === 0 && segment !== accessPath[accessPath.length - 1]) {
-            return [];
+            return expressionNodeIds;
         }
     }
+    if (expressionNodeIds.length > 0) {
+        return [...new Set<number>([...terminalNodeIds, ...expressionNodeIds])];
+    }
     return terminalNodeIds;
+}
+
+function collectReceiverEndpointExpressionNodeIds(
+    method: any,
+    analysis: ModuleAnalysisApi,
+    accessPath: string[],
+): number[] {
+    const cfg = method.getCfg?.();
+    if (!cfg) return [];
+    const out = new Set<number>();
+    const localPathAliases = new Map<string, string[]>();
+    localPathAliases.set("this", []);
+
+    const addValueNodes = (value: any, stmt: any): void => {
+        for (const nodeId of analysis.exactEndpointNodeIdsForValue(value, stmt)) out.add(nodeId);
+        for (const nodeId of analysis.carrierNodeIdsForValue(value, stmt)) out.add(nodeId);
+    };
+
+    for (const stmt of cfg.getStmts?.() || []) {
+        const valuesToInspect: any[] = [];
+        if (isAssignStmtLike(stmt)) {
+            const left = stmt.getLeftOp?.();
+            const right = stmt.getRightOp?.();
+            valuesToInspect.push(right);
+            for (const used of collectValueUseTree(right)) {
+                if (fieldAccessPathEquals(resolveReceiverFieldAccessPath(used, localPathAliases), accessPath)) {
+                    addValueNodes(used, stmt);
+                    addValueNodes(left, stmt);
+                }
+            }
+            const leftName = resolveLocalName(left);
+            const rightPath = resolveReceiverFieldAccessPath(right, localPathAliases);
+            if (leftName && rightPath) {
+                localPathAliases.set(leftName, rightPath);
+            }
+        }
+
+        const returnValue = resolveReturnValue(stmt);
+        if (returnValue !== undefined) {
+            valuesToInspect.push(returnValue);
+        }
+
+        if (stmt.containsInvokeExpr?.()) {
+            const invokeExpr = stmt.getInvokeExpr?.();
+            if (invokeExpr) {
+                valuesToInspect.push(invokeExpr.getBase?.());
+                for (const arg of invokeExpr.getArgs?.() || []) {
+                    valuesToInspect.push(arg);
+                }
+            }
+        }
+
+        for (const value of valuesToInspect) {
+            for (const used of collectValueUseTree(value)) {
+                if (fieldAccessPathEquals(resolveReceiverFieldAccessPath(used, localPathAliases), accessPath)) {
+                    addValueNodes(used, stmt);
+                }
+            }
+        }
+    }
+
+    return [...out.values()];
 }
 
 function matchesOwnerScanFilter(
@@ -682,6 +905,72 @@ function resolveFieldName(fieldRef: any): string {
 function resolveLocalName(value: any): string | undefined {
     const name = value?.getName?.();
     return typeof name === "string" && name.length > 0 ? name : undefined;
+}
+
+function resolveReturnValue(stmt: any): any | undefined {
+    if (!stmt) return undefined;
+    if (typeof stmt.getOp === "function") return stmt.getOp();
+    if (typeof stmt.getReturnValue === "function") return stmt.getReturnValue();
+    return undefined;
+}
+
+function collectValueUseTree(value: any): any[] {
+    const out: any[] = [];
+    const seen = new Set<any>();
+    const visit = (current: any): void => {
+        if (!current || seen.has(current)) return;
+        seen.add(current);
+        out.push(current);
+        for (const used of current.getUses?.() || []) {
+            visit(used);
+        }
+        if (isFieldRefLike(current)) {
+            visit(current.getBase?.());
+        }
+        if (typeof current.getOp1 === "function") {
+            visit(current.getOp1());
+        }
+        if (typeof current.getOp2 === "function") {
+            visit(current.getOp2());
+        }
+        if (typeof current.getOp === "function") {
+            visit(current.getOp());
+        }
+        for (const arg of current.getArgs?.() || []) {
+            visit(arg);
+        }
+    };
+    visit(value);
+    return out;
+}
+
+function resolveReceiverFieldAccessPath(value: any, localPathAliases: Map<string, string[]>): string[] | undefined {
+    if (!isFieldRefLike(value)) return undefined;
+    const fieldName = resolveFieldName(value);
+    if (!fieldName) return undefined;
+    const base = value.getBase?.();
+    const baseName = resolveLocalName(base);
+    if (baseName && localPathAliases.has(baseName)) {
+        return [...(localPathAliases.get(baseName) || []), fieldName];
+    }
+    const basePath = resolveReceiverFieldAccessPath(base, localPathAliases);
+    return basePath ? [...basePath, fieldName] : undefined;
+}
+
+function fieldAccessPathEquals(actual: string[] | undefined, expected: string[]): boolean {
+    if (!actual || actual.length !== expected.length) return false;
+    for (let i = 0; i < expected.length; i++) {
+        if (actual[i] !== expected[i]) return false;
+    }
+    return true;
+}
+
+function isSameLocalValue(a: any, b: any): boolean {
+    if (!a || !b) return false;
+    if (a === b) return true;
+    const aName = resolveLocalName(a);
+    const bName = resolveLocalName(b);
+    return !!aName && aName === bName;
 }
 
 function isThisLocal(value: any): boolean {
@@ -898,14 +1187,13 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
                             });
                         },
                         resultNodeIds(): number[] {
-                            return resultValue !== undefined
-                                ? getAnalysis().nodeIdsForValue(resultValue, stmt)
-                                : [];
+                            return collectModuleResultEndpointNodeIds(getAnalysis(), resultValue, stmt);
                         },
                         resultCarrierNodeIds(): number[] {
-                            return resultValue !== undefined
-                                ? getAnalysis().carrierNodeIdsForValue(resultValue, stmt)
-                                : [];
+                            return collectModuleResultEndpointCarrierNodeIds(getAnalysis(), resultValue, stmt);
+                        },
+                        promiseResultNodeIds(): number[] {
+                            return collectModulePromiseResultEndpointNodeIds(method, getAnalysis(), resultValue, stmt);
                         },
                         callbackParamNodeIds(
                             callbackArgIndex: number,
@@ -1032,14 +1320,13 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
                             });
                         },
                         resultNodeIds(): number[] {
-                            return resultValue !== undefined
-                                ? getAnalysis().nodeIdsForValue(resultValue, stmt)
-                                : [];
+                            return collectModuleResultEndpointNodeIds(getAnalysis(), resultValue, stmt);
                         },
                         resultCarrierNodeIds(): number[] {
-                            return resultValue !== undefined
-                                ? getAnalysis().carrierNodeIdsForValue(resultValue, stmt)
-                                : [];
+                            return collectModuleResultEndpointCarrierNodeIds(getAnalysis(), resultValue, stmt);
+                        },
+                        promiseResultNodeIds(): number[] {
+                            return collectModulePromiseResultEndpointNodeIds(method, getAnalysis(), resultValue, stmt);
                         },
                         callbackParamNodeIds(
                             callbackArgIndex: number,
@@ -1108,6 +1395,9 @@ function createScanApi(raw: InternalRawModuleSetupContext): ModuleScanApi {
                         },
                         localNodeIds(): number[] {
                             return getAnalysis().nodeIdsForValue(left, stmt);
+                        },
+                        localUseNodeIds(): number[] {
+                            return collectExactLocalUseNodeIds(raw.pag, method, left, stmt);
                         },
                         localObjectNodeIds(): number[] {
                             return getAnalysis().objectNodeIdsForValue(left);
@@ -1759,6 +2049,30 @@ function resolveDeferredBindingMethod(
     return getMethodBySignature(scene, signature);
 }
 
+function resolveDeferredBindingMethods(
+    scene: any,
+    methods?: any[],
+    signatures?: string[],
+): any[] {
+    const out: any[] = [];
+    const seen = new Set<string>();
+    const add = (method: any): void => {
+        const resolved = resolveDeferredBindingMethod(scene, method);
+        if (!resolved?.getCfg?.()) return;
+        const signature = resolved.getSignature?.()?.toString?.() || "";
+        if (!signature || seen.has(signature)) return;
+        seen.add(signature);
+        out.push(resolved);
+    };
+    for (const method of methods || []) {
+        add(method);
+    }
+    for (const signature of signatures || []) {
+        add(signature);
+    }
+    return out;
+}
+
 function normalizeExplicitDeferredBindingSemantics(
     semantics?: {
         activation?: ModuleExplicitDeferredBindingRecord["semantics"]["activation"];
@@ -1845,6 +2159,11 @@ function createDeferredBindingApi(
                 raw.scene,
                 declaration.handlerMethod || declaration.handlerMethodSignature,
             );
+            const envSourceMethods = resolveDeferredBindingMethods(
+                raw.scene,
+                declaration.envSourceMethods,
+                declaration.envSourceMethodSignatures,
+            );
             if (!sourceMethod?.getCfg?.() || !handlerMethod?.getCfg?.()) {
                 throw new ModuleRuntimeDiagnosticError(
                     `module ${moduleId} declared a declarative deferred binding with unresolved source or handler method`,
@@ -1867,6 +2186,7 @@ function createDeferredBindingApi(
                 anchorStmt: declaration.anchorStmt,
                 carrierKind: declaration.carrierKind || "field",
                 triggerLabel: declaration.triggerLabel,
+                envSourceMethods,
                 reason: declaration.reason
                     || `Module ${moduleId} declared a declarative deferred binding for ${declaration.triggerLabel}`,
                 semantics: normalizeExplicitDeferredBindingSemantics(declaration.semantics),
@@ -1942,8 +2262,11 @@ function collectCallbackParamBindingsWithQueries(
                 },
                 localNodeIds(): number[] {
                     if (!pag) return [];
-                    const nodes = safeGetOrCreatePagNodes(pag, left, paramStmt) || pag.getNodesByValue(left);
+                    const nodes = pag.getNodesByValue(left);
                     return nodes ? [...nodes.values()] : [];
+                },
+                localUseNodeIds(): number[] {
+                    return collectExactLocalUseNodeIds(pag, callbackMethod.method, left, paramStmt);
                 },
                 localObjectNodeIds(): number[] {
                     if (!pag) return [];
@@ -1960,6 +2283,87 @@ function collectCallbackParamBindingsWithQueries(
     return out;
 }
 
+function collectExactLocalUseNodeIds(pag: any, method: any, local: any, definingStmt?: any): number[] {
+    if (!pag || !method?.getCfg?.() || !local) return [];
+    const out = new Set<number>();
+    const addNodes = (value: any, anchorStmt?: any): void => {
+        const nodes = value ? pag.getNodesByValue(value) : undefined;
+        if ((!nodes || nodes.size === 0) && anchorStmt && shouldMaterializeExactModuleUseEndpoint(value)) {
+            pag.getOrNewNode(0, value, anchorStmt);
+        }
+        const effectiveNodes = value ? pag.getNodesByValue(value) : undefined;
+        if (!effectiveNodes || effectiveNodes.size === 0) return;
+        for (const nodeId of effectiveNodes.values()) {
+            out.add(nodeId);
+        }
+    };
+
+    for (const stmt of method.getCfg().getStmts()) {
+        if (stmt === definingStmt) continue;
+        if (isAssignStmtLike(stmt)) {
+            const left = stmt.getLeftOp();
+            const right = stmt.getRightOp();
+            if (isSameLocalValue(right, local)) {
+                addNodes(left, stmt);
+                continue;
+            }
+            if (isFieldRefLike(left) && isSameLocalValue(left.getBase?.(), local)) {
+                addNodes(left, stmt);
+            }
+            if (isFieldRefLike(right) && isSameLocalValue(right.getBase?.(), local)) {
+                addNodes(right, stmt);
+            }
+        }
+        if (!stmt.containsInvokeExpr?.()) continue;
+        const invokeExpr = stmt.getInvokeExpr?.();
+        if (!invokeExpr) continue;
+        if (isInstanceInvokeExprLike(invokeExpr) && isSameLocalValue(invokeExpr.getBase?.(), local)) {
+            addNodes(invokeExpr.getBase?.(), stmt);
+        }
+        for (const arg of invokeExpr.getArgs?.() || []) {
+            if (isSameLocalValue(arg, local)) {
+                addNodes(arg, stmt);
+            }
+            if (isFieldRefLike(arg) && isSameLocalValue(arg.getBase?.(), local)) {
+                addNodes(arg, stmt);
+            }
+        }
+    }
+    return [...out.values()];
+}
+
+function shouldMaterializeExactModuleUseEndpoint(value: any): boolean {
+    const name = resolveLocalName(value);
+    if (name) {
+        return name !== "this" && !name.startsWith("%");
+    }
+    if (!isFieldRefLike(value)) {
+        return false;
+    }
+    const baseName = resolveLocalName(value.getBase?.());
+    return !!baseName && baseName !== "this" && !baseName.startsWith("%");
+}
+
+function shouldMaterializeExactModuleEndpointValue(value: any): boolean {
+    const name = resolveLocalName(value);
+    if (name) {
+        return name !== "this";
+    }
+    if (!isFieldRefLike(value)) {
+        return false;
+    }
+    const baseName = resolveLocalName(value.getBase?.());
+    return !!baseName && baseName !== "this";
+}
+
+function shouldMaterializeExactModuleResultEndpoint(value: any): boolean {
+    const name = resolveLocalName(value);
+    if (name) {
+        return name !== "this";
+    }
+    return shouldMaterializeExactModuleUseEndpoint(value);
+}
+
 function collectCallbackParamNodeIdsWithQueries(
     scene: any,
     pag: any,
@@ -1971,6 +2375,9 @@ function collectCallbackParamNodeIdsWithQueries(
     const out = new Set<number>();
     for (const binding of collectCallbackParamBindingsWithQueries(scene, pag, queries, callbackValue, paramIndex, options)) {
         for (const nodeId of binding.localNodeIds()) {
+            out.add(nodeId);
+        }
+        for (const nodeId of binding.localUseNodeIds()) {
             out.add(nodeId);
         }
     }
@@ -2195,13 +2602,7 @@ function createEmitApi(
         if (directNodeIds.size > 0) {
             return [...directNodeIds.values()];
         }
-        const anchorStmt = options?.anchorStmt
-            ?? ((event as InternalRawModuleInvokeEvent).stmt);
-        if (!anchorStmt) {
-            return [];
-        }
-        const nodes = safeGetOrCreatePagNodes(event.pag, targetValue, anchorStmt);
-        return nodes ? [...nodes.values()] : [];
+        return [];
     };
 
     const emitLoadLikeToNodes = (

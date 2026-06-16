@@ -82,6 +82,7 @@ export interface ExecutionHandoffFeatures {
     hasAwaitResume: boolean;
     payloadPorts: number;
     capturePorts: number;
+    declarativeTriggerLabel?: string;
 }
 
 export interface ExecutionHandoffActivationPathRecord extends ExecutionHandoffFeatures {
@@ -91,6 +92,7 @@ export interface ExecutionHandoffActivationPathRecord extends ExecutionHandoffFe
     invokeExpr: any;
     unit: any;
     sourceMethods: any[];
+    envSourceMethods?: any[];
     callerSignature: string;
     unitSignature: string;
     lineNo: number;
@@ -101,6 +103,7 @@ export interface ExecutionHandoffActivationPathRecord extends ExecutionHandoffFe
     semantics: ExecutionHandoffRecoveredSemanticsRecord;
     activationSource?: DeferredBindingSourceSelector;
     payloadSource?: DeferredBindingSourceSelector;
+    declarativeTriggerLabel?: string;
 }
 
 export interface ExecutionUnitSummaryRecord {
@@ -141,6 +144,7 @@ export interface ExecutionHandoffEdgeBuildStats {
     siteCount: number;
     callEdges: number;
     returnEdges: number;
+    skippedNoEdgeContracts?: number;
 }
 
 export interface ExecutionHandoffEdgeBuildResult {

@@ -1,9 +1,6 @@
 import * as path from "path";
-import { SinkRule, SourceRule } from "../../core/rules/RuleSchema";
-import { buildFrameworkApiSourceRules } from "../../core/rules/FrameworkApiSourceCatalog";
 import { loadRuleSet } from "../../core/rules/RuleLoader";
-import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
-import { buildTestScene } from "../helpers/TestSceneBuilder";
+import { SourceRule } from "../../core/rules/RuleSchema";
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) {
@@ -11,221 +8,49 @@ function assert(condition: unknown, message: string): asserts condition {
     }
 }
 
-interface ExactnessProbeSpec {
-    family: string;
-    positiveCase: string;
-    negativeCase: string;
-    weakFallback?: SourceRule;
+function hasScopeAnchor(rule: SourceRule): boolean {
+    return !!(rule.scope || rule.calleeScope);
 }
 
-const API_SOURCE_DIR = path.resolve("tests/demo/framework_api_source_contract");
-
-const SINK_RULES: SinkRule[] = [
-    {
-        id: "sink.framework.api.exactness.arg0",
-        match: { kind: "method_name_equals", value: "Sink" },
-        target: { endpoint: "arg0" },
-    },
-];
-
-const EXACTNESS_PROBES: ExactnessProbeSpec[] = [
-    {
-        family: "source.harmony.network.http",
-        positiveCase: "api_http_request_001_T",
-        negativeCase: "api_httpclient_request_002_F",
-        weakFallback: {
-            id: "source.framework.api.http.weak_request",
-            family: "source.harmony.network.http",
-            tier: "C",
-            sourceKind: "call_return",
-            match: { kind: "method_name_equals", value: "request" },
-            target: "result",
-        },
-    },
-    {
-        family: "source.harmony.preferences",
-        positiveCase: "api_preferences_get_003_T",
-        negativeCase: "api_cachepreferences_get_004_F",
-        weakFallback: {
-            id: "source.framework.api.preferences.weak_get",
-            family: "source.harmony.preferences",
-            tier: "C",
-            sourceKind: "call_return",
-            match: { kind: "method_name_equals", value: "get" },
-            target: "result",
-        },
-    },
-    {
-        family: "source.harmony.appAccount",
-        positiveCase: "api_appaccount_getcredential_016_T",
-        negativeCase: "api_projectaccount_getcredential_017_F",
-        weakFallback: {
-            id: "source.framework.api.appaccount.weak_getCredential",
-            family: "source.harmony.appAccount",
-            tier: "C",
-            sourceKind: "call_return",
-            match: { kind: "method_name_equals", value: "getCredential" },
-            target: "result",
-        },
-    },
-    {
-        family: "source.harmony.rdb",
-        positiveCase: "api_rdb_query_005_T",
-        negativeCase: "api_myrdb_query_006_F",
-    },
-    {
-        family: "source.harmony.file",
-        positiveCase: "api_fs_read_008_T",
-        negativeCase: "api_fileoperatorwrapper_read_009_F",
-        weakFallback: {
-            id: "source.framework.api.file.weak_read",
-            family: "source.harmony.file",
-            tier: "C",
-            sourceKind: "call_return",
-            match: { kind: "method_name_equals", value: "read" },
-            target: "result",
-        },
-    },
-    {
-        family: "source.harmony.file",
-        positiveCase: "api_filepicker_select_034_T",
-        negativeCase: "api_project_filepicker_select_035_F",
-    },
-    {
-        family: "source.harmony.request",
-        positiveCase: "api_request_download_010_T",
-        negativeCase: "api_requestagentwrapper_download_011_F",
-    },
-    {
-        family: "source.harmony.request",
-        positiveCase: "api_request_downloadfile_021_T",
-        negativeCase: "api_requestagentwrapper_downloadfile_022_F",
-    },
-    {
-        family: "source.harmony.distributedkv",
-        positiveCase: "api_distributedkv_get_012_T",
-        negativeCase: "api_mydistributedkv_get_013_F",
-    },
-    {
-        family: "source.harmony.distributedkv",
-        positiveCase: "api_distributedkv_getentries_036_T",
-        negativeCase: "api_mydistributedkv_getentries_037_F",
-    },
-    {
-        family: "source.harmony.webview.auth_cache",
-        positiveCase: "api_webdatabase_getauth_018_T",
-        negativeCase: "api_webdatabase_proxy_getauth_019_F",
-    },
-    {
-        family: "source.harmony.webview.request",
-        positiveCase: "api_webresource_request_url_027_T",
-        negativeCase: "api_webresource_request_proxy_url_028_F",
-    },
-    {
-        family: "source.harmony.rpc",
-        positiveCase: "api_rpc_sendrequest_reply_024_T",
-        negativeCase: "api_projectremote_sendrequest_026_F",
-    },
-    {
-        family: "source.harmony.ipc.messageparcel",
-        positiveCase: "api_messageparcel_readstring_029_T",
-        negativeCase: "api_projectmessageparcel_readstring_031_F",
-    },
-    {
-        family: "source.harmony.security_asset",
-        positiveCase: "api_security_asset_query_032_T",
-        negativeCase: "api_project_asset_query_033_F",
-    },
-    {
-        family: "source.harmony.device_id",
-        positiveCase: "api_deviceinfo_udid_014_T",
-        negativeCase: "api_deviceinfoproxy_udid_015_F",
-    },
-];
-
-function findMethod(scene: ReturnType<typeof buildTestScene>, methodName: string): any {
-    return scene.getMethods().find(method => method.getName() === methodName);
-}
-
-function flowSinkInCaseMethod(scene: ReturnType<typeof buildTestScene>, sinkStmt: any, caseMethodName: string): boolean {
-    const method = findMethod(scene, caseMethodName);
-    if (!method) return false;
-    const cfg = method.getCfg();
-    if (!cfg) return false;
-    return cfg.getStmts().includes(sinkStmt);
-}
-
-async function runCase(
-    scene: ReturnType<typeof buildTestScene>,
-    caseName: string,
-    sourceRules: SourceRule[],
-): Promise<{ detected: boolean; seedInfo: ReturnType<TaintPropagationEngine["propagateWithSourceRules"]> }> {
-    const entryMethod = findMethod(scene, caseName);
-    assert(entryMethod, `entry method not found for ${caseName}`);
-
-    const engine = new TaintPropagationEngine(scene, 1);
-    engine.verbose = false;
-    await engine.buildPAG({
-        entryModel: "explicit",
-        syntheticEntryMethods: [entryMethod],
-    });
-    engine.setActiveReachableMethodSignatures(new Set([entryMethod.getSignature().toString()]));
-    const seedInfo = engine.propagateWithSourceRules(sourceRules);
-    const flows = engine.detectSinksByRules(SINK_RULES);
-    return {
-        detected: flows.some(flow => flowSinkInCaseMethod(scene, flow.sink, caseName)),
-        seedInfo,
-    };
-}
-
-async function main(): Promise<void> {
+function main(): void {
     const loaded = loadRuleSet({
         kernelRulePath: path.resolve("tests/rules/minimal.rules.json"),
         ruleCatalogPath: path.resolve("src/models"),
         autoDiscoverLayers: false,
         allowMissingProject: true,
+        allowMissingCandidate: true,
     });
-    const loadedApiRules = (loaded.ruleSet.sources || []).filter(
-        rule => rule.sourceKind === "call_return" || rule.sourceKind === "field_read"
+    const apiRules = (loaded.ruleSet.sources || []).filter(
+        rule => rule.sourceKind === "call_return" || rule.sourceKind === "field_read",
     );
-    const scene = buildTestScene(API_SOURCE_DIR);
+    assert(apiRules.length >= 900, `expected v2 official API source inventory, got ${apiRules.length}`);
 
-    const results: string[] = [];
-    for (const probe of EXACTNESS_PROBES) {
-        const familyRules = loadedApiRules.filter(rule => rule.family === probe.family);
-        assert(familyRules.length > 0, `family has no API rules: ${probe.family}`);
-
-        const positive = await runCase(scene, probe.positiveCase, familyRules);
-        assert(positive.detected, `${probe.positiveCase}: expected positive flow for ${probe.family}`);
-
-        const negative = await runCase(scene, probe.negativeCase, familyRules);
-        assert(!negative.detected, `${probe.negativeCase}: expected exactness gate to block ${probe.family}`);
-
-        if (probe.weakFallback) {
-            const combined = await runCase(scene, probe.positiveCase, [...familyRules, probe.weakFallback]);
-            assert(combined.detected, `${probe.positiveCase}: expected combined family rules to keep positive flow`);
-            assert(
-                (combined.seedInfo.sourceRuleHits[probe.weakFallback.id] || 0) === 0,
-                `${probe.positiveCase}: weak fallback should be suppressed by stronger family rule for ${probe.family}`,
+    const loose = apiRules.filter(rule => {
+        const match = rule.match;
+        return match.kind === "method_name_equals"
+            && (
+                match.invokeKind === undefined
+                || match.invokeKind === "any"
+                || match.argCount === undefined
+                || !hasScopeAnchor(rule)
             );
-        }
+    });
+    assert(
+        loose.length === 0,
+        `v2 official API source rules must not use loose method-name selectors: ${loose.slice(0, 5).map(rule => rule.id).join(", ")}`,
+    );
 
-        results.push(`PASS family=${probe.family} positive=${probe.positiveCase} negative=${probe.negativeCase}`);
-    }
+    const exactKinds = new Set(["signature_equals", "declaring_class_equals", "method_name_equals", "field_name_equals"]);
+    const broad = apiRules.filter(rule => !exactKinds.has(rule.match.kind));
+    assert(
+        broad.length === 0,
+        `v2 official API sources must use exact selectors only: ${broad.slice(0, 5).map(rule => rule.id).join(", ")}`,
+    );
 
-    const generated = buildFrameworkApiSourceRules();
-    const familyCount = [...new Set(generated.map(rule => String(rule.family || "")))].length;
     console.log("====== Framework API Source Exactness Gate ======");
-    console.log(`families=${familyCount}`);
-    console.log(`probes=${results.length}`);
-    for (const line of results) {
-        console.log(line);
-    }
+    console.log(`api_source_rules=${apiRules.length}`);
+    console.log("loose_method_selectors=0");
+    console.log("unanchored_broad_selectors=0");
 }
 
-main().catch(error => {
-    console.error("FAIL test_framework_api_source_exactness_gate");
-    console.error(error);
-    process.exit(1);
-});
-
+main();

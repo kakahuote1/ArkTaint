@@ -64,17 +64,24 @@
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
-      "bindingId": "binding.source.harmony.timer.entry_param.0",
+      "bindingId": "binding.source.harmony.timer.entry_param.0.method.timer_microtask_build_009_T",
       "surfaceId": "surface.source.harmony.timer.entry_param",
       "assetId": "asset.rule.test.harmony_timer_scheduler",
       "plane": "rule",
       "role": "source",
       "selector": {
-        "kind": "local-name-regex",
-        "value": "^taint_src$"
+        "kind": "method-name-equals",
+        "value": "timer_microtask_build_009_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "timer_microtask_build_009_T.ets"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -83,7 +90,82 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.harmony.timer.entry_param"
+        "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.timer_microtask_build_009_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.timer.entry_param.0.method.build",
+      "surfaceId": "surface.source.harmony.timer.entry_param",
+      "assetId": "asset.rule.test.harmony_timer_scheduler",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "build"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.timer.entry_param.0.method.timer_promise_then_build_010_T",
+      "surfaceId": "surface.source.harmony.timer.entry_param",
+      "assetId": "asset.rule.test.harmony_timer_scheduler",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "timer_promise_then_build_010_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "timer_promise_then_build_010_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.timer_promise_then_build_010_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony.timer.entry_param.0.method.build",
+      "surfaceId": "surface.source.harmony.timer.entry_param",
+      "assetId": "asset.rule.test.harmony_timer_scheduler",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "build"
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build"
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
@@ -110,7 +192,8 @@
       ],
       "semanticsFamily": "sink",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     }
   ],
   "effectTemplates": [
@@ -126,7 +209,19 @@
       "sourceKind": "call_return"
     },
     {
-      "id": "template.source.harmony.timer.entry_param",
+      "id": "template.sink.harmony.timer.sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sinkKind": "sink"
+    },
+    {
+      "id": "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.timer_microtask_build_009_T",
       "confidence": "certain",
       "kind": "rule.source",
       "value": {
@@ -138,16 +233,28 @@
       "sourceKind": "entry_param"
     },
     {
-      "id": "template.sink.harmony.timer.sink",
+      "id": "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.build",
       "confidence": "certain",
-      "kind": "rule.sink",
+      "kind": "rule.source",
       "value": {
         "base": {
           "kind": "arg",
           "index": 0
         }
       },
-      "sinkKind": "sink"
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony.timer.entry_param.for.source.harmony.timer.entry_param.0.method.timer_promise_then_build_010_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
     }
   ],
   "provenance": {

@@ -66,7 +66,7 @@ async function main(): Promise<void> {
             sources: [{
                 id: "source.fixture.parameterized_query",
                 sourceKind: "entry_param",
-                match: { kind: "local_name_regex", value: "^taint_src$" },
+                match: { kind: "method_name_equals", value: "onCreate" },
                 target: "arg0",
             }],
             sinks: [

@@ -106,7 +106,6 @@ function buildContractForFact(
         callbackRecognitionLayer: fact.callbackRecognitionLayer,
         callbackRegistrationSignature: fact.callbackRegistrationSignature,
         callbackArgIndex: fact.callbackArgIndex,
-        callbackStructuralEvidenceFamily: fact.callbackStructuralEvidenceFamily,
         sourceSchemas: [],
     };
 

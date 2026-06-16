@@ -65,8 +65,8 @@ function ruleAsset(): AssetDocumentBase {
                 plane: "rule",
                 role: "sink",
                 selector: {
-                    kind: "signature-contains",
-                    value: "Logger.info",
+                    kind: "method-name-equals",
+                    value: "info",
                 },
                 endpoint: arg0,
                 effectTemplateRefs: ["template.sink.arg0"],
@@ -81,8 +81,8 @@ function ruleAsset(): AssetDocumentBase {
                 plane: "rule",
                 role: "transfer",
                 selector: {
-                    kind: "signature-contains",
-                    value: "Map.set",
+                    kind: "method-name-equals",
+                    value: "set",
                     invokeKind: "instance",
                     argCount: 2,
                     scope: {
@@ -348,7 +348,7 @@ function main(): void {
     assert(source.severity === "high", "metadata severity should be preserved");
 
     const sink = lowered.ruleSet.sinks[0];
-    assert(sink.match.kind === "signature_contains", "signature selector should be preserved");
+    assert(sink.match.kind === "method_name_equals", "exact method selector should be preserved");
     assert(sink.target === "arg0", "arg endpoint should lower to arg0");
 
     const bindingEndpointAsset = ruleAsset();
@@ -356,7 +356,7 @@ function main(): void {
     delete bindingEndpointSinkTemplate.value;
     bindingEndpointAsset.bindings[1].endpoint = arg0;
     const loweredFromBindingEndpoint = lowerRuleAssetsToRuleSet([bindingEndpointAsset]);
-    assert(loweredFromBindingEndpoint.diagnostics.length === 0, "binding endpoint fallback should not produce diagnostics");
+    assert(loweredFromBindingEndpoint.diagnostics.length === 0, "binding endpoint should not produce diagnostics");
     assert(
         loweredFromBindingEndpoint.ruleSet.sinks[0].target === "arg0",
         "rule.sink without template value should lower from binding.endpoint",
@@ -410,12 +410,12 @@ function main(): void {
         argCount: 1,
     };
     const inferred = lowerRuleAssetsToRuleSet([missingSelectorAsset]);
-    assert(inferred.diagnostics.length === 0, "invoke surface should provide fallback selector");
-    assert(inferred.ruleSet.sources[0].match.value === "load", "fallback selector should use invoke surface method");
-    assert(inferred.ruleSet.sources[0].scope === undefined, "surface fallback must not constrain the caller scope");
+    assert(inferred.diagnostics.length === 0, "invoke surface should provide a surface-derived selector");
+    assert(inferred.ruleSet.sources[0].match.value === "load", "surface-derived selector should use invoke surface method");
+    assert(inferred.ruleSet.sources[0].scope === undefined, "surface-derived selector must not constrain the caller scope");
     assert(
         inferred.ruleSet.sources[0].calleeScope?.className?.value === "TokenCache",
-        "surface fallback should constrain the callee owner through calleeScope",
+        "surface-derived selector should constrain the callee owner through calleeScope",
     );
 
     const generatedProjectLowering = lowerRuleAssetsToRuleSet(
@@ -468,7 +468,7 @@ function main(): void {
     } as AssetDocumentBase]);
     assert(
         officialSurfaceLowering.ruleSet.sinks[0].match.argCount === 4,
-        "official assets should preserve surface argCount in runtime selector fallback",
+        "official assets should preserve surface argCount in runtime selector",
     );
 
     const generatedComponentSourceLowering = lowerRuleAssetsToRuleSet(

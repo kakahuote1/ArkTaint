@@ -82,10 +82,10 @@ interface EntryAnalyzeResultLike {
     pagNodeResolutionAudit?: {
         requestCount: number;
         directHitCount: number;
-        fallbackResolveCount: number;
-        awaitFallbackCount: number;
-        exprUseFallbackCount: number;
-        anchorLeftFallbackCount: number;
+        substitutedValueCount: number;
+        awaitUnwrapCount: number;
+        expressionUseResolveCount: number;
+        anchorLeftResolveCount: number;
         addAttemptCount: number;
         addFailureCount: number;
         unresolvedCount: number;
@@ -346,7 +346,7 @@ export function renderMarkdownReport(report: AnalyzeReportLike): string {
     if (report.summary.memoryProfile) {
         lines.push(`- memoryProfile: peakRssMiB=${report.summary.memoryProfile.peakRssMiB}, peakHeapUsedMiB=${report.summary.memoryProfile.peakHeapUsedMiB}, rssMiB=${report.summary.memoryProfile.rssMiB}, heapUsedMiB=${report.summary.memoryProfile.heapUsedMiB}, samples=${report.summary.memoryProfile.sampleCount}`);
     }
-    lines.push(`- pagNodeResolutionAudit: requests=${pagAudit.requestCount || 0}, directHits=${pagAudit.directHitCount || 0}, fallbacks=${pagAudit.fallbackResolveCount || 0}, addFailures=${pagAudit.addFailureCount || 0}, unresolved=${pagAudit.unresolvedCount || 0}`);
+    lines.push(`- pagNodeResolutionAudit: requests=${pagAudit.requestCount || 0}, directHits=${pagAudit.directHitCount || 0}, substitutions=${pagAudit.substitutedValueCount || 0}, addFailures=${pagAudit.addFailureCount || 0}, unresolved=${pagAudit.unresolvedCount || 0}`);
     if (report.summary.arkMainSeeds) {
         const arkmain = report.summary.arkMainSeeds;
         lines.push(`- arkMainSeeds: enabled=${arkmain.enabled}, methods=${arkmain.methodCount}, facts=${arkmain.factCount}`);
@@ -425,7 +425,7 @@ export function renderMarkdownReport(report: AnalyzeReportLike): string {
         lines.push(`  - transferProfile: checks=${e.transferProfile.ruleCheckCount}, matches=${e.transferProfile.ruleMatchCount}, endpointMatches=${e.transferProfile.endpointMatchCount}, results=${e.transferProfile.resultCount}, dedupSkips=${e.transferProfile.dedupSkipCount}, elapsedMs=${e.transferProfile.elapsedMs}`);
         lines.push(`  - detectProfile: calls=${e.detectProfile.detectCallCount}, sinksChecked=${e.detectProfile.sinksChecked}, sanitizerChecks=${e.detectProfile.sanitizerGuardCheckCount}, sanitizerHits=${e.detectProfile.sanitizerGuardHitCount}, signatureMs=${e.detectProfile.signatureMatchMs}, candidateMs=${e.detectProfile.candidateResolveMs}, taintMs=${e.detectProfile.taintEvalMs}, sanitizerMs=${e.detectProfile.sanitizerGuardMs}, traversalMs=${e.detectProfile.traversalMs}, totalMs=${e.detectProfile.totalMs}`);
         if (e.pagNodeResolutionAudit) {
-            lines.push(`  - pagNodeResolutionAudit: requests=${e.pagNodeResolutionAudit.requestCount}, directHits=${e.pagNodeResolutionAudit.directHitCount}, fallbacks=${e.pagNodeResolutionAudit.fallbackResolveCount}, addFailures=${e.pagNodeResolutionAudit.addFailureCount}, unresolved=${e.pagNodeResolutionAudit.unresolvedCount}`);
+            lines.push(`  - pagNodeResolutionAudit: requests=${e.pagNodeResolutionAudit.requestCount}, directHits=${e.pagNodeResolutionAudit.directHitCount}, substitutions=${e.pagNodeResolutionAudit.substitutedValueCount}, addFailures=${e.pagNodeResolutionAudit.addFailureCount}, unresolved=${e.pagNodeResolutionAudit.unresolvedCount}`);
         }
         if (e.transferNoHitReasons.length > 0) {
             lines.push(`  - transferNoHitReasons: ${e.transferNoHitReasons.join(",")}`);

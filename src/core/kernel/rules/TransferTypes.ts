@@ -13,7 +13,6 @@ export type RuleMatchKind = SchemaRuleMatchKind;
 
 export interface RuntimeRule {
     rule: TransferRule;
-    matchRegex?: RegExp;
     normalizedMatchValue?: string;
     exactSignatureMatch?: string;
     exactDeclaringClassMatch?: string;

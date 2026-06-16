@@ -125,10 +125,7 @@ function writeRules(rulePath: string): void {
                 {
                     id: "source.fixture.project_router_wrapper",
                     sourceKind: "entry_param",
-                    match: {
-                        kind: "local_name_regex",
-                        value: "^taint_src$",
-                    },
+                    match: { kind: "method_name_equals", value: "onCreate" },
                     target: "arg0",
                 },
             ],

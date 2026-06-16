@@ -88,14 +88,6 @@ function instanceMethodEquals(value: string): RuleMatch {
     return { kind: "method_name_equals", value, invokeKind: "instance" };
 }
 
-function signatureContains(value: string): RuleMatch {
-    return { kind: "signature_contains", value };
-}
-
-function signatureRegex(value: string): RuleMatch {
-    return { kind: "signature_regex", value };
-}
-
 function apiCallReturn(
     id: string,
     description: string,
@@ -208,31 +200,31 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
             apiFieldRead(
                 "source.harmony.rdb.changeInfo.table",
                 "ChangeInfo.table field read as database-change metadata source.",
-                { kind: "local_name_regex", value: "^table$" },
+                { kind: "field_name_equals", value: "table" },
                 exactClassRegexScope("ChangeInfo"),
             ),
             apiFieldRead(
                 "source.harmony.rdb.changeInfo.type",
                 "ChangeInfo.type field read as database-change metadata source.",
-                { kind: "local_name_regex", value: "^type$" },
+                { kind: "field_name_equals", value: "type" },
                 exactClassRegexScope("ChangeInfo"),
             ),
             apiFieldRead(
                 "source.harmony.rdb.changeInfo.inserted",
                 "ChangeInfo.inserted field read as database-change metadata source.",
-                { kind: "local_name_regex", value: "^inserted$" },
+                { kind: "field_name_equals", value: "inserted" },
                 exactClassRegexScope("ChangeInfo"),
             ),
             apiFieldRead(
                 "source.harmony.rdb.changeInfo.updated",
                 "ChangeInfo.updated field read as database-change metadata source.",
-                { kind: "local_name_regex", value: "^updated$" },
+                { kind: "field_name_equals", value: "updated" },
                 exactClassRegexScope("ChangeInfo"),
             ),
             apiFieldRead(
                 "source.harmony.rdb.changeInfo.deleted",
                 "ChangeInfo.deleted field read as database-change metadata source.",
-                { kind: "local_name_regex", value: "^deleted$" },
+                { kind: "field_name_equals", value: "deleted" },
                 exactClassRegexScope("ChangeInfo"),
             ),
         ],
@@ -246,7 +238,8 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
             apiCallReturn(
                 "source.harmony.globalcontext.getObject.result",
                 "GlobalContext.getObject() return value as framework object source.",
-                signatureContains("GlobalContext.getObject"),
+                methodEquals("getObject"),
+                exactClassRegexScope("GlobalContext"),
             ),
         ],
     },
@@ -361,7 +354,8 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
             apiCallReturn(
                 "source.harmony.request.cacheDownload.result",
                 "cacheDownload.download() return value as request task source.",
-                signatureRegex("cacheDownload.*\\.download"),
+                methodEquals("download"),
+                exactClassRegexScope("cacheDownload", "CacheDownload"),
             ),
         ],
     },
@@ -411,12 +405,28 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
         description: "MessageParcel and MessageSequence read APIs surface IPC payload values.",
         tags: [...API_SOURCE_TAGS, "ipc", "message_parcel"],
         schemas: [
-            apiCallReturn(
-                "source.harmony.ipc.messageparcel.read.result",
-                "MessageParcel/MessageSequence read*() return value as IPC payload source, excluding readException.",
-                { kind: "method_name_regex", value: "^read(?!Exception$).+", invokeKind: "instance" },
+            ...[
+                "readBoolean",
+                "readByte",
+                "readShort",
+                "readInt",
+                "readLong",
+                "readFloat",
+                "readDouble",
+                "readString",
+                "readChar",
+                "readSequenceable",
+                "readParcelable",
+                "readRemoteObject",
+                "readFileDescriptor",
+                "readRawData",
+                "readBuffer",
+            ].map(method => apiCallReturn(
+                `source.harmony.ipc.messageparcel.${method}.result`,
+                `${method}() return value as IPC payload source.`,
+                { kind: "method_name_equals", value: method, invokeKind: "instance" },
                 exactClassRegexScope("MessageParcel", "MessageSequence"),
-            ),
+            )),
         ],
     },
     {
@@ -476,17 +486,17 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
             apiCallReturn(
                 "source.harmony.telephony.getIMEI",
                 "getIMEI() return value as device identifier source.",
-                signatureContains("getIMEI"),
+                methodEquals("getIMEI"),
             ),
             apiCallReturn(
                 "source.harmony.oaid.getOAID",
                 "getOAID() return value as device identifier source.",
-                signatureContains("getOAID"),
+                methodEquals("getOAID"),
             ),
             apiFieldRead(
                 "source.harmony.deviceInfo.udid",
                 "deviceInfo.udid field read as device identifier source.",
-                signatureContains("deviceInfo"),
+                { kind: "field_name_equals", value: "udid" },
                 exactClassRegexScope("deviceInfo"),
             ),
         ],
@@ -500,13 +510,13 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
             apiCallReturn(
                 "source.harmony.geo.getCurrentLocation",
                 "getCurrentLocation() return value as location source.",
-                signatureContains("getCurrentLocation"),
+                methodEquals("getCurrentLocation"),
                 classContainsScope("geoLocation"),
             ),
             apiCallReturn(
                 "source.harmony.geo.getLastLocation",
                 "getLastLocation() return value as location source.",
-                signatureContains("getLastLocation"),
+                methodEquals("getLastLocation"),
                 classContainsScope("geoLocation"),
             ),
         ],
@@ -520,32 +530,32 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
             apiCallReturn(
                 "source.harmony.sim.getSimAccountInfo",
                 "getSimAccountInfo() return value as telephony source.",
-                signatureContains("getSimAccountInfo"),
+                methodEquals("getSimAccountInfo"),
             ),
             apiCallReturn(
                 "source.harmony.sim.getVoiceMailNumber",
                 "getVoiceMailNumber() return value as telephony source.",
-                signatureContains("getVoiceMailNumber"),
+                methodEquals("getVoiceMailNumber"),
             ),
             apiCallReturn(
                 "source.harmony.sim.getSimSpn",
                 "getSimSpn() return value as telephony source.",
-                signatureContains("getSimSpn"),
+                methodEquals("getSimSpn"),
             ),
             apiCallReturn(
                 "source.harmony.telephony.getIMEISV",
                 "getIMEISV() return value as telephony source.",
-                signatureContains("getIMEISV"),
+                methodEquals("getIMEISV"),
             ),
             apiCallReturn(
                 "source.harmony.telephony.getCellInformation",
                 "getCellInformation() return value as telephony source.",
-                signatureContains("getCellInformation"),
+                methodEquals("getCellInformation"),
             ),
             apiCallReturn(
                 "source.harmony.telephony.getNetworkState",
                 "getNetworkState() return value as telephony source.",
-                signatureContains("getNetworkState"),
+                methodEquals("getNetworkState"),
             ),
         ],
     },
@@ -558,7 +568,7 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
             apiCallReturn(
                 "source.harmony.wifi.getLinkedInfo",
                 "getLinkedInfo() return value as Wi-Fi source.",
-                signatureContains("getLinkedInfo"),
+                methodEquals("getLinkedInfo"),
                 classContainsScope("wifi"),
             ),
             apiCallReturn(
@@ -570,12 +580,12 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
             apiCallReturn(
                 "source.harmony.wifi.getScanInfoList",
                 "getScanInfoList() return value as Wi-Fi source.",
-                signatureContains("getScanInfoList"),
+                methodEquals("getScanInfoList"),
             ),
             apiCallReturn(
                 "source.harmony.wifi.getDeviceMacAddress",
                 "getDeviceMacAddress() return value as Wi-Fi source.",
-                signatureContains("getDeviceMacAddress"),
+                methodEquals("getDeviceMacAddress"),
             ),
             apiCallReturn(
                 "source.harmony.wifi.getIpInfo",
@@ -586,7 +596,7 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
             apiCallReturn(
                 "source.harmony.wifi.getIpv6Info",
                 "getIpv6Info() return value as Wi-Fi source.",
-                signatureContains("getIpv6Info"),
+                methodEquals("getIpv6Info"),
             ),
         ],
     },
@@ -599,7 +609,7 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
             apiCallReturn(
                 "source.harmony.calendar.getEvents",
                 "getEvents() return value as calendar source.",
-                signatureContains("getEvents"),
+                methodEquals("getEvents"),
                 classContainsScope("Calendar"),
             ),
         ],
@@ -613,7 +623,7 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
             apiCallReturn(
                 "source.harmony.audio.capturer.read",
                 "AudioCapturer.read() return value as audio source.",
-                signatureContains("AudioCapturer"),
+                methodEquals("read"),
                 mergeScopes(classContainsScope("AudioCapturer"), methodEqualsScope("read")),
             ),
         ],
@@ -627,28 +637,28 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
             apiCallReturn(
                 "source.harmony.ble.readCharacteristic",
                 "readCharacteristicValue() return value as Bluetooth source.",
-                signatureContains("readCharacteristicValue"),
+                methodEquals("readCharacteristicValue"),
             ),
             apiCallReturn(
                 "source.harmony.ble.readDescriptor",
                 "readDescriptorValue() return value as Bluetooth source.",
-                signatureContains("readDescriptorValue"),
+                methodEquals("readDescriptorValue"),
             ),
             apiCallReturn(
                 "source.harmony.bt.getPairedDevices",
                 "getPairedDevices() return value as Bluetooth source.",
-                signatureContains("getPairedDevices"),
+                methodEquals("getPairedDevices"),
             ),
             apiCallReturn(
                 "source.harmony.bt.getLocalName",
                 "getLocalName() return value as Bluetooth source.",
-                signatureContains("getLocalName"),
+                methodEquals("getLocalName"),
                 classContainsScope("bluetooth"),
             ),
             apiCallReturn(
                 "source.harmony.ble.getConnectedDevices",
                 "getConnectedBLEDevices() return value as Bluetooth source.",
-                signatureContains("getConnectedBLEDevices"),
+                methodEquals("getConnectedBLEDevices"),
             ),
         ],
     },
@@ -661,7 +671,7 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
             apiCallReturn(
                 "source.harmony.photo.getAssets",
                 "getAssets() return value as media source.",
-                signatureContains("getAssets"),
+                methodEquals("getAssets"),
                 classContainsScope("PhotoAccessHelper"),
             ),
         ],
@@ -675,7 +685,7 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
             apiCallReturn(
                 "source.harmony.dataShare.query",
                 "DataShareHelper.query() return value as shared-data source.",
-                signatureContains("DataShareHelper"),
+                methodEquals("query"),
                 methodEqualsScope("query"),
             ),
         ],
@@ -689,7 +699,7 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
             apiCallReturn(
                 "source.harmony.account.getOsAccountName",
                 "getOsAccountName() return value as account source.",
-                signatureContains("getOsAccountName"),
+                methodEquals("getOsAccountName"),
             ),
         ],
     },
@@ -728,7 +738,7 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
             apiCallReturn(
                 "source.harmony.settings.getValueSync",
                 "settings.getValueSync() return value as settings source.",
-                signatureContains("getValueSync"),
+                methodEquals("getValueSync"),
                 classContainsScope("settings"),
             ),
         ],
@@ -742,7 +752,7 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
             apiCallReturn(
                 "source.harmony.systemParam.get",
                 "systemParameterEnhance.get() return value as system source.",
-                signatureContains("systemParameterEnhance"),
+                methodEquals("get"),
                 methodEqualsScope("get"),
             ),
         ],
@@ -756,7 +766,7 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
             apiCallReturn(
                 "source.harmony.display.getDefaultDisplay",
                 "getDefaultDisplay() return value as display source.",
-                signatureContains("getDefaultDisplay"),
+                methodEquals("getDefaultDisplay"),
             ),
         ],
     },
@@ -769,7 +779,7 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
             apiCallReturn(
                 "source.harmony.unifiedData.getValue",
                 "UnifiedRecord.getValue() return value as data record source.",
-                signatureContains("UnifiedRecord"),
+                methodEquals("getValue"),
                 methodEqualsScope("getValue"),
             ),
         ],
@@ -793,12 +803,12 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
             apiCallReturn(
                 "source.harmony.distributed.getLocalDeviceNetworkId",
                 "getLocalDeviceNetworkId() return value as distributed-device source.",
-                signatureContains("getLocalDeviceNetworkId"),
+                methodEquals("getLocalDeviceNetworkId"),
             ),
             apiCallReturn(
                 "source.harmony.distributed.getAvailableDeviceList",
                 "getAvailableDeviceList() return value as distributed-device source.",
-                signatureContains("getAvailableDeviceList"),
+                methodEquals("getAvailableDeviceList"),
             ),
         ],
     },
@@ -811,7 +821,7 @@ export const FRAMEWORK_API_SOURCE_FAMILY_CONTRACTS: readonly FrameworkApiSourceF
             apiCallReturn(
                 "source.harmony.wantAgent.getWant",
                 "wantAgent.getWant() return value as ability handoff source.",
-                signatureContains("getWant"),
+                methodEquals("getWant"),
                 classContainsScope("wantAgent"),
             ),
         ],

@@ -6,7 +6,7 @@ import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 
 export interface ResolvedCallee {
     method: any;
-    reason: "exact" | "name_fallback" | "reflect_fallback" | "type_fallback";
+    reason: "exact" | "interface_dispatch" | "receiver_owner_dispatch" | "callable_dispatch";
 }
 
 export interface CalleeResolveOptions {
@@ -119,87 +119,39 @@ export function resolveCalleeCandidates(
             const narrowed = receiverOwner
                 ? interfaceTargets.filter(method => methodOwnerMatches(method, receiverOwner))
                 : interfaceTargets;
-            if (narrowed.length > 0) {
-                return narrowed.map(method => ({ method, reason: "type_fallback" as const }));
+            if (receiverOwner && narrowed.length === 1) {
+                return narrowed.map(method => ({ method, reason: "interface_dispatch" as const }));
             }
         }
     }
 
     if (reflectDispatch) {
-        const reflectTargets = resolveReflectDispatchTargets(scene, invokeExpr, maxNameMatchCandidates, options);
-        if (reflectTargets.length > 0) {
-            return reflectTargets.map(method => ({ method, reason: "reflect_fallback" as const }));
-        }
-        if (exact && exact.getCfg?.()) {
-            return [{ method: exact, reason: "exact" }];
+        return [];
+    }
+
+    if (isInstanceInvokeLike(invokeExpr)) {
+        const receiverOwner = resolveConcreteReceiverOwnerForInvoke(scene, invokeExpr, options);
+        const methodName = resolveInvokeMethodName(invokeExpr);
+        const argCount = invokeExpr?.getArgs ? invokeExpr.getArgs().length : 0;
+        const ownerTargets = receiverOwner && methodName
+            ? dedupeByMethodSignature(idx.byNormalizedName.get(methodName) || [])
+                .filter(method => !!method?.getCfg?.())
+                .filter(method => !isStaticMethod(method))
+                .filter(method => methodOwnerMatches(method, receiverOwner))
+                .filter(method => isMethodArgCountCompatible(method, argCount, true))
+            : [];
+        if (ownerTargets.length === 1) {
+            return ownerTargets.map(method => ({ method, reason: "receiver_owner_dispatch" as const }));
         }
     }
 
     if (options.enableDirectCallableTargets !== false) {
         const typeTargets = resolveDirectCallableTargets(scene, invokeExpr, maxNameMatchCandidates, options);
-        if (typeTargets.length > 0) {
-            return typeTargets.map(method => ({ method, reason: "type_fallback" as const }));
+        if (typeTargets.length === 1) {
+            return typeTargets.map(method => ({ method, reason: "callable_dispatch" as const }));
         }
     }
-
-    const methodName = resolveInvokeMethodName(invokeExpr);
-    if (!methodName) return [];
-
-    const expectedOwner = resolveExpectedOwnerForInvoke(invokeExpr, invokeSig);
-    const expectedDeclaringFile = extractDeclaringFileFromSignature(invokeSig);
-    const argCount = invokeExpr?.getArgs ? invokeExpr.getArgs().length : 0;
-    const isInstanceInvoke = isInstanceInvokeLike(invokeExpr);
-    const isStaticInvoke = isStaticInvokeLike(invokeExpr);
-
-    let candidates = (idx.byNormalizedName.get(methodName) || [])
-        .filter(m => !!m.getCfg())
-        .filter(m => isMethodArgCountCompatible(m, argCount, isInstanceInvoke));
-
-    if (isInstanceInvoke) {
-        candidates = candidates.filter(m => !isStaticMethod(m));
-    } else if (isStaticInvoke) {
-        candidates = candidates.filter(m => isStaticMethod(m));
-    }
-
-    if (expectedOwner) {
-        const ownerMatched = candidates.filter(m => extractOwnerNameFromSignature(safeMethodSignatureText(m)) === expectedOwner);
-        if (ownerMatched.length > 0) {
-            candidates = ownerMatched;
-        }
-    }
-
-    if (isInstanceInvoke) {
-        const symbolicReceiverOwner = resolveSymbolicReceiverOwnerForInvoke(invokeExpr);
-        if (symbolicReceiverOwner) {
-            const ownerMatched = candidates.filter(m => methodOwnerMatches(m, symbolicReceiverOwner));
-            if (ownerMatched.length > 0) {
-                candidates = ownerMatched;
-            }
-        }
-    }
-
-    if (expectedDeclaringFile) {
-        const fileMatched = candidates.filter(m => extractDeclaringFileFromSignature(safeMethodSignatureText(m)) === expectedDeclaringFile);
-        if (fileMatched.length > 0) {
-            candidates = fileMatched;
-        }
-    }
-
-    if (isInstanceInvoke) {
-        const receiverOwner = resolveConcreteReceiverOwnerForInvoke(scene, invokeExpr, options);
-        if (receiverOwner) {
-            const receiverMatched = candidates.filter(m => methodOwnerMatches(m, receiverOwner));
-            if (receiverMatched.length > 0) {
-                candidates = receiverMatched;
-            }
-        }
-    }
-
-    if (candidates.length === 0 || candidates.length > maxNameMatchCandidates) {
-        return [];
-    }
-
-    return candidates.map(method => ({ method, reason: "name_fallback" as const }));
+    return [];
 }
 
 export function isReflectDispatchInvoke(invokeExpr: any): boolean {
@@ -443,6 +395,14 @@ function collectInvokedThisFields(
     }
 
     return invokedFields;
+}
+
+export function resolveConcreteReceiverOwnerName(
+    scene: Scene,
+    invokeExpr: any,
+    options: CalleeResolveOptions = {},
+): string | undefined {
+    return resolveConcreteReceiverOwnerForInvoke(scene, invokeExpr, options);
 }
 
 function resolveInterfaceDispatchTargets(
@@ -703,6 +663,11 @@ function resolveConcreteOwnerFromValue(
     if (!value) return undefined;
     if (visiting.size > (options.maxCallableResolveDepth ?? DEFAULT_MAX_CALLABLE_RESOLVE_DEPTH)) {
         return undefined;
+    }
+
+    const ownerFromType = extractOwnerFromTypeText(safeTypeText(safeGetValueType(value)));
+    if (ownerFromType) {
+        return ownerFromType;
     }
 
     const visitKey = getConcreteOwnerVisitKey(value);
@@ -1885,6 +1850,18 @@ function safeValueText(value: any): string {
         return String(value?.toString?.() || value || "");
     } catch {
         return "[unprintable]";
+    }
+}
+
+function safeTypeText(type: any): string {
+    try {
+        const classSignature = type?.getClassSignature?.()?.toString?.();
+        if (classSignature) {
+            return String(classSignature);
+        }
+        return String(type?.toString?.() || type || "");
+    } catch {
+        return "";
     }
 }
 

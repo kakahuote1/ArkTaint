@@ -57,7 +57,7 @@ export interface EntryApi {
     getScene(): Scene;
     getDefaultEntries(): readonly ArkMethod[];
     addEntry(entry: ArkMethod): void;
-    replace(fn: (scene: Scene, fallback: EntryDiscoverer) => EntryPlan): void;
+    replace(fn: (scene: Scene) => EntryPlan): void;
 }
 
 export interface PropagationInput {
@@ -84,7 +84,7 @@ export interface PropagationApi {
     addBridge(decl: BridgeDecl): void;
     addSyntheticEdge(decl: SyntheticEdgeDecl): void;
     enqueueFact(decl: EnqueueFactDecl): void;
-    replace(fn: (input: PropagationInput, fallback: Propagator) => PropagationOutput): void;
+    replace(fn: (input: PropagationInput) => PropagationOutput): void;
 }
 
 export interface DetectionContext {
@@ -116,7 +116,7 @@ export interface SinkDetectionRunner {
 export interface DetectionApi {
     getTaintFacts(): ReadonlyMap<number, readonly TaintFact[]>;
     addCheck(name: string, fn: (ctx: DetectionContext) => TaintFlow[]): void;
-    replace(fn: (input: DetectionInput, fallback: SinkDetectionRunner) => TaintFlow[]): void;
+    replace(fn: (input: DetectionInput) => TaintFlow[]): void;
 }
 
 export interface ResultApi {

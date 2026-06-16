@@ -74,9 +74,15 @@ function main(): void {
         sources: [
             {
                 id: "source.layout.alpha",
-                sourceKind: "seed_local_name",
-                match: { kind: "local_name_regex", value: "^layout_alpha$" },
-                target: "result",
+                sourceKind: "entry_param",
+                match: {
+                    kind: "method_name_equals",
+                    value: "layoutEntry",
+                    invokeKind: "static",
+                    argCount: 1,
+                    scope: { file: { mode: "contains", value: "layout_fixture.ets" } },
+                },
+                target: "arg0",
             },
         ],
     }));
@@ -85,7 +91,13 @@ function main(): void {
         sinks: [
             {
                 id: "sink.layout.omega",
-                match: { kind: "method_name_equals", value: "SendLayout" },
+                match: {
+                    kind: "method_name_equals",
+                    value: "SendLayout",
+                    invokeKind: "static",
+                    argCount: 1,
+                    calleeScope: { file: { mode: "contains", value: "layout_fixture.ets" } },
+                },
             },
         ],
     }));
@@ -97,7 +109,13 @@ function main(): void {
         transfers: [
             {
                 id: "transfer.layout.beta",
-                match: { kind: "method_name_equals", value: "BridgeLayout" },
+                match: {
+                    kind: "method_name_equals",
+                    value: "BridgeLayout",
+                    invokeKind: "static",
+                    argCount: 1,
+                    calleeScope: { file: { mode: "contains", value: "layout_fixture.ets" } },
+                },
                 from: "arg0",
                 to: "result",
             },

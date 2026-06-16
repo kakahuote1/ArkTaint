@@ -24,13 +24,13 @@ export class PluginRuntimeFixture extends UIAbility {
 
     manualFlowEntry(): void {
         taint.Source();
-        const safe = "safe";
+        const safe = taint.Clean();
         taint.Sink(safe);
     }
 
     manualSyntheticEntry(): void {
         taint.Source();
-        const safe = "safe";
+        const safe = taint.Clean();
         taint.Sink(safe);
     }
 

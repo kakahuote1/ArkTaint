@@ -97,7 +97,7 @@ async function runTransferGovernanceProbe(): Promise<void> {
             id: "source.runtime.transfer.entry",
             sourceKind: "entry_param",
             target: "arg0",
-            match: { kind: "local_name_regex", value: "^taint_src$" },
+            match: { kind: "method_name_equals", value: "transfer_priority_002_T" },
         },
     ];
     const sinkRules: SinkRule[] = [
@@ -148,7 +148,7 @@ async function runSinkGovernanceProbe(): Promise<void> {
             id: "source.runtime.sink.entry",
             sourceKind: "entry_param",
             target: "arg0",
-            match: { kind: "local_name_regex", value: "^taint_src$" },
+            match: { kind: "method_name_equals", value: "sink_target_arg0_001_T" },
         },
     ];
     const sinkRules: SinkRule[] = [
@@ -181,14 +181,12 @@ async function runSanitizerGovernanceProbe(): Promise<void> {
     const scene = buildScene(path.resolve("tests/demo/rule_precision_sanitizer"));
     const escapeSig = findMethodSignature(scene, "Escape", "taint_mock");
 
-    const sourceRules: SourceRule[] = [
-        {
-            id: "source.runtime.sanitizer.entry",
-            sourceKind: "entry_param",
-            target: "arg0",
-            match: { kind: "local_name_regex", value: "^taint_src$" },
-        },
-    ];
+    const sourceRules: SourceRule[] = ["sanitize_result_001_F", "sanitize_result_002_T"].map(name => ({
+        id: `source.runtime.sanitizer.entry.${name}`,
+        sourceKind: "entry_param",
+        target: "arg0",
+        match: { kind: "method_name_equals", value: name },
+    }));
     const sinkRules: SinkRule[] = [
         {
             id: "sink.runtime.sanitizer.arg0",

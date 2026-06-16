@@ -187,7 +187,7 @@ export interface ActivePropagationHooks {
     onCallEdge(event: CallEdgeEvent): PropagationContributionBatch;
     onTaintFlow(event: TaintFlowEvent): PropagationContributionBatch;
     onMethodReached(event: MethodReachedEvent): PropagationContributionBatch;
-    run(input: PropagationInput, fallback: Propagator): PropagationOutput;
+    run(input: PropagationInput, defaultRunner: Propagator): PropagationOutput;
 }
 
 export class EnginePluginRuntime {
@@ -318,19 +318,19 @@ export class EnginePluginRuntime {
         };
     }
 
-    resolveEntries(defaultEntries: ArkMethod[], fallback: EntryDiscoverer): ArkMethod[] {
+    resolveEntries(defaultEntries: ArkMethod[], _defaultDiscoverer: EntryDiscoverer): ArkMethod[] {
         if (this.plugins.length === 0) {
             return [...defaultEntries];
         }
 
         const addedEntries = new Map<string, ArkMethod>();
         let replacePluginName: string | undefined;
-        let replaceFn: ((scene: Scene, fallback: EntryDiscoverer) => EntryPlan) | undefined;
+        let replaceFn: ((scene: Scene) => EntryPlan) | undefined;
 
         for (const plugin of this.plugins) {
             if (this.failedPluginNames.has(plugin.name)) continue;
             const stagedEntries = new Map<string, ArkMethod>();
-            let stagedReplaceFn: ((scene: Scene, fallback: EntryDiscoverer) => EntryPlan) | undefined;
+            let stagedReplaceFn: ((scene: Scene) => EntryPlan) | undefined;
             this.currentPluginName = plugin.name;
             this.requirePluginStats(plugin.name).entryHookCalls++;
             const api: EntryApi = {
@@ -386,7 +386,7 @@ export class EnginePluginRuntime {
             return [...defaultEntries];
         }
         const baseEntries = replaceFn
-            ? replaceFn(this.scene, fallback).orderedMethods
+            ? replaceFn(this.scene).orderedMethods
             : [...defaultEntries];
         return this.mergeEntries(baseEntries, [...addedEntries.values()]);
     }
@@ -397,14 +397,14 @@ export class EnginePluginRuntime {
         const taintFlowObservers: Array<{ pluginName: string; observer: (event: TaintFlowEvent) => void }> = [];
         const methodReachedObservers: Array<{ pluginName: string; observer: (event: MethodReachedEvent) => void }> = [];
         let replacePluginName: string | undefined;
-        let replaceFn: ((input: PropagationInput, fallback: Propagator) => PropagationOutput) | undefined;
+        let replaceFn: ((input: PropagationInput) => PropagationOutput) | undefined;
 
         for (const plugin of this.plugins) {
             if (this.failedPluginNames.has(plugin.name)) continue;
             const stagedCallEdgeObservers: Array<(event: CallEdgeEvent) => void> = [];
             const stagedTaintFlowObservers: Array<(event: TaintFlowEvent) => void> = [];
             const stagedMethodReachedObservers: Array<(event: MethodReachedEvent) => void> = [];
-            let stagedReplaceFn: ((input: PropagationInput, fallback: Propagator) => PropagationOutput) | undefined;
+            let stagedReplaceFn: ((input: PropagationInput) => PropagationOutput) | undefined;
             this.currentPluginName = plugin.name;
             this.requirePluginStats(plugin.name).propagationHookCalls++;
             const api: PropagationApi = {
@@ -490,11 +490,11 @@ export class EnginePluginRuntime {
             onMethodReached: (event) => {
                 return this.collectPropagationContributions(methodReachedObservers, event);
             },
-            run: (input, fallback) => {
+            run: (input, defaultRunner) => {
                 if (this.dryRun || !replaceFn) {
-                    return fallback.run(input);
+                    return defaultRunner.run(input);
                 }
-                return replaceFn(input, fallback);
+                return replaceFn(input);
             },
         };
     }
@@ -502,20 +502,20 @@ export class EnginePluginRuntime {
     runDetection(
         input: DetectionInput,
         ctx: DetectionContext,
-        fallback: SinkDetectionRunner,
+        defaultRunner: SinkDetectionRunner,
     ): TaintFlow[] {
         if (this.plugins.length === 0) {
-            return fallback.run(input);
+            return defaultRunner.run(input);
         }
 
         const checks: Array<{ pluginName: string; name: string; run: (ctx: DetectionContext) => TaintFlow[] }> = [];
         let replacePluginName: string | undefined;
-        let replaceFn: ((input: DetectionInput, fallback: SinkDetectionRunner) => TaintFlow[]) | undefined;
+        let replaceFn: ((input: DetectionInput) => TaintFlow[]) | undefined;
 
         for (const plugin of this.plugins) {
             if (this.failedPluginNames.has(plugin.name)) continue;
             const stagedChecks: Array<{ name: string; run: (ctx: DetectionContext) => TaintFlow[] }> = [];
-            let stagedReplaceFn: ((input: DetectionInput, fallback: SinkDetectionRunner) => TaintFlow[]) | undefined;
+            let stagedReplaceFn: ((input: DetectionInput) => TaintFlow[]) | undefined;
             this.currentPluginName = plugin.name;
             this.requirePluginStats(plugin.name).detectionHookCalls++;
             const api: DetectionApi = {
@@ -558,8 +558,8 @@ export class EnginePluginRuntime {
         };
 
         const findings = this.dryRun || !replaceFn
-            ? fallback.run(input)
-            : replaceFn(input, fallback);
+            ? defaultRunner.run(input)
+            : replaceFn(input);
         if (this.dryRun) {
             return findings;
         }

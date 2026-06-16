@@ -71,14 +71,21 @@ async function main(): Promise<void> {
     const sinkArg1Sig = findMethodSignature(scene, "SinkArg1", "taint_mock");
     const invokeKindHostClassSig = findDeclaringClassSignature(scene, "InvokeKindHost", "SinkInvokeKind");
 
-    const sourceRules: SourceRule[] = [
-        {
-            id: "source.sink_exact.entry_param.taint_src",
-            sourceKind: "entry_param",
-            target: "arg0",
-            match: { kind: "local_name_regex", value: "^taint_src$" },
-        },
+    const cases: CaseSpec[] = [
+        { name: "sink_target_arg0_001_T", expected: true },
+        { name: "sink_target_arg0_002_F", expected: false },
+        { name: "sink_target_arg1_003_T", expected: true },
+        { name: "sink_target_arg1_004_F", expected: false },
+        { name: "sink_invoke_kind_007_T", expected: true },
+        { name: "sink_invoke_kind_008_F", expected: false },
     ];
+
+    const sourceRules: SourceRule[] = cases.map(c => ({
+        id: `source.sink_exact.entry_param.${c.name}`,
+        sourceKind: "entry_param",
+        target: "arg0",
+        match: { kind: "method_name_equals", value: c.name },
+    }));
 
     const sinkRules: SinkRule[] = [
         {
@@ -109,15 +116,6 @@ async function main(): Promise<void> {
         transfers: [],
     });
     assert(validation.valid, `sink exact-match rules invalid: ${validation.errors.join("; ")}`);
-
-    const cases: CaseSpec[] = [
-        { name: "sink_target_arg0_001_T", expected: true },
-        { name: "sink_target_arg0_002_F", expected: false },
-        { name: "sink_target_arg1_003_T", expected: true },
-        { name: "sink_target_arg1_004_F", expected: false },
-        { name: "sink_invoke_kind_007_T", expected: true },
-        { name: "sink_invoke_kind_008_F", expected: false },
-    ];
 
     let passCount = 0;
     for (const c of cases) {

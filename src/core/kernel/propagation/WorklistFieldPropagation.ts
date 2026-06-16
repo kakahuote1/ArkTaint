@@ -6,13 +6,14 @@ import { Local } from "../../../../arkanalyzer/out/src/core/base/Local";
 import { Constant } from "../../../../arkanalyzer/out/src/core/base/Constant";
 import { Scene } from "../../../../arkanalyzer/out/src/Scene";
 import { ArkCastExpr, ArkInstanceInvokeExpr, ArkStaticInvokeExpr } from "../../../../arkanalyzer/out/src/core/base/Expr";
-import { MAX_TAINT_FIELD_PATH_SEGMENTS, TaintFact } from "../model/TaintFact";
+import { MAX_FIELD_PATH_SEGMENTS } from "../field/FieldPath";
+import { TaintFact } from "../model/TaintFact";
 import { TaintTracker } from "../model/TaintTracker";
 import { toContainerFieldKey } from "../model/ContainerSlotKeys";
 import { TaintContextManager } from "../context/TaintContext";
 import { collectAliasLocalsForCarrier, collectCarrierNodeIdsForValueAtStmt } from "../ordinary/OrdinaryAliasPropagation";
 import { isCarrierFieldPathLiveAtStmt } from "../ordinary/OrdinaryObjectInvalidation";
-import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
+import { resolveExistingPagNodes, resolveOrCreateExactPagNodes } from "../contracts/PagNodeResolution";
 import { getMethodBySignature } from "../contracts/MethodLookup";
 
 const getterReturnFieldPathCache: WeakMap<Scene, Map<string, string[] | null>> = new WeakMap();
@@ -44,7 +45,7 @@ export function propagateReflectGetFieldLoadsByObj(
             if (!isReflectLikeCall(rightOp, "get")) continue;
 
             const args = rightOp.getArgs ? rightOp.getArgs() : [];
-            if (args.length < 2 || args[0] !== val) continue;
+            if (args.length < 2 || !sameLocalValue(args[0], val)) continue;
 
             const keyText = `${args[1]}`;
             const normalizedField = keyText.replace(/^['"`]/, "").replace(/['"`]$/, "");
@@ -84,9 +85,9 @@ export function propagateDirectFieldLoadsByLocal(
     const seen = new Set<string>();
     const fieldName = fieldPath[0];
     const val = taintedNode.getValue();
-    if (!(val instanceof Local)) return results;
+    if (!isLocalLikeValue(val)) return results;
 
-    for (const stmt of val.getUsedStmts()) {
+    for (const stmt of localUseStmtsWithCfgRecovery(val)) {
         if (!(stmt instanceof ArkAssignStmt)) continue;
         if (tracker) {
             const carrierIds = collectCarrierNodeIdsForValueAtStmt(pag, val, stmt, classBySignature);
@@ -96,10 +97,10 @@ export function propagateDirectFieldLoadsByLocal(
         }
         const rightOp = stmt.getRightOp();
         if (!(rightOp instanceof ArkInstanceFieldRef)) continue;
-        if (rightOp.getBase() !== val || rightOp.getFieldSignature().getFieldName() !== fieldName) continue;
+        if (!sameLocalValue(rightOp.getBase(), val) || rightOp.getFieldSignature().getFieldName() !== fieldName) continue;
 
         const dstNodes = pag.getNodesByValue(stmt.getLeftOp());
-        const loadNodes = dstNodes && dstNodes.size > 0 ? dstNodes : getOrCreatePagNodes(pag, stmt.getLeftOp(), stmt);
+        const loadNodes = dstNodes && dstNodes.size > 0 ? dstNodes : resolveOrCreateExactPagNodes(pag, stmt.getLeftOp(), stmt);
         if (!loadNodes) continue;
         for (const dstNodeId of loadNodes.values()) {
             const dstNode = pag.getNode(dstNodeId) as PagNode;
@@ -128,15 +129,15 @@ export function propagateObjectResultLoadsByObj(
 ): TaintFact[] {
     const results: TaintFact[] = [];
     for (const val of objectAssignSourceLocalsForCarrier(pag, taintedObjId, classBySignature)) {
-        for (const stmt of objectAssignUseStmtsForLocal(val)) {
+        for (const stmt of objectResultUseStmtsForLocal(val)) {
             if (!(stmt instanceof ArkAssignStmt)) continue;
             const rightOp = stmt.getRightOp();
             if (!(rightOp instanceof ArkStaticInvokeExpr)) continue;
             if (!isObjectBuiltinCall(rightOp, "values") && !isObjectBuiltinCall(rightOp, "entries")) continue;
             const args = rightOp.getArgs ? rightOp.getArgs() : [];
-            if (args.length < 1 || args[0] !== val) continue;
+            if (args.length < 1 || !sameLocalValue(args[0], val)) continue;
             const dstNodes = pag.getNodesByValue(stmt.getLeftOp());
-            const loadNodes = dstNodes && dstNodes.size > 0 ? dstNodes : getOrCreatePagNodes(pag, stmt.getLeftOp(), stmt);
+            const loadNodes = dstNodes && dstNodes.size > 0 ? dstNodes : resolveExistingPagNodesForValue(pag, stmt.getLeftOp(), stmt);
             if (!loadNodes) continue;
             for (const dstNodeId of loadNodes.values()) {
                 results.push(new TaintFact(pag.getNode(dstNodeId) as PagNode, source, currentCtx));
@@ -156,14 +157,14 @@ export function propagateObjectResultContainerStoresByObj(
     const results: TaintFact[] = [];
     const dedup = new Set<number>();
     for (const val of collectAliasLocalsForCarrier(pag, taintedObjId, classBySignature)) {
-        for (const stmt of val.getUsedStmts()) {
+        for (const stmt of objectResultUseStmtsForLocal(val)) {
             if (!(stmt instanceof ArkAssignStmt)) continue;
             const rightOp = stmt.getRightOp();
             if (!(rightOp instanceof ArkStaticInvokeExpr)) continue;
             if (!isObjectBuiltinCall(rightOp, "values") && !isObjectBuiltinCall(rightOp, "entries")) continue;
             const args = rightOp.getArgs ? rightOp.getArgs() : [];
-            if (args.length < 1 || args[0] !== val) continue;
-            const resultNodes = getOrCreatePagNodes(pag, stmt.getLeftOp(), stmt);
+            if (args.length < 1 || !sameLocalValue(args[0], val)) continue;
+            const resultNodes = resolveExistingPagNodesForValue(pag, stmt.getLeftOp(), stmt);
             if (!resultNodes) continue;
             for (const resultNodeId of resultNodes.values()) {
                 if (dedup.has(resultNodeId)) continue;
@@ -185,7 +186,7 @@ export function propagateObjectAssignFieldBridgesByObj(
 ): TaintFact[] {
     const results: TaintFact[] = [];
     for (const val of objectAssignSourceLocalsForCarrier(pag, taintedObjId, classBySignature)) {
-        for (const stmt of val.getUsedStmts()) {
+        for (const stmt of objectAssignUseStmtsForLocal(val)) {
             const invokeExpr = stmt.containsInvokeExpr && stmt.containsInvokeExpr() ? stmt.getInvokeExpr() : undefined;
             if (!(invokeExpr instanceof ArkStaticInvokeExpr) || !isObjectBuiltinCall(invokeExpr, "assign")) continue;
             const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
@@ -202,7 +203,10 @@ export function propagateObjectAssignFieldBridgesByObj(
             ));
             if (!sourceMatchesLocalAlias && !sourceMatchesCarrierField) continue;
 
-            const targetNodes = pag.getNodesByValue(args[0]);
+            const existingTargetNodes = pag.getNodesByValue(args[0]);
+            const targetNodes = existingTargetNodes && existingTargetNodes.size > 0
+                ? existingTargetNodes
+                : resolveOrCreateExactPagNodes(pag, args[0], stmt);
             if (targetNodes) {
                 const shouldProjectToTargetReadFields = (sourceMatchesCarrierField && !sourceMatchesLocalAlias)
                     || (sourceMatchesLocalAlias && fieldPath.length === 0);
@@ -245,7 +249,7 @@ export function propagateObjectAssignFieldBridgesByObj(
                 if (!(rightOp instanceof ArkInstanceFieldRef)) continue;
                 if (!sameLocalValue(rightOp.getBase(), assignResult) || rightOp.getFieldSignature().getFieldName() !== fieldPath[0]) continue;
                 const dstNodes = pag.getNodesByValue(useStmt.getLeftOp());
-                const loadNodes = dstNodes && dstNodes.size > 0 ? dstNodes : getOrCreatePagNodes(pag, useStmt.getLeftOp(), useStmt);
+                const loadNodes = dstNodes && dstNodes.size > 0 ? dstNodes : resolveExistingPagNodesForValue(pag, useStmt.getLeftOp(), useStmt);
                 if (!loadNodes) continue;
                 for (const dstNodeId of loadNodes.values()) {
                     results.push(new TaintFact(pag.getNode(dstNodeId) as PagNode, source, currentCtx));
@@ -315,7 +319,7 @@ function objectAssignSourceFieldRefMatchesTaintedField(
 function objectAssignTargetReadFields(target: any): string[] {
     if (!isLocalLikeValue(target)) return [];
     const fields = new Set<string>();
-    for (const useStmt of localUseStmtsWithCfgFallback(target)) {
+    for (const useStmt of localUseStmtsWithCfgRecovery(target)) {
         if (!(useStmt instanceof ArkAssignStmt)) continue;
         const rightOp = useStmt.getRightOp();
         if (!(rightOp instanceof ArkInstanceFieldRef)) continue;
@@ -350,7 +354,32 @@ function objectAssignUseStmtsForLocal(value: Local): any[] {
     return out;
 }
 
-function localUseStmtsWithCfgFallback(value: Local): any[] {
+function objectResultUseStmtsForLocal(value: Local): any[] {
+    const out: any[] = [];
+    const seen = new Set<string>();
+    const add = (stmt: any): void => {
+        const key = `${stmt?.constructor?.name || ""}#${stmt?.toString?.() || ""}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        out.push(stmt);
+    };
+    for (const stmt of value.getUsedStmts?.() || []) {
+        add(stmt);
+    }
+    const cfg = value.getDeclaringStmt?.()?.getCfg?.();
+    for (const stmt of cfg?.getStmts?.() || []) {
+        const invokeExpr = stmt?.containsInvokeExpr?.() ? stmt.getInvokeExpr?.() : undefined;
+        if (!(invokeExpr instanceof ArkStaticInvokeExpr)) continue;
+        if (!isObjectBuiltinCall(invokeExpr, "values") && !isObjectBuiltinCall(invokeExpr, "entries")) continue;
+        const args = invokeExpr.getArgs?.() || [];
+        if (args.some((arg: unknown) => sameLocalValue(arg, value))) {
+            add(stmt);
+        }
+    }
+    return out;
+}
+
+function localUseStmtsWithCfgRecovery(value: Local): any[] {
     const out: any[] = [];
     const seen = new Set<string>();
     const add = (stmt: any): void => {
@@ -410,7 +439,7 @@ export function propagateReflectSetFieldStores(
         if (!(invokeExpr instanceof ArkStaticInvokeExpr) && !(invokeExpr instanceof ArkInstanceInvokeExpr)) continue;
         if (!isReflectLikeCall(invokeExpr, "set")) continue;
         const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
-        if (args.length < 3 || args[2] !== val) continue;
+        if (args.length < 3 || !sameLocalValue(args[2], val)) continue;
         const fieldName = resolveReflectPropertyName(args[1]);
         if (!fieldName) continue;
 
@@ -444,9 +473,9 @@ export function propagateDirectFieldLoadsByObj(
             if (tracker && !isCarrierFieldPathLiveAtStmt(pag, tracker, taintedObjId, fieldPath, stmt, classBySignature)) continue;
             const rightOp = stmt.getRightOp();
             if (!(rightOp instanceof ArkInstanceFieldRef)) continue;
-            if (rightOp.getBase() !== val || rightOp.getFieldSignature().getFieldName() !== fieldName) continue;
+            if (!sameLocalValue(rightOp.getBase(), val) || rightOp.getFieldSignature().getFieldName() !== fieldName) continue;
             const dstNodes = pag.getNodesByValue(stmt.getLeftOp());
-            const loadNodes = dstNodes && dstNodes.size > 0 ? dstNodes : getOrCreatePagNodes(pag, stmt.getLeftOp(), stmt);
+            const loadNodes = dstNodes && dstNodes.size > 0 ? dstNodes : resolveExistingPagNodesForValue(pag, stmt.getLeftOp(), stmt);
             if (!loadNodes) continue;
             const prefixOnlySource = fieldPath.length === 1
                 && tracker?.hasDescendantFieldSourceAnyContext(taintedObjId, source, fieldPath);
@@ -489,8 +518,8 @@ export function propagateDirectFieldArgUsesByObj(
             const args = invokeExpr.getArgs ? invokeExpr.getArgs() : [];
             for (const arg of args) {
                 if (!(arg instanceof ArkInstanceFieldRef)) continue;
-                if (arg.getBase() !== val || arg.getFieldSignature().getFieldName() !== fieldName) continue;
-                const argNodes = getOrCreatePagNodes(pag, arg, stmt);
+                if (!sameLocalValue(arg.getBase(), val) || arg.getFieldSignature().getFieldName() !== fieldName) continue;
+                const argNodes = resolveExistingPagNodesForValue(pag, arg, stmt);
                 if (!argNodes) continue;
                 const prefixOnlySource = fieldPath.length === 1
                     && tracker?.hasDescendantFieldSourceAnyContext(taintedObjId, source, fieldPath);
@@ -525,7 +554,7 @@ export function propagateCarrierLoadPrefixesByObj(
 ): TaintFact[] {
     const results: TaintFact[] = [];
     const seen = new Set<string>();
-    if (fieldPath.length >= MAX_TAINT_FIELD_PATH_SEGMENTS) {
+    if (fieldPath.length >= MAX_FIELD_PATH_SEGMENTS) {
         return results;
     }
     for (const val of collectAliasLocalsForCarrier(pag, taintedObjId, classBySignature)) {
@@ -611,7 +640,7 @@ export function propagateReceiverGetterResultLoadsByObj(
 
             const rightOp = stmt.getRightOp();
             if (!(rightOp instanceof ArkInstanceInvokeExpr)) continue;
-            if (rightOp.getBase() !== val) continue;
+            if (!sameLocalValue(rightOp.getBase(), val)) continue;
 
             const getterFieldPath = resolveReceiverGetterReturnFieldPath(
                 scene,
@@ -622,7 +651,7 @@ export function propagateReceiverGetterResultLoadsByObj(
 
             const suffix = fieldPath.slice(getterFieldPath.length);
             const dstNodes = pag.getNodesByValue(stmt.getLeftOp());
-            const loadNodes = dstNodes && dstNodes.size > 0 ? dstNodes : getOrCreatePagNodes(pag, stmt.getLeftOp(), stmt);
+            const loadNodes = dstNodes && dstNodes.size > 0 ? dstNodes : resolveExistingPagNodesForValue(pag, stmt.getLeftOp(), stmt);
             if (!loadNodes) continue;
             for (const dstNodeId of loadNodes.values()) {
                 const dstNode = pag.getNode(dstNodeId) as PagNode;
@@ -710,7 +739,7 @@ export function propagateArrayElementLoads(
     for (const stmt of val.getUsedStmts()) {
         if (!(stmt instanceof ArkAssignStmt)) continue;
         const rightOp = stmt.getRightOp();
-        if (!(rightOp instanceof ArkArrayRef) || rightOp.getBase() !== val) continue;
+        if (!(rightOp instanceof ArkArrayRef) || !sameLocalValue(rightOp.getBase(), val)) continue;
         const dstNodes = pag.getNodesByValue(stmt.getLeftOp());
         if (!dstNodes) continue;
         for (const dstNodeId of dstNodes.values()) {
@@ -734,7 +763,7 @@ export function propagateCapturedFieldWrites(
         if (!(stmt instanceof ArkAssignStmt)) continue;
         const leftOp = stmt.getLeftOp();
         const rightOp = stmt.getRightOp();
-        if (!(leftOp instanceof ArkInstanceFieldRef) || !(rightOp instanceof Local) || rightOp !== val) continue;
+        if (!(leftOp instanceof ArkInstanceFieldRef) || !(rightOp instanceof Local) || !sameLocalValue(rightOp, val)) continue;
         const fieldName = leftOp.getFieldSignature().getFieldName();
         const baseLocal = leftOp.getBase();
         for (const carrierNodeId of collectCarrierNodeIdsForValueAtStmt(pag, baseLocal, stmt, classBySignature)) {
@@ -782,8 +811,8 @@ function normalizeReflectPropertyLiteral(text: string): string {
     return text.replace(/^['"`]/, "").replace(/['"`]$/, "");
 }
 
-function getOrCreatePagNodes(pag: Pag, value: any, anchorStmt: any): Map<number, number> | undefined {
-    return safeGetOrCreatePagNodes(pag, value, anchorStmt);
+function resolveExistingPagNodesForValue(pag: Pag, value: any, anchorStmt: any): Map<number, number> | undefined {
+    return resolveExistingPagNodes(pag, value, anchorStmt);
 }
 
 export function resolveReceiverGetterReturnFieldPath(

@@ -43,9 +43,15 @@ async function main(): Promise<void> {
         makeRuleAsset("asset.rule.kernel.seed", "sources", [
             {
                 id: "source.kernel.seed",
-                match: { kind: "local_name_regex", value: "^kernel_seed$" },
-                sourceKind: "seed_local_name",
-                target: "result",
+                match: {
+                    kind: "method_name_equals",
+                    value: "kernelEntry",
+                    invokeKind: "static",
+                    argCount: 1,
+                    scope: { file: { mode: "contains", value: "kernel_fixture.ets" } },
+                },
+                sourceKind: "entry_param",
+                target: "arg0",
             },
         ]),
     );
@@ -54,7 +60,13 @@ async function main(): Promise<void> {
         makeRuleAsset("asset.rule.kernel.send", "sinks", [
             {
                 id: "sink.kernel.send",
-                match: { kind: "method_name_equals", value: "sendKernel" },
+                match: {
+                    kind: "method_name_equals",
+                    value: "sendKernel",
+                    invokeKind: "static",
+                    argCount: 1,
+                    calleeScope: { file: { mode: "contains", value: "kernel_fixture.ets" } },
+                },
             },
         ]),
     );
@@ -67,7 +79,13 @@ async function main(): Promise<void> {
         makeRuleAsset("asset.rule.kernel.flow", "transfers", [
             {
                 id: "transfer.kernel.base_to_result",
-                match: { kind: "method_name_equals", value: "kernelTransfer", invokeKind: "instance", argCount: 1 },
+                match: {
+                    kind: "method_name_equals",
+                    value: "kernelTransfer",
+                    invokeKind: "instance",
+                    argCount: 1,
+                    calleeScope: { file: { mode: "contains", value: "kernel_fixture.ets" } },
+                },
                 from: "base",
                 to: "result",
             },
@@ -79,9 +97,15 @@ async function main(): Promise<void> {
         makeRuleAsset("asset.rule.project.alpha.source", "sources", [
             {
                 id: "source.project.alpha",
-                match: { kind: "local_name_regex", value: "^alpha_seed$" },
-                sourceKind: "seed_local_name",
-                target: "result",
+                match: {
+                    kind: "method_name_equals",
+                    value: "alphaEntry",
+                    invokeKind: "static",
+                    argCount: 1,
+                    scope: { file: { mode: "contains", value: "alpha_fixture.ets" } },
+                },
+                sourceKind: "entry_param",
+                target: "arg0",
             },
         ]),
     );
@@ -90,7 +114,13 @@ async function main(): Promise<void> {
         makeRuleAsset("asset.rule.project.alpha.transfer", "transfers", [
             {
                 id: "transfer.project.alpha",
-                match: { kind: "method_name_equals", value: "alphaTransfer", invokeKind: "instance", argCount: 1 },
+                match: {
+                    kind: "method_name_equals",
+                    value: "alphaTransfer",
+                    invokeKind: "instance",
+                    argCount: 1,
+                    calleeScope: { file: { mode: "contains", value: "alpha_fixture.ets" } },
+                },
                 from: "arg0",
                 to: "result",
             },
@@ -101,7 +131,13 @@ async function main(): Promise<void> {
         makeRuleAsset("asset.rule.project.beta.sink", "sinks", [
             {
                 id: "sink.project.beta",
-                match: { kind: "method_name_equals", value: "betaSend" },
+                match: {
+                    kind: "method_name_equals",
+                    value: "betaSend",
+                    invokeKind: "static",
+                    argCount: 1,
+                    calleeScope: { file: { mode: "contains", value: "beta_fixture.ets" } },
+                },
             },
         ]),
     );

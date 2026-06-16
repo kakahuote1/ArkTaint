@@ -90,7 +90,7 @@
       "plane": "rule",
       "role": "source",
       "selector": {
-        "kind": "local-name-regex",
+        "kind": "field-name-equals",
         "value": "project_src"
       },
       "endpoint": {
@@ -112,7 +112,7 @@
       "plane": "rule",
       "role": "source",
       "selector": {
-        "kind": "local-name-regex",
+        "kind": "field-name-equals",
         "value": "project_only"
       },
       "endpoint": {
@@ -134,7 +134,7 @@
       "plane": "rule",
       "role": "sink",
       "selector": {
-        "kind": "signature-contains",
+        "kind": "method-name-equals",
         "value": "project_sink"
       },
       "effectTemplateRefs": [
@@ -142,7 +142,8 @@
       ],
       "semanticsFamily": "sink",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.sink.layer.project_only.0",
@@ -151,7 +152,7 @@
       "plane": "rule",
       "role": "sink",
       "selector": {
-        "kind": "signature-contains",
+        "kind": "method-name-equals",
         "value": "project_sink_only"
       },
       "effectTemplateRefs": [
@@ -159,7 +160,8 @@
       ],
       "semanticsFamily": "sink",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.transfer.layer.same.0",
@@ -176,7 +178,8 @@
       ],
       "semanticsFamily": "transfer",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.transfer.layer.project_only.0",
@@ -193,7 +196,8 @@
       ],
       "semanticsFamily": "transfer",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     }
   ],
   "effectTemplates": [

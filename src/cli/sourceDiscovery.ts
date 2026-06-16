@@ -3,7 +3,7 @@ import * as path from "path";
 
 export interface SourceDiscoveryOptions {
     maxDepth?: number;
-    includeRootFallback?: boolean;
+    includeRootCandidate?: boolean;
     preferProjectRootForMultiModule?: boolean;
 }
 
@@ -70,7 +70,7 @@ export function discoverArkTsSourceDirs(
         return specific;
     }
 
-    if (options.includeRootFallback !== false && hasArkSourceFile(root)) {
+    if (options.includeRootCandidate !== false && hasArkSourceFile(root)) {
         return ["."];
     }
     return [];

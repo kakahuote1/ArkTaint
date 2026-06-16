@@ -16,10 +16,6 @@ import {
 
 const ARK_MAIN_DECLARATION_CALLBACK_POLICY: FrameworkCallbackResolutionPolicy = {
     enableSdkProvenance: true,
-    enableOpaqueExternalCallFallback: true,
-    enableOwnerQualifiedFallback: true,
-    enableEmptyOwnerFallback: true,
-    enableStructuralCallableFallback: false,
 };
 
 export function collectCallbackFacts(scene: Scene, context: ArkMainFactCollectionContext): void {
@@ -86,7 +82,6 @@ export function collectCallbackFacts(scene: Scene, context: ArkMainFactCollectio
                     callbackRecognitionLayer: binding.recognitionLayer,
                     callbackRegistrationSignature: binding.registrationSignature,
                     callbackArgIndex: binding.callbackArgIndex,
-                    callbackStructuralEvidenceFamily: (binding as any).structuralEvidenceFamily,
                     entryFamily: resolveArkMainCallbackEntryFamily(binding.recognitionLayer, binding.slotFamily),
                     entryShape: binding.registrationShape,
                     recognitionLayer: binding.recognitionLayer,

@@ -58,14 +58,20 @@
   ],
   "bindings": [
     {
-      "bindingId": "binding.source.harmony_http.entry_param.0",
+      "bindingId": "binding.source.harmony_http.entry_param.0.method.http_async_callback_003_T",
       "surfaceId": "surface.source.harmony_http.entry_param",
       "assetId": "asset.rule.test.harmony_http",
       "plane": "rule",
       "role": "source",
       "selector": {
-        "kind": "local-name-regex",
-        "value": "^taint_src$"
+        "kind": "method-name-equals",
+        "value": "http_async_callback_003_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "http_async_callback_003_T.ets"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -74,7 +80,210 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.harmony_http.entry_param"
+        "template.source.harmony_http.entry_param.for.source.harmony_http.entry_param.0.method.http_async_callback_003_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony_http.entry_param.0.method.http_callback_safe_007_F",
+      "surfaceId": "surface.source.harmony_http.entry_param",
+      "assetId": "asset.rule.test.harmony_http",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "http_callback_safe_007_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "http_callback_safe_007_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_http.entry_param.for.source.harmony_http.entry_param.0.method.http_callback_safe_007_F"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony_http.entry_param.0.method.http_request_body_001_T",
+      "surfaceId": "surface.source.harmony_http.entry_param",
+      "assetId": "asset.rule.test.harmony_http",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "http_request_body_001_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "http_request_body_001_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_http.entry_param.for.source.harmony_http.entry_param.0.method.http_request_body_001_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony_http.entry_param.0.method.http_request_extraData_010_T",
+      "surfaceId": "surface.source.harmony_http.entry_param",
+      "assetId": "asset.rule.test.harmony_http",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "http_request_extraData_010_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "http_request_extraData_010_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_http.entry_param.for.source.harmony_http.entry_param.0.method.http_request_extraData_010_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony_http.entry_param.0.method.http_request_extraData_sibling_011_F",
+      "surfaceId": "surface.source.harmony_http.entry_param",
+      "assetId": "asset.rule.test.harmony_http",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "http_request_extraData_sibling_011_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "http_request_extraData_sibling_011_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_http.entry_param.for.source.harmony_http.entry_param.0.method.http_request_extraData_sibling_011_F"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony_http.entry_param.0.method.http_request_mismatch_005_F",
+      "surfaceId": "surface.source.harmony_http.entry_param",
+      "assetId": "asset.rule.test.harmony_http",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "http_request_mismatch_005_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "http_request_mismatch_005_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_http.entry_param.for.source.harmony_http.entry_param.0.method.http_request_mismatch_005_F"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony_http.entry_param.0.method.http_response_source_002_T",
+      "surfaceId": "surface.source.harmony_http.entry_param",
+      "assetId": "asset.rule.test.harmony_http",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "http_response_source_002_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "http_response_source_002_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_http.entry_param.for.source.harmony_http.entry_param.0.method.http_response_source_002_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.harmony_http.entry_param.0.method.http_two_calls_006_T",
+      "surfaceId": "surface.source.harmony_http.entry_param",
+      "assetId": "asset.rule.test.harmony_http",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "http_two_calls_006_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "http_two_calls_006_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.harmony_http.entry_param.for.source.harmony_http.entry_param.0.method.http_two_calls_006_T"
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
@@ -101,7 +310,8 @@
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.sink.harmony_http.mock_sink.0",
@@ -124,7 +334,8 @@
       ],
       "semanticsFamily": "sink",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.transfer.harmony_http.request_arg_to_result.0",
@@ -151,18 +362,6 @@
     }
   ],
   "effectTemplates": [
-    {
-      "id": "template.source.harmony_http.entry_param",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
     {
       "id": "template.source.harmony_http.request_async_callback_arg0",
       "confidence": "certain",
@@ -206,6 +405,102 @@
         }
       },
       "transferKind": "transfer"
+    },
+    {
+      "id": "template.source.harmony_http.entry_param.for.source.harmony_http.entry_param.0.method.http_async_callback_003_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_http.entry_param.for.source.harmony_http.entry_param.0.method.http_callback_safe_007_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_http.entry_param.for.source.harmony_http.entry_param.0.method.http_request_body_001_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_http.entry_param.for.source.harmony_http.entry_param.0.method.http_request_extraData_010_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_http.entry_param.for.source.harmony_http.entry_param.0.method.http_request_extraData_sibling_011_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_http.entry_param.for.source.harmony_http.entry_param.0.method.http_request_mismatch_005_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_http.entry_param.for.source.harmony_http.entry_param.0.method.http_response_source_002_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.harmony_http.entry_param.for.source.harmony_http.entry_param.0.method.http_two_calls_006_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
     }
   ],
   "provenance": {

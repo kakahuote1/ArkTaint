@@ -23,15 +23,16 @@ import {
     resolveInvokeMethodName,
 } from "../../substrate/queries/CalleeResolver";
 import { getMethodBySignature } from "../contracts/MethodLookup";
-import { safeGetOrCreatePagNodes } from "../contracts/PagNodeResolution";
+import {
+    isBuildablePagValue,
+    resolveExistingPagNodes,
+} from "../contracts/PagNodeResolution";
 import { collectCarrierNodeIdsForValueAtStmt } from "../ordinary/OrdinaryAliasPropagation";
 import {
     collectCallbackBindingTriggerNodeIds,
     collectResolvedInvokeTargets,
     collectResolvedCallbackBindingsForStmt,
     injectResolvedCallbackParameterEdges,
-    resolveDynamicPropertyOneHopFallbackCallees,
-    resolveReflectDispatchOneHopFallbackCallees,
     type AsyncCallbackBinding,
     type SyntheticInvokeLookupContext,
     type SyntheticInvokeLookupStats,
@@ -40,6 +41,7 @@ import { buildExecutionHandoffSiteKeyFromStmt } from "../handoff/ExecutionHandof
 import { assertBuildStageBudget, BuildStageBudget } from "../../shared/BuildStageBudget";
 export {
     buildSyntheticConstructorStoreMap,
+    collectDynamicSyntheticConstructorStores,
     buildSyntheticFieldBridgeMap,
     buildSyntheticStaticInitStoreMap,
     summarizeConstructorCapturedLocalToFields,
@@ -111,20 +113,20 @@ export function buildSyntheticInvokeEdges(
     const edgeMap = new Map<number, SyntheticInvokeEdgeInfo[]>();
     let syntheticCallCount = 0;
     let syntheticReturnCount = 0;
-    let fallbackCalleeCount = 0;
+    let nonExactCalleeCount = 0;
     const lazy = buildSyntheticInvokeLazyMaterializer(scene, cg, pag, log);
 
     for (const site of lazy.sites) {
         const stats = materializeSyntheticInvokeSite(scene, cg, pag, edgeMap, lazy, site, excludedDeferredSiteKeys, forceDirectCallerSignatures);
         syntheticCallCount += stats.callCount;
         syntheticReturnCount += stats.returnCount;
-        fallbackCalleeCount += stats.fallbackCalleeCount;
+        nonExactCalleeCount += stats.nonExactCalleeCount;
     }
 
     const totalMs = Date.now() - buildStartMs;
     const lookupMs = lazy.lookupContext.stats.incomingDirectScanMs + lazy.lookupContext.stats.incomingIndexBuildMs;
     const lookupRatio = totalMs > 0 ? ((lookupMs * 100) / totalMs) : 0;
-    log(`Synthetic Invoke Edge Map Built: ${syntheticCallCount} call edges, ${syntheticReturnCount} return edges, ${fallbackCalleeCount} fallback callees.`);
+    log(`Synthetic Invoke Edge Map Built: ${syntheticCallCount} call edges, ${syntheticReturnCount} return edges, ${nonExactCalleeCount} non-exact callees.`);
     log(
         `Synthetic Invoke Lookup Stats: incomingCalls=${lazy.lookupContext.stats.incomingLookupCalls}, `
         + `incomingIndexBuilt=${lazy.lookupContext.stats.incomingIndexBuilt ? "yes" : "no"}, `
@@ -230,11 +232,11 @@ export function materializeSyntheticInvokeSitesForNode(
     excludedDeferredSiteKeys?: ReadonlySet<string>,
     forceDirectCallerSignatures?: ReadonlySet<string>,
     budget?: BuildStageBudget,
-): { callCount: number; returnCount: number; fallbackCalleeCount: number } {
+): { callCount: number; returnCount: number; nonExactCalleeCount: number } {
     const siteIds = lazy.siteIdsByTriggerNodeId.get(nodeId) || [];
     let callCount = 0;
     let returnCount = 0;
-    let fallbackCalleeCount = 0;
+    let nonExactCalleeCount = 0;
 
     for (const siteId of siteIds) {
         assertBuildStageBudget(budget, `synthetic_invoke_materialize.node_site(site=${siteId})`);
@@ -245,10 +247,10 @@ export function materializeSyntheticInvokeSitesForNode(
         const stats = materializeSyntheticInvokeSite(scene, cg, pag, edgeMap, lazy, site, excludedDeferredSiteKeys, forceDirectCallerSignatures, budget);
         callCount += stats.callCount;
         returnCount += stats.returnCount;
-        fallbackCalleeCount += stats.fallbackCalleeCount;
+        nonExactCalleeCount += stats.nonExactCalleeCount;
     }
 
-    return { callCount, returnCount, fallbackCalleeCount };
+    return { callCount, returnCount, nonExactCalleeCount };
 }
 
 export function materializeEagerSyntheticInvokeSites(
@@ -260,15 +262,15 @@ export function materializeEagerSyntheticInvokeSites(
     excludedDeferredSiteKeys?: ReadonlySet<string>,
     forceDirectCallerSignatures?: ReadonlySet<string>,
     budget?: BuildStageBudget,
-): { callCount: number; returnCount: number; fallbackCalleeCount: number } {
+): { callCount: number; returnCount: number; nonExactCalleeCount: number } {
     if (lazy.eagerSitesMaterialized) {
-        return { callCount: 0, returnCount: 0, fallbackCalleeCount: 0 };
+        return { callCount: 0, returnCount: 0, nonExactCalleeCount: 0 };
     }
     lazy.eagerSitesMaterialized = true;
 
     let callCount = 0;
     let returnCount = 0;
-    let fallbackCalleeCount = 0;
+    let nonExactCalleeCount = 0;
     for (const siteId of lazy.eagerSiteIds) {
         assertBuildStageBudget(budget, `synthetic_invoke_materialize.eager_site(site=${siteId})`);
         if (lazy.materializedSiteIds.has(siteId)) continue;
@@ -278,9 +280,9 @@ export function materializeEagerSyntheticInvokeSites(
         const stats = materializeSyntheticInvokeSite(scene, cg, pag, edgeMap, lazy, site, excludedDeferredSiteKeys, forceDirectCallerSignatures, budget);
         callCount += stats.callCount;
         returnCount += stats.returnCount;
-        fallbackCalleeCount += stats.fallbackCalleeCount;
+        nonExactCalleeCount += stats.nonExactCalleeCount;
     }
-    return { callCount, returnCount, fallbackCalleeCount };
+    return { callCount, returnCount, nonExactCalleeCount };
 }
 
 export function materializeAllSyntheticInvokeSites(
@@ -334,7 +336,7 @@ function collectSyntheticInvokeTriggerNodeIds(
 ): Set<number> {
     const triggerNodeIds = new Set<number>();
     const addTriggerNodesForValue = (value: any): void => {
-        for (const nodeId of safeGetOrCreatePagNodes(pag, value, stmt)?.values?.() || []) {
+        for (const nodeId of resolveExistingPagNodes(pag, value, stmt)?.values?.() || []) {
             triggerNodeIds.add(nodeId);
             for (const objId of collectPointToNodeIds(pag, [nodeId])) {
                 triggerNodeIds.add(objId);
@@ -402,7 +404,7 @@ function materializeSyntheticInvokeSite(
     excludedDeferredSiteKeys?: ReadonlySet<string>,
     forceDirectCallerSignatures?: ReadonlySet<string>,
     budget?: BuildStageBudget,
-): { callCount: number; returnCount: number; fallbackCalleeCount: number } {
+): { callCount: number; returnCount: number; nonExactCalleeCount: number } {
     const { caller, stmt, invokeExpr } = site;
     assertBuildStageBudget(budget, `synthetic_invoke_materialize.site.start(site=${site.id})`);
     const siteKey = buildExecutionHandoffSiteKeyFromStmt(caller, stmt);
@@ -426,7 +428,7 @@ function materializeSyntheticInvokeSite(
     assertBuildStageBudget(budget, `synthetic_invoke_materialize.site.callback_edges_done(site=${site.id})`);
 
     const directStats = skipDeferredCallbacks
-        ? { callCount: 0, returnCount: 0, fallbackCalleeCount: 0 }
+        ? { callCount: 0, returnCount: 0, nonExactCalleeCount: 0 }
         : materializeDirectSyntheticInvokeEdges(
             scene,
             cg,
@@ -444,7 +446,7 @@ function materializeSyntheticInvokeSite(
     return {
         callCount: callCount + directStats.callCount,
         returnCount: directStats.returnCount,
-        fallbackCalleeCount: directStats.fallbackCalleeCount,
+        nonExactCalleeCount: directStats.nonExactCalleeCount,
     };
 }
 
@@ -478,64 +480,26 @@ function materializeDirectSyntheticInvokeEdges(
     lookupContext: SyntheticInvokeLookupContext,
     forceDirectCallerSignatures?: ReadonlySet<string>,
     budget?: BuildStageBudget,
-): { callCount: number; returnCount: number; fallbackCalleeCount: number } {
+): { callCount: number; returnCount: number; nonExactCalleeCount: number } {
     let callCount = 0;
     let returnCount = 0;
-    let fallbackCalleeCount = 0;
+    let nonExactCalleeCount = 0;
 
     const callSites = cg.getCallSiteByStmt(stmt) || [];
-    const forceFallback = isReflectDispatchInvoke(invokeExpr);
-    const allowUnknownInvokeFallback = isUnknownInvokeSignature(invokeExpr);
     const callerSignature = caller?.getSignature?.()?.toString?.() || "";
-    const forceDirectFallback = !!callerSignature && !!forceDirectCallerSignatures?.has(callerSignature);
+    const forceDirectResolve = !!callerSignature && !!forceDirectCallerSignatures?.has(callerSignature);
     const repairResolvedCallSiteCopies = callSites.length > 0
-        && !forceFallback
-        && !allowUnknownInvokeFallback
-        && !forceDirectFallback;
+        && !isReflectDispatchInvoke(invokeExpr)
+        && !isUnknownInvokeSignature(invokeExpr)
+        && !forceDirectResolve;
 
     assertBuildStageBudget(budget, "synthetic_invoke_materialize.direct.resolve_callees.start");
-    let callees = repairResolvedCallSiteCopies
+    const callees = repairResolvedCallSiteCopies
         ? collectCalleesFromCallSites(cg, callSites)
         : resolveCalleeCandidates(scene, invokeExpr);
     assertBuildStageBudget(budget, `synthetic_invoke_materialize.direct.resolve_callees.done(count=${callees.length})`);
-    if (forceFallback) {
-        assertBuildStageBudget(budget, "synthetic_invoke_materialize.direct.reflect_fallback.start");
-        const oneHopFallback = resolveReflectDispatchOneHopFallbackCallees(
-            scene,
-            cg,
-            caller,
-            invokeExpr,
-            lookupContext
-        );
-        if (oneHopFallback.length > 0) {
-            const seen = new Set<string>();
-            const merged: typeof callees = [];
-            for (const item of [...callees, ...oneHopFallback]) {
-                const sig = item?.method?.getSignature?.().toString?.();
-                if (!sig || seen.has(sig)) continue;
-                seen.add(sig);
-                merged.push(item);
-            }
-            callees = merged;
-        }
-        assertBuildStageBudget(budget, `synthetic_invoke_materialize.direct.reflect_fallback.done(count=${callees.length})`);
-    }
     if (callees.length === 0) {
-        assertBuildStageBudget(budget, "synthetic_invoke_materialize.direct.dynamic_fallback.start");
-        const dynamicPropFallback = resolveDynamicPropertyOneHopFallbackCallees(
-            scene,
-            cg,
-            caller,
-            invokeExpr,
-            lookupContext
-        );
-        if (dynamicPropFallback.length > 0) {
-            callees = dynamicPropFallback;
-        }
-        assertBuildStageBudget(budget, `synthetic_invoke_materialize.direct.dynamic_fallback.done(count=${callees.length})`);
-    }
-    if (callees.length === 0) {
-        return { callCount, returnCount, fallbackCalleeCount };
+        return { callCount, returnCount, nonExactCalleeCount };
     }
 
     for (const resolved of callees) {
@@ -543,7 +507,7 @@ function materializeDirectSyntheticInvokeEdges(
         const callee = resolved.method;
         if (!callee || !callee.getCfg()) continue;
         if (resolved.reason !== "exact") {
-            fallbackCalleeCount++;
+            nonExactCalleeCount++;
         }
 
         const calleeSig = callee.getSignature().toString();
@@ -552,18 +516,69 @@ function materializeDirectSyntheticInvokeEdges(
         const paramStmts = collectParameterAssignStmts(callee);
         const pairs = mapInvokeArgsToParamAssigns(invokeExpr, explicitArgs, paramStmts);
 
+        if (invokeExpr instanceof ArkInstanceInvokeExpr) {
+            assertBuildStageBudget(budget, "synthetic_invoke_materialize.direct.receiver_this");
+            const base = invokeExpr.getBase?.();
+            const srcNodes = base ? (pag.getNodesByValue(base) || resolveExistingPagNodes(pag, base, stmt)) : undefined;
+            const thisStmt = collectThisAssignStmt(callee);
+            if (srcNodes && thisStmt) {
+                let dstNodes = pag.getNodesByValue(thisStmt.getLeftOp());
+                if (!dstNodes || dstNodes.size === 0) {
+                    dstNodes = resolveExistingPagNodes(pag, thisStmt.getLeftOp(), thisStmt);
+                }
+                if ((!dstNodes || dstNodes.size === 0) && resolved.reason === "exact") {
+                    dstNodes = resolveOrCreateExactCalleeEndpointNodes(
+                        pag,
+                        thisStmt.getLeftOp(),
+                        thisStmt,
+                        srcNodes,
+                    );
+                }
+                if (dstNodes && dstNodes.size > 0) {
+                    for (const srcNodeId of srcNodes.values()) {
+                        for (const dstNodeId of dstNodes.values()) {
+                            if (repairResolvedCallSiteCopies && hasPagCopyEdge(pag, srcNodeId, dstNodeId)) {
+                                continue;
+                            }
+                            pushEdge(edgeMap, srcNodeId, {
+                                type: CallEdgeType.CALL,
+                                srcNodeId,
+                                dstNodeId,
+                                callSiteId,
+                                callerMethodName: caller.getName(),
+                                calleeMethodName: callee.getName(),
+                                callerSignature: caller.getSignature?.().toString?.(),
+                                calleeSignature: calleeSig,
+                                originTag: repairResolvedCallSiteCopies ? "resolved_callsite_missing_pag_this_copy" : "synthetic_invoke",
+                                preserveFieldPath: true,
+                            });
+                            callCount++;
+                        }
+                    }
+                }
+            }
+        }
+
         for (const pair of pairs) {
             assertBuildStageBudget(budget, "synthetic_invoke_materialize.direct.param_pair");
             const arg = pair.arg;
             const paramStmt = pair.paramStmt;
-            const srcNodes = pag.getNodesByValue(arg) || safeGetOrCreatePagNodes(pag, arg, stmt);
+            const srcNodes = pag.getNodesByValue(arg) || resolveExistingPagNodes(pag, arg, stmt);
 
             let dstNodes = pag.getNodesByValue(paramStmt.getLeftOp());
             if (!dstNodes || dstNodes.size === 0) {
                 dstNodes = pag.getNodesByValue(paramStmt.getRightOp());
             }
             if (!dstNodes || dstNodes.size === 0) {
-                dstNodes = safeGetOrCreatePagNodes(pag, paramStmt.getLeftOp(), paramStmt);
+                dstNodes = resolveExistingPagNodes(pag, paramStmt.getLeftOp(), paramStmt);
+            }
+            if ((!dstNodes || dstNodes.size === 0) && srcNodes && resolved.reason === "exact") {
+                dstNodes = resolveOrCreateExactCalleeEndpointNodes(
+                    pag,
+                    paramStmt.getLeftOp(),
+                    paramStmt,
+                    srcNodes,
+                );
             }
             if (!srcNodes || !dstNodes) continue;
 
@@ -625,7 +640,51 @@ function materializeDirectSyntheticInvokeEdges(
         }
     }
 
-    return { callCount, returnCount, fallbackCalleeCount };
+    return { callCount, returnCount, nonExactCalleeCount };
+}
+
+function collectThisAssignStmt(method: any): ArkAssignStmt | undefined {
+    const stmts = method?.getCfg?.()?.getStmts?.() || [];
+    for (const stmt of stmts) {
+        if (!(stmt instanceof ArkAssignStmt)) continue;
+        if (stmt.getRightOp?.() instanceof ArkThisRef) {
+            return stmt;
+        }
+    }
+    return undefined;
+}
+
+function resolveOrCreateExactCalleeEndpointNodes(
+    pag: Pag,
+    value: any,
+    anchorStmt: any,
+    sourceNodes: Map<number, number>,
+): Map<number, number> | undefined {
+    if (!isBuildablePagValue(value)) return undefined;
+    const out = new Map<number, number>();
+    const getOrNewNode = (pag as any)?.getOrNewNode;
+    if (typeof getOrNewNode !== "function") return undefined;
+
+    for (const sourceNodeId of sourceNodes.values()) {
+        const sourceNode = pag.getNode(Number(sourceNodeId)) as any;
+        let cid = 0;
+        try {
+            cid = Number(sourceNode?.getCid?.() ?? 0);
+        } catch {
+            cid = 0;
+        }
+        try {
+            const node = getOrNewNode.call(pag, cid, value, anchorStmt) as PagNode | undefined;
+            const nodeId = node?.getID?.();
+            if (typeof nodeId === "number") {
+                out.set(cid, nodeId);
+            }
+        } catch {
+            // A missing exact callee endpoint should remain unresolved if PAG cannot represent it.
+        }
+    }
+
+    return out.size > 0 ? out : undefined;
 }
 
 function collectCalleesFromCallSites(

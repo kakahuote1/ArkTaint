@@ -114,7 +114,7 @@ async function runTest() {
 
             if (seeds.length === 0) {
                 console.error(`  鈿狅笍 No seeds found (param 'taint_src'?).`);
-                // Fallback: Taint ALL parameters logic?
+                // Legacy broad-parameter tainting logic?
                 // Let's try to check parameter list.
                 // For now, fail if no seeds.
                 stats.failed++;

@@ -46,9 +46,9 @@ function main(): void {
         ["entry/src/main/ets", "."],
     );
 
-    const fallbackRoot = path.join(root, "fallback");
-    writeFile(path.join(fallbackRoot, "Only.ets"), "export class Only {}\n");
-    assert.deepStrictEqual(discoverArkTsSourceDirs(fallbackRoot), ["."]);
+    const rootCandidate = path.join(root, "root_candidate");
+    writeFile(path.join(rootCandidate, "Only.ets"), "export class Only {}\n");
+    assert.deepStrictEqual(discoverArkTsSourceDirs(rootCandidate), ["."]);
 
     console.log("PASS test_source_discovery");
 }

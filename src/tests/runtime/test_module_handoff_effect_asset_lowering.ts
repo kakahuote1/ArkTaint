@@ -7,7 +7,6 @@ import { lowerModuleAssetToInternalModuleLoweringIR } from "../../core/kernel/co
 import type { TaintModule } from "../../core/kernel/contracts/ModuleContract";
 import { compileInternalModuleLoweringIR } from "../../core/orchestration/modules/InternalModuleLoweringIRCompiler";
 import { TaintPropagationEngine } from "../../core/orchestration/TaintPropagationEngine";
-import { propagateObjectAssignFieldBridgesByObj } from "../../core/kernel/propagation/WorklistFieldPropagation";
 import { buildFrameworkBoundStateSourceRules } from "../../core/rules/FrameworkCallbackSourceCatalog";
 import type { SinkRule, SourceRule } from "../../core/rules/RuleSchema";
 import { findCaseMethod, resolveCaseMethod } from "../helpers/SyntheticCaseHarness";
@@ -32,6 +31,18 @@ function buildAuthHeadersPasswordFieldSourceRules(): SourceRule[] {
             methodName: { mode: "equals", value: "password" },
         },
     }];
+}
+
+function buildTaintSrcLocalSourceRule(methodName: string): SourceRule {
+    return {
+        id: `source.fixture.local.${methodName}.taint_src`,
+        sourceKind: "seed_local_name",
+        target: "result",
+        match: { kind: "field_name_equals", value: "taint_src" },
+        scope: {
+            methodName: { mode: "equals", value: methodName },
+        },
+    };
 }
 
 function buildScene(projectDir: string): Scene {
@@ -888,10 +899,13 @@ async function runCase(
     options: { expectFlow?: boolean; sourceRules?: SourceRule[] } = {},
 ): Promise<number> {
     const sourceRules: SourceRule[] = options.sourceRules || [{
-        id: "source.fixture.local.taint_src",
+        id: `source.fixture.entry.${caseName}`,
         sourceKind: "seed_local_name",
-        target: "matched_param",
-        match: { kind: "local_name_regex", value: "^taint_src$" },
+        target: "result",
+        match: { kind: "field_name_equals", value: "taint_src" },
+        scope: {
+            methodName: { mode: "equals", value: caseName },
+        },
     }];
     const sinkRules: SinkRule[] = [{
         id: "sink.fixture.Sink.arg0",
@@ -931,32 +945,6 @@ async function runCase(
                 method: String(fact.node.getStmt?.()?.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.() || ""),
             })))
             .slice(0, 120);
-        const objectAssignProbe = [...observedTaintFacts.entries()]
-            .flatMap(([nodeId, facts]) => facts.map(fact => ({ nodeId, fact })))
-            .filter(({ fact }) => String(fact.node.getStmt?.()?.getCfg?.()?.getDeclaringMethod?.()?.getSignature?.()?.toString?.() || "").includes("WebDavRealisticAuthCarrierFixture._request"))
-            .map(({ nodeId, fact }) => ({
-                nodeId,
-                value: String(fact.node.getValue?.()?.toString?.() || ""),
-                field: fact.field?.join(".") || "",
-                outputs: propagateObjectAssignFieldBridgesByObj(
-                    engine.pag,
-                    nodeId,
-                    fact.field || [],
-                    fact.source,
-                    fact.contextID,
-                    undefined,
-                ).map(out => ({
-                    nodeId: out.node.getID(),
-                    value: String(out.node.getValue?.()?.toString?.() || ""),
-                    field: out.field?.join(".") || "",
-                })),
-            }));
-        const syntheticFieldBridgeMap = (engine as any).syntheticFieldBridgeMap as Map<string, unknown[]> | undefined;
-        const syntheticFieldBridgeProbe = syntheticFieldBridgeMap
-            ? [...syntheticFieldBridgeMap.entries()]
-                .filter(([key, bridges]) => key.includes("password") || JSON.stringify(bridges).includes("password"))
-                .slice(0, 80)
-            : [];
         throw new Error([
             `${caseName} should recover a flow, got 0`,
             `seedCount=${seedInfo.seedCount}`,
@@ -965,8 +953,13 @@ async function runCase(
             `loadedModuleIds=${JSON.stringify(audit.loadedModuleIds)}`,
             `moduleStats=${JSON.stringify(audit.moduleStats)}`,
             `observedFacts=${JSON.stringify(observedFacts)}`,
-            `objectAssignProbe=${JSON.stringify(objectAssignProbe)}`,
-            `syntheticFieldBridgeProbe=${JSON.stringify(syntheticFieldBridgeProbe)}`,
+            `caseIr=${JSON.stringify(describeMethodIr(scene, caseName))}`,
+            `loadUserTemplateIr=${JSON.stringify(describeMethodIr(scene, "BackupConfigFixture.loadUserTemplate_T"))}`,
+            `loadPasswordTemplateIr=${JSON.stringify(describeMethodIr(scene, "BackupConfigFixture.loadPasswordTemplate_T"))}`,
+            `loadServerTemplateIr=${JSON.stringify(describeMethodIr(scene, "BackupConfigFixture.loadServerTemplate_T"))}`,
+            `bindUserIr=${JSON.stringify(describeMethodIr(scene, "BoundBackupConfigFixture.bindUser"))}`,
+            `bindPasswordIr=${JSON.stringify(describeMethodIr(scene, "BoundBackupConfigFixture.bindPassword"))}`,
+            `bindServerIr=${JSON.stringify(describeMethodIr(scene, "BoundBackupConfigFixture.bindServer"))}`,
             `requestIr=${JSON.stringify(describeMethodIr(scene, "WebDavRealisticAuthCarrierFixture._request"))}`,
         ].join("\n"));
     }
@@ -1391,39 +1384,45 @@ async function main(): Promise<void> {
         "  await fixture.loadOtherKeyTemplate_F();",
         "}",
         "",
+        "class TextInput {",
+        "  static create(options: { text: unknown; placeholder: string }): void {",
+        "    const ignored = options.placeholder;",
+        "  }",
+        "}",
+        "",
         "class BoundBackupConfigFixture {",
         "  user: string = \"\";",
         "  password: string = \"\";",
         "  server: string = \"\";",
         "",
         "  bindUser(): void {",
-        "    TextInput({ text: $$this.user, placeholder: \"user\" });",
+        "    TextInput.create({ text: $$this.user, placeholder: \"user\" });",
         "    this.password = \"clean_password\";",
         "    this.server = \"clean_server\";",
         "  }",
         "",
         "  bindPassword(): void {",
         "    this.user = \"clean_user\";",
-        "    TextInput({ text: $$this.password, placeholder: \"password\" });",
+        "    TextInput.create({ text: $$this.password, placeholder: \"password\" });",
         "    this.server = \"clean_server\";",
         "  }",
         "",
         "  bindServer(): void {",
         "    this.user = \"clean_user\";",
         "    this.password = \"clean_password\";",
-        "    TextInput({ text: $$this.server, placeholder: \"server\" });",
+        "    TextInput.create({ text: $$this.server, placeholder: \"server\" });",
         "  }",
         "",
         "  bindNone(): void {",
-        "    TextInput({ text: this.user, placeholder: \"plain_user\" });",
+        "    TextInput.create({ text: this.user, placeholder: \"plain_user\" });",
         "    this.password = \"clean_password\";",
         "    this.server = \"clean_server\";",
         "  }",
         "",
         "  bindAll(): void {",
-        "    TextInput({ text: $$this.user, placeholder: \"user\" });",
-        "    TextInput({ text: $$this.password, placeholder: \"password\" });",
-        "    TextInput({ text: $$this.server, placeholder: \"server\" });",
+        "    TextInput.create({ text: $$this.user, placeholder: \"user\" });",
+        "    TextInput.create({ text: $$this.password, placeholder: \"password\" });",
+        "    TextInput.create({ text: $$this.server, placeholder: \"server\" });",
         "  }",
         "",
         "  async persistAndRenderTemplate(): Promise<void> {",
@@ -1487,14 +1486,14 @@ async function main(): Promise<void> {
         "",
         "  bindPassword(): void {",
         "    this.user = \"clean_user\";",
-        "    TextInput({ text: $$this.password, placeholder: \"password\" });",
+        "    TextInput.create({ text: $$this.password, placeholder: \"password\" });",
         "    this.server = \"clean_server\";",
         "  }",
         "",
         "  bindServer(): void {",
         "    this.user = \"clean_user\";",
         "    this.password = \"clean_password\";",
-        "    TextInput({ text: $$this.server, placeholder: \"server\" });",
+        "    TextInput.create({ text: $$this.server, placeholder: \"server\" });",
         "  }",
         "",
         "  aboutToAppearRegisterWebDav(): void {",
@@ -1744,10 +1743,18 @@ async function main(): Promise<void> {
     const namespaceAwaitOtherKey = await runCase(scene, "namespace_await_other_key_F", namespaceModules);
     assert(namespaceAwaitSameKey > 0, `namespace await same key should recover a flow through promiseResult, got ${namespaceAwaitSameKey}`);
     assert(namespaceAwaitOtherKey === 0, `namespace await different key should not recover a flow, got ${namespaceAwaitOtherKey}`);
-    const templateUserField = await runCase(scene, "namespace_await_template_user_field_T", namespaceModules);
-    const templatePasswordField = await runCase(scene, "namespace_await_template_password_field_T", namespaceModules);
-    const templateServerField = await runCase(scene, "namespace_await_template_server_field_T", namespaceModules);
-    const templateOtherKey = await runCase(scene, "namespace_await_template_other_key_F", namespaceModules);
+    const templateUserField = await runCase(scene, "namespace_await_template_user_field_T", namespaceModules, {
+        sourceRules: [buildTaintSrcLocalSourceRule("loadUserTemplate_T")],
+    });
+    const templatePasswordField = await runCase(scene, "namespace_await_template_password_field_T", namespaceModules, {
+        sourceRules: [buildTaintSrcLocalSourceRule("loadPasswordTemplate_T")],
+    });
+    const templateServerField = await runCase(scene, "namespace_await_template_server_field_T", namespaceModules, {
+        sourceRules: [buildTaintSrcLocalSourceRule("loadServerTemplate_T")],
+    });
+    const templateOtherKey = await runCase(scene, "namespace_await_template_other_key_F", namespaceModules, {
+        sourceRules: [buildTaintSrcLocalSourceRule("loadOtherKeyTemplate_F")],
+    });
     assert(templateUserField > 0, `namespace await template user field should recover a flow, got ${templateUserField}`);
     assert(templatePasswordField > 0, `namespace await template password field should recover a flow, got ${templatePasswordField}`);
     assert(templateServerField > 0, `namespace await template server field should recover a flow, got ${templateServerField}`);

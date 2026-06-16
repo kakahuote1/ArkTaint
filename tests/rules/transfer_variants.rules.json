@@ -110,14 +110,20 @@
   ],
   "bindings": [
     {
-      "bindingId": "binding.source.transfer_variants.entry_param.taint_src.0",
+      "bindingId": "binding.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_arg1_to_result_102_T",
       "surfaceId": "surface.source.transfer_variants.entry_param.taint_src",
       "assetId": "asset.rule.test.transfer_variants",
       "plane": "rule",
       "role": "source",
       "selector": {
-        "kind": "local-name-regex",
-        "value": "^taint_src$"
+        "kind": "method-name-equals",
+        "value": "transfer_variant_arg1_to_result_102_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "transfer_variant_arg1_to_result_102_T.ets"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -126,7 +132,152 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.transfer_variants.entry_param.taint_src"
+        "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_arg1_to_result_102_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_base_to_arg0_103_T",
+      "surfaceId": "surface.source.transfer_variants.entry_param.taint_src",
+      "assetId": "asset.rule.test.transfer_variants",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "transfer_variant_base_to_arg0_103_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "transfer_variant_base_to_arg0_103_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_base_to_arg0_103_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_box_101_T",
+      "surfaceId": "surface.source.transfer_variants.entry_param.taint_src",
+      "assetId": "asset.rule.test.transfer_variants",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "transfer_variant_box_101_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "transfer_variant_box_101_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_box_101_T"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_box_106_F",
+      "surfaceId": "surface.source.transfer_variants.entry_param.taint_src",
+      "assetId": "asset.rule.test.transfer_variants",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "transfer_variant_box_106_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "transfer_variant_box_106_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_box_106_F"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_no_rule_107_F",
+      "surfaceId": "surface.source.transfer_variants.entry_param.taint_src",
+      "assetId": "asset.rule.test.transfer_variants",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "transfer_variant_no_rule_107_F",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "transfer_variant_no_rule_107_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_no_rule_107_F"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_result_to_arg0_104_T",
+      "surfaceId": "surface.source.transfer_variants.entry_param.taint_src",
+      "assetId": "asset.rule.test.transfer_variants",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "method-name-equals",
+        "value": "transfer_variant_result_to_arg0_104_T",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "transfer_variant_result_to_arg0_104_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_result_to_arg0_104_T"
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
@@ -153,7 +304,8 @@
       ],
       "semanticsFamily": "sink",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.transfer.variants.stash.arg0_to_base.0",
@@ -170,7 +322,8 @@
       ],
       "semanticsFamily": "transfer",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.transfer.variants.read.base_to_result.0",
@@ -187,7 +340,8 @@
       ],
       "semanticsFamily": "transfer",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.transfer.variants.merge.arg1_to_result.0",
@@ -204,7 +358,8 @@
       ],
       "semanticsFamily": "transfer",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.transfer.variants.attach.arg0_to_base.0",
@@ -221,7 +376,8 @@
       ],
       "semanticsFamily": "transfer",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.transfer.variants.emit.base_to_arg0.0",
@@ -238,7 +394,8 @@
       ],
       "semanticsFamily": "transfer",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     },
     {
       "bindingId": "binding.transfer.variants.relay.result_to_arg0.0",
@@ -255,22 +412,11 @@
       ],
       "semanticsFamily": "transfer",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     }
   ],
   "effectTemplates": [
-    {
-      "id": "template.source.transfer_variants.entry_param.taint_src",
-      "confidence": "certain",
-      "kind": "rule.source",
-      "value": {
-        "base": {
-          "kind": "arg",
-          "index": 0
-        }
-      },
-      "sourceKind": "entry_param"
-    },
     {
       "id": "template.sink.transfer_variants.arg0",
       "confidence": "certain",
@@ -383,6 +529,78 @@
         }
       },
       "transferKind": "transfer"
+    },
+    {
+      "id": "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_arg1_to_result_102_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_base_to_arg0_103_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_box_101_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_box_106_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_no_rule_107_F",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
+    },
+    {
+      "id": "template.source.transfer_variants.entry_param.taint_src.for.source.transfer_variants.entry_param.taint_src.0.method.transfer_variant_result_to_arg0_104_T",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "arg",
+          "index": 0
+        }
+      },
+      "sourceKind": "entry_param"
     }
   ],
   "provenance": {

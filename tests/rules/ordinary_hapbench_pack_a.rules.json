@@ -23,7 +23,7 @@
       "ownerName": "RuntimeSelector",
       "methodName": "Sink",
       "invokeKind": "instance",
-      "argCount": 0,
+      "argCount": 1,
       "confidence": "likely",
       "provenance": {
         "source": "manual"
@@ -32,14 +32,20 @@
   ],
   "bindings": [
     {
-      "bindingId": "binding.source.ordinary_hapbench_pack_a.local_seed.0",
+      "bindingId": "binding.source.ordinary_hapbench_pack_a.local_seed.0.method.class_callback_param_relay_003_T.onCreate",
       "surfaceId": "surface.source.ordinary_hapbench_pack_a.local_seed",
       "assetId": "asset.rule.test.ordinary_hapbench_pack_a",
       "plane": "rule",
       "role": "source",
       "selector": {
-        "kind": "local-name-regex",
-        "value": "^taint_src$"
+        "kind": "field-name-equals",
+        "value": "taint_src",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "class_callback_param_relay_003_T.ets"
+          }
+        }
       },
       "endpoint": {
         "base": {
@@ -47,7 +53,399 @@
         }
       },
       "effectTemplateRefs": [
-        "template.source.ordinary_hapbench_pack_a.local_seed"
+        "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_callback_param_relay_003_T.onCreate"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.ordinary_hapbench_pack_a.local_seed.0.method.class_callback_param_relay_004_F.onCreate",
+      "surfaceId": "surface.source.ordinary_hapbench_pack_a.local_seed",
+      "assetId": "asset.rule.test.ordinary_hapbench_pack_a",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "field-name-equals",
+        "value": "taint_src",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "class_callback_param_relay_004_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_callback_param_relay_004_F.onCreate"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.ordinary_hapbench_pack_a.local_seed.0.method.class_callback_source_inside_helper_001_T.onCreate",
+      "surfaceId": "surface.source.ordinary_hapbench_pack_a.local_seed",
+      "assetId": "asset.rule.test.ordinary_hapbench_pack_a",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "field-name-equals",
+        "value": "taint_src",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "class_callback_source_inside_helper_001_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_callback_source_inside_helper_001_T.onCreate"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.ordinary_hapbench_pack_a.local_seed.0.method.class_callback_source_inside_helper_001_T.invokeNow",
+      "surfaceId": "surface.source.ordinary_hapbench_pack_a.local_seed",
+      "assetId": "asset.rule.test.ordinary_hapbench_pack_a",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "field-name-equals",
+        "value": "taint_src",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "class_callback_source_inside_helper_001_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_callback_source_inside_helper_001_T.invokeNow"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.ordinary_hapbench_pack_a.local_seed.0.method.class_callback_source_inside_helper_002_F.onCreate",
+      "surfaceId": "surface.source.ordinary_hapbench_pack_a.local_seed",
+      "assetId": "asset.rule.test.ordinary_hapbench_pack_a",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "field-name-equals",
+        "value": "taint_src",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "class_callback_source_inside_helper_002_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_callback_source_inside_helper_002_F.onCreate"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.ordinary_hapbench_pack_a.local_seed.0.method.class_callback_source_inside_helper_002_F.invokeNow",
+      "surfaceId": "surface.source.ordinary_hapbench_pack_a.local_seed",
+      "assetId": "asset.rule.test.ordinary_hapbench_pack_a",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "field-name-equals",
+        "value": "taint_src",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "class_callback_source_inside_helper_002_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_callback_source_inside_helper_002_F.invokeNow"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.ordinary_hapbench_pack_a.local_seed.0.method.class_callback_writeback_stringify_011_T.class_callback_writeback_stringify_011_T",
+      "surfaceId": "surface.source.ordinary_hapbench_pack_a.local_seed",
+      "assetId": "asset.rule.test.ordinary_hapbench_pack_a",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "field-name-equals",
+        "value": "taint_src",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "class_callback_writeback_stringify_011_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_callback_writeback_stringify_011_T.class_callback_writeback_st"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.ordinary_hapbench_pack_a.local_seed.0.method.class_callback_writeback_stringify_011_T.runNow",
+      "surfaceId": "surface.source.ordinary_hapbench_pack_a.local_seed",
+      "assetId": "asset.rule.test.ordinary_hapbench_pack_a",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "field-name-equals",
+        "value": "taint_src",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "class_callback_writeback_stringify_011_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_callback_writeback_stringify_011_T.runNow"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.ordinary_hapbench_pack_a.local_seed.0.method.class_exception_error_message_013_T.class_exception_error_message_013_T",
+      "surfaceId": "surface.source.ordinary_hapbench_pack_a.local_seed",
+      "assetId": "asset.rule.test.ordinary_hapbench_pack_a",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "field-name-equals",
+        "value": "taint_src",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "class_exception_error_message_013_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_exception_error_message_013_T.class_exception_error_message_01"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.ordinary_hapbench_pack_a.local_seed.0.method.class_exception_local_preserve_007_T.onCreate",
+      "surfaceId": "surface.source.ordinary_hapbench_pack_a.local_seed",
+      "assetId": "asset.rule.test.ordinary_hapbench_pack_a",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "field-name-equals",
+        "value": "taint_src",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "class_exception_local_preserve_007_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_exception_local_preserve_007_T.onCreate"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.ordinary_hapbench_pack_a.local_seed.0.method.class_exception_local_preserve_008_F.onCreate",
+      "surfaceId": "surface.source.ordinary_hapbench_pack_a.local_seed",
+      "assetId": "asset.rule.test.ordinary_hapbench_pack_a",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "field-name-equals",
+        "value": "taint_src",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "class_exception_local_preserve_008_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_exception_local_preserve_008_F.onCreate"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.ordinary_hapbench_pack_a.local_seed.0.method.class_nested_closure_readback_005_T.onCreate",
+      "surfaceId": "surface.source.ordinary_hapbench_pack_a.local_seed",
+      "assetId": "asset.rule.test.ordinary_hapbench_pack_a",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "field-name-equals",
+        "value": "taint_src",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "class_nested_closure_readback_005_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_nested_closure_readback_005_T.onCreate"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.ordinary_hapbench_pack_a.local_seed.0.method.class_nested_closure_readback_006_F.onCreate",
+      "surfaceId": "surface.source.ordinary_hapbench_pack_a.local_seed",
+      "assetId": "asset.rule.test.ordinary_hapbench_pack_a",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "field-name-equals",
+        "value": "taint_src",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "class_nested_closure_readback_006_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_nested_closure_readback_006_F.onCreate"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.ordinary_hapbench_pack_a.local_seed.0.method.class_virtual_dispatch_state_009_T.onCreate",
+      "surfaceId": "surface.source.ordinary_hapbench_pack_a.local_seed",
+      "assetId": "asset.rule.test.ordinary_hapbench_pack_a",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "field-name-equals",
+        "value": "taint_src",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "class_virtual_dispatch_state_009_T.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_virtual_dispatch_state_009_T.onCreate"
+      ],
+      "semanticsFamily": "source",
+      "completeness": "partial",
+      "confidence": "likely"
+    },
+    {
+      "bindingId": "binding.source.ordinary_hapbench_pack_a.local_seed.0.method.class_virtual_dispatch_state_010_F.onCreate",
+      "surfaceId": "surface.source.ordinary_hapbench_pack_a.local_seed",
+      "assetId": "asset.rule.test.ordinary_hapbench_pack_a",
+      "plane": "rule",
+      "role": "source",
+      "selector": {
+        "kind": "field-name-equals",
+        "value": "taint_src",
+        "scope": {
+          "file": {
+            "mode": "contains",
+            "value": "class_virtual_dispatch_state_010_F.ets"
+          }
+        }
+      },
+      "endpoint": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "effectTemplateRefs": [
+        "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_virtual_dispatch_state_010_F.onCreate"
       ],
       "semanticsFamily": "source",
       "completeness": "partial",
@@ -68,12 +466,19 @@
       ],
       "semanticsFamily": "sink",
       "completeness": "partial",
-      "confidence": "likely"
+      "confidence": "likely",
+      "metadata": {}
     }
   ],
   "effectTemplates": [
     {
-      "id": "template.source.ordinary_hapbench_pack_a.local_seed",
+      "id": "template.sink.ordinary_hapbench_pack_a.Sink",
+      "confidence": "certain",
+      "kind": "rule.sink",
+      "sinkKind": "sink"
+    },
+    {
+      "id": "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_callback_param_relay_003_T.onCreate",
       "confidence": "certain",
       "kind": "rule.source",
       "value": {
@@ -84,10 +489,158 @@
       "sourceKind": "seed_local_name"
     },
     {
-      "id": "template.sink.ordinary_hapbench_pack_a.Sink",
+      "id": "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_callback_param_relay_004_F.onCreate",
       "confidence": "certain",
-      "kind": "rule.sink",
-      "sinkKind": "sink"
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "seed_local_name"
+    },
+    {
+      "id": "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_callback_source_inside_helper_001_T.onCreate",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "seed_local_name"
+    },
+    {
+      "id": "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_callback_source_inside_helper_001_T.invokeNow",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "seed_local_name"
+    },
+    {
+      "id": "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_callback_source_inside_helper_002_F.onCreate",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "seed_local_name"
+    },
+    {
+      "id": "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_callback_source_inside_helper_002_F.invokeNow",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "seed_local_name"
+    },
+    {
+      "id": "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_callback_writeback_stringify_011_T.class_callback_writeback_st",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "seed_local_name"
+    },
+    {
+      "id": "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_callback_writeback_stringify_011_T.runNow",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "seed_local_name"
+    },
+    {
+      "id": "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_exception_error_message_013_T.class_exception_error_message_01",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "seed_local_name"
+    },
+    {
+      "id": "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_exception_local_preserve_007_T.onCreate",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "seed_local_name"
+    },
+    {
+      "id": "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_exception_local_preserve_008_F.onCreate",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "seed_local_name"
+    },
+    {
+      "id": "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_nested_closure_readback_005_T.onCreate",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "seed_local_name"
+    },
+    {
+      "id": "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_nested_closure_readback_006_F.onCreate",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "seed_local_name"
+    },
+    {
+      "id": "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_virtual_dispatch_state_009_T.onCreate",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "seed_local_name"
+    },
+    {
+      "id": "template.source.ordinary_hapbench_pack_a.local_seed.for.source.ordinary_hapbench_pack_a.local_seed.0.method.class_virtual_dispatch_state_010_F.onCreate",
+      "confidence": "certain",
+      "kind": "rule.source",
+      "value": {
+        "base": {
+          "kind": "return"
+        }
+      },
+      "sourceKind": "seed_local_name"
     }
   ],
   "provenance": {
