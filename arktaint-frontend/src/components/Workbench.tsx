@@ -8,37 +8,27 @@ import {
   Clock3,
   FileText,
   FolderOpen,
-  Gauge,
   Layers3,
-  PanelRightOpen,
   Play,
-  Plug,
-  Search,
   Settings2,
   Sparkles,
   SquareTerminal,
   Workflow,
 } from 'lucide-react';
 
-type TaskMode = 'single' | 'auto' | 'batch' | 'inspect';
+type TaskMode = 'batch';
 type LogType = 'log' | 'error' | 'sys' | 'done';
-type WorkbenchScreen = 'launchpad' | 'single' | 'auto' | 'batch' | 'inspect' | 'run';
-type ConfigPanel = 'scope' | 'strategy' | 'semantic' | 'batch' | 'inspect' | 'extensions' | 'launch';
-type InspectionMode =
-  | 'none'
-  | 'listModules'
-  | 'listModels'
-  | 'explainModule'
-  | 'traceModule'
-  | 'listPlugins'
-  | 'explainPlugin'
-  | 'tracePlugin';
+type WorkbenchScreen = 'config' | 'llm' | 'run';
+type ConfigPanel = 'scope' | 'strategy' | 'enhance' | 'launch';
 
 type BridgeEvent = { type?: LogType; message?: string; time?: string; code?: number | null };
 type BridgeConfig = { defaultArkTaintRoot?: string; valid?: boolean; reason?: string; bridgePort?: number };
-type RootValidation = { ok: boolean; reason: string; root?: string };
 type LogEntry = { message: string; time: string; type: LogType };
 type ArtifactItem = { label: string; path: string };
+type UploadedBundle = { bundleName: string; projectRoot: string; detectedProjects: string[]; projectCount: number };
+type UploadedPluginBundle = { bundleName: string; pluginRoot: string };
+type LlmConfigMode = 'direct' | 'config';
+type PluginEntry = { label: string; path: string };
 type RunSnapshot = {
   phase: string;
   exitCode?: number | null;
@@ -49,73 +39,50 @@ type RunSnapshot = {
   currentProjectName?: string;
 };
 
+type ReportPreviewKind = 'markdown' | 'json' | 'text';
+
 const bridgeBaseUrl = import.meta.env.VITE_ARKTAINT_BRIDGE_URL || 'http://localhost:3001';
-const storageKey = 'arktaint.console.settings.v7';
+const storageKey = 'arktaint.console.settings.v8';
 
-const modeCards: Array<{
-  id: TaskMode;
+const configPanels: Array<{
+  id: ConfigPanel;
   title: string;
-  body: string;
   hint: string;
-  action: string;
-  icon: typeof Play;
+  lead: string;
+  required?: boolean;
+  icon: typeof FolderOpen;
 }> = [
   {
-    id: 'single',
-    title: '单项目分析',
-    body: '选择一个真实 ArkTS 项目，按标准链路完成预分析和全量分析。',
-    hint: '新手推荐',
-    action: '配置单项目',
-    icon: Play,
+    id: 'scope',
+    title: '项目接入',
+    hint: '确定本次任务对应的真实项目范围',
+    lead: '完成项目上传、项目范围识别与结果输出设置，建立本次分析任务的基础上下文。',
+    required: true,
+    icon: FolderOpen,
   },
   {
-    id: 'auto',
-    title: 'LLM 建模分析',
-    body: '在标准链路上开启 SemanticFlow，用模型补足未知 API 语义。',
-    hint: '需要模型额度',
-    action: '配置建模',
-    icon: Sparkles,
+    id: 'strategy',
+    title: '执行策略',
+    hint: '统一设置分析深度与批量执行方式',
+    lead: '统一配置本次任务的分析深度、输出方式和批量执行策略，帮助团队在效率与稳定性之间取得平衡。',
+    required: true,
+    icon: Settings2,
   },
   {
-    id: 'batch',
-    title: '批量真实项目',
-    body: '面向项目集合运行统一分析，控制超时、分片、复用和输出。',
-    hint: '适合实验集',
-    action: '配置批量',
-    icon: Workflow,
+    id: 'enhance',
+    title: '建模增强',
+    hint: '集中补充语义能力、规则能力与扩展能力',
+    lead: '在默认能力基础上补充更完整的业务语义与扩展策略，提升复杂场景下的识别质量。',
+    icon: Bot,
   },
   {
-    id: 'inspect',
-    title: '能力检查',
-    body: '列出、解释或追踪模块、模型和插件，先确认能力再进入分析。',
-    hint: '排障复核',
-    action: '配置检查',
-    icon: Search,
+    id: 'launch',
+    title: '确认启动',
+    hint: '确认任务摘要后即可正式启动分析',
+    lead: '统一确认项目范围、分析策略与运行参数后，正式启动本次批量分析任务。',
+    required: true,
+    icon: CheckCircle2,
   },
-];
-
-const inspectionOptions: Array<{
-  value: InspectionMode;
-  label: string;
-  needsTarget?: boolean;
-}> = [
-  { value: 'none', label: '不启用检查模式' },
-  { value: 'listModules', label: '列出模块' },
-  { value: 'listModels', label: '列出模型' },
-  { value: 'explainModule', label: '解释模块', needsTarget: true },
-  { value: 'traceModule', label: '追踪模块', needsTarget: true },
-  { value: 'listPlugins', label: '列出插件' },
-  { value: 'explainPlugin', label: '解释插件', needsTarget: true },
-  { value: 'tracePlugin', label: '追踪插件', needsTarget: true },
-];
-
-const modelOptions = ['qwen3-coder-next', 'qwen3.5-plus-2026-02-15', 'glm-5', 'qwen3.5-27b'];
-
-const flowPhases = [
-  { key: 'scope', title: '选择范围', hint: '确认项目、源码目录和输出位置。' },
-  { key: 'graph', title: '场景构建', hint: '恢复入口、构建分析图并记录审计信息。' },
-  { key: 'model', title: '规则与建模', hint: '按需引入规则包、模型包和 SemanticFlow。' },
-  { key: 'result', title: '求解与结果', hint: '输出 summary、diagnostics 和结果路径。' },
 ];
 
 function nowText() {
@@ -126,7 +93,7 @@ function toLog(message: string, type: LogType = 'log', time?: string): LogEntry 
   return { message, type, time: time || nowText() };
 }
 
-function readSaved(): Record<string, string | boolean | undefined> {
+function readSaved(): Record<string, unknown> {
   try {
     const raw = localStorage.getItem(storageKey);
     return raw ? JSON.parse(raw) : {};
@@ -140,10 +107,6 @@ function cleanLines(value: string) {
     .split('\n')
     .map(item => item.trim())
     .filter(Boolean);
-}
-
-function screenForMode(mode: TaskMode): WorkbenchScreen {
-  return mode;
 }
 
 function getLogClass(log: LogEntry) {
@@ -163,9 +126,24 @@ function getLogClass(log: LogEntry) {
 function inferPhase(message: string) {
   const text = message.toLowerCase();
   if (text.includes('summary_json') || text.includes('result_json') || text.includes('final_summary')) return '求解与结果';
-  if (text.includes('semanticflow') || text.includes('llm') || text.includes('auto_model')) return '规则与建模';
-  if (text.includes('build_scene') || text.includes('pag') || text.includes('executionhandoffaudit') || text.includes('stageprofile')) return '场景构建';
-  return '选择范围';
+  if (
+    text.includes('semanticflow') ||
+    text.includes('llm') ||
+    text.includes('auto_model') ||
+    text.includes('rule') ||
+    text.includes('model')
+  ) {
+    return '建模增强';
+  }
+  if (
+    text.includes('build_scene') ||
+    text.includes('pag') ||
+    text.includes('executionhandoffaudit') ||
+    text.includes('stageprofile')
+  ) {
+    return '场景构建';
+  }
+  return '项目接入';
 }
 
 function parseArtifact(message: string): ArtifactItem | null {
@@ -173,7 +151,7 @@ function parseArtifact(message: string): ArtifactItem | null {
     { marker: 'summary_json=', label: 'Summary JSON' },
     { marker: 'final_summary_json=', label: '最终 Summary JSON' },
     { marker: 'summary_md=', label: 'Summary Markdown' },
-    { marker: 'result_json=', label: '对照结果 JSON' },
+    { marker: 'result_json=', label: '结果 JSON' },
     { marker: 'output_dir=', label: '输出目录' },
     { marker: 'session=', label: 'SemanticFlow Session' },
   ];
@@ -187,8 +165,64 @@ function parseArtifact(message: string): ArtifactItem | null {
   return null;
 }
 
-function countLogs(logs: LogEntry[], type: LogType) {
-  return logs.filter(item => item.type === type).length;
+function parseProjectRunStatus(message: string) {
+  const matched = message.match(/\[(\d+)\/(\d+)\]\s+project=([^\s]+)\s+status=([^\s]+)/i);
+  if (!matched) return null;
+
+  const statusText = matched[4].toLowerCase();
+  if (
+    statusText.includes('done') ||
+    statusText.includes('ok') ||
+    statusText.includes('success') ||
+    statusText.includes('skip_recorded')
+  ) {
+    return { project: matched[3], total: Number(matched[2]), status: 'completed' as const };
+  }
+  if (statusText.includes('fail') || statusText.includes('error') || statusText.includes('timeout')) {
+    return { project: matched[3], total: Number(matched[2]), status: 'failed' as const };
+  }
+  return null;
+}
+
+function parseMultiValue(value: string) {
+  return value
+    .split(/[\n,]/)
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
+function mergeUniqueItems(...groups: string[][]) {
+  return [...new Set(groups.flat().map(item => item.trim()).filter(Boolean))];
+}
+
+function getPathLabel(value: string) {
+  const parts = value.split(/[\\/]/).filter(Boolean);
+  return parts.length > 0 ? parts[parts.length - 1] : value;
+}
+
+function readPluginEntries(raw: unknown): PluginEntry[] {
+  if (Array.isArray(raw)) {
+    return raw
+      .map(item => {
+        if (typeof item === 'string') return { label: getPathLabel(item), path: item };
+        if (item && typeof item === 'object' && typeof (item as PluginEntry).path === 'string') {
+          const entry = item as PluginEntry;
+          return {
+            label: typeof entry.label === 'string' && entry.label.trim() ? entry.label : getPathLabel(entry.path),
+            path: entry.path,
+          };
+        }
+        return null;
+      })
+      .filter((item): item is PluginEntry => Boolean(item));
+  }
+  if (typeof raw !== 'string' || !raw.trim()) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return readPluginEntries(parsed);
+  } catch {
+    return parseMultiValue(raw).map(item => ({ label: getPathLabel(item), path: item }));
+  }
 }
 
 function ToggleLine({
@@ -215,162 +249,281 @@ function ToggleLine({
   );
 }
 
-function Disclosure({
-  title,
-  hint,
-  icon,
-  open,
-  onToggle,
-  children,
-}: {
-  title: string;
-  hint: string;
-  icon: ReactNode;
-  open: boolean;
-  onToggle: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <section className={`surface-panel disclosure ${open ? 'open' : ''}`}>
-      <button type="button" className="disclosure-head" onClick={onToggle}>
-        <span className="icon-badge">{icon}</span>
-        <span className="disclosure-title">
-          <strong>{title}</strong>
-          <em>{hint}</em>
-        </span>
-        <ChevronDown size={16} />
-      </button>
-      {open && <div className="disclosure-body">{children}</div>}
-    </section>
-  );
-}
-
 function Field({
   label,
   children,
   wide = false,
   note,
+  required = false,
 }: {
   label: string;
   children: ReactNode;
   wide?: boolean;
   note?: string;
+  required?: boolean;
 }) {
   return (
     <label className={`field ${wide ? 'wide' : ''}`}>
-      <span>{label}</span>
+      <span>
+        {label}
+        {required ? <em className="required-mark">*</em> : null}
+      </span>
       {children}
       {note ? <small>{note}</small> : null}
     </label>
   );
 }
 
-function ProcessRibbon({ activePhase }: { activePhase: string }) {
-  return (
-    <div className="process-ribbon">
-      {flowPhases.map((item, index) => (
-        <div key={item.key} className={`process-node ${activePhase === item.title ? 'active' : ''}`}>
-          <span>{String(index + 1).padStart(2, '0')}</span>
-          <strong>{item.title}</strong>
-          <em>{item.hint}</em>
-        </div>
-      ))}
-    </div>
-  );
-}
+export type { TaskMode };
 
 export default function Workbench() {
   const saved = useMemo(() => readSaved(), []);
   const readText = (key: string, fallback = '') => (typeof saved[key] === 'string' ? String(saved[key]) : fallback);
   const readBool = (key: string, fallback: boolean) => (typeof saved[key] === 'boolean' ? Boolean(saved[key]) : fallback);
 
-  const [taskMode, setTaskMode] = useState<TaskMode>((readText('taskMode', 'single') as TaskMode) || 'single');
-  const [screen, setScreen] = useState<WorkbenchScreen>('launchpad');
+  const [screen, setScreen] = useState<WorkbenchScreen>('config');
   const [viewLeaving, setViewLeaving] = useState(false);
   const [configPanel, setConfigPanel] = useState<ConfigPanel>('scope');
+
   const [bridgeConfig, setBridgeConfig] = useState<BridgeConfig | null>(null);
   const [bridgeError, setBridgeError] = useState('');
-  const [rootValidation, setRootValidation] = useState<RootValidation | null>(null);
-  const [validatingRoot, setValidatingRoot] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [runSnapshot, setRunSnapshot] = useState<RunSnapshot>({ phase: '尚未开始', artifacts: [] });
 
-  const [arktaintRoot, setArktaintRoot] = useState(readText('arktaintRoot'));
-  const [repo, setRepo] = useState(readText('repo'));
-  const [sourceDir, setSourceDir] = useState(readText('sourceDir'));
+  const [reportPreviewOpen, setReportPreviewOpen] = useState(false);
+  const [reportPreviewLoading, setReportPreviewLoading] = useState(false);
+  const [reportPreviewError, setReportPreviewError] = useState('');
+  const [reportPreviewKind, setReportPreviewKind] = useState<ReportPreviewKind>('text');
+  const [reportPreviewContent, setReportPreviewContent] = useState('');
+
   const [outputDir, setOutputDir] = useState(readText('outputDir'));
   const [projectRoot, setProjectRoot] = useState(readText('projectRoot', 'D:\\cursor\\workplace\\project'));
   const [projects, setProjects] = useState(readText('projects'));
+  const [uploadedBundleName, setUploadedBundleName] = useState(readText('uploadedBundleName'));
+  const [uploadingBundle, setUploadingBundle] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState(readText('uploadMessage'));
+  const [pluginUploadTarget, setPluginUploadTarget] = useState<'global' | 'project' | null>(null);
 
   const [profile, setProfile] = useState(readText('profile', 'default'));
-  const [executionHandoff, setExecutionHandoff] = useState(readText('executionHandoff', 'enabled'));
+  const [executionHandoff] = useState(readText('executionHandoff', 'enabled'));
   const [reportMode, setReportMode] = useState(readText('reportMode', 'light'));
-  const [entryModel, setEntryModel] = useState(readText('entryModel', 'arkMain'));
-  const [maxEntries, setMaxEntries] = useState(readText('maxEntries', '9999'));
-  const [k, setK] = useState(readText('k'));
-  const [incremental, setIncremental] = useState(readBool('incremental', false));
-  const [incrementalCache, setIncrementalCache] = useState(readText('incrementalCache'));
-  const [stopOnFirstFlow, setStopOnFirstFlow] = useState(readBool('stopOnFirstFlow', false));
-  const [maxFlowsPerEntry, setMaxFlowsPerEntry] = useState(readText('maxFlowsPerEntry'));
-  const [secondarySinkSweep, setSecondarySinkSweep] = useState(readText('secondarySinkSweep', 'auto'));
-  const [concurrency, setConcurrency] = useState(readText('concurrency', '1'));
+  const [entryModel] = useState(readText('entryModel', 'explicit'));
+  const [maxEntries] = useState(readText('maxEntries', '9999'));
+  const [k, setK] = useState(readText('k', ''));
+  const [secondarySinkSweep] = useState(readText('secondarySinkSweep', 'auto'));
 
-  const [autoModel, setAutoModel] = useState(readBool('autoModel', false));
+  const [incremental, setIncremental] = useState(readBool('incremental', false));
+  const [incrementalCache] = useState(readText('incrementalCache'));
+  const [stopOnFirstFlow, setStopOnFirstFlow] = useState(readBool('stopOnFirstFlow', false));
+  const [maxFlowsPerEntry] = useState(readText('maxFlowsPerEntry'));
+  const [projectTimeoutSeconds, setProjectTimeoutSeconds] = useState(readText('projectTimeoutSeconds', ''));
+  const [heartbeatSeconds] = useState(readText('heartbeatSeconds', '30'));
+  const [sourceDirMode] = useState(readText('sourceDirMode', 'auto'));
+  const [splitSourceDirThreshold] = useState(readText('splitSourceDirThreshold', '24'));
+  const [sourceDirTimeoutSeconds] = useState(readText('sourceDirTimeoutSeconds', '90'));
+  const [maxSplitSourceDirs] = useState(readText('maxSplitSourceDirs', '0'));
+  const [maxProjects] = useState(readText('maxProjects'));
+  const [skipExisting, setSkipExisting] = useState(readBool('skipExisting', true));
+
+  const autoModel = true;
+  const [llmConfigMode, setLlmConfigMode] = useState((readText('llmConfigMode', 'direct') as LlmConfigMode) || 'direct');
+  const [llmApiUrl, setLlmApiUrl] = useState(readText('llmApiUrl'));
+  const [llmApiKey, setLlmApiKey] = useState(readText('llmApiKey'));
+  const [llmApiKeyHeader, setLlmApiKeyHeader] = useState(readText('llmApiKeyHeader', 'Authorization'));
+  const [llmApiKeyPrefix, setLlmApiKeyPrefix] = useState(readText('llmApiKeyPrefix', 'Bearer '));
+  const [llmHeaders, setLlmHeaders] = useState(readText('llmHeaders'));
+  const [llmMinIntervalMs, setLlmMinIntervalMs] = useState(readText('llmMinIntervalMs'));
+  const [llmAdvancedOpen, setLlmAdvancedOpen] = useState(readBool('llmAdvancedOpen', false));
   const [llmConfig, setLlmConfig] = useState(readText('llmConfig'));
-  const [llmProfile, setLlmProfile] = useState(readText('llmProfile', 'qwen'));
-  const [llmModel, setLlmModel] = useState(readText('llmModel', 'qwen3-coder-next'));
+  const [llmProfile] = useState(readText('llmProfile', 'qwen'));
+  const [llmModel, setLlmModel] = useState(readText('llmModel'));
   const [llmTimeoutMs, setLlmTimeoutMs] = useState(readText('llmTimeoutMs', '45000'));
-  const [llmConnectTimeoutMs, setLlmConnectTimeoutMs] = useState(readText('llmConnectTimeoutMs'));
+  const [llmConnectTimeoutMs, setLlmConnectTimeoutMs] = useState(() => {
+    const value = readText('llmConnectTimeoutMs');
+    return value.trim() || '120000';
+  });
   const [llmMaxAttempts, setLlmMaxAttempts] = useState(readText('llmMaxAttempts', '1'));
   const [llmMaxFailures, setLlmMaxFailures] = useState(readText('llmMaxFailures', '3'));
   const [llmRepairAttempts, setLlmRepairAttempts] = useState(readText('llmRepairAttempts', '0'));
-  const [maxLlmItems, setMaxLlmItems] = useState(readText('maxLlmItems', '4'));
-  const [arkMainMaxCandidates, setArkMainMaxCandidates] = useState(readText('arkMainMaxCandidates'));
-  const [llmSessionCacheDir, setLlmSessionCacheDir] = useState(readText('llmSessionCacheDir'));
-  const [llmSessionCacheMode, setLlmSessionCacheMode] = useState(readText('llmSessionCacheMode', 'rw'));
-  const [publishModel, setPublishModel] = useState(readText('publishModel'));
+  const [maxLlmItems] = useState(readText('maxLlmItems', '4'));
+  const [publishModel] = useState(readText('publishModel'));
 
-  const [projectTimeoutSeconds, setProjectTimeoutSeconds] = useState(readText('projectTimeoutSeconds', '180'));
-  const [heartbeatSeconds, setHeartbeatSeconds] = useState(readText('heartbeatSeconds', '30'));
-  const [sourceDirMode, setSourceDirMode] = useState(readText('sourceDirMode', 'auto'));
-  const [splitSourceDirThreshold, setSplitSourceDirThreshold] = useState(readText('splitSourceDirThreshold', '24'));
-  const [sourceDirTimeoutSeconds, setSourceDirTimeoutSeconds] = useState(readText('sourceDirTimeoutSeconds', '90'));
-  const [maxSplitSourceDirs, setMaxSplitSourceDirs] = useState(readText('maxSplitSourceDirs', '0'));
-  const [maxProjects, setMaxProjects] = useState(readText('maxProjects'));
-  const [skipExisting, setSkipExisting] = useState(readBool('skipExisting', true));
-
-  const [kernelRule, setKernelRule] = useState(readText('kernelRule'));
+  const [globalPlugins, setGlobalPlugins] = useState<PluginEntry[]>(() => readPluginEntries(saved.globalPlugins));
   const [projectRule, setProjectRule] = useState(readText('projectRule'));
-  const [candidateRule, setCandidateRule] = useState(readText('candidateRule'));
-  const [modelRoot, setModelRoot] = useState(readText('modelRoot'));
-  const [enableModel, setEnableModel] = useState(readText('enableModel'));
-  const [disableModel, setDisableModel] = useState(readText('disableModel'));
   const [moduleSpec, setModuleSpec] = useState(readText('moduleSpec'));
-  const [disableModule, setDisableModule] = useState(readText('disableModule'));
-  const [arkmainSpec, setArkmainSpec] = useState(readText('arkmainSpec'));
+  const [projectPlugins, setProjectPlugins] = useState<PluginEntry[]>(() => readPluginEntries(saved.projectPlugins ?? saved.plugins));
+  const [useGlobalPlugins, setUseGlobalPlugins] = useState(readBool('useGlobalPlugins', true));
+  const [rulesOpen] = useState(readBool('rulesOpen', false));
 
-  const [plugins, setPlugins] = useState(readText('plugins'));
-  const [disablePlugins, setDisablePlugins] = useState(readText('disablePlugins'));
-  const [pluginIsolate, setPluginIsolate] = useState(readText('pluginIsolate'));
-  const [pluginDryRun, setPluginDryRun] = useState(readBool('pluginDryRun', false));
-  const [pluginAudit, setPluginAudit] = useState(readBool('pluginAudit', false));
-  const [inspectionMode, setInspectionMode] = useState<InspectionMode>((readText('inspectionMode', 'none') as InspectionMode) || 'none');
-  const [inspectionTarget, setInspectionTarget] = useState(readText('inspectionTarget'));
+  const projectList = useMemo(() => cleanLines(projects), [projects]);
+  const globalPluginList = useMemo(() => globalPlugins, [globalPlugins]);
+  const projectPluginList = useMemo(() => projectPlugins, [projectPlugins]);
+  const effectivePluginList = useMemo(
+    () => mergeUniqueItems(
+      useGlobalPlugins ? globalPluginList.map(item => item.path) : [],
+      projectPluginList.map(item => item.path)
+    ),
+    [globalPluginList, projectPluginList, useGlobalPlugins]
+  );
+  const selectedProjectCount = projectList.length;
+  const bridgeReady = Boolean(bridgeConfig?.valid) && !bridgeError;
+  const scopeReady = bridgeReady && Boolean(projectRoot.trim()) && selectedProjectCount > 0;
+  const strategyReady = Boolean(profile && reportMode);
+  const llmDirectReady = Boolean(llmModel.trim() && llmApiUrl.trim() && llmApiKey.trim());
+  const llmReady = llmConfigMode === 'direct' ? llmDirectReady : Boolean(llmConfig.trim());
+  const enhanceReady = Boolean(projectRule.trim() || moduleSpec.trim() || effectivePluginList.length);
+  const canRun = scopeReady && strategyReady && llmReady && !analyzing;
+  const llmPanelStatusLabel = llmReady ? '已完成' : '未完成';
 
-  const [rulesOpen, setRulesOpen] = useState(readBool('rulesOpen', false));
-  const [pluginsOpen, setPluginsOpen] = useState(readBool('pluginsOpen', false));
-  const [semanticOpen, setSemanticOpen] = useState(readBool('semanticOpen', false));
-  const [batchOpen, setBatchOpen] = useState(readBool('batchOpen', false));
+  const runResultSummary = useMemo(() => {
+    const projectStates = new Map<string, 'completed' | 'failed'>();
+    let detectedTotal = 0;
 
-  const inspectionNeedsTarget = inspectionOptions.find(item => item.value === inspectionMode)?.needsTarget ?? false;
-  const needsRepo = taskMode !== 'batch';
-  const activeRootValidation = arktaintRoot.trim() ? rootValidation : null;
-  const rootIsUsable = Boolean(arktaintRoot.trim()) && activeRootValidation?.ok !== false;
-  const scopeReady = rootIsUsable && (needsRepo ? Boolean(repo.trim()) : Boolean(projectRoot.trim()));
-  const strategyReady = Boolean(executionHandoff && reportMode && entryModel);
-  const inspectReady = taskMode !== 'inspect' || (inspectionMode !== 'none' && (!inspectionNeedsTarget || Boolean(inspectionTarget.trim())));
-  const canRun = rootIsUsable && !analyzing && (needsRepo ? Boolean(repo.trim()) : Boolean(projectRoot.trim())) && inspectReady;
+    for (const log of logs) {
+      const parsed = parseProjectRunStatus(log.message);
+      if (!parsed) continue;
+      detectedTotal = Math.max(detectedTotal, parsed.total);
+      projectStates.set(parsed.project, parsed.status);
+    }
+
+    let completed = 0;
+    let failed = 0;
+    for (const state of projectStates.values()) {
+      if (state === 'completed') completed += 1;
+      if (state === 'failed') failed += 1;
+    }
+
+    const total =
+      runSnapshot.currentProjectTotal || runSnapshot.selectedProjects || detectedTotal || selectedProjectCount || 0;
+
+    return { total, completed, failed };
+  }, [logs, runSnapshot.currentProjectTotal, runSnapshot.selectedProjects, selectedProjectCount]);
+
+  const previewArtifact = useMemo(() => {
+    const preferredLabels = ['Summary Markdown', 'Summary JSON', '鏈€缁?Summary JSON'];
+    for (const label of preferredLabels) {
+      const matched = runSnapshot.artifacts.find(item => item.label === label);
+      if (matched) return matched;
+    }
+    return null;
+  }, [runSnapshot.artifacts]);
+
+  const payload = useMemo(
+    () => ({
+      taskMode: 'batch' as TaskMode,
+      outputDir,
+      projectRoot,
+      projects,
+      uploadedBundleName,
+      uploadMessage,
+      profile,
+      executionHandoff,
+      reportMode,
+      entryModel,
+      maxEntries,
+      k,
+      secondarySinkSweep,
+      incremental,
+      incrementalCache,
+      stopOnFirstFlow,
+      maxFlowsPerEntry,
+      projectTimeoutSeconds,
+      heartbeatSeconds,
+      sourceDirMode,
+      splitSourceDirThreshold,
+      sourceDirTimeoutSeconds,
+      maxSplitSourceDirs,
+      maxProjects,
+      skipExisting,
+      autoModel,
+      llmConfigMode,
+      llmApiUrl,
+      llmApiKey,
+      llmApiKeyHeader,
+      llmApiKeyPrefix,
+      llmHeaders,
+      llmMinIntervalMs,
+      llmAdvancedOpen,
+      llmUseDirectConfig: llmConfigMode === 'direct',
+      llmConfig,
+      llmProfile,
+      llmModel,
+      llmTimeoutMs,
+      llmConnectTimeoutMs,
+      llmMaxAttempts,
+      llmMaxFailures,
+      llmRepairAttempts,
+      maxLlmItems,
+      publishModel,
+      globalPlugins,
+      projectRule,
+      moduleSpec,
+      projectPlugins,
+      useGlobalPlugins,
+      plugins: effectivePluginList.join('\n'),
+      rulesOpen,
+    }),
+    [
+      outputDir,
+      projectRoot,
+      projects,
+      uploadedBundleName,
+      uploadMessage,
+      profile,
+      executionHandoff,
+      reportMode,
+      entryModel,
+      maxEntries,
+      k,
+      secondarySinkSweep,
+      incremental,
+      incrementalCache,
+      stopOnFirstFlow,
+      maxFlowsPerEntry,
+      projectTimeoutSeconds,
+      heartbeatSeconds,
+      sourceDirMode,
+      splitSourceDirThreshold,
+      sourceDirTimeoutSeconds,
+      maxSplitSourceDirs,
+      maxProjects,
+      skipExisting,
+      autoModel,
+      llmConfigMode,
+      llmApiUrl,
+      llmApiKey,
+      llmApiKeyHeader,
+      llmApiKeyPrefix,
+      llmHeaders,
+      llmMinIntervalMs,
+      llmAdvancedOpen,
+      llmConfig,
+      llmProfile,
+      llmModel,
+      llmTimeoutMs,
+      llmConnectTimeoutMs,
+      llmMaxAttempts,
+      llmMaxFailures,
+      llmRepairAttempts,
+      maxLlmItems,
+      publishModel,
+      globalPlugins,
+      projectRule,
+      moduleSpec,
+      projectPlugins,
+      useGlobalPlugins,
+      effectivePluginList,
+      rulesOpen,
+    ]
+  );
+
+  const resolvedConfigPanel = configPanels.some(item => item.id === configPanel) ? configPanel : configPanels[0].id;
+  const activePanel = configPanels.find(item => item.id === resolvedConfigPanel) || configPanels[0];
+  const currentIndex = configPanels.findIndex(item => item.id === resolvedConfigPanel);
+  const previousPanel = currentIndex > 0 ? configPanels[currentIndex - 1] : null;
+  const nextPanel = currentIndex < configPanels.length - 1 ? configPanels[currentIndex + 1] : null;
+  const viewMotionClass = viewLeaving ? 'is-leaving' : '';
 
   const navigateScreen = (next: WorkbenchScreen) => {
     if (next === screen || viewLeaving) return;
@@ -382,158 +535,6 @@ export default function Workbench() {
     }, 150);
   };
 
-  const configPanels = useMemo(() => {
-    const items: Array<{ id: ConfigPanel; title: string; hint: string; required?: boolean; icon: typeof FolderOpen }> = [
-      { id: 'scope', title: '项目范围', hint: taskMode === 'batch' ? '选择项目集合和输出位置' : '选择待分析项目和源码范围', required: true, icon: FolderOpen },
-    ];
-
-    if (taskMode === 'auto') {
-      items.push({ id: 'semantic', title: 'LLM 建模', hint: '选择模型和会话策略', required: true, icon: Bot });
-      items.push({ id: 'strategy', title: '分析策略', hint: '入口、报告和搜索边界', required: true, icon: Settings2 });
-    } else if (taskMode === 'batch') {
-      items.push({ id: 'batch', title: '批量控制', hint: '超时、心跳和分片策略', required: true, icon: Workflow });
-      items.push({ id: 'strategy', title: '分析策略', hint: '入口、报告和并发', required: true, icon: Settings2 });
-      items.push({ id: 'semantic', title: 'LLM 建模', hint: '批量任务可选建模', icon: Bot });
-    } else if (taskMode === 'inspect') {
-      items.push({ id: 'inspect', title: '检查目标', hint: '选择要列出、解释或追踪的能力', required: true, icon: Search });
-    } else {
-      items.push({ id: 'strategy', title: '分析策略', hint: '默认即可运行，需要时再调整', required: true, icon: Settings2 });
-    }
-
-    items.push({ id: 'extensions', title: '扩展能力', hint: '规则、模型、模块和插件', icon: Layers3 });
-    items.push({ id: 'launch', title: '启动分析', hint: '最终确认并进入运行流程', required: true, icon: CheckCircle2 });
-    return items;
-  }, [taskMode]);
-
-  const payload = useMemo(
-    () => ({
-      taskMode,
-      arktaintRoot,
-      repo,
-      sourceDir,
-      outputDir,
-      projectRoot,
-      projects,
-      profile,
-      executionHandoff,
-      reportMode,
-      entryModel,
-      maxEntries,
-      k,
-      incremental,
-      incrementalCache,
-      stopOnFirstFlow,
-      maxFlowsPerEntry,
-      secondarySinkSweep: secondarySinkSweep === 'auto' ? undefined : secondarySinkSweep === 'true',
-      autoModel: taskMode === 'inspect' ? false : autoModel,
-      llmConfig,
-      llmProfile,
-      llmModel,
-      llmTimeoutMs,
-      llmConnectTimeoutMs,
-      llmMaxAttempts,
-      llmMaxFailures,
-      llmRepairAttempts,
-      maxLlmItems,
-      concurrency,
-      arkMainMaxCandidates,
-      llmSessionCacheDir,
-      llmSessionCacheMode,
-      publishModel,
-      projectTimeoutSeconds,
-      heartbeatSeconds,
-      sourceDirMode,
-      splitSourceDirThreshold,
-      sourceDirTimeoutSeconds,
-      maxSplitSourceDirs,
-      maxProjects,
-      skipExisting,
-      kernelRule,
-      projectRule,
-      candidateRule,
-      modelRoot,
-      enableModel,
-      disableModel,
-      moduleSpec,
-      disableModule,
-      arkmainSpec,
-      plugins,
-      disablePlugins,
-      pluginIsolate,
-      pluginDryRun,
-      pluginAudit,
-      inspectionMode: taskMode === 'inspect' ? inspectionMode : 'none',
-      inspectionTarget: taskMode === 'inspect' ? inspectionTarget : '',
-      rulesOpen,
-      pluginsOpen,
-      semanticOpen,
-      batchOpen,
-    }),
-    [
-      taskMode,
-      arktaintRoot,
-      repo,
-      sourceDir,
-      outputDir,
-      projectRoot,
-      projects,
-      profile,
-      executionHandoff,
-      reportMode,
-      entryModel,
-      maxEntries,
-      k,
-      incremental,
-      incrementalCache,
-      stopOnFirstFlow,
-      maxFlowsPerEntry,
-      secondarySinkSweep,
-      autoModel,
-      llmConfig,
-      llmProfile,
-      llmModel,
-      llmTimeoutMs,
-      llmConnectTimeoutMs,
-      llmMaxAttempts,
-      llmMaxFailures,
-      llmRepairAttempts,
-      maxLlmItems,
-      concurrency,
-      arkMainMaxCandidates,
-      llmSessionCacheDir,
-      llmSessionCacheMode,
-      publishModel,
-      projectTimeoutSeconds,
-      heartbeatSeconds,
-      sourceDirMode,
-      splitSourceDirThreshold,
-      sourceDirTimeoutSeconds,
-      maxSplitSourceDirs,
-      maxProjects,
-      skipExisting,
-      kernelRule,
-      projectRule,
-      candidateRule,
-      modelRoot,
-      enableModel,
-      disableModel,
-      moduleSpec,
-      disableModule,
-      arkmainSpec,
-      plugins,
-      disablePlugins,
-      pluginIsolate,
-      pluginDryRun,
-      pluginAudit,
-      inspectionMode,
-      inspectionTarget,
-      rulesOpen,
-      pluginsOpen,
-      semanticOpen,
-      batchOpen,
-    ]
-  );
-
   useEffect(() => {
     fetch(`${bridgeBaseUrl}/api/config`)
       .then(response => {
@@ -543,43 +544,13 @@ export default function Workbench() {
       .then((config: BridgeConfig) => {
         setBridgeConfig(config);
         setBridgeError('');
-        setArktaintRoot(prev => prev || config.defaultArkTaintRoot || '');
       })
-      .catch(() => setBridgeError('本地桥接服务未连接。请先在 arktaint-frontend 目录运行 node server.js。'));
+      .catch(() => setBridgeError('本地桥接服务未连接，请先在 arktaint-frontend 目录运行 node server.js。'));
   }, []);
 
   useEffect(() => {
     localStorage.setItem(storageKey, JSON.stringify(payload));
   }, [payload]);
-
-  useEffect(() => {
-    const target = arktaintRoot.trim();
-    if (!target) return;
-
-    const controller = new AbortController();
-    const timer = window.setTimeout(async () => {
-      try {
-        setValidatingRoot(true);
-        const response = await fetch(`${bridgeBaseUrl}/api/validate-root?path=${encodeURIComponent(target)}`, { signal: controller.signal });
-        if (!response.ok) throw new Error('无法校验根目录');
-        const data = (await response.json()) as RootValidation;
-        setRootValidation(data);
-      } catch {
-        if (!controller.signal.aborted) {
-          setRootValidation({ ok: false, reason: '无法校验 ArkTaint 根目录' });
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setValidatingRoot(false);
-        }
-      }
-    }, 260);
-
-    return () => {
-      controller.abort();
-      window.clearTimeout(timer);
-    };
-  }, [arktaintRoot]);
 
   const handlePickFolder = async (setter: (value: string) => void) => {
     try {
@@ -588,7 +559,118 @@ export default function Workbench() {
       const data = await response.json();
       if (data.path) setter(data.path);
     } catch {
-      setBridgeError('目录选择不可用。请确认本地桥接服务已经启动。');
+      setBridgeError('目录选择不可用，请确认本地桥接服务已经启动。');
+    }
+  };
+
+  const uploadBundle = async (file: File) => {
+    if (!file.name.toLowerCase().endsWith('.zip')) {
+      setUploadMessage('目前只支持上传 zip 压缩包。');
+      return;
+    }
+
+    setUploadingBundle(true);
+    setUploadMessage(`正在上传 ${file.name}...`);
+    try {
+      const contentBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+        reader.onerror = () => reject(new Error('读取压缩包失败'));
+        reader.readAsDataURL(file);
+      });
+
+      const response = await fetch(`${bridgeBaseUrl}/api/upload-project-bundle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: file.name,
+          contentBase64,
+        }),
+      });
+      if (!response.ok) {
+        const raw = await response.text();
+        try {
+          const parsed = JSON.parse(raw) as { error?: string };
+          throw new Error(parsed.error || raw);
+        } catch {
+          throw new Error(raw);
+        }
+      }
+      const data = (await response.json()) as UploadedBundle;
+      setUploadedBundleName(data.bundleName);
+      setProjectRoot(data.projectRoot);
+      setProjects(data.detectedProjects.join('\n'));
+      setUploadMessage(`已上传 ${data.bundleName}，识别到 ${data.projectCount} 个项目。`);
+    } catch (error) {
+      setUploadMessage(String((error as Error)?.message || error));
+    } finally {
+      setUploadingBundle(false);
+    }
+  };
+
+  const handlePickFile = async (setter: (value: string) => void, filterName: string, filterPattern: string) => {
+    try {
+      const response = await fetch(
+        `${bridgeBaseUrl}/api/pick-file?filterName=${encodeURIComponent(filterName)}&filterPattern=${encodeURIComponent(filterPattern)}`
+      );
+      if (!response.ok) throw new Error('文件选择失败');
+      const data = await response.json();
+      if (data.path) setter(data.path);
+    } catch {
+      setBridgeError('文件选择不可用，请确认本地桥接服务已经启动。');
+    }
+  };
+
+  const appendPlugin = (entry: PluginEntry, scope: 'global' | 'project') => {
+    const currentList = scope === 'global' ? globalPluginList : projectPluginList;
+    const nextList = [...currentList.filter(item => item.path !== entry.path), entry];
+    if (scope === 'global') {
+      setGlobalPlugins(nextList);
+      return;
+    }
+    setProjectPlugins(nextList);
+  };
+
+  const removePlugin = (target: string, scope: 'global' | 'project') => {
+    const nextList = (scope === 'global' ? globalPluginList : projectPluginList).filter(item => item.path !== target);
+    if (scope === 'global') {
+      setGlobalPlugins(nextList);
+      return;
+    }
+    setProjectPlugins(nextList);
+  };
+
+  const uploadPluginBundle = async (file: File, scope: 'global' | 'project') => {
+    if (!file.name.toLowerCase().endsWith('.zip')) {
+      setBridgeError('当前只支持上传 zip 格式的插件包。');
+      return;
+    }
+
+    setPluginUploadTarget(scope);
+    try {
+      const contentBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+        reader.onerror = () => reject(new Error('读取插件包失败'));
+        reader.readAsDataURL(file);
+      });
+
+      const response = await fetch(`${bridgeBaseUrl}/api/upload-plugin-bundle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: file.name,
+          contentBase64,
+        }),
+      });
+      if (!response.ok) throw new Error(await response.text());
+      const data = (await response.json()) as UploadedPluginBundle;
+      appendPlugin({ label: data.bundleName, path: data.pluginRoot }, scope);
+      setBridgeError('');
+    } catch (error) {
+      setBridgeError(String((error as Error)?.message || error));
+    } finally {
+      setPluginUploadTarget(null);
     }
   };
 
@@ -619,72 +701,37 @@ export default function Workbench() {
     if (artifact) pushArtifact(artifact);
   };
 
-  const applyPreset = (mode: TaskMode) => {
-    setTaskMode(mode);
-    setConfigPanel('scope');
-    navigateScreen(screenForMode(mode));
-    if (mode === 'single') {
-      setAutoModel(false);
-      setInspectionMode('none');
-      setReportMode('light');
-      setEntryModel('arkMain');
-      setExecutionHandoff('enabled');
-    }
-    if (mode === 'auto') {
-      setAutoModel(true);
-      setInspectionMode('none');
-      setReportMode('light');
-      setEntryModel('arkMain');
-      setExecutionHandoff('enabled');
-      setLlmProfile(llmProfile || 'qwen');
-      setLlmModel(llmModel || 'qwen3-coder-next');
-      setSemanticOpen(true);
-    }
-    if (mode === 'batch') {
-      setInspectionMode('none');
-      setEntryModel('explicit');
-      setExecutionHandoff('enabled');
-      setBatchOpen(true);
-    }
-    if (mode === 'inspect') {
-      setAutoModel(false);
-      setInspectionMode(inspectionMode === 'none' ? 'listModules' : inspectionMode);
-      setReportMode('light');
-      setExecutionHandoff('enabled');
-      setPluginsOpen(true);
-    }
-  };
-
   const startRun = async () => {
     if (!canRun) return;
 
     navigateScreen('run');
     setAnalyzing(true);
+    setReportPreviewOpen(false);
+    setReportPreviewLoading(false);
+    setReportPreviewError('');
+    setReportPreviewContent('');
+    setReportPreviewKind('text');
     setLogs([
       toLog(`连接本地桥接服务：${bridgeBaseUrl}`, 'sys'),
-      toLog(needsRepo ? `目标项目：${repo.trim()}` : `项目集合：${projectRoot.trim()}`, 'sys'),
+      toLog(`项目集合目录：${projectRoot.trim()}`, 'sys'),
+      toLog(uploadedBundleName ? `上传压缩包：${uploadedBundleName}` : '未记录上传压缩包名称', 'sys'),
+      toLog(selectedProjectCount > 0 ? `本次显式指定项目数：${selectedProjectCount}` : '本次将按目录自动发现项目', 'sys'),
     ]);
-    setRunSnapshot({ phase: '选择范围', artifacts: [] });
-
-    const endpoint = taskMode === 'batch' ? '/api/batch-analyze' : '/api/analyze';
-    const body =
-      taskMode === 'batch'
-        ? {
-            ...payload,
-            arktaintRoot: arktaintRoot.trim(),
-            projectRoot: projectRoot.trim(),
-          }
-        : {
-            ...payload,
-            arktaintRoot: arktaintRoot.trim(),
-            repo: repo.trim(),
-          };
+    setRunSnapshot({
+      phase: '项目接入',
+      artifacts: [],
+      selectedProjects: selectedProjectCount || undefined,
+    });
 
     try {
-      const response = await fetch(`${bridgeBaseUrl}${endpoint}`, {
+      const response = await fetch(`${bridgeBaseUrl}/api/batch-analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          ...payload,
+          projectRoot: projectRoot.trim(),
+          outputDir: outputDir.trim(),
+        }),
       });
       if (!response.ok) throw new Error(await response.text());
       if (!response.body) throw new Error('本地桥接服务没有返回实时输出。');
@@ -708,51 +755,69 @@ export default function Workbench() {
             if (data.type === 'done') {
               setAnalyzing(false);
               setRunSnapshot(prev => ({ ...prev, phase: '求解与结果', exitCode: data.code }));
-              setLogs(prev => [...prev, toLog(`引擎执行结束，退出码：${data.code ?? 'unknown'}`, 'done', data.time)]);
             } else if (data.message) {
               appendLog(data.message, data.type || 'log', data.time);
             }
-          } catch (error) {
-            appendLog(`无法解析运行事件：${String(error)}`, 'error');
+          } catch {
+            // 忽略异常流片段
           }
         }
       }
     } catch (error) {
-      appendLog(`本地桥接通信失败：${String(error)}`, 'error');
+      appendLog(String((error as Error)?.message || error), 'error');
       setAnalyzing(false);
-      setRunSnapshot(prev => ({ ...prev, exitCode: -1 }));
     }
   };
 
-  const activeMode = modeCards.find(item => item.id === taskMode) || modeCards[0];
-  const ActiveModeIcon = activeMode.icon;
-  const viewMotionClass = viewLeaving ? 'is-leaving' : 'is-entering';
-  const resolvedConfigPanel = configPanels.some(item => item.id === configPanel) ? configPanel : 'scope';
-  const activePanel = configPanels.find(item => item.id === resolvedConfigPanel) || configPanels[0];
-  const activePanelIndex = Math.max(0, configPanels.findIndex(item => item.id === activePanel.id));
-  const previousPanel = activePanelIndex > 0 ? configPanels[activePanelIndex - 1] : null;
-  const nextPanel = activePanelIndex < configPanels.length - 1 ? configPanels[activePanelIndex + 1] : null;
+  const openReportPreview = async () => {
+    if (!previewArtifact) return;
 
-  const intentSummary = [
-    taskMode === 'batch' ? '批量任务' : taskMode === 'inspect' ? '能力检查' : taskMode === 'auto' ? 'LLM 建模分析' : '单项目分析',
-    executionHandoff === 'enabled' ? '启用 UDE' : '关闭 UDE',
-    autoModel ? '启用自动建模' : '不启用自动建模',
-    `报告：${reportMode}`,
-    `入口：${entryModel}`,
-  ];
+    setReportPreviewOpen(true);
+    setReportPreviewLoading(true);
+    setReportPreviewError('');
 
-  const projectSummary =
-    taskMode === 'batch'
-      ? cleanLines(projects).length > 0
-        ? `${cleanLines(projects).length} 个指定项目`
-        : '自动扫描项目集合目录'
-      : cleanLines(sourceDir).length > 0
-        ? `${cleanLines(sourceDir).length} 个手动源码目录`
-        : '自动发现源码目录';
+    try {
+      const response = await fetch(
+        `${bridgeBaseUrl}/api/report-preview?path=${encodeURIComponent(previewArtifact.path)}`
+      );
+      if (!response.ok) throw new Error(await response.text());
+      const data = (await response.json()) as { kind: ReportPreviewKind; content: string };
+      setReportPreviewKind(data.kind);
+      if (data.kind === 'json') {
+        try {
+          setReportPreviewContent(JSON.stringify(JSON.parse(data.content), null, 2));
+        } catch {
+          setReportPreviewContent(data.content);
+        }
+      } else {
+        setReportPreviewContent(data.content);
+      }
+    } catch (error) {
+      setReportPreviewError(String((error as Error)?.message || error));
+    } finally {
+      setReportPreviewLoading(false);
+    }
+  };
 
-  const statusLabel = (status: boolean, optional = false) => {
-    if (status) return '已就绪';
-    return optional ? '可选' : '待完成';
+  const downloadReport = () => {
+    if (!previewArtifact) return;
+
+    const url = `${bridgeBaseUrl}/api/report-download?path=${encodeURIComponent(previewArtifact.path)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const statusLabel = (ready: boolean, optional = false) => {
+    if (ready) return '已就绪';
+    if (optional) return '可选';
+    return '待完成';
+  };
+
+  const panelReady = (panelId: ConfigPanel) => {
+    if (panelId === 'scope') return scopeReady;
+    if (panelId === 'strategy') return strategyReady;
+    if (panelId === 'enhance') return enhanceReady;
+    if (panelId === 'launch') return scopeReady && strategyReady && llmReady;
+    return canRun;
   };
 
   const renderScopePanel = () => (
@@ -760,66 +825,48 @@ export default function Workbench() {
       <div className="panel-heading">
         <span className="icon-badge"><FolderOpen size={16} /></span>
         <div>
-          <strong>{taskMode === 'batch' ? '项目集合与输出位置' : '项目范围与输出位置'}</strong>
-          <p>这里只保留运行前必须确认的目录；源码目录和输出目录可以留空，让 ArkTaint 使用默认发现与输出策略。</p>
+          <strong>项目接入</strong>
+          <p>上传真实项目压缩包后，系统将自动完成接入准备并进入后续分析流程。</p>
         </div>
       </div>
-
       <div className="form-grid relaxed">
-        <Field label="ArkTaint 根目录" wide>
-          <div className="path-row">
-            <input value={arktaintRoot} onChange={event => setArktaintRoot(event.target.value)} placeholder="D:\cursor\workplace\ArkTaint" />
-            <button className="folder-button" type="button" onClick={() => handlePickFolder(setArktaintRoot)}>
-              <FolderOpen size={15} />
-              选择
-            </button>
+        <Field label="项目集合目录" wide>
+          <div className="upload-card">
+            <div className="upload-copy">
+              <strong>{uploadedBundleName || '上传项目压缩包'}</strong>
+              <span>上传后自动完成解压与识别，直接进入分析准备阶段。</span>
+            </div>
+            <label className={`folder-button upload-button ${uploadingBundle ? 'disabled' : ''}`}>
+              <input
+                type="file"
+                accept=".zip,application/zip"
+                disabled={uploadingBundle}
+                onChange={event => {
+                  const file = event.target.files?.[0];
+                  if (file) {
+                    void uploadBundle(file);
+                    event.target.value = '';
+                  }
+                }}
+              />
+              <FolderOpen size={14} />
+              {uploadingBundle ? '上传中' : '选择 zip'}
+            </label>
           </div>
-          <div className={`validation-note ${validatingRoot ? 'pending' : activeRootValidation?.ok ? 'ok' : activeRootValidation ? 'error' : 'idle'}`}>
-            {validatingRoot
-              ? '正在校验 package.json 中的 analyze 脚本。'
-              : activeRootValidation?.ok
-                ? 'ArkTaint 根目录有效，可以直接运行。'
-                : activeRootValidation?.reason || '填入目录后会自动校验。'}
+          <div className={`validation-note ${uploadedBundleName ? 'ok' : uploadMessage ? 'pending' : 'idle'}`}>
+            {uploadMessage || '支持上传包含多个真实项目的 zip 压缩包。'}
           </div>
         </Field>
 
-        {taskMode === 'batch' ? (
-          <>
-            <Field label="项目集合目录" wide>
-              <div className="path-row">
-                <input value={projectRoot} onChange={event => setProjectRoot(event.target.value)} placeholder="D:\cursor\workplace\project" />
-                <button className="folder-button" type="button" onClick={() => handlePickFolder(setProjectRoot)}>
-                  <FolderOpen size={15} />
-                  选择
-                </button>
-              </div>
-            </Field>
-            <Field label="指定项目，可选" wide note="按行或逗号填写项目名；留空时自动扫描项目集合目录。">
-              <textarea value={projects} onChange={event => setProjects(event.target.value)} placeholder="HarmonyStudy, JhHarmonyDemo" />
-            </Field>
-          </>
-        ) : (
-          <>
-            <Field label="目标项目目录" wide>
-              <div className="path-row">
-                <input value={repo} onChange={event => setRepo(event.target.value)} placeholder="D:\cursor\workplace\project\HarmonyStudy" />
-                <button className="folder-button" type="button" onClick={() => handlePickFolder(setRepo)}>
-                  <FolderOpen size={15} />
-                  选择
-                </button>
-              </div>
-            </Field>
-            <Field label="源码目录，可选" wide note="通常可以留空并自动发现；需要限制分析范围时再手动填写。">
-              <textarea value={sourceDir} onChange={event => setSourceDir(event.target.value)} placeholder="entry/src/main/ets" />
-            </Field>
-          </>
-        )}
+        <Field label="识别到的项目" wide note="系统将自动识别项目列表，也可按需调整分析范围。">
+          <textarea value={projects} onChange={event => setProjects(event.target.value)} />
+        </Field>
 
-        <Field label="输出目录，可选" wide>
+        <Field label="输出目录" wide note="未指定时，系统将使用默认结果输出位置。">
           <div className="path-row">
-            <input value={outputDir} onChange={event => setOutputDir(event.target.value)} placeholder="留空时使用 ArkTaint 默认输出目录" />
-            <button className="folder-button" type="button" onClick={() => handlePickFolder(setOutputDir)}>
-              <FolderOpen size={15} />
+            <input value={outputDir} readOnly placeholder="选择分析结果输出位置" />
+            <button type="button" className="folder-button" onClick={() => handlePickFolder(setOutputDir)}>
+              <FolderOpen size={14} />
               选择
             </button>
           </div>
@@ -833,413 +880,483 @@ export default function Workbench() {
       <div className="panel-heading">
         <span className="icon-badge"><Settings2 size={16} /></span>
         <div>
-          <strong>分析策略</strong>
-          <p>默认值适合第一次运行；只有需要控制精度、速度或输出粒度时再调整。</p>
+          <strong>执行策略</strong>
+          <p>统一设置分析深度、结果输出方式与批量执行节奏，确保任务执行清晰一致。</p>
         </div>
       </div>
 
-      <div className="form-grid relaxed">
-        <Field label="分析档位">
-          <select value={profile} onChange={event => setProfile(event.target.value)}>
-            <option value="default">标准</option>
-            <option value="fast">快速</option>
-            <option value="strict">严格</option>
-          </select>
-        </Field>
-        <Field label="报告模式">
-          <select value={reportMode} onChange={event => setReportMode(event.target.value)}>
-            <option value="light">轻量</option>
-            <option value="full">完整</option>
-          </select>
-        </Field>
-        <Field label="入口模型">
-          <select value={entryModel} onChange={event => setEntryModel(event.target.value)}>
-            <option value="arkMain">ArkMain</option>
-            <option value="explicit">显式入口</option>
-          </select>
-        </Field>
-        <Field label="UDE">
-          <select value={executionHandoff} onChange={event => setExecutionHandoff(event.target.value)} disabled={taskMode === 'batch'}>
-            <option value="enabled">启用</option>
-            <option value="disabled">关闭</option>
-          </select>
-        </Field>
-        <Field label="最大入口数">
-          <input value={maxEntries} onChange={event => setMaxEntries(event.target.value)} placeholder="9999" />
-        </Field>
-        <Field label="上下文深度 k">
-          <input
-            value={k}
-            onChange={event => setK(event.target.value)}
-            placeholder={taskMode === 'batch' ? '批量模式当前不生效' : '留空时使用默认值'}
-            disabled={taskMode === 'batch'}
-          />
-        </Field>
-        <Field label="每入口最大流数">
-          <input value={maxFlowsPerEntry} onChange={event => setMaxFlowsPerEntry(event.target.value)} placeholder="留空时不限制" />
-        </Field>
-        <Field label="二次汇点扫描">
-          <select value={secondarySinkSweep} onChange={event => setSecondarySinkSweep(event.target.value)}>
-            <option value="auto">按默认策略</option>
-            <option value="true">启用</option>
-            <option value="false">关闭</option>
-          </select>
-        </Field>
-        <Field label="分析并发">
-          <input value={concurrency} onChange={event => setConcurrency(event.target.value)} placeholder="1" />
-        </Field>
-        <Field label="增量缓存目录，可选">
-          <input value={incrementalCache} onChange={event => setIncrementalCache(event.target.value)} placeholder="留空时使用默认缓存目录" />
-        </Field>
-      </div>
-
-      <div className="toggle-grid">
-        <ToggleLine checked={incremental} onChange={setIncremental} title="增量缓存" desc="保留增量分析结果，适合同一项目的重复对照。" />
-        <ToggleLine checked={stopOnFirstFlow} onChange={setStopOnFirstFlow} title="首条流即停" desc="用于快速验证路径是否存在，不适合完整统计。" />
-      </div>
-    </section>
-  );
-
-  const renderSemanticPanel = () => (
-    <section className="surface-panel config-panel accent-panel">
-      <div className="panel-heading">
-        <span className="icon-badge"><Bot size={16} /></span>
-        <div>
-          <strong>SemanticFlow 与 LLM 建模</strong>
-          <p>只有项目存在未知 API 或需要补充语义时才开启；模型切换只影响本次建模请求，不改变分析算法。</p>
-        </div>
-      </div>
-
-      <div className="toggle-grid leading-toggle">
-        <ToggleLine
-          checked={autoModel}
-          onChange={setAutoModel}
-          title="启用自动建模"
-          desc="把未知 API 候选交给 SemanticFlow，自动生成可复用产物。"
-          disabled={taskMode === 'inspect'}
-        />
-      </div>
-
-      <div className="form-grid relaxed">
-        <Field label="LLM 配置名">
-          <input value={llmProfile} onChange={event => setLlmProfile(event.target.value)} placeholder="qwen" />
-        </Field>
-        <Field label="模型">
-          <>
-            <input list="arktaint-llm-models" value={llmModel} onChange={event => setLlmModel(event.target.value)} placeholder="qwen3-coder-next" />
-            <datalist id="arktaint-llm-models">
-              {modelOptions.map(model => <option key={model} value={model} />)}
-            </datalist>
-          </>
-        </Field>
-        <Field label="语义配置文件">
-          <input value={llmConfig} onChange={event => setLlmConfig(event.target.value)} placeholder="可选：覆盖当前配置模板" />
-        </Field>
-        <Field label="单次请求超时 ms">
-          <input value={llmTimeoutMs} onChange={event => setLlmTimeoutMs(event.target.value)} />
-        </Field>
-        <Field label="连接超时 ms">
-          <input value={llmConnectTimeoutMs} onChange={event => setLlmConnectTimeoutMs(event.target.value)} placeholder="留空时使用默认值" />
-        </Field>
-        <Field label="每目录最大 LLM 项数">
-          <input value={maxLlmItems} onChange={event => setMaxLlmItems(event.target.value)} />
-        </Field>
-        <Field label="ArkMain 候选上限">
-          <input value={arkMainMaxCandidates} onChange={event => setArkMainMaxCandidates(event.target.value)} placeholder="留空时使用默认值" />
-        </Field>
-        <Field label="单项重试次数">
-          <input value={llmMaxAttempts} onChange={event => setLlmMaxAttempts(event.target.value)} />
-        </Field>
-        <Field label="连续失败阈值">
-          <input value={llmMaxFailures} onChange={event => setLlmMaxFailures(event.target.value)} />
-        </Field>
-        <Field label="修复尝试次数">
-          <input value={llmRepairAttempts} onChange={event => setLlmRepairAttempts(event.target.value)} />
-        </Field>
-        <Field label="会话缓存模式">
-          <select value={llmSessionCacheMode} onChange={event => setLlmSessionCacheMode(event.target.value)}>
-            <option value="rw">读写</option>
-            <option value="read">只读</option>
-            <option value="write">只写</option>
-            <option value="off">关闭</option>
-          </select>
-        </Field>
-        <Field label="发布模型包 ID，可选">
-          <input value={publishModel} onChange={event => setPublishModel(event.target.value)} placeholder="自动建模完成后发布到指定模型包 ID" />
-        </Field>
-        <Field label="会话缓存目录" wide>
-          <input value={llmSessionCacheDir} onChange={event => setLlmSessionCacheDir(event.target.value)} placeholder="可选：固定 LLM 会话缓存目录" />
-        </Field>
-      </div>
-    </section>
-  );
-
-  const renderBatchPanel = () => (
-    <section className="surface-panel config-panel accent-panel">
-      <div className="panel-heading">
-        <span className="icon-badge"><Workflow size={16} /></span>
-        <div>
-          <strong>批量控制</strong>
-          <p>面向真实项目集合时，超时、心跳和分片策略需要独立配置，避免长任务失控。</p>
-        </div>
-      </div>
-
-      <div className="form-grid relaxed">
-        <Field label="最大项目数">
-          <input value={maxProjects} onChange={event => setMaxProjects(event.target.value)} placeholder="留空时不限制" />
-        </Field>
-        <Field label="项目超时，秒">
-          <input value={projectTimeoutSeconds} onChange={event => setProjectTimeoutSeconds(event.target.value)} />
-        </Field>
-        <Field label="心跳间隔，秒">
-          <input value={heartbeatSeconds} onChange={event => setHeartbeatSeconds(event.target.value)} />
-        </Field>
-        <Field label="源码目录模式">
-          <select value={sourceDirMode} onChange={event => setSourceDirMode(event.target.value)}>
-            <option value="auto">自动</option>
-            <option value="project">整项目</option>
-            <option value="split">强制分片</option>
-          </select>
-        </Field>
-        <Field label="分片阈值">
-          <input value={splitSourceDirThreshold} onChange={event => setSplitSourceDirThreshold(event.target.value)} />
-        </Field>
-        <Field label="分片超时，秒">
-          <input value={sourceDirTimeoutSeconds} onChange={event => setSourceDirTimeoutSeconds(event.target.value)} />
-        </Field>
-        <Field label="最大分片数">
-          <input value={maxSplitSourceDirs} onChange={event => setMaxSplitSourceDirs(event.target.value)} placeholder="0 表示全部" />
-        </Field>
-      </div>
-
-      <div className="toggle-grid">
-        <ToggleLine checked={skipExisting} onChange={setSkipExisting} title="跳过已有结果" desc="已经生成 summary 的项目不再重复运行。" />
-      </div>
-    </section>
-  );
-
-  const renderInspectPanel = () => (
-    <section className="surface-panel config-panel accent-panel">
-      <div className="panel-heading">
-        <span className="icon-badge"><Search size={16} /></span>
-        <div>
-          <strong>能力检查</strong>
-          <p>检查模式只做列出、解释或追踪，不直接进入完整数据流求解。</p>
-        </div>
-      </div>
-      <div className="form-grid relaxed">
-        <Field label="检查模式">
-          <select value={inspectionMode} onChange={event => setInspectionMode(event.target.value as InspectionMode)}>
-            {inspectionOptions.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="检查目标" note={inspectionNeedsTarget ? '当前模式需要指定模块 ID 或插件名。' : '当前模式不需要额外目标。'}>
-          <input value={inspectionTarget} onChange={event => setInspectionTarget(event.target.value)} placeholder="模块 ID 或插件名" disabled={!inspectionNeedsTarget} />
-        </Field>
-      </div>
-    </section>
-  );
-
-  const renderExtensionsPanel = () => (
-    <div className="workspace-stack">
-      <Disclosure
-        title="规则、模型与模块"
-        hint="补充规则包、模型包、模块约束和 ArkMain 约束，细化项目分析语义。"
-        icon={<Layers3 size={16} />}
-        open={rulesOpen}
-        onToggle={() => setRulesOpen(prev => !prev)}
-      >
         <div className="form-grid relaxed">
-          <Field label="内核规则">
-            <input value={kernelRule} onChange={event => setKernelRule(event.target.value)} />
+          <Field label="分析深度">
+            <select value={profile} onChange={event => setProfile(event.target.value)}>
+              <option value="fast">快速筛查</option>
+              <option value="default">标准分析</option>
+              <option value="strict">深度复核</option>
+            </select>
           </Field>
-          <Field label="项目规则">
-            <input value={projectRule} onChange={event => setProjectRule(event.target.value)} />
+          <Field label="报告模式">
+            <select value={reportMode} onChange={event => setReportMode(event.target.value)}>
+              <option value="light">简要结果</option>
+              <option value="full">完整结果</option>
+            </select>
           </Field>
-          <Field label="候选规则">
-            <input value={candidateRule} onChange={event => setCandidateRule(event.target.value)} />
+          <Field label="上下文敏感层数（k）">
+            <input
+              value={k}
+              onChange={event => setK(event.target.value)}
+              placeholder="未填写时采用系统默认策略（默认值：1）"
+            />
           </Field>
-          <Field label="启用模型">
-            <input value={enableModel} onChange={event => setEnableModel(event.target.value)} placeholder="按行或逗号填写模型包 ID" />
-          </Field>
-          <Field label="禁用模型">
-            <input value={disableModel} onChange={event => setDisableModel(event.target.value)} placeholder="按行或逗号填写模型包 ID" />
-          </Field>
-          <Field label="禁用模块">
-            <input value={disableModule} onChange={event => setDisableModule(event.target.value)} placeholder="按行或逗号填写模块 ID" />
-          </Field>
-          <Field label="模型根目录" wide note="可按行填写多个 model root。">
-            <textarea value={modelRoot} onChange={event => setModelRoot(event.target.value)} />
-          </Field>
-          <Field label="模块约束文件" wide>
-            <textarea value={moduleSpec} onChange={event => setModuleSpec(event.target.value)} />
-          </Field>
-          <Field label="ArkMain 约束文件" wide>
-            <textarea value={arkmainSpec} onChange={event => setArkmainSpec(event.target.value)} />
+          <Field label="单个项目最长等待时间（秒）">
+            <input
+              value={projectTimeoutSeconds}
+              onChange={event => setProjectTimeoutSeconds(event.target.value)}
+              placeholder="未填写时采用系统默认策略（默认值：480）"
+            />
           </Field>
         </div>
-      </Disclosure>
 
-      <Disclosure
-        title="插件"
-        hint="按需启用插件，或用 dry-run / audit 核查扩展能力。"
-        icon={<Plug size={16} />}
-        open={pluginsOpen}
-        onToggle={() => setPluginsOpen(prev => !prev)}
-      >
-        <div className="form-grid relaxed">
-          <Field label="插件路径">
-            <input value={plugins} onChange={event => setPlugins(event.target.value)} placeholder="按行或逗号填写插件路径" />
-          </Field>
-          <Field label="禁用插件">
-            <input value={disablePlugins} onChange={event => setDisablePlugins(event.target.value)} placeholder="按行或逗号填写插件名" />
-          </Field>
-          <Field label="隔离插件" wide>
-            <textarea value={pluginIsolate} onChange={event => setPluginIsolate(event.target.value)} placeholder="需要隔离执行的插件名" />
-          </Field>
-        </div>
         <div className="toggle-grid">
-          <ToggleLine checked={pluginDryRun} onChange={setPluginDryRun} title="插件 dry-run" desc="只验证加载和解释，不真正参与分析。" />
-          <ToggleLine checked={pluginAudit} onChange={setPluginAudit} title="插件审计" desc="输出插件相关诊断，适合复核扩展能力。" />
+          <ToggleLine checked={incremental} onChange={setIncremental} title="启用增量分析" desc="复用已有分析结果，适合持续回归与重复验证场景。" />
+          <ToggleLine checked={skipExisting} onChange={setSkipExisting} title="跳过已分析项目" desc="自动复用已完成项目结果，提升批量任务执行效率。" />
+          <ToggleLine checked={stopOnFirstFlow} onChange={setStopOnFirstFlow} title="发现首个风险后停止" desc="用于快速确认目标项目中是否存在有效风险路径。" />
         </div>
-      </Disclosure>
+      </section>
+    );
+
+  const renderEnhancePanel = () => (
+    <section className="workspace-stack">
+      <section className="surface-panel config-panel">
+        <div className="panel-heading">
+          <span className="icon-badge"><Layers3 size={16} /></span>
+          <div>
+            <strong>项目增强配置</strong>
+            <p>按需补充规则文件、模块建模与扩展插件，提升当前项目的语义识别能力。</p>
+          </div>
+        </div>
+        <div className="form-grid relaxed">
+          <Field label="规则文件" wide note="适合补充项目专属规则，帮助系统更准确理解业务场景。">
+            <div className="path-row">
+              <input value={projectRule} readOnly placeholder="选择项目规则文件" />
+              <button type="button" className="folder-button" onClick={() => handlePickFile(setProjectRule, 'JSON Files', '*.json')}>
+                <FolderOpen size={14} />
+                选择
+              </button>
+            </div>
+          </Field>
+          <Field label="模块建模文件" wide note="用于补充复杂模块的传播语义和结构建模。">
+            <div className="path-row">
+              <input value={moduleSpec} readOnly placeholder="选择模块建模文件" />
+              <button type="button" className="folder-button" onClick={() => handlePickFile(setModuleSpec, 'JSON Files', '*.json')}>
+                <FolderOpen size={14} />
+                选择
+              </button>
+            </div>
+          </Field>
+          <Field label="扩展插件" wide note="按需添加当前项目需要的额外分析能力，并可选择继承全局默认插件。">
+            <div className="plugin-stack">
+              <ToggleLine
+                checked={useGlobalPlugins}
+                onChange={setUseGlobalPlugins}
+                title="使用全局默认插件"
+                desc={
+                  globalPluginList.length
+                    ? useGlobalPlugins
+                      ? `当前已继承 ${globalPluginList.length} 个全局插件。`
+                      : `当前可继承 ${globalPluginList.length} 个全局插件。`
+                    : '当前尚未配置全局默认插件。'
+                }
+              />
+              <div className="plugin-group">
+                <div className="plugin-actions">
+                  <label className={`folder-button upload-button ${pluginUploadTarget === 'project' ? 'disabled' : ''}`}>
+                    <input
+                      type="file"
+                      accept=".zip,application/zip"
+                      disabled={pluginUploadTarget !== null}
+                      onChange={event => {
+                        const file = event.target.files?.[0];
+                        if (file) {
+                          void uploadPluginBundle(file, 'project');
+                          event.target.value = '';
+                        }
+                      }}
+                    />
+                    <FolderOpen size={14} />
+                    {pluginUploadTarget === 'project' ? '上传中...' : '添加插件包'}
+                  </label>
+                </div>
+                {projectPluginList.length === 0 ? (
+                  <div className="plugin-empty">当前未添加项目插件。</div>
+                ) : (
+                  <div className="plugin-list">
+                    {projectPluginList.map(item => (
+                      <div key={`project-${item.path}`} className="plugin-item">
+                        <span className="plugin-copy">
+                          <strong>{item.label}</strong>
+                          <em>{item.path}</em>
+                        </span>
+                        <button type="button" className="plugin-remove" onClick={() => removePlugin(item.path, 'project')}>
+                          删除
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </Field>
+        </div>
+      </section>
+    </section>
+  );
+
+  const renderLlmConfig = () => (
+    <div className={`llm-shell view-shell ${viewMotionClass}`}>
+      <section className="llm-hero surface-panel">
+        <div>
+          <span className="eyebrow">全局能力配置</span>
+          <h3>统一管理全局分析能力</h3>
+        </div>
+        <div className="llm-status-card">
+          <div className="llm-status-grid">
+            <div className="llm-status-box polished">
+              <span>LLM 辅助建模</span>
+              <em className={llmReady ? 'ok' : 'warn'}>{llmPanelStatusLabel}</em>
+            </div>
+            <div className="llm-status-box polished">
+              <span>全局默认插件</span>
+              <em className="muted">可选</em>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="surface-panel config-panel accent-panel">
+        <div className="panel-heading">
+          <span className="icon-badge"><Sparkles size={16} /></span>
+          <div>
+            <strong>LLM 辅助建模</strong>
+            <p>用于接入大模型能力，帮助系统补充 API 语义和业务行为理解，提升复杂项目中的分析覆盖度。</p>
+          </div>
+        </div>
+        <div className="form-grid relaxed">
+          <Field label="配置方式" wide>
+            <select value={llmConfigMode} onChange={event => setLlmConfigMode(event.target.value as LlmConfigMode)}>
+              <option value="direct">直接填写 API 配置</option>
+              <option value="config">使用已有配置文件</option>
+            </select>
+          </Field>
+
+          {llmConfigMode === 'direct' ? (
+            <>
+              <Field label="接口地址" wide required>
+                <input
+                  value={llmApiUrl}
+                  onChange={event => setLlmApiUrl(event.target.value)}
+                  placeholder="例如 https://api.openai.com/v1"
+                />
+              </Field>
+              <Field label="API Key" required>
+                <input
+                  type="password"
+                  value={llmApiKey}
+                  onChange={event => setLlmApiKey(event.target.value)}
+                  placeholder="输入模型服务的 API Key"
+                />
+              </Field>
+              <Field label="模型" required>
+                <input
+                  value={llmModel}
+                  onChange={event => setLlmModel(event.target.value)}
+                  placeholder="输入模型名称"
+                />
+              </Field>
+
+              <div className="advanced-section wide">
+                <button
+                  type="button"
+                  className={`advanced-toggle ${llmAdvancedOpen ? 'open' : ''}`}
+                  onClick={() => setLlmAdvancedOpen(value => !value)}
+                >
+                  <span>高级配置</span>
+                  <ChevronDown size={16} />
+                </button>
+              </div>
+
+              {llmAdvancedOpen ? (
+                <>
+                  <Field label="API Key Header">
+                    <input
+                      value={llmApiKeyHeader}
+                      onChange={event => setLlmApiKeyHeader(event.target.value)}
+                      placeholder="默认 Authorization"
+                    />
+                  </Field>
+                  <Field label="API Key Prefix">
+                    <input
+                      value={llmApiKeyPrefix}
+                      onChange={event => setLlmApiKeyPrefix(event.target.value)}
+                      placeholder="默认 Bearer "
+                    />
+                  </Field>
+                  <Field label="连接超时 (ms)">
+                    <input value={llmConnectTimeoutMs} onChange={event => setLlmConnectTimeoutMs(event.target.value)} />
+                  </Field>
+                  <Field label="请求超时 (ms)">
+                    <input value={llmTimeoutMs} onChange={event => setLlmTimeoutMs(event.target.value)} />
+                  </Field>
+                  <Field label="最大尝试次数">
+                    <input value={llmMaxAttempts} onChange={event => setLlmMaxAttempts(event.target.value)} />
+                  </Field>
+                  <Field label="最大失败次数">
+                    <input value={llmMaxFailures} onChange={event => setLlmMaxFailures(event.target.value)} />
+                  </Field>
+                  <Field label="修复尝试次数">
+                    <input value={llmRepairAttempts} onChange={event => setLlmRepairAttempts(event.target.value)} />
+                  </Field>
+                  <Field label="最小调用间隔 (ms)">
+                    <input
+                      value={llmMinIntervalMs}
+                      onChange={event => setLlmMinIntervalMs(event.target.value)}
+                      placeholder="按需填写"
+                    />
+                  </Field>
+                  <Field label="自定义 Headers" wide>
+                    <textarea
+                      value={llmHeaders}
+                      onChange={event => setLlmHeaders(event.target.value)}
+                      placeholder={'Header-Name: value\nAnother-Header: value'}
+                    />
+                  </Field>
+                </>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <Field label="LLM 配置文件" wide required>
+                <div className="path-row">
+                  <input value={llmConfig} readOnly placeholder="选择已有的 LLM 配置文件" />
+                  <button type="button" className="folder-button" onClick={() => handlePickFile(setLlmConfig, 'JSON Files', '*.json')}>
+                    <FolderOpen size={14} />
+                    选择
+                  </button>
+                </div>
+              </Field>
+            </>
+          )}
+
+        </div>
+      </section>
+
+      <section className="surface-panel config-panel">
+        <div className="panel-heading">
+          <span className="icon-badge"><Layers3 size={16} /></span>
+          <div>
+            <strong>全局默认插件</strong>
+            <p>用于统一管理团队常用的扩展能力，让多个项目在分析时复用同一套插件配置。</p>
+          </div>
+        </div>
+        <div className="plugin-stack">
+          <div className="plugin-actions">
+            <label className={`folder-button upload-button ${pluginUploadTarget === 'global' ? 'disabled' : ''}`}>
+              <input
+                type="file"
+                accept=".zip,application/zip"
+                disabled={pluginUploadTarget !== null}
+                onChange={event => {
+                  const file = event.target.files?.[0];
+                  if (file) {
+                    void uploadPluginBundle(file, 'global');
+                    event.target.value = '';
+                  }
+                }}
+              />
+              <FolderOpen size={14} />
+              {pluginUploadTarget === 'global' ? '上传中...' : '添加插件包'}
+            </label>
+          </div>
+          {globalPluginList.length === 0 ? (
+            <div className="plugin-empty">当前未配置全局默认插件。</div>
+          ) : (
+            <div className="plugin-list">
+              {globalPluginList.map(item => (
+                <div key={`global-manage-${item.path}`} className="plugin-item">
+                  <span className="plugin-copy">
+                    <strong>{item.label}</strong>
+                    <em>{item.path}</em>
+                  </span>
+                  <button type="button" className="plugin-remove" onClick={() => removePlugin(item.path, 'global')}>
+                    删除
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 
-  const renderLaunchPanel = () => (
-    <section className="surface-panel run-card launch-action-card">
-      <div className="panel-heading compact">
-        <span className="icon-badge"><CheckCircle2 size={16} /></span>
-        <div>
-          <strong>配置完成后运行</strong>
-          <p>完成必要项后，从这里启动分析；运行过程会切换到独立流程页。</p>
+  const renderLaunchPanel = () => {
+    const depthLabel =
+      profile === 'fast' ? '快速筛查' : profile === 'strict' ? '深度复核' : '标准分析';
+    const reportLabel = reportMode === 'full' ? '完整结果' : '简要结果';
+    const llmModeLabel = llmConfigMode === 'direct' ? '直接填写 API 配置' : '使用已有配置文件';
+    const launchIssues = [
+      !scopeReady ? '请先补充项目接入信息。' : '',
+      !strategyReady ? '请先补充分析策略。' : '',
+      !llmReady ? '请先完成 LLM 辅助建模配置。' : '',
+    ].filter(Boolean);
+
+    return (
+      <section className="surface-panel config-panel launch-summary-panel">
+        <div className="panel-heading">
+          <span className="icon-badge"><CheckCircle2 size={16} /></span>
+          <div>
+            <strong>确认启动</strong>
+            <p>启动前快速确认本次分析的范围、策略和能力配置。</p>
+          </div>
         </div>
-      </div>
-      <div className="readiness-list">
-        <div>
-          <span>项目范围</span>
-          <strong className={scopeReady ? 'ok' : 'warn'}>{scopeReady ? '已就绪' : '待完成'}</strong>
+
+        <div className="launch-summary-grid">
+          <section className="config-summary-card">
+            <div className="summary-row-head">
+              <span className="icon-badge"><FolderOpen size={15} /></span>
+              <div>
+                <strong>分析范围</strong>
+                <p>用于确认本次任务的分析对象范围及结果输出位置。</p>
+              </div>
+            </div>
+            <dl className="summary-list">
+              <div>
+                <dt>项目目录</dt>
+                <dd>{projectRoot.trim() || '未选择'}</dd>
+              </div>
+              <div>
+                <dt>项目数量</dt>
+                <dd>{selectedProjectCount > 0 ? `${selectedProjectCount} 个` : '未选择'}</dd>
+              </div>
+              <div>
+                <dt>输出目录</dt>
+                <dd>{outputDir.trim() || '未选择'}</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section className="config-summary-card">
+            <div className="summary-row-head">
+              <span className="icon-badge"><Settings2 size={15} /></span>
+              <div>
+                <strong>分析策略</strong>
+                <p>用于确认本次任务的分析深度、结果输出方式及批量执行策略。</p>
+              </div>
+            </div>
+            <dl className="summary-list">
+              <div>
+                <dt>分析深度</dt>
+                <dd>{depthLabel}</dd>
+              </div>
+              <div>
+                <dt>报告模式</dt>
+                <dd>{reportLabel}</dd>
+              </div>
+              <div>
+                <dt>上下文层数</dt>
+                <dd>{k.trim() || '1'}</dd>
+              </div>
+              <div>
+                <dt>最长等待</dt>
+                <dd>{projectTimeoutSeconds.trim() ? `${projectTimeoutSeconds.trim()} 秒` : '系统默认（480 秒）'}</dd>
+              </div>
+              <div>
+                <dt>跳过已分析</dt>
+                <dd>{skipExisting ? '是' : '否'}</dd>
+              </div>
+              <div>
+                <dt>命中即停</dt>
+                <dd>{stopOnFirstFlow ? '是' : '否'}</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section className="config-summary-card">
+            <div className="summary-row-head">
+              <span className="icon-badge"><Sparkles size={15} /></span>
+              <div>
+                <strong>全局能力</strong>
+                <p>用于确认全局建模能力配置及默认插件能力是否已准备就绪。</p>
+              </div>
+            </div>
+            <dl className="summary-list">
+              <div>
+                <dt>LLM 建模</dt>
+                <dd className={llmReady ? 'ok' : 'warn'}>{llmReady ? '已完成' : '未完成'}</dd>
+              </div>
+              <div>
+                <dt>配置方式</dt>
+                <dd>{llmModeLabel}</dd>
+              </div>
+              <div>
+                <dt>插件状态</dt>
+                <dd>{globalPluginList.length ? `已配置 ${globalPluginList.length} 个` : '未配置'}</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section className="config-summary-card">
+            <div className="summary-row-head">
+              <span className="icon-badge"><Layers3 size={15} /></span>
+              <div>
+                <strong>建模增强</strong>
+                <p>用于确认当前项目是否补充了规则文件、模块建模及扩展插件配置。</p>
+              </div>
+            </div>
+            <dl className="summary-list">
+              <div>
+                <dt>规则文件</dt>
+                <dd>{projectRule.trim() ? '已配置' : '未配置'}</dd>
+              </div>
+              <div>
+                <dt>模块建模</dt>
+                <dd>{moduleSpec.trim() ? '已配置' : '未配置'}</dd>
+              </div>
+              <div>
+                <dt>项目插件</dt>
+                <dd>{projectPluginList.length ? `已添加 ${projectPluginList.length} 个` : '未添加'}</dd>
+              </div>
+              <div>
+                <dt>继承全局</dt>
+                <dd>{useGlobalPlugins ? '是' : '否'}</dd>
+              </div>
+            </dl>
+          </section>
         </div>
-        <div>
-          <span>分析策略</span>
-          <strong className={strategyReady ? 'ok' : 'warn'}>{strategyReady ? '已就绪' : '待完成'}</strong>
+
+        <div className={`launch-status-note ${launchIssues.length ? 'warn' : 'ok'}`}>
+          <strong>{launchIssues.length ? '启动前仍有待补充项' : '已满足启动条件'}</strong>
+          <span>{launchIssues.length ? launchIssues.join(' ') : '当前关键信息已确认，可以开始本次分析。'}</span>
         </div>
-        <div>
-          <span>检查目标</span>
-          <strong className={inspectReady ? 'ok' : 'warn'}>{inspectReady ? '已就绪' : '待完成'}</strong>
-        </div>
-      </div>
-      <button className="primary-button run-button" type="button" disabled={!canRun} onClick={startRun}>
-        <Play size={16} />
-        {taskMode === 'inspect' ? '开始检查' : '开始分析'}
-      </button>
-      <button className="secondary-button run-button" type="button" onClick={() => navigateScreen('run')}>
-        <Workflow size={16} />
-        打开分析流程
-      </button>
-    </section>
-  );
+      </section>
+    );
+  };
 
   const renderConfigPanel = () => {
     if (activePanel.id === 'scope') return renderScopePanel();
     if (activePanel.id === 'strategy') return renderStrategyPanel();
-    if (activePanel.id === 'semantic') return renderSemanticPanel();
-    if (activePanel.id === 'batch') return renderBatchPanel();
-    if (activePanel.id === 'inspect') return renderInspectPanel();
-    if (activePanel.id === 'launch') return renderLaunchPanel();
-    return renderExtensionsPanel();
+    if (activePanel.id === 'enhance') return renderEnhancePanel();
+    return renderLaunchPanel();
   };
-
-  const renderLaunchpad = () => (
-    <div className={`launchpad-shell view-shell ${viewMotionClass}`}>
-      <section className="surface-panel launchpad-board">
-        <div className="panel-heading launchpad-head">
-          <span className="icon-badge"><PanelRightOpen size={16} /></span>
-          <div>
-            <strong>选择运行方式</strong>
-            <p>只选本次要做的事。不同任务进入不同配置页，运行和日志在流程页单独展示。</p>
-          </div>
-        </div>
-
-        <section className="task-choice-grid" aria-label="选择分析任务">
-          {modeCards.map(item => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                className={`task-choice ${taskMode === item.id ? 'active' : ''}`}
-                onClick={() => applyPreset(item.id)}
-              >
-                <span className="task-choice-icon"><Icon size={18} /></span>
-                <span className="task-choice-copy">
-                  <em>{item.hint}</em>
-                  <strong>{item.title}</strong>
-                  <span>{item.body}</span>
-                </span>
-                <span className="task-choice-action">
-                  {item.action}
-                  <ArrowRight size={15} />
-                </span>
-              </button>
-            );
-          })}
-        </section>
-      </section>
-
-      <aside className="launchpad-side">
-        <section className={`bridge-state ${bridgeError ? 'error' : bridgeConfig?.valid ? 'ok' : 'warn'}`}>
-          <strong>{bridgeError ? '桥接未连接' : bridgeConfig?.valid ? '桥接已连接' : '等待桥接'}</strong>
-          <span>{bridgeError || `默认根目录：${bridgeConfig?.defaultArkTaintRoot || '-'}`}</span>
-        </section>
-
-        <section className="launchpad-process surface-panel">
-          <div className="panel-heading">
-            <span className="icon-badge"><Workflow size={16} /></span>
-            <div>
-              <strong>标准链路</strong>
-              <p>运行页会按这四个阶段展示状态、产物和实时日志。</p>
-            </div>
-          </div>
-          <ProcessRibbon activePhase={runSnapshot.phase} />
-        </section>
-      </aside>
-    </div>
-  );
 
   const renderConfig = () => (
     <div className={`config-shell view-shell ${viewMotionClass}`}>
-      <aside className="config-rail surface-panel">
-        <button type="button" className="back-button" onClick={() => navigateScreen('launchpad')}>
-          <ArrowLeft size={15} />
-          更换任务
+      <aside className="config-rail">
+        <button type="button" className="back-button" onClick={() => navigateScreen('run')}>
+          <Workflow size={14} />
+          分析流程
         </button>
-        <div className="mode-summary">
-          <span className="icon-badge"><ActiveModeIcon size={16} /></span>
-          <div>
-            <em>{activeMode.hint}</em>
-            <strong>{activeMode.title}</strong>
-          </div>
-        </div>
         <nav className="panel-nav" aria-label="配置导航">
-          {configPanels.map((item, index) => {
-            const Icon = item.icon;
-            const ready =
-              item.id === 'scope'
-                ? scopeReady
-                : item.id === 'strategy'
-                  ? strategyReady
-                  : item.id === 'inspect'
-                    ? inspectReady
-                    : item.id === 'launch'
-                      ? canRun
-                    : item.required
-                      ? true
-                      : false;
+          {configPanels.map(item => {
+            const ready = panelReady(item.id);
             return (
               <button
                 key={item.id}
@@ -1247,13 +1364,10 @@ export default function Workbench() {
                 className={`panel-nav-item ${resolvedConfigPanel === item.id ? 'active' : ''}`}
                 onClick={() => setConfigPanel(item.id)}
               >
-                <span className="panel-nav-index">{String(index + 1).padStart(2, '0')}</span>
-                <Icon size={16} />
-                <span>
-                  <strong>{item.title}</strong>
-                  <em>{item.hint}</em>
-                </span>
-                <small className={ready ? 'ok' : item.required ? 'warn' : 'muted'}>{statusLabel(ready, !item.required)}</small>
+                <span className="panel-nav-label">{item.title}</span>
+                <small className={ready ? 'ok' : item.required ? 'warn' : 'muted'}>
+                  {statusLabel(ready, !item.required)}
+                </small>
               </button>
             );
           })}
@@ -1261,48 +1375,15 @@ export default function Workbench() {
       </aside>
 
       <main className="config-stage">
-        <section className="surface-panel summary-card config-summary-card">
-          <div className="summary-row-head">
-            <span className="icon-badge"><PanelRightOpen size={16} /></span>
-            <div>
-              <strong>运行摘要</strong>
-              <p>确认本次分析的关键口径。</p>
-            </div>
-          </div>
-          <div className="intent-list compact">
-            {intentSummary.map(item => (
-              <span key={item}>{item}</span>
-            ))}
-          </div>
-          <dl className="summary-list compact">
-            <div>
-              <dt>范围</dt>
-              <dd>{taskMode === 'batch' ? projectRoot || '未选择' : repo || '未选择'}</dd>
-            </div>
-            <div>
-              <dt>源码</dt>
-              <dd>{projectSummary}</dd>
-            </div>
-            <div>
-              <dt>SemanticFlow</dt>
-              <dd>{autoModel ? `${llmProfile}/${llmModel || '默认模型'}` : '关闭'}</dd>
-            </div>
-            <div>
-              <dt>检查</dt>
-              <dd>{taskMode === 'inspect' ? (inspectionOptions.find(item => item.value === inspectionMode)?.label || '未选择') : '不启用'}</dd>
-            </div>
-          </dl>
-        </section>
-
         <section className="config-title">
           <span className="eyebrow">配置 / {activePanel.title}</span>
-          <h3>{activeMode.title}</h3>
-          <p>{activeMode.body}</p>
+          <h3>批量真实项目分析</h3>
+          <p>{activePanel.lead}</p>
         </section>
 
-          <div key={activePanel.id} className="panel-viewport">
-            {renderConfigPanel()}
-          </div>
+        <div key={activePanel.id} className="panel-viewport">
+          {renderConfigPanel()}
+        </div>
 
         <div className="config-actions">
           <button
@@ -1312,20 +1393,25 @@ export default function Workbench() {
             onClick={() => previousPanel && setConfigPanel(previousPanel.id)}
           >
             <ArrowLeft size={15} />
-            上一项
+            {activePanel.id === 'launch' ? '返回修改' : '上一步'}
           </button>
           <button
             type="button"
             className="primary-button"
-            disabled={!nextPanel}
-            onClick={() => nextPanel && setConfigPanel(nextPanel.id)}
+            disabled={activePanel.id === 'launch' ? !canRun : !nextPanel}
+            onClick={() => {
+              if (activePanel.id === 'launch') {
+                navigateScreen('run');
+                return;
+              }
+              if (nextPanel) setConfigPanel(nextPanel.id);
+            }}
           >
-            下一项
-            <ArrowRight size={15} />
+            {activePanel.id === 'launch' ? '准备分析' : '下一步'}
+            {activePanel.id !== 'launch' ? <ArrowRight size={15} /> : <Play size={16} />}
           </button>
         </div>
       </main>
-
     </div>
   );
 
@@ -1334,22 +1420,20 @@ export default function Workbench() {
       <section className="run-hero surface-panel">
         <div>
           <span className="eyebrow">分析流程</span>
-          <h3>{analyzing ? '正在运行 ArkTaint 分析' : '运行控制'}</h3>
-          <p>阶段、产物和实时输出集中在当前页面，方便运行时持续观察。</p>
+          <h3>{analyzing ? '正在运行 ArkTaint 批量分析' : '运行控制'}</h3>
+          <p>集中呈现任务阶段、分析产物与实时输出，便于持续掌握本次任务执行状态。</p>
         </div>
         <div className="run-hero-actions">
-          <button type="button" className="secondary-button" onClick={() => navigateScreen(screenForMode(taskMode))}>
+          <button type="button" className="secondary-button" onClick={() => navigateScreen('config')}>
             <ArrowLeft size={15} />
             回到配置
           </button>
           <button type="button" className="primary-button" disabled={!canRun} onClick={startRun}>
             <Play size={16} />
-            {analyzing ? '运行中' : logs.length ? '重新运行' : taskMode === 'inspect' ? '开始检查' : '开始分析'}
+            {analyzing ? '运行中' : logs.length ? '重新运行' : '开始分析'}
           </button>
         </div>
       </section>
-
-      <ProcessRibbon activePhase={runSnapshot.phase} />
 
       <div className="run-grid">
         <section className="surface-panel runtime-panel">
@@ -1357,7 +1441,7 @@ export default function Workbench() {
             <span className="icon-badge"><Clock3 size={16} /></span>
             <div>
               <strong>运行状态</strong>
-              <p>阶段、项目进度、产物数量和退出码。</p>
+              <p>系统将持续更新当前阶段、项目进度、产物数量与任务状态。</p>
             </div>
           </div>
           <div className="runtime-grid">
@@ -1381,7 +1465,9 @@ export default function Workbench() {
           {(runSnapshot.currentProjectTotal || runSnapshot.selectedProjects) && (
             <div className="progress-summary">
               <strong>项目进度</strong>
-              <span>{runSnapshot.currentProjectIndex || 0} / {runSnapshot.currentProjectTotal || runSnapshot.selectedProjects || 0}</span>
+              <span>
+                {runSnapshot.currentProjectIndex || 0} / {runSnapshot.currentProjectTotal || runSnapshot.selectedProjects || 0}
+              </span>
             </div>
           )}
         </section>
@@ -1392,7 +1478,7 @@ export default function Workbench() {
               <span className="icon-badge"><FileText size={16} /></span>
               <div>
                 <strong>产物</strong>
-                <p>点击产物项可复制路径，便于打开 summary、result 或 session。</p>
+                <p>支持快速复制产物路径，便于进一步查看 summary、result 与 session 文件。</p>
               </div>
             </div>
             <div className="artifact-list">
@@ -1418,20 +1504,14 @@ export default function Workbench() {
           <span className="icon-badge"><SquareTerminal size={16} /></span>
           <div>
             <strong>运行输出</strong>
-            <p>这里展示 ArkTaint 桥接服务和分析引擎的实时输出。</p>
+            <p>实时展示桥接服务与分析引擎输出，便于跟踪任务执行细节。</p>
           </div>
-        </div>
-        <div className="terminal-stats">
-          <span><CheckCircle2 size={14} /> 完成 {countLogs(logs, 'done')}</span>
-          <span><Sparkles size={14} /> 系统 {countLogs(logs, 'sys')}</span>
-          <span><Search size={14} /> 日志 {countLogs(logs, 'log')}</span>
-          <span><Gauge size={14} /> 错误 {countLogs(logs, 'error')}</span>
         </div>
         <div className="terminal-feed">
           {logs.length === 0 ? (
             <div className="terminal-empty">
               <strong>尚未开始运行</strong>
-              <span>点击开始后，这里会显示实时执行输出。</span>
+              <span>任务启动后，系统将在此持续展示实时运行输出。</span>
             </div>
           ) : (
             logs.map((log, index) => (
@@ -1444,11 +1524,92 @@ export default function Workbench() {
         </div>
       </section>
 
+      <section className="surface-panel runtime-panel result-overview-panel">
+        <div className="panel-heading compact">
+          <span className="icon-badge"><Workflow size={16} /></span>
+          <div>
+            <strong>结果预览</strong>
+            <p>集中查看本次批量分析的结果摘要，并提供面向用户报告的快速预览入口。</p>
+          </div>
+        </div>
+        <div className="runtime-grid">
+          <div>
+            <span>分析项目数</span>
+            <strong>{runResultSummary.total}</strong>
+          </div>
+          <div>
+            <span>完成项目数</span>
+            <strong>{runResultSummary.completed}</strong>
+          </div>
+          <div>
+            <span>失败项目数</span>
+            <strong>{runResultSummary.failed}</strong>
+          </div>
+          <div>
+            <span>报告状态</span>
+            <strong>{previewArtifact ? '已生成' : '未生成'}</strong>
+          </div>
+        </div>
+        <div className="progress-summary">
+          <strong>报告预览</strong>
+          <div className="report-preview-actions">
+            <button
+              type="button"
+              className="primary-button report-preview-button"
+              disabled={!previewArtifact || reportPreviewLoading}
+              onClick={() => void openReportPreview()}
+            >
+              <FileText size={16} />
+              {reportPreviewLoading ? '加载预览中' : '结果预览'}
+            </button>
+            <button
+              type="button"
+              className="secondary-button report-preview-button"
+              disabled={!previewArtifact}
+              onClick={downloadReport}
+            >
+              <FileText size={16} />
+              下载报告
+            </button>
+          </div>
+        </div>
+      </section>
+
       {logs.length > 0 && !analyzing && (
         <section className="surface-panel run-history-note">
           <strong>上次运行</strong>
-          <span>退出码：{runSnapshot.exitCode ?? 'unknown'} · 产物：{runSnapshot.artifacts.length} · 日志：{logs.length}</span>
+          <span>
+            退出码：{runSnapshot.exitCode ?? 'unknown'} / 产物：{runSnapshot.artifacts.length} / 日志：{logs.length}
+          </span>
         </section>
+      )}
+
+      {reportPreviewOpen && (
+        <div className="preview-overlay" onClick={() => setReportPreviewOpen(false)}>
+          <section className="preview-dialog surface-panel" onClick={event => event.stopPropagation()}>
+            <div className="panel-heading compact">
+              <span className="icon-badge"><FileText size={16} /></span>
+              <div>
+                <strong>结果预览</strong>
+                <p>{previewArtifact?.path || '当前暂无可预览报告'}</p>
+              </div>
+            </div>
+            <div className="preview-body">
+              {reportPreviewLoading ? (
+                <div className="preview-placeholder">正在加载报告内容...</div>
+              ) : reportPreviewError ? (
+                <div className="preview-placeholder preview-error">{reportPreviewError}</div>
+              ) : (
+                <pre data-kind={reportPreviewKind}>{reportPreviewContent || '当前报告内容为空。'}</pre>
+              )}
+            </div>
+            <div className="config-actions">
+              <button type="button" className="secondary-button" onClick={() => setReportPreviewOpen(false)}>
+                关闭
+              </button>
+            </div>
+          </section>
+        </div>
       )}
     </div>
   );
@@ -1456,22 +1617,12 @@ export default function Workbench() {
   return (
     <div className="workbench-shell">
       <header className="workbench-header">
-        <div>
-          <span className="eyebrow">ArkTaint Console</span>
-          <h2>分析工作台</h2>
-          <p>任务、配置和运行过程分开管理。</p>
-        </div>
-
         <nav className="workbench-page-tabs" aria-label="工作台页面">
-          <button type="button" className={screen === 'launchpad' ? 'active' : ''} onClick={() => navigateScreen('launchpad')}>
-            任务选择
-          </button>
-          <button
-            type="button"
-            className={screen !== 'launchpad' && screen !== 'run' ? 'active' : ''}
-            onClick={() => navigateScreen(screenForMode(taskMode))}
-          >
+          <button type="button" className={screen === 'config' ? 'active' : ''} onClick={() => navigateScreen('config')}>
             任务配置
+          </button>
+          <button type="button" className={screen === 'llm' ? 'active' : ''} onClick={() => navigateScreen('llm')}>
+            全局能力配置
           </button>
           <button type="button" className={screen === 'run' ? 'active' : ''} onClick={() => navigateScreen('run')}>
             分析流程
@@ -1479,7 +1630,7 @@ export default function Workbench() {
         </nav>
       </header>
 
-      {screen === 'launchpad' ? renderLaunchpad() : screen === 'run' ? renderRun() : renderConfig()}
+      {screen === 'run' ? renderRun() : screen === 'llm' ? renderLlmConfig() : renderConfig()}
     </div>
   );
 }
