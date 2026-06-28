@@ -13,16 +13,21 @@ interface Options {
     projectTimeoutSeconds: number;
     heartbeatSeconds: number;
     autoModel: boolean;
+    llmConfigPath: string;
     llmProfile: string;
     llmModel: string;
     llmTimeoutMs: number;
+    llmConnectTimeoutMs: number;
     llmMaxAttempts: number;
     llmMaxFailures: number;
     llmRepairAttempts: number;
     llmSessionCacheDir: string;
     llmSessionCacheMode: string;
     maxLlmItems: number;
+    arkMainMaxCandidates: number;
+    publishModel: string;
     concurrency: number;
+    k?: number;
     reportMode: string;
     entryModel: string;
     maxEntries: number;
@@ -80,15 +85,19 @@ function parseArgs(argv: string[]): Options {
         projectTimeoutSeconds: 480,
         heartbeatSeconds: 30,
         autoModel: false,
+        llmConfigPath: "",
         llmProfile: "",
         llmModel: "",
         llmTimeoutMs: 60000,
+        llmConnectTimeoutMs: 120000,
         llmMaxAttempts: 1,
         llmMaxFailures: 3,
         llmRepairAttempts: 0,
         llmSessionCacheDir: "",
         llmSessionCacheMode: "rw",
         maxLlmItems: 12,
+        arkMainMaxCandidates: 0,
+        publishModel: "",
         concurrency: 1,
         reportMode: "light",
         entryModel: "arkMain",
@@ -135,6 +144,9 @@ function parseArgs(argv: string[]): Options {
             case "--autoModel":
                 opts.autoModel = true;
                 break;
+            case "--llmConfig":
+                opts.llmConfigPath = path.resolve(next());
+                break;
             case "--llmProfile":
                 opts.llmProfile = next();
                 break;
@@ -143,6 +155,9 @@ function parseArgs(argv: string[]): Options {
                 break;
             case "--llmTimeoutMs":
                 opts.llmTimeoutMs = parsePositiveInt(next(), arg);
+                break;
+            case "--llmConnectTimeoutMs":
+                opts.llmConnectTimeoutMs = parsePositiveInt(next(), arg);
                 break;
             case "--llmMaxAttempts":
                 opts.llmMaxAttempts = parsePositiveInt(next(), arg);
@@ -165,8 +180,20 @@ function parseArgs(argv: string[]): Options {
             case "--maxLlmItems":
                 opts.maxLlmItems = parsePositiveInt(next(), arg);
                 break;
+            case "--arkMainMaxCandidates":
+                opts.arkMainMaxCandidates = parsePositiveInt(next(), arg);
+                break;
+            case "--publish-model":
+                opts.publishModel = next();
+                break;
             case "--concurrency":
                 opts.concurrency = parsePositiveInt(next(), arg);
+                break;
+            case "--k":
+                opts.k = parseNonNegativeInt(next(), arg);
+                if (opts.k !== 0 && opts.k !== 1) {
+                    throw new Error(`--k must be 0 or 1, got ${opts.k}`);
+                }
                 break;
             case "--reportMode":
                 opts.reportMode = next();
@@ -252,15 +279,19 @@ function printHelp(): void {
         "  --projectTimeoutSeconds <n>       Hard timeout per project",
         "  --heartbeatSeconds <n>            Progress heartbeat interval",
         "  --autoModel                       Run SemanticFlow before final analyze",
+        "  --llmConfig <path>                LLM config file path",
         "  --llmProfile <name>               LLM profile for --autoModel",
         "  --model <name>                    Override LLM model while keeping profile credentials",
         "  --llmTimeoutMs <n>                Per LLM request timeout",
+        "  --llmConnectTimeoutMs <n>         Per LLM connect timeout",
         "  --llmMaxAttempts <n>              Per LLM item attempts",
         "  --llmMaxFailures <n>              Open LLM circuit after consecutive failures",
         "  --llmRepairAttempts <n>           Attempts to repair invalid LLM JSON",
         "  --llmSessionCacheDir <path>       Reuse SemanticFlow LLM item/decision cache",
         "  --llmSessionCacheMode <mode>      Cache mode: off, read, write, rw",
         "  --maxLlmItems <n>                 Max SemanticFlow LLM items per source directory",
+        "  --arkMainMaxCandidates <n>        Max ArkMain candidates for SemanticFlow",
+        "  --publish-model <name>            Publish model override for SemanticFlow",
         "  --concurrency <n>                 SemanticFlow LLM concurrency",
         "  --reportMode <full|light>         Analyze report mode",
         "  --entryModel <arkMain|explicit>   Entry model for final analyze",
@@ -677,6 +708,9 @@ function buildAnalyzeArgs(repo: string, outputDir: string, opts: Options, source
         "--entryModel", opts.entryModel,
         "--outputDir", outputDir,
     ];
+    if (opts.k !== undefined) {
+        args.push("--k", String(opts.k));
+    }
     if (sourceDirs && sourceDirs.length > 0) {
         args.push("--sourceDir", sourceDirs.join(","));
     }
@@ -685,6 +719,9 @@ function buildAnalyzeArgs(repo: string, outputDir: string, opts: Options, source
     }
     if (opts.autoModel) {
         args.push("--autoModel");
+        if (opts.llmConfigPath) {
+            args.push("--llmConfig", opts.llmConfigPath);
+        }
         if (opts.llmProfile) {
             args.push("--llmProfile", opts.llmProfile);
         }
@@ -699,12 +736,19 @@ function buildAnalyzeArgs(repo: string, outputDir: string, opts: Options, source
         }
         args.push(
             "--llmTimeoutMs", String(opts.llmTimeoutMs),
+            "--llmConnectTimeoutMs", String(opts.llmConnectTimeoutMs),
             "--llmMaxAttempts", String(opts.llmMaxAttempts),
             "--llmMaxFailures", String(opts.llmMaxFailures),
             "--llmRepairAttempts", String(opts.llmRepairAttempts),
             "--maxLlmItems", String(opts.maxLlmItems),
             "--concurrency", String(opts.concurrency),
         );
+        if (opts.arkMainMaxCandidates > 0) {
+            args.push("--arkMainMaxCandidates", String(opts.arkMainMaxCandidates));
+        }
+        if (opts.publishModel) {
+            args.push("--publish-model", opts.publishModel);
+        }
     }
     return args;
 }
